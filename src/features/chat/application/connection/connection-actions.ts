@@ -35,7 +35,6 @@ export interface ChatConnectionActionsHost {
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
   addSystemMessage: (text: string) => void;
   configuredCommand: () => string;
-  refreshLiveState: () => void;
   isStaleConnectionError: (error: unknown) => boolean;
   isStaleResourceContextError: (error: unknown) => boolean;
   notifyConnectionFailed: () => void;
@@ -43,7 +42,7 @@ export interface ChatConnectionActionsHost {
 
 type ChatConnectionExitHost = Pick<
   ChatConnectionActionsHost,
-  "invalidateThreadWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence" | "refreshLiveState"
+  "invalidateThreadWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence"
 >;
 
 function handleChatConnectionExit(host: ChatConnectionExitHost): void {
@@ -51,7 +50,6 @@ function handleChatConnectionExit(host: ChatConnectionExitHost): void {
   host.setStatus(STATUS_CONNECTION_STOPPED, { kind: "disconnected", message: STATUS_CONNECTION_STOPPED });
   host.stateStore.dispatch({ type: "connection/scoped-cleared" });
   host.resetThreadTurnPresence(false);
-  host.refreshLiveState();
 }
 
 export interface ChatConnectionActions {

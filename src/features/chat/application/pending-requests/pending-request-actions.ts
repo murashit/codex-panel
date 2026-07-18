@@ -22,7 +22,6 @@ export interface PendingRequestActionsHost {
   responder: PendingRequestResponder;
   composerHasFocus: () => boolean;
   focusComposer: () => void;
-  refreshLiveState: () => void;
 }
 
 export interface PendingRequestActions {
@@ -121,6 +120,5 @@ function pendingUserInput(host: PendingRequestActionsHost, requestId: PendingReq
 }
 
 function commitRequestAction(host: PendingRequestActionsHost): void {
-  host.refreshLiveState();
   host.focusComposer();
 }

@@ -5,7 +5,6 @@ import type { AppServerContextLease, AppServerQueryContextIdentity } from "../..
 import type { ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
-import type { PendingRequestCounts } from "../../../domain/pending-requests/aggregate";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
@@ -51,7 +50,7 @@ interface WorkspacePanels {
   openThreadInNewView(threadId: string): Promise<void>;
   focusThreadInOpenView(threadId: string): Promise<boolean>;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
-  refreshThreadsViewLiveState(): void;
+  notifyPanelActivityChanged(): void;
   openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void>;
 }
 
@@ -102,13 +101,11 @@ export interface ChatViewLifecycleSurface {
   refreshSettings(): void;
 }
 
-export type ChatWorkspacePanelTurnLifecycle = { kind: "idle" } | { kind: "starting" } | { kind: "running"; turnId: string };
-
 export interface ChatWorkspacePanelSnapshot {
   viewId: string;
   threadId: string | null;
-  turnLifecycle: ChatWorkspacePanelTurnLifecycle;
-  pendingRequests: PendingRequestCounts;
+  turnBusy: boolean;
+  pending: boolean;
   hasComposerDraft: boolean;
   connected: boolean;
 }

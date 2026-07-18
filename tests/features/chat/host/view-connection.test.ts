@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
+import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ObservedResult } from "../../../../src/app-server/query/observed-result";
@@ -38,6 +38,9 @@ const connectionMock = vi.hoisted(() => {
     connectCalls: 0,
     connected: false,
     onNotification: null as ((notification: ServerNotification) => void) | null,
+    onServerRequest: null as
+      | ((request: ServerRequest, responder: { respond(result: unknown): void; reject(code: number, message: string): void }) => void)
+      | null,
     onExit: null as (() => void) | null,
   };
 
@@ -48,6 +51,7 @@ const connectionMock = vi.hoisted(() => {
       state.connectCalls = 0;
       state.connected = false;
       state.onNotification = null;
+      state.onServerRequest = null;
       state.onExit = null;
     },
   };
@@ -120,6 +124,7 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
     private publishHandlers(handlers: NonNullable<ConnectionManager["handlers"]>): void {
       const context = { codexPath: this.codexPath(), cwd: this.cwd };
       connectionMock.state.onNotification = (notification) => handlers.onNotification(notification, context);
+      connectionMock.state.onServerRequest = (request, responder) => handlers.onServerRequest(request, responder);
       connectionMock.state.onExit = () => handlers.onExit(context);
     }
   }
@@ -621,6 +626,39 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requestMethods(client)).not.toContain("thread/list");
   });
 
+  it("notifies Threads immediately and after the workspace settles when the panel closes", async () => {
+    const notifyPanelActivityChanged = vi.fn();
+    connectionMock.state.client = connectedClient();
+    const view = await chatView({ host: chatHost({ notifyPanelActivityChanged }) });
+
+    await view.onOpen();
+    await view.surface.openThread("thread-1");
+    notifyPanelActivityChanged.mockClear();
+    await view.onClose();
+
+    expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(notifyPanelActivityChanged).toHaveBeenCalledTimes(2);
+
+    connectionMock.state.onNotification?.({
+      method: "turn/started",
+      params: {
+        threadId: "thread-1",
+        turn: {
+          id: "late-turn",
+          status: "inProgress",
+          startedAt: 1,
+          completedAt: null,
+          durationMs: null,
+          error: null,
+          itemsView: "full",
+          items: [],
+        },
+      },
+    } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+    expect(notifyPanelActivityChanged).toHaveBeenCalledTimes(2);
+  });
+
   it("ignores stale connection work after the app-server exits during metadata loading", async () => {
     const config = deferred<unknown>();
     const client = connectedClient({
@@ -733,7 +771,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-2", threadTitle: "Restored thread 2" });
     expect(view.surface.openPanelSnapshot()).toMatchObject({
       threadId: "thread-2",
-      turnLifecycle: { kind: "idle" },
+      turnBusy: false,
       hasComposerDraft: false,
     });
     expect(composerElement(view).value).toBe("");
@@ -866,7 +904,7 @@ describe("CodexChatView connection lifecycle", () => {
         clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
       });
     });
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "starting" } });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: true });
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
     connectionMock.state.onNotification?.({
       method: "turn/started",
@@ -884,7 +922,83 @@ describe("CodexChatView connection lifecycle", () => {
         },
       },
     } satisfies Extract<ServerNotification, { method: "turn/started" }>);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "running", turnId: "turn-1" } });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: true });
+  });
+
+  it("notifies Threads only when panel activity changes", async () => {
+    const notifyPanelActivityChanged = vi.fn();
+    const client = connectedClient();
+    connectionMock.state.client = client;
+    const view = await chatView({ host: chatHost({ notifyPanelActivityChanged }) });
+
+    await view.onOpen();
+    expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
+
+    await view.surface.openThread("thread-1");
+    notifyPanelActivityChanged.mockClear();
+
+    view.surface.setComposerText("hello");
+    expect(notifyPanelActivityChanged).not.toHaveBeenCalled();
+
+    await submitComposerByEnter(view);
+    expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1", turnBusy: true, pending: false });
+
+    notifyPanelActivityChanged.mockClear();
+    connectionMock.state.onNotification?.({
+      method: "turn/started",
+      params: {
+        threadId: "thread-1",
+        turn: {
+          id: "turn-1",
+          status: "inProgress",
+          startedAt: 1,
+          completedAt: null,
+          durationMs: null,
+          error: null,
+          itemsView: "full",
+          items: [],
+        },
+      },
+    } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+    expect(notifyPanelActivityChanged).not.toHaveBeenCalled();
+
+    connectionMock.state.onServerRequest?.(
+      {
+        id: 7,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "thread-1",
+          turnId: "turn-1",
+          itemId: "input-1",
+          questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          autoResolutionMs: null,
+        },
+      },
+      { respond: vi.fn(), reject: vi.fn() },
+    );
+    expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1", turnBusy: true, pending: true });
+
+    notifyPanelActivityChanged.mockClear();
+    connectionMock.state.onNotification?.({
+      method: "turn/completed",
+      params: {
+        threadId: "thread-1",
+        turn: {
+          id: "turn-1",
+          status: "completed",
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+          error: null,
+          itemsView: "full",
+          items: [],
+        },
+      },
+    } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+    expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1", turnBusy: false, pending: true });
   });
 
   it("requests a workspace layout save after resuming a thread", async () => {
@@ -978,7 +1092,7 @@ describe("CodexChatView connection lifecycle", () => {
     await view.surface.openThread("other");
 
     expect(requestMethods(client).filter((method) => method === "thread/unsubscribe")).toEqual([]);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "child", turnLifecycle: { kind: "running", turnId: "turn-child" } });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "child", turnBusy: true });
   });
 
   it("resets to an unstarted empty chat without starting a thread", async () => {
@@ -992,7 +1106,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(requestMethods(client)).not.toContain("thread/start");
     expect(view.getState()).toEqual({ version: 1 });
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnLifecycle: { kind: "idle" }, hasComposerDraft: false });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, hasComposerDraft: false });
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
   });
 
@@ -1002,7 +1116,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(view.getState()).toEqual({ version: 1 });
     expect(view.getDisplayText()).not.toBe("Side chat");
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnLifecycle: { kind: "idle" }, hasComposerDraft: false });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, hasComposerDraft: false });
     expect(view.containerEl.textContent).not.toContain("This side conversation is no longer available.");
   });
 
@@ -1456,7 +1570,7 @@ interface ChatHostFixtureOverrides {
   openThreadInNewView?: CodexChatHost["workspace"]["openThreadInNewView"];
   focusThreadInOpenView?: CodexChatHost["workspace"]["focusThreadInOpenView"];
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
-  refreshThreadsViewLiveState?: CodexChatHost["workspace"]["refreshThreadsViewLiveState"];
+  notifyPanelActivityChanged?: CodexChatHost["workspace"]["notifyPanelActivityChanged"];
   openSideChat?: CodexChatHost["workspace"]["openSideChat"];
   applyThreadCatalogEvent?: CodexChatHost["threadCatalog"]["apply"];
   refreshActive?: CodexChatHost["threadCatalog"]["refreshActive"];
@@ -1605,7 +1719,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
       focusThreadInOpenView: overrides.focusThreadInOpenView ?? vi.fn().mockResolvedValue(false),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
-      refreshThreadsViewLiveState: overrides.refreshThreadsViewLiveState ?? vi.fn(),
+      notifyPanelActivityChanged: overrides.notifyPanelActivityChanged ?? vi.fn(),
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
     },
     appServerQueries: {

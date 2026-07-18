@@ -54,7 +54,6 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     notifyActiveThreadIdentityChanged: vi.fn(),
     recordResumedThread: vi.fn(),
     addSystemMessage: vi.fn(),
-    refreshLiveState: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
     ...overrides,
     resumeTransport: overrides.resumeTransport ?? { ensureConnected: vi.fn().mockResolvedValue(true), resumeThread },
@@ -146,16 +145,6 @@ describe("ResumeActions", () => {
     expect(resumeThread).toHaveBeenCalledOnce();
     expect(resumeThread).toHaveBeenCalledWith("second");
     expect(activeThreadId(stateStore.getState())).toBe("second");
-  });
-
-  it("refreshes live state after resumed history and goal sync finish", async () => {
-    const { actions, host } = createActions();
-
-    await actions.resumeThread("thread");
-
-    expect(vi.mocked(host.refreshLiveState).mock.invocationCallOrder.at(-1)).toBeGreaterThan(
-      vi.mocked(host.syncThreadGoal).mock.invocationCallOrder[0] ?? 0,
-    );
   });
 
   it("does not switch threads while a different turn is busy", async () => {

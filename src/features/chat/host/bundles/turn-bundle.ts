@@ -54,7 +54,6 @@ interface ChatPanelTurnInput {
   reconnect: () => Promise<void>;
   runtimeProjection: ChatPanelRuntimeProjection;
   refreshDiagnostics: () => Promise<void>;
-  refreshLiveState: () => void;
   notifyActiveThreadIdentityChanged: () => void;
 }
 
@@ -75,7 +74,6 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     reconnect,
     runtimeProjection,
     refreshDiagnostics,
-    refreshLiveState,
     notifyActiveThreadIdentityChanged,
   } = input;
   const pendingRequests = createPendingRequestActions({
@@ -85,7 +83,6 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     focusComposer: () => {
       composerController.focusComposer();
     },
-    refreshLiveState,
   });
   const threadReferenceResolver = appServer.threadReferences({
     prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),

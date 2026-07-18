@@ -101,7 +101,6 @@ function composerControllerFixture(
     togglePlan: vi.fn(),
     toggleAutoReview: vi.fn(),
     toggleFast: vi.fn(),
-    onDraftChange: vi.fn(),
     onHeightChange: vi.fn(),
     canFocus: () => true,
     ...options.controller,
@@ -248,7 +247,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -413,7 +411,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -474,7 +471,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -627,7 +623,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -689,7 +684,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -750,7 +744,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -972,7 +965,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -1032,7 +1024,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -1078,7 +1069,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -1130,7 +1120,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -1189,7 +1178,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -1266,7 +1254,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });
@@ -1315,7 +1302,6 @@ describe("ChatComposerController", () => {
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
       canFocus: () => true,
       onHeightChange: vi.fn(),
     });

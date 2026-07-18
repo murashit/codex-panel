@@ -100,16 +100,10 @@ describe("ChatPanelSessionRuntime actions", () => {
     expect(stateStore.getState().threadList.listedThreads).toEqual([]);
   });
 
-  it("fans out active-thread identity changes after starting a new thread", async () => {
-    const refreshLiveState = vi.fn();
+  it("refreshes persisted view identity after starting a new thread", async () => {
     const refreshTabHeader = vi.fn();
     const { runtime, stateStore } = sessionRuntimeFixture({
       environment: {
-        plugin: {
-          workspace: {
-            refreshThreadsViewLiveState: refreshLiveState,
-          },
-        },
         view: {
           refreshTabHeader,
         },
@@ -133,7 +127,6 @@ describe("ChatPanelSessionRuntime actions", () => {
     await runtime.actions.startNewThread();
 
     expect(refreshTabHeader).toHaveBeenCalledOnce();
-    expect(refreshLiveState).toHaveBeenCalledOnce();
   });
 
   it("wires reconnect cleanup through the runtime toolbar action", async () => {
@@ -169,11 +162,9 @@ describe("ChatPanelSessionRuntime actions", () => {
     vi.useFakeTimers();
     const unsubscribeThreads = vi.fn();
     const unsubscribeMetadata = vi.fn();
-    const refreshLiveState = vi.fn();
     const { runtime, stateStore, deferredTasks, threadStreamScrollBinding } = sessionRuntimeFixture({
       environment: {
         plugin: {
-          workspace: { refreshThreadsViewLiveState: refreshLiveState },
           threadCatalog: { observeActive: vi.fn(() => unsubscribeThreads) },
           appServerQueries: {
             observeAppServerMetadataResources: vi.fn(() => unsubscribeMetadata),
@@ -203,12 +194,10 @@ describe("ChatPanelSessionRuntime actions", () => {
     expect(dispatchScrollCommand).not.toHaveBeenCalled();
     expect(unmount).toHaveBeenCalledOnce();
     expect(disconnect).toHaveBeenCalledOnce();
-    expect(refreshLiveState).toHaveBeenCalledOnce();
 
     await vi.runAllTimersAsync();
     expect(diagnostics).not.toHaveBeenCalled();
     expect(warmup).not.toHaveBeenCalled();
-    expect(refreshLiveState).toHaveBeenCalledTimes(2);
   });
 
   function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment } = {}): {
@@ -230,7 +219,6 @@ describe("ChatPanelSessionRuntime actions", () => {
       resumeWork,
       threadStreamScrollBinding,
       getClosing: () => false,
-      viewWindow: () => window,
     });
     return { runtime, stateStore, resumeWork, deferredTasks, threadStreamScrollBinding };
   }
@@ -298,7 +286,7 @@ describe("ChatPanelSessionRuntime actions", () => {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
           focusThreadInOpenView: vi.fn().mockResolvedValue(false),
           openTurnDiff: vi.fn().mockResolvedValue(undefined),
-          refreshThreadsViewLiveState: vi.fn(),
+          notifyPanelActivityChanged: vi.fn(),
           ...overrides.plugin?.workspace,
           openSideChat: overrides.plugin?.workspace?.openSideChat ?? vi.fn().mockResolvedValue(undefined),
         },

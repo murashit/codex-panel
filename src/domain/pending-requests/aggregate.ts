@@ -11,24 +11,10 @@ interface PendingRequestQueueSource {
   readonly pendingMcpElicitations: readonly unknown[];
 }
 
-interface PendingRequestCountSource {
-  readonly pendingApprovals: number;
-  readonly pendingUserInputs: number;
-  readonly pendingMcpElicitations: number;
-}
-
 export function pendingRequestCountsFromQueues(source: PendingRequestQueueSource): PendingRequestCounts {
-  return pendingRequestCounts({
-    pendingApprovals: source.approvals.length,
-    pendingUserInputs: source.pendingUserInputs.length,
-    pendingMcpElicitations: source.pendingMcpElicitations.length,
-  });
-}
-
-export function pendingRequestCounts(source: PendingRequestCountSource): PendingRequestCounts {
-  const approvals = source.pendingApprovals;
-  const userInputs = source.pendingUserInputs;
-  const mcpElicitations = source.pendingMcpElicitations;
+  const approvals = source.approvals.length;
+  const userInputs = source.pendingUserInputs.length;
+  const mcpElicitations = source.pendingMcpElicitations.length;
   return {
     approvals,
     userInputs,

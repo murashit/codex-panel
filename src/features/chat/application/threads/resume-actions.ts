@@ -21,7 +21,6 @@ export interface ResumeActionsHost {
   notifyActiveThreadIdentityChanged: () => void;
   recordResumedThread: (thread: Thread) => void;
   addSystemMessage: (text: string) => void;
-  refreshLiveState: () => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
 }
@@ -80,7 +79,6 @@ async function resumeThread(
     if (renderFallbackMessage) {
       host.addSystemMessage(`Resumed thread ${effect.value.activation.thread.id}`);
     }
-    host.refreshLiveState();
     return true;
   } catch (error) {
     if (isStaleResume(host, resume, currentPanelTarget)) return false;
@@ -123,7 +121,6 @@ function recoverResumedThreadTokenUsage(
       const activeThread = activeThreadState(state);
       if (!activeThread || activeThread.id !== threadId || activeThread.tokenUsage !== null) return;
       host.stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
-      host.refreshLiveState();
     })
     .catch(() => undefined);
 }

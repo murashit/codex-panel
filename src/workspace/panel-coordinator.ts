@@ -1,7 +1,6 @@
 import type { App, WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
-import { hasPendingRequests, pendingRequestCounts } from "../domain/pending-requests/aggregate";
 import type { ChatWorkspacePanelSnapshot, ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
 import { CodexChatView } from "../features/chat/host/view.obsidian";
 import { parseChatPanelViewState } from "../features/chat/host/view-state";
@@ -661,12 +660,7 @@ export class WorkspacePanelCoordinator {
 }
 
 function isIdleEmptyPanelSnapshot(snapshot: ChatWorkspacePanelSnapshot): boolean {
-  return (
-    snapshot.threadId === null &&
-    snapshot.turnLifecycle.kind === "idle" &&
-    !hasPendingRequests(snapshot.pendingRequests) &&
-    !snapshot.hasComposerDraft
-  );
+  return snapshot.threadId === null && !snapshot.turnBusy && !snapshot.pending && !snapshot.hasComposerDraft;
 }
 
 function focusedPanelViewId(leaf: WorkspaceLeaf | null): string | null {
@@ -688,8 +682,8 @@ function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): WorkspacePan
   return {
     viewId: `restored:${String(index)}:${threadId}`,
     threadId,
-    turnLifecycle: { kind: "idle" },
-    pendingRequests: pendingRequestCounts({ pendingApprovals: 0, pendingUserInputs: 0, pendingMcpElicitations: 0 }),
+    turnBusy: false,
+    pending: false,
     hasComposerDraft: false,
     connected: false,
     lastFocused: false,

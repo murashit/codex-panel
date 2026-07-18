@@ -12,8 +12,8 @@ function expectPresent<T>(value: T | null | undefined): T {
 }
 
 describe("PendingRequestActions", () => {
-  it("resolves user input from immutable draft state and refreshes the host", () => {
-    const { stateStore, responder, refreshLiveState, focusComposer, pendingRequests } = actionsHarness();
+  it("resolves user input from immutable draft state and restores composer focus", () => {
+    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
     const input = expectPresent(toPendingUserInput(userInputRequest()));
     stateStore.dispatch({ type: "request/user-input-queued", input });
     stateStore.dispatch({ type: "request/user-input-draft-set", key: "7:direction", value: "Left" });
@@ -21,52 +21,45 @@ describe("PendingRequestActions", () => {
     pendingRequests.actions().resolveUserInput(input.requestId);
 
     expect(responder.resolveUserInput).toHaveBeenCalledWith(input.requestId, { direction: "Left" });
-    expect(refreshLiveState).toHaveBeenCalledOnce();
     expect(focusComposer).toHaveBeenCalledOnce();
-    expect(expectPresent(refreshLiveState.mock.invocationCallOrder[0])).toBeLessThan(
-      expectPresent(focusComposer.mock.invocationCallOrder[0]),
-    );
   });
 
   it.each([
     ["allows", "accept"],
     ["denies", "decline"],
   ] satisfies [string, ApprovalAction][])("%s a queued approval and commits the action", (_label, action) => {
-    const { stateStore, responder, refreshLiveState, focusComposer, pendingRequests } = actionsHarness();
+    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
     stateStore.dispatch({ type: "request/approval-queued", approval: approvalRequest() });
 
     pendingRequests.actions().resolveApproval(1, action);
 
     expect(responder.resolveApproval).toHaveBeenCalledWith(1, action);
-    expect(refreshLiveState).toHaveBeenCalledOnce();
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
   it("cancels queued user input and commits the action", () => {
-    const { stateStore, responder, refreshLiveState, focusComposer, pendingRequests } = actionsHarness();
+    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
     const input = expectPresent(toPendingUserInput(userInputRequest()));
     stateStore.dispatch({ type: "request/user-input-queued", input });
 
     pendingRequests.actions().cancelUserInput(input.requestId);
 
     expect(responder.cancelUserInput).toHaveBeenCalledWith(input.requestId);
-    expect(refreshLiveState).toHaveBeenCalledOnce();
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
   it("resolves a queued MCP elicitation and commits the action", () => {
-    const { stateStore, responder, refreshLiveState, focusComposer, pendingRequests } = actionsHarness();
+    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
     stateStore.dispatch({ type: "request/mcp-elicitation-queued", elicitation: mcpElicitationRequest() });
 
     pendingRequests.actions().resolveMcpElicitation(9, "accept");
 
     expect(responder.resolveMcpElicitation).toHaveBeenCalledWith(9, "accept");
-    expect(refreshLiveState).toHaveBeenCalledOnce();
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
   it("ignores actions for requests that disappeared before the action ran", () => {
-    const { stateStore, responder, refreshLiveState, focusComposer, pendingRequests } = actionsHarness();
+    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
     const input = expectPresent(toPendingUserInput(userInputRequest()));
     stateStore.dispatch({ type: "request/approval-queued", approval: approvalRequest() });
     stateStore.dispatch({ type: "request/user-input-queued", input });
@@ -84,7 +77,6 @@ describe("PendingRequestActions", () => {
     expect(responder.resolveUserInput).not.toHaveBeenCalled();
     expect(responder.cancelUserInput).not.toHaveBeenCalled();
     expect(responder.resolveMcpElicitation).not.toHaveBeenCalled();
-    expect(refreshLiveState).not.toHaveBeenCalled();
     expect(focusComposer).not.toHaveBeenCalled();
   });
 
@@ -147,15 +139,13 @@ function actionsHarness(composerHasFocus = vi.fn(() => false)) {
     resolveMcpElicitation: vi.fn(),
   };
   const focusComposer = vi.fn();
-  const refreshLiveState = vi.fn();
   const pendingRequests = createPendingRequestActions({
     stateStore,
     responder,
     composerHasFocus,
     focusComposer,
-    refreshLiveState,
   });
-  return { stateStore, responder, focusComposer, refreshLiveState, pendingRequests };
+  return { stateStore, responder, focusComposer, pendingRequests };
 }
 
 function approvalRequest(): PendingApproval {

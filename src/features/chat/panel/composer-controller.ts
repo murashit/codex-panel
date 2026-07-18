@@ -66,7 +66,6 @@ export interface ChatComposerControllerOptions {
   togglePlan: () => void;
   toggleAutoReview: () => void;
   toggleFast: () => void;
-  onDraftChange: () => void;
   onHeightChange: () => void;
   canFocus: () => boolean;
   onAttachmentError?: (message: string) => void;
@@ -145,7 +144,6 @@ export class ChatComposerController {
       draft: text,
       ...(options.clearSuggestions === undefined ? {} : { clearSuggestions: options.clearSuggestions }),
     });
-    this.options.onDraftChange();
     if (options.focus && this.options.canFocus()) focusComposer(this.composer);
   }
 
@@ -270,7 +268,6 @@ export class ChatComposerController {
       selected: suggestionState.selected,
       dismissedSignature: suggestionState.dismissedSignature,
     });
-    this.options.onDraftChange();
   }
 
   private inputSuggestionState(): {
@@ -335,7 +332,6 @@ export class ChatComposerController {
 
     this.pendingSelection = collapsedComposerSelection(insertion.value, insertion.cursor);
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
-    this.options.onDraftChange();
     applyComposerInsertionToElement(this.composer, insertion.cursor);
   }
 
@@ -398,7 +394,6 @@ export class ChatComposerController {
     };
     this.pendingSelection = collapsedComposerSelection(insertion.value, insertion.cursor);
     this.dispatch({ type: "composer/attachment-save-started", saveId: id, draft: insertion.value });
-    this.options.onDraftChange();
     applyComposerInsertionToElement(this.composer, insertion.cursor);
     return pending;
   }
@@ -425,7 +420,6 @@ export class ChatComposerController {
     this.pruneActiveNoteContextSnapshots(replacement.value);
     this.pruneSelectionContextSnapshots(replacement.value);
     this.dispatch({ type: "composer/attachment-save-settled", saveId: pending.id, draft: replacement.value });
-    this.options.onDraftChange();
   }
 
   private settlePendingAttachmentSave(pending: PendingAttachmentSave): void {
@@ -434,7 +428,6 @@ export class ChatComposerController {
     const replacement = replacePendingAttachmentWithOriginalText(state.composer.draft, pending);
     this.pendingSelection = adjustedComposerSelection(composerSelectionSource(this.composer), state.composer.draft, replacement);
     this.dispatch({ type: "composer/attachment-save-settled", saveId: pending.id, draft: replacement.value });
-    this.options.onDraftChange();
   }
 
   private dismissSuggestions(): void {

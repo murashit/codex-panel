@@ -37,7 +37,7 @@ describe("WorkspacePanelCoordinator", () => {
     const coordinator = panels(await pluginWithLeaves([restoredLeaf]));
 
     expect(coordinator.getOpenPanelSnapshots()).toMatchObject([
-      { threadId: "thread-1", connected: false, lastFocused: false, pendingRequests: { actionable: 0 } },
+      { threadId: "thread-1", connected: false, lastFocused: false, turnBusy: false, pending: false },
     ]);
   });
 

@@ -46,7 +46,6 @@ function createActionsHarness({ connected = false, canConnect = true } = {}) {
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
     configuredCommand: () => "codex",
-    refreshLiveState: vi.fn(),
     isStaleConnectionError: () => false,
     isStaleResourceContextError: () => false,
     notifyConnectionFailed: vi.fn(),
@@ -228,7 +227,6 @@ describe("ChatConnectionActions", () => {
       message: "Codex app-server stopped.",
     });
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
-    expect(host.refreshLiveState).toHaveBeenCalledOnce();
     expect(stateStore.getState()).toMatchObject({
       threadList: {
         listedThreads: [{ id: "thread-1", title: "Thread 1" }],

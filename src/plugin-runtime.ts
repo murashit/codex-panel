@@ -11,7 +11,6 @@ import {
 } from "./app-server/query/keys";
 import { AppServerResourceStore, StaleAppServerResourceContextError } from "./app-server/query/resource-store";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
-import { hasPendingRequests } from "./domain/pending-requests/aggregate";
 import { createThreadGoalOperationCoordinator } from "./features/chat/application/threads/goal-actions";
 import type {
   ChatPanelClientSurface,
@@ -152,7 +151,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
         openTurnDiff: (state) => this.openTurnDiff(state),
         openSideChat: (sourceThreadId, sourceThreadTitle) => this.panels.openSideChat(sourceThreadId, sourceThreadTitle),
-        refreshThreadsViewLiveState: () => {
+        notifyPanelActivityChanged: () => {
           this.refreshThreadsViewLiveState();
         },
       },
@@ -324,8 +323,8 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     return this.panels.getOpenPanelSnapshots().map((snapshot) => ({
       threadId: snapshot.threadId,
       selected: snapshot.lastFocused,
-      pending: hasPendingRequests(snapshot.pendingRequests),
-      running: snapshot.turnLifecycle.kind !== "idle",
+      pending: snapshot.pending,
+      running: snapshot.turnBusy,
     }));
   }
 

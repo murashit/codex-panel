@@ -58,9 +58,6 @@ export function createChatComposerController(
     togglePlan: () => void input.runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void input.runtimeSettings.toggleAutoReview(),
     toggleFast: () => void input.runtimeSettings.toggleFastMode(),
-    onDraftChange: () => {
-      environment.plugin.workspace.refreshThreadsViewLiveState();
-    },
     onHeightChange: () => undefined,
     canFocus: environment.obsidian.isForeground,
     onAttachmentError: (message) => {

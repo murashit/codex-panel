@@ -57,8 +57,6 @@ interface ChatPanelSessionRuntimeParts {
   };
   runtime: {
     sharedState: ChatPanelSharedStateBinding;
-    refreshLiveState(): void;
-    deferLiveStateRefresh(): void;
   };
   disposeOwnedResources: () => void;
 }
@@ -77,7 +75,6 @@ interface ChatPanelSessionRuntimeHost {
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
   reconnect?: () => Promise<void>;
-  viewWindow: () => Window;
 }
 
 export class ChatPanelSessionRuntime {
@@ -109,8 +106,6 @@ export class ChatPanelSessionRuntime {
     this.disposeOwnedResources();
     unmount();
     this.connection.manager.disconnect();
-    this.runtime.refreshLiveState();
-    this.runtime.deferLiveStateRefresh();
   }
 }
 
@@ -129,23 +124,15 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   const refreshTabHeader = () => {
     host.environment.view.refreshTabHeader();
   };
-  const refreshLiveState = () => {
-    host.environment.plugin.workspace.refreshThreadsViewLiveState();
-  };
-  const deferLiveStateRefresh = () => {
-    host.viewWindow().setTimeout(refreshLiveState, 0);
-  };
   const notifyActiveThreadIdentityChanged = () => {
     refreshTabHeader();
     host.environment.obsidian.requestWorkspaceLayoutSave();
-    refreshLiveState();
   };
 
   const threadFoundation = createThreadFoundation(host, {
     appServer: currentAppServer,
     localItemIds,
     status,
-    refreshLiveState,
   });
   const invalidateThreadWork = (): void => {
     threadFoundation.invalidateThreadWork();
@@ -157,9 +144,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
       canConnect: () => !host.getClosing(),
       deferredTasks: host.deferredTasks,
       invalidateThreadWork,
-      deferLiveStateRefresh,
       refreshTabHeader,
-      refreshLiveState,
     },
     {
       connection,
@@ -207,7 +192,6 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     status,
     threadStart,
     foundation: threadFoundation,
-    refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });
   const composerController = createChatComposerController(host, {
@@ -296,7 +280,6 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     reconnect: reconnectForUser,
     runtimeProjection: runtime.projection,
     refreshDiagnostics: () => connectionActions.refreshDiagnostics(),
-    refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });
   const shell = createShellBundle(host, {
@@ -358,8 +341,6 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     },
     runtime: {
       sharedState,
-      refreshLiveState,
-      deferLiveStateRefresh,
     },
     disposeOwnedResources: () => {
       connectionBundle.invalidateConnectionScope();

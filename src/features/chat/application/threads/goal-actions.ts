@@ -17,7 +17,6 @@ export interface ThreadGoalSyncHost {
   localItemIds: LocalIdSource;
   addSystemMessage: (text: string) => void;
   addGoalEvent: (item: GoalThreadStreamItem) => void;
-  refreshLiveState: () => void;
 }
 
 export interface GoalActionsHost extends ThreadGoalSyncHost {
@@ -253,7 +252,6 @@ function applyGoalIfActive(
   const item = options.reportChange ? goalChangeItem(host.localItemIds.next("goal"), activeThread.goal, goal) : null;
   host.stateStore.dispatch({ type: "active-thread/goal-set", goal });
   if (item) host.addGoalEvent(item);
-  host.refreshLiveState();
   return true;
 }
 

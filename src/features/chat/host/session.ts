@@ -4,14 +4,15 @@ import {
   appServerQueryContextIdentity,
   appServerQueryContextIdentityMatches,
 } from "../../../app-server/query/keys";
-import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
+import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
 import { activeThreadState, awaitingResumeThreadState, type ChatState, panelThreadId } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
 import { ChatResumeWorkTracker } from "../application/threads/resume-work";
+import { chatTurnBusy } from "../application/turns/turn-state";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
-import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot, ChatWorkspacePanelTurnLifecycle } from "./contracts";
+import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
 import { ChatPanelSessionRuntime } from "./session-runtime";
 import { parseChatPanelViewState } from "./view-state";
@@ -29,6 +30,8 @@ export class ChatPanelSession implements ChatPanelHandle {
   private pendingAppServerContextReplacement: { panelThreadId: string | null; generation: number } | null = null;
   private opened = false;
   private closing = false;
+  private observedPanelActivity: PanelActivity | null = null;
+  private unsubscribePanelActivity: (() => void) | null = null;
 
   constructor(private readonly environment: ChatPanelEnvironment) {
     this.observedAppServerContext = this.currentAppServerContext();
@@ -166,12 +169,11 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   openPanelSnapshot(): ChatWorkspacePanelSnapshot {
-    const pendingRequests = pendingRequestCountsFromQueues(this.state.requests);
+    const activity = panelActivity(this.state);
     return {
       viewId: this.environment.obsidian.viewId,
-      threadId: this.closing ? null : this.panelThreadId(),
-      turnLifecycle: openPanelTurnLifecycle(this.state.turn.lifecycle),
-      pendingRequests,
+      ...activity,
+      threadId: this.closing ? null : activity.threadId,
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
       connected: this.runtime.connection.manager.isConnected(),
     };
@@ -221,6 +223,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   open(): void {
     this.opened = true;
     this.closing = false;
+    this.observePanelActivity();
     this.environment.obsidian.registerPointerDown((event) => {
       this.closeToolbarPanelOnOutsidePointer(event);
     });
@@ -232,10 +235,18 @@ export class ChatPanelSession implements ChatPanelHandle {
   async close(): Promise<void> {
     this.opened = false;
     this.closing = true;
+    this.unsubscribePanelActivity?.();
+    this.unsubscribePanelActivity = null;
+    this.observedPanelActivity = null;
+    const viewWindow = this.viewWindow();
     const panelRoot = this.environment.view.panelRoot();
     await this.runtime.dispose(() => {
       unmountChatPanelShell(panelRoot);
     });
+    this.notifyPanelActivityChanged();
+    viewWindow.setTimeout(() => {
+      this.notifyPanelActivityChanged();
+    }, 0);
   }
 
   setComposerText(text: string): void {
@@ -296,6 +307,22 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.runtime.shell.closeToolbarPanelOnOutsidePointer(event);
   }
 
+  private observePanelActivity(): void {
+    this.unsubscribePanelActivity?.();
+    this.observedPanelActivity = panelActivity(this.state);
+    this.unsubscribePanelActivity = this.stateStore.subscribe(() => {
+      const next = panelActivity(this.state);
+      if (panelActivityEquals(this.observedPanelActivity, next)) return;
+      this.observedPanelActivity = next;
+      this.notifyPanelActivityChanged();
+    });
+    this.notifyPanelActivityChanged();
+  }
+
+  private notifyPanelActivityChanged(): void {
+    this.environment.plugin.workspace.notifyPanelActivityChanged();
+  }
+
   private activeThreadTitle(): string | null {
     const activeThread = activeThreadState(this.state);
     if (!activeThread) return null;
@@ -334,13 +361,24 @@ export class ChatPanelSession implements ChatPanelHandle {
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
       reconnect: () => this.reconnect(),
-      viewWindow: () => this.viewWindow(),
     });
   }
 }
 
-function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): ChatWorkspacePanelTurnLifecycle {
-  if (state.kind === "running") return { kind: "running", turnId: state.turnId };
-  if (state.kind === "starting") return { kind: "starting" };
-  return { kind: "idle" };
+interface PanelActivity {
+  readonly threadId: string | null;
+  readonly turnBusy: boolean;
+  readonly pending: boolean;
+}
+
+function panelActivity(state: ChatState): PanelActivity {
+  return {
+    threadId: panelThreadId(state),
+    turnBusy: chatTurnBusy(state),
+    pending: hasPendingRequests(pendingRequestCountsFromQueues(state.requests)),
+  };
+}
+
+function panelActivityEquals(left: PanelActivity | null, right: PanelActivity): boolean {
+  return left !== null && left.threadId === right.threadId && left.turnBusy === right.turnBusy && left.pending === right.pending;
 }

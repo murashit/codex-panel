@@ -94,7 +94,6 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
       reconnect: vi.fn(),
       runtimeProjection,
       refreshDiagnostics,
-      refreshLiveState: vi.fn(),
       notifyActiveThreadIdentityChanged: vi.fn(),
     } as never,
   );

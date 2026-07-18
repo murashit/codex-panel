@@ -38,9 +38,7 @@ interface ChatPanelConnectionBundleHost {
   canConnect: () => boolean;
   deferredTasks: ChatViewDeferredTasks;
   invalidateThreadWork: () => void;
-  deferLiveStateRefresh: () => void;
   refreshTabHeader: () => void;
-  refreshLiveState: () => void;
 }
 
 export interface ChatPanelConnectionBundle {
@@ -173,9 +171,6 @@ export function createConnectionBundle(
     resetThreadTurnPresence: (hadTurns: boolean) => {
       autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
-    refreshLiveState: () => {
-      host.refreshLiveState();
-    },
   };
   const connectionActions = createChatConnectionActions({
     ...connectionExitHost,
@@ -189,12 +184,10 @@ export function createConnectionBundle(
               vaultPath: sourceContext.cwd,
               generation: sourceContext.generation,
             });
-            host.deferLiveStateRefresh();
           },
           onServerRequest: (request, responder) => {
             serverRequestResponders.remember(request.id, responder);
             inboundHandler.handleServerRequest(request);
-            host.deferLiveStateRefresh();
           },
           onLog: (message) => {
             inboundHandler.handleAppServerLog(message);
@@ -235,9 +228,6 @@ export function createConnectionBundle(
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
     configuredCommand: () => environment.plugin.settingsRef.settings.codexPath(),
-    refreshLiveState: () => {
-      host.refreshLiveState();
-    },
     isStaleConnectionError: (error) => error instanceof StaleConnectionError,
     isStaleResourceContextError: isStaleAppServerResourceContextError,
     notifyConnectionFailed: () => {

@@ -128,7 +128,7 @@ function chatHostFixture(): CodexChatHost {
       openThreadInNewView: vi.fn(),
       focusThreadInOpenView: vi.fn(),
       openTurnDiff: vi.fn(),
-      refreshThreadsViewLiveState: vi.fn(),
+      notifyPanelActivityChanged: vi.fn(),
       openSideChat: vi.fn(),
     },
     appServerQueries: {
@@ -181,17 +181,11 @@ export function thread(id: string): Thread {
 
 export function panelSnapshot(overrides: PanelSnapshotFixtureOverrides = {}): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
   const { pendingApprovals, pendingUserInputs, pendingMcpElicitations, ...snapshotOverrides } = overrides;
-  const pendingRequests = snapshotOverrides.pendingRequests ?? {
-    approvals: pendingApprovals ?? 0,
-    userInputs: pendingUserInputs ?? 0,
-    mcpElicitations: pendingMcpElicitations ?? 0,
-    actionable: (pendingApprovals ?? 0) + (pendingUserInputs ?? 0) + (pendingMcpElicitations ?? 0),
-  };
   return {
     viewId: "view",
     threadId: "thread",
-    turnLifecycle: { kind: "idle" },
-    pendingRequests,
+    turnBusy: false,
+    pending: (pendingApprovals ?? 0) + (pendingUserInputs ?? 0) + (pendingMcpElicitations ?? 0) > 0,
     hasComposerDraft: false,
     connected: true,
     ...snapshotOverrides,

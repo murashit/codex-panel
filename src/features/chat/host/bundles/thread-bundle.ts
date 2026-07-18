@@ -65,7 +65,6 @@ interface ChatPanelThreadFoundationInput {
   appServer: ChatCurrentAppServerGateway;
   localItemIds: LocalIdSource;
   status: ChatPanelThreadStatus;
-  refreshLiveState: () => void;
 }
 
 interface ChatPanelThreadFoundation {
@@ -85,7 +84,6 @@ interface ChatPanelThreadLifecycleInput {
   status: ChatPanelThreadStatus;
   threadStart: ThreadStartActions;
   foundation: ChatPanelThreadFoundation;
-  refreshLiveState: () => void;
   notifyActiveThreadIdentityChanged: () => void;
 }
 
@@ -115,7 +113,7 @@ interface ChatPanelThreadActionBundle {
 }
 
 export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPanelThreadFoundationInput): ChatPanelThreadFoundation {
-  const { appServer, localItemIds, status, refreshLiveState } = input;
+  const { appServer, localItemIds, status } = input;
   const { environment, stateStore } = host;
   const threadOperationsTransport = createThreadOperationsTransport(appServer.clientAccess);
   const threadTitleTransport = createThreadTitleTransport({
@@ -200,7 +198,6 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
       addGoalEvent: (item) => {
         stateStore.dispatch({ type: "thread-stream/item-upserted", item });
       },
-      refreshLiveState,
     },
     goalOperations,
   );
@@ -220,8 +217,7 @@ export function createThreadLifecycleBundle(
   host: ChatPanelThreadHost,
   input: ChatPanelThreadLifecycleInput,
 ): ChatPanelThreadLifecycleBundle {
-  const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, refreshLiveState, notifyActiveThreadIdentityChanged } =
-    input;
+  const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, notifyActiveThreadIdentityChanged } = input;
   let sessionLifecycle: ChatPanelThreadLifecycle | null = null;
   const goals = createGoalActions(
     {
@@ -241,7 +237,6 @@ export function createThreadLifecycleBundle(
       addGoalEvent: (item) => {
         host.stateStore.dispatch({ type: "thread-stream/item-upserted", item });
       },
-      refreshLiveState,
     },
     foundation.goalOperations,
   );
@@ -261,7 +256,6 @@ export function createThreadLifecycleBundle(
     invalidateThreadWork: () => {
       foundation.invalidateThreadWork();
     },
-    refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });
   sessionLifecycle = lifecycle;
@@ -336,20 +330,10 @@ function createSessionThreadLifecycle(
     autoTitleCoordinator: AutoTitleCoordinator;
     history: HistoryController;
     invalidateThreadWork: () => void;
-    refreshLiveState: () => void;
     notifyActiveThreadIdentityChanged: () => void;
   },
 ): ChatPanelThreadLifecycle {
-  const {
-    appServer,
-    status,
-    goals,
-    autoTitleCoordinator,
-    history,
-    invalidateThreadWork,
-    refreshLiveState,
-    notifyActiveThreadIdentityChanged,
-  } = input;
+  const { appServer, status, goals, autoTitleCoordinator, history, invalidateThreadWork, notifyActiveThreadIdentityChanged } = input;
   const restoration = new RestorationController({
     stateStore: host.stateStore,
   });
@@ -368,7 +352,6 @@ function createSessionThreadLifecycle(
       host.environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
     },
     addSystemMessage: status.addSystemMessage,
-    refreshLiveState,
     syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),
     recoverTokenUsageFromRollout: (path) =>
       recoverRolloutTokenUsage(path, (filePath, options) => appServer.readFileBase64(filePath, options)),

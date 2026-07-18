@@ -20,7 +20,6 @@ describe("createGoalActions", () => {
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
     const goalTransport = goalTransportFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
-    const refreshLiveState = vi.fn();
     const actions = createGoalActions({
       stateStore,
       goalTransport,
@@ -28,13 +27,11 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState,
     });
 
     await actions.syncThreadGoal("thread");
 
     expect(activeThreadState(stateStore.getState())?.goal).toEqual(currentGoal);
-    expect(refreshLiveState).toHaveBeenCalledOnce();
   });
 
   it("does not publish an old goal read after a shared mutation completes", async () => {
@@ -52,7 +49,6 @@ describe("createGoalActions", () => {
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     };
     const goalOperations = createThreadGoalOperationCoordinator();
     const sync = createThreadGoalSyncActions(host, goalOperations);
@@ -89,7 +85,6 @@ describe("createGoalActions", () => {
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     };
     const goalOperations = createThreadGoalOperationCoordinator();
     const sync = createThreadGoalSyncActions(host, goalOperations);
@@ -126,7 +121,6 @@ describe("createGoalActions", () => {
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     };
     const sync = createThreadGoalSyncActions(host, goalOperations);
     const actions = createGoalActions(
@@ -159,7 +153,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await actions.syncThreadGoal("thread");
@@ -190,7 +183,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
-      refreshLiveState: vi.fn(),
     });
 
     await actions.setObjective("thread", " Updated ", 250);
@@ -226,7 +218,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     const objectiveUpdate = actions.setObjective("thread", "Updated", null);
@@ -266,7 +257,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread-a" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     const oldUpdate = actions.setObjective("thread-a", "Old", null);
@@ -304,7 +294,6 @@ describe("createGoalActions", () => {
           startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
           addSystemMessage: vi.fn(),
           addGoalEvent: vi.fn(),
-          refreshLiveState: vi.fn(),
         },
         goalOperations,
       );
@@ -343,7 +332,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "side" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await expect(actions.setObjective("side", "Ship", null)).resolves.toBe(false);
@@ -369,7 +357,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     const pending = actions.setStatus("thread", "paused");
@@ -396,7 +383,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     const pending = actions.clear("thread");
@@ -421,7 +407,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     const pending = actions.clear("thread");
@@ -445,7 +430,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     const pending = actions.setObjective("thread", "Finish", null);
@@ -472,7 +456,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
-      refreshLiveState: vi.fn(),
     });
 
     await actions.setObjective("thread", "Finish", null);
@@ -528,7 +511,6 @@ describe("createGoalActions", () => {
       startThread,
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await expect(actions.saveObjective(" Plan release ", null)).resolves.toBe(true);
@@ -549,7 +531,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated", threadId: "thread-new" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await expect(actions.saveObjective("Plan release", null)).resolves.toBe(false);
@@ -572,7 +553,6 @@ describe("createGoalActions", () => {
       startThread,
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     const pending = actions.saveObjective("Plan release", null);
@@ -626,7 +606,6 @@ describe("createGoalActions", () => {
       ensureRestoredThreadLoaded,
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await expect(actions.saveObjective("Resume work", null)).resolves.toBe(true);
@@ -652,7 +631,6 @@ describe("createGoalActions", () => {
       startThread,
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await expect(actions.saveObjective("   ", null)).resolves.toBe(false);
@@ -678,7 +656,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await actions.setObjective("thread", "Finish", null);
@@ -705,7 +682,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await actions.setObjective("thread", "Finish", null);
@@ -730,7 +706,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await expect(actions.setObjective("thread", "Finish", null)).resolves.toBe(false);
@@ -754,7 +729,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent,
-      refreshLiveState: vi.fn(),
     });
 
     await actions.setObjective("thread", "Updated", null);
@@ -778,7 +752,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
-      refreshLiveState: vi.fn(),
     });
 
     await actions.setStatus("thread", "active");
@@ -801,7 +774,6 @@ describe("createGoalActions", () => {
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      refreshLiveState: vi.fn(),
     });
 
     await actions.syncThreadGoal("thread");
