@@ -35,28 +35,40 @@ You can also open the plugin page directly: <https://community.obsidian.md/plugi
 
 ## Quick start
 
-1. Open the command palette and run **Codex Panel: Open panel**, or select the ribbon icon.
-2. If Obsidian cannot find `codex`, set **Settings -> Codex Panel -> Codex executable** to an absolute path such as `/opt/homebrew/bin/codex`.
-3. Ask Codex to work on the vault or project from the composer.
-4. Return to earlier work from **Codex Panel: Open thread...** or **Codex Panel: Open threads view**.
+1. Open the note or project you want to work on.
+2. Run **Codex Panel: Open panel** from the command palette, or select the ribbon icon.
+3. In the composer, reference what matters and describe the outcome you want. For example: `@active Summarize this note and suggest the next three actions.`
+4. Follow the turn in the panel, respond to requests when needed, and review any file changes before continuing.
 
-## Using Codex Panel
+If Obsidian cannot find `codex`, set **Settings -> Codex Panel -> Codex executable** to an absolute path such as `/opt/homebrew/bin/codex`.
 
-Each panel can keep a separate conversation, so related work can stay open side by side, including temporary read-only side chats. Start fresh from the panel, reopen recent threads from the picker or panel history, or use the Threads view to see active work across the vault.
+## Working with Codex Panel
 
-The composer treats Obsidian content as prompt context. It suggests vault files and recent notes for wikilinks, keeps links readable while attaching resolved files, and opens file links from Codex replies back in Obsidian. Use `@active` or `@selection` to include the active file or current Markdown selection without pasting it manually, or enable **Reference active file on send** to reference the current active file with each composer send. When Obsidian Daily Notes or the daily section of Periodic Notes is enabled, `@today`, `@tomorrow`, and `@yesterday` insert wikilinks using that daily-note folder and date format. Paste or drop files to save them in the attachment folder and reference them from the same prompt.
+### Keep work separate or pick it up later
 
-For context outside the current composer, use `/refer <thread> <message>` to send a message with recent turns from another Codex thread, or `/web <url> [message]` to fetch readable web content and attach it to the next turn without saving a note.
+A panel is an independent working surface with its own active thread and draft. Open multiple panels when different tasks should stay visible and separate. Regular Codex threads remain available after a panel closes; return to them from **Codex Panel: Open thread...**, panel history, or the Threads view.
 
-Completions cover slash commands, `$skill-name` skills, Obsidian tags, recent threads, models, reasoning levels, and permission profiles. Use `/help` for the current command list.
+For a one-off question alongside the current thread, use `/btw` to open a temporary side chat. To carry context between regular threads without merging their histories, use `/refer <thread> <message>`.
 
-While a turn is running, the panel streams the conversation, reasoning, tool activity, file changes, plans, and agent activity. You can answer Codex questions, approve commands, respond to requests, steer or interrupt the turn, and manage active goals above the conversation.
+### Bring in the right context
 
-When Codex changes files, open an Obsidian diff view to review the changes and copy the patch. For a focused note edit, select Markdown text and run **Codex Panel: Rewrite selection** to ask Codex for a replacement and review a selection-scoped diff before applying it.
+The composer lets you point Codex to relevant material without pasting it into the prompt. Type wikilinks to reference vault files while keeping their names readable. Use `@active` for the active file or `@selection` for the current Markdown selection.
 
-Use the toolbar, composer status row, or slash commands to inspect usage, adjust turn settings, and check Codex connection details.
+When Obsidian Daily Notes or the daily section of Periodic Notes is enabled, `@today`, `@tomorrow`, and `@yesterday` resolve through its folder and date format. Paste or drop files to save them in the configured attachment folder and reference them from the same prompt. For material outside the vault, `/web <url> [message]` fetches readable page content and attaches it to the next turn without creating a note.
 
-Threads can be archived as Markdown notes with a configurable folder, filename template, and tags. You can also archive without saving, then restore or permanently delete archived threads from settings.
+These references tell Codex what is relevant to the request; they do not change its vault-root working directory or its permissions.
+
+### Guide a running turn
+
+As a turn runs, the panel keeps the conversation together with requests that need your attention. You can answer questions, approve or reject actions, steer the turn with another message, or interrupt it. Plans, goals, tool activity, and agent work remain available when you need to inspect how the task is progressing.
+
+### Review and keep the result
+
+When Codex changes files, open the Obsidian diff view to review the changes and copy the patch. For a focused edit, select Markdown text and run **Codex Panel: Rewrite selection** to request a replacement and review a selection-scoped diff before applying it.
+
+Archive a finished thread with or without saving it as a Markdown note. Saved notes use the configured folder, filename template, and tags; archived threads can later be restored or permanently deleted from settings.
+
+Use `/help` for the current slash command list.
 
 ## Compatibility
 
