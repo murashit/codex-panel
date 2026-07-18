@@ -199,7 +199,7 @@ describe("composer suggestions", () => {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
-        value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Assets/Diagram.png]] -> Assets/Diagram.png",
+        value: "Obsidian references for the current user input:\n- [[Assets/Diagram.png]] -> Assets/Diagram.png",
       },
     ]);
   });

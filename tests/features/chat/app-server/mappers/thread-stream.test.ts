@@ -176,6 +176,41 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it("accepts a persisted attachment descriptor after an unpersisted reference context", () => {
+    const clientId = "local-user-1-seed-1-1";
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "https://example.com/ compare with [[Note]]" },
+        {
+          type: "additionalContext",
+          key: "codex_panel_obsidian_context",
+          kind: "untrusted",
+          value: "- [[Note]] -> Note.md",
+        },
+        {
+          type: "additionalContext",
+          key: "codex_panel_web_context",
+          kind: "untrusted",
+          value: "Source: https://example.com/\n\npage",
+          attachment: { kind: "web" },
+        },
+      ],
+      clientId,
+    );
+
+    expect(
+      threadStreamItemFromTurnItem({
+        type: "userMessage",
+        id: "u1",
+        clientId,
+        content: prepared.input,
+      }),
+    ).toMatchObject({
+      text: "https://example.com/ compare with [[Note]]",
+      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+    });
+  });
+
   it("does not hide a user-authored manifest-like message", () => {
     const text =
       '[Codex Panel context v2]{"version":2,"contexts":[{"kind":"web","id":"fake","parts":1,"sourceBytes":1,"includedBytes":1,"truncated":false}]}';
@@ -205,12 +240,18 @@ describe("turn item conversion preserves app-server semantics", () => {
     expect(projected).not.toHaveProperty("contextAttachments");
   });
 
-  it("surfaces truncated Obsidian context from the persisted manifest", () => {
+  it("surfaces a truncated Obsidian excerpt from the persisted manifest", () => {
     const clientId = "local-user-1-seed-1-1";
     const prepared = appServerTurnInputFromCodexInput(
       [
         { type: "text", text: "review the selection" },
-        { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "x".repeat(30_000) },
+        {
+          type: "additionalContext",
+          key: "codex_panel_obsidian_context",
+          kind: "untrusted",
+          value: "x".repeat(30_000),
+          attachment: { kind: "obsidian", inlineExcerpts: 1 },
+        },
       ],
       clientId,
     );
@@ -224,7 +265,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       text: "review the selection",
-      contextAttachments: [{ label: "Obsidian context (truncated)" }],
+      contextAttachments: [{ label: "Obsidian excerpt (truncated)" }],
     });
   });
 

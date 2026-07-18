@@ -134,7 +134,6 @@ describe("chat app-server transports", () => {
         { type: "text", text, text_elements: [] },
         { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
         { type: "mention", name: "<active>", path: "notes/Alpha.md" },
-        { type: "text", text: expect.stringContaining("[Codex Panel context v2]"), text_elements: [] },
       ],
       clientUserMessageId: "local-user",
     });
@@ -142,7 +141,7 @@ describe("chat app-server transports", () => {
       "codex_panel.local-user.00.codex_panel_obsidian_context.part_01_of_01": {
         kind: "untrusted",
         value:
-          "Codex Panel context part 1/1.\nSource: codex_panel_obsidian_context\n\nObsidian context for the current user input:\nResolved wikilinks:\n- [[Alpha]] -> notes/Alpha.md\n\nReferenced active file:\n- <active> -> notes/Alpha.md",
+          "Codex Panel context part 1/1.\nSource: codex_panel_obsidian_context\n\nObsidian references for the current user input:\n- [[Alpha]] -> notes/Alpha.md\n- <active> -> notes/Alpha.md",
       },
     });
   });

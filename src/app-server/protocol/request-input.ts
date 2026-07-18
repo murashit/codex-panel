@@ -75,7 +75,9 @@ export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[
         ].join("\n"),
       };
     });
-    manifest.push(manifestEntry(item, id, partCount, sourceBytes, split.includedBytes));
+    if (item.attachment || split.includedBytes < sourceBytes) {
+      manifest.push(manifestEntry(item, id, partCount, sourceBytes, split.includedBytes));
+    }
   }
   return {
     input: toAppServerUserInput(input, manifest),
@@ -129,6 +131,9 @@ function manifestEntry(
     includedBytes,
     truncated: includedBytes < sourceBytes,
   } as const;
+  if (item.attachment?.kind === "obsidian") {
+    return { ...common, kind: "obsidian", inlineExcerpts: item.attachment.inlineExcerpts };
+  }
   if (item.attachment?.kind !== "referencedThread") return common;
   return {
     ...common,

@@ -19,8 +19,9 @@ export function contextAttachmentsFromManifest(manifest: TurnContextManifest | n
     const source = visibleWebSource(visibleText);
     attachments.push({ label: web.truncated ? "Web page (truncated)" : "Web page", ...(source ? { detail: source } : {}) });
   }
-  if (manifest?.contexts.some((context) => context.kind === "obsidian" && context.truncated)) {
-    attachments.push({ label: "Obsidian context (truncated)" });
+  const obsidian = manifest?.contexts.find((context) => context.kind === "obsidian" && context.truncated);
+  if (obsidian) {
+    attachments.push({ label: obsidian.inlineExcerpts ? "Obsidian excerpt (truncated)" : "Obsidian context (truncated)" });
   }
   return attachments;
 }

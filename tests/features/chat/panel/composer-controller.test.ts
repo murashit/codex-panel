@@ -1148,7 +1148,7 @@ describe("ChatComposerController", () => {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
-        value: "Obsidian context for the current user input:\nReferenced active file:\n- <active> -> notes/Alpha.md",
+        value: "Obsidian references for the current user input:\n- <active> -> notes/Alpha.md",
       },
     ]);
   });
@@ -1220,8 +1220,9 @@ describe("ChatComposerController", () => {
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
+      attachment: { kind: "obsidian", inlineExcerpts: 1 },
       value:
-        "Obsidian context for the current user input:\nResolved wikilinks:\n- [[notes/Alpha]] -> notes/Alpha.md\n\nReferenced selections:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
+        "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
     });
 
     controller.setDraft("", { clearSuggestions: true });
@@ -1229,14 +1230,15 @@ describe("ChatComposerController", () => {
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
+      attachment: { kind: "obsidian", inlineExcerpts: 1 },
       value:
-        "Obsidian context for the current user input:\nResolved wikilinks:\n- [[notes/Alpha]] -> notes/Alpha.md\n\nReferenced selections:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
+        "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
     });
     expect(controller.preparedInput(completedSelectionReference).input).toContainEqual({
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
-      value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[notes/Alpha]] -> notes/Alpha.md",
+      value: "Obsidian references for the current user input:\n- [[notes/Alpha]] -> notes/Alpha.md",
     });
   });
 

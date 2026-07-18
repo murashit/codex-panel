@@ -12,10 +12,10 @@ const obsidianContext = (...sections: string[]) => ({
   type: "additionalContext" as const,
   key: "codex_panel_obsidian_context",
   kind: "untrusted" as const,
-  value: ["Obsidian context for the current user input:", ...sections].join("\n"),
+  value: ["Obsidian references for the current user input:", ...sections].join("\n"),
 });
 
-const wikilinkContext = (...mappings: string[]) => obsidianContext("Resolved wikilinks:", ...mappings);
+const wikilinkContext = (...mappings: string[]) => obsidianContext(...mappings);
 
 function userInputWithWikiLinkMentionsAndSkills(
   text: string,
@@ -226,7 +226,7 @@ describe("wikilink context", () => {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
-        value: "Obsidian context for the current user input:\nReferenced active file:\n- <active> -> notes/Alpha.md",
+        value: "Obsidian references for the current user input:\n- <active> -> notes/Alpha.md",
       },
     ]);
   });
@@ -253,8 +253,7 @@ describe("wikilink context", () => {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
-        value:
-          "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Beta]] -> notes/Beta.md\n\nReferenced active file:\n- <active> -> notes/Alpha.md",
+        value: "Obsidian references for the current user input:\n- [[Beta]] -> notes/Beta.md\n- <active> -> notes/Alpha.md",
       },
     ]);
   });
@@ -294,8 +293,9 @@ describe("wikilink context", () => {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
+        attachment: { kind: "obsidian", inlineExcerpts: 1 },
         value:
-          "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Beta]] -> notes/Beta.md\n- [[Gamma]] -> notes/Gamma.md\n\nReferenced selections:\n- [[Gamma]] (L2:C1-L2:C6) -> notes/Gamma.md L2:C1-L2:C6\n\n[[Gamma]] (L2:C1-L2:C6):\nselected gamma\n\nReferenced active file:\n- <active> -> notes/Alpha.md",
+          "Obsidian references for the current user input:\n- [[Beta]] -> notes/Beta.md\n- [[Gamma]] (L2:C1-L2:C6) -> notes/Gamma.md (inline excerpt below)\n- <active> -> notes/Alpha.md\n\nInline excerpts:\n[[Gamma]] (L2:C1-L2:C6):\nselected gamma",
       },
     ]);
   });
@@ -331,8 +331,9 @@ describe("wikilink context", () => {
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
+      attachment: { kind: "obsidian", inlineExcerpts: 1 },
       value:
-        "Obsidian context for the current user input:\nResolved wikilinks:\n- [[notes/Alpha]] -> notes/Alpha.md\n\nReferenced selections:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ncompleted selection",
+        "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ncompleted selection",
     });
   });
 });

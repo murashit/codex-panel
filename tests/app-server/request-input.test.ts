@@ -109,6 +109,37 @@ describe("app-server request input", () => {
     expect(manifestInput?.type === "text" ? manifestInput.text : "").not.toContain("本文です");
   });
 
+  it("keeps Obsidian reference metadata ahead of a truncated inline excerpt", () => {
+    const reference = "[[Note]] (L2:C1-L3:C1) -> Note.md";
+    const value = [
+      "Obsidian references for the current user input:",
+      `- ${reference} (inline excerpt below)`,
+      "",
+      "Inline excerpts:",
+      "[[Note]] (L2:C1-L3:C1):",
+      "本文".repeat(20_000),
+    ].join("\n");
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "review it" },
+        {
+          type: "additionalContext",
+          key: "codex_panel_obsidian_context",
+          kind: "untrusted",
+          value,
+          attachment: { kind: "obsidian", inlineExcerpts: 1 },
+        },
+      ],
+      "local-user",
+    );
+
+    const firstPart = Object.values(prepared.additionalContext ?? {})[0];
+    expect(firstPart?.value).toContain(reference);
+    const manifestInput = prepared.input.at(-1);
+    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text) : null;
+    expect(manifest?.contexts).toEqual([expect.objectContaining({ kind: "obsidian", inlineExcerpts: 1, truncated: true })]);
+  });
+
   it("namespaces identical explicit context by submission", () => {
     const input: CodexInput = [
       { type: "text", text: "read it" },
@@ -134,6 +165,6 @@ describe("app-server request input", () => {
     expect(entries.some(([key, entry]) => key.includes(".selection.") && entry.value.includes("selected text"))).toBe(true);
     const manifestInput = prepared.input.at(-1);
     const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text) : null;
-    expect(manifest?.contexts.map((context) => context.parts)).toEqual([7, 1]);
+    expect(manifest?.contexts.map((context) => context.parts)).toEqual([7]);
   });
 });

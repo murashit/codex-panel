@@ -12,7 +12,7 @@ export type TurnContextAttachment =
       truncated: boolean;
     }
   | { kind: "web" }
-  | { kind: "obsidian" };
+  | { kind: "obsidian"; inlineExcerpts: number };
 
 export interface TurnContextManifestEntry {
   kind: TurnContextAttachment["kind"];
@@ -25,6 +25,7 @@ export interface TurnContextManifestEntry {
   includedTurns?: number;
   turnLimit?: number;
   omittedTurns?: number;
+  inlineExcerpts?: number;
 }
 
 export interface TurnContextManifest {
@@ -88,7 +89,15 @@ export function turnContextSubmissionId(value: string): string {
 function manifestMatchesClientId(manifest: TurnContextManifest, clientId: string | null): boolean {
   if (!clientId || !/^local-(?:user|steer)-\d+-[A-Za-z0-9_-]+-[a-z0-9]+-[a-z0-9]+$/.test(clientId)) return false;
   const submissionId = turnContextSubmissionId(clientId);
-  return manifest.contexts.every((context, index) => context.id === `${submissionId}.${String(index).padStart(2, "0")}`);
+  const contextIds = manifest.contexts.map((context) => context.id);
+  return (
+    new Set(contextIds).size === contextIds.length &&
+    contextIds.every((contextId) => new RegExp(`^${escapeRegExp(submissionId)}\\.\\d{2}$`).test(contextId))
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function referencedThreadFromManifest(manifest: TurnContextManifest | null): ReferencedThreadMetadata | null {
@@ -117,6 +126,19 @@ function manifestEntryFromUnknown(input: unknown): TurnContextManifestEntry | nu
   const truncated = value["truncated"];
   if (!kind || !id || parts === null || sourceBytes === null || includedBytes === null || typeof truncated !== "boolean") return null;
 
+  if (kind === "obsidian") {
+    const inlineExcerpts = optionalNonNegativeInteger(value["inlineExcerpts"]);
+    if (inlineExcerpts === null) return null;
+    return {
+      kind,
+      id,
+      parts,
+      sourceBytes,
+      includedBytes,
+      truncated,
+      ...(inlineExcerpts === undefined ? {} : { inlineExcerpts }),
+    };
+  }
   if (kind !== "referencedThread") return { kind, id, parts, sourceBytes, includedBytes, truncated };
   const threadId = stringValue(value["threadId"]);
   const includedTurns = nonNegativeInteger(value["includedTurns"]);
@@ -147,6 +169,10 @@ function stringValue(value: unknown): string | null {
 
 function nonNegativeInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function optionalNonNegativeInteger(value: unknown): number | null | undefined {
+  return value === undefined ? undefined : nonNegativeInteger(value);
 }
 
 function positiveInteger(value: unknown): number | null {

@@ -14,6 +14,8 @@ The panel may acquire prompt context through an explicit user action. `/web` fet
 
 Panel-acquired context remains reference material rather than current user authorization. Send its bounded payload as untrusted app-server context, while persisting only a small content-free descriptor needed to reconstruct panel display and archive metadata. Apply physical byte and part limits at the app-server boundary; keep source-specific selection and truncation policy with the context producer.
 
+Vault references must remain model-visible in that explicit context. App-server `mention` items with ordinary Vault paths are retained as panel display metadata, but Codex does not expose those arbitrary paths to the model as file context.
+
 Panel settings should store only panel-specific preferences. Do not mirror Codex configuration in Obsidian settings just to display or inspect it.
 
 ## Sources of Truth
