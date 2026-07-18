@@ -18,7 +18,7 @@ Use `npm run fix` for mechanical cleanup, review its diff, and run `npm run chec
 
 Use `npm run test:coverage` to identify source modules and branches that lack exercised behavior. It reports every authored TypeScript source file, including files not imported by tests, while excluding generated app-server bindings. Open `coverage/index.html` to inspect line-level gaps. Coverage is diagnostic and has no pass/fail threshold; prioritize user-visible behavior and state-transition invariants rather than raising the aggregate percentage.
 
-Use `npm run test:mutation` for an exploratory mutation test of the domain-owned logic under `src/domain/` and `src/features/chat/domain/`. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run ignores expensive module-initialization mutants, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.
+Use `npm run test:mutation` for an exploratory mutation test of domain-owned logic, app-server protocol normalization, thread-stream event mapping, and the chat root reducer. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run ignores expensive module-initialization mutants, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.
 
 ## Commit Messages
 
