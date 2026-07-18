@@ -77,6 +77,23 @@ describe("thread archive export", () => {
     expect(output).toContain("## Codex - 2026-05-18 10:01\n\n途中の回答");
   });
 
+  it("orders transcript entries chronologically while preserving source order for equal timestamps", () => {
+    const output = exportedMarkdown(
+      thread({
+        transcriptEntries: [
+          transcriptEntry("assistant", "newest", timestamp(2026, 5, 18, 10, 0)),
+          transcriptEntry("assistant", "equal-first", timestamp(2026, 5, 18, 9, 0)),
+          transcriptEntry("user", "oldest", timestamp(2026, 5, 18, 8, 0)),
+          transcriptEntry("plan", "equal-second", timestamp(2026, 5, 18, 9, 0)),
+        ],
+      }),
+      new Date(2026, 4, 18),
+    );
+
+    const positions = ["oldest", "equal-first", "equal-second", "newest"].map((text) => output.indexOf(text));
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+
   it("exports only the thread history remaining after rollback", () => {
     const rolledBackUserText = "rollbackされた依頼";
     const rolledBackAssistantText = "rollbackされた回答";

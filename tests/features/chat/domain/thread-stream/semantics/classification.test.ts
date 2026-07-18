@@ -197,6 +197,65 @@ describe("thread stream semantic classification", () => {
     });
   });
 
+  it("grants turn outcome capabilities only to completed assistant dialogue outcomes in a turn", () => {
+    const cases: readonly [label: string, item: ThreadStreamItem, expected: boolean][] = [
+      ["completed response", assistantDialogue("completed-response", "assistantResponse", "completed", "turn"), true],
+      ["completed plan", assistantDialogue("completed-plan", "proposedPlan", "completed", "turn"), true],
+      ["streaming response", assistantDialogue("streaming", "assistantResponse", "streaming", "turn"), false],
+      ["response outside a turn", assistantDialogue("no-turn", "assistantResponse", "completed"), false],
+      ["user request", userMessage("user", "request", "turn"), false],
+      ["turn detail", { ...commandItem("command"), turnId: "turn" }, false],
+    ];
+
+    for (const [label, item, expected] of cases) {
+      const [classification] = threadStreamSemanticClassifications([item]);
+      expect(classification?.capabilities, label).toMatchObject({
+        canForkFromHere: expected,
+        isTurnOutcome: expected,
+      });
+    }
+  });
+
+  it("allows rollback only from turn and pending-turn initiators", () => {
+    const first = userMessage("first", "first", "turn");
+    const steer = {
+      ...userMessage("steer", "steer", "turn"),
+      provenance: { source: "localUser", channel: "optimistic", interaction: "steer", sourceId: "steer" },
+    } satisfies ThreadStreamItem;
+    const pending: ThreadStreamItem = {
+      id: "pending",
+      kind: "dialogue",
+      dialogueKind: "user",
+      role: "user",
+      text: "pending",
+    };
+    const cases: readonly [label: string, items: readonly ThreadStreamItem[], index: number, expected: boolean][] = [
+      ["turn initiator", [first], 0, true],
+      ["pending-turn initiator", [pending], 0, true],
+      ["explicit steer", [first, steer], 1, false],
+      ["turn outcome", [assistantDialogue("response", "assistantResponse", "completed", "turn")], 0, false],
+      ["turn detail", [{ ...commandItem("command"), turnId: "turn" }], 0, false],
+    ];
+
+    for (const [label, items, index, expected] of cases) {
+      expect(threadStreamSemanticClassifications(items)[index]?.capabilities.canRollbackToPrompt, label).toBe(expected);
+    }
+  });
+
+  it("allows implementation only for completed proposed plans", () => {
+    const cases: readonly [label: string, item: ThreadStreamItem, expected: boolean][] = [
+      ["completed plan", assistantDialogue("plan", "proposedPlan", "completed", "turn"), true],
+      ["completed plan awaiting turn attachment", assistantDialogue("pending-plan", "proposedPlan", "completed"), true],
+      ["streaming plan", assistantDialogue("draft", "proposedPlan", "streaming", "turn"), false],
+      ["completed response", assistantDialogue("response", "assistantResponse", "completed", "turn"), false],
+      ["non-dialogue completion", commandItem("command"), false],
+    ];
+
+    for (const [label, item, expected] of cases) {
+      expect(threadStreamSemanticClassifications([item])[0]?.capabilities.canImplementPlan, label).toBe(expected);
+    }
+  });
+
   it("classifies sub-agent execution summaries as coordination progress", () => {
     const item = threadStreamItemFromTurnItem(collabAgentToolCall(), "turn");
     const [classification] = threadStreamSemanticClassifications(item ? [item] : []);
@@ -224,6 +283,23 @@ describe("thread stream semantic classification", () => {
 
 function userMessage(id: string, text: string, turnId: string, clientId?: string | null): ThreadStreamItem {
   return { id, kind: "dialogue", dialogueKind: "user", role: "user", text, turnId, ...(clientId ? { clientId } : {}) };
+}
+
+function assistantDialogue(
+  id: string,
+  dialogueKind: "assistantResponse" | "proposedPlan",
+  dialogueState: "streaming" | "completed",
+  turnId?: string,
+): ThreadStreamItem {
+  return {
+    id,
+    kind: "dialogue",
+    dialogueKind,
+    dialogueState,
+    role: "assistant",
+    text: id,
+    ...(turnId ? { turnId } : {}),
+  };
 }
 
 function commandItem(id: string): ThreadStreamItem {

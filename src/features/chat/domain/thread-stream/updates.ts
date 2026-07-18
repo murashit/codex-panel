@@ -6,8 +6,7 @@ export function upsertThreadStreamItemById(items: readonly ThreadStreamItem[], n
   const index = items.findIndex((item) => item.id === next.id);
   if (index === -1) return [...items, next];
   const copy = [...items];
-  const previous = copy[index];
-  if (previous === undefined) return [...items];
+  const previous = items[index] as ThreadStreamItem;
   copy[index] = {
     ...previous,
     ...next,
@@ -20,7 +19,7 @@ export function upsertThreadStreamItemById(items: readonly ThreadStreamItem[], n
 function mergeOutput(previous: ThreadStreamItem, next: ThreadStreamItem): string | undefined {
   const previousOutput = "output" in previous ? previous.output : undefined;
   const nextOutput = "output" in next ? next.output : undefined;
-  return nextOutput && nextOutput.length > 0 ? nextOutput : previousOutput;
+  return nextOutput || previousOutput;
 }
 
 function mergeChanges(previous: ThreadStreamItem, next: ThreadStreamItem): readonly ThreadStreamFileChange[] | undefined {
