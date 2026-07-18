@@ -216,4 +216,37 @@ describe("turn context manifest trust matching", () => {
   it("does not trust a valid manifest when the client ID is not a Panel submission ID", () => {
     expect(projectedManifest(validManifest(), "local-user")).toMatchObject({ manifest: null });
   });
+
+  it.each([
+    ["the first and only text item", [{ type: "text", text: `\n${turnContextManifestText(validManifest())}` }]],
+    [
+      "a middle text item with a later text item",
+      [
+        { type: "text", text: "visible request" },
+        { type: "text", text: `\n${turnContextManifestText(validManifest())}` },
+        { type: "text", text: "later request" },
+      ],
+    ],
+    [
+      "a final text item without the required leading newline",
+      [
+        { type: "text", text: "visible request" },
+        { type: "text", text: turnContextManifestText(validManifest()) },
+      ],
+    ],
+    [
+      "a text item followed by a non-text item",
+      [
+        { type: "text", text: "visible request" },
+        { type: "text", text: `\n${turnContextManifestText(validManifest())}` },
+        { type: "image" },
+      ],
+    ],
+  ])("keeps valid manifest-like content visible when it is %s", (_label, content) => {
+    const projection = userMessageContextProjection(content, SUBMISSION_ID);
+    const manifestText = turnContextManifestText(validManifest());
+
+    expect(projection.manifest).toBeNull();
+    expect(projection.text).toContain(manifestText);
+  });
 });
