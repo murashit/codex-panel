@@ -8,6 +8,11 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: {
+      exclude: ["src/generated/**"],
+      include: ["src/**/*.{ts,tsx}"],
+      reporter: ["text", "html"],
+    },
     environment: "node",
     globals: false,
     server: {

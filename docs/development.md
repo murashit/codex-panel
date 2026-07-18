@@ -8,11 +8,14 @@ Use this document for day-to-day implementation mechanics: commands, generated f
 npm ci
 npm run fix
 npm run check
+npm run test:coverage
 ```
 
 Use the Node.js version in `.node-version`.
 
 Use `npm run fix` for mechanical cleanup, review its diff, and run `npm run check` before handoff.
+
+Use `npm run test:coverage` to identify source modules and branches that lack exercised behavior. It reports every authored TypeScript source file, including files not imported by tests, while excluding generated app-server bindings. Open `coverage/index.html` to inspect line-level gaps. Coverage is diagnostic and has no pass/fail threshold; prioritize user-visible behavior and state-transition invariants rather than raising the aggregate percentage.
 
 ## Commit Messages
 
