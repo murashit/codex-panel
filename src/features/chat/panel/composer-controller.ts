@@ -26,7 +26,7 @@ import {
 } from "../application/composer/suggestions";
 import {
   type PreparedComposerInput,
-  preparedUserInputWithWikiLinkMentionsSkillsAndContext,
+  preparedUserInputWithWikiLinkReferencesSkillsAndContext,
 } from "../application/composer/wikilink-context";
 import { activePanelOperationDecision } from "../application/panel-operation-policy";
 import { activeThreadState, type ChatAction, type ChatState, panelThreadId } from "../application/state/root-reducer";
@@ -181,9 +181,9 @@ export class ChatComposerController {
   }
 
   preparedInput(text: string, snapshot: ComposerInputSnapshot = this.captureInputSnapshot()): PreparedComposerInput {
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
-      (target) => this.options.noteCandidateProvider.resolveMention(target, snapshot.sourcePath),
+      (target) => this.options.noteCandidateProvider.resolveFileReference(target, snapshot.sourcePath),
       snapshot.availableSkills,
       this.contextReferencesFromSnapshot(snapshot, text),
       { referenceActiveNoteOnSend: snapshot.referenceActiveNoteOnSend },

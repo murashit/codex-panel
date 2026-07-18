@@ -13,7 +13,7 @@ describe("optimistic turn start helpers", () => {
   it("builds optimistic turn starts from immutable input snapshots", () => {
     const input = [
       { type: "text" as const, text: "hello [[Note]]" },
-      { type: "mention" as const, name: "Note", path: "Note.md" },
+      { type: "fileReference" as const, name: "Note", path: "Note.md" },
     ];
 
     const start = optimisticTurnStart({ id: "local-user", text: "hello [[Note]]", codexInput: input });
@@ -25,13 +25,13 @@ describe("optimistic turn start helpers", () => {
       dialogueKind: "user",
       role: "user",
       text: "hello [[Note]]",
-      mentionedFiles: [{ name: "Note", path: "Note.md" }],
+      referencedFiles: [{ name: "Note", path: "Note.md" }],
     });
 
     expect(localUserDialogueItemFromInput({ id: "steer", text: "hello [[Note]]", turnId: "turn", codexInput: input })).toMatchObject({
       id: "steer",
       turnId: "turn",
-      mentionedFiles: [{ name: "Note", path: "Note.md" }],
+      referencedFiles: [{ name: "Note", path: "Note.md" }],
     });
   });
 
@@ -39,7 +39,7 @@ describe("optimistic turn start helpers", () => {
     const text = "Read [[Note]].";
     const input = [
       { type: "text" as const, text },
-      { type: "mention" as const, name: "Note", path: "Note.md" },
+      { type: "fileReference" as const, name: "Note", path: "Note.md" },
       {
         type: "additionalContext" as const,
         key: "codex_panel_obsidian_context",
@@ -51,7 +51,7 @@ describe("optimistic turn start helpers", () => {
     expect(localUserDialogueItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
       text,
       copyText: text,
-      mentionedFiles: [{ name: "Note", path: "Note.md" }],
+      referencedFiles: [{ name: "Note", path: "Note.md" }],
     });
   });
 
@@ -73,17 +73,17 @@ describe("optimistic turn start helpers", () => {
     });
   });
 
-  it("keeps active file mentions visible even when the same file is mentioned explicitly", () => {
+  it("keeps active file references visible even when the same file is referenced explicitly", () => {
     const text = "Read [[Note]].";
     const input = [
       { type: "text" as const, text },
-      { type: "mention" as const, name: "Note", path: "Note.md" },
-      { type: "mention" as const, name: "Note duplicate", path: "Note.md" },
-      { type: "mention" as const, name: "<active>", path: "Note.md" },
+      { type: "fileReference" as const, name: "Note", path: "Note.md" },
+      { type: "fileReference" as const, name: "Note duplicate", path: "Note.md" },
+      { type: "fileReference" as const, name: "<active>", path: "Note.md" },
     ];
 
     expect(localUserDialogueItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
-      mentionedFiles: [
+      referencedFiles: [
         { name: "Note", path: "Note.md" },
         { name: "Active file", path: "Note.md" },
       ],

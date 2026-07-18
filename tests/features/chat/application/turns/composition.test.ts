@@ -74,7 +74,7 @@ describe("createTurnWorkflowActions", () => {
       text,
       input: [
         { type: "text", text },
-        { type: "mention", name: "unexpected", path: "notes/Alpha.md" },
+        { type: "fileReference", name: "unexpected", path: "notes/Alpha.md" },
       ],
     }));
     const actions = createTurnWorkflowActions(

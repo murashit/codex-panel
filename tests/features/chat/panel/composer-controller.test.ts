@@ -488,7 +488,7 @@ describe("ChatComposerController", () => {
     expect(composer(parent).value).toBe("![[Codex Attachments/diagram.png]]");
     expect(controller.preparedInput(composer(parent).value).input).toEqual([
       { type: "text", text: "![[Codex Attachments/diagram.png]]" },
-      { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },
+      { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
       { type: "localImage", path: "Codex Attachments/diagram.png" },
     ]);
   });
@@ -660,12 +660,12 @@ describe("ChatComposerController", () => {
     expect(controller.draft).toBe(originalDraft);
     expect(controller.preparedInput(`Inspect ${marker}`, snapshot).input).toEqual([
       { type: "text", text: `Inspect ${marker}` },
-      { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },
+      { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
       { type: "localImage", path: "Codex Attachments/diagram.png" },
     ]);
     expect(controller.preparedInput(`Inspect ${marker}`, restoredSnapshot).input).toEqual([
       { type: "text", text: `Inspect ${marker}` },
-      { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },
+      { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
       { type: "localImage", path: "Codex Attachments/diagram.png" },
     ]);
   });
@@ -997,7 +997,7 @@ describe("ChatComposerController", () => {
     expect(controller.captureInputSnapshot().attachments).toEqual([]);
   });
 
-  it("saves dropped non-image files, inserts a wikilink, and sends a file mention", async () => {
+  it("saves dropped non-image files, inserts a wikilink, and sends a file reference", async () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
@@ -1046,7 +1046,7 @@ describe("ChatComposerController", () => {
     expect(composer(parent).value).toBe("[[Codex Attachments/paper.pdf]]");
     expect(controller.preparedInput(composer(parent).value).input).toEqual([
       { type: "text", text: "[[Codex Attachments/paper.pdf]]" },
-      { type: "mention", name: "paper", path: "Codex Attachments/paper.pdf" },
+      { type: "fileReference", name: "paper", path: "Codex Attachments/paper.pdf" },
     ]);
   });
 
@@ -1063,7 +1063,7 @@ describe("ChatComposerController", () => {
       renderComposerController(parent, controller, stateStore);
     });
     controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider({ resolveMention: () => null }),
+      noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
       contextReferenceProvider: contextProvider(() => references),
       sourcePath: () => "Inbox.md",
       stateStore,
@@ -1095,14 +1095,14 @@ describe("ChatComposerController", () => {
 
     expect(completedActiveNoteReference).toBe("[[Alpha]]");
     expect(controller.preparedInput(completedActiveNoteReference).input).toContainEqual({
-      type: "mention",
+      type: "fileReference",
       name: "Alpha",
       path: "notes/Alpha.md",
     });
 
     controller.setDraft("", { clearSuggestions: true });
     expect(controller.preparedInput(completedActiveNoteReference, snapshot).input).toContainEqual({
-      type: "mention",
+      type: "fileReference",
       name: "Alpha",
       path: "notes/Alpha.md",
     });
@@ -1115,7 +1115,7 @@ describe("ChatComposerController", () => {
       selection: null,
     };
     const controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider({ resolveMention: () => null }),
+      noteCandidateProvider: noteProvider({ resolveFileReference: () => null }),
       contextReferenceProvider: contextProvider(() => references),
       sourcePath: () => "Inbox.md",
       stateStore,
@@ -1143,7 +1143,7 @@ describe("ChatComposerController", () => {
 
     expect(controller.preparedInput("Rewrite intro", snapshot).input).toEqual([
       { type: "text", text: "Rewrite intro" },
-      { type: "mention", name: "<active>", path: "notes/Alpha.md" },
+      { type: "fileReference", name: "<active>", path: "notes/Alpha.md" },
       {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
@@ -1173,7 +1173,7 @@ describe("ChatComposerController", () => {
     });
     controller = new ChatComposerController({
       noteCandidateProvider: noteProvider({
-        resolveMention: (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
+        resolveFileReference: (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
       }),
       contextReferenceProvider: contextProvider(() => references),
       sourcePath: () => "",
@@ -1429,7 +1429,7 @@ function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandi
     candidates: () => [],
     dailyNoteReferences: () => [],
     tags: () => [],
-    resolveMention: () => null,
+    resolveFileReference: () => null,
     dispose: vi.fn(),
     ...overrides,
   };

@@ -1,11 +1,12 @@
 import { parseLinktext } from "obsidian";
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import {
-  ACTIVE_FILE_MENTION_NAME,
+  ACTIVE_FILE_REFERENCE_NAME,
   type CodexInput,
-  codexTextInputWithMentions,
+  codexTextInputWithReferences,
   type RequestAdditionalContext,
-  type RequestMention,
+  type SkillReference,
+  type VaultFileReference,
 } from "../../../../domain/chat/input";
 import {
   type ActiveNoteContextReference,
@@ -27,7 +28,7 @@ interface ObsidianReference {
   excerpt?: string;
 }
 
-export type WikiLinkMentionResolver = (target: string) => { name: string; path: string } | null;
+export type WikiLinkFileReferenceResolver = (target: string) => VaultFileReference | null;
 
 const OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY = "codex_panel_obsidian_context";
 const WIKILINK_PATTERN = /\[\[([^\]\n]+?)\]\]/g;
@@ -59,39 +60,39 @@ function parsedWikiLinks(text: string): ParsedWikiLink[] {
   return links;
 }
 
-export function preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   text: string,
-  resolveMention: WikiLinkMentionResolver,
+  resolveFileReference: WikiLinkFileReferenceResolver,
   skills: readonly SkillMetadata[],
   contextReferences: ComposerContextReferences,
   options: PreparedComposerInputOptions,
 ): PreparedComposerInput {
   const contextReplacement = textWithContextReferences(text, contextReferences);
   const resolvedText = contextReplacement.text;
-  const mentions: RequestMention[] = [];
+  const fileReferences: VaultFileReference[] = [];
   const wikilinkReferences: ObsidianReference[] = [];
   const seenPaths = new Set<string>();
   const activeNoteSnapshots = contextReferences.activeNoteSnapshots ?? [];
 
   for (const link of parsedWikiLinks(resolvedText)) {
-    const mention = activeNoteMentionForLink(link, activeNoteSnapshots) ?? resolveMention(link.target);
-    if (!mention || seenPaths.has(mention.path)) continue;
-    seenPaths.add(mention.path);
-    mentions.push(mention);
-    wikilinkReferences.push({ marker: `[[${link.raw}]]`, path: mention.path });
+    const fileReference = activeNoteFileReferenceForLink(link, activeNoteSnapshots) ?? resolveFileReference(link.target);
+    if (!fileReference || seenPaths.has(fileReference.path)) continue;
+    seenPaths.add(fileReference.path);
+    fileReferences.push(fileReference);
+    wikilinkReferences.push({ marker: `[[${link.raw}]]`, path: fileReference.path });
   }
 
   for (const selection of contextReplacement.selections) {
     if (seenPaths.has(selection.path)) continue;
     seenPaths.add(selection.path);
-    mentions.push({ name: selection.name, path: selection.path });
+    fileReferences.push({ name: selection.name, path: selection.path });
   }
 
   const attachedActiveNote = options.referenceActiveNoteOnSend ? contextReferences.activeNote : null;
-  if (attachedActiveNote) mentions.push({ name: ACTIVE_FILE_MENTION_NAME, path: attachedActiveNote.path });
+  if (attachedActiveNote) fileReferences.push({ name: ACTIVE_FILE_REFERENCE_NAME, path: attachedActiveNote.path });
 
   const skillByName = firstEnabledSkillByName(skills);
-  const resolvedSkills: RequestMention[] = [];
+  const resolvedSkills: SkillReference[] = [];
   const seenSkillPaths = new Set<string>();
   for (const reference of parsedSkillReferences(resolvedText)) {
     const skill = skillByName.get(reference.toLowerCase());
@@ -102,16 +103,16 @@ export function preparedUserInputWithWikiLinkMentionsSkillsAndContext(
 
   return {
     text: resolvedText,
-    input: codexTextInputWithMentions(
+    input: codexTextInputWithReferences(
       resolvedText,
-      mentions,
+      fileReferences,
       resolvedSkills,
       additionalContext(wikilinkReferences, contextReplacement.selections, attachedActiveNote),
     ),
   };
 }
 
-function activeNoteMentionForLink(link: ParsedWikiLink, snapshots: readonly ActiveNoteContextReference[]): RequestMention | null {
+function activeNoteFileReferenceForLink(link: ParsedWikiLink, snapshots: readonly ActiveNoteContextReference[]): VaultFileReference | null {
   const snapshot = snapshots.find((item) => link.raw.trim() === item.linktext && link.target === item.linktext);
   return snapshot ? { name: snapshot.name, path: snapshot.path } : null;
 }
@@ -160,7 +161,7 @@ function obsidianReferences(
   return [
     ...wikilinkReferences.filter((reference) => !selectedWikilinks.has(referenceKey(reference.marker, reference.path))),
     ...selectionReferences,
-    ...(activeNote ? [{ marker: ACTIVE_FILE_MENTION_NAME, path: activeNote.path }] : []),
+    ...(activeNote ? [{ marker: ACTIVE_FILE_REFERENCE_NAME, path: activeNote.path }] : []),
   ];
 }
 

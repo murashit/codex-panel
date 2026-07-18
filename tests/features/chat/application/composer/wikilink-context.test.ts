@@ -4,8 +4,8 @@ import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { CodexInput } from "../../../../../src/domain/chat/input";
 import { emptyComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
 import {
-  preparedUserInputWithWikiLinkMentionsSkillsAndContext,
-  type WikiLinkMentionResolver,
+  preparedUserInputWithWikiLinkReferencesSkillsAndContext,
+  type WikiLinkFileReferenceResolver,
 } from "../../../../../src/features/chat/application/composer/wikilink-context";
 
 const obsidianContext = (...sections: string[]) => ({
@@ -17,12 +17,12 @@ const obsidianContext = (...sections: string[]) => ({
 
 const wikilinkContext = (...mappings: string[]) => obsidianContext(...mappings);
 
-function userInputWithWikiLinkMentionsAndSkills(
+function userInputWithWikiLinkReferencesAndSkills(
   text: string,
-  resolveMention: WikiLinkMentionResolver,
+  resolveFileReference: WikiLinkFileReferenceResolver,
   skills: readonly SkillMetadata[],
 ): CodexInput {
-  return preparedUserInputWithWikiLinkMentionsSkillsAndContext(text, resolveMention, skills, emptyComposerContextReferences(), {
+  return preparedUserInputWithWikiLinkReferencesSkillsAndContext(text, resolveFileReference, skills, emptyComposerContextReferences(), {
     referenceActiveNoteOnSend: false,
   }).input;
 }
@@ -30,20 +30,20 @@ function userInputWithWikiLinkMentionsAndSkills(
 describe("wikilink context", () => {
   it("parses aliases, subpaths, and duplicate links", () => {
     const text = "See [[Alpha|label]], [[Beta#Heading]], [[Gamma^block]], and [[Alpha]].";
-    const input = userInputWithWikiLinkMentionsAndSkills(text, (target) => ({ name: target, path: `${target}.md` }), []);
+    const input = userInputWithWikiLinkReferencesAndSkills(text, (target) => ({ name: target, path: `${target}.md` }), []);
 
     expect(input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "Alpha", path: "Alpha.md" },
-      { type: "mention", name: "Beta", path: "Beta.md" },
-      { type: "mention", name: "Gamma", path: "Gamma.md" },
+      { type: "fileReference", name: "Alpha", path: "Alpha.md" },
+      { type: "fileReference", name: "Beta", path: "Beta.md" },
+      { type: "fileReference", name: "Gamma", path: "Gamma.md" },
       wikilinkContext("- [[Alpha|label]] -> Alpha.md", "- [[Beta#Heading]] -> Beta.md", "- [[Gamma^block]] -> Gamma.md"),
     ]);
   });
 
-  it("adds only resolved file mentions without changing the visible prompt body", () => {
+  it("adds only resolved file references without changing the visible prompt body", () => {
     const text = "Please compare [[Alpha#Heading|A]] and [[Missing]].";
-    const input = userInputWithWikiLinkMentionsAndSkills(
+    const input = userInputWithWikiLinkReferencesAndSkills(
       text,
       (target) => (target === "Alpha" ? { name: "Alpha", path: "thoughts/Alpha.md" } : null),
       [],
@@ -51,7 +51,7 @@ describe("wikilink context", () => {
 
     expect(input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
+      { type: "fileReference", name: "Alpha", path: "thoughts/Alpha.md" },
       wikilinkContext("- [[Alpha#Heading|A]] -> thoughts/Alpha.md"),
     ]);
     expect(input).toHaveLength(3);
@@ -59,23 +59,23 @@ describe("wikilink context", () => {
 
   it("resolves aliases and subpaths from non-markdown wikilinks by target", () => {
     const text = "Open [[Bases/Projects.base|Projects]], [[References/Paper.pdf]], and [[Assets/Diagram.png#crop|Diagram]].";
-    const input = userInputWithWikiLinkMentionsAndSkills(
+    const input = userInputWithWikiLinkReferencesAndSkills(
       text,
       (target) => {
-        const mentions = new Map([
+        const fileReferences = new Map([
           ["Bases/Projects.base", { name: "Projects", path: "Bases/Projects.base" }],
           ["References/Paper.pdf", { name: "Paper", path: "References/Paper.pdf" }],
           ["Assets/Diagram.png", { name: "Diagram", path: "Assets/Diagram.png" }],
         ]);
-        return mentions.get(target) ?? null;
+        return fileReferences.get(target) ?? null;
       },
       [],
     );
     expect(input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "Projects", path: "Bases/Projects.base" },
-      { type: "mention", name: "Paper", path: "References/Paper.pdf" },
-      { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
+      { type: "fileReference", name: "Projects", path: "Bases/Projects.base" },
+      { type: "fileReference", name: "Paper", path: "References/Paper.pdf" },
+      { type: "fileReference", name: "Diagram", path: "Assets/Diagram.png" },
       wikilinkContext(
         "- [[Bases/Projects.base|Projects]] -> Bases/Projects.base",
         "- [[References/Paper.pdf]] -> References/Paper.pdf",
@@ -84,9 +84,9 @@ describe("wikilink context", () => {
     ]);
   });
 
-  it("deduplicates mentions by resolved path", () => {
+  it("deduplicates file references by resolved path", () => {
     const text = "Read [[Alpha]], [[Alpha#Heading]], and [[Alias|A]].";
-    const input = userInputWithWikiLinkMentionsAndSkills(
+    const input = userInputWithWikiLinkReferencesAndSkills(
       text,
       (target) => (target === "Alpha" || target === "Alias" ? { name: "Alpha", path: "thoughts/Alpha.md" } : null),
       [],
@@ -94,14 +94,14 @@ describe("wikilink context", () => {
 
     expect(input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
+      { type: "fileReference", name: "Alpha", path: "thoughts/Alpha.md" },
       wikilinkContext("- [[Alpha]] -> thoughts/Alpha.md"),
     ]);
   });
 
   it("adds resolved skill input without changing the visible prompt body", () => {
     const text = "Please use $obsidian-codex-panel-maintain with [[Alpha]].";
-    const input = userInputWithWikiLinkMentionsAndSkills(
+    const input = userInputWithWikiLinkReferencesAndSkills(
       text,
       (target) => (target === "Alpha" ? { name: "Alpha", path: "thoughts/Alpha.md" } : null),
       [
@@ -117,7 +117,7 @@ describe("wikilink context", () => {
 
     expect(input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
+      { type: "fileReference", name: "Alpha", path: "thoughts/Alpha.md" },
       {
         type: "skill",
         name: "obsidian-codex-panel-maintain",
@@ -129,7 +129,7 @@ describe("wikilink context", () => {
 
   it("ignores unresolved skills and deduplicates resolved skills by path", () => {
     const text = "Use $First, $missing, $first, and $Alias.";
-    const input = userInputWithWikiLinkMentionsAndSkills(text, () => null, [
+    const input = userInputWithWikiLinkReferencesAndSkills(text, () => null, [
       {
         name: "First",
         description: "First skill",
@@ -168,7 +168,7 @@ describe("wikilink context", () => {
 
   it("leaves bare context references as raw text", () => {
     const text = "整理して @active and @selection";
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
       [],
@@ -190,7 +190,7 @@ describe("wikilink context", () => {
   });
 
   it("resolves completed active snapshots without depending on the current link context", () => {
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       "整理して [[Alpha]]",
       () => null,
       [],
@@ -202,12 +202,12 @@ describe("wikilink context", () => {
       { referenceActiveNoteOnSend: false },
     );
 
-    expect(prepared.input).toContainEqual({ type: "mention", name: "Alpha", path: "notes/Alpha.md" });
+    expect(prepared.input).toContainEqual({ type: "fileReference", name: "Alpha", path: "notes/Alpha.md" });
   });
 
   it("references the active file on send when enabled without changing visible text", () => {
     const text = "Rewrite the introduction.";
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       () => null,
       [],
@@ -221,7 +221,7 @@ describe("wikilink context", () => {
     expect(prepared.text).toBe(text);
     expect(prepared.input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "<active>", path: "notes/Alpha.md" },
+      { type: "fileReference", name: "<active>", path: "notes/Alpha.md" },
       {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
@@ -233,7 +233,7 @@ describe("wikilink context", () => {
 
   it("keeps wikilinks and active file in one Obsidian context when both are present", () => {
     const text = "Compare [[Beta]] with the active file.";
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       (target) => (target === "Beta" ? { name: "Beta", path: "notes/Beta.md" } : null),
       [],
@@ -247,8 +247,8 @@ describe("wikilink context", () => {
     expect(prepared.text).toBe(text);
     expect(prepared.input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "Beta", path: "notes/Beta.md" },
-      { type: "mention", name: "<active>", path: "notes/Alpha.md" },
+      { type: "fileReference", name: "Beta", path: "notes/Beta.md" },
+      { type: "fileReference", name: "<active>", path: "notes/Alpha.md" },
       {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
@@ -260,7 +260,7 @@ describe("wikilink context", () => {
 
   it("keeps wikilinks, selections, and active file in one Obsidian context", () => {
     const text = "Compare [[Beta]] with [[Gamma]] (L2:C1-L2:C6).";
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       (target) => {
         if (target === "Beta") return { name: "Beta", path: "notes/Beta.md" };
@@ -286,9 +286,9 @@ describe("wikilink context", () => {
 
     expect(prepared.input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "Beta", path: "notes/Beta.md" },
-      { type: "mention", name: "Gamma", path: "notes/Gamma.md" },
-      { type: "mention", name: "<active>", path: "notes/Alpha.md" },
+      { type: "fileReference", name: "Beta", path: "notes/Beta.md" },
+      { type: "fileReference", name: "Gamma", path: "notes/Gamma.md" },
+      { type: "fileReference", name: "<active>", path: "notes/Alpha.md" },
       {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
@@ -301,7 +301,7 @@ describe("wikilink context", () => {
   });
 
   it("attaches completed selection snapshots without depending on the current editor selection", () => {
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       "整理して [[notes/Alpha]] (L42:C5-L47:C1)",
       (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
       [],

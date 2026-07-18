@@ -1,4 +1,5 @@
-import { referencedThreadFromManifest, userMessageContextProjection } from "../../domain/chat/context-manifest";
+import { fileReferencesFromManifest, referencedThreadFromManifest, userMessageContextProjection } from "../../domain/chat/context-manifest";
+import type { VaultFileReference } from "../../domain/chat/input";
 import { type ReferencedThreadMetadata, referencedThreadMetadataFromPrompt } from "../../domain/threads/reference";
 import {
   nonEmptyTurnTranscriptSummaries,
@@ -65,6 +66,18 @@ export function turnUserItemProjection(item: Extract<TurnItem, { type: "userMess
   };
 }
 
+export function turnUserFileReferences(
+  item: Extract<TurnItem, { type: "userMessage" }>,
+  manifest: ReturnType<typeof userMessageContextProjection>["manifest"],
+): VaultFileReference[] {
+  const legacyReferences = item.content.flatMap((input) => {
+    if (input.type !== "mention") return [];
+    const reference = legacyPanelFileReference(input);
+    return reference ? [reference] : [];
+  });
+  return [...fileReferencesFromManifest(manifest), ...legacyReferences];
+}
+
 export function lastAgentMessageTextFromTurnRecord(turn: TurnRecord): string | null {
   for (let index = turn.items.length - 1; index >= 0; index -= 1) {
     const item = turn.items[index];
@@ -114,10 +127,19 @@ function nonTextUserInputText(content: Extract<TurnItem, { type: "userMessage" }
     .map((item) => {
       if (item.type === "localImage") return hasText && textIncludes(item.path) ? "" : `[local image] ${item.path}`;
       if (item.type === "image") return hasText && textIncludes(item.url) ? "" : `[image] ${item.url}`;
-      if (item.type === "mention") return hasText ? "" : `[@${item.name}] ${item.path}`;
+      if (item.type === "mention") {
+        if (hasText) return "";
+        const fileReference = legacyPanelFileReference(item);
+        return fileReference ? `[file] ${fileReference.path}` : `[@${item.name}] ${item.path}`;
+      }
       if (item.type === "skill") return hasText ? "" : `[$${item.name}] ${item.path}`;
       return "";
     })
     .filter(Boolean)
     .join("\n");
+}
+
+function legacyPanelFileReference(input: { name: string; path: string }): VaultFileReference | null {
+  if (!input.path || /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(input.path)) return null;
+  return { name: input.name, path: input.path };
 }

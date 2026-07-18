@@ -122,7 +122,7 @@ interface ThreadStreamDialogueBase extends ThreadStreamBase {
   readonly clientId?: string;
   readonly copyText?: string;
   readonly referencedThread?: ReferencedThreadMetadata;
-  readonly mentionedFiles?: readonly ThreadStreamFileMention[];
+  readonly referencedFiles?: readonly ThreadStreamFileReference[];
   readonly contextAttachments?: readonly ThreadStreamContextAttachment[];
 }
 
@@ -149,7 +149,7 @@ export type ThreadStreamDialogueItem =
   | AssistantResponseThreadStreamDialogueItem
   | ProposedPlanThreadStreamDialogueItem;
 
-export interface ThreadStreamFileMention {
+export interface ThreadStreamFileReference {
   readonly name: string;
   readonly path: string;
 }

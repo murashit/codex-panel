@@ -1,8 +1,8 @@
 import type { CodexInput } from "../../../../domain/chat/input";
 import { contextAttachmentsFromInput } from "../../domain/thread-stream/format/context-attachments";
-import { fileMentionsFromInput } from "../../domain/thread-stream/format/file-mentions";
+import { fileReferencesFromInput } from "../../domain/thread-stream/format/file-references";
 import { userMessageDisplayText } from "../../domain/thread-stream/format/user-message-text";
-import type { ThreadStreamDialogueItem, ThreadStreamFileMention, ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamDialogueItem, ThreadStreamFileReference, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { isLocalSteerDialogueClientId } from "../../domain/thread-stream/local-dialogue-ids";
 import type { ThreadStreamItemProvenance } from "../../domain/thread-stream/provenance";
 import { attachHookRunsToTurn } from "../../domain/thread-stream/updates";
@@ -16,7 +16,7 @@ interface LocalUserDialogueParams {
   copyText?: string;
   turnId?: string;
   referencedThread?: ThreadStreamDialogueItem["referencedThread"];
-  mentionedFiles?: readonly ThreadStreamFileMention[];
+  referencedFiles?: readonly ThreadStreamFileReference[];
   contextAttachments?: ThreadStreamDialogueItem["contextAttachments"];
 }
 
@@ -27,7 +27,7 @@ export interface OptimisticTurnStartAckParams {
   pendingTurnStart: PendingTurnStart | null;
 }
 
-export interface LocalUserDialogueFromInputParams extends Omit<LocalUserDialogueParams, "mentionedFiles"> {
+export interface LocalUserDialogueFromInputParams extends Omit<LocalUserDialogueParams, "referencedFiles"> {
   codexInput: CodexInput;
 }
 
@@ -52,7 +52,7 @@ export interface FailedTurnStartCleanupParams {
 }
 
 function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDialogueItem {
-  const mentionedFiles = params.mentionedFiles ?? [];
+  const referencedFiles = params.referencedFiles ?? [];
   const contextAttachments = params.contextAttachments ?? [];
   return {
     id: params.id,
@@ -65,7 +65,7 @@ function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDia
     ...(params.clientId ? { clientId: params.clientId } : {}),
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
-    ...(mentionedFiles.length > 0 ? { mentionedFiles: [...mentionedFiles] } : {}),
+    ...(referencedFiles.length > 0 ? { referencedFiles: [...referencedFiles] } : {}),
     ...(contextAttachments.length > 0 ? { contextAttachments: [...contextAttachments] } : {}),
   };
 }
@@ -88,7 +88,7 @@ export function localUserDialogueItemFromInput(params: LocalUserDialogueFromInpu
     copyText: params.text,
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
-    mentionedFiles: fileMentionsFromInput([...params.codexInput]),
+    referencedFiles: fileReferencesFromInput([...params.codexInput]),
     contextAttachments: contextAttachmentsFromInput(params.codexInput),
   });
 }

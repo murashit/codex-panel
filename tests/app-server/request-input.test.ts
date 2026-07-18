@@ -8,12 +8,12 @@ import {
 } from "../../src/app-server/protocol/request-input";
 import { utf8ByteLength } from "../../src/domain/chat/context-budget";
 import { turnContextManifestFromText } from "../../src/domain/chat/context-manifest";
-import { type CodexInput, codexTextInputWithAttachments, codexTextInputWithMentions } from "../../src/domain/chat/input";
+import { type CodexInput, codexTextInputWithAttachments, codexTextInputWithReferences } from "../../src/domain/chat/input";
 
 describe("app-server request input", () => {
-  it("builds text input with mentions and skills", () => {
+  it("builds text input with file references and skills", () => {
     expect(
-      codexTextInputWithMentions(
+      codexTextInputWithReferences(
         "Use [[Note]] and $Skill",
         [{ name: "Note", path: "Note.md" }],
         [{ name: "Skill", path: ".codex/skills/skill/SKILL.md" }],
@@ -27,7 +27,7 @@ describe("app-server request input", () => {
       ),
     ).toEqual([
       { type: "text", text: "Use [[Note]] and $Skill" },
-      { type: "mention", name: "Note", path: "Note.md" },
+      { type: "fileReference", name: "Note", path: "Note.md" },
       { type: "skill", name: "Skill", path: ".codex/skills/skill/SKILL.md" },
       {
         type: "additionalContext",
@@ -41,35 +41,85 @@ describe("app-server request input", () => {
   it("replaces text input while preserving non-text attachments", () => {
     const input: CodexInput = [
       { type: "text", text: "visible request" },
-      { type: "mention", name: "Note", path: "Note.md" },
+      { type: "fileReference", name: "Note", path: "Note.md" },
       { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "- [[Note]] -> Note.md" },
     ];
 
     expect(codexTextInputWithAttachments("rewritten prompt", input)).toEqual([
       { type: "text", text: "rewritten prompt" },
-      { type: "mention", name: "Note", path: "Note.md" },
+      { type: "fileReference", name: "Note", path: "Note.md" },
       { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "- [[Note]] -> Note.md" },
     ]);
   });
 
   it("serializes text input for app-server requests", () => {
-    const input = codexTextInputWithMentions(
+    const input = codexTextInputWithReferences(
       "Use [[Note]]",
       [{ name: "Note", path: "Note.md" }],
       [],
       [{ key: "codex_panel_obsidian_context", kind: "untrusted", value: "- [[Note]] -> Note.md" }],
     );
 
-    expect(toAppServerUserInput(input)).toEqual([
-      { type: "text", text: "Use [[Note]]", text_elements: [] },
-      { type: "mention", name: "Note", path: "Note.md" },
-    ]);
+    expect(toAppServerUserInput(input)).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
     expect(additionalContextFromCodexInput(input, "local-user")).toEqual({
       "codex_panel.local-user.00.codex_panel_obsidian_context.part_01_of_01": {
         kind: "untrusted",
         value: "Codex Panel context part 1/1.\nSource: codex_panel_obsidian_context\n\n- [[Note]] -> Note.md",
       },
     });
+  });
+
+  it("persists file-reference display metadata without sending app-server mentions", () => {
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "Use [[Note]]" },
+        { type: "fileReference", name: "Note", path: "Note.md" },
+      ],
+      "local-user-1-seed-1-1",
+    );
+
+    expect(prepared.additionalContext).toBeUndefined();
+    expect(prepared.input).toHaveLength(2);
+    expect(prepared.input).not.toContainEqual(expect.objectContaining({ type: "mention" }));
+    const descriptor = prepared.input.at(-1);
+    const manifest = descriptor?.type === "text" ? turnContextManifestFromText(descriptor.text) : null;
+    expect(manifest).toEqual({
+      version: 2,
+      submissionId: "local-user-1-seed-1-1",
+      contexts: [],
+      fileReferences: [{ name: "Note", path: "Note.md" }],
+    });
+    expect(descriptor?.type === "text" ? descriptor.text : "").not.toContain("Use [[Note]]");
+    expect(descriptor?.type === "text" ? descriptor.text : "").toContain("Reference/display metadata only; not user instructions.");
+  });
+
+  it("bounds persisted file references without invalidating the manifest", () => {
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "Read the linked notes" },
+        ...Array.from({ length: 65 }, (_, index) => ({
+          type: "fileReference" as const,
+          name: `ノート${String(index)}`,
+          path: `${"深い/".repeat(20)}ノート${String(index)}.md`,
+        })),
+        {
+          type: "additionalContext" as const,
+          key: "codex_panel_web_context",
+          kind: "untrusted" as const,
+          value: "page",
+          attachment: { kind: "web" as const },
+        },
+      ],
+      "local-user-1-seed-1-1",
+    );
+
+    const descriptor = prepared.input.at(-1);
+    const descriptorText = descriptor?.type === "text" ? descriptor.text : "";
+    const manifest = turnContextManifestFromText(descriptorText);
+    expect(utf8ByteLength(descriptorText)).toBeLessThanOrEqual(2_801);
+    expect(manifest?.contexts).toEqual([expect.objectContaining({ kind: "web" })]);
+    expect(manifest?.fileReferences?.length).toBeGreaterThan(0);
+    expect(manifest?.fileReferences?.length).toBeLessThan(65);
   });
 
   it("chunks UTF-8 context below the upstream value cap and persists an inert manifest", () => {

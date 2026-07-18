@@ -182,7 +182,7 @@ describe("submitComposer", () => {
       sendInput: [
         { type: "text", text: "https://example.com/ [[Note]]" },
         { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
-        { type: "mention", name: "Note", path: "Note.md" },
+        { type: "fileReference", name: "Note", path: "Note.md" },
       ],
     });
     sendTurnText.mockResolvedValue(false);
@@ -195,7 +195,7 @@ describe("submitComposer", () => {
       codexInputOverride: [
         { type: "text", text: "https://example.com/ [[Note]]" },
         { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
-        { type: "mention", name: "Note", path: "Note.md" },
+        { type: "fileReference", name: "Note", path: "Note.md" },
       ],
       preserveComposerContextOnFailure: true,
       pendingSubmissionId: expect.stringMatching(/^local-web-/),

@@ -12,8 +12,8 @@ import {
   parseSlashCommand,
 } from "../../../../../src/features/chat/application/composer/suggestions";
 import {
-  preparedUserInputWithWikiLinkMentionsSkillsAndContext,
-  type WikiLinkMentionResolver,
+  preparedUserInputWithWikiLinkReferencesSkillsAndContext,
+  type WikiLinkFileReferenceResolver,
 } from "../../../../../src/features/chat/application/composer/wikilink-context";
 
 function expectPresent<T>(value: T | null | undefined): T {
@@ -25,8 +25,12 @@ function wikiLinkSuggestions(query: string, notes: Parameters<typeof activeCompo
   return activeComposerSuggestions(`[[${query}`, notes, []);
 }
 
-function userInputWithWikiLinkMentionsAndSkills(text: string, resolveMention: WikiLinkMentionResolver, skills: readonly SkillMetadata[]) {
-  return preparedUserInputWithWikiLinkMentionsSkillsAndContext(text, resolveMention, skills, emptyComposerContextReferences(), {
+function userInputWithWikiLinkReferencesAndSkills(
+  text: string,
+  resolveFileReference: WikiLinkFileReferenceResolver,
+  skills: readonly SkillMetadata[],
+) {
+  return preparedUserInputWithWikiLinkReferencesSkillsAndContext(text, resolveFileReference, skills, emptyComposerContextReferences(), {
     referenceActiveNoteOnSend: false,
   }).input;
 }
@@ -178,10 +182,10 @@ describe("composer suggestions", () => {
     });
   });
 
-  it("keeps non-markdown wikilink completions compatible with mention parsing", () => {
+  it("keeps non-markdown wikilink completions compatible with file-reference parsing", () => {
     const suggestion = expectPresent(wikiLinkSuggestions("diagram", notes)[0]);
     const text = `Please inspect ${suggestion.replacement}`;
-    const input = userInputWithWikiLinkMentionsAndSkills(
+    const input = userInputWithWikiLinkReferencesAndSkills(
       text,
       (target) => (target === "Assets/Diagram.png" ? { name: "Diagram", path: "Assets/Diagram.png" } : null),
       [],
@@ -194,7 +198,7 @@ describe("composer suggestions", () => {
     });
     expect(input).toEqual([
       { type: "text", text },
-      { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
+      { type: "fileReference", name: "Diagram", path: "Assets/Diagram.png" },
       {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",

@@ -18,27 +18,33 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
         ? [
             [
               optimisticDialogueClientId(item),
-              { contextAttachments: item.contextAttachments, referencedThread: item.referencedThread },
+              {
+                contextAttachments: item.contextAttachments,
+                referencedFiles: item.referencedFiles,
+                referencedThread: item.referencedThread,
+              },
             ] as const,
           ]
         : [],
     ),
   );
   const serverHasUserDialogueClientIds = turnItems.some((item) => isUserDialogue(item) && item.clientId);
-  const contextAttachmentsByFallbackText = serverHasUserDialogueClientIds
-    ? new Map<string, ThreadStreamDialogueItem["contextAttachments"]>()
-    : fallbackContextAttachmentsByText(currentItems, completedTurnId);
+  const localMetadataByFallbackText = serverHasUserDialogueClientIds
+    ? new Map<string, LocalDialogueMetadata>()
+    : fallbackLocalMetadataByText(currentItems, completedTurnId);
   const turnItemsWithLocalContext = turnItems.map((item) => {
     if (!isUserDialogue(item)) return item;
     const localMetadata = item.clientId ? localMetadataByClientId.get(item.clientId) : undefined;
-    const contextAttachments =
-      item.contextAttachments ?? localMetadata?.contextAttachments ?? contextAttachmentsByFallbackText.get(item.copyText ?? item.text);
+    const fallbackMetadata = localMetadataByFallbackText.get(item.copyText ?? item.text);
+    const contextAttachments = item.contextAttachments ?? localMetadata?.contextAttachments ?? fallbackMetadata?.contextAttachments;
+    const referencedFiles = item.referencedFiles ?? localMetadata?.referencedFiles ?? fallbackMetadata?.referencedFiles;
     const referencedThread = item.referencedThread
       ? { ...item.referencedThread, ...(localMetadata?.referencedThread ? { title: localMetadata.referencedThread.title } : {}) }
       : localMetadata?.referencedThread;
     return {
       ...item,
       ...(contextAttachments ? { contextAttachments } : {}),
+      ...(referencedFiles ? { referencedFiles } : {}),
       ...(referencedThread ? { referencedThread } : {}),
     };
   });
@@ -71,17 +77,25 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
   return [...retainedItems, ...mergedTurnItems];
 }
 
-function fallbackContextAttachmentsByText(
+interface LocalDialogueMetadata {
+  contextAttachments?: ThreadStreamDialogueItem["contextAttachments"];
+  referencedFiles?: ThreadStreamDialogueItem["referencedFiles"];
+}
+
+function fallbackLocalMetadataByText(
   currentItems: readonly ThreadStreamItem[],
   completedTurnId: string,
-): Map<string, ThreadStreamDialogueItem["contextAttachments"]> {
-  const attachmentsByText = new Map<string, ThreadStreamDialogueItem["contextAttachments"]>();
+): Map<string, LocalDialogueMetadata> {
+  const metadataByText = new Map<string, LocalDialogueMetadata>();
   for (const item of currentItems) {
-    if (!isOptimisticUserDialogue(item) || !item.contextAttachments) continue;
+    if (!isOptimisticUserDialogue(item) || (!item.contextAttachments && !item.referencedFiles)) continue;
     if (item.turnId && item.turnId !== completedTurnId) continue;
-    attachmentsByText.set(item.copyText ?? item.text, item.contextAttachments);
+    metadataByText.set(item.copyText ?? item.text, {
+      contextAttachments: item.contextAttachments,
+      referencedFiles: item.referencedFiles,
+    });
   }
-  return attachmentsByText;
+  return metadataByText;
 }
 
 function isUserDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {

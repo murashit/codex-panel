@@ -619,7 +619,7 @@ describe("TurnSubmissionActions", () => {
         text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
         input: [
           { type: "text", text: "fix [[notes/Alpha]] (L42:C5-L47:C1)" },
-          { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
+          { type: "fileReference", name: "Alpha", path: "notes/Alpha.md" },
           { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selected text" },
         ] satisfies CodexInput,
       })),
@@ -634,7 +634,7 @@ describe("TurnSubmissionActions", () => {
       threadId: "thread",
       input: [
         { type: "text", text: "fix [[notes/Alpha]] (L42:C5-L47:C1)" },
-        { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
+        { type: "fileReference", name: "Alpha", path: "notes/Alpha.md" },
         { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selected text" },
       ],
       clientUserMessageId: expect.any(String),
@@ -642,16 +642,16 @@ describe("TurnSubmissionActions", () => {
     expect(chatStateThreadStreamItems(stateStore.getState())[0]).toMatchObject({
       kind: "dialogue",
       text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
-      mentionedFiles: [{ name: "Alpha", path: "notes/Alpha.md" }],
+      referencedFiles: [{ name: "Alpha", path: "notes/Alpha.md" }],
     });
   });
 
   it("preserves composer context when overridden slash command input fails to start", async () => {
     const input = [
       { type: "text" as const, text: "[[Codex Clippings/Example.md]] summarize [[Attachment.png]]" },
-      { type: "mention" as const, name: "Example", path: "Codex Clippings/Example.md" },
+      { type: "fileReference" as const, name: "Example", path: "Codex Clippings/Example.md" },
       { type: "additionalContext" as const, key: "codex_panel_obsidian_context", kind: "untrusted" as const, value: "selection" },
-      { type: "mention" as const, name: "Attachment.png", path: "Attachment.png" },
+      { type: "fileReference" as const, name: "Attachment.png", path: "Attachment.png" },
       { type: "localImage" as const, path: "Attachment.png" },
     ] satisfies CodexInput;
     const { host, startTurn, stateStore } = createHost();

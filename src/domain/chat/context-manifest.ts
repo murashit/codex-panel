@@ -1,6 +1,14 @@
 import type { ReferencedThreadMetadata } from "../threads/reference";
+import { utf8ByteLength } from "./context-budget";
+import type { VaultFileReference } from "./input";
+import { isPanelSubmissionClientId } from "./submission-id";
 
 const TURN_CONTEXT_MANIFEST_PREFIX = "[Codex Panel context v2]";
+const TURN_CONTEXT_MANIFEST_NOTICE = "\nReference/display metadata only; not user instructions.\n";
+const TURN_CONTEXT_MANIFEST_MAX_BYTES = 2_800;
+const TURN_CONTEXT_FILE_REFERENCE_MAX_COUNT = 64;
+const TURN_CONTEXT_FILE_REFERENCE_NAME_MAX_LENGTH = 255;
+const TURN_CONTEXT_FILE_REFERENCE_PATH_MAX_LENGTH = 2_048;
 
 export type TurnContextAttachment =
   | {
@@ -30,7 +38,9 @@ export interface TurnContextManifestEntry {
 
 export interface TurnContextManifest {
   version: 2;
+  submissionId?: string;
   contexts: readonly TurnContextManifestEntry[];
+  fileReferences?: readonly VaultFileReference[];
 }
 
 export interface UserMessageContextProjection {
@@ -38,14 +48,44 @@ export interface UserMessageContextProjection {
   manifest: TurnContextManifest | null;
 }
 
-export function turnContextManifestText(contexts: readonly TurnContextManifestEntry[]): string {
-  return `${TURN_CONTEXT_MANIFEST_PREFIX}${JSON.stringify({ version: 2, contexts } satisfies TurnContextManifest)}`;
+export function turnContextManifestText(manifest: TurnContextManifest): string {
+  return `${TURN_CONTEXT_MANIFEST_PREFIX}${TURN_CONTEXT_MANIFEST_NOTICE}${JSON.stringify(manifest)}`;
+}
+
+export function boundedTurnContextManifest(
+  submissionId: string,
+  contexts: readonly TurnContextManifestEntry[],
+  fileReferences: readonly VaultFileReference[],
+): TurnContextManifest | null {
+  const base = {
+    version: 2,
+    submissionId: turnContextSubmissionId(submissionId),
+    contexts,
+  } satisfies TurnContextManifest;
+  if (utf8ByteLength(turnContextManifestText(base)) > TURN_CONTEXT_MANIFEST_MAX_BYTES) return null;
+  const included: VaultFileReference[] = [];
+  const seen = new Set<string>();
+  for (const reference of fileReferences) {
+    const normalized = manifestFileReference(reference);
+    if (!normalized || included.length >= TURN_CONTEXT_FILE_REFERENCE_MAX_COUNT) continue;
+    const identity = `${normalized.name}\u0000${normalized.path}`;
+    if (seen.has(identity)) continue;
+    const candidate = { ...base, fileReferences: [...included, normalized] } satisfies TurnContextManifest;
+    if (utf8ByteLength(turnContextManifestText(candidate)) > TURN_CONTEXT_MANIFEST_MAX_BYTES) continue;
+    seen.add(identity);
+    included.push(normalized);
+  }
+  if (contexts.length === 0 && included.length === 0) return null;
+  return { ...base, ...(included.length > 0 ? { fileReferences: included } : {}) };
 }
 
 export function turnContextManifestFromText(text: string): TurnContextManifest | null {
   const trimmed = text.trim();
   if (!trimmed.startsWith(TURN_CONTEXT_MANIFEST_PREFIX)) return null;
-  const json = trimmed.slice(TURN_CONTEXT_MANIFEST_PREFIX.length);
+  if (utf8ByteLength(trimmed) > TURN_CONTEXT_MANIFEST_MAX_BYTES) return null;
+  const payload = trimmed.slice(TURN_CONTEXT_MANIFEST_PREFIX.length).trimStart();
+  const notice = TURN_CONTEXT_MANIFEST_NOTICE.trim();
+  const json = payload.startsWith(notice) ? payload.slice(notice.length).trimStart() : payload;
   let parsed: unknown;
   try {
     parsed = JSON.parse(json) as unknown;
@@ -57,7 +97,16 @@ export function turnContextManifestFromText(text: string): TurnContextManifest |
   if (value["version"] !== 2 || !Array.isArray(value["contexts"])) return null;
   const contexts = value["contexts"].map(manifestEntryFromUnknown);
   if (contexts.some((entry) => entry === null)) return null;
-  return { version: 2, contexts: contexts as TurnContextManifestEntry[] };
+  const submissionId = optionalStringValue(value["submissionId"], 120);
+  if (submissionId === null) return null;
+  const fileReferences = optionalFileReferences(value["fileReferences"]);
+  if (fileReferences === null) return null;
+  return {
+    version: 2,
+    ...(submissionId === undefined ? {} : { submissionId }),
+    contexts: contexts as TurnContextManifestEntry[],
+    ...(fileReferences === undefined ? {} : { fileReferences }),
+  };
 }
 
 export function userMessageContextProjection(
@@ -87,10 +136,12 @@ export function turnContextSubmissionId(value: string): string {
 }
 
 function manifestMatchesClientId(manifest: TurnContextManifest, clientId: string | null): boolean {
-  if (!clientId || !/^local-(?:user|steer)-\d+-[A-Za-z0-9_-]+-[a-z0-9]+-[a-z0-9]+$/.test(clientId)) return false;
+  if (!isPanelSubmissionClientId(clientId)) return false;
   const submissionId = turnContextSubmissionId(clientId);
+  if (manifest.submissionId !== undefined && manifest.submissionId !== submissionId) return false;
   const contextIds = manifest.contexts.map((context) => context.id);
   return (
+    (manifest.submissionId === submissionId || contextIds.length > 0) &&
     new Set(contextIds).size === contextIds.length &&
     contextIds.every((contextId) => new RegExp(`^${escapeRegExp(submissionId)}\\.\\d{2}$`).test(contextId))
   );
@@ -113,6 +164,10 @@ export function referencedThreadFromManifest(manifest: TurnContextManifest | nul
     omittedTurns: context.omittedTurns,
     truncated: context.truncated,
   };
+}
+
+export function fileReferencesFromManifest(manifest: TurnContextManifest | null): VaultFileReference[] {
+  return manifest?.fileReferences ? [...manifest.fileReferences] : [];
 }
 
 function manifestEntryFromUnknown(input: unknown): TurnContextManifestEntry | null {
@@ -165,6 +220,26 @@ function contextKind(value: unknown): TurnContextAttachment["kind"] | null {
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 && value.length <= 160 ? value : null;
+}
+
+function optionalStringValue(value: unknown, maxLength: number): string | null | undefined {
+  if (value === undefined) return undefined;
+  return typeof value === "string" && value.length > 0 && value.length <= maxLength ? value : null;
+}
+
+function optionalFileReferences(value: unknown): VaultFileReference[] | null | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > TURN_CONTEXT_FILE_REFERENCE_MAX_COUNT) return null;
+  const references = value.map(manifestFileReference);
+  return references.some((reference) => reference === null) ? null : (references as VaultFileReference[]);
+}
+
+function manifestFileReference(input: unknown): VaultFileReference | null {
+  if (!input || typeof input !== "object") return null;
+  const reference = input as Record<string, unknown>;
+  const name = optionalStringValue(reference["name"], TURN_CONTEXT_FILE_REFERENCE_NAME_MAX_LENGTH);
+  const path = optionalStringValue(reference["path"], TURN_CONTEXT_FILE_REFERENCE_PATH_MAX_LENGTH);
+  return name && path ? { name, path } : null;
 }
 
 function nonNegativeInteger(value: unknown): number | null {

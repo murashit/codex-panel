@@ -41,9 +41,9 @@ describe("web context reader", () => {
     const inputSnapshot = { sourcePath: "source.md" } as ComposerInputSnapshot;
     const messageInput = [
       { type: "text" as const, text: "Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]" },
-      { type: "mention" as const, name: "Alpha", path: "Notes/Alpha.md" },
+      { type: "fileReference" as const, name: "Alpha", path: "Notes/Alpha.md" },
       { type: "additionalContext" as const, key: "codex_panel_obsidian_context", kind: "untrusted" as const, value: "selection" },
-      { type: "mention" as const, name: "Sketch.png", path: "Files/Sketch.png" },
+      { type: "fileReference" as const, name: "Sketch.png", path: "Files/Sketch.png" },
       { type: "localImage" as const, path: "Files/Sketch.png" },
     ] satisfies CodexInput;
     const prepareInput = vi.fn(() => ({
@@ -70,9 +70,9 @@ describe("web context reader", () => {
           value: "Web page context for the current user input:\nSource: https://example.com/article\nTitle: Example\n\nReadable article",
           attachment: { kind: "web" },
         },
-        { type: "mention", name: "Alpha", path: "Notes/Alpha.md" },
+        { type: "fileReference", name: "Alpha", path: "Notes/Alpha.md" },
         { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selection" },
-        { type: "mention", name: "Sketch.png", path: "Files/Sketch.png" },
+        { type: "fileReference", name: "Sketch.png", path: "Files/Sketch.png" },
         { type: "localImage", path: "Files/Sketch.png" },
       ],
     });

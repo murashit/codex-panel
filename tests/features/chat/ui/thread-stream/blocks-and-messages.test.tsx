@@ -1057,7 +1057,7 @@ describe("thread stream rendering and action menu", () => {
     expect(user.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.getAttribute("title")).toBeNull();
   });
 
-  it("renders resolved file mentions as a collapsed user dialogue attachment", () => {
+  it("renders resolved file references as a collapsed user dialogue attachment", () => {
     const blocks = threadStreamBlocks({
       items: [
         {
@@ -1067,7 +1067,7 @@ describe("thread stream rendering and action menu", () => {
           role: "user",
           text: "Read [[Alpha]].",
           copyText: "Read [[Alpha]].",
-          mentionedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
+          referencedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
         },
       ],
     });
@@ -1092,7 +1092,7 @@ describe("thread stream rendering and action menu", () => {
           role: "user",
           text: "https://example.com/ summarize this",
           copyText: "https://example.com/ summarize this",
-          mentionedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
+          referencedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
           contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
         },
       ],

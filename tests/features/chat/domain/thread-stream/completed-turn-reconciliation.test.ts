@@ -38,6 +38,23 @@ describe("reconcileCompletedTurnItems", () => {
     ]);
   });
 
+  it("keeps local file-reference metadata without sending it through app-server", () => {
+    const optimistic = {
+      ...userDialogue("local-user-1", "Read [[Note]].", "turn", "local-user-1"),
+      referencedFiles: [{ name: "Note", path: "Note.md" }],
+    } satisfies ThreadStreamItem;
+    const server = userDialogue("u1", "Read [[Note]].", "turn", "local-user-1");
+
+    const next = reconcileCompletedTurnItems({ currentItems: [optimistic], completedTurnId: "turn", turnItems: [server] });
+
+    expect(next).toEqual([
+      expect.objectContaining({
+        id: "u1",
+        referencedFiles: [{ name: "Note", path: "Note.md" }],
+      }),
+    ]);
+  });
+
   it("keeps the optimistic reference title while accepting server truncation metadata", () => {
     const optimistic = {
       ...userDialogue("local-user-1", "continue", "turn", "local-user-1"),

@@ -1,6 +1,12 @@
 import { splitUtf8Context, utf8ByteLength } from "../../domain/chat/context-budget";
-import { type TurnContextManifestEntry, turnContextManifestText, turnContextSubmissionId } from "../../domain/chat/context-manifest";
-import type { CodexInputItem } from "../../domain/chat/input";
+import {
+  boundedTurnContextManifest,
+  type TurnContextManifest,
+  type TurnContextManifestEntry,
+  turnContextManifestText,
+  turnContextSubmissionId,
+} from "../../domain/chat/context-manifest";
+import type { CodexInputItem, VaultFileReference } from "../../domain/chat/input";
 
 type AppServerUserInputImageDetail = "auto" | "low" | "high" | "original";
 
@@ -8,8 +14,7 @@ type AppServerUserInput =
   | { type: "text"; text: string; text_elements: [] }
   | { type: "image"; detail?: AppServerUserInputImageDetail; url: string }
   | { type: "localImage"; detail?: AppServerUserInputImageDetail; path: string }
-  | { type: "skill"; name: string; path: string }
-  | { type: "mention"; name: string; path: string };
+  | { type: "skill"; name: string; path: string };
 
 interface AppServerAdditionalContextEntry {
   value: string;
@@ -24,12 +29,9 @@ export interface AppServerTurnInput {
 export const ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES = 2_800;
 export const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
 
-export function toAppServerUserInput(
-  input: readonly CodexInputItem[],
-  manifest: readonly TurnContextManifestEntry[] = [],
-): AppServerUserInput[] {
+export function toAppServerUserInput(input: readonly CodexInputItem[], manifest: TurnContextManifest | null = null): AppServerUserInput[] {
   const userInput = input.flatMap((item) => appServerUserInputItemFromCodexInputItem(item));
-  if (manifest.length > 0) {
+  if (manifest) {
     userInput.push({ type: "text", text: `\n${turnContextManifestText(manifest)}`, text_elements: [] });
   }
   return userInput;
@@ -45,6 +47,9 @@ export function additionalContextFromCodexInput(
 export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[], submissionId: string): AppServerTurnInput {
   const additionalContext: Record<string, AppServerAdditionalContextEntry> = {};
   const manifest: TurnContextManifestEntry[] = [];
+  const fileReferences = input.flatMap((item): VaultFileReference[] =>
+    item.type === "fileReference" && item.name && item.path ? [{ name: item.name, path: item.path }] : [],
+  );
   const contexts = input.filter(
     (item): item is Extract<CodexInputItem, { type: "additionalContext" }> =>
       item.type === "additionalContext" && Boolean(item.key) && Boolean(item.value),
@@ -79,8 +84,9 @@ export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[
       manifest.push(manifestEntry(item, id, partCount, sourceBytes, split.includedBytes));
     }
   }
+  const persistedManifest = boundedTurnContextManifest(submissionId, manifest, fileReferences);
   return {
-    input: toAppServerUserInput(input, manifest),
+    input: toAppServerUserInput(input, persistedManifest),
     ...(Object.keys(additionalContext).length > 0 ? { additionalContext } : {}),
   };
 }
@@ -109,8 +115,8 @@ function appServerUserInputItemFromCodexInputItem(item: CodexInputItem): AppServ
       return [{ type: "localImage", path: item.path, ...appServerImageDetailProp(item.detail) }];
     case "skill":
       return [{ type: "skill", name: item.name, path: item.path }];
-    case "mention":
-      return [{ type: "mention", name: item.name, path: item.path }];
+    case "fileReference":
+      return [];
     case "additionalContext":
       return [];
   }

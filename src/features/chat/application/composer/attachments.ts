@@ -1,4 +1,9 @@
-import { type CodexInput, type CodexInputItem, codexTextInputWithAttachments, type RequestMention } from "../../../../domain/chat/input";
+import {
+  type CodexInput,
+  type CodexInputItem,
+  codexTextInputWithAttachments,
+  type VaultFileReference,
+} from "../../../../domain/chat/input";
 
 type ComposerAttachmentKind = "image" | "file";
 
@@ -21,14 +26,14 @@ export function codexInputWithComposerAttachments(text: string, input: CodexInpu
 }
 
 function inputItemsForAttachments(input: readonly CodexInputItem[], attachments: readonly ComposerAttachment[]): CodexInputItem[] {
-  const seenMentionPaths = new Set(input.flatMap((item) => (item.type === "mention" ? [item.path] : [])));
+  const seenFileReferencePaths = new Set(input.flatMap((item) => (item.type === "fileReference" ? [item.path] : [])));
   const seenLocalImagePaths = new Set(input.flatMap((item) => (item.type === "localImage" ? [item.path] : [])));
   const items: CodexInputItem[] = [];
 
   for (const attachment of attachments) {
-    if (!seenMentionPaths.has(attachment.path)) {
-      seenMentionPaths.add(attachment.path);
-      items.push(mentionInputItem(attachment));
+    if (!seenFileReferencePaths.has(attachment.path)) {
+      seenFileReferencePaths.add(attachment.path);
+      items.push(fileReferenceInputItem(attachment));
     }
     if (attachment.kind === "image" && !seenLocalImagePaths.has(attachment.path)) {
       seenLocalImagePaths.add(attachment.path);
@@ -38,9 +43,9 @@ function inputItemsForAttachments(input: readonly CodexInputItem[], attachments:
   return items;
 }
 
-function mentionInputItem(attachment: ComposerAttachment): RequestMention & { type: "mention" } {
+function fileReferenceInputItem(attachment: ComposerAttachment): VaultFileReference & { type: "fileReference" } {
   return {
-    type: "mention",
+    type: "fileReference",
     name: attachment.name,
     path: attachment.path,
   };

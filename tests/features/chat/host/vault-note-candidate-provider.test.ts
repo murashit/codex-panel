@@ -238,7 +238,7 @@ describe("VaultNoteCandidateProvider", () => {
     });
     const provider = new VaultNoteCandidateProvider(app);
 
-    expect(provider.resolveMention("Alpha", "Inbox.md")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
+    expect(provider.resolveFileReference("Alpha", "Inbox.md")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
   });
 
   it("resolves direct markdown paths when metadata has no match", () => {
@@ -248,8 +248,8 @@ describe("VaultNoteCandidateProvider", () => {
     });
     const provider = new VaultNoteCandidateProvider(app);
 
-    expect(provider.resolveMention("notes/Alpha", "")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
-    expect(provider.resolveMention("Missing", "")).toBeNull();
+    expect(provider.resolveFileReference("notes/Alpha", "")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
+    expect(provider.resolveFileReference("Missing", "")).toBeNull();
   });
 
   it("uses the active file only as Obsidian link-resolution context", () => {
@@ -260,7 +260,7 @@ describe("VaultNoteCandidateProvider", () => {
     });
     const provider = new VaultNoteCandidateProvider(app);
 
-    expect(provider.resolveMention("Project", "Daily/Today.md")).toEqual({ name: "Project", path: "notes/Project.md" });
+    expect(provider.resolveFileReference("Project", "Daily/Today.md")).toEqual({ name: "Project", path: "notes/Project.md" });
     expect(getFirstLinkpathDest).toHaveBeenCalledWith("Project", "Daily/Today.md");
   });
 
@@ -272,7 +272,10 @@ describe("VaultNoteCandidateProvider", () => {
     });
     const provider = new VaultNoteCandidateProvider(app);
 
-    expect(provider.resolveMention("Bases/Projects.base", "Daily/Today.md")).toEqual({ name: "Projects", path: "Bases/Projects.base" });
+    expect(provider.resolveFileReference("Bases/Projects.base", "Daily/Today.md")).toEqual({
+      name: "Projects",
+      path: "Bases/Projects.base",
+    });
     expect(getFirstLinkpathDest).toHaveBeenCalledWith("Bases/Projects.base", "Daily/Today.md");
   });
 

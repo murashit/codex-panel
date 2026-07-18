@@ -49,11 +49,11 @@ describe("turn item conversion preserves app-server semantics", () => {
     expect(threadStreamItemFromTurnItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
   });
 
-  it("keeps resolved file mentions visible as user message metadata", () => {
+  it("keeps legacy file references visible as user message metadata", () => {
     const userMessage: TurnItem = {
       type: "userMessage",
       id: "u1",
-      clientId: null,
+      clientId: "local-user-1-seed-1-1",
       content: [
         { type: "text", text: "Read [[Alpha]] and [[Beta]].", text_elements: [] },
         { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
@@ -67,18 +67,18 @@ describe("turn item conversion preserves app-server semantics", () => {
       dialogueKind: "user",
       role: "user",
       text: "Read [[Alpha]] and [[Beta]].",
-      mentionedFiles: [
+      referencedFiles: [
         { name: "Alpha", path: "thoughts/Alpha.md" },
         { name: "Beta", path: "thoughts/Beta.md" },
       ],
     });
   });
 
-  it("keeps active file mentions visible even when a wikilink resolves to the same path", () => {
+  it("keeps the active file reference visible when a wikilink resolves to the same path", () => {
     const userMessage: TurnItem = {
       type: "userMessage",
       id: "u1",
-      clientId: null,
+      clientId: "local-user-1-seed-1-1",
       content: [
         { type: "text", text: "Read [[Alpha]].", text_elements: [] },
         { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
@@ -88,10 +88,59 @@ describe("turn item conversion preserves app-server semantics", () => {
     };
 
     expect(threadStreamItemFromTurnItem(userMessage)).toMatchObject({
-      mentionedFiles: [
+      referencedFiles: [
         { name: "Alpha", path: "thoughts/Alpha.md" },
         { name: "Active file", path: "thoughts/Alpha.md" },
       ],
+    });
+  });
+
+  it("does not present Codex tool mentions as Vault file references", () => {
+    const userMessage: TurnItem = {
+      type: "userMessage",
+      id: "u1",
+      clientId: null,
+      content: [
+        { type: "text", text: "Use $drive.", text_elements: [] },
+        { type: "mention", name: "Drive", path: "app://google-drive" },
+      ],
+    };
+
+    expect(threadStreamItemFromTurnItem(userMessage)).not.toHaveProperty("referencedFiles");
+  });
+
+  it("restores legacy bare-path file references from before Panel submission IDs", () => {
+    const legacyPanelMessage: TurnItem = {
+      type: "userMessage",
+      id: "u1",
+      clientId: "local-user-1-seed-1-1",
+      content: [
+        { type: "text", text: "Read [[Old]].", text_elements: [] },
+        { type: "mention", name: "Old", path: "notes/Old.md" },
+      ],
+    };
+    const foreignMessage = { ...legacyPanelMessage, clientId: null };
+
+    expect(threadStreamItemFromTurnItem(legacyPanelMessage)).toMatchObject({
+      referencedFiles: [{ name: "Old", path: "notes/Old.md" }],
+    });
+    expect(threadStreamItemFromTurnItem(foreignMessage)).toMatchObject({
+      referencedFiles: [{ name: "Old", path: "notes/Old.md" }],
+    });
+  });
+
+  it("renders a decoded Vault path for empty-text legacy file-reference messages", () => {
+    const userMessage: TurnItem = {
+      type: "userMessage",
+      id: "u1",
+      clientId: "local-user-1-seed-1-1",
+      content: [{ type: "mention", name: "設計メモ", path: "メモ/設計.md" }],
+    };
+
+    expect(threadStreamItemFromTurnItem(userMessage)).toMatchObject({
+      text: "[file] メモ/設計.md",
+      copyText: "[file] メモ/設計.md",
+      referencedFiles: [{ name: "設計メモ", path: "メモ/設計.md" }],
     });
   });
 
@@ -173,6 +222,34 @@ describe("turn item conversion preserves app-server semantics", () => {
         omittedTurns: 3,
         truncated: true,
       },
+    });
+  });
+
+  it("restores v2 file references from app-server history after a thread resume", () => {
+    const clientId = "local-user-1-seed-1-1";
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "Read [[Alpha]] and the current note." },
+        { type: "fileReference", name: "Alpha", path: "thoughts/Alpha.md" },
+        { type: "fileReference", name: "<active>", path: "Daily/Today.md" },
+      ],
+      clientId,
+    );
+
+    expect(
+      threadStreamItemFromTurnItem({
+        type: "userMessage",
+        id: "u1",
+        clientId,
+        content: prepared.input,
+      }),
+    ).toMatchObject({
+      text: "Read [[Alpha]] and the current note.",
+      copyText: "Read [[Alpha]] and the current note.",
+      referencedFiles: [
+        { name: "Alpha", path: "thoughts/Alpha.md" },
+        { name: "Active file", path: "Daily/Today.md" },
+      ],
     });
   });
 

@@ -1,9 +1,14 @@
-export interface RequestMention {
+export interface VaultFileReference {
   name: string;
   path: string;
 }
 
-export const ACTIVE_FILE_MENTION_NAME = "<active>";
+export interface SkillReference {
+  name: string;
+  path: string;
+}
+
+export const ACTIVE_FILE_REFERENCE_NAME = "<active>";
 
 export interface RequestAdditionalContext {
   key: string;
@@ -17,7 +22,7 @@ export type CodexInputItem =
   | { type: "image"; url: string; detail?: UserInputImageDetail }
   | { type: "localImage"; path: string; detail?: UserInputImageDetail }
   | { type: "skill"; name: string; path: string }
-  | { type: "mention"; name: string; path: string }
+  | { type: "fileReference"; name: string; path: string }
   | {
       type: "additionalContext";
       key: string;
@@ -33,15 +38,15 @@ export function codexTextInput(text: string): CodexInput {
   return [{ type: "text", text }];
 }
 
-export function codexTextInputWithMentions(
+export function codexTextInputWithReferences(
   text: string,
-  mentions: readonly RequestMention[],
-  skills: readonly RequestMention[] = [],
+  fileReferences: readonly VaultFileReference[],
+  skills: readonly SkillReference[] = [],
   additionalContext: readonly RequestAdditionalContext[] = [],
 ): CodexInput {
   return [
     ...codexTextInput(text),
-    ...mentions.map((mention) => ({ type: "mention" as const, name: mention.name, path: mention.path })),
+    ...fileReferences.map((reference) => ({ type: "fileReference" as const, name: reference.name, path: reference.path })),
     ...skills.map((skill) => ({ type: "skill" as const, name: skill.name, path: skill.path })),
     ...additionalContext.map((context) => ({
       type: "additionalContext" as const,

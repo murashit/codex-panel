@@ -421,7 +421,7 @@ function adoptPendingSteerItem(state: ChatThreadStreamState, item: ThreadStreamD
   stableItems[matchedIndex] = {
     ...current,
     ...(item.contextAttachments ? { contextAttachments: item.contextAttachments } : {}),
-    ...(item.mentionedFiles ? { mentionedFiles: item.mentionedFiles } : {}),
+    ...(item.referencedFiles ? { referencedFiles: item.referencedFiles } : {}),
     ...(item.referencedThread ? { referencedThread: item.referencedThread } : {}),
   };
   return { ...state, stableItems };

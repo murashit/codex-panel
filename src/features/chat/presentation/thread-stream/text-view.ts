@@ -142,7 +142,7 @@ function referencedThreadView(item: ThreadStreamItem): ReferencedThreadTextView 
 function contextItemsView(item: ThreadStreamItem): ThreadStreamTextMetadataView["contextItems"] | undefined {
   if (item.kind !== "dialogue") return undefined;
   const items = [
-    ...(item.mentionedFiles ?? []).map((file) => ({ label: file.name, detail: file.path })),
+    ...(item.referencedFiles ?? []).map((file) => ({ label: file.name, detail: file.path })),
     ...(item.contextAttachments ?? []),
   ];
   return items.length > 0 ? { itemId: item.id, items } : undefined;

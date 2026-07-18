@@ -354,7 +354,7 @@ function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandi
     candidates: () => [],
     dailyNoteReferences: () => [],
     tags: () => [],
-    resolveMention: () => null,
+    resolveFileReference: () => null,
     dispose: vi.fn(),
     ...overrides,
   };

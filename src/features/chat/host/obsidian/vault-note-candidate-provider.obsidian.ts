@@ -1,7 +1,8 @@
 import type { App, EventRef } from "obsidian";
 import { stripHeadingForLink, TFile } from "obsidian";
 
-import type { NoteCandidateProvider, WikiLinkMention } from "../../application/composer/note-context";
+import type { VaultFileReference } from "../../../../domain/chat/input";
+import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import type { NoteCandidate } from "../../application/composer/suggestions";
 import { configuredDailyNoteReferences } from "./vault-daily-note-references.obsidian";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
@@ -57,8 +58,8 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
     return this.shared.catalog.tags();
   }
 
-  resolveMention(target: string, sourcePath: string): WikiLinkMention | null {
-    return this.shared.catalog.resolveMention(target, sourcePath);
+  resolveFileReference(target: string, sourcePath: string): VaultFileReference | null {
+    return this.shared.catalog.resolveFileReference(target, sourcePath);
   }
 
   dispose(): void {
@@ -118,7 +119,7 @@ class VaultNoteCandidateCatalog {
     return normalizedTags(metadataCacheTags(this.app.metadataCache));
   }
 
-  resolveMention(target: string, sourcePath: string): WikiLinkMention | null {
+  resolveFileReference(target: string, sourcePath: string): VaultFileReference | null {
     const linkedFile = this.app.metadataCache.getFirstLinkpathDest(target, sourcePath);
     if (linkedFile?.path) return { name: linkedFile.basename, path: linkedFile.path };
 

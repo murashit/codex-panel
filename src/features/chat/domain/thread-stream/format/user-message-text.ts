@@ -1,8 +1,10 @@
-import type { CodexInput } from "../../../../../domain/chat/input";
-
 type TextRange = [number, number];
+interface UserMessageDisplayInputItem {
+  type: string;
+  name?: string;
+}
 
-export function userMessageDisplayText(text: string, input: CodexInput): string {
+export function userMessageDisplayText(text: string, input: readonly UserMessageDisplayInputItem[]): string {
   const names = resolvedSkillNames(input);
   if (names.length === 0) return text;
 
@@ -14,11 +16,11 @@ export function userMessageDisplayText(text: string, input: CodexInput): string 
   });
 }
 
-function resolvedSkillNames(input: CodexInput): string[] {
+function resolvedSkillNames(input: readonly UserMessageDisplayInputItem[]): string[] {
   const seen = new Set<string>();
   const names: string[] = [];
   for (const item of input) {
-    if (item.type !== "skill") continue;
+    if (item.type !== "skill" || item.name === undefined) continue;
     const key = item.name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);

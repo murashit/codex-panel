@@ -4,10 +4,11 @@ import type { AppServerClient, ClientResponseByMethod } from "../../../../src/ap
 import * as shortLivedClient from "../../../../src/app-server/connection/short-lived-client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import { turnContextManifestFromText } from "../../../../src/domain/chat/context-manifest";
 import type { CodexInput } from "../../../../src/domain/chat/input";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
-import { preparedUserInputWithWikiLinkMentionsSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
+import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
 import { deferred } from "../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -109,7 +110,7 @@ describe("chat app-server transports", () => {
       connectedClient: vi.fn().mockResolvedValue(client),
     }).turn;
     const text = "Compare [[Alpha]] with the active file.";
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       (target) => (target === "Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
       [],
@@ -130,12 +131,19 @@ describe("chat app-server transports", () => {
     expect(params).toMatchObject({
       threadId: "thread",
       cwd: "/vault",
-      input: [
-        { type: "text", text, text_elements: [] },
-        { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
-        { type: "mention", name: "<active>", path: "notes/Alpha.md" },
-      ],
       clientUserMessageId: "local-user",
+    });
+    expect(params?.input[0]).toEqual({ type: "text", text, text_elements: [] });
+    expect(params?.input).toHaveLength(2);
+    const descriptor = params?.input.at(-1);
+    expect(descriptor?.type === "text" ? turnContextManifestFromText(descriptor.text) : null).toEqual({
+      version: 2,
+      submissionId: "local-user",
+      contexts: [],
+      fileReferences: [
+        { name: "Alpha", path: "notes/Alpha.md" },
+        { name: "<active>", path: "notes/Alpha.md" },
+      ],
     });
     expect(params?.additionalContext).toEqual({
       "codex_panel.local-user.00.codex_panel_obsidian_context.part_01_of_01": {
