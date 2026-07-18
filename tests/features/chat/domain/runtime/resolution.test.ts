@@ -89,6 +89,82 @@ describe("runtime control resolution", () => {
     });
   });
 
+  it("marks the sandbox policy pending and unknown when selecting a different permission profile", () => {
+    const runtimeConfig = runtimeConfigFixture({});
+    const snapshot = runtimeSnapshot({
+      activeThreadId: "thread",
+      runtimeConfig: {
+        ...runtimeConfig,
+        startupPermissions: {
+          approvalPolicy: "on-request",
+          activePermissionProfile: { id: ":startup", extends: null },
+          sandboxPolicy: {
+            type: "workspaceWrite",
+            writableRoots: ["/vault"],
+            networkAccess: true,
+            excludeTmpdirEnvVar: true,
+            excludeSlashTmp: false,
+          },
+        },
+      },
+      active: {
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
+        sandboxPolicy: { type: "readOnly", networkAccess: false },
+        activePermissionProfile: { id: ":read-only", extends: null },
+      },
+      pending: { permissionProfile: setRuntimeIntentValue(":workspace") },
+    });
+
+    expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot))).toMatchObject({
+      permissionProfile: { effective: ":workspace", source: "pending" },
+      sandboxPolicy: {
+        confirmed: { type: "readOnly", networkAccess: false },
+        confirmedSource: "active-thread",
+        effective: null,
+        source: "pending",
+      },
+    });
+  });
+
+  it("uses the configured sandbox policy when reselecting the startup permission profile", () => {
+    const configuredPolicy = {
+      type: "workspaceWrite" as const,
+      writableRoots: ["/vault"],
+      networkAccess: true,
+      excludeTmpdirEnvVar: true,
+      excludeSlashTmp: false,
+    };
+    const runtimeConfig = runtimeConfigFixture({});
+    const snapshot = runtimeSnapshot({
+      activeThreadId: "thread",
+      runtimeConfig: {
+        ...runtimeConfig,
+        startupPermissions: {
+          approvalPolicy: "on-request",
+          activePermissionProfile: { id: ":workspace", extends: null },
+          sandboxPolicy: configuredPolicy,
+        },
+      },
+      active: {
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
+        sandboxPolicy: { type: "readOnly", networkAccess: false },
+        activePermissionProfile: { id: ":read-only", extends: null },
+      },
+      pending: { permissionProfile: setRuntimeIntentValue(":workspace") },
+    });
+    const config = snapshotConfig(snapshot);
+    const resolution = resolveRuntimeControls(snapshot, config);
+
+    expect(resolution.sandboxPolicy).toMatchObject({
+      confirmed: { type: "readOnly", networkAccess: false },
+      confirmedSource: "active-thread",
+      effective: configuredPolicy,
+      source: "pending",
+    });
+  });
+
   it("resolves auto-review mode from requested, active, then effective config", () => {
     const requested = runtimeSnapshot({
       pending: { approvalsReviewer: setRuntimeIntentValue("user") },
