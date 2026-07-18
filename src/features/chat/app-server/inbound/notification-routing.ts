@@ -25,7 +25,7 @@ export type ServerNotificationRoute =
   | { kind: "userVisibleNotice"; notification: UserVisibleNoticeNotification }
   | { kind: "ignored"; notification: ServerNotification }
   | { kind: "unhandled"; notification: ServerNotification }
-  | { kind: "inactive"; notification: ServerNotification };
+  | { kind: "inactive"; notification: ServerNotification; scope: AppServerRouteScope };
 
 type ServerNotificationScopeExtractors = Partial<{
   [Method in ServerNotificationMethod]: (notification: Extract<ServerNotification, { method: Method }>) => AppServerRouteScope;
@@ -205,8 +205,8 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {
   if (isThreadCatalogNotification(notification)) return { kind: "threadLifecycle", notification };
   const routeScope = serverNotificationScope(notification);
-  if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", notification };
-  if (isIdleThreadStreamUpdate(notification, routeScope, scope)) return { kind: "inactive", notification };
+  if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
+  if (isIdleThreadStreamUpdate(notification, routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
 
   if (isStreamUpdateNotification(notification)) return { kind: "streamUpdate", notification };
   if (isTurnLifecycleNotification(notification)) return { kind: "turnLifecycle", notification };

@@ -1397,6 +1397,144 @@ describe("ChatInboundHandler", () => {
       expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
     });
 
+    it("tracks direct subagent activity without admitting unrelated inactive notifications", () => {
+      const handler = handlerForState(activeRunningState());
+
+      handler.handleNotification({
+        method: "thread/started",
+        params: { thread: directSubagentThread("child", "thread-active") },
+      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
+      handler.handleNotification({
+        method: "turn/started",
+        params: {
+          threadId: "child",
+          turn: {
+            id: "child-turn",
+            status: "inProgress",
+            startedAt: 1,
+            completedAt: null,
+            durationMs: null,
+            error: null,
+            itemsView: "full",
+            items: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+      handler.handleNotification({
+        method: "item/reasoning/summaryTextDelta",
+        params: {
+          threadId: "child",
+          turnId: "child-turn",
+          itemId: "child-reasoning",
+          summaryIndex: 0,
+          delta: "Inspecting notification routing",
+        },
+      } satisfies Extract<ServerNotification, { method: "item/reasoning/summaryTextDelta" }>);
+      handler.handleNotification({
+        method: "item/reasoning/summaryTextDelta",
+        params: {
+          threadId: "unrelated",
+          turnId: "other-turn",
+          itemId: "other-reasoning",
+          summaryIndex: 0,
+          delta: "Should stay hidden",
+        },
+      } satisfies Extract<ServerNotification, { method: "item/reasoning/summaryTextDelta" }>);
+
+      expect(handler.currentState().subagentActivity.byThreadId.get("child")).toMatchObject({
+        childTurnId: "child-turn",
+        latestItem: {
+          id: "child-reasoning",
+          kind: "reasoning",
+          text: "reasoning: Inspecting notification routing",
+        },
+      });
+      expect(handler.currentState().subagentActivity.byThreadId.has("unrelated")).toBe(false);
+
+      handler.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "child",
+          turn: {
+            id: "child-turn",
+            status: "interrupted",
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+            error: null,
+            itemsView: "full",
+            items: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+
+      expect(handler.currentState().subagentActivity.byThreadId.get("child")?.executionState).toBe("failed");
+    });
+
+    it("does not track a nested subagent as direct parent activity", () => {
+      const handler = handlerForState(activeRunningState());
+
+      handler.handleNotification({
+        method: "thread/started",
+        params: { thread: directSubagentThread("grandchild", "child") },
+      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
+
+      expect(handler.currentState().subagentActivity.byThreadId.size).toBe(0);
+    });
+
+    it("tracks a child from the parent subagent activity item without rendering that protocol marker", () => {
+      const handler = handlerForState(activeRunningState());
+
+      handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          startedAtMs: 1,
+          item: {
+            type: "subAgentActivity",
+            id: "subagent-started",
+            kind: "started",
+            agentThreadId: "child",
+            agentPath: "child",
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "item/started" }>);
+
+      expect(handler.currentState().subagentActivity.byThreadId.get("child")).toMatchObject({
+        threadId: "child",
+        executionState: "running",
+        latestItem: null,
+      });
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
+    });
+
+    it("marks an interrupted child activity as failed without rendering the protocol marker", () => {
+      const handler = handlerForState(activeRunningState());
+
+      handler.handleNotification({
+        method: "item/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          completedAtMs: 2,
+          item: {
+            type: "subAgentActivity",
+            id: "subagent-interrupted",
+            kind: "interrupted",
+            agentThreadId: "child",
+            agentPath: "child",
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "item/completed" }>);
+
+      expect(handler.currentState().subagentActivity.byThreadId.get("child")).toMatchObject({
+        threadId: "child",
+        executionState: "failed",
+      });
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
+    });
+
     it("reconciles optimistic user echoes by client id before falling back to same-turn text only when client ids are absent", () => {
       let state = activeRunningState();
       state = withChatStateThreadStreamItems(state, [
@@ -2096,6 +2234,26 @@ function appServerThread(id: string, cwd: string): ThreadStartedNotification["pa
     gitInfo: null,
     name: null,
     turns: [],
+  };
+}
+
+function directSubagentThread(id: string, parentThreadId: string): ThreadStartedNotification["params"]["thread"] {
+  return {
+    ...appServerThread(id, "/workspace/active"),
+    parentThreadId,
+    source: {
+      subAgent: {
+        thread_spawn: {
+          parent_thread_id: parentThreadId,
+          depth: 1,
+          agent_path: null,
+          agent_nickname: "Scout",
+          agent_role: "explorer",
+        },
+      },
+    },
+    agentNickname: "Scout",
+    agentRole: "explorer",
   };
 }
 

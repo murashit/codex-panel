@@ -504,6 +504,11 @@ describe("chatReducer", () => {
     state = withChatStateThreadStreamItems(state, [dialogueItem("kept")]);
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["kept:details"]) } } });
+    state = chatReducer(state, {
+      type: "subagent-activity/tracked",
+      threadId: "child",
+      parentTurnId: "turn",
+    });
 
     const next = chatReducer(state, { type: "turn/scoped-cleared" });
 
@@ -513,6 +518,7 @@ describe("chatReducer", () => {
     expect(next.requests.pendingUserInputs).toEqual([]);
     expect(next.requests.userInputDrafts.size).toBe(0);
     expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("kept")]);
+    expect(next.subagentActivity.byThreadId.size).toBe(0);
     expect([...next.ui.disclosures.approvalDetails]).toEqual([]);
     expect([...next.ui.disclosures.textDetails]).toEqual(["kept:details"]);
   });

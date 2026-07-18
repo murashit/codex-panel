@@ -1,6 +1,10 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamItemsEmpty } from "../../domain/thread-stream/selectors";
-import { activeTurnLiveItems, threadStreamItemsWithoutActiveTaskProgress } from "../../domain/thread-stream/semantics/active-turn";
+import {
+  type ActiveSubagentActivity,
+  activeTurnLiveItems,
+  threadStreamItemsWithoutActiveTaskProgress,
+} from "../../domain/thread-stream/semantics/active-turn";
 import type { ThreadStreamSemanticClassification } from "../../domain/thread-stream/semantics/types";
 import type { PendingRequestBlockSnapshot } from "../pending-requests/view-model";
 import { type DetailView, detailView } from "./detail-view";
@@ -25,6 +29,7 @@ export interface ThreadStreamPresentationBlockInput {
   turnDiffs?: ReadonlyMap<string, string> | undefined;
   textActionTargetsByItemId?: ReadonlyMap<string, ThreadStreamTextActionTargets> | undefined;
   pendingRequests?: PendingRequestThreadStreamBlockInput | null | undefined;
+  subagentActivities?: ReadonlyMap<string, ActiveSubagentActivity> | undefined;
 }
 
 type ThreadStreamRenderFamily = "text" | "detail" | "status";

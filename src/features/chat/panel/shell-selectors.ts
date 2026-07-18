@@ -40,6 +40,7 @@ export interface ChatPanelThreadStreamModel {
   readonly turn: ChatState["turn"];
   readonly runtimeCollaborationMode: ChatState["runtime"]["pending"]["collaborationMode"];
   readonly threadStream: ChatState["threadStream"];
+  readonly subagentActivity: ChatState["subagentActivity"];
   readonly pendingSubmission: ChatState["pendingSubmission"];
   readonly requests: ChatState["requests"];
   readonly disclosureDetails: ChatState["ui"]["disclosures"]["details"];
@@ -114,6 +115,7 @@ export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadSt
     turn: state.turn,
     runtimeCollaborationMode: state.runtime.pending.collaborationMode,
     threadStream: state.threadStream,
+    subagentActivity: state.subagentActivity,
     pendingSubmission: state.pendingSubmission,
     requests: state.requests,
     disclosureDetails: state.ui.disclosures.details,

@@ -12,12 +12,19 @@ import { threadStreamIsCoordinationProgress } from "./predicates";
 import type { ThreadStreamSemanticClassification } from "./types";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
+const ACTIVE_AGENT_ROW_LIMIT = 3;
 type AgentRunState = "running" | "completed" | "failed";
 
 export interface ActiveTurnItemsContext {
   activeTurnId: string | null;
   items: readonly ThreadStreamItem[];
   activeItems?: readonly ThreadStreamItem[] | undefined;
+  subagentActivities?: ReadonlyMap<string, ActiveSubagentActivity> | undefined;
+}
+
+export interface ActiveSubagentActivity {
+  readonly executionState: "running" | "completed" | "failed";
+  readonly messagePreview: string | null;
 }
 
 export type ActiveTurnLiveItem =
@@ -32,13 +39,13 @@ export type ActiveTurnLiveItem =
     };
 
 export function activeTurnLiveItems(
-  input: Pick<ActiveTurnItemsContext, "items" | "activeItems">,
+  input: Pick<ActiveTurnItemsContext, "items" | "activeItems" | "subagentActivities">,
   activeTurnId: string,
 ): ActiveTurnLiveItem[] {
   const items = input.activeItems ?? input.items;
   const semanticItems = threadStreamSemanticClassifications(items);
   const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(semanticItems, activeTurnId);
-  const agentSummary = agentSummaryAnchorId ? activeAgentRunSummary(items, activeTurnId) : null;
+  const agentSummary = agentSummaryAnchorId ? activeAgentRunSummary(items, activeTurnId, input.subagentActivities) : null;
 
   return semanticItems.flatMap((classification): ActiveTurnLiveItem[] => {
     const { item } = classification;
@@ -56,7 +63,11 @@ export function threadStreamItemsWithoutActiveTaskProgress(items: readonly Threa
   return items.filter((item) => !threadStreamItemIsActiveTaskProgress(item, activeTurnId));
 }
 
-function activeAgentRunSummary(items: readonly ThreadStreamItem[], activeTurnId: string | null): AgentRunSummary | null {
+function activeAgentRunSummary(
+  items: readonly ThreadStreamItem[],
+  activeTurnId: string | null,
+  subagentActivities?: ReadonlyMap<string, ActiveSubagentActivity>,
+): AgentRunSummary | null {
   if (!activeTurnId) return null;
 
   const agentStatuses = new Map<string, AgentStateSummary>();
@@ -72,6 +83,23 @@ function activeAgentRunSummary(items: readonly ThreadStreamItem[], activeTurnId:
       }
     }
   }
+  for (const [threadId, activity] of subagentActivities ?? []) {
+    const current = agentStatuses.get(threadId);
+    if (!current) {
+      agentStatuses.set(threadId, {
+        threadId,
+        status: activity.executionState,
+        executionState: activity.executionState,
+        message: null,
+      });
+      continue;
+    }
+    agentStatuses.set(threadId, {
+      ...current,
+      status: activity.executionState === current.executionState ? current.status : activity.executionState,
+      executionState: activity.executionState,
+    });
+  }
 
   if (agentStatuses.size === 0) return null;
 
@@ -84,14 +112,17 @@ function activeAgentRunSummary(items: readonly ThreadStreamItem[], activeTurnId:
 
   if (summary.running === 0 && summary.failed === 0) return null;
 
-  summary.agents = agents
+  const runningAgents = agents
     .filter((agent) => agentRunState(agent) === "running")
-    .sort((a, b) => a.threadId.localeCompare(b.threadId))
     .map((agent) => ({
       threadId: agent.threadId,
       status: agent.status,
-      messagePreview: agentMessagePreview(agent.message, ACTIVE_AGENT_PREVIEW_LIMIT),
-    }));
+      messagePreview:
+        subagentActivities?.get(agent.threadId)?.messagePreview ?? agentMessagePreview(agent.message, ACTIVE_AGENT_PREVIEW_LIMIT),
+    }))
+    .sort((a, b) => Number(Boolean(b.messagePreview)) - Number(Boolean(a.messagePreview)) || a.threadId.localeCompare(b.threadId));
+  summary.agents = runningAgents.slice(0, ACTIVE_AGENT_ROW_LIMIT);
+  summary.additionalAgents = runningAgents.length - summary.agents.length;
 
   return summary;
 }

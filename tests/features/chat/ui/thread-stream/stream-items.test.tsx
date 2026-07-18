@@ -532,11 +532,11 @@ describe("thread stream item renderer decisions", () => {
     expect(summary.classList.contains("codex-panel__agent-summary")).toBe(true);
     expect(summary.textContent).toContain("agents");
     expect(summary.textContent).toContain("Agents 1 running, 1 done");
-    expect(summary.textContent).toContain("runningrunning: Inspecting renderer");
+    expect(summary.textContent).toContain("runningInspecting renderer");
     expect(summary.textContent).not.toContain("donecompleted");
     expect(summary.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]')).toBeNull();
     const open = expectPresent(summary.querySelector<HTMLElement>(".codex-panel__agent-row--interactive"));
-    expect(open.textContent).toBe("runningrunning: Inspecting renderer");
+    expect(open.textContent).toBe("runningInspecting renderer");
     open.click();
     expect(openThreadInNewView).toHaveBeenCalledWith("running");
   });

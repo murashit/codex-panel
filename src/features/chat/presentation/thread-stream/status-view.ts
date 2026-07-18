@@ -132,7 +132,7 @@ function agentRunSummaryRow(agent: AgentRunSummaryAgent): { threadId: string; th
   return {
     threadId: agent.threadId,
     threadLabel: shortThreadId(agent.threadId),
-    status: agent.messagePreview ? `${agent.status}: ${agent.messagePreview}` : agent.status,
+    status: agent.messagePreview ?? agent.status,
   };
 }
 

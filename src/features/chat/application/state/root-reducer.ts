@@ -61,6 +61,14 @@ import type {
 import { definedPatch, patchObject } from "./patch";
 import type { ChatPendingSubmissionState, PendingSubmissionAction } from "./pending-submission";
 import {
+  type ChatSubagentActivityState,
+  initialSubagentActivityState,
+  isSubagentActivityAction,
+  reduceSubagentActivitySlice,
+  type SubagentActivityAction,
+  subagentActivityWithParentTurn,
+} from "./subagent-activity";
+import {
   type ChatThreadStreamState,
   initialChatThreadStreamState,
   isThreadStreamAction,
@@ -145,6 +153,7 @@ interface ChatStateShape {
   runtime: ChatRuntimeState;
   turn: ChatTurnState;
   threadStream: ChatThreadStreamState;
+  subagentActivity: ChatSubagentActivityState;
   pendingSubmission: ChatPendingSubmissionState | null;
   requests: ChatRequestState;
   composer: ChatComposerState;
@@ -275,6 +284,7 @@ type ChatSliceAction =
   | RuntimeAction
   | RequestAction
   | ThreadStreamAction
+  | SubagentActivityAction
   | ComposerAction
   | UiAction;
 
@@ -287,6 +297,7 @@ export function createChatState(): ChatState {
     runtime: initialChatRuntimeState(),
     turn: initialTurnState(),
     threadStream: initialThreadStreamState(),
+    subagentActivity: initialSubagentActivityState(),
     pendingSubmission: null,
     requests: initialRequestState(),
     composer: initialComposerState(),
@@ -558,6 +569,7 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
     threadStream: action.items
       ? threadStreamWithActiveTurnItems(state.threadStream, action.turnId, action.items)
       : threadStreamStartActiveSegment(state.threadStream, action.turnId, []),
+    subagentActivity: initialSubagentActivityState(action.turnId),
   });
 }
 
@@ -567,6 +579,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   return patchChatState(state, {
     turn: { lifecycle },
     threadStream: threadStreamWithItems(state.threadStream, action.items),
+    subagentActivity: initialSubagentActivityState(),
     connection: { ...state.connection, statusText: `Turn ${action.status}.` },
   });
 }
@@ -586,6 +599,7 @@ function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOpt
     turn: { lifecycle },
     pendingSubmission: action.pendingSubmissionId ? null : state.pendingSubmission,
     threadStream: threadStreamStartActiveSegment(state.threadStream, null, [action.item]),
+    subagentActivity: initialSubagentActivityState(),
   });
 }
 
@@ -598,6 +612,7 @@ function reduceTurnStartAcknowledgedTransition(state: ChatState, action: TurnSta
   return patchChatState(state, {
     turn: { lifecycle },
     threadStream: threadStreamWithActiveTurnItems(state.threadStream, action.turnId, action.items),
+    subagentActivity: subagentActivityWithParentTurn(state.subagentActivity, action.turnId),
   });
 }
 
@@ -607,6 +622,7 @@ function reduceTurnStartFailedTransition(state: ChatState, action: TurnStartFail
   return patchChatState(state, {
     turn: { lifecycle },
     threadStream: threadStreamWithItems(state.threadStream, action.items),
+    subagentActivity: initialSubagentActivityState(),
   });
 }
 
@@ -640,6 +656,7 @@ function clearTurnScopedState(state: ChatState): ChatState {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
     },
     threadStream: threadStreamWithItems(state.threadStream, threadStreamItems(state.threadStream)),
+    subagentActivity: initialSubagentActivityState(),
     requests: initialRequestState(),
     ui: clearAllRequestDisclosures(state.ui),
   });
@@ -724,6 +741,9 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
     pendingSubmission: state.pendingSubmission,
     requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
     threadStream: isThreadStreamAction(action) ? reduceThreadStreamSlice(state.threadStream, action) : state.threadStream,
+    subagentActivity: isSubagentActivityAction(action)
+      ? reduceSubagentActivitySlice(state.subagentActivity, action)
+      : state.subagentActivity,
     composer: reduceComposerSlice(state.composer, action),
     ui: isUiAction(action) ? reduceUiSlice(state.ui, action) : state.ui,
   });

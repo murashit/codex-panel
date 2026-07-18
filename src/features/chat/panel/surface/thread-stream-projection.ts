@@ -19,7 +19,9 @@ import {
   type PlanImplementationTarget,
   threadStreamSegmentsEmpty,
 } from "../../domain/thread-stream/selectors";
+import type { ActiveSubagentActivity } from "../../domain/thread-stream/semantics/active-turn";
 import { type PendingRequestBlockSnapshot, pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/view-model";
+import { subagentActivityPreview } from "../../presentation/thread-stream/subagent-activity-preview";
 import type { ThreadStreamTextActionTargets } from "../../presentation/thread-stream/text-view";
 import { type ThreadStreamViewBlock, threadStreamViewBlocks } from "../../presentation/thread-stream/view-model";
 import type { ThreadStreamContext, ThreadStreamDisclosureBucket, ThreadStreamDisclosureState } from "../../ui/thread-stream/context";
@@ -150,6 +152,14 @@ function threadStreamStateProjection(
     approvalDetails: model.disclosureApprovalDetails,
   };
   const workspaceRoot = model.activeThreadCwd ?? context.vaultPath;
+  const subagentActivities = new Map<string, ActiveSubagentActivity>();
+  for (const [threadId, activity] of model.subagentActivity.byThreadId) {
+    const preview = subagentActivityPreview(activity.latestItem, workspaceRoot);
+    subagentActivities.set(threadId, {
+      executionState: activity.executionState,
+      messagePreview: preview,
+    });
+  }
   const turnBusy = chatTurnBusy(model.turn);
   const rollbackCandidate = !turnBusy && model.rollbackAllowed ? threadStreamRollbackCandidateFromItems(canonicalItems) : null;
   const forkCandidates = !turnBusy && model.forkAllowed ? forkCandidatesFromItems(canonicalItems) : [];
@@ -183,6 +193,7 @@ function threadStreamStateProjection(
       turnDiffs: model.threadStream.turnDiffs,
       textActionTargetsByItemId,
       pendingRequests,
+      subagentActivities,
     }),
   };
 }

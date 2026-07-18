@@ -8,7 +8,7 @@ import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/co
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import {
@@ -91,6 +91,57 @@ describe("chat panel surface projections", () => {
 
     const projection = threadStreamSurfaceProjectionFromModel(selectChatPanelThreadStream(state), threadStreamSurfaceContext());
     expect(JSON.stringify(projection.blocks)).not.toContain('"rollback":true');
+  });
+
+  it("projects the latest direct subagent activity into the live agent summary", () => {
+    let state = chatStateFixture({ activeThread: { id: "parent", cwd: "/vault" } });
+    state = chatReducer(state, {
+      type: "turn/started",
+      threadId: "parent",
+      turnId: "parent-turn",
+      items: [
+        {
+          id: "agent",
+          kind: "agent",
+          role: "tool",
+          turnId: "parent-turn",
+          tool: "wait",
+          status: "inProgress",
+          senderThreadId: "parent",
+          receiverThreadIds: ["child"],
+          prompt: null,
+          model: null,
+          reasoningEffort: null,
+          agents: [{ threadId: "child", status: "running", executionState: "running", message: null }],
+          executionState: "running",
+        },
+      ],
+    });
+    state = chatReducer(state, {
+      type: "subagent-activity/tracked",
+      threadId: "child",
+      parentTurnId: "parent-turn",
+    });
+    state = chatReducer(state, {
+      type: "subagent-activity/text-delta-appended",
+      threadId: "child",
+      childTurnId: "child-turn",
+      itemId: "reasoning",
+      label: "reasoning",
+      delta: "Inspecting notification routing",
+      kind: "reasoning",
+    });
+
+    const projection = threadStreamSurfaceProjectionFromModel(selectChatPanelThreadStream(state), threadStreamSurfaceContext());
+    const summary = projection.blocks.find((block) => block.kind === "liveAgentSummary");
+
+    expect(summary).toMatchObject({
+      kind: "liveAgentSummary",
+      view: {
+        summary: "Agents 1 running",
+        rows: [{ threadId: "child", status: "Inspecting notification routing" }],
+      },
+    });
   });
 
   it("resolves persisted reference titles from the thread catalog", () => {

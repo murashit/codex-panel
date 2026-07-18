@@ -157,12 +157,16 @@ function AgentSummaryRows({
               }}
             >
               <span className="codex-panel__agent-thread">{agent.threadLabel}</span>
-              <span className="codex-panel__agent-status">{agent.status}</span>
+              <span className="codex-panel__agent-status" title={agent.status}>
+                {agent.status}
+              </span>
             </div>
           ) : (
             <>
               <span className="codex-panel__agent-thread">{agent.threadLabel}</span>
-              <span className="codex-panel__agent-status">{agent.status}</span>
+              <span className="codex-panel__agent-status" title={agent.status}>
+                {agent.status}
+              </span>
             </>
           )}
         </li>
