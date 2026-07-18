@@ -223,6 +223,7 @@ function coordinatorFixture(
         }
       },
     },
+    referenceThreads: () => stateStore.getState().threadList.listedThreads,
     notice: vi.fn(),
   });
   const titleService = createThreadTitleService({

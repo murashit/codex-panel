@@ -63,16 +63,17 @@ describe("web context reader", () => {
       text: "https://example.com/article Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]",
       input: [
         { type: "text", text: "https://example.com/article Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]" },
-        { type: "mention", name: "Alpha", path: "Notes/Alpha.md" },
-        { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selection" },
-        { type: "mention", name: "Sketch.png", path: "Files/Sketch.png" },
-        { type: "localImage", path: "Files/Sketch.png" },
         {
           type: "additionalContext",
           key: "codex_panel_web_context",
           kind: "untrusted",
           value: "Web page context for the current user input:\nSource: https://example.com/article\nTitle: Example\n\nReadable article",
+          attachment: { kind: "web" },
         },
+        { type: "mention", name: "Alpha", path: "Notes/Alpha.md" },
+        { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selection" },
+        { type: "mention", name: "Sketch.png", path: "Files/Sketch.png" },
+        { type: "localImage", path: "Files/Sketch.png" },
       ],
     });
   });

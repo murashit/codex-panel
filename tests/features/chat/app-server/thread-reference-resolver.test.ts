@@ -58,7 +58,20 @@ describe("thread reference resolver", () => {
       sortDirection: "desc",
       itemsView: "full",
     });
-    expect(result?.input[0]).toMatchObject({ type: "text", text: expect.stringContaining("Reference thread history:") });
+    expect(result?.input[0]).toEqual({ type: "text", text: "summarize" });
+    expect(result?.input[1]).toMatchObject({
+      type: "additionalContext",
+      kind: "untrusted",
+      value: expect.stringContaining("Referenced thread context for the current user input:"),
+      attachment: {
+        kind: "referencedThread",
+        threadId: "019abcde-0000-7000-8000-000000000001",
+        includedTurns: 1,
+        turnLimit: 20,
+        omittedTurns: 0,
+        truncated: false,
+      },
+    });
     expect(result?.text).toBe("summarize");
     expect(prepareInput).toHaveBeenCalledWith("summarize", inputSnapshot);
     expect(result?.referencedThread).toMatchObject({ title: "Other", includedTurns: 1, turnLimit: 20 });

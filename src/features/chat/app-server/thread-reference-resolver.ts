@@ -3,7 +3,7 @@ import { readReferencedThreadTurnTranscriptSummaries } from "../../../app-server
 import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/chat/input";
 import { shortThreadId } from "../../../domain/threads/id";
 import type { Thread } from "../../../domain/threads/model";
-import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadPromptBundle } from "../../../domain/threads/reference";
+import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadContextBundle } from "../../../domain/threads/reference";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { ThreadReferenceInput } from "../application/turns/slash-command-execution";
 
@@ -40,11 +40,27 @@ async function referencedThreadInput(
       return null;
     }
     const messageInput = host.prepareInput(message, snapshot);
-    const reference = referencedThreadPromptBundle(thread, turns, messageInput.text);
+    const reference = referencedThreadContextBundle(thread, turns);
     host.setStatus(`Referencing ${shortThreadId(thread.id)} (${String(turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`);
     return {
       text: messageInput.text,
-      input: codexTextInputWithAttachments(reference.prompt, messageInput.input),
+      input: codexTextInputWithAttachments(messageInput.text, [
+        {
+          type: "additionalContext",
+          key: "codex_panel_referenced_thread",
+          kind: "untrusted",
+          value: reference.value,
+          attachment: {
+            kind: "referencedThread",
+            threadId: reference.referencedThread.threadId,
+            includedTurns: reference.referencedThread.includedTurns,
+            turnLimit: reference.referencedThread.turnLimit,
+            omittedTurns: reference.referencedThread.omittedTurns ?? 0,
+            truncated: reference.referencedThread.truncated ?? false,
+          },
+        },
+        ...messageInput.input,
+      ]),
       referencedThread: reference.referencedThread,
     };
   } catch (error) {

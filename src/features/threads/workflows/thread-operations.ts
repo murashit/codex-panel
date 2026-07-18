@@ -1,6 +1,7 @@
 import type { AppServerQueryContextIdentity } from "../../../app-server/query/keys";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
-import { normalizeExplicitThreadName } from "../../../domain/threads/model";
+import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
+import { threadDisplayTitle } from "../../../domain/threads/title";
 import type { ThreadCatalogEventSink } from "../catalog/thread-catalog";
 import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ThreadOperationsTransport } from "./ports";
@@ -21,6 +22,7 @@ export interface ThreadOperationsHost {
   };
   archiveDestination(): ArchiveExportDestination;
   catalog: ThreadCatalogEventSink;
+  referenceThreads(): readonly Thread[];
   notice(message: string): void;
 }
 
@@ -81,8 +83,17 @@ async function archiveThread(
     shouldExport
       ? async (thread) => {
           const archiveSettings = host.archiveExport.settings();
+          const threads = host.referenceThreads();
+          const titleById = new Map(threads.map((item) => [item.id, threadDisplayTitle(item)] as const));
           const result = await exportArchivedThreadMarkdown(
-            thread,
+            {
+              ...thread,
+              transcriptEntries: thread.transcriptEntries.map((entry) => {
+                if (!entry.referencedThread) return entry;
+                const title = titleById.get(entry.referencedThread.threadId);
+                return title ? { ...entry, referencedThread: { ...entry.referencedThread, title } } : entry;
+              }),
+            },
             {
               ...archiveSettings,
               vaultPath: host.archiveExport.vaultPath,

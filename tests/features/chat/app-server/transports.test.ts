@@ -126,22 +126,24 @@ describe("chat app-server transports", () => {
       clientUserMessageId: "local-user",
     });
 
-    expect(request).toHaveBeenCalledWith("turn/start", {
+    const [, params] = request.mock.calls[0] ?? [];
+    expect(params).toMatchObject({
       threadId: "thread",
       cwd: "/vault",
       input: [
         { type: "text", text, text_elements: [] },
         { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
         { type: "mention", name: "<active>", path: "notes/Alpha.md" },
+        { type: "text", text: expect.stringContaining("[Codex Panel context v2]"), text_elements: [] },
       ],
-      additionalContext: {
-        codex_panel_obsidian_context: {
-          kind: "untrusted",
-          value:
-            "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Alpha]] -> notes/Alpha.md\n\nReferenced active file:\n- <active> -> notes/Alpha.md",
-        },
-      },
       clientUserMessageId: "local-user",
+    });
+    expect(params?.additionalContext).toEqual({
+      "codex_panel.local-user.00.codex_panel_obsidian_context.part_01_of_01": {
+        kind: "untrusted",
+        value:
+          "Codex Panel context part 1/1.\nSource: codex_panel_obsidian_context\n\nObsidian context for the current user input:\nResolved wikilinks:\n- [[Alpha]] -> notes/Alpha.md\n\nReferenced active file:\n- <active> -> notes/Alpha.md",
+      },
     });
   });
 
@@ -182,6 +184,34 @@ describe("chat app-server transports", () => {
     steer.resolve({});
 
     await expect(steering).resolves.toEqual({ kind: "completed-stale", value: undefined });
+  });
+
+  it("uses the steer client id to namespace bounded context", async () => {
+    const request = vi.fn().mockResolvedValue({});
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    }).turn;
+
+    await transport.steerTurn({
+      threadId: "thread",
+      turnId: "turn",
+      input: [
+        { type: "text", text: "follow up" },
+        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "page", attachment: { kind: "web" } },
+      ],
+      clientUserMessageId: "local-steer",
+    });
+
+    const [, params] = request.mock.calls[0] ?? [];
+    expect(params?.additionalContext).toEqual({
+      "codex_panel.local-steer.00.codex_panel_web_context.part_01_of_01": {
+        kind: "untrusted",
+        value: "Codex Panel context part 1/1.\nSource: codex_panel_web_context\n\npage",
+      },
+    });
+    expect(params?.input.at(-1)).toMatchObject({ type: "text", text: expect.stringContaining("[Codex Panel context v2]") });
   });
 
   it("compacts threads through a connected app-server client", async () => {

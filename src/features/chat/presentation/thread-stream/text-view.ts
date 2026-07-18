@@ -22,6 +22,7 @@ export interface ReferencedThreadTextView {
   title: string;
   includedTurns: number;
   turnLimit: number;
+  truncated?: boolean;
 }
 
 export interface ContextItemTextView {

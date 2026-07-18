@@ -12,6 +12,8 @@ Codex owns runtime behavior and thread state: models, credentials, sandboxing, a
 
 The panel may acquire prompt context through an explicit user action. `/web` fetches the requested page through Obsidian and attaches the extracted content as untrusted turn context; it is not a search surface or agent network policy.
 
+Panel-acquired context remains reference material rather than current user authorization. Send its bounded payload as untrusted app-server context, while persisting only a small content-free descriptor needed to reconstruct panel display and archive metadata. Apply physical byte and part limits at the app-server boundary; keep source-specific selection and truncation policy with the context producer.
+
 Panel settings should store only panel-specific preferences. Do not mirror Codex configuration in Obsidian settings just to display or inspect it.
 
 ## Sources of Truth

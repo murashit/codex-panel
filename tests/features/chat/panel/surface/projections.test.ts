@@ -93,6 +93,44 @@ describe("chat panel surface projections", () => {
     expect(JSON.stringify(projection.blocks)).not.toContain('"rollback":true');
   });
 
+  it("resolves persisted reference titles from the thread catalog", () => {
+    let state = chatStateFixture({
+      threadList: {
+        listedThreads: [
+          {
+            id: "thread-reference",
+            name: "Readable reference title",
+            preview: "",
+            archived: false,
+            createdAt: 1,
+            updatedAt: 1,
+            provenance: { kind: "interactive" },
+          },
+        ],
+      },
+    });
+    state = withChatStateThreadStreamItems(state, [
+      {
+        id: "user",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "continue",
+        referencedThread: {
+          threadId: "thread-reference",
+          title: "thread-r",
+          includedTurns: 2,
+          turnLimit: 20,
+        },
+      },
+    ]);
+
+    const projection = threadStreamSurfaceProjectionFromModel(selectChatPanelThreadStream(state), threadStreamSurfaceContext());
+
+    expect(JSON.stringify(projection.blocks)).toContain("Readable reference title");
+    expect(JSON.stringify(projection.blocks)).not.toContain('"title":"thread-r"');
+  });
+
   it("keeps compact available but hides goal mutation behind the side-chat policy", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {

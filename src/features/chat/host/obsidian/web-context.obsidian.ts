@@ -49,8 +49,8 @@ async function readUrlToInput(
   return {
     text,
     input: codexTextInputWithAttachments(text, [
+      { type: "additionalContext", key: WEB_CONTEXT_KEY, kind: "untrusted", value: context, attachment: { kind: "web" } },
       ...messageInput.input,
-      { type: "additionalContext", key: WEB_CONTEXT_KEY, kind: "untrusted", value: context },
     ]),
   };
 }

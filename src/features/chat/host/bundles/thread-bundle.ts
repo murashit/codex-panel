@@ -156,6 +156,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     },
     archiveDestination: environment.obsidian.archiveDestination,
     catalog: environment.plugin.threadCatalog,
+    referenceThreads: () => stateStore.getState().threadList.listedThreads,
     notice: (text) => {
       new Notice(text);
     },

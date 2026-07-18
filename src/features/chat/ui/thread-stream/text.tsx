@@ -138,6 +138,7 @@ function ReferencedThread({ reference }: { reference: ReferencedThreadTextView }
         <span className="codex-panel__edited-files-separator">·</span>
         <span>
           {reference.includedTurns}/{reference.turnLimit} turns
+          {reference.truncated ? " · truncated" : ""}
         </span>
       </span>
     </div>

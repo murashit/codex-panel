@@ -1,7 +1,7 @@
 import type { CodexInput } from "../../domain/chat/input";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
-import { additionalContextFromCodexInput, toAppServerUserInput } from "../protocol/request-input";
+import { appServerTurnInputFromCodexInput, toAppServerUserInput } from "../protocol/request-input";
 import type { AppServerRequestClient } from "./request-client";
 
 type AppServerTurnRuntimeOverrides = Partial<AppServerTurnRuntimeParams>;
@@ -32,14 +32,14 @@ export function startTurn(
   options: AppServerStartTurnOptions,
 ): Promise<ClientResponseByMethod["turn/start"]> {
   const { threadId, cwd, input, clientUserMessageId, runtime } = options;
-  const additionalContext = toAdditionalContext(input);
+  const prepared = toTurnInput(input, contextSubmissionId(clientUserMessageId, "user"));
   const params: ClientRequestParams<"turn/start"> = {
     threadId,
     cwd,
     ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
-    ...(additionalContext !== undefined ? { additionalContext } : {}),
+    ...(prepared.additionalContext !== undefined ? { additionalContext: prepared.additionalContext } : {}),
     ...appServerTurnRuntimeParams(runtime),
-    input: toUserInput(input),
+    input: prepared.input,
   };
   return client.request("turn/start", params);
 }
@@ -72,13 +72,13 @@ export function steerTurn(
   input: string | CodexInput,
   clientUserMessageId?: string | null,
 ): Promise<unknown> {
-  const additionalContext = toAdditionalContext(input);
+  const prepared = toTurnInput(input, contextSubmissionId(clientUserMessageId, "steer"));
   return client.request("turn/steer", {
     threadId,
     expectedTurnId,
-    input: toUserInput(input),
+    input: prepared.input,
     ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
-    ...(additionalContext !== undefined ? { additionalContext } : {}),
+    ...(prepared.additionalContext !== undefined ? { additionalContext: prepared.additionalContext } : {}),
   });
 }
 
@@ -86,14 +86,9 @@ export function interruptTurn(client: AppServerRequestClient, threadId: string, 
   return client.request("turn/interrupt", { threadId, turnId });
 }
 
-function toUserInput(input: string | CodexInput): ClientRequestParams<"turn/start">["input"] {
-  if (typeof input !== "string") return toAppServerUserInput(input);
-  return toAppServerUserInput([{ type: "text", text: input }]);
-}
-
-function toAdditionalContext(input: string | CodexInput): ClientRequestParams<"turn/start">["additionalContext"] | undefined {
-  if (typeof input === "string") return undefined;
-  return additionalContextFromCodexInput(input);
+function toTurnInput(input: string | CodexInput, submissionId: string) {
+  if (typeof input !== "string") return appServerTurnInputFromCodexInput(input, submissionId);
+  return { input: toAppServerUserInput([{ type: "text", text: input }]) };
 }
 
 function appServerTurnRuntimeParams(runtime: AppServerTurnRuntimeOverrides | undefined): AppServerTurnRuntimeParams {
@@ -104,4 +99,12 @@ function appServerTurnRuntimeParams(runtime: AppServerTurnRuntimeOverrides | und
   if (runtime?.effort !== undefined) params.effort = runtime.effort;
   if (runtime?.approvalsReviewer !== undefined) params.approvalsReviewer = runtime.approvalsReviewer;
   return params;
+}
+
+let fallbackContextSubmissionSequence = 0;
+
+function contextSubmissionId(clientUserMessageId: string | null | undefined, kind: "user" | "steer"): string {
+  if (clientUserMessageId) return clientUserMessageId;
+  fallbackContextSubmissionSequence += 1;
+  return `local-${kind}-${String(Date.now())}-fallback-${String(fallbackContextSubmissionSequence)}-1`;
 }

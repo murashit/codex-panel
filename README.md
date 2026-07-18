@@ -57,6 +57,7 @@ The composer lets you point Codex to relevant material without pasting it into t
 When Obsidian Daily Notes or the daily section of Periodic Notes is enabled, `@today`, `@tomorrow`, and `@yesterday` resolve through its folder and date format. Paste or drop files to save them in the configured attachment folder and reference them from the same prompt. For material outside the vault, `/web <url> [message]` fetches readable page content and attaches it to the next turn without creating a note.
 
 These references tell Codex what is relevant to the request; they do not change its vault-root working directory or its permissions.
+Large transient references are bounded before they reach Codex, and the panel marks a web or thread reference when it had to truncate it.
 
 ### Guide a running turn
 

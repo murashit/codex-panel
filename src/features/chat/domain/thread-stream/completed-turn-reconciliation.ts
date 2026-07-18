@@ -12,10 +12,15 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
   const { currentItems, completedTurnId, turnItems } = input;
   if (turnItems.length === 0) return currentItems;
 
-  const contextAttachmentsByClientId = new Map(
+  const localMetadataByClientId = new Map(
     currentItems.flatMap((item) =>
-      isOptimisticUserDialogue(item) && item.contextAttachments
-        ? [[optimisticDialogueClientId(item), item.contextAttachments] as const]
+      isOptimisticUserDialogue(item)
+        ? [
+            [
+              optimisticDialogueClientId(item),
+              { contextAttachments: item.contextAttachments, referencedThread: item.referencedThread },
+            ] as const,
+          ]
         : [],
     ),
   );
@@ -25,10 +30,17 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
     : fallbackContextAttachmentsByText(currentItems, completedTurnId);
   const turnItemsWithLocalContext = turnItems.map((item) => {
     if (!isUserDialogue(item)) return item;
-    const contextAttachments = item.clientId
-      ? contextAttachmentsByClientId.get(item.clientId)
-      : contextAttachmentsByFallbackText.get(item.copyText ?? item.text);
-    return contextAttachments ? { ...item, contextAttachments } : item;
+    const localMetadata = item.clientId ? localMetadataByClientId.get(item.clientId) : undefined;
+    const contextAttachments =
+      item.contextAttachments ?? localMetadata?.contextAttachments ?? contextAttachmentsByFallbackText.get(item.copyText ?? item.text);
+    const referencedThread = item.referencedThread
+      ? { ...item.referencedThread, ...(localMetadata?.referencedThread ? { title: localMetadata.referencedThread.title } : {}) }
+      : localMetadata?.referencedThread;
+    return {
+      ...item,
+      ...(contextAttachments ? { contextAttachments } : {}),
+      ...(referencedThread ? { referencedThread } : {}),
+    };
   });
 
   const serverUserDialogues = turnItemsWithLocalContext.filter(isUserDialogue);

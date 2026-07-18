@@ -109,6 +109,7 @@ export class ThreadsViewSession {
       },
       archiveDestination: () => this.environment.archiveDestination(),
       catalog: this.host.threadCatalog,
+      referenceThreads: () => this.threads,
       notice: (message) => {
         new Notice(message);
       },

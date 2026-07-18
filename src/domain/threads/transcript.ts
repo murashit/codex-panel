@@ -4,6 +4,13 @@ export interface ThreadTranscriptEntry {
   kind: ThreadTranscriptEntryKind;
   text: string;
   timestamp: number | null;
+  referencedThread?: ReferencedThreadMetadata;
+  contexts?: readonly ThreadTranscriptContext[];
+}
+
+interface ThreadTranscriptContext {
+  kind: "web" | "obsidian";
+  truncated: boolean;
 }
 
 export interface TurnTranscriptSummary {
@@ -46,3 +53,5 @@ function lastTranscriptText(
   }
   return null;
 }
+
+import type { ReferencedThreadMetadata } from "./reference";

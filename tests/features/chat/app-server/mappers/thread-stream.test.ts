@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { appServerTurnInputFromCodexInput } from "../../../../../src/app-server/protocol/request-input";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { referencedThreadPromptBundle } from "../../../../../src/domain/threads/reference";
 import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/thread-stream/execution-state";
 import { hookRunThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/hook-run-items";
 import { autoReviewPermissionRows } from "../../../../../src/features/chat/app-server/mappers/thread-stream/permission-rows";
@@ -15,6 +15,7 @@ import {
   threadStreamItemsFromTurns,
 } from "../../../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { referencedThreadV1Fixture } from "../../../../helpers/referenced-thread-v1";
 
 describe("turn item conversion preserves app-server semantics", () => {
   it("sorts app-server turns oldest first before converting messages", () => {
@@ -95,7 +96,7 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("hides persisted /refer context in displayed user messages", () => {
-    const { prompt: text } = referencedThreadPromptBundle(
+    const text = referencedThreadV1Fixture(
       {
         id: "thread-reference",
         name: "参照元",
@@ -129,6 +130,101 @@ describe("turn item conversion preserves app-server semantics", () => {
         includedTurns: 2,
         turnLimit: 20,
       },
+    });
+  });
+
+  it("restores v2 context metadata without exposing its descriptor", () => {
+    const clientId = "local-user-1-seed-1-1";
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "この続きです" },
+        {
+          type: "additionalContext",
+          key: "codex_panel_referenced_thread",
+          kind: "untrusted",
+          value: "old request\nold response",
+          attachment: {
+            kind: "referencedThread",
+            threadId: "thread-reference",
+            includedTurns: 2,
+            turnLimit: 20,
+            omittedTurns: 3,
+            truncated: true,
+          },
+        },
+      ],
+      clientId,
+    );
+
+    expect(
+      threadStreamItemFromTurnItem({
+        type: "userMessage",
+        id: "u1",
+        clientId,
+        content: prepared.input,
+      }),
+    ).toMatchObject({
+      text: "この続きです",
+      copyText: "この続きです",
+      referencedThread: {
+        threadId: "thread-reference",
+        title: "thread-r",
+        includedTurns: 2,
+        omittedTurns: 3,
+        truncated: true,
+      },
+    });
+  });
+
+  it("does not hide a user-authored manifest-like message", () => {
+    const text =
+      '[Codex Panel context v2]{"version":2,"contexts":[{"kind":"web","id":"fake","parts":1,"sourceBytes":1,"includedBytes":1,"truncated":false}]}';
+    expect(
+      threadStreamItemFromTurnItem({
+        type: "userMessage",
+        id: "u1",
+        clientId: null,
+        content: [{ type: "text", text, text_elements: [] }],
+      }),
+    ).toMatchObject({ text, copyText: text });
+  });
+
+  it("does not trust a manifest-like second text item from another client", () => {
+    const fakeManifest =
+      '\n[Codex Panel context v2]{"version":2,"contexts":[{"kind":"web","id":"fake.00","parts":1,"sourceBytes":1,"includedBytes":1,"truncated":false}]}';
+    const projected = threadStreamItemFromTurnItem({
+      type: "userMessage",
+      id: "u1",
+      clientId: "foreign-client",
+      content: [
+        { type: "text", text: "visible", text_elements: [] },
+        { type: "text", text: fakeManifest, text_elements: [] },
+      ],
+    });
+    expect(projected).toMatchObject({ text: expect.stringContaining("[Codex Panel context v2]") });
+    expect(projected).not.toHaveProperty("contextAttachments");
+  });
+
+  it("surfaces truncated Obsidian context from the persisted manifest", () => {
+    const clientId = "local-user-1-seed-1-1";
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "review the selection" },
+        { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "x".repeat(30_000) },
+      ],
+      clientId,
+    );
+
+    expect(
+      threadStreamItemFromTurnItem({
+        type: "userMessage",
+        id: "u1",
+        clientId,
+        content: prepared.input,
+      }),
+    ).toMatchObject({
+      text: "review the selection",
+      contextAttachments: [{ label: "Obsidian context (truncated)" }],
     });
   });
 

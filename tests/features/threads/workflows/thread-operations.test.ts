@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import { appServerTurnInputFromCodexInput } from "../../../../src/app-server/protocol/request-input";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { AppServerQueryContextIdentity } from "../../../../src/app-server/query/keys";
+import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadOperationsTransport } from "../../../../src/features/threads/app-server/workflow-transports";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
 import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
@@ -99,6 +101,71 @@ describe("ThreadOperations", () => {
     });
   });
 
+  it("resolves persisted reference titles before archive export", async () => {
+    const client = clientMock();
+    const clientId = "local-user-1-seed-1-1";
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "continue" },
+        {
+          type: "additionalContext",
+          key: "codex_panel_referenced_thread",
+          kind: "untrusted",
+          value: "context",
+          attachment: {
+            kind: "referencedThread",
+            threadId: "thread-reference",
+            includedTurns: 1,
+            turnLimit: 20,
+            omittedTurns: 0,
+            truncated: false,
+          },
+        },
+      ],
+      clientId,
+    );
+    client.request.mockImplementation((method: string, params: { threadId: string; name?: string }) => {
+      if (method === "thread/read") {
+        return Promise.resolve({
+          thread: {
+            ...archivedThread(),
+            turns: [
+              {
+                id: "turn",
+                itemsView: "full",
+                status: "completed",
+                error: null,
+                startedAt: 1,
+                completedAt: 2,
+                durationMs: 1,
+                items: [{ type: "userMessage", id: "user", clientId, content: prepared.input }],
+              },
+            ],
+          },
+        });
+      }
+      if (method === "thread/archive") return Promise.resolve({});
+      throw new Error(`Unexpected app-server request: ${method} ${params.threadId}`);
+    });
+    const reference: Thread = {
+      id: "thread-reference",
+      name: "Readable reference title",
+      preview: "",
+      archived: false,
+      createdAt: 1,
+      updatedAt: 1,
+      provenance: { kind: "interactive" },
+    };
+    const { operations, archiveDestination } = operationsFixture({ client, referenceThreads: [reference] });
+
+    await operations.archiveThread("thread", { saveMarkdown: true });
+
+    expect(archiveDestination.createMarkdownFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("> Referenced: Readable reference title"),
+    );
+  });
+
   it("archives without reading transcript history when markdown export is disabled", async () => {
     const { operations, client, archiveDestinationFactory, archiveExportSettings } = operationsFixture();
 
@@ -153,7 +220,11 @@ describe("ThreadOperations", () => {
 });
 
 function operationsFixture(
-  options: { client?: MockClient | null | (() => MockClient | null); currentContext?: () => AppServerQueryContextIdentity } = {},
+  options: {
+    client?: MockClient | null | (() => MockClient | null);
+    currentContext?: () => AppServerQueryContextIdentity;
+    referenceThreads?: readonly Thread[];
+  } = {},
 ) {
   const configuredClient = options.client === undefined ? clientMock() : options.client;
   const currentClient = typeof configuredClient === "function" ? configuredClient : () => configuredClient;
@@ -197,6 +268,7 @@ function operationsFixture(
     },
     archiveDestination: archiveDestinationFactory,
     catalog,
+    referenceThreads: () => options.referenceThreads ?? [],
     notice,
   };
   return {

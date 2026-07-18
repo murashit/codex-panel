@@ -54,6 +54,7 @@ describe("web context parser integration", () => {
       type: "additionalContext",
       key: "codex_panel_web_context",
       kind: "untrusted",
+      attachment: { kind: "web" },
       value:
         "Web page context for the current user input:\nSource: https://example.com/article\nTitle: Integration Article\n\n## Parser contract heading\n\nReadable article",
     });

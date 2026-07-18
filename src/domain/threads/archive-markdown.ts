@@ -99,23 +99,43 @@ function markdownLinesFromTranscriptEntry(entry: ThreadTranscriptEntry): string[
   switch (entry.kind) {
     case "user": {
       const heading = timestampedHeading("User", entry.timestamp);
-      const referenced = referencedThreadMetadataFromPrompt(entry.text);
-      if (referenced) {
-        return [
-          heading,
-          "",
-          referenced.text,
-          "",
-          `> Referenced: ${referenced.reference.title} (${String(referenced.reference.includedTurns)}/${String(referenced.reference.turnLimit)} turns, ${referenced.reference.threadId})`,
-          "",
-        ];
-      }
-      return [heading, "", entry.text, ""];
+      const legacyReferenced = referencedThreadMetadataFromPrompt(entry.text);
+      const referenced = entry.referencedThread ? { text: entry.text, reference: entry.referencedThread } : legacyReferenced;
+      return [
+        heading,
+        "",
+        referenced?.text ?? entry.text,
+        "",
+        ...(referenced
+          ? [
+              `> Referenced: ${referenced.reference.title} (${String(referenced.reference.includedTurns)}/${String(referenced.reference.turnLimit)} turns${referenced.reference.truncated ? ", truncated" : ""}, ${referenced.reference.threadId})`,
+              "",
+            ]
+          : []),
+        ...(entry.contexts ?? []).flatMap((context) => [`> Context: ${archiveContextLabel(context, entry.text)}`, ""]),
+      ];
     }
     case "assistant":
       return [timestampedHeading("Codex", entry.timestamp), "", entry.text, ""];
     case "plan":
       return [timestampedHeading("Proposed plan", entry.timestamp), "", entry.text, ""];
+  }
+}
+
+function archiveContextLabel(context: NonNullable<ThreadTranscriptEntry["contexts"]>[number], visibleText: string): string {
+  const truncated = context.truncated ? " (truncated)" : "";
+  if (context.kind === "obsidian") return `Obsidian context${truncated}`;
+  const url = visibleWebUrl(visibleText);
+  return `Web page${truncated}${url ? ` (${url})` : ""}`;
+}
+
+function visibleWebUrl(text: string): string | null {
+  const firstToken = text.trim().split(/\s+/, 1)[0] ?? "";
+  try {
+    const parsed = new URL(firstToken);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
   }
 }
 

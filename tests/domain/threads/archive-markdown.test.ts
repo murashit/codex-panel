@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { type ArchiveExportSettings, archivedThreadMarkdown } from "../../../src/domain/threads/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
-import { referencedThreadPromptBundle } from "../../../src/domain/threads/reference";
 import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";
+import { referencedThreadV1Fixture } from "../../helpers/referenced-thread-v1";
 
 describe("thread archive export", () => {
   it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
@@ -103,7 +103,7 @@ describe("thread archive export", () => {
   });
 
   it("hides embedded /refer context and keeps a compact reference line", () => {
-    const { prompt } = referencedThreadPromptBundle(
+    const prompt = referencedThreadV1Fixture(
       thread({ id: "thread-ref", name: "参照元" }),
       [{ userText: "元の依頼", assistantText: "回答" }],
       "続きです",
@@ -115,6 +115,34 @@ describe("thread archive export", () => {
     expect(output).toContain("> Referenced: 参照元 (1/20 turns, thread-ref)");
     expect(output).not.toContain("Reference thread history:");
     expect(output).not.toContain("元の依頼");
+  });
+
+  it("renders persisted v2 reference metadata without embedding its payload", () => {
+    const entry = transcriptEntry("user", "続きです", 1);
+    entry.referencedThread = {
+      threadId: "thread-ref",
+      title: "thread-r",
+      includedTurns: 2,
+      turnLimit: 20,
+      omittedTurns: 3,
+      truncated: true,
+    };
+    const output = exportedMarkdown(thread({ transcriptEntries: [entry] }), new Date(2026, 4, 18));
+
+    expect(output).toContain("続きです");
+    expect(output).toContain("> Referenced: thread-r (2/20 turns, truncated, thread-ref)");
+  });
+
+  it("renders persisted web and Obsidian context metadata", () => {
+    const entry = transcriptEntry("user", "https://example.com/article summarize", 1);
+    entry.contexts = [
+      { kind: "web", truncated: true },
+      { kind: "obsidian", truncated: false },
+    ];
+    const output = exportedMarkdown(thread({ transcriptEntries: [entry] }), new Date(2026, 4, 18));
+
+    expect(output).toContain("> Context: Web page (truncated) (https://example.com/article)");
+    expect(output).toContain("> Context: Obsidian context");
   });
 
   it("writes optional frontmatter tags from fixed comma-separated settings", () => {

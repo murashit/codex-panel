@@ -38,6 +38,35 @@ describe("reconcileCompletedTurnItems", () => {
     ]);
   });
 
+  it("keeps the optimistic reference title while accepting server truncation metadata", () => {
+    const optimistic = {
+      ...userDialogue("local-user-1", "continue", "turn", "local-user-1"),
+      referencedThread: { threadId: "thread-reference", title: "Readable title", includedTurns: 2, turnLimit: 20 },
+    } satisfies ThreadStreamItem;
+    const server = {
+      ...userDialogue("u1", "continue", "turn", "local-user-1"),
+      referencedThread: {
+        threadId: "thread-reference",
+        title: "thread-r",
+        includedTurns: 2,
+        turnLimit: 20,
+        omittedTurns: 3,
+        truncated: true,
+      },
+    } satisfies ThreadStreamItem;
+
+    const next = reconcileCompletedTurnItems({ currentItems: [optimistic], completedTurnId: "turn", turnItems: [server] });
+
+    expect(next[0]).toMatchObject({
+      referencedThread: {
+        title: "Readable title",
+        threadId: "thread-reference",
+        omittedTurns: 3,
+        truncated: true,
+      },
+    });
+  });
+
   it("reconciles a stable pending display id through its reserved client id", () => {
     const optimistic = {
       ...userDialogue("local-web-1", "https://example.com/ summarize", "turn", "local-user-1"),

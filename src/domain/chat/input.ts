@@ -9,6 +9,7 @@ export interface RequestAdditionalContext {
   key: string;
   value: string;
   kind: "untrusted" | "application";
+  attachment?: TurnContextAttachment;
 }
 
 export type CodexInputItem =
@@ -17,7 +18,13 @@ export type CodexInputItem =
   | { type: "localImage"; path: string; detail?: UserInputImageDetail }
   | { type: "skill"; name: string; path: string }
   | { type: "mention"; name: string; path: string }
-  | { type: "additionalContext"; key: string; value: string; kind: RequestAdditionalContext["kind"] };
+  | {
+      type: "additionalContext";
+      key: string;
+      value: string;
+      kind: RequestAdditionalContext["kind"];
+      attachment?: TurnContextAttachment;
+    };
 
 export type CodexInput = CodexInputItem[];
 type UserInputImageDetail = "auto" | "low" | "high" | "original";
@@ -41,6 +48,7 @@ export function codexTextInputWithMentions(
       key: context.key,
       value: context.value,
       kind: context.kind,
+      ...(context.attachment ? { attachment: context.attachment } : {}),
     })),
   ];
 }
@@ -48,3 +56,5 @@ export function codexTextInputWithMentions(
 export function codexTextInputWithAttachments(text: string, input: readonly CodexInputItem[]): CodexInput {
   return [...codexTextInput(text), ...input.filter((item) => item.type !== "text")];
 }
+
+import type { TurnContextAttachment } from "./context-manifest";

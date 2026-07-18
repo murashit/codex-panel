@@ -2,12 +2,12 @@ import {
   completedTurnTranscriptSummaryFromTurnRecord,
   type TurnItem,
   type TurnRecord,
-  turnUserItemText,
+  turnUserItemProjection,
 } from "../../../../../app-server/protocol/turn";
 import { jsonPreview } from "../../../../../domain/display/json-preview";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
-import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
+import { contextAttachmentsFromManifest } from "../../../domain/thread-stream/format/context-attachments";
 import { fileMentionsFromInput } from "../../../domain/thread-stream/format/file-mentions";
 import { normalizeProposedPlanMarkdown } from "../../../domain/thread-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/thread-stream/format/user-message-text";
@@ -130,20 +130,23 @@ function turnItemSourceFields(item: { id: string }, turnId?: string): TurnItemSo
 }
 
 function userThreadStreamItem(item: UserMessageItem, turnId?: string): ThreadStreamItem {
-  const text = turnUserItemText(item);
-  const referencedThread = referencedThreadMetadataFromPrompt(text);
+  const projection = turnUserItemProjection(item);
+  const text = projection.text;
+  const referencedThread = projection.referencedThread;
   const mentionedFiles = fileMentionsFromInput(item.content);
+  const contextAttachments = contextAttachmentsFromManifest(projection.manifest, text);
   if (referencedThread) {
     return {
       ...turnItemSourceFields(item, turnId),
       kind: "dialogue",
       dialogueKind: "user",
       role: "user",
-      text: userMessageDisplayText(referencedThread.text, item.content),
-      copyText: referencedThread.text,
-      referencedThread: referencedThread.reference,
+      text: userMessageDisplayText(text, item.content),
+      copyText: text,
+      referencedThread,
       ...definedProp("clientId", item.clientId),
       ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
+      ...(contextAttachments.length > 0 ? { contextAttachments } : {}),
     };
   }
   return {
@@ -155,6 +158,7 @@ function userThreadStreamItem(item: UserMessageItem, turnId?: string): ThreadStr
     copyText: text,
     ...definedProp("clientId", item.clientId),
     ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
+    ...(contextAttachments.length > 0 ? { contextAttachments } : {}),
   };
 }
 

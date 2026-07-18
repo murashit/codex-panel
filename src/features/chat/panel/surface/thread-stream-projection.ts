@@ -1,3 +1,4 @@
+import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
 import { type PendingRequestBlockActions, pendingRequestBlockStateFromRequestState } from "../../application/pending-requests/block";
 import type { ChatRequestState } from "../../application/pending-requests/state";
@@ -132,13 +133,15 @@ function threadStreamStateProjection(
   context: ChatThreadStreamSurfaceContext,
 ): ThreadStreamStateProjection {
   const canonicalItems = threadStreamItems(model.threadStream);
-  const stableItems = model.threadStream.activeSegment
+  const stableItemsRaw = model.threadStream.activeSegment
     ? threadStreamStableItems(model.threadStream)
     : appendPendingSubmission(threadStreamStableItems(model.threadStream), model.pendingSubmission);
-  const activeItems = model.threadStream.activeSegment
+  const activeItemsRaw = model.threadStream.activeSegment
     ? appendPendingSubmission(threadStreamActiveItems(model.threadStream), model.pendingSubmission)
     : threadStreamActiveItems(model.threadStream);
-  const items = appendPendingSubmission(canonicalItems, model.pendingSubmission);
+  const items = resolvedReferenceTitles(appendPendingSubmission(canonicalItems, model.pendingSubmission), model.threads);
+  const stableItems = resolvedReferenceTitles(stableItemsRaw, model.threads);
+  const activeItems = resolvedReferenceTitles(activeItemsRaw, model.threads);
   const disclosures = {
     details: model.disclosureDetails,
     activityGroups: model.disclosureActivityGroups,
@@ -182,6 +185,18 @@ function threadStreamStateProjection(
       pendingRequests,
     }),
   };
+}
+
+function resolvedReferenceTitles(
+  items: readonly ThreadStreamItem[],
+  threads: ChatPanelThreadStreamModel["threads"],
+): readonly ThreadStreamItem[] {
+  const byId = new Map(threads.map((thread) => [thread.id, thread] as const));
+  return items.map((item) => {
+    if (item.kind !== "dialogue" || !item.referencedThread) return item;
+    const thread = byId.get(item.referencedThread.threadId);
+    return thread ? { ...item, referencedThread: { ...item.referencedThread, title: threadDisplayTitle(thread) } } : item;
+  });
 }
 
 function appendPendingSubmission(

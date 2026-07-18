@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
-import { referencedThreadMetadataFromPrompt, referencedThreadPromptBundle } from "../../../src/domain/threads/reference";
+import { referencedThreadContextBundle, referencedThreadMetadataFromPrompt } from "../../../src/domain/threads/reference";
+import { referencedThreadV1Fixture } from "../../helpers/referenced-thread-v1";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
@@ -19,7 +20,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
 describe("thread reference context", () => {
   it("builds an untruncated reference prompt with the 20 turn limit noted", () => {
     const longText = "x".repeat(5000);
-    const { prompt } = referencedThreadPromptBundle(thread(), [{ userText: longText, assistantText: "回答" }], "この続きです");
+    const prompt = referencedThreadV1Fixture(thread(), [{ userText: longText, assistantText: "回答" }], "この続きです");
 
     expect(prompt).toContain("[Codex Panel referenced thread v1]");
     expect(prompt).toContain('"version":1');
@@ -30,7 +31,7 @@ describe("thread reference context", () => {
   });
 
   it("extracts display text and metadata from a reference prompt", () => {
-    const { prompt } = referencedThreadPromptBundle(thread(), [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
+    const prompt = referencedThreadV1Fixture(thread(), [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
 
     expect(referencedThreadMetadataFromPrompt(prompt)).toEqual({
       text: "この続きです",
@@ -101,11 +102,53 @@ describe("thread reference context", () => {
     ).toBeNull();
   });
 
-  it("builds a prompt bundle for slash command references", () => {
-    const source = thread();
-    const input = referencedThreadPromptBundle(source, [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
+  it("keeps the newest complete turns within the reference budget", () => {
+    const turns = [
+      { userText: `old-${"a".repeat(10_000)}`, assistantText: "old answer" },
+      { userText: `middle-${"b".repeat(10_000)}`, assistantText: "middle answer" },
+      { userText: "new request", assistantText: "new answer" },
+    ];
+    const bundle = referencedThreadContextBundle(thread(), turns);
 
-    expect(input.referencedThread).toMatchObject({ threadId: source.id, title: "参照元", includedTurns: 1 });
-    expect(input.prompt).toContain("Current user request:\nこの続きです");
+    expect(bundle.value).toContain("new request");
+    expect(bundle.value).toContain("middle-");
+    expect(bundle.value).not.toContain("old-");
+    expect(bundle.referencedThread).toMatchObject({
+      includedTurns: 2,
+      omittedTurns: 1,
+      truncated: true,
+    });
+  });
+
+  it("keeps both fields when the newest turn itself exceeds the budget", () => {
+    const bundle = referencedThreadContextBundle(thread(), [
+      { userText: `large-user-${"u".repeat(30_000)}`, assistantText: `final-answer-${"a".repeat(2_000)}` },
+    ]);
+
+    expect(bundle.value).toContain("large-user-");
+    expect(bundle.value).toContain("final-answer-");
+    expect(bundle.value).toContain("[Turn fields truncated]");
+    expect(bundle.referencedThread).toMatchObject({ includedTurns: 1, omittedTurns: 0, truncated: true });
+  });
+
+  it("recovers a legacy v1 envelope when referenced history contains its markers", () => {
+    const nested = referencedThreadV1Fixture(
+      thread({ id: "inner", name: "Inner" }),
+      [{ userText: "inner request", assistantText: "inner answer" }],
+      "nested visible request",
+    );
+    const outer = referencedThreadV1Fixture(thread(), [{ userText: nested, assistantText: "outer answer" }], "outer visible request");
+
+    expect(referencedThreadMetadataFromPrompt(outer)?.text).toBe("outer visible request");
+  });
+
+  it("preserves a legacy visible request containing the request marker", () => {
+    const prompt = referencedThreadV1Fixture(
+      thread(),
+      [{ userText: "old", assistantText: "answer" }],
+      "before\nCurrent user request:\nafter",
+    );
+
+    expect(referencedThreadMetadataFromPrompt(prompt)?.text).toBe("before\nCurrent user request:\nafter");
   });
 });

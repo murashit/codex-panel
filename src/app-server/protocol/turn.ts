@@ -1,3 +1,5 @@
+import { referencedThreadFromManifest, userMessageContextProjection } from "../../domain/chat/context-manifest";
+import { type ReferencedThreadMetadata, referencedThreadMetadataFromPrompt } from "../../domain/threads/reference";
 import {
   nonEmptyTurnTranscriptSummaries,
   type ThreadTranscriptEntry,
@@ -9,9 +11,6 @@ import type { Turn as GeneratedTurn } from "../../generated/app-server/v2/Turn";
 
 export type TurnItem = GeneratedThreadItem;
 export type TurnRecord = GeneratedTurn;
-
-type AppServerUserInput = Extract<TurnItem, { type: "userMessage" }>["content"][number];
-type AppServerTextUserInput = Extract<AppServerUserInput, { type: "text" }>;
 
 function transcriptEntriesFromTurnRecord(turn: TurnRecord): ThreadTranscriptEntry[] {
   return turn.items.flatMap((item) => transcriptEntriesFromTurnItem(item, turn));
@@ -48,8 +47,22 @@ export function chronologicalTurnTranscriptSummariesFromTurnRecords(turns: reado
   );
 }
 
-export function turnUserItemText(item: Extract<TurnItem, { type: "userMessage" }>): string {
-  return userInputText(item.content);
+export interface TurnUserItemProjection {
+  text: string;
+  referencedThread: ReferencedThreadMetadata | null;
+  manifest: ReturnType<typeof userMessageContextProjection>["manifest"];
+}
+
+export function turnUserItemProjection(item: Extract<TurnItem, { type: "userMessage" }>): TurnUserItemProjection {
+  const projected = userMessageContextProjection(item.content, item.clientId);
+  const supplementalText = nonTextUserInputText(item.content, projected.text);
+  const text = [projected.text, supplementalText].filter(Boolean).join("\n");
+  const legacyReference = referencedThreadMetadataFromPrompt(text);
+  return {
+    text: legacyReference?.text ?? text,
+    referencedThread: referencedThreadFromManifest(projected.manifest) ?? legacyReference?.reference ?? null,
+    manifest: projected.manifest,
+  };
 }
 
 export function lastAgentMessageTextFromTurnRecord(turn: TurnRecord): string | null {
@@ -65,8 +78,23 @@ export function lastAgentMessageTextFromTurnRecord(turn: TurnRecord): string | n
 
 function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): ThreadTranscriptEntry[] {
   if (item.type === "userMessage") {
-    const text = turnUserItemText(item).trim();
-    return text ? [{ kind: "user", text, timestamp: turn.startedAt }] : [];
+    const projection = turnUserItemProjection(item);
+    const text = projection.text.trim();
+    const contexts =
+      projection.manifest?.contexts
+        .filter((context) => context.kind === "web" || context.kind === "obsidian")
+        .map((context) => ({ kind: context.kind as "web" | "obsidian", truncated: context.truncated })) ?? [];
+    return text
+      ? [
+          {
+            kind: "user",
+            text,
+            timestamp: turn.startedAt,
+            ...(projection.referencedThread ? { referencedThread: projection.referencedThread } : {}),
+            ...(contexts.length > 0 ? { contexts } : {}),
+          },
+        ]
+      : [];
   }
   if (item.type === "agentMessage") {
     const text = item.text.trim();
@@ -79,22 +107,17 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
   return [];
 }
 
-function userInputText(content: readonly AppServerUserInput[]): string {
-  const textItems = content.filter(isTextUserInput);
-  const hasText = textItems.some((item) => item.text.length > 0);
-  const textIncludes = (value: string) => value.length > 0 && textItems.some((item) => item.text.includes(value));
+function nonTextUserInputText(content: Extract<TurnItem, { type: "userMessage" }>["content"], visibleText: string): string {
+  const hasText = visibleText.length > 0;
+  const textIncludes = (value: string) => value.length > 0 && visibleText.includes(value);
   return content
     .map((item) => {
-      if (item.type === "text") return item.text;
       if (item.type === "localImage") return hasText && textIncludes(item.path) ? "" : `[local image] ${item.path}`;
       if (item.type === "image") return hasText && textIncludes(item.url) ? "" : `[image] ${item.url}`;
       if (item.type === "mention") return hasText ? "" : `[@${item.name}] ${item.path}`;
-      return hasText ? "" : `[$${item.name}] ${item.path}`;
+      if (item.type === "skill") return hasText ? "" : `[$${item.name}] ${item.path}`;
+      return "";
     })
     .filter(Boolean)
     .join("\n");
-}
-
-function isTextUserInput(item: AppServerUserInput): item is AppServerTextUserInput {
-  return item.type === "text";
 }
