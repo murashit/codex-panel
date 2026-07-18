@@ -217,4 +217,54 @@ describe("app-server request input", () => {
     const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text) : null;
     expect(manifest?.contexts.map((context) => context.parts)).toEqual([7]);
   });
+
+  it("accepts eight explicit context sources and ignores empty sources without spending the budget", () => {
+    const nonContextItem = {
+      type: "text",
+      text: "compare them",
+      key: "text-is-not-context",
+      value: "text-is-not-context",
+    } as const;
+    const contexts: CodexInput = Array.from({ length: ADDITIONAL_CONTEXT_MAX_PARTS }, (_, index) => ({
+      type: "additionalContext",
+      key: `source-${String(index)}`,
+      kind: "untrusted",
+      value: `value-${String(index)}`,
+    }));
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        nonContextItem,
+        { type: "additionalContext", key: "", kind: "untrusted", value: "ignored empty key" },
+        { type: "additionalContext", key: "empty-value", kind: "untrusted", value: "" },
+        ...contexts,
+      ],
+      "local-user",
+    );
+    const entries = Object.entries(prepared.additionalContext ?? {});
+
+    expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
+    expect(entries.map(([, entry]) => entry.value)).toEqual(
+      contexts.map((context, index) =>
+        [
+          "Codex Panel context part 1/1.",
+          `Source: source-${String(index)}`,
+          "",
+          context.type === "additionalContext" ? context.value : "",
+        ].join("\n"),
+      ),
+    );
+  });
+
+  it("rejects nine explicit context sources", () => {
+    const contexts: CodexInput = Array.from({ length: ADDITIONAL_CONTEXT_MAX_PARTS + 1 }, (_, index) => ({
+      type: "additionalContext",
+      key: `source-${String(index)}`,
+      kind: "untrusted",
+      value: `value-${String(index)}`,
+    }));
+
+    expect(() => appServerTurnInputFromCodexInput(contexts, "local-user")).toThrowError(
+      `Too many additional context sources (${String(ADDITIONAL_CONTEXT_MAX_PARTS + 1)}).`,
+    );
+  });
 });

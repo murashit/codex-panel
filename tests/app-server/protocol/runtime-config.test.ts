@@ -65,6 +65,82 @@ describe("runtime config protocol mapping", () => {
       },
     });
   });
+
+  it.each(["untrusted", "on-request", "never"] as const)("normalizes the %s startup approval policy", (approvalPolicy) => {
+    expect(runtimeConfigFixture({ approval_policy: approvalPolicy }).startupPermissions.approvalPolicy).toBe(approvalPolicy);
+  });
+
+  it.each([
+    { name: "null", approvalPolicy: null },
+    { name: "unknown string", approvalPolicy: "future-policy" },
+    { name: "array", approvalPolicy: [] },
+    { name: "empty object", approvalPolicy: {} },
+    { name: "non-object granular value", approvalPolicy: { granular: "all" } },
+  ])("rejects an invalid startup approval policy: $name", ({ approvalPolicy }) => {
+    expect(runtimeConfigFixture({ approval_policy: approvalPolicy }).startupPermissions.approvalPolicy).toBeNull();
+  });
+
+  it.each([
+    {
+      name: "mixed booleans",
+      granular: {
+        sandbox_approval: true,
+        rules: false,
+        skill_approval: true,
+        request_permissions: false,
+        mcp_elicitations: true,
+      },
+      expected: {
+        sandbox_approval: true,
+        rules: false,
+        skill_approval: true,
+        request_permissions: false,
+        mcp_elicitations: true,
+      },
+    },
+    {
+      name: "inverse booleans",
+      granular: {
+        sandbox_approval: false,
+        rules: true,
+        skill_approval: false,
+        request_permissions: true,
+        mcp_elicitations: false,
+      },
+      expected: {
+        sandbox_approval: false,
+        rules: true,
+        skill_approval: false,
+        request_permissions: true,
+        mcp_elicitations: false,
+      },
+    },
+    {
+      name: "invalid values",
+      granular: {
+        sandbox_approval: 1,
+        rules: "true",
+        skill_approval: null,
+        request_permissions: {},
+        mcp_elicitations: [],
+      },
+      expected: {
+        sandbox_approval: false,
+        rules: false,
+        skill_approval: false,
+        request_permissions: false,
+        mcp_elicitations: false,
+      },
+    },
+  ])("normalizes every granular approval policy flag for $name", ({ granular, expected }) => {
+    expect(
+      runtimeConfigFixture({
+        approval_policy: { granular },
+      }).startupPermissions.approvalPolicy,
+    ).toEqual({
+      granular: expected,
+    });
+  });
 });
 
 function runtimeConfigFixture(config: Record<string, unknown>) {

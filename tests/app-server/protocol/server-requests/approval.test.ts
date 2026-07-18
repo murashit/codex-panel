@@ -131,6 +131,72 @@ describe("approval model", () => {
     expect(approvalResponseAt(approval, 2)).toEqual({ decision: "decline" });
   });
 
+  it("preserves amendment intent alongside command approval responses", () => {
+    const allowNetworkDecision = {
+      applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } },
+    } as const;
+    const denyNetworkDecision = {
+      applyNetworkPolicyAmendment: { network_policy_amendment: { host: "example.com", action: "deny" } },
+    } as const;
+    const acceptExecpolicyDecision = {
+      acceptWithExecpolicyAmendment: { execpolicy_amendment: ["npm", "test"] as string[] },
+    } as const;
+    const approval = expectPresent(
+      toPendingApproval({
+        id: 33,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          command: "npm test",
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "command",
+          environmentId: null,
+          startedAtMs: 1,
+          reason: null,
+          commandActions: [],
+          proposedExecpolicyAmendment: ["npm", "test"],
+          proposedNetworkPolicyAmendments: [
+            { host: "registry.npmjs.org", action: "allow" },
+            { host: "example.com", action: "deny" },
+          ],
+          availableDecisions: [allowNetworkDecision, denyNetworkDecision, acceptExecpolicyDecision],
+        },
+      }),
+    );
+    const options = approvalActionOptions(approval);
+
+    expect(options).toEqual([
+      expect.objectContaining({
+        label: "Allow network rule",
+        intent: "accept-session",
+        action: {
+          kind: "approval-option",
+          intent: "accept-session",
+          response: { decision: allowNetworkDecision },
+        },
+      }),
+      expect.objectContaining({
+        label: "Deny network rule",
+        intent: "decline",
+        action: {
+          kind: "approval-option",
+          intent: "decline",
+          response: { decision: denyNetworkDecision },
+        },
+      }),
+      expect.objectContaining({
+        label: "Allow rule",
+        intent: "accept-session",
+        action: {
+          kind: "approval-option",
+          intent: "accept-session",
+          response: { decision: acceptExecpolicyDecision },
+        },
+      }),
+    ]);
+  });
+
   it("keeps future simple command decisions renderable", () => {
     const futureDecision = "restartWithNetwork";
     const request = {
