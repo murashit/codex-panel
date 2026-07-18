@@ -126,7 +126,6 @@ export function turnRuntimeEventsFromNotification(
           type: "turnStarted",
           threadId: notification.params.threadId,
           turnId: notification.params.turn.id,
-          recencyAt: notification.params.turn.startedAt,
         },
       ];
     case "turn/completed":

@@ -34,7 +34,6 @@ function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboun
   const handler = createChatInboundHandler(
     store,
     {
-      refreshActiveThreads: vi.fn(),
       refreshServerDiagnostics: vi.fn(),
       applyAppServerResourceEvent: vi.fn(),
       maybeNameThread: vi.fn(),
@@ -368,9 +367,8 @@ describe("ChatInboundHandler", () => {
           status: "completed",
         },
       ]);
-      const refreshActiveThreads = vi.fn();
       const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(state, { refreshActiveThreads, applyThreadCatalogEvent });
+      const handler = handlerForState(state, { applyThreadCatalogEvent });
 
       handler.handleNotification({
         method: "turn/started",
@@ -392,15 +390,7 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(chatStateThreadStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
       expect(pendingTurnStart(handler.currentState())).toBeNull();
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
-        {
-          type: "thread-touched",
-          threadId: "thread-active",
-          recencyAt: 1,
-        } satisfies ThreadCatalogEvent,
-        TEST_APP_SERVER_CONTEXT,
-      );
-      expect(refreshActiveThreads).not.toHaveBeenCalled();
+      expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
     });
 
     it("captures only prompt-submit hooks observed during the pending turn start", () => {
@@ -538,8 +528,7 @@ describe("ChatInboundHandler", () => {
         },
       ]);
       const maybeNameThread = vi.fn();
-      const refreshActiveThreads = vi.fn();
-      const handler = handlerForState(state, { maybeNameThread, refreshActiveThreads });
+      const handler = handlerForState(state, { maybeNameThread });
 
       handler.handleNotification({
         method: "turn/completed",
@@ -564,7 +553,6 @@ describe("ChatInboundHandler", () => {
       });
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
-      expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
 
     it("routes sparse account rate limit updates through the app-server resource event boundary", () => {
@@ -1305,8 +1293,7 @@ describe("ChatInboundHandler", () => {
 
     it("records deleted thread notifications in the active catalog", () => {
       const applyThreadCatalogEvent = vi.fn();
-      const refreshActiveThreads = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent, refreshActiveThreads });
+      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
 
       handler.handleNotification({
         method: "thread/deleted",
@@ -1320,13 +1307,11 @@ describe("ChatInboundHandler", () => {
         } satisfies ThreadCatalogEvent,
         TEST_APP_SERVER_CONTEXT,
       );
-      expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
 
     it("routes unarchived thread notifications through the catalog instead of refreshing in the handler", () => {
       const applyThreadCatalogEvent = vi.fn();
-      const refreshActiveThreads = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent, refreshActiveThreads });
+      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
 
       handler.handleNotification({
         method: "thread/unarchived",
@@ -1340,7 +1325,6 @@ describe("ChatInboundHandler", () => {
         } satisfies ThreadCatalogEvent,
         TEST_APP_SERVER_CONTEXT,
       );
-      expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
 
     it("records unrelated thread-started notifications without replacing the active cwd", () => {
@@ -1358,7 +1342,7 @@ describe("ChatInboundHandler", () => {
       expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
         {
-          type: "thread-started",
+          type: "thread-upserted",
           thread: expect.objectContaining({ id: "thread-other" }),
         },
         TEST_APP_SERVER_CONTEXT,
@@ -1379,7 +1363,7 @@ describe("ChatInboundHandler", () => {
       expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
         {
-          type: "thread-started",
+          type: "thread-upserted",
           thread: expect.objectContaining({ id: "thread-active" }),
         },
         TEST_APP_SERVER_CONTEXT,

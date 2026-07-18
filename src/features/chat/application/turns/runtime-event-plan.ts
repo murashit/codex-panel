@@ -6,14 +6,12 @@ import { threadStreamItems } from "../state/thread-stream";
 import type { TurnRuntimeEvent } from "./runtime-events";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "./turn-state";
 
-export type TurnRuntimeOutcome =
-  | { type: "turn-started"; threadId: string; turnId: string; recencyAt: number | null }
-  | {
-      type: "turn-completed";
-      threadId: string;
-      turnId: string;
-      completedTurnTranscriptSummary: TurnRuntimeEventCompletedTurnTranscriptSummary;
-    };
+export interface TurnRuntimeOutcome {
+  type: "turn-completed";
+  threadId: string;
+  turnId: string;
+  completedTurnTranscriptSummary: TurnRuntimeEventCompletedTurnTranscriptSummary;
+}
 
 type TurnRuntimeEventCompletedTurnTranscriptSummary = Extract<
   TurnRuntimeEvent,
@@ -116,14 +114,7 @@ function turnStartedPlan(state: ChatState, event: Extract<TurnRuntimeEvent, { ty
         items: threadStreamItemsWithPendingPromptSubmitHooks(state, event.turnId),
       },
     ],
-    outcomes: [
-      {
-        type: "turn-started",
-        threadId: event.threadId,
-        turnId: event.turnId,
-        recencyAt: event.recencyAt,
-      },
-    ],
+    outcomes: [],
   };
 }
 

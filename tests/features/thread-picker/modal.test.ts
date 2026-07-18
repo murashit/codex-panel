@@ -43,10 +43,21 @@ describe("threadPickerSuggestions", () => {
 
     expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["recent"]);
     expect(host.completeHistoryLoads).toBe(0);
+    expect(host.sharedRefreshes).toBe(0);
 
     const [needleSuggestions] = await Promise.all([modal.getSuggestions("needle"), modal.getSuggestions("target")]);
     expect(needleSuggestions.map((item) => item.thread.id)).toEqual(["older-target"]);
     expect(host.completeHistoryLoads).toBe(1);
+  });
+
+  it("uses a modal-local inventory when the shared recent list is cold", async () => {
+    const host = threadPickerHost([], [thread({ id: "thread" })], false);
+    const modal = await openedThreadPicker(host);
+
+    expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["thread"]);
+    expect((await modal.getSuggestions("thread")).map((item) => item.thread.id)).toEqual(["thread"]);
+    expect(host.completeHistoryLoads).toBe(1);
+    expect(host.sharedRefreshes).toBe(0);
   });
 });
 
@@ -114,9 +125,14 @@ interface TestThreadPickerHost extends ThreadPickerHost {
   openedCurrent: string[];
   openedAvailable: string[];
   completeHistoryLoads: number;
+  sharedRefreshes: number;
 }
 
-function threadPickerHost(firstPage: readonly Thread[], completeHistory: readonly Thread[] = firstPage): TestThreadPickerHost {
+function threadPickerHost(
+  firstPage: readonly Thread[],
+  completeHistory: readonly Thread[] = firstPage,
+  hasSharedSnapshot = true,
+): TestThreadPickerHost {
   const openedCurrent: string[] = [];
   const openedAvailable: string[] = [];
   const host: TestThreadPickerHost = {
@@ -124,13 +140,17 @@ function threadPickerHost(firstPage: readonly Thread[], completeHistory: readonl
     openedCurrent,
     openedAvailable,
     completeHistoryLoads: 0,
+    sharedRefreshes: 0,
     threadCatalog: {
-      activeSnapshot: () => null,
+      activeSnapshot: () => (hasSharedSnapshot ? firstPage : null),
       loadActive: async () => {
         host.completeHistoryLoads += 1;
         return completeHistory;
       },
-      refreshActive: async () => firstPage,
+      refreshActive: async () => {
+        host.sharedRefreshes += 1;
+        return firstPage;
+      },
       observeActive: () => () => undefined,
     },
     openThreadInCurrentView: async (threadId) => {

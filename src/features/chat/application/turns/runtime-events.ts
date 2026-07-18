@@ -59,7 +59,6 @@ export type TurnRuntimeEvent =
       type: "turnStarted";
       threadId: string;
       turnId: string;
-      recencyAt: number | null;
     }
   | {
       type: "turnCompleted";

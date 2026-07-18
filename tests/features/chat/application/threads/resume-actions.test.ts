@@ -52,6 +52,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     systemItem: (text: string) => ({ id: "system", kind: "system" as const, role: "system" as const, text }),
     resetThreadTurnPresence: vi.fn(),
     notifyActiveThreadIdentityChanged: vi.fn(),
+    recordResumedThread: vi.fn(),
     addSystemMessage: vi.fn(),
     refreshLiveState: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
@@ -81,6 +82,7 @@ describe("ResumeActions", () => {
     expect(loadLatest).toHaveBeenCalledWith("thread");
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
+    expect(host.recordResumedThread).toHaveBeenCalledWith(panelThread("thread"));
   });
 
   it("hydrates resumed threads from the initial turns page when app-server returns one", async () => {

@@ -184,7 +184,6 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
       return currentClient();
     },
   });
-  const refreshActiveThreads = () => connectionActions.refreshActiveThreads();
   const runtime = createRuntimeBundle(host, {
     connection,
     appServer,
@@ -195,7 +194,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     threadStartTransport: appServer.threadStart,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     recordStartedThread: (thread) => {
-      environment.plugin.threadCatalog.apply({ type: "thread-started", thread });
+      environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
     },
     syncThreadGoal: (threadId) => {
       void threadFoundation.goalSync.syncThreadGoal(threadId);
@@ -237,7 +236,6 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     composerController,
     foundation: threadFoundation,
     lifecycle: threadLifecycle,
-    refreshActiveThreads,
     notifyActiveThreadIdentityChanged,
     navigation,
   });

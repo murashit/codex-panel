@@ -32,7 +32,6 @@ import { classifyAppServerLog } from "./app-server-logs";
 import { type ChatNotificationEffect, planChatNotification } from "./notification-plan";
 
 export interface ChatInboundHandlerActions {
-  refreshActiveThreads: () => void;
   refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
   applyAppServerResourceEvent: (event: AppServerResourceEvent) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
@@ -249,9 +248,6 @@ function runNotificationEffect(
   sourceContext: AppServerQueryContextIdentity,
 ): void {
   switch (effect.type) {
-    case "refresh-threads":
-      context.actions.refreshActiveThreads();
-      return;
     case "refresh-server-diagnostics":
       context.actions.refreshServerDiagnostics({ forceResourceProbes: effect.forceResourceProbes === true });
       return;

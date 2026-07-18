@@ -104,7 +104,6 @@ interface ChatPanelThreadActionInput {
   composerController: ChatComposerController;
   foundation: ChatPanelThreadFoundation;
   lifecycle: ChatPanelThreadLifecycleBundle;
-  refreshActiveThreads: () => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
   navigation: PersistentNavigationLifecycle;
 }
@@ -279,7 +278,7 @@ export function createThreadLifecycleBundle(
 }
 
 export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatPanelThreadActionInput): ChatPanelThreadActionBundle {
-  const { appServer, status, composerController, foundation, lifecycle, refreshActiveThreads, notifyActiveThreadIdentityChanged } = input;
+  const { appServer, status, composerController, foundation, lifecycle, notifyActiveThreadIdentityChanged } = input;
   const { environment, stateStore } = host;
   const threadManagementHost: ThreadManagementActionsHost = {
     stateStore,
@@ -301,11 +300,8 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
       await lifecycle.resume.resumeThread(threadId);
     },
     notifyActiveThreadIdentityChanged,
-    refreshAfterThreadMutation: async () => {
-      await refreshActiveThreads();
-    },
-    recordForkedThread: (thread) => {
-      environment.plugin.threadCatalog.apply({ type: "thread-forked", thread });
+    recordThread: (thread) => {
+      environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
     },
   };
   const actions = createThreadManagementActions(threadManagementHost);
@@ -368,6 +364,9 @@ function createSessionThreadLifecycle(
     closing: host.getClosing,
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged,
+    recordResumedThread: (thread) => {
+      host.environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
+    },
     addSystemMessage: status.addSystemMessage,
     refreshLiveState,
     syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),

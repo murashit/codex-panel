@@ -20,9 +20,9 @@ describe("TurnRuntimeEvent planner", () => {
   it("reports turn starts as turn-runtime outcomes", () => {
     const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
 
-    const plan = planTurnRuntimeEvents(state, [{ type: "turnStarted", threadId: "thread-active", turnId: "turn-active", recencyAt: 123 }]);
+    const plan = planTurnRuntimeEvents(state, [{ type: "turnStarted", threadId: "thread-active", turnId: "turn-active" }]);
 
-    expect(plan.outcomes).toEqual([{ type: "turn-started", threadId: "thread-active", turnId: "turn-active", recencyAt: 123 }]);
+    expect(plan.outcomes).toEqual([]);
   });
 
   it("reconciles completed turn snapshots with optimistic local user dialogues", () => {

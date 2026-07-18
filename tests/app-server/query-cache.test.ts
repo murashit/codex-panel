@@ -7,25 +7,11 @@ import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/p
 import type { Thread } from "../../src/domain/threads/model";
 
 describe("AppServerQueryCache", () => {
-  it("garbage-collects inactive query records", async () => {
-    vi.useFakeTimers();
-    try {
-      const cache = cacheWithThreads(() => Promise.resolve([thread("temporary")]));
-      await cache.fetchActiveThreads();
-
-      await vi.advanceTimersByTimeAsync(300_001);
-
-      expect(cache.activeThreadsSnapshot()).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("does not share or store snapshots before the cache context is complete", async () => {
     const context = cacheContext({ codexPath: "" });
     const cache = new AppServerQueryCache(context);
 
-    await expect(cache.fetchActiveThreads()).resolves.toEqual([]);
+    await expect(cache.refreshActiveThreads()).resolves.toEqual([]);
     expect(cache.activeThreadsSnapshot()).toBeNull();
     expect(cache.appServerMetadataSnapshot()).toBeNull();
     expect(cache.modelsSnapshot()).toBeNull();
@@ -105,6 +91,27 @@ describe("AppServerQueryCache", () => {
     });
   });
 
+  it("shares concurrent Load more requests through the InfiniteQuery", async () => {
+    const nextPage = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
+      .mockImplementationOnce(() => nextPage.promise);
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshActiveThreads();
+
+    const first = cache.loadMoreActiveThreads();
+    const second = cache.loadMoreActiveThreads();
+    await flushMicrotasks();
+
+    expect(listThreads).toHaveBeenCalledTimes(2);
+    nextPage.resolve({ data: [thread("second")], nextCursor: null });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      [thread("first"), thread("second")],
+      [thread("first"), thread("second")],
+    ]);
+  });
+
   it("does not append a stale load-more page after a newer first-page refresh", async () => {
     const oldPage = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
     const listThreads = vi
@@ -116,23 +123,98 @@ describe("AppServerQueryCache", () => {
     await cache.refreshActiveThreads();
 
     const loadMore = cache.loadMoreActiveThreads();
-    await Promise.resolve();
+    await flushMicrotasks();
     await cache.refreshActiveThreads();
     oldPage.resolve({ data: [thread("old-second")], nextCursor: null });
 
-    await expect(loadMore).resolves.toEqual([thread("new-first")]);
+    await expect(loadMore).resolves.toEqual([thread("old-first")]);
     expect(cache.activeThreadsSnapshot()).toEqual([thread("new-first")]);
     expect(cache.hasMoreActiveThreads()).toBe(true);
   });
 
-  it("rejects only a thread read started before an event and accepts the following server value", async () => {
+  it("does not append a load-more page invalidated by an exact event", async () => {
+    const oldPage = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
+      .mockImplementationOnce(() => oldPage.promise)
+      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshActiveThreads();
+
+    const loadMore = cache.loadMoreActiveThreads();
+    await flushMicrotasks();
+    cache.applyThreadListMutations([{ kind: "remove", list: "active", threadId: "deleted-on-page-2" }]);
+    oldPage.resolve({ data: [thread("deleted-on-page-2")], nextCursor: null });
+
+    await expect(loadMore).resolves.toEqual([thread("first")]);
+    expect(cache.activeThreadsSnapshot()).toEqual([thread("first")]);
+    expect(cache.hasMoreActiveThreads()).toBe(true);
+  });
+
+  it("projects an exact event without preserving a synthetic page boundary", async () => {
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("old-first"), thread("old-second")], nextCursor: "page-2" })
+      .mockResolvedValueOnce({ data: [thread("new-first"), thread("old-first")], nextCursor: "page-2" });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshActiveThreads();
+
+    cache.applyThreadListMutations([{ kind: "upsert", list: "active", thread: thread("new-first") }]);
+    expect(cache.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["new-first", "old-first", "old-second"]);
+    expect(listThreads).toHaveBeenCalledOnce();
+
+    await cache.refreshActiveThreads();
+
+    expect(cache.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["new-first", "old-first"]);
+    expect(cache.hasMoreActiveThreads()).toBe(true);
+  });
+
+  it("continues the existing cursor chain after an exact event", async () => {
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("old-first")], nextCursor: "old-page-2" })
+      .mockResolvedValueOnce({ data: [thread("old-second")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshActiveThreads();
+    cache.applyThreadListMutations([{ kind: "upsert", list: "active", thread: thread("event-thread") }]);
+
+    await expect(cache.loadMoreActiveThreads()).resolves.toEqual([thread("event-thread"), thread("old-first"), thread("old-second")]);
+
+    expect(listThreads).toHaveBeenNthCalledWith(2, {
+      cwd: "/vault",
+      cursor: "old-page-2",
+      archived: false,
+      limit: 100,
+      sortKey: "recency_at",
+      sortDirection: "desc",
+    });
+  });
+
+  it("updates a loaded thread in place instead of inventing a new rank", async () => {
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
+      .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshActiveThreads();
+    await cache.loadMoreActiveThreads();
+
+    cache.applyThreadListMutations([
+      { kind: "upsert", list: "active", thread: { ...thread("second"), name: "Updated without re-ranking" } },
+    ]);
+
+    expect(cache.activeThreadsSnapshot()).toEqual([thread("first"), { ...thread("second"), name: "Updated without re-ranking" }]);
+    expect(listThreads).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels a stale thread read before applying an exact event", async () => {
     const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
-    const postEventRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
     const listThreads = vi
       .fn()
       .mockResolvedValueOnce({ data: [{ ...thread("target"), name: "initial" }], nextCursor: null })
       .mockImplementationOnce(() => staleRead.promise)
-      .mockImplementationOnce(() => postEventRead.promise);
+      .mockResolvedValueOnce({ data: [{ ...thread("target"), name: "authoritative" }], nextCursor: null });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
     await cache.refreshActiveThreads();
 
@@ -142,23 +224,36 @@ describe("AppServerQueryCache", () => {
 
     expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
     staleRead.resolve({ data: [{ ...thread("target"), name: "stale" }], nextCursor: null });
+    await expect(refresh).resolves.toEqual([{ ...thread("target"), name: "from-event" }]);
     await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(3));
-    expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
-
-    postEventRead.resolve({ data: [{ ...thread("target"), name: "authoritative" }], nextCursor: null });
-    await refresh;
 
     expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("authoritative");
-    expect(listThreads).toHaveBeenCalledTimes(3);
   });
 
-  it("retries a full active-thread inventory when a first-page refresh wins the race", async () => {
+  it("restarts an initial thread read when an exact event arrives before any snapshot", async () => {
+    const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const listThreads = vi
+      .fn()
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockResolvedValueOnce({ data: [{ ...thread("target"), name: "authoritative" }], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+
+    const initial = cache.refreshActiveThreads();
+    await flushMicrotasks();
+    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } }]);
+    staleRead.resolve({ data: [{ ...thread("target"), name: "stale" }], nextCursor: null });
+
+    await expect(initial).resolves.toEqual([{ ...thread("target"), name: "authoritative" }]);
+    expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("authoritative");
+    expect(listThreads).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a thread-picker inventory read out of the shared recent list", async () => {
     const oldInventory = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
     const listThreads = vi
       .fn()
       .mockImplementationOnce(() => oldInventory.promise)
-      .mockResolvedValueOnce({ data: [thread("new-first")], nextCursor: "new-page-2" })
-      .mockResolvedValueOnce({ data: [thread("new-first"), thread("new-second")], nextCursor: null });
+      .mockResolvedValueOnce({ data: [thread("new-first")], nextCursor: "new-page-2" });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
 
     const inventory = cache.fetchAllActiveThreads();
@@ -166,35 +261,20 @@ describe("AppServerQueryCache", () => {
     await cache.refreshActiveThreads();
     oldInventory.resolve({ data: [thread("old")], nextCursor: null });
 
-    await expect(inventory).resolves.toEqual([thread("new-first"), thread("new-second")]);
-    expect(cache.activeThreadsSnapshot()).toEqual([thread("new-first"), thread("new-second")]);
+    await expect(inventory).resolves.toEqual([thread("old")]);
+    expect(cache.activeThreadsSnapshot()).toEqual([thread("new-first")]);
+    expect(cache.hasMoreActiveThreads()).toBe(true);
   });
 
-  it("does not revive a disposed cache when an active-thread inventory resolves", async () => {
-    const inventory = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
-    const listThreads = vi.fn(() => inventory.promise);
-    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
-
-    const fetch = cache.fetchAllActiveThreads();
-    await flushMicrotasks();
-    cache.dispose();
-    inventory.resolve({ data: [thread("stale")], nextCursor: null });
-
-    await expect(fetch).rejects.toThrow("query cache was disposed");
-    expect(cache.activeThreadsSnapshot()).toBeNull();
-    expect(listThreads).toHaveBeenCalledOnce();
-  });
-
-  it("rejects a cached result when disposal wins before its continuation", async () => {
+  it("clears snapshots and rejects new reads after disposal", async () => {
     const listModels = vi.fn().mockResolvedValue({ data: [catalogModel("cached")] });
     const cache = cacheWithRequestHandlers({ "model/list": listModels });
     await cache.fetchModels();
 
-    const cached = cache.fetchModels();
     cache.dispose();
 
-    await expect(cached).rejects.toThrow("query cache was disposed");
     expect(cache.modelsSnapshot()).toBeNull();
+    await expect(cache.fetchModels()).rejects.toThrow("query cache was disposed");
     expect(listModels).toHaveBeenCalledOnce();
   });
 
@@ -259,7 +339,7 @@ describe("AppServerQueryCache", () => {
     unsubscribe();
   });
 
-  it("publishes metadata resources only after a retry settles", async () => {
+  it("publishes metadata resources only after a successful retry settles", async () => {
     const retry = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const nextRetry = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const listSkills = vi
@@ -268,7 +348,7 @@ describe("AppServerQueryCache", () => {
       .mockImplementationOnce(() => retry.promise)
       .mockImplementationOnce(() => nextRetry.promise);
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
-    await cache.refreshSkills();
+    await expect(cache.refreshSkills()).rejects.toThrow("skills offline");
     const listener = vi.fn();
     const unsubscribe = cache.observeAppServerMetadataResources(listener, { emitCurrent: false });
 
@@ -301,47 +381,6 @@ describe("AppServerQueryCache", () => {
     unsubscribe();
   });
 
-  it("coalesces a burst of skills notifications into one forced trailing refresh", async () => {
-    const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const second = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const listSkills = vi
-      .fn()
-      .mockImplementationOnce(() => first.promise)
-      .mockImplementationOnce(() => second.promise);
-    const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
-
-    const refreshes = Array.from({ length: 10 }, () => cache.refreshSkills());
-    await flushMicrotasks();
-    expect(listSkills).toHaveBeenCalledOnce();
-    expect(listSkills).toHaveBeenNthCalledWith(1, { cwds: ["/vault"], forceReload: true });
-
-    first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
-    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
-    expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: true });
-    second.resolve({ data: [{ skills: [catalogSkill("new")] }] });
-    await Promise.all(refreshes);
-    expect(listSkills).toHaveBeenCalledTimes(2);
-  });
-
-  it("coalesces a burst of rate-limit notifications into one trailing refresh", async () => {
-    const first = deferred<{ rateLimits: ReturnType<typeof appServerRateLimit>; rateLimitsByLimitId: null }>();
-    const second = deferred<{ rateLimits: ReturnType<typeof appServerRateLimit>; rateLimitsByLimitId: null }>();
-    const readRateLimits = vi
-      .fn()
-      .mockImplementationOnce(() => first.promise)
-      .mockImplementationOnce(() => second.promise);
-    const cache = cacheWithRequestHandlers({ "account/rateLimits/read": readRateLimits });
-
-    const refreshes = Array.from({ length: 10 }, () => cache.refreshRateLimits());
-    await flushMicrotasks();
-    expect(readRateLimits).toHaveBeenCalledOnce();
-
-    first.resolve({ rateLimits: appServerRateLimit(10), rateLimitsByLimitId: null });
-    await vi.waitFor(() => expect(readRateLimits).toHaveBeenCalledTimes(2));
-    second.resolve({ rateLimits: appServerRateLimit(20), rateLimitsByLimitId: null });
-    await Promise.all(refreshes);
-  });
-
   it("deduplicates metadata resource RPCs across concurrent full refreshes", async () => {
     const config = deferred<Record<string, never>>();
     const models = deferred<{ data: CatalogModel[] }>();
@@ -370,7 +409,7 @@ describe("AppServerQueryCache", () => {
     await Promise.all([first, second]);
   });
 
-  it("runs a forced skills request after a notification overlaps a full refresh", async () => {
+  it("uses the regular skills query when a notification overlaps a full refresh", async () => {
     const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const second = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const listSkills = vi
@@ -390,51 +429,35 @@ describe("AppServerQueryCache", () => {
     const notificationRefresh = cache.refreshSkills();
     first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
     await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
-    expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: true });
+    expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: false });
     second.resolve({ data: [{ skills: [catalogSkill("new")] }] });
     await Promise.all([fullRefresh, notificationRefresh]);
     expect(cache.appServerMetadataSnapshot()?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
   });
 
-  it("schedules one more skills read when a notification arrives during the trailing refresh", async () => {
+  it("does not surface cancellation when a newer skills notification replaces an older refresh", async () => {
     const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const second = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const third = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const listSkills = vi
       .fn()
       .mockImplementationOnce(() => first.promise)
-      .mockImplementationOnce(() => second.promise)
-      .mockImplementationOnce(() => third.promise);
+      .mockResolvedValueOnce({ data: [{ skills: [catalogSkill("latest")] }] });
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
+    const listener = vi.fn();
+    const unsubscribe = cache.observeAppServerMetadataResources(listener, { emitCurrent: false });
 
-    const leading = cache.refreshSkills();
-    const trailing = cache.refreshSkills();
-    first.resolve({ data: [{ skills: [catalogSkill("first")] }] });
-    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
-    const afterTrailing = cache.refreshSkills();
-    second.resolve({ data: [{ skills: [catalogSkill("second")] }] });
-    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(3));
-    third.resolve({ data: [{ skills: [catalogSkill("third")] }] });
-
-    await Promise.all([leading, trailing, afterTrailing]);
-    expect(listSkills).toHaveBeenCalledTimes(3);
-  });
-
-  it("does not start trailing notification work after the cache is disposed", async () => {
-    const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const listSkills = vi.fn(() => first.promise);
-    const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
-
-    const leading = cache.refreshSkills();
-    const trailing = cache.refreshSkills();
+    const older = cache.refreshSkills();
     await flushMicrotasks();
-    cache.dispose();
+    const newer = cache.refreshSkills();
     first.resolve({ data: [{ skills: [catalogSkill("stale")] }] });
-    await expect(Promise.all([leading, trailing])).rejects.toThrow("query cache was disposed");
-    await flushMicrotasks();
 
-    expect(listSkills).toHaveBeenCalledOnce();
-    expect(cache.appServerMetadataSnapshot()).toBeNull();
+    await expect(Promise.all([older, newer])).resolves.toEqual([undefined, undefined]);
+    expect(listener).toHaveBeenLastCalledWith({
+      id: "skills",
+      value: [expect.objectContaining({ name: "latest" })],
+      probe: expect.objectContaining({ status: "ok" }),
+    });
+    expect(listSkills).toHaveBeenCalledTimes(2);
+    unsubscribe();
   });
 
   it("rejects an initial metadata refresh when runtime config fails after optional resources settle", async () => {

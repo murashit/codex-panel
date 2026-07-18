@@ -48,7 +48,9 @@ Obsidian and app-server boundaries stay outside Preact components. External life
 
 Chat-visible state should have one authoritative owner. Components should consume narrow projections of that state rather than mirror it into another reactive store.
 
-Each shared app-server resource should likewise have one authoritative query record. UI subscriptions should stay narrow enough that unrelated updates do not disturb independent panel regions.
+TanStack Query is the single panel-side owner of cached app-server resources. Features may project authoritative event results into that state, but should not introduce parallel cache or synchronization mechanisms. Partial read models are reconciled at explicit lifecycle boundaries rather than kept globally and continuously consistent.
+
+Reads with different completeness requirements have separate lifecycles. Complete operation-local reads must not replace bounded shared history, and transient activity should come from its owning live state rather than forcing history refreshes.
 
 Imperative UI bridges are allowed only where the host platform requires them. They should remain narrow boundary adapters, not a second UI composition system inside Preact-owned surfaces.
 

@@ -1,4 +1,13 @@
-import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
+import {
+  CancelledError,
+  type InfiniteData,
+  InfiniteQueryObserver,
+  type InfiniteQueryObserverOptions,
+  type InfiniteQueryObserverResult,
+  QueryClient,
+  QueryObserver,
+  type QueryObserverResult,
+} from "@tanstack/query-core";
 import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
@@ -17,7 +26,7 @@ import type { AppServerClientAccessOptions } from "../connection/client-access";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listModelMetadata } from "../services/catalog";
 import { readEffectiveConfig } from "../services/runtime-metadata";
-import { listThreads, readThreadPage } from "../services/threads";
+import { listThreads, readThreadPage, type ThreadPage } from "../services/threads";
 import {
   type AppServerQueryContextIdentity as AppServerQueryContext,
   activeThreadsQueryKey,
@@ -35,11 +44,7 @@ import type { ObservedResult, ObservedResultListener } from "./observed-result";
 import { cloneModelMetadata, cloneSharedServerMetadata, cloneSharedServerMetadataResource, cloneThreads } from "./snapshots";
 import { applyThreadListMutation, type ThreadListKind, type ThreadListMutation } from "./thread-list-mutation";
 
-const THREAD_LIST_STALE_TIME_MS = 10_000;
-const APP_SERVER_METADATA_STALE_TIME_MS = 10_000;
 const MODELS_STALE_TIME_MS = 60_000;
-const APP_SERVER_QUERY_GC_TIME_MS = 5 * 60_000;
-const FULL_ACTIVE_THREAD_FETCH_ATTEMPTS = 2;
 
 export interface AppServerQueryClientRunner {
   runWithClient<T>(
@@ -52,8 +57,12 @@ export interface AppServerQueryClientRunner {
 interface AppServerQueryOptions<T> {
   readonly queryKey: readonly unknown[];
   readonly queryFn: () => Promise<T>;
-  readonly staleTime: number;
+  readonly staleTime?: number;
 }
+
+type ActiveThreadPageParam = string | null;
+type ActiveThreadListData = InfiniteData<ThreadPage, ActiveThreadPageParam>;
+type ActiveThreadsQueryKey = ReturnType<typeof activeThreadsQueryKey>;
 
 interface MetadataResourceSnapshot<T> {
   readonly value: T;
@@ -61,26 +70,12 @@ interface MetadataResourceSnapshot<T> {
 }
 
 type MetadataResourceKind = "skills" | "permissionProfiles" | "rateLimits";
-type MetadataNotificationResourceKind = "skills" | "rateLimits";
 type MetadataResourceValue = readonly SkillMetadata[] | readonly RuntimePermissionProfileSummary[] | RateLimitSnapshot | null;
-
-interface MetadataNotificationRefresh {
-  dirty: boolean;
-  readonly generation: number;
-  promise: Promise<void>;
-}
 
 export class AppServerQueryCache {
   private readonly context: AppServerQueryContext;
   private readonly client: QueryClient;
   private readonly clientRunner: AppServerQueryClientRunner | null;
-  private activeThreadCursorKnown = false;
-  private activeThreadCursor: string | null = null;
-  private activeThreadRevision = 0;
-  private readonly threadListEpochs: Record<ThreadListKind, number> = { active: 0, archived: 0 };
-  private readonly metadataResourceFetches = new Map<MetadataResourceKind, Set<Promise<void>>>();
-  private readonly metadataNotificationRefreshes = new Map<MetadataNotificationResourceKind, MetadataNotificationRefresh>();
-  private generation = 0;
   private disposed = false;
 
   constructor(context: AppServerQueryContext, options: { client?: QueryClient; clientRunner?: AppServerQueryClientRunner } = {}) {
@@ -92,14 +87,6 @@ export class AppServerQueryCache {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.generation += 1;
-    this.activeThreadCursorKnown = false;
-    this.activeThreadCursor = null;
-    this.activeThreadRevision = 0;
-    this.threadListEpochs.active = 0;
-    this.threadListEpochs.archived = 0;
-    this.metadataResourceFetches.clear();
-    this.metadataNotificationRefreshes.clear();
     this.client.clear();
   }
 
@@ -115,70 +102,58 @@ export class AppServerQueryCache {
 
   observeActiveThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options: { emitCurrent?: boolean } = {}): () => void {
     this.assertUsable();
-    return this.observeQueryResult(this.threadListQueryOptions("active"), cloneThreads, listener, options);
+    const observer = this.activeThreadListObserver();
+    const emit = (result: InfiniteQueryObserverResult<ActiveThreadListData>): void => {
+      listener(this.projectObservedResult(result, flattenActiveThreadList));
+    };
+    const unsubscribe = observer.subscribe(emit);
+    if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
+    return unsubscribe;
   }
 
   observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options: { emitCurrent?: boolean } = {}): () => void {
     this.assertUsable();
-    return this.observeQueryResult(this.threadListQueryOptions("archived"), cloneThreads, listener, options);
-  }
-
-  async fetchActiveThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
-    this.assertUsable();
-    return this.fetchThreadList("active", options);
-  }
-
-  async fetchArchivedThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
-    this.assertUsable();
-    return this.fetchThreadList("archived", options);
+    return this.observeQueryResult(this.archivedThreadListQueryOptions(), cloneThreads, listener, options);
   }
 
   async refreshActiveThreads(): Promise<readonly Thread[]> {
-    return this.fetchActiveThreads({ force: true });
+    this.assertUsable();
+    return this.refreshActiveThreadList();
   }
 
   async fetchAllActiveThreads(): Promise<readonly Thread[]> {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context)) return [];
-    const snapshot = this.activeThreadsSnapshot();
-    if (snapshot && this.activeThreadCursorKnown && !this.activeThreadCursor) return snapshot;
-    for (let attempt = 0; attempt < FULL_ACTIVE_THREAD_FETCH_ATTEMPTS; attempt += 1) {
-      const revision = this.activeThreadRevision;
-      const threads = await this.runWithClient((client) => listThreads(client, this.context.vaultPath));
-      if (this.activeThreadRevision !== revision) continue;
-      this.storeThreadList("active", threads);
-      this.rememberActiveThreadCursor(null);
-      return cloneThreads(threads);
-    }
-    throw new Error("Active thread inventory changed while it was being fetched.");
+    return cloneThreads(await this.runWithClient((client) => listThreads(client, this.context.vaultPath)));
   }
 
   hasMoreActiveThreads(): boolean {
     if (this.disposed) return false;
     if (!appServerQueryContextIsComplete(this.context)) return false;
-    return Boolean(this.activeThreadCursor);
+    return Boolean(this.activeThreadListData()?.pages.at(-1)?.nextCursor);
   }
 
   async loadMoreActiveThreads(): Promise<readonly Thread[]> {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context)) return [];
-    const current = this.activeThreadsSnapshot() ?? (await this.fetchActiveThreads());
-    const cursor = this.activeThreadCursor;
-    if (!cursor) return current;
-    const revision = this.activeThreadRevision;
-    const page = await this.runWithClient((client) => readThreadPage(client, this.context.vaultPath, { cursor, archived: false }));
-    if (page.nextCursor === cursor) throw new Error("Codex app-server returned a repeated thread list cursor.");
-    if (this.activeThreadRevision !== revision) return this.activeThreadsSnapshot() ?? current;
-    const latest = this.activeThreadsSnapshot() ?? current;
-    const existingIds = new Set(latest.map((thread) => thread.id));
-    const threads = [...latest, ...page.threads.filter((thread) => !existingIds.has(thread.id))];
-    this.storeThreadList("active", threads);
-    this.rememberActiveThreadCursor(page.nextCursor);
-    return cloneThreads(threads);
+    const current = this.activeThreadsSnapshot() ?? (await this.fetchActiveThreadList());
+    if (!this.hasMoreActiveThreads()) return current;
+    const observer = this.activeThreadListObserver();
+    try {
+      const result = await observer.fetchNextPage({ cancelRefetch: false, throwOnError: true });
+      this.assertUsable();
+      return result.data ? flattenActiveThreadList(result.data) : current;
+    } catch (error) {
+      if (error instanceof CancelledError) return this.activeThreadsSnapshot() ?? current;
+      throw error;
+    } finally {
+      observer.destroy();
+    }
   }
 
   async refreshArchivedThreads(): Promise<readonly Thread[]> {
-    return this.fetchArchivedThreads({ force: true });
+    this.assertUsable();
+    return this.refreshArchivedThreadList();
   }
 
   applyThreadListMutations(mutations: readonly ThreadListMutation[]): void {
@@ -188,17 +163,20 @@ export class AppServerQueryCache {
       const relevant = mutations.filter((mutation) => mutation.list === kind);
       if (relevant.length === 0) continue;
 
-      const key = this.threadListQueryKey(kind);
+      const key = kind === "active" ? activeThreadsQueryKey(this.context) : archivedThreadsQueryKey(this.context);
       const before = this.threadListSnapshot(kind);
       const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
-      this.threadListEpochs[kind] += 1;
-      const after = relevant.reduce<readonly Thread[] | null>(applyThreadListMutation, before);
-      if (after) this.storeThreadList(kind, after);
-
-      const partialSnapshotCreated = before === null && after !== null;
-      const refreshRequested = relevant.some((mutation) => mutation.kind === "refresh");
-      if (before !== null || wasFetching || partialSnapshotCreated || refreshRequested) {
-        void this.fetchThreadList(kind, { force: true }).catch(() => {
+      const activeFetchIsNextPage = wasFetching && kind === "active" && this.activeThreadListIsFetchingNextPage();
+      void this.client.cancelQueries({ queryKey: key, exact: true });
+      if (kind === "active") {
+        for (const mutation of relevant) this.projectActiveThreadListMutation(mutation);
+      } else {
+        const projected = before ? relevant.reduce<readonly Thread[] | null>(applyThreadListMutation, before) : null;
+        if (projected) this.client.setQueryData(archivedThreadsQueryKey(this.context), cloneThreads(projected));
+      }
+      if (wasFetching && !activeFetchIsNextPage) {
+        const refresh = kind === "active" ? this.refreshActiveThreadList() : this.refreshArchivedThreadList();
+        void refresh.catch(() => {
           // Query observers retain refresh failures while the event projection remains last-known-good state.
         });
       }
@@ -207,26 +185,79 @@ export class AppServerQueryCache {
 
   private threadListSnapshot(kind: ThreadListKind): readonly Thread[] | null {
     if (!appServerQueryContextIsComplete(this.context)) return null;
-    const threads = this.client.getQueryData<readonly Thread[]>(this.threadListQueryKey(kind));
+    if (kind === "active") {
+      const data = this.activeThreadListData();
+      return data ? flattenActiveThreadList(data) : null;
+    }
+    const threads = this.client.getQueryData<readonly Thread[]>(archivedThreadsQueryKey(this.context));
     return threads ? cloneThreads(threads) : null;
   }
 
-  private async fetchThreadList(kind: ThreadListKind, options: { force?: boolean } = {}): Promise<readonly Thread[]> {
+  private async refreshActiveThreadList(): Promise<readonly Thread[]> {
     if (!appServerQueryContextIsComplete(this.context)) return [];
-    const key = this.threadListQueryKey(kind);
-    if (options.force) {
-      await this.client.invalidateQueries({ queryKey: key });
-      this.assertUsable();
+    const key = activeThreadsQueryKey(this.context);
+    if (this.activeThreadListIsFetchingNextPage()) await this.client.cancelQueries({ queryKey: key, exact: true });
+    await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
+    this.assertUsable();
+    return this.fetchActiveThreadList();
+  }
+
+  private async fetchActiveThreadList(): Promise<readonly Thread[]> {
+    if (!appServerQueryContextIsComplete(this.context)) return [];
+    const queryOptions = { ...this.activeThreadListQueryOptions(), pages: 1 };
+    let data: ActiveThreadListData;
+    try {
+      data = await this.client.fetchInfiniteQuery(queryOptions);
+    } catch (error) {
+      if (!(error instanceof CancelledError) || this.activeThreadListData()) throw error;
+      data = await this.client.fetchInfiniteQuery(queryOptions);
     }
-    const threads = await this.client.fetchQuery(this.threadListQueryOptions(kind));
+    this.assertUsable();
+    return flattenActiveThreadList(data);
+  }
+
+  private async refreshArchivedThreadList(): Promise<readonly Thread[]> {
+    if (!appServerQueryContextIsComplete(this.context)) return [];
+    const key = archivedThreadsQueryKey(this.context);
+    await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
+    this.assertUsable();
+    return this.fetchArchivedThreadList();
+  }
+
+  private async fetchArchivedThreadList(): Promise<readonly Thread[]> {
+    if (!appServerQueryContextIsComplete(this.context)) return [];
+    let threads: readonly Thread[];
+    try {
+      threads = await this.client.fetchQuery(this.archivedThreadListQueryOptions());
+    } catch (error) {
+      if (!(error instanceof CancelledError) || this.archivedThreadsSnapshot()) throw error;
+      threads = await this.client.fetchQuery(this.archivedThreadListQueryOptions());
+    }
     this.assertUsable();
     return cloneThreads(threads);
   }
 
-  private storeThreadList(kind: ThreadListKind, threads: readonly Thread[]): void {
-    if (!appServerQueryContextIsComplete(this.context)) return;
-    this.client.setQueryData(this.threadListQueryKey(kind), cloneThreads(threads));
-    if (kind === "active") this.bumpActiveThreadRevision();
+  private projectActiveThreadListMutation(mutation: ThreadListMutation): void {
+    this.client.setQueryData<ActiveThreadListData>(activeThreadsQueryKey(this.context), (data) => {
+      if (!data) return data;
+      if (mutation.kind === "upsert") {
+        const existing = data.pages.some((page) => page.threads.some((thread) => thread.id === mutation.thread.id));
+        const pages = data.pages.map((page) => ({
+          ...page,
+          threads: page.threads.map((thread) => (thread.id === mutation.thread.id ? mutation.thread : thread)),
+        }));
+        const first = pages[0];
+        if (!existing && first) pages[0] = { ...first, threads: [mutation.thread, ...first.threads] };
+        return { ...data, pages };
+      }
+      return {
+        ...data,
+        pages: data.pages.map((page) => ({
+          ...page,
+          threads: applyThreadListMutation(page.threads, mutation) ?? page.threads,
+        })),
+      };
+    });
   }
 
   appServerMetadataSnapshot(): SharedServerMetadata | null {
@@ -255,10 +286,9 @@ export class AppServerQueryCache {
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     this.assertUsable();
-    const generation = this.generation;
     let disposed = false;
     const emit = (resource: SharedServerMetadataResource): void => {
-      if (!disposed && generation === this.generation) listener(cloneSharedServerMetadataResource(resource));
+      if (!disposed) listener(cloneSharedServerMetadataResource(resource));
     };
 
     const runtimeConfig = new QueryObserver(this.client, { ...this.runtimeConfigQueryOptions(), enabled: false });
@@ -318,15 +348,15 @@ export class AppServerQueryCache {
   async refreshAppServerMetadata(): Promise<void> {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context)) return;
-    const runtimeResult = this.fetchRuntimeConfig(true).then(
+    const runtimeResult = this.fetchRuntimeConfig().then(
       () => ({ ok: true as const }),
       (error: unknown) => ({ ok: false as const, error }),
     );
     const [, runtime] = await Promise.all([
       Promise.allSettled([
-        this.fetchMetadataResource("skills", true),
-        this.fetchMetadataResource("permissionProfiles", true),
-        this.fetchMetadataResource("rateLimits", true),
+        this.fetchMetadataResource("skills"),
+        this.fetchMetadataResource("permissionProfiles"),
+        this.fetchMetadataResource("rateLimits"),
         this.fetchModels({ force: true }),
       ]),
       runtimeResult,
@@ -338,14 +368,14 @@ export class AppServerQueryCache {
   async refreshSkills(): Promise<void> {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context)) return;
-    await this.refreshMetadataResourceNotification("skills");
+    await this.refreshNotifiedMetadataResource("skills");
     this.assertUsable();
   }
 
   async refreshRateLimits(): Promise<void> {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context)) return;
-    await this.refreshMetadataResourceNotification("rateLimits");
+    await this.refreshNotifiedMetadataResource("rateLimits");
     this.assertUsable();
   }
 
@@ -366,7 +396,7 @@ export class AppServerQueryCache {
     if (!appServerQueryContextIsComplete(this.context)) return [];
     const key = appServerModelsQueryKey(this.context);
     if (options.force) {
-      await this.client.invalidateQueries({ queryKey: key });
+      await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
       this.assertUsable();
     }
     const models = await this.client.fetchQuery(this.modelsQueryOptions());
@@ -378,33 +408,49 @@ export class AppServerQueryCache {
     return this.fetchModels({ force: true });
   }
 
-  private threadListQueryOptions(kind: ThreadListKind): AppServerQueryOptions<readonly Thread[]> {
+  private activeThreadListQueryOptions(): InfiniteQueryObserverOptions<
+    ThreadPage,
+    Error,
+    ActiveThreadListData,
+    ActiveThreadsQueryKey,
+    ActiveThreadPageParam
+  > {
     return {
-      queryKey: this.threadListQueryKey(kind),
-      queryFn: async (): Promise<readonly Thread[]> => {
-        if (kind === "active") {
-          for (;;) {
-            const epoch = this.threadListEpochs.active;
-            const revision = this.activeThreadRevision;
-            const page = await this.runWithClient((client) => readThreadPage(client, this.context.vaultPath, { archived: false }));
-            if (this.threadListEpochs.active !== epoch) continue;
-            if (this.activeThreadRevision !== revision) return this.activeThreadsSnapshot() ?? [];
-            this.rememberActiveThreadCursor(page.nextCursor);
-            return cloneThreads(page.threads);
-          }
-        }
-        for (;;) {
-          const epoch = this.threadListEpochs.archived;
-          const threads = await this.runWithClient((client) => listThreads(client, this.context.vaultPath, { archived: true }));
-          if (this.threadListEpochs.archived === epoch) return cloneThreads(threads);
-        }
-      },
-      staleTime: THREAD_LIST_STALE_TIME_MS,
+      queryKey: activeThreadsQueryKey(this.context),
+      queryFn: ({ pageParam }) =>
+        this.runWithClient((client) => readThreadPage(client, this.context.vaultPath, { cursor: pageParam, archived: false })),
+      initialPageParam: null,
+      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      staleTime: Number.POSITIVE_INFINITY,
     };
   }
 
-  private threadListQueryKey(kind: ThreadListKind): ReturnType<typeof activeThreadsQueryKey> | ReturnType<typeof archivedThreadsQueryKey> {
-    return kind === "archived" ? archivedThreadsQueryKey(this.context) : activeThreadsQueryKey(this.context);
+  private activeThreadListObserver(): InfiniteQueryObserver<
+    ThreadPage,
+    Error,
+    ActiveThreadListData,
+    ActiveThreadsQueryKey,
+    ActiveThreadPageParam
+  > {
+    return new InfiniteQueryObserver(this.client, {
+      ...this.activeThreadListQueryOptions(),
+      enabled: false,
+    });
+  }
+
+  private activeThreadListIsFetchingNextPage(): boolean {
+    const observer = this.activeThreadListObserver();
+    const isFetchingNextPage = observer.getCurrentResult().isFetchingNextPage;
+    observer.destroy();
+    return isFetchingNextPage;
+  }
+
+  private archivedThreadListQueryOptions(): AppServerQueryOptions<readonly Thread[]> {
+    return {
+      queryKey: archivedThreadsQueryKey(this.context),
+      queryFn: () => this.runWithClient((client) => listThreads(client, this.context.vaultPath, { archived: true })).then(cloneThreads),
+      staleTime: Number.POSITIVE_INFINITY,
+    };
   }
 
   private runtimeConfigQueryOptions(): AppServerQueryOptions<RuntimeConfigSnapshot> {
@@ -414,18 +460,14 @@ export class AppServerQueryCache {
         this.runWithClient(async (client) =>
           runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, this.context.vaultPath)),
         ),
-      staleTime: APP_SERVER_METADATA_STALE_TIME_MS,
     };
   }
 
-  private skillsQueryOptions(forceReload = false): AppServerQueryOptions<MetadataResourceSnapshot<readonly SkillMetadata[]>> {
+  private skillsQueryOptions(): AppServerQueryOptions<MetadataResourceSnapshot<readonly SkillMetadata[]>> {
     return {
       queryKey: appServerSkillsQueryKey(this.context),
       queryFn: async () =>
-        this.runWithClient(async (client) =>
-          successfulMetadataResource(await readSkillMetadataProbe(client, this.context.vaultPath, forceReload)),
-        ),
-      staleTime: APP_SERVER_METADATA_STALE_TIME_MS,
+        this.runWithClient(async (client) => successfulMetadataResource(await readSkillMetadataProbe(client, this.context.vaultPath))),
     };
   }
 
@@ -436,7 +478,6 @@ export class AppServerQueryCache {
         this.runWithClient(async (client) =>
           successfulMetadataResource(await readPermissionProfileMetadataProbe(client, this.context.vaultPath)),
         ),
-      staleTime: APP_SERVER_METADATA_STALE_TIME_MS,
     };
   }
 
@@ -444,92 +485,44 @@ export class AppServerQueryCache {
     return {
       queryKey: appServerRateLimitsQueryKey(this.context),
       queryFn: async () => this.runWithClient(async (client) => successfulMetadataResource(await readRateLimitMetadataProbe(client))),
-      staleTime: APP_SERVER_METADATA_STALE_TIME_MS,
     };
   }
 
-  private async fetchRuntimeConfig(force: boolean): Promise<RuntimeConfigSnapshot> {
-    const key = appServerRuntimeConfigQueryKey(this.context);
-    if (force) {
-      await this.client.invalidateQueries({ queryKey: key });
-      this.assertUsable();
-    }
+  private async fetchRuntimeConfig(): Promise<RuntimeConfigSnapshot> {
     const runtimeConfig = await this.client.fetchQuery(this.runtimeConfigQueryOptions());
     this.assertUsable();
     return cloneRuntimeConfigSnapshot(runtimeConfig);
   }
 
-  private fetchMetadataResource(resource: MetadataResourceKind, force: boolean, reloadSkills = false): Promise<void> {
-    const refresh = (async (): Promise<void> => {
+  private fetchMetadataResource(resource: MetadataResourceKind): Promise<void> {
+    return (async (): Promise<void> => {
       if (resource === "skills") {
-        const options = this.skillsQueryOptions(reloadSkills);
-        if (force) {
-          await this.client.invalidateQueries({ queryKey: options.queryKey });
-          this.assertUsable();
-        }
+        const options = this.skillsQueryOptions();
         await this.client.fetchQuery(options);
         this.assertUsable();
         return;
       }
       if (resource === "permissionProfiles") {
         const options = this.permissionProfilesQueryOptions();
-        if (force) {
-          await this.client.invalidateQueries({ queryKey: options.queryKey });
-          this.assertUsable();
-        }
         await this.client.fetchQuery(options);
         this.assertUsable();
         return;
       }
       const options = this.rateLimitsQueryOptions();
-      if (force) {
-        await this.client.invalidateQueries({ queryKey: options.queryKey });
-        this.assertUsable();
-      }
       await this.client.fetchQuery(options);
       this.assertUsable();
     })();
-    const active = this.metadataResourceFetches.get(resource) ?? new Set<Promise<void>>();
-    active.add(refresh);
-    this.metadataResourceFetches.set(resource, active);
-    const cleanup = (): void => {
-      active.delete(refresh);
-      if (active.size === 0 && this.metadataResourceFetches.get(resource) === active) this.metadataResourceFetches.delete(resource);
-    };
-    void refresh.then(cleanup, cleanup);
-    return refresh;
   }
 
-  private refreshMetadataResourceNotification(resource: MetadataNotificationResourceKind): Promise<void> {
-    const generation = this.generation;
-    const current = this.metadataNotificationRefreshes.get(resource);
-    if (current?.generation === generation) {
-      current.dirty = true;
-      return current.promise;
+  private async refreshNotifiedMetadataResource(resource: "skills" | "rateLimits"): Promise<void> {
+    const queryKey = resource === "skills" ? appServerSkillsQueryKey(this.context) : appServerRateLimitsQueryKey(this.context);
+    await this.client.cancelQueries({ queryKey, exact: true });
+    this.assertUsable();
+    try {
+      await this.fetchMetadataResource(resource);
+    } catch (error) {
+      if (!(error instanceof CancelledError)) throw error;
     }
-
-    const activeFetches = [...(this.metadataResourceFetches.get(resource) ?? [])];
-    const refresh: MetadataNotificationRefresh = {
-      dirty: false,
-      generation,
-      promise: Promise.resolve(),
-    };
-    refresh.promise = (async (): Promise<void> => {
-      if (activeFetches.length > 0) await Promise.allSettled(activeFetches);
-      if (generation !== this.generation) return;
-      for (;;) {
-        refresh.dirty = false;
-        await this.fetchMetadataResource(resource, true, resource === "skills").catch(() => undefined);
-        if (generation !== this.generation) return;
-        if (!metadataNotificationRefreshIsDirty(refresh)) return;
-      }
-    })();
-    this.metadataNotificationRefreshes.set(resource, refresh);
-    const cleanup = (): void => {
-      if (this.metadataNotificationRefreshes.get(resource) === refresh) this.metadataNotificationRefreshes.delete(resource);
-    };
-    void refresh.promise.then(cleanup, cleanup);
-    return refresh.promise;
   }
 
   private metadataResourceState(resource: "skills"): { value: readonly SkillMetadata[] | null; probe: DiagnosticProbeResult };
@@ -581,27 +574,30 @@ export class AppServerQueryCache {
     };
   }
 
-  private observeQueryResult<T>(
-    queryOptions: AppServerQueryOptions<T>,
-    clone: (value: T) => T,
-    listener: ObservedResultListener<T>,
+  private observeQueryResult<TQuery, TValue>(
+    queryOptions: AppServerQueryOptions<TQuery>,
+    project: (value: TQuery) => TValue,
+    listener: ObservedResultListener<TValue>,
     options: { emitCurrent?: boolean },
   ): () => void {
-    const observer = new QueryObserver<T>(this.client, {
+    const observer = new QueryObserver<TQuery>(this.client, {
       ...queryOptions,
       enabled: false,
     });
-    const emit = (result: QueryObserverResult<T>): void => {
-      listener(this.cloneObservedResult(result, clone));
+    const emit = (result: QueryObserverResult<TQuery>): void => {
+      listener(this.projectObservedResult(result, project));
     };
     const unsubscribe = observer.subscribe(emit);
     if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
     return unsubscribe;
   }
 
-  private cloneObservedResult<T>(result: QueryObserverResult<T>, clone: (value: T) => T): ObservedResult<T> {
+  private projectObservedResult<TQuery, TValue>(
+    result: QueryObserverResult<TQuery>,
+    project: (value: TQuery) => TValue,
+  ): ObservedResult<TValue> {
     return {
-      value: result.data === undefined ? null : clone(result.data),
+      value: result.data === undefined ? null : project(result.data),
       error: result.error instanceof Error ? result.error : null,
       isFetching: result.isFetching,
     };
@@ -609,40 +605,18 @@ export class AppServerQueryCache {
 
   private runWithClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {
     this.assertUsable();
-    const generation = this.generation;
     const runner = this.clientRunner;
     if (!runner) throw new Error("Codex app-server query client runner is not configured.");
-    return runner.runWithClient(this.context, operation, options).then(
-      (result) => {
-        if (this.disposed || generation !== this.generation) throw new DisposedAppServerQueryCacheError();
-        return result;
-      },
-      (error: unknown) => {
-        if (this.disposed || generation !== this.generation) throw new DisposedAppServerQueryCacheError();
-        throw error;
-      },
-    );
+    return runner.runWithClient(this.context, operation, options);
   }
 
   private assertUsable(): void {
-    if (this.disposed) throw new DisposedAppServerQueryCacheError();
+    if (this.disposed) throw new Error("Codex app-server query cache was disposed.");
   }
 
-  private rememberActiveThreadCursor(cursor: string | null): void {
-    this.activeThreadCursorKnown = true;
-    this.activeThreadCursor = cursor;
-    this.bumpActiveThreadRevision();
-  }
-
-  private bumpActiveThreadRevision(): void {
-    this.activeThreadRevision += 1;
-  }
-}
-
-class DisposedAppServerQueryCacheError extends Error {
-  constructor() {
-    super("Codex app-server query cache was disposed.");
-    this.name = "DisposedAppServerQueryCacheError";
+  private activeThreadListData(): ActiveThreadListData | null {
+    if (!appServerQueryContextIsComplete(this.context)) return null;
+    return this.client.getQueryData<ActiveThreadListData>(activeThreadsQueryKey(this.context)) ?? null;
   }
 }
 
@@ -662,15 +636,14 @@ function diagnosticProbeFromError(error: unknown): DiagnosticProbeResult | null 
   return error instanceof MetadataResourceQueryError ? error.probe : null;
 }
 
-function metadataNotificationRefreshIsDirty(refresh: MetadataNotificationRefresh): boolean {
-  return refresh.dirty;
+function flattenActiveThreadList(data: ActiveThreadListData): readonly Thread[] {
+  return cloneThreads(data.pages.flatMap((page) => page.threads));
 }
 
 function createAppServerQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        gcTime: APP_SERVER_QUERY_GC_TIME_MS,
         retry: false,
         refetchOnReconnect: false,
         refetchOnWindowFocus: false,

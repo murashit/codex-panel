@@ -140,18 +140,9 @@ export function createConnectionBundle(
     const threads = await environment.plugin.threadCatalog.refreshActive();
     stateStore.dispatch({ type: "thread-list/applied", threads });
   };
-  const refreshSharedThreadsQuietly = (): void => {
-    void refreshSharedThreads().catch((error: unknown) => {
-      if (isStaleAppServerResourceContextError(error)) return;
-      status.addSystemMessage(error instanceof Error ? error.message : String(error));
-    });
-  };
   const inboundHandler = createChatInboundHandler(
     stateStore,
     {
-      refreshActiveThreads: () => {
-        refreshSharedThreadsQuietly();
-      },
       refreshServerDiagnostics: (options) => {
         void serverDiagnostics.refreshServerDiagnostics(options).catch((error: unknown) => {
           status.addSystemMessage(error instanceof Error ? error.message : String(error));

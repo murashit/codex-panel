@@ -23,16 +23,13 @@ describe("ThreadCatalog", () => {
     expect(onEventApplied).toHaveBeenCalledTimes(2);
   });
 
-  it("requests an authoritative archived read when an archive event lacks a source snapshot", () => {
+  it("does not invent an archived record when an archive event lacks a source snapshot", () => {
     const store = catalogStore();
     const catalog = createThreadCatalog({ store });
 
     catalog.apply({ type: "thread-archived", threadId: "unknown" });
 
-    expect(store.appliedMutations).toEqual([
-      { kind: "remove", list: "active", threadId: "unknown" },
-      { kind: "refresh", list: "archived" },
-    ]);
+    expect(store.appliedMutations).toEqual([{ kind: "remove", list: "active", threadId: "unknown" }]);
   });
 
   it("moves known restored and unarchived threads between lists", () => {
@@ -49,18 +46,17 @@ describe("ThreadCatalog", () => {
     expect(catalog.archivedSnapshot()).toEqual([]);
   });
 
-  it("patches touch and delete facts without inventing unknown thread records", () => {
+  it("patches exact rename and delete facts without inventing unknown thread records", () => {
     const store = catalogStore({
-      active: [thread("active", false, { recencyAt: 1 }), thread("kept")],
+      active: [thread("active"), thread("kept")],
       archived: [thread("deleted", true)],
     });
     const catalog = createThreadCatalog({ store });
 
-    catalog.apply({ type: "thread-touched", threadId: "active", recencyAt: 20 });
     catalog.apply({ type: "thread-renamed", threadId: "missing", name: "Not invented" });
     catalog.apply({ type: "thread-deleted", threadId: "deleted" });
 
-    expect(catalog.activeSnapshot()).toEqual([thread("active", false, { recencyAt: 20 }), thread("kept")]);
+    expect(catalog.activeSnapshot()).toEqual([thread("active"), thread("kept")]);
     expect(catalog.archivedSnapshot()).toEqual([]);
   });
 
@@ -69,7 +65,7 @@ describe("ThreadCatalog", () => {
     const catalog = createThreadCatalog({ store });
     const staleContext = { codexPath: "codex", vaultPath: "/vault", generation: 0 };
 
-    catalog.applyConnectionEvent(staleContext, { type: "thread-started", thread: thread("stale") });
+    catalog.applyConnectionEvent(staleContext, { type: "thread-upserted", thread: thread("stale") });
 
     expect(store.appliedMutations).toEqual([]);
     expect(catalog.activeSnapshot()).toBeNull();

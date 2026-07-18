@@ -1580,17 +1580,9 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
         activeThreads = activeThreads?.map((thread) => (thread.id === event.threadId ? { ...thread, name: event.name } : thread)) ?? null;
         emitActiveThreads();
         return;
-      case "thread-started":
-      case "thread-forked":
+      case "thread-upserted":
       case "thread-restored":
         upsertActiveThread(event.thread);
-        return;
-      case "thread-touched":
-        activeThreads =
-          activeThreads?.map((thread) =>
-            thread.id === event.threadId && event.recencyAt !== undefined ? { ...thread, recencyAt: event.recencyAt } : thread,
-          ) ?? activeThreads;
-        emitActiveThreads();
         return;
       case "thread-unarchived":
         return;

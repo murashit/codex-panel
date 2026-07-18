@@ -1,4 +1,5 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import type { Thread } from "../../../../domain/threads/model";
 import { effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -18,6 +19,7 @@ export interface ResumeActionsHost {
   closing: () => boolean;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   notifyActiveThreadIdentityChanged: () => void;
+  recordResumedThread: (thread: Thread) => void;
   addSystemMessage: (text: string) => void;
   refreshLiveState: () => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
@@ -63,6 +65,7 @@ async function resumeThread(
     const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);
     if (!adoptedPanelTarget) return false;
     currentPanelTarget = adoptedPanelTarget;
+    host.recordResumedThread(effect.value.activation.thread);
     options?.onAdopted?.();
     recoverResumedThreadTokenUsage(host, effect.value.activation.thread.id, effect.value.rolloutPath, resume, adoptedPanelTarget);
     if (effect.value.initialHistoryPage) {

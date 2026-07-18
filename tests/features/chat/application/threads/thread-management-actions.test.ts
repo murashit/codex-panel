@@ -37,8 +37,7 @@ type ThreadManagementActionsHostMock = Omit<
   | "openThreadInCurrentPanel"
   | "openThreadInNewView"
   | "operations"
-  | "recordForkedThread"
-  | "refreshAfterThreadMutation"
+  | "recordThread"
   | "setComposerText"
   | "setStatus"
   | "threadTransport"
@@ -51,8 +50,7 @@ type ThreadManagementActionsHostMock = Omit<
   openThreadInNewView: Mock<ThreadManagementActionsHost["openThreadInNewView"]>;
   openThreadInCurrentPanel: Mock<ThreadManagementActionsHost["openThreadInCurrentPanel"]>;
   notifyActiveThreadIdentityChanged: Mock<ThreadManagementActionsHost["notifyActiveThreadIdentityChanged"]>;
-  refreshAfterThreadMutation: Mock<ThreadManagementActionsHost["refreshAfterThreadMutation"]>;
-  recordForkedThread: Mock<ThreadManagementActionsHost["recordForkedThread"]>;
+  recordThread: Mock<ThreadManagementActionsHost["recordThread"]>;
 };
 
 describe("thread management actions", () => {
@@ -300,7 +298,7 @@ describe("thread management actions", () => {
     await controller.forkThreadFromTurn("source", "turn-1", false);
 
     expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", "turn-1");
-    expect(host.recordForkedThread).toHaveBeenCalledWith(
+    expect(host.recordThread).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "forked",
       }),
@@ -497,7 +495,7 @@ describe("thread management actions", () => {
 
     await controller.forkThreadFromTurn("source", null, false);
 
-    expect(host.recordForkedThread).not.toHaveBeenCalled();
+    expect(host.recordThread).not.toHaveBeenCalled();
     expect(host.openThreadInNewView).not.toHaveBeenCalled();
     expect(host.operations.archiveThread).not.toHaveBeenCalled();
   });
@@ -515,7 +513,7 @@ describe("thread management actions", () => {
 
     await controller.forkThreadFromTurn("source", null, true);
 
-    expect(host.recordForkedThread).toHaveBeenCalledWith(panelThread("forked"));
+    expect(host.recordThread).toHaveBeenCalledWith(panelThread("forked"));
     expect(host.operations.renameThread).not.toHaveBeenCalled();
     expect(host.operations.archiveThread).not.toHaveBeenCalled();
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
@@ -577,7 +575,7 @@ describe("thread management actions", () => {
       { kind: "dialogue", role: "assistant", text: "kept answer", turnId: "kept-turn" },
     ]);
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
-    expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.refreshAfterThreadMutation));
+    expect(host.recordThread).toHaveBeenCalledWith(rollbackSnapshot().thread);
   });
 
   it("does not roll back an ephemeral side chat", async () => {
@@ -648,7 +646,7 @@ describe("thread management actions", () => {
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
-    expect(host.refreshAfterThreadMutation).toHaveBeenCalledOnce();
+    expect(host.recordThread).not.toHaveBeenCalled();
   });
 
   it("ignores rollback responses after a new turn starts in the same thread", async () => {
@@ -681,10 +679,10 @@ describe("thread management actions", () => {
 
     expect(host.stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
     expect(host.setComposerText).not.toHaveBeenCalled();
-    expect(host.refreshAfterThreadMutation).toHaveBeenCalledOnce();
+    expect(host.recordThread).not.toHaveBeenCalled();
   });
 
-  it("refreshes shared thread facts when rollback completes in a stale app-server context", async () => {
+  it("does not publish rollback facts from a stale app-server context", async () => {
     const host = hostMock({
       items: turnItems(),
       activeThread: { id: "source" },
@@ -698,7 +696,7 @@ describe("thread management actions", () => {
 
     await controller.rollbackThread("source");
 
-    expect(host.refreshAfterThreadMutation).toHaveBeenCalledOnce();
+    expect(host.recordThread).not.toHaveBeenCalled();
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
   });
@@ -737,7 +735,7 @@ describe("thread management actions", () => {
 
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
-    expect(host.refreshAfterThreadMutation).not.toHaveBeenCalled();
+    expect(host.recordThread).not.toHaveBeenCalled();
   });
 });
 
@@ -831,8 +829,7 @@ function hostMock({
     openThreadInNewView: vi.fn<ThreadManagementActionsHost["openThreadInNewView"]>().mockResolvedValue(undefined),
     openThreadInCurrentPanel: vi.fn<ThreadManagementActionsHost["openThreadInCurrentPanel"]>().mockResolvedValue(undefined),
     notifyActiveThreadIdentityChanged: vi.fn<ThreadManagementActionsHost["notifyActiveThreadIdentityChanged"]>(),
-    refreshAfterThreadMutation: vi.fn<ThreadManagementActionsHost["refreshAfterThreadMutation"]>().mockResolvedValue(undefined),
-    recordForkedThread: vi.fn<ThreadManagementActionsHost["recordForkedThread"]>(),
+    recordThread: vi.fn<ThreadManagementActionsHost["recordThread"]>(),
   };
 }
 

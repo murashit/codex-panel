@@ -25,8 +25,7 @@ export interface ThreadManagementActionsHost {
   openThreadInNewView: (threadId: string) => Promise<void>;
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
-  refreshAfterThreadMutation: () => Promise<void>;
-  recordForkedThread: (thread: Thread) => void;
+  recordThread: (thread: Thread) => void;
 }
 
 interface ThreadManagementOperations {
@@ -138,7 +137,7 @@ async function forkThreadFromTurn(
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
-    host.recordForkedThread(forkedThread);
+    host.recordThread(forkedThread);
     if (!effectCompletedInCurrentContext(effect)) return;
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     if (sourceName) {
@@ -207,15 +206,9 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     const effect = await host.threadTransport.rollbackThread(threadId);
     if (!effectCompleted(effect)) return;
-    if (!effectCompletedInCurrentContext(effect)) {
-      await host.refreshAfterThreadMutation();
-      return;
-    }
+    if (!effectCompletedInCurrentContext(effect)) return;
     const snapshot = effect.value;
-    if (!threadManagementScopeStillTargetsPanel(host, scope)) {
-      await host.refreshAfterThreadMutation();
-      return;
-    }
+    if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     threadManagementDispatch(
       host,
       resumedThreadActionFromActiveRuntime({
@@ -236,7 +229,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
     host.setStatus(STATUS_ROLLBACK_COMPLETE);
     host.notifyActiveThreadIdentityChanged();
-    await host.refreshAfterThreadMutation();
+    host.recordThread(snapshot.thread);
   } catch (error) {
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));

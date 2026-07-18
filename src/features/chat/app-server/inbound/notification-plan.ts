@@ -14,7 +14,6 @@ import { type DiagnosticStatusNotification, routeServerNotification, type Thread
 import { turnRuntimeEventsFromNotification } from "./runtime-events";
 
 export type ChatNotificationEffect =
-  | { type: "refresh-threads" }
   | {
       type: "maybe-name-thread";
       threadId: string;
@@ -25,7 +24,7 @@ export type ChatNotificationEffect =
   | { type: "apply-app-server-resource-event"; event: AppServerResourceEvent }
   | { type: "apply-thread-catalog-event"; event: ThreadCatalogEvent };
 
-type TurnRuntimeCompletedTurnTranscriptSummary = Extract<TurnRuntimeOutcome, { type: "turn-completed" }>["completedTurnTranscriptSummary"];
+type TurnRuntimeCompletedTurnTranscriptSummary = TurnRuntimeOutcome["completedTurnTranscriptSummary"];
 
 export interface ChatNotificationPlan {
   actions: readonly ChatAction[];
@@ -242,25 +241,14 @@ function subagentTrackingActionsFromParentEvents(state: ChatState, events: reado
 
 function chatNotificationEffectsFromTurnRuntimeOutcome(state: ChatState, outcome: TurnRuntimeOutcome): readonly ChatNotificationEffect[] {
   if (activeThreadState(state)?.lifetime?.kind === "ephemeral") return [];
-  switch (outcome.type) {
-    case "turn-started":
-      return [
-        {
-          type: "apply-thread-catalog-event",
-          event: { type: "thread-touched", threadId: outcome.threadId, recencyAt: outcome.recencyAt },
-        },
-      ];
-    case "turn-completed":
-      return [
-        {
-          type: "maybe-name-thread",
-          threadId: outcome.threadId,
-          turnId: outcome.turnId,
-          completedTurnTranscriptSummary: outcome.completedTurnTranscriptSummary,
-        },
-        { type: "refresh-threads" },
-      ];
-  }
+  return [
+    {
+      type: "maybe-name-thread",
+      threadId: outcome.threadId,
+      turnId: outcome.turnId,
+      completedTurnTranscriptSummary: outcome.completedTurnTranscriptSummary,
+    },
+  ];
 }
 
 function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatNotificationPlan {
@@ -346,7 +334,7 @@ function threadStartedPlan(
       : [
           {
             type: "apply-thread-catalog-event",
-            event: { type: "thread-started", thread },
+            event: { type: "thread-upserted", thread },
           },
         ];
   if (activeThreadId(state) === notification.params.thread.id) {

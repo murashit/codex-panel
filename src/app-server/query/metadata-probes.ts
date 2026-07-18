@@ -16,16 +16,9 @@ export type SkillMetadataProbeResult = MetadataProbeResult<SkillMetadata[], "ski
 export type PermissionProfileMetadataProbeResult = MetadataProbeResult<RuntimePermissionProfileSummary[], "permissionProfiles">;
 export type RateLimitMetadataProbeResult = MetadataProbeResult<RateLimitSnapshot | null, "rateLimits">;
 
-export async function readSkillMetadataProbe(
-  client: AppServerRequestClient | null,
-  vaultPath: string,
-  forceReload = false,
-): Promise<SkillMetadataProbeResult> {
-  if (!client) {
-    return { value: [], probe: diagnosticProbeError("skills", new Error("Codex app-server is not connected."), Date.now()) };
-  }
+export async function readSkillMetadataProbe(client: AppServerRequestClient, vaultPath: string): Promise<SkillMetadataProbeResult> {
   try {
-    const catalog = await listSkillCatalog(client, vaultPath, { forceReload });
+    const catalog = await listSkillCatalog(client, vaultPath);
     return { value: catalog.skills, probe: diagnosticProbeOk("skills", `${String(catalog.totalCount)} skills`, Date.now()) };
   } catch (error) {
     return { value: [], probe: diagnosticProbeError("skills", error, Date.now()) };
@@ -33,15 +26,9 @@ export async function readSkillMetadataProbe(
 }
 
 export async function readPermissionProfileMetadataProbe(
-  client: AppServerRequestClient | null,
+  client: AppServerRequestClient,
   vaultPath: string,
 ): Promise<PermissionProfileMetadataProbeResult> {
-  if (!client) {
-    return {
-      value: [],
-      probe: diagnosticProbeError("permissionProfiles", new Error("Codex app-server is not connected."), Date.now()),
-    };
-  }
   try {
     const profiles = await listPermissionProfiles(client, vaultPath);
     return { value: profiles, probe: diagnosticProbeOk("permissionProfiles", `${String(profiles.length)} profiles`, Date.now()) };
@@ -50,13 +37,7 @@ export async function readPermissionProfileMetadataProbe(
   }
 }
 
-export async function readRateLimitMetadataProbe(client: AppServerRequestClient | null): Promise<RateLimitMetadataProbeResult> {
-  if (!client) {
-    return {
-      value: null,
-      probe: diagnosticProbeError("rateLimits", new Error("Codex app-server is not connected."), Date.now()),
-    };
-  }
+export async function readRateLimitMetadataProbe(client: AppServerRequestClient): Promise<RateLimitMetadataProbeResult> {
   try {
     const response = await readAccountRateLimits(client);
     return {

@@ -9,14 +9,11 @@ export type ThreadListMutation =
       readonly kind: "update";
       readonly list: ThreadListKind;
       readonly threadId: string;
-      readonly changes: Partial<Pick<Thread, "name" | "recencyAt">>;
-    }
-  | { readonly kind: "refresh"; readonly list: ThreadListKind };
+      readonly changes: Pick<Thread, "name">;
+    };
 
 export function applyThreadListMutation(snapshot: readonly Thread[] | null, mutation: ThreadListMutation): readonly Thread[] | null {
   switch (mutation.kind) {
-    case "refresh":
-      return snapshot;
     case "upsert": {
       if (!snapshot) return [mutation.thread];
       const index = snapshot.findIndex((thread) => thread.id === mutation.thread.id);

@@ -28,9 +28,7 @@ export interface ThreadCatalogOptions {
 }
 
 export type ThreadCatalogEvent =
-  | { type: "thread-started"; thread: Thread }
-  | { type: "thread-forked"; thread: Thread }
-  | { type: "thread-touched"; threadId: string; recencyAt?: number | null }
+  | { type: "thread-upserted"; thread: Thread }
   | { type: "thread-renamed"; threadId: string; name: string | null }
   | { type: "thread-archived"; threadId: string }
   | { type: "thread-deleted"; threadId: string }
@@ -96,18 +94,8 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
 
 function threadListMutationsForEvent(store: ThreadCatalogStore, event: ThreadCatalogEvent): ThreadListMutation[] {
   switch (event.type) {
-    case "thread-started":
-    case "thread-forked":
+    case "thread-upserted":
       return [{ kind: "upsert", list: "active", thread: { ...event.thread, archived: false } }];
-    case "thread-touched":
-      return [
-        {
-          kind: "update",
-          list: "active",
-          threadId: event.threadId,
-          changes: event.recencyAt === undefined ? {} : { recencyAt: event.recencyAt },
-        },
-      ];
     case "thread-renamed":
       return [
         { kind: "update", list: "active", threadId: event.threadId, changes: { name: event.name } },
@@ -117,9 +105,7 @@ function threadListMutationsForEvent(store: ThreadCatalogStore, event: ThreadCat
       const thread = threadById(store.activeThreadsSnapshot(), event.threadId);
       return [
         { kind: "remove", list: "active", threadId: event.threadId },
-        ...(thread
-          ? [{ kind: "upsert", list: "archived", thread: { ...thread, archived: true } } satisfies ThreadListMutation]
-          : [{ kind: "refresh", list: "archived" } satisfies ThreadListMutation]),
+        ...(thread ? [{ kind: "upsert", list: "archived", thread: { ...thread, archived: true } } satisfies ThreadListMutation] : []),
       ];
     }
     case "thread-deleted":
@@ -136,9 +122,7 @@ function threadListMutationsForEvent(store: ThreadCatalogStore, event: ThreadCat
       const thread = threadById(store.archivedThreadsSnapshot(), event.threadId);
       return [
         { kind: "remove", list: "archived", threadId: event.threadId },
-        ...(thread
-          ? [{ kind: "upsert", list: "active", thread: { ...thread, archived: false } } satisfies ThreadListMutation]
-          : [{ kind: "refresh", list: "active" } satisfies ThreadListMutation]),
+        ...(thread ? [{ kind: "upsert", list: "active", thread: { ...thread, archived: false } } satisfies ThreadListMutation] : []),
       ];
     }
   }

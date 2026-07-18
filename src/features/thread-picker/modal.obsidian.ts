@@ -22,12 +22,13 @@ const THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS = { capture: true } as const
 
 export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
   try {
-    const threads = await host.threadCatalog.refreshActive();
+    const snapshot = host.threadCatalog.activeSnapshot();
+    const threads = snapshot ?? (await host.threadCatalog.loadActive());
     if (threads.length === 0) {
       new Notice("No Codex threads found.");
       return;
     }
-    new ThreadPickerModal(host, threads).open();
+    new ThreadPickerModal(host, threads, snapshot === null).open();
   } catch (error) {
     new Notice(error instanceof Error ? error.message : String(error));
   }
@@ -48,11 +49,11 @@ function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMod
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   private threads: readonly Thread[];
   private completeThreadsPromise: Promise<readonly Thread[]> | null = null;
-  private hasCompleteThreadList = false;
 
   constructor(
     private readonly host: ThreadPickerHost,
     threads: readonly Thread[],
+    private hasCompleteThreadList: boolean,
   ) {
     super(host.app);
     this.threads = threads;

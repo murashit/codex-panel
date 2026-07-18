@@ -70,19 +70,14 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, "threadLifecycle", { activeThreadId: "thread-other", activeTurnId: "turn-active" });
   });
 
-  it("translates turn-started runtime outcomes to thread catalog events at the inbound boundary", () => {
+  it("does not turn live turn-start state into thread catalog work", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
     state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
 
     const plan = planChatNotification(state, turnStartedNotification(), (prefix) => `${prefix}-1`);
 
-    expect(plan.effects).toEqual([
-      {
-        type: "apply-thread-catalog-event",
-        event: { type: "thread-touched", threadId: "thread-active", recencyAt: null },
-      },
-    ]);
+    expect(plan.effects).toEqual([]);
   });
 
   it("translates turn-completed runtime outcomes to thread follow-up effects at the inbound boundary", () => {
@@ -99,7 +94,6 @@ describe("chat inbound routing", () => {
         turnId: "turn-active",
         completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
       },
-      { type: "refresh-threads" },
     ]);
   });
 
