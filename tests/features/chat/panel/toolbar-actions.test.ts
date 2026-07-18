@@ -42,6 +42,50 @@ describe("createToolbarPanelActions", () => {
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
   });
 
+  it("keeps the panel open during rename while clearing archive confirmation on an outside pointer", () => {
+    const stateStore = createChatStateStore(createChatState());
+    const actions = createToolbarPanelActions({
+      stateStore,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
+    });
+    actions.toggleHistory();
+    actions.startArchive("thread");
+
+    actions.closeOnOutsidePointer({
+      hit: { insideToolbarPanel: false, insideArchiveConfirm: false },
+      renameEditing: true,
+    });
+
+    expect(stateStore.getState().ui.toolbarPanel).toBe("history");
+    expect(actions.archiveConfirmId()).toBeNull();
+  });
+
+  it("keeps archive confirmation only for pointers inside its confirmation row", () => {
+    const stateStore = createChatStateStore(createChatState());
+    const actions = createToolbarPanelActions({
+      stateStore,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
+    });
+    actions.toggleHistory();
+    actions.startArchive("thread");
+
+    actions.closeOnOutsidePointer({
+      hit: { insideToolbarPanel: true, insideArchiveConfirm: true },
+      renameEditing: false,
+    });
+
+    expect(stateStore.getState().ui.toolbarPanel).toBe("history");
+    expect(actions.archiveConfirmId()).toBe("thread");
+
+    actions.closeOnOutsidePointer({
+      hit: { insideToolbarPanel: true, insideArchiveConfirm: false },
+      renameEditing: false,
+    });
+
+    expect(stateStore.getState().ui.toolbarPanel).toBe("history");
+    expect(actions.archiveConfirmId()).toBeNull();
+  });
+
   it("keeps the Set goal action reachable while a restored thread needs hydration", () => {
     const stateStore = createChatStateStore(createChatState());
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "restored", fallbackTitle: "Restored" });
@@ -61,6 +105,41 @@ describe("createToolbarPanelActions", () => {
 
     actions.chat.setGoal();
 
+    expect(startEditingCurrent).toHaveBeenCalledOnce();
+  });
+
+  it("gates side chat, compaction, and goal mutation at invocation time", () => {
+    let enabled = false;
+    const openSideChat = vi.fn();
+    const compactActiveThread = vi.fn().mockResolvedValue(undefined);
+    const startEditingCurrent = vi.fn();
+    const actions = createToolbarUiActions({
+      connectionActions: {} as never,
+      reconnectPanel: vi.fn(),
+      threadActions: { compactActiveThread } as never,
+      goals: { startEditingCurrent } as never,
+      toolbarPanel: {} as never,
+      rename: {} as never,
+      navigation: {} as never,
+      openSideChat,
+      canStartSideChat: () => enabled,
+      canCompact: () => enabled,
+      canMutateGoal: () => enabled,
+    });
+
+    actions.chat.startSideChat?.();
+    actions.chat.compactContext();
+    actions.chat.setGoal();
+    expect(openSideChat).not.toHaveBeenCalled();
+    expect(compactActiveThread).not.toHaveBeenCalled();
+    expect(startEditingCurrent).not.toHaveBeenCalled();
+
+    enabled = true;
+    actions.chat.startSideChat?.();
+    actions.chat.compactContext();
+    actions.chat.setGoal();
+    expect(openSideChat).toHaveBeenCalledOnce();
+    expect(compactActiveThread).toHaveBeenCalledOnce();
     expect(startEditingCurrent).toHaveBeenCalledOnce();
   });
 });

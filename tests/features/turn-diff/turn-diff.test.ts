@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import type { WorkspaceLeaf } from "obsidian";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { persistedTurnDiffViewState } from "../../../src/features/turn-diff/model";
+import { isPersistedTurnDiffViewState, persistedTurnDiffViewState } from "../../../src/features/turn-diff/model";
 import { renderTurnDiffView } from "../../../src/features/turn-diff/render.dom";
 import { CodexTurnDiffView } from "../../../src/features/turn-diff/view.obsidian";
 import { installObsidianDomShims } from "../../support/dom";
@@ -11,6 +11,10 @@ import { installObsidianDomShims } from "../../support/dom";
 installObsidianDomShims();
 
 describe("turn diff view decisions", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("renders the turn diff view with classified unified diff lines", () => {
     const parent = document.createElement("div");
     const copyDiff = vi.fn();
@@ -145,6 +149,42 @@ describe("turn diff view decisions", () => {
     expect(persisted).not.toHaveProperty("diff");
   });
 
+  it.each([
+    {
+      name: "a complete state with a vault path",
+      value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts"] },
+      valid: true,
+    },
+    {
+      name: "a complete state without a working directory",
+      value: { threadId: "thread", turnId: "turn", cwd: null, files: [] },
+      valid: true,
+    },
+    { name: "null", value: null, valid: false },
+    {
+      name: "a missing turn id",
+      value: { threadId: "thread", cwd: "/vault/project", files: ["src/main.ts"] },
+      valid: false,
+    },
+    {
+      name: "a non-array file list",
+      value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: "src/main.ts" },
+      valid: false,
+    },
+    {
+      name: "a file list containing a non-string value",
+      value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts", 42] },
+      valid: false,
+    },
+    {
+      name: "an undefined working directory",
+      value: { threadId: "thread", turnId: "turn", files: [] },
+      valid: false,
+    },
+  ])("classifies $name as persisted state: $valid", ({ value, valid }) => {
+    expect(isPersistedTurnDiffViewState(value)).toBe(valid);
+  });
+
   it("renders restored turn diff metadata without unavailable diff text", () => {
     const parent = document.createElement("div");
 
@@ -154,6 +194,79 @@ describe("turn diff view decisions", () => {
     expect(parent.textContent).toContain("Turn diff is no longer available.");
     expect(parent.querySelector(".codex-panel-turn-diff__copy")).toBeNull();
     expect(parent.querySelector(".codex-panel-turn-diff__diff")).toBeNull();
+  });
+
+  it("restores only persisted metadata and clears an in-memory diff payload", async () => {
+    const containerEl = document.createElement("div");
+    const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
+    view.setDiffPayload({
+      threadId: "live-thread",
+      turnId: "live-turn",
+      cwd: "/vault/project",
+      files: ["src/live.ts"],
+      diff: "@@\n-old\n+new",
+    });
+
+    await view.setState(
+      {
+        threadId: "restored-thread",
+        turnId: "restored-turn",
+        cwd: null,
+        files: ["src/restored.ts"],
+      },
+      {} as never,
+    );
+
+    expect(view.getState()).toEqual({
+      threadId: "restored-thread",
+      turnId: "restored-turn",
+      cwd: null,
+      files: ["src/restored.ts"],
+    });
+    expect(view.contentEl.textContent).toContain("Turn diff is no longer available.");
+    expect(view.contentEl.textContent).not.toContain("old");
+    expect(view.contentEl.querySelector(".codex-panel-turn-diff__copy")).toBeNull();
+  });
+
+  it("rejects invalid restored metadata instead of showing a partial turn identity", async () => {
+    const containerEl = document.createElement("div");
+    const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
+
+    await view.setState(
+      {
+        threadId: "thread",
+        turnId: "turn",
+        cwd: "/vault/project",
+        files: ["src/main.ts", 42],
+      },
+      {} as never,
+    );
+
+    expect(view.getState()).toEqual({});
+    expect(view.contentEl.textContent).toBe("No turn diff selected.");
+  });
+
+  it("copies the current in-memory diff from the view action", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      clipboard: { writeText },
+    });
+    const containerEl = document.createElement("div");
+    const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
+    view.setDiffPayload({
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["src/main.ts"],
+      diff: "@@\n-old\n+new",
+    });
+
+    view.contentEl.querySelector<HTMLButtonElement>(".codex-panel-turn-diff__copy")?.click();
+
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("@@\n-old\n+new");
+    });
   });
 
   it("unmounts the turn diff Preact root when the view closes", async () => {
