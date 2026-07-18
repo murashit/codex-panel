@@ -1064,6 +1064,141 @@ describe("turn item conversion preserves app-server semantics", () => {
       },
     });
   });
+
+  it.each([
+    {
+      name: "network access",
+      action: {
+        type: "networkAccess",
+        target: "api.example.com:443",
+        host: "api.example.com",
+        protocol: "https",
+        port: 443,
+      },
+      summary: "https://api.example.com:443",
+      auditFacts: [
+        { key: "action", value: "network access" },
+        { key: "target", value: "api.example.com:443" },
+        { key: "protocol", value: "https" },
+        { key: "host", value: "api.example.com" },
+        { key: "port", value: "443" },
+      ],
+    },
+    {
+      name: "MCP tool call with connector metadata",
+      action: {
+        type: "mcpToolCall",
+        server: "calendar",
+        toolName: "create_event",
+        connectorId: "connector-1",
+        connectorName: "Work Calendar",
+        toolTitle: "Create event",
+      },
+      summary: "calendar.create_event",
+      auditFacts: [
+        { key: "action", value: "MCP tool call" },
+        { key: "server", value: "calendar" },
+        { key: "tool", value: "create_event" },
+        { key: "title", value: "Create event" },
+        { key: "connector", value: "Work Calendar" },
+        { key: "connector id", value: "connector-1" },
+      ],
+    },
+    {
+      name: "MCP tool call without connector metadata",
+      action: {
+        type: "mcpToolCall",
+        server: "filesystem",
+        toolName: "read_file",
+        connectorId: null,
+        connectorName: null,
+        toolTitle: null,
+      },
+      summary: "filesystem.read_file",
+      auditFacts: [
+        { key: "action", value: "MCP tool call" },
+        { key: "server", value: "filesystem" },
+        { key: "tool", value: "read_file" },
+      ],
+    },
+    {
+      name: "permission request with a reason",
+      action: {
+        type: "requestPermissions",
+        reason: "Read project notes and contact the API.",
+        permissions: {
+          network: { enabled: true },
+          fileSystem: {
+            entries: [
+              { path: { type: "path", path: "/vault/notes.md" }, access: "read" },
+              { path: { type: "glob_pattern", pattern: "/vault/**/*.md" }, access: "write" },
+            ],
+          },
+        },
+      },
+      summary: "Read project notes and contact the API.",
+      auditFacts: [
+        { key: "action", value: "request permissions" },
+        { key: "reason", value: "Read project notes and contact the API." },
+        { key: "network", value: "enabled" },
+        { key: "filesystem", value: "/vault/notes.md (read)\n/vault/**/*.md (write)" },
+      ],
+    },
+    {
+      name: "permission request without a reason",
+      action: {
+        type: "requestPermissions",
+        reason: null,
+        permissions: {
+          network: { enabled: false },
+          fileSystem: {
+            entries: [{ path: { type: "special", value: { kind: "project_roots", subpath: "src" } }, access: "read" }],
+          },
+        },
+      },
+      summary: "permission request",
+      auditFacts: [
+        { key: "action", value: "request permissions" },
+        { key: "network", value: "disabled" },
+        { key: "filesystem", value: "project_roots/src (read)" },
+      ],
+    },
+  ] as const)("preserves $name audit history from start through completion", ({ action, summary, auditFacts }) => {
+    const base = {
+      threadId: "thread",
+      turnId: "turn",
+      startedAtMs: 1,
+      reviewId: "review-1",
+      targetItemId: null,
+      action,
+    };
+
+    const started = createAutoReviewResultItem({
+      ...base,
+      review: { status: "inProgress", riskLevel: null, userAuthorization: null, rationale: null },
+    });
+    expect(started).toMatchObject({
+      kind: "reviewResult",
+      text: `Auto-review started: ${summary}`,
+      executionState: "running",
+    });
+    if (started.kind !== "reviewResult") throw new Error("Expected an auto-review result item");
+    expect(started.review?.auditFacts).toEqual([{ key: "status", value: "inProgress" }, ...auditFacts]);
+
+    const completed = createAutoReviewResultItem({
+      ...base,
+      completedAtMs: 2,
+      decisionSource: "agent",
+      review: { status: "approved", riskLevel: null, userAuthorization: null, rationale: null },
+    });
+    expect(completed).toMatchObject({
+      kind: "reviewResult",
+      text: `Auto-review approved: ${summary}`,
+      executionState: "completed",
+    });
+    if (completed.kind !== "reviewResult") throw new Error("Expected an auto-review result item");
+    expect(completed.review?.auditFacts).toEqual([{ key: "status", value: "approved" }, { key: "source", value: "agent" }, ...auditFacts]);
+  });
 });
 
 describe("auto-review permission detail rows", () => {
