@@ -505,6 +505,97 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it.each([
+    {
+      name: "failed agent over running and completed agents",
+      status: "completed",
+      receiverThreadIds: ["failed", "running", "completed"],
+      agentsStates: {
+        completed: { status: "completed", message: null },
+        running: { status: "running", message: null },
+        failed: { status: "errored", message: null },
+      },
+      executionState: "failed",
+    },
+    {
+      name: "running agent over completed agents",
+      status: "completed",
+      receiverThreadIds: ["running", "completed"],
+      agentsStates: {
+        completed: { status: "completed", message: null },
+        running: { status: "running", message: null },
+      },
+      executionState: "running",
+    },
+    {
+      name: "all completed agents",
+      status: "inProgress",
+      receiverThreadIds: ["first", "second"],
+      agentsStates: {
+        first: { status: "completed", message: null },
+        second: { status: "shutdown", message: null },
+      },
+      executionState: "completed",
+    },
+    {
+      name: "receiver awaiting its first state",
+      status: "completed",
+      receiverThreadIds: ["waiting"],
+      agentsStates: {},
+      executionState: "running",
+    },
+    {
+      name: "unknown status when neither source supplies a known state",
+      status: "futureStatus",
+      receiverThreadIds: [],
+      agentsStates: {},
+      executionState: null,
+    },
+  ] as const)("derives follow-up agent activity from $name", ({ status, receiverThreadIds, agentsStates, executionState }) => {
+    expect(
+      threadStreamItemFromTurnItem(
+        collabAgentToolCall({
+          status,
+          receiverThreadIds: [...receiverThreadIds],
+          agentsStates,
+        }),
+        "t1",
+      ),
+    ).toMatchObject({ kind: "agent", executionState });
+  });
+
+  it.each([
+    ["sendInput", "failed", "failed"],
+    ["wait", "inProgress", "running"],
+  ] as const)("falls back to the %s tool-call status without agent states", (tool, status, executionState) => {
+    expect(threadStreamItemFromTurnItem(collabAgentToolCall({ tool, status }), "t1")).toMatchObject({
+      kind: "agent",
+      executionState,
+    });
+  });
+
+  it("orders agent summaries by thread id independently of protocol object insertion order", () => {
+    const converted = threadStreamItemFromTurnItem(
+      collabAgentToolCall({
+        agentsStates: {
+          "thread-z": { status: "completed", message: "Last" },
+          "thread-a": { status: "running", message: "First" },
+          "thread-m": undefined,
+        },
+      }),
+      "t1",
+    );
+
+    expect(converted).toMatchObject({
+      kind: "agent",
+      agents: [
+        { threadId: "thread-a", status: "running", message: "First" },
+        { threadId: "thread-m", status: "unknown", message: null },
+        { threadId: "thread-z", status: "completed", message: "Last" },
+      ],
+    });
+  });
+
   it("keeps command output in details instead of inline summaries", () => {
     expect(
       commandExecutionItem({
@@ -1055,6 +1146,23 @@ type CommandExecutionOverrides = Omit<Partial<Extract<TurnItem, { type: "command
 type FileChangeOverrides = Omit<Partial<Extract<TurnItem, { type: "fileChange" }>>, "status"> & { status?: string };
 type McpToolCallOverrides = Omit<Partial<Extract<TurnItem, { type: "mcpToolCall" }>>, "status"> & { status?: string };
 type DynamicToolCallOverrides = Omit<Partial<Extract<TurnItem, { type: "dynamicToolCall" }>>, "status"> & { status?: string };
+type CollabAgentToolCallOverrides = Omit<Partial<Extract<TurnItem, { type: "collabAgentToolCall" }>>, "status"> & { status?: string };
+
+function collabAgentToolCall(overrides: CollabAgentToolCallOverrides = {}): TurnItem {
+  return {
+    type: "collabAgentToolCall",
+    id: "agent-follow-up",
+    tool: "sendInput",
+    status: "inProgress",
+    senderThreadId: "parent-thread",
+    receiverThreadIds: [],
+    prompt: "Continue.",
+    model: null,
+    reasoningEffort: null,
+    agentsStates: {},
+    ...overrides,
+  } as Extract<TurnItem, { type: "collabAgentToolCall" }>;
+}
 
 function commandExecutionItem(overrides: CommandExecutionOverrides = {}): ThreadStreamItem | null {
   return threadStreamItemFromTurnItem(
