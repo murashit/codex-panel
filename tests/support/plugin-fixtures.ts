@@ -126,7 +126,9 @@ function chatHostFixture(): CodexChatHost {
     },
     workspace: {
       openThreadInNewView: vi.fn(),
+      openThreadFromPanel: vi.fn(),
       focusThreadInOpenView: vi.fn(),
+      threadHasPendingOrRunningPanel: vi.fn(() => false),
       openTurnDiff: vi.fn(),
       notifyPanelActivityChanged: vi.fn(),
       openSideChat: vi.fn(),
@@ -149,6 +151,9 @@ function chatHostFixture(): CodexChatHost {
       loadActive: vi.fn(() => Promise.resolve([])),
       refreshActive: vi.fn(() => Promise.resolve([])),
       activeSnapshot: vi.fn(() => null),
+      recentActiveSnapshot: vi.fn(() => null),
+      hasMoreActive: vi.fn(() => false),
+      loadMoreActive: vi.fn(() => Promise.resolve([])),
       observeActive: vi.fn(() => () => undefined),
     },
   };

@@ -24,6 +24,7 @@ import {
   type NoteCandidate,
   nextComposerSuggestionIndex,
 } from "../application/composer/suggestions";
+import { type ThreadCommandTarget, threadCommandTargetForDraft } from "../application/composer/thread-title-argument";
 import {
   type PreparedComposerInput,
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,
@@ -83,6 +84,7 @@ export class ChatComposerController {
   private pendingAttachmentSaves = new Map<number, PendingAttachmentSave>();
   private activeNoteContextSnapshots: ActiveNoteContextReference[] = [];
   private selectionContextSnapshots: SelectionContextReference[] = [];
+  private threadCommandTarget: ThreadCommandTarget | null = null;
   private pendingSelection: ComposerPendingSelection | null = null;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
@@ -133,7 +135,17 @@ export class ChatComposerController {
     syncComposerHeight(composer);
   };
 
-  setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean } = {}): void {
+  setDraft(
+    text: string,
+    options: {
+      focus?: boolean;
+      clearSuggestions?: boolean;
+      preserveContext?: boolean;
+      threadCommandTarget?: ThreadCommandTarget | null;
+    } = {},
+  ): void {
+    if ("threadCommandTarget" in options) this.threadCommandTarget = options.threadCommandTarget ?? null;
+    this.pruneThreadCommandTarget(text);
     if (!options.preserveContext) {
       this.pruneActiveNoteContextSnapshots(text);
       this.pruneSelectionContextSnapshots(text);
@@ -160,6 +172,7 @@ export class ChatComposerController {
     this.lifetime.dispose();
     for (const pending of this.pendingAttachmentSaves.values()) this.settlePendingAttachmentSave(pending);
     this.pendingAttachmentSaves.clear();
+    this.threadCommandTarget = null;
     this.composer = null;
     this.options.noteCandidateProvider.dispose();
     this.options.contextReferenceProvider.dispose();
@@ -167,6 +180,7 @@ export class ChatComposerController {
 
   captureInputSnapshot(): ComposerInputSnapshot {
     const sourcePath = this.options.sourcePath();
+    const threadCommandTarget = threadCommandTargetForDraft(this.draft, this.threadCommandTarget);
     return {
       sourcePath,
       availableSkills: this.state.connection.availableSkills,
@@ -175,6 +189,7 @@ export class ChatComposerController {
       activeNoteSnapshots: [...this.activeNoteContextSnapshots],
       selectionSnapshots: [...this.selectionContextSnapshots],
       attachments: [...this.attachments],
+      ...(threadCommandTarget ? { threadCommandTarget } : {}),
     };
   }
 
@@ -257,6 +272,7 @@ export class ChatComposerController {
   }
 
   private handleInput(value: string): void {
+    this.pruneThreadCommandTarget(value);
     this.pruneActiveNoteContextSnapshots(value);
     this.pruneSelectionContextSnapshots(value);
     this.pruneAttachments(value);
@@ -325,6 +341,7 @@ export class ChatComposerController {
     if (!source) return;
 
     const insertion = applyComposerSuggestionInsertion(source.value, source.cursor, suggestion, { activation });
+    this.threadCommandTarget = suggestion.threadCommandTarget ?? threadCommandTargetForDraft(insertion.value, this.threadCommandTarget);
     if (suggestion.activeNoteContext) this.rememberActiveNoteContextSnapshot(suggestion.activeNoteContext);
     if (suggestion.selectionContext) this.rememberSelectionContextSnapshot(suggestion.selectionContext);
     this.pruneActiveNoteContextSnapshots(insertion.value);
@@ -495,6 +512,10 @@ export class ChatComposerController {
     this.activeNoteContextSnapshots = this.activeNoteContextSnapshots.filter((activeNote) =>
       text.includes(activeNoteContextReferenceMarker(activeNote)),
     );
+  }
+
+  private pruneThreadCommandTarget(text: string): void {
+    this.threadCommandTarget = threadCommandTargetForDraft(text, this.threadCommandTarget);
   }
 
   private activeAttachments(text: string): readonly ComposerAttachment[] {

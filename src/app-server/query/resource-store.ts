@@ -12,7 +12,7 @@ import {
   appServerQueryContextRawEquals,
   createAppServerContextLease,
 } from "./keys";
-import type { ObservedResultListener } from "./observed-result";
+import type { ObservedPaginatedResultListener, ObservedResultListener } from "./observed-result";
 import type { ThreadListMutation } from "./thread-list-mutation";
 
 export interface AppServerResourceStoreOptions {
@@ -99,12 +99,16 @@ export class AppServerResourceStore {
     return this.cache?.activeThreadsSnapshot() ?? null;
   }
 
+  recentActiveThreadsSnapshot(): readonly Thread[] | null {
+    return this.cache?.recentActiveThreadsSnapshot() ?? null;
+  }
+
   archivedThreadsSnapshot(): readonly Thread[] | null {
     return this.cache?.archivedThreadsSnapshot() ?? null;
   }
 
-  fetchAllActiveThreads(): Promise<readonly Thread[]> {
-    return this.runForCurrentContext((cache) => cache.fetchAllActiveThreads());
+  fetchActiveThreadSearchInventory(): Promise<readonly Thread[]> {
+    return this.runForCurrentContext((cache) => cache.fetchActiveThreadSearchInventory());
   }
 
   hasMoreActiveThreads(): boolean {
@@ -113,6 +117,10 @@ export class AppServerResourceStore {
 
   loadMoreActiveThreads(): Promise<readonly Thread[]> {
     return this.runForCurrentContext((cache) => cache.loadMoreActiveThreads());
+  }
+
+  fetchActiveThreads(): Promise<readonly Thread[]> {
+    return this.runForCurrentContext((cache) => cache.fetchActiveThreads());
   }
 
   refreshActiveThreads(): Promise<readonly Thread[]> {
@@ -127,7 +135,10 @@ export class AppServerResourceStore {
     this.currentCache().applyThreadListMutations(mutations);
   }
 
-  observeActiveThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
+  observeActiveThreadsResult(
+    listener: ObservedPaginatedResultListener<readonly Thread[]>,
+    options?: { emitCurrent?: boolean },
+  ): () => void {
     return this.observeCurrentContext(
       (cache, contextListener, observeOptions) => cache.observeActiveThreadsResult(contextListener, observeOptions),
       listener,

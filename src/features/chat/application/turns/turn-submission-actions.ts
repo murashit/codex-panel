@@ -30,7 +30,15 @@ export interface TurnSubmissionActionsHost {
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
   prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
-  setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean }) => void;
+  setDraft: (
+    text: string,
+    options?: {
+      focus?: boolean;
+      clearSuggestions?: boolean;
+      preserveContext?: boolean;
+      threadCommandTarget?: ComposerInputSnapshot["threadCommandTarget"] | null;
+    },
+  ) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
 }
@@ -337,6 +345,7 @@ function restoreSubmittedDraft(
   host.setDraft(request.failureDraft ?? text, {
     ...options,
     ...(request.preserveComposerContextOnFailure ? { preserveContext: true } : {}),
+    ...(request.inputSnapshot?.threadCommandTarget ? { threadCommandTarget: request.inputSnapshot.threadCommandTarget } : {}),
   });
 }
 

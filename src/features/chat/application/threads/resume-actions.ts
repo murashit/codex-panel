@@ -95,7 +95,6 @@ function applyResumedThread(
   const state = host.stateStore.dispatch(
     resumedThreadAction({
       response: response.activation,
-      listedThreads: host.stateStore.getState().threadList.listedThreads,
       expectedPanelTargetRevision,
     }),
   );

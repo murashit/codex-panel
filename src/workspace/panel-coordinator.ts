@@ -1,7 +1,7 @@
 import type { App, WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
-import type { ChatWorkspacePanelSnapshot, ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
+import type { ChatSharedThreadSurface, ChatWorkspacePanelSnapshot, ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
 import { CodexChatView } from "../features/chat/host/view.obsidian";
 import { parseChatPanelViewState } from "../features/chat/host/view-state";
 
@@ -203,6 +203,16 @@ export class WorkspacePanelCoordinator {
     });
   }
 
+  async openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void> {
+    await this.runForegroundIntent(async (revision) => {
+      const target = this.findOpenThreadPanelTarget(threadId) ??
+        this.findRestoredThreadPanelTarget(threadId) ??
+        (originSwitchable ? this.findPanelTargetByViewId(originViewId) : null) ??
+        this.findIdleEmptyThreadPanelTarget() ?? { kind: "new" };
+      await this.openThreadInTarget(target, threadId, this.capturePanelTargetLease(target, revision));
+    });
+  }
+
   async openThreadInCurrentView(threadId: string): Promise<void> {
     await this.runForegroundIntent(async (revision) => {
       const target =
@@ -265,15 +275,21 @@ export class WorkspacePanelCoordinator {
     });
   }
 
-  panelLeavesForThread(threadId: string): WorkspaceLeaf[] {
-    return this.panelLeaves().filter((leaf) => {
-      if (leaf.view instanceof CodexChatView) return workspacePanelSurface(leaf.view).openPanelSnapshot().threadId === threadId;
-      return restoredThreadId(leaf) === threadId;
-    });
-  }
-
   panelViews(): CodexChatView[] {
     return this.panelLeaves().flatMap((leaf) => (leaf.view instanceof CodexChatView ? [leaf.view] : []));
+  }
+
+  applyThreadArchived(threadId: string): void {
+    for (const leaf of this.panelLeaves()) {
+      if (leaf.view instanceof CodexChatView) {
+        const surface: ChatSharedThreadSurface = leaf.view.surface;
+        surface.applyThreadArchived(threadId);
+        continue;
+      }
+      if (restoredThreadId(leaf) !== threadId) continue;
+      const viewState = leaf.getViewState();
+      void leaf.setViewState({ ...viewState, state: { version: 1 } }).catch(ignoreWorkspacePanelLoadError);
+    }
   }
 
   reconcileWorkspacePanels(hintLeaf: WorkspaceLeaf | null = null, options: WorkspacePanelReconcileOptions = {}): void {
@@ -363,6 +379,15 @@ export class WorkspacePanelCoordinator {
       if (!(leaf.view instanceof CodexChatView)) continue;
       if (!isIdleEmptyPanelSnapshot(workspacePanelSurface(leaf.view).openPanelSnapshot())) continue;
       return { kind: "empty", leaf, view: leaf.view };
+    }
+    return null;
+  }
+
+  private findPanelTargetByViewId(viewId: string): ThreadPanelTarget | null {
+    for (const leaf of this.panelLeaves()) {
+      if (!(leaf.view instanceof CodexChatView)) continue;
+      if (workspacePanelSurface(leaf.view).openPanelSnapshot().viewId !== viewId) continue;
+      return { kind: "reuse", leaf, view: leaf.view };
     }
     return null;
   }

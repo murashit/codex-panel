@@ -109,6 +109,10 @@ export interface ClearActiveThreadAction {
 export interface ThreadListAppliedAction {
   type: "thread-list/applied";
   threads: readonly Thread[];
+  hasMore?: boolean;
+  isFetching?: boolean;
+  isFetchingNextPage?: boolean;
+  error?: string | null;
 }
 
 export interface DisclosureSetAction {

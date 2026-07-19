@@ -81,6 +81,69 @@ describe("WorkspacePanelCoordinator", () => {
     expect(openEmpty).toHaveBeenCalledWith("thread-1", { focus: false });
   });
 
+  it("focuses an already open history target even when its origin panel cannot switch", async () => {
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const originLeaf = leaf();
+    originLeaf.view = chatView(CodexChatView, originLeaf);
+    vi.spyOn((originLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "origin", threadId: "origin-thread", turnBusy: true }),
+    );
+    const destinationLeaf = leaf();
+    destinationLeaf.view = chatView(CodexChatView, destinationLeaf);
+    vi.spyOn((destinationLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "destination", threadId: "target" }),
+    );
+    const focusDestination = vi.spyOn((destinationLeaf.view as CodexChatView).surface, "focusThread").mockResolvedValue(undefined);
+    const openOrigin = vi.spyOn((originLeaf.view as CodexChatView).surface, "openThread").mockResolvedValue(undefined);
+
+    await panels(await pluginWithLeaves([originLeaf, destinationLeaf])).openThreadFromPanel("target", "origin", false);
+
+    expect(focusDestination).toHaveBeenCalledWith("target", { focus: false });
+    expect(openOrigin).not.toHaveBeenCalled();
+  });
+
+  it("prefers a switchable history origin over an idle empty panel", async () => {
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const originLeaf = leaf();
+    originLeaf.view = chatView(CodexChatView, originLeaf);
+    vi.spyOn((originLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "origin", threadId: "origin-thread" }),
+    );
+    const openOrigin = vi.spyOn((originLeaf.view as CodexChatView).surface, "openThread").mockResolvedValue(undefined);
+    const emptyLeaf = leaf();
+    emptyLeaf.view = chatView(CodexChatView, emptyLeaf);
+    vi.spyOn((emptyLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "empty", threadId: null }),
+    );
+    const openEmpty = vi.spyOn((emptyLeaf.view as CodexChatView).surface, "openThread").mockResolvedValue(undefined);
+
+    await panels(await pluginWithLeaves([originLeaf, emptyLeaf])).openThreadFromPanel("target", "origin", true);
+
+    expect(openOrigin).toHaveBeenCalledWith("target", { focus: false });
+    expect(openEmpty).not.toHaveBeenCalled();
+  });
+
+  it("uses an idle empty panel when a history origin cannot switch", async () => {
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const originLeaf = leaf();
+    originLeaf.view = chatView(CodexChatView, originLeaf);
+    vi.spyOn((originLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "origin", threadId: "origin-thread", turnBusy: true }),
+    );
+    const openOrigin = vi.spyOn((originLeaf.view as CodexChatView).surface, "openThread").mockResolvedValue(undefined);
+    const emptyLeaf = leaf();
+    emptyLeaf.view = chatView(CodexChatView, emptyLeaf);
+    vi.spyOn((emptyLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "empty", threadId: null }),
+    );
+    const openEmpty = vi.spyOn((emptyLeaf.view as CodexChatView).surface, "openThread").mockResolvedValue(undefined);
+
+    await panels(await pluginWithLeaves([originLeaf, emptyLeaf])).openThreadFromPanel("target", "origin", false);
+
+    expect(openOrigin).not.toHaveBeenCalled();
+    expect(openEmpty).toHaveBeenCalledWith("target", { focus: false });
+  });
+
   it("uses the active Codex panel for current-view selections", async () => {
     const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const fallbackLeaf = leaf();

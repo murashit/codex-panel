@@ -21,7 +21,10 @@ function thread(id: string): Thread {
   };
 }
 
-function createHost(draft: string, options: { subagent?: boolean } = {}) {
+function createHost(
+  draft: string,
+  options: { subagent?: boolean; threadCommandTarget?: { command: "resume"; threadId: string; title: string } } = {},
+) {
   const initialState = createChatState();
   const stateStore = createChatStateStore(
     options.subagent
@@ -47,7 +50,10 @@ function createHost(draft: string, options: { subagent?: boolean } = {}) {
   const execute = vi.fn().mockResolvedValue(undefined);
   const showLatest = vi.fn();
   const ensureConnected = vi.fn().mockResolvedValue(true);
-  const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+  const inputSnapshot = {
+    sourcePath: "snapshot.md",
+    ...(options.threadCommandTarget ? { threadCommandTarget: options.threadCommandTarget } : {}),
+  } as never;
   const captureInputSnapshot = vi.fn(() => inputSnapshot);
   const host = {
     stateStore,
@@ -480,6 +486,16 @@ describe("submitComposer", () => {
     expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).not.toHaveBeenCalled();
     expect(chatStateThreadStreamItems(host.stateStore.getState())).toEqual([]);
+  });
+
+  it("restores the completed thread target when slash execution fails", async () => {
+    const threadCommandTarget = { command: "resume" as const, threadId: "target-thread", title: "Completed title" };
+    const { host, execute, setDraft } = createHost('/resume "Completed title"', { threadCommandTarget });
+    execute.mockRejectedValue(new Error("offline"));
+
+    await submitComposer(host);
+
+    expect(setDraft.mock.calls.at(-1)).toEqual(['/resume "Completed title"', { focus: true, clearSuggestions: true, threadCommandTarget }]);
   });
 
   it("interrupts a running turn when submitting an empty draft", async () => {

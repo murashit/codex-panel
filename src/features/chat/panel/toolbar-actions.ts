@@ -33,6 +33,7 @@ export interface ToolbarUiActionDependencies {
   toolbarPanel: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;
   navigation: ThreadNavigationActions;
+  loadMoreThreads?: () => Promise<readonly unknown[]>;
   openSideChat?: () => void;
   canStartSideChat: () => boolean;
   canCompact: () => boolean;
@@ -167,6 +168,9 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
       },
     },
     threads: {
+      loadMore: () => {
+        void deps.loadMoreThreads?.().catch(() => undefined);
+      },
       resume: (threadId) => {
         void deps.navigation.selectThreadFromToolbar(threadId);
       },

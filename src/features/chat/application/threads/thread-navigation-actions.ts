@@ -12,6 +12,7 @@ export interface ThreadNavigationActionsHost {
   identity: ActiveThreadIdentitySync;
   closeForThreadSelection: () => void;
   focusThreadInOpenView: (threadId: string) => Promise<boolean>;
+  openThreadFromHistory: (threadId: string, originSwitchable: boolean) => Promise<void>;
   resumeThread: (threadId: string, intent: ActiveChatResume, options?: ResumeThreadOptions) => Promise<boolean>;
   resumeWork: ChatResumeWorkTracker;
   addSystemMessage: (text: string) => void;
@@ -65,9 +66,10 @@ export function createThreadNavigationActions(host: ThreadNavigationActionsHost)
     },
     selectThread,
     async selectThreadFromToolbar(threadId) {
-      if (!canSwitchToThread(host.stateStore.getState(), threadId)) return;
+      const originSwitchable = canSwitchToThread(host.stateStore.getState(), threadId);
+      host.closeForThreadSelection();
       host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
-      await selectThread(threadId);
+      await host.openThreadFromHistory(threadId, originSwitchable);
     },
   };
 }

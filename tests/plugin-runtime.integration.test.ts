@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
 import type { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
@@ -58,12 +59,15 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(secondRefresh).not.toHaveBeenCalled();
   });
 
-  it("keeps catalog archive notifications separate from explicit panel close requests", async () => {
+  it("clears active and restored identities without detaching panel leaves", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
     const matchingLeaf = leaf();
     matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
     vi.spyOn((matchingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
+    const matchingArchived = vi
+      .spyOn((matchingLeaf.view as CodexChatView).surface, "applyThreadArchived")
+      .mockImplementation(() => undefined);
     vi.spyOn((matchingLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const otherLeaf = leaf();
     otherLeaf.view = chatView(CodexChatView, otherLeaf);
@@ -73,14 +77,16 @@ describe("CodexPanelPlugin runtime integration", () => {
 
     threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
+    expect(matchingArchived).toHaveBeenCalledWith("thread-1");
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
 
-    plugin.runtime.threadsHost().closeOpenPanelsForThread("thread-1");
-
-    expect(restoredMatchingLeaf.detach).toHaveBeenCalledOnce();
-    expect(matchingLeaf.detach).toHaveBeenCalledOnce();
+    expect(restoredMatchingLeaf.setViewState).toHaveBeenCalledWith({
+      type: VIEW_TYPE_CODEX_PANEL,
+      state: { version: 1 },
+    });
+    expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
   });
 

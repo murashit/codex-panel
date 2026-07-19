@@ -1,23 +1,26 @@
 import type { AppServerQueryContextIdentity } from "../../../app-server/query/keys";
-import type { ObservedResultListener } from "../../../app-server/query/observed-result";
+import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { ThreadListMutation } from "../../../app-server/query/thread-list-mutation";
 import type { Thread } from "../../../domain/threads/model";
 
-type ThreadListObserver = ObservedResultListener<readonly Thread[]>;
+type ActiveThreadListObserver = ObservedPaginatedResultListener<readonly Thread[]>;
+type ArchivedThreadListObserver = ObservedResultListener<readonly Thread[]>;
 
 interface ThreadCatalogStore {
   contextKey(): string;
   contextKeyFor(context: AppServerQueryContextIdentity): string;
   activeThreadsSnapshot(): readonly Thread[] | null;
+  recentActiveThreadsSnapshot(): readonly Thread[] | null;
   archivedThreadsSnapshot(): readonly Thread[] | null;
-  fetchAllActiveThreads(): Promise<readonly Thread[]>;
+  fetchActiveThreadSearchInventory(): Promise<readonly Thread[]>;
+  fetchActiveThreads(): Promise<readonly Thread[]>;
   hasMoreActiveThreads(): boolean;
   loadMoreActiveThreads(): Promise<readonly Thread[]>;
   refreshActiveThreads(): Promise<readonly Thread[]>;
   refreshArchivedThreads(): Promise<readonly Thread[]>;
   applyThreadListMutations(mutations: readonly ThreadListMutation[]): void;
-  observeActiveThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
-  observeArchivedThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
+  observeActiveThreadsResult(observer: ActiveThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
+  observeArchivedThreadsResult(observer: ArchivedThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
 
 type ThreadCatalogEventObserver = (event: ThreadCatalogEvent) => void;
@@ -35,22 +38,24 @@ export type ThreadCatalogEvent =
   | { type: "thread-restored"; thread: Thread }
   | { type: "thread-unarchived"; threadId: string };
 
-export interface ThreadCatalogActiveReader {
+export interface ThreadCatalogPaginatedActiveReader {
   activeSnapshot(): readonly Thread[] | null;
+  recentActiveSnapshot(): readonly Thread[] | null;
   loadActive(): Promise<readonly Thread[]>;
   refreshActive(): Promise<readonly Thread[]>;
-  observeActive(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
-}
-
-export interface ThreadCatalogPaginatedActiveReader extends ThreadCatalogActiveReader {
+  observeActive(observer: ActiveThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
   hasMoreActive(): boolean;
   loadMoreActive(): Promise<readonly Thread[]>;
+}
+
+export interface ThreadCatalogSearchReader {
+  searchActive(): Promise<readonly Thread[]>;
 }
 
 export interface ThreadCatalogArchivedReader {
   archivedSnapshot(): readonly Thread[] | null;
   refreshArchived(): Promise<readonly Thread[]>;
-  observeArchived(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
+  observeArchived(observer: ArchivedThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
 
 export interface ThreadCatalogEventSink {
@@ -63,6 +68,7 @@ export interface ThreadCatalogConnectionEventSink {
 
 export interface ThreadCatalog
   extends ThreadCatalogPaginatedActiveReader,
+    ThreadCatalogSearchReader,
     ThreadCatalogArchivedReader,
     ThreadCatalogEventSink,
     ThreadCatalogConnectionEventSink {}
@@ -81,7 +87,9 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
       apply(event);
     },
     activeSnapshot: () => store.activeThreadsSnapshot(),
-    loadActive: () => store.fetchAllActiveThreads(),
+    recentActiveSnapshot: () => store.recentActiveThreadsSnapshot(),
+    loadActive: () => store.fetchActiveThreads(),
+    searchActive: () => store.fetchActiveThreadSearchInventory(),
     refreshActive: () => store.refreshActiveThreads(),
     hasMoreActive: () => store.hasMoreActiveThreads(),
     loadMoreActive: () => store.loadMoreActiveThreads(),
@@ -105,7 +113,9 @@ function threadListMutationsForEvent(store: ThreadCatalogStore, event: ThreadCat
       const thread = threadById(store.activeThreadsSnapshot(), event.threadId);
       return [
         { kind: "remove", list: "active", threadId: event.threadId },
-        ...(thread ? [{ kind: "upsert", list: "archived", thread: { ...thread, archived: true } } satisfies ThreadListMutation] : []),
+        ...(thread
+          ? [{ kind: "upsert", list: "archived", thread: { ...thread, archived: true } } satisfies ThreadListMutation]
+          : [{ kind: "refresh", list: "archived" } satisfies ThreadListMutation]),
       ];
     }
     case "thread-deleted":
@@ -122,7 +132,9 @@ function threadListMutationsForEvent(store: ThreadCatalogStore, event: ThreadCat
       const thread = threadById(store.archivedThreadsSnapshot(), event.threadId);
       return [
         { kind: "remove", list: "archived", threadId: event.threadId },
-        ...(thread ? [{ kind: "upsert", list: "active", thread: { ...thread, archived: false } } satisfies ThreadListMutation] : []),
+        ...(thread
+          ? [{ kind: "upsert", list: "active", thread: { ...thread, archived: false } } satisfies ThreadListMutation]
+          : [{ kind: "refresh", list: "active" } satisfies ThreadListMutation]),
       ];
     }
   }

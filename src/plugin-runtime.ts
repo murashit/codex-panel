@@ -123,9 +123,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       active: true,
       reveal: true,
     });
-    const view = leaf.view as CodexThreadsView;
-    await view.refresh();
-    return view;
+    return leaf.view as CodexThreadsView;
   }
 
   scheduleWorkspacePanelReconcile(): void {
@@ -148,7 +146,10 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       },
       workspace: {
         openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
+        openThreadFromPanel: (threadId, originViewId, originSwitchable) =>
+          this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
+        threadHasPendingOrRunningPanel: (threadId) => this.threadHasPendingOrRunningPanel(threadId),
         openTurnDiff: (state) => this.openTurnDiff(state),
         openSideChat: (sourceThreadId, sourceThreadTitle) => this.panels.openSideChat(sourceThreadId, sourceThreadTitle),
         notifyPanelActivityChanged: () => {
@@ -200,9 +201,6 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       openNewPanel: () => this.panels.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
       openPanelActivities: () => this.openPanelActivities(),
-      closeOpenPanelsForThread: (threadId) => {
-        this.closeOpenPanelsForThread(threadId);
-      },
     };
   }
 
@@ -280,17 +278,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   }
 
   private applyThreadArchived(threadId: string): void {
-    for (const view of this.panels.panelViews()) {
-      const surface: ChatSharedThreadSurface = view.surface;
-      surface.applyThreadArchived(threadId);
-    }
-  }
-
-  private closeOpenPanelsForThread(threadId: string): void {
-    const leavesToClose = this.panels.panelLeavesForThread(threadId);
-    for (const leaf of leavesToClose) {
-      leaf.detach();
-    }
+    this.panels.applyThreadArchived(threadId);
   }
 
   private applyThreadRenamed(threadId: string, name: string | null): void {
@@ -326,6 +314,12 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       pending: snapshot.pending,
       running: snapshot.turnBusy,
     }));
+  }
+
+  private threadHasPendingOrRunningPanel(threadId: string): boolean {
+    return this.panels
+      .getOpenPanelSnapshots()
+      .some((snapshot) => snapshot.threadId === threadId && (snapshot.turnBusy || snapshot.pending));
   }
 
   private threadsViews(): CodexThreadsView[] {

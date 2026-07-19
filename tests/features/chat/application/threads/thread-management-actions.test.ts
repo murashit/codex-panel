@@ -830,6 +830,7 @@ function hostMock({
     openThreadInCurrentPanel: vi.fn<ThreadManagementActionsHost["openThreadInCurrentPanel"]>().mockResolvedValue(undefined),
     notifyActiveThreadIdentityChanged: vi.fn<ThreadManagementActionsHost["notifyActiveThreadIdentityChanged"]>(),
     recordThread: vi.fn<ThreadManagementActionsHost["recordThread"]>(),
+    threadHasPendingOrRunningPanel: vi.fn(() => false),
   };
 }
 

@@ -53,6 +53,25 @@ describe("AppServerQueryCache", () => {
     await expect(Promise.all([first, second])).resolves.toEqual([[thread("shared")], [thread("shared")]]);
   });
 
+  it("joins a refresh that starts after an existing refresh has begun", async () => {
+    const pending = deferred<readonly ReturnType<typeof thread>[]>();
+    const fetchThreads = vi
+      .fn()
+      .mockResolvedValueOnce([thread("cached")])
+      .mockImplementationOnce(() => pending.promise);
+    const cache = cacheWithThreads(fetchThreads);
+    await cache.refreshActiveThreads();
+
+    const first = cache.refreshActiveThreads();
+    await flushMicrotasks();
+    const second = cache.refreshActiveThreads();
+    await flushMicrotasks();
+
+    expect(fetchThreads).toHaveBeenCalledTimes(2);
+    pending.resolve([thread("fresh")]);
+    await expect(Promise.all([first, second])).resolves.toEqual([[thread("fresh")], [thread("fresh")]]);
+  });
+
   it("keeps active and archived thread list snapshots separate", async () => {
     const fetchThreads = vi.fn((_context: AppServerQueryContext, archived: boolean) =>
       Promise.resolve(archived ? [thread("archived", true)] : [thread("active")]),
@@ -81,14 +100,51 @@ describe("AppServerQueryCache", () => {
 
     await expect(cache.loadMoreActiveThreads()).resolves.toEqual([thread("first"), thread("second")]);
     expect(cache.hasMoreActiveThreads()).toBe(false);
+    expect(cache.recentActiveThreadsSnapshot()).toEqual([thread("first")]);
     expect(listThreads).toHaveBeenNthCalledWith(2, {
       cwd: "/vault",
       cursor: "page-2",
       archived: false,
-      limit: 100,
       sortKey: "recency_at",
       sortDirection: "desc",
     });
+  });
+
+  it("moves an opened older thread to the front without discarding loaded history", async () => {
+    const recent = { ...thread("recent"), recencyAt: 20 };
+    const older = { ...thread("older"), recencyAt: 10 };
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [recent], nextCursor: "page-2" })
+      .mockResolvedValueOnce({ data: [older], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshActiveThreads();
+    await cache.loadMoreActiveThreads();
+
+    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "older", changes: { recencyAt: 30 } }]);
+
+    expect(cache.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["older", "recent"]);
+    expect(cache.recentActiveThreadsSnapshot()?.map((item) => item.id)).toEqual(["older"]);
+    expect(listThreads).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the recent window stable across event projections", async () => {
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
+      .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshActiveThreads();
+    await cache.loadMoreActiveThreads();
+
+    cache.applyThreadListMutations([{ kind: "upsert", list: "active", thread: { ...thread("new"), recencyAt: 30 } }]);
+    expect(cache.recentActiveThreadsSnapshot()?.map((item) => item.id)).toEqual(["new"]);
+
+    cache.applyThreadListMutations([
+      { kind: "remove", list: "active", threadId: "new" },
+      { kind: "remove", list: "active", threadId: "first" },
+    ]);
+    expect(cache.recentActiveThreadsSnapshot()?.map((item) => item.id)).toEqual(["second"]);
   });
 
   it("shares concurrent Load more requests through the InfiniteQuery", async () => {
@@ -185,7 +241,6 @@ describe("AppServerQueryCache", () => {
       cwd: "/vault",
       cursor: "old-page-2",
       archived: false,
-      limit: 100,
       sortKey: "recency_at",
       sortDirection: "desc",
     });
@@ -256,7 +311,7 @@ describe("AppServerQueryCache", () => {
       .mockResolvedValueOnce({ data: [thread("new-first")], nextCursor: "new-page-2" });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
 
-    const inventory = cache.fetchAllActiveThreads();
+    const inventory = cache.fetchActiveThreadSearchInventory();
     await flushMicrotasks();
     await cache.refreshActiveThreads();
     oldInventory.resolve({ data: [thread("old")], nextCursor: null });

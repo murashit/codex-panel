@@ -4,7 +4,7 @@ import { afterEach, beforeAll, beforeEach, expect, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
-import type { ObservedResult } from "../../../../src/app-server/query/observed-result";
+import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/app-server/query/observed-result";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
@@ -408,6 +408,7 @@ export interface ChatHostFixtureOverrides {
   settings?: Partial<CodexPanelSettings>;
   vaultPath?: string;
   openThreadInNewView?: CodexChatHost["workspace"]["openThreadInNewView"];
+  openThreadFromPanel?: CodexChatHost["workspace"]["openThreadFromPanel"];
   focusThreadInOpenView?: CodexChatHost["workspace"]["focusThreadInOpenView"];
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   notifyPanelActivityChanged?: CodexChatHost["workspace"]["notifyPanelActivityChanged"];
@@ -429,7 +430,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
   let activeThreads = overrides.activeSnapshot?.() ?? null;
   let metadata = overrides.appServerMetadataSnapshot?.() ?? null;
   let models = overrides.modelsSnapshot?.() ?? null;
-  const activeThreadResultListeners = new Set<(result: ObservedResult<readonly Thread[]>) => void>();
+  const activeThreadResultListeners = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
   const metadataResourceListeners = new Set<(resource: SharedServerMetadataResource) => void>();
   const modelResultListeners = new Set<(result: ObservedResult<readonly ModelMetadata[]>) => void>();
   const settings = {
@@ -517,7 +518,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
   };
   const emitActiveThreads = (): void => {
     if (!activeThreads) return;
-    for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
+    for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
   };
   const upsertActiveThread = (thread: Thread): void => {
     activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
@@ -557,7 +558,9 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     },
     workspace: {
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
+      openThreadFromPanel: overrides.openThreadFromPanel ?? vi.fn(),
       focusThreadInOpenView: overrides.focusThreadInOpenView ?? vi.fn().mockResolvedValue(false),
+      threadHasPendingOrRunningPanel: vi.fn(() => false),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
       notifyPanelActivityChanged: overrides.notifyPanelActivityChanged ?? vi.fn(),
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
@@ -611,6 +614,8 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     threadCatalog: {
       apply: overrides.applyThreadCatalogEvent ?? applyThreadCatalogEvent,
       applyConnectionEvent: (_context, event) => (overrides.applyThreadCatalogEvent ?? applyThreadCatalogEvent)(event),
+      hasMoreActive: vi.fn(() => false),
+      loadMoreActive: vi.fn(async () => activeThreads ?? []),
       refreshActive:
         overrides.refreshActive ??
         (vi.fn(async () => {
@@ -620,24 +625,45 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
           const response = await request("thread/list", {
             cwd: "/vault",
             archived: false,
-            limit: 100,
             sortKey: "recency_at",
             sortDirection: "desc",
           });
           activeThreads = response.data.map(threadFromRecord);
-          for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
+          for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
           return activeThreads;
         }) as CodexChatHost["threadCatalog"]["refreshActive"]),
-      loadActive: vi.fn(async () => activeThreads ?? []),
+      loadActive: vi.fn(async () => {
+        const client = connectionMock.state.client;
+        if (!client) return activeThreads ?? [];
+        const request = client["request"] as (method: string, params: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
+        const response = await request("thread/list", {
+          cwd: "/vault",
+          archived: false,
+          sortKey: "recency_at",
+          sortDirection: "desc",
+        });
+        activeThreads = response.data.map(threadFromRecord);
+        for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
+        return activeThreads;
+      }),
       activeSnapshot: overrides.activeSnapshot ?? vi.fn(() => activeThreads),
+      recentActiveSnapshot: overrides.activeSnapshot ?? vi.fn(() => activeThreads),
       observeActive: (listener, options = {}) => {
         activeThreadResultListeners.add(listener);
-        if ((options.emitCurrent ?? true) && activeThreads) listener(queryResult(activeThreads));
+        if ((options.emitCurrent ?? true) && activeThreads) listener(paginatedQueryResult(activeThreads));
         return () => {
           activeThreadResultListeners.delete(listener);
         };
       },
     },
+  };
+}
+
+function paginatedQueryResult<T>(value: T | null): ObservedPaginatedResult<T> {
+  return {
+    ...queryResult(value),
+    hasMore: false,
+    isFetchingNextPage: false,
   };
 }
 

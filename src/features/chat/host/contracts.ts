@@ -9,9 +9,9 @@ import type { SharedServerMetadata, SharedServerMetadataResource } from "../../.
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import type {
-  ThreadCatalogActiveReader,
   ThreadCatalogConnectionEventSink,
   ThreadCatalogEventSink,
+  ThreadCatalogPaginatedActiveReader,
 } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../../threads/workflows/archive-export";
 import type { ThreadNameMutationCoordinator } from "../../threads/workflows/thread-name-mutation-coordinator";
@@ -48,13 +48,15 @@ export interface ChatPanelSettingsAccess {
 
 interface WorkspacePanels {
   openThreadInNewView(threadId: string): Promise<void>;
+  openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
   focusThreadInOpenView(threadId: string): Promise<boolean>;
+  threadHasPendingOrRunningPanel(threadId: string): boolean;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
   notifyPanelActivityChanged(): void;
   openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void>;
 }
 
-type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink & ThreadCatalogConnectionEventSink;
+type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader & ThreadCatalogEventSink & ThreadCatalogConnectionEventSink;
 
 interface ChatAppServerQueries {
   contextLease(): AppServerContextLease;

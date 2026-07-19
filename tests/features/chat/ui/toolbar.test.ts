@@ -399,6 +399,53 @@ describe("Toolbar decisions", () => {
     expect(archiveThread).toHaveBeenCalledWith("thread", true);
     expect(startArchiveThread).not.toHaveBeenCalled();
   });
+
+  it("renders shared history expansion as a nav-list item", () => {
+    const parent = document.createElement("div");
+    const loadMoreThreads = vi.fn();
+
+    mountToolbar(
+      parent,
+      toolbarModel({ historyOpen: true, openPanel: "history", hasMoreThreads: true }),
+      toolbarActions({ loadMoreThreads }),
+    );
+
+    const loadMore = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
+    expect(loadMore.textContent).toBe("Load more threads");
+    loadMore.click();
+    expect(loadMoreThreads).toHaveBeenCalledOnce();
+
+    mountToolbar(
+      parent,
+      toolbarModel({ historyOpen: true, openPanel: "history", hasMoreThreads: true, loadingMoreThreads: true }),
+      toolbarActions({ loadMoreThreads }),
+    );
+    const loading = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
+    expect(loading.textContent).toBe("Loading more threads…");
+    expect(loading.classList.contains("is-disabled")).toBe(true);
+    loading.click();
+    expect(loadMoreThreads).toHaveBeenCalledOnce();
+
+    mountToolbar(
+      parent,
+      toolbarModel({ historyOpen: true, openPanel: "history", hasMoreThreads: true, threadListFetching: true }),
+      toolbarActions({ loadMoreThreads }),
+    );
+    const refreshing = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
+    expect(refreshing.textContent).toBe("Load more threads");
+    expect(refreshing.classList.contains("is-disabled")).toBe(true);
+    refreshing.click();
+    expect(loadMoreThreads).toHaveBeenCalledOnce();
+  });
+
+  it("does not report an empty history while its first page is loading", () => {
+    const parent = document.createElement("div");
+
+    mountToolbar(parent, toolbarModel({ historyOpen: true, openPanel: "history", threads: [], threadListLoading: true }), toolbarActions());
+
+    expect(parent.textContent).toContain("Loading threads…");
+    expect(parent.textContent).not.toContain("No threads");
+  });
 });
 
 function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewModel {
@@ -434,6 +481,7 @@ interface ToolbarActionOverrides {
   refreshStatus?: () => void;
   copyDebugDetails?: (details: string) => void;
   resumeThread?: (threadId: string) => void;
+  loadMoreThreads?: () => void;
   startArchiveThread?: (threadId: string) => void;
   archiveThread?: (threadId: string, saveMarkdown: boolean) => void;
   startRenameThread?: (threadId: string) => void;
@@ -462,6 +510,7 @@ function toolbarActions(overrides: ToolbarActionOverrides = {}): ToolbarActions 
       copyDebugDetails: overrides.copyDebugDetails ?? vi.fn(),
     },
     threads: {
+      loadMore: overrides.loadMoreThreads ?? vi.fn(),
       resume: overrides.resumeThread ?? vi.fn(),
       archive: {
         start: overrides.startArchiveThread ?? vi.fn(),

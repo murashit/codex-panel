@@ -7,7 +7,7 @@ import {
   appServerQueryContextIdentityMatches,
   appServerQueryContextRawEquals,
 } from "../../app-server/query/keys";
-import type { ObservedResult } from "../../app-server/query/observed-result";
+import type { ObservedPaginatedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
 import { isStaleAppServerResourceContextError } from "../../app-server/query/resource-store";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
@@ -35,7 +35,6 @@ export interface ThreadsViewHost {
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
-  closeOpenPanelsForThread(threadId: string): void;
 }
 
 type ThreadsViewThreadCatalog = ThreadCatalogPaginatedActiveReader & ThreadCatalogEventSink;
@@ -74,7 +73,8 @@ export class ThreadsViewSession {
   private readonly operations: ThreadOperations;
   private readonly titleService: ThreadTitleService;
   private readonly renderTask: DeferredTask;
-  private activeRefresh: object | null = null;
+  private observedFetching = false;
+  private observedFetchingNextPage = false;
   private status: ThreadsViewStatus = { kind: "idle" };
   private threads: readonly Thread[] = [];
   private threadsLoaded = false;
@@ -133,13 +133,14 @@ export class ThreadsViewSession {
       this.receiveObservedThreadsResult(result);
     });
     this.render();
-    void this.refresh();
+    void this.load();
   }
 
   close(): void {
     this.lifetime.dispose();
     this.titleService.invalidate();
-    this.activeRefresh = null;
+    this.observedFetching = false;
+    this.observedFetchingNextPage = false;
     this.renderTask.clear();
     this.unsubscribeThreads?.();
     this.unsubscribeThreads = null;
@@ -147,46 +148,36 @@ export class ThreadsViewSession {
   }
 
   async refresh(): Promise<void> {
+    await this.requestThreads(() => this.host.threadCatalog.refreshActive());
+  }
+
+  private async load(): Promise<void> {
+    await this.requestThreads(() => this.host.threadCatalog.loadActive());
+  }
+
+  private async requestThreads(request: () => Promise<readonly Thread[]>): Promise<void> {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime)) return;
-    const refresh = this.startRefresh();
-    if (!this.currentThreadsSnapshot()) {
-      this.status = { kind: "loading", message: "Loading threads..." };
-    }
-    this.render();
     try {
-      const threads = await this.host.threadCatalog.refreshActive();
-      if (!this.lifetime.isCurrent(lifetime) || this.isStaleRefresh(refresh)) return;
-      this.threads = threads;
-      this.threadsLoaded = true;
-      this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
+      await request();
     } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime)) return;
-      if (isStaleAppServerResourceContextError(error)) return;
+      if (!this.lifetime.isCurrent(lifetime) || isStaleAppServerResourceContextError(error)) return;
       if (!this.currentThreadsSnapshot()) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
+        this.render();
       }
-    } finally {
-      this.finishRefresh(refresh);
     }
   }
 
   async loadMore(): Promise<void> {
     const lifetime = this.lifetime.signal();
-    if (!this.lifetime.isCurrent(lifetime) || !this.host.threadCatalog.hasMoreActive() || this.activeRefresh) return;
-    const refresh = this.startRefresh();
-    this.render();
+    if (!this.lifetime.isCurrent(lifetime) || !this.host.threadCatalog.hasMoreActive() || this.observedFetching) return;
     try {
-      const threads = await this.host.threadCatalog.loadMoreActive();
-      if (!this.lifetime.isCurrent(lifetime) || this.isStaleRefresh(refresh)) return;
-      this.threads = threads;
-      this.threadsLoaded = true;
-      this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
+      await this.host.threadCatalog.loadMoreActive();
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime) || isStaleAppServerResourceContextError(error)) return;
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
-    } finally {
-      this.finishRefresh(refresh);
+      this.render();
     }
   }
 
@@ -197,7 +188,8 @@ export class ThreadsViewSession {
   prepareAppServerContextChange(): void {
     this.appServerContextGeneration += 1;
     this.titleService.invalidate();
-    this.activeRefresh = null;
+    this.observedFetching = false;
+    this.observedFetchingNextPage = false;
     this.renderTask.clear();
     this.threads = [];
     this.threadsLoaded = false;
@@ -219,20 +211,22 @@ export class ThreadsViewSession {
     this.threadsLoaded = snapshot !== null;
     this.status = snapshot?.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     this.render();
-    void this.refresh();
+    void this.load();
   }
 
-  private receiveObservedThreads(threads: readonly Thread[]): void {
-    this.threads = threads;
-    this.threadsLoaded = true;
-    this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
-    this.render();
-  }
-
-  private receiveObservedThreadsResult(result: ObservedResult<readonly Thread[]>): void {
+  private receiveObservedThreadsResult(result: ObservedPaginatedResult<readonly Thread[]>): void {
+    this.observedFetching = result.isFetching;
+    this.observedFetchingNextPage = result.isFetchingNextPage;
     const observedThreads = result.value;
     if (observedThreads) {
-      this.receiveObservedThreads(observedThreads);
+      this.threads = observedThreads;
+      this.threadsLoaded = true;
+      this.status = result.error
+        ? { kind: "error", message: result.error.message }
+        : observedThreads.length === 0
+          ? { kind: "empty", message: "No threads" }
+          : { kind: "idle" };
+      this.render();
       return;
     }
     const currentValue = this.currentThreadsSnapshot();
@@ -256,29 +250,14 @@ export class ThreadsViewSession {
     return this.environment.host;
   }
 
-  private startRefresh(): object {
-    const refresh = {};
-    this.activeRefresh = refresh;
-    return refresh;
-  }
-
-  private finishRefresh(refresh: object): void {
-    if (this.isStaleRefresh(refresh)) return;
-    this.activeRefresh = null;
-    this.render();
-  }
-
-  private isStaleRefresh(refresh: object): boolean {
-    return this.activeRefresh !== refresh;
-  }
-
   private render(): void {
     if (!this.lifetime.isActive()) return;
     renderThreadsViewShell(
       this.environment.root,
       {
         status: this.status.kind === "idle" ? null : this.status.message,
-        loading: this.activeRefresh !== null,
+        loading: this.observedFetchingNextPage,
+        fetching: this.observedFetching,
         hasMore: this.host.threadCatalog.hasMoreActive(),
         rows: threadRows(
           this.threads,
@@ -409,6 +388,10 @@ export class ThreadsViewSession {
   }
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
+    if (this.host.openPanelActivities().some((activity) => activity.threadId === threadId && (activity.pending || activity.running))) {
+      new Notice("Finish or interrupt the thread before archiving it.");
+      return;
+    }
     const lease = this.captureOperationLease();
     try {
       await this.operations.archiveThread(threadId, {
@@ -416,7 +399,6 @@ export class ThreadsViewSession {
         shouldPublish: () => this.operationContextIsCurrent(lease),
       });
       if (!this.operationViewIsCurrent(lease)) return;
-      this.host.closeOpenPanelsForThread(threadId);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
     } catch (error) {

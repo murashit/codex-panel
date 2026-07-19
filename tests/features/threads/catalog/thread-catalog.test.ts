@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerQueryContextIdentity } from "../../../../src/app-server/query/keys";
-import type { ObservedResultListener } from "../../../../src/app-server/query/observed-result";
+import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../../src/app-server/query/observed-result";
 import { applyThreadListMutation, type ThreadListMutation } from "../../../../src/app-server/query/thread-list-mutation";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadCatalog } from "../../../../src/features/threads/catalog/thread-catalog";
@@ -29,7 +29,10 @@ describe("ThreadCatalog", () => {
 
     catalog.apply({ type: "thread-archived", threadId: "unknown" });
 
-    expect(store.appliedMutations).toEqual([{ kind: "remove", list: "active", threadId: "unknown" }]);
+    expect(store.appliedMutations).toEqual([
+      { kind: "remove", list: "active", threadId: "unknown" },
+      { kind: "refresh", list: "archived" },
+    ]);
   });
 
   it("moves known restored and unarchived threads between lists", () => {
@@ -77,6 +80,7 @@ describe("ThreadCatalog", () => {
     const activeObserver = vi.fn();
     const archivedObserver = vi.fn();
 
+    expect(await catalog.searchActive()).toEqual([thread("active")]);
     expect(await catalog.loadActive()).toEqual([thread("active")]);
     expect(await catalog.refreshActive()).toEqual([thread("active")]);
     expect(catalog.hasMoreActive()).toBe(false);
@@ -85,7 +89,13 @@ describe("ThreadCatalog", () => {
 
     const unsubscribeActive = catalog.observeActive(activeObserver);
     const unsubscribeArchived = catalog.observeArchived(archivedObserver);
-    expect(activeObserver).toHaveBeenCalledWith({ value: [thread("active")], error: null, isFetching: false });
+    expect(activeObserver).toHaveBeenCalledWith({
+      value: [thread("active")],
+      error: null,
+      isFetching: false,
+      hasMore: false,
+      isFetchingNextPage: false,
+    });
     expect(archivedObserver).toHaveBeenCalledWith({ value: [thread("archived", true)], error: null, isFetching: false });
     unsubscribeActive();
     unsubscribeArchived();
@@ -100,7 +110,7 @@ interface CatalogStoreOptions {
 function catalogStore(options: CatalogStoreOptions = {}) {
   let active = options.active ?? null;
   let archived = options.archived ?? null;
-  const activeObservers = new Set<ObservedResultListener<readonly Thread[]>>();
+  const activeObservers = new Set<ObservedPaginatedResultListener<readonly Thread[]>>();
   const archivedObservers = new Set<ObservedResultListener<readonly Thread[]>>();
   const appliedMutations: ThreadListMutation[] = [];
   const currentContext: AppServerQueryContextIdentity = {
@@ -123,16 +133,23 @@ function catalogStore(options: CatalogStoreOptions = {}) {
     contextKey: () => contextKey(currentContext),
     contextKeyFor: contextKey,
     activeThreadsSnapshot: () => active,
+    recentActiveThreadsSnapshot: () => active,
     archivedThreadsSnapshot: () => archived,
-    fetchAllActiveThreads: async () => active ?? [],
+    fetchActiveThreadSearchInventory: async () => active ?? [],
+    fetchActiveThreads: async () => active ?? [],
     hasMoreActiveThreads: () => false,
     loadMoreActiveThreads: async () => active ?? [],
     refreshActiveThreads: async () => active ?? [],
     refreshArchivedThreads: async () => archived ?? [],
     applyThreadListMutations: applyMutations,
-    observeActiveThreadsResult: (observer: ObservedResultListener<readonly Thread[]>, observeOptions: { emitCurrent?: boolean } = {}) => {
+    observeActiveThreadsResult: (
+      observer: ObservedPaginatedResultListener<readonly Thread[]>,
+      observeOptions: { emitCurrent?: boolean } = {},
+    ) => {
       activeObservers.add(observer);
-      if (observeOptions.emitCurrent ?? true) observer({ value: active, error: null, isFetching: false });
+      if (observeOptions.emitCurrent ?? true) {
+        observer({ value: active, error: null, isFetching: false, hasMore: false, isFetchingNextPage: false });
+      }
       return () => activeObservers.delete(observer);
     },
     observeArchivedThreadsResult: (observer: ObservedResultListener<readonly Thread[]>, observeOptions: { emitCurrent?: boolean } = {}) => {

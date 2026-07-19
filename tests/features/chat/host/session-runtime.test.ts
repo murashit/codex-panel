@@ -63,7 +63,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     expect(stateStore.getState().ui.rename).toEqual({ kind: "idle" });
   });
 
-  it("refreshes shared threads inside the runtime connection bundle", async () => {
+  it("refreshes the shared query without projecting the returned value directly", async () => {
     const thread = threadFixture({ id: "thread-1", preview: "From catalog" });
     const refresh = vi.fn().mockResolvedValue([thread]);
     const { runtime, stateStore } = sessionRuntimeFixture({
@@ -79,7 +79,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     await runtime.actions.refreshSharedThreads();
 
     expect(refresh).toHaveBeenCalledOnce();
-    expect(stateStore.getState().threadList.listedThreads).toEqual([thread]);
+    expect(stateStore.getState().threadList.listedThreads).toEqual([]);
   });
 
   it("treats stale shared thread refreshes as runtime-local no-ops", async () => {
@@ -284,10 +284,12 @@ describe("ChatPanelSessionRuntime actions", () => {
         },
         workspace: {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
+          threadHasPendingOrRunningPanel: vi.fn(() => false),
           focusThreadInOpenView: vi.fn().mockResolvedValue(false),
           openTurnDiff: vi.fn().mockResolvedValue(undefined),
           notifyPanelActivityChanged: vi.fn(),
           ...overrides.plugin?.workspace,
+          openThreadFromPanel: overrides.plugin?.workspace?.openThreadFromPanel ?? vi.fn().mockResolvedValue(undefined),
           openSideChat: overrides.plugin?.workspace?.openSideChat ?? vi.fn().mockResolvedValue(undefined),
         },
         appServerQueries,
@@ -309,9 +311,12 @@ describe("ChatPanelSessionRuntime actions", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]> = {},
   ): ChatPanelEnvironment["plugin"]["threadCatalog"] {
     return {
+      hasMoreActive: vi.fn(() => false),
+      loadMoreActive: vi.fn().mockResolvedValue([]),
       loadActive: vi.fn().mockResolvedValue([]),
       refreshActive: vi.fn().mockResolvedValue([]),
       activeSnapshot: vi.fn(() => null),
+      recentActiveSnapshot: vi.fn(() => null),
       observeActive: vi.fn(() => () => undefined),
       apply: vi.fn(),
       applyConnectionEvent: vi.fn(),

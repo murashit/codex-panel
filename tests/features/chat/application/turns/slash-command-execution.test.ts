@@ -137,25 +137,49 @@ describe("slash commands", () => {
     expect(ctx.reconnect).toHaveBeenCalledOnce();
   });
 
-  it("resumes a thread by id argument", async () => {
+  it("resumes a thread by title argument without accepting ids", async () => {
     const ctx = context({
       listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta" })],
     });
 
-    await executeSlashCommand("resume", "thread-beta", ctx);
+    await executeSlashCommand("resume", "Beta", ctx);
 
     expect(ctx.resumeThread).toHaveBeenCalledWith("thread-beta");
+
+    await executeSlashCommand("resume", "thread-alpha", ctx);
+    expect(ctx.resumeThread).toHaveBeenCalledOnce();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("No matching thread: thread-alpha");
   });
 
-  it("reports ambiguous resume matches", async () => {
+  it("uses a completed thread target before falling back to normal title search", async () => {
+    const sharedPrefix = "x".repeat(100);
+    const completedTitle = `${"x".repeat(93)}...`;
+    const target = thread({ id: "target", name: null, preview: `${sharedPrefix} target` });
+    const other = thread({ id: "other", name: null, preview: `${sharedPrefix} other` });
+    const ctx = context({
+      listedThreads: [other, target],
+      threadCommandTarget: { command: "resume", threadId: "target", title: completedTitle },
+    });
+
+    await executeSlashCommand("resume", `"${completedTitle}"`, ctx);
+
+    expect(ctx.resumeThread).toHaveBeenCalledWith("target");
+
+    const directInput = context({ listedThreads: [other, target] });
+    await executeSlashCommand("resume", `"${completedTitle}"`, directInput);
+    expect(directInput.resumeThread).not.toHaveBeenCalled();
+    expect(directInput.addSystemMessage).toHaveBeenCalledWith(`No matching thread: ${completedTitle}`);
+  });
+
+  it("resolves an exact title before another title with the same prefix", async () => {
     const ctx = context({
       listedThreads: [thread({ id: "thread-alpha", name: "Draft" }), thread({ id: "thread-beta", name: "Draft notes" })],
     });
 
     await executeSlashCommand("resume", "Draft", ctx);
 
-    expect(ctx.resumeThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft (thread-a), Draft notes (thread-b)");
+    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha");
+    expect(ctx.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("resolves a stronger ranked resume match before looser title matches", async () => {
@@ -180,7 +204,7 @@ describe("slash commands", () => {
       referThread: vi.fn().mockResolvedValue({ text: "質問です", input, referencedThread }),
     });
 
-    const result = await executeSlashCommand("refer", "thread-alpha 質問です", ctx);
+    const result = await executeSlashCommand("refer", '"Alpha" 質問です', ctx);
 
     expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です", inputSnapshot);
     expect(result).toEqual({ sendText: "質問です", sendInput: input, referencedThread });
@@ -192,7 +216,7 @@ describe("slash commands", () => {
       listedThreads: [thread({ id: "thread-current", name: "Current" }), target],
     });
 
-    await executeSlashCommand("refer", "thread-alpha 質問です", ctx);
+    await executeSlashCommand("refer", '"Alpha" 質問です', ctx);
 
     expect(ctx.referThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Cannot reference a thread without composer input context.");
@@ -213,14 +237,14 @@ describe("slash commands", () => {
       listedThreads: [thread({ id: "thread-1", name: "Current" })],
     });
 
-    await executeSlashCommand("refer", "thread-1 続きです", ctx);
+    await executeSlashCommand("refer", '"Current" 続きです', ctx);
 
     expect(ctx.referThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
   });
 
   it("does not let the active thread shadow a non-active /refer match", async () => {
-    const target = thread({ id: "alpha-thread", name: "Other thread" });
+    const target = thread({ id: "alpha-thread", name: "Alpha other thread" });
     const input = [{ type: "text" as const, text: "質問です" }];
     const referencedThread = { threadId: "alpha-thread", title: "Other thread", includedTurns: 1, turnLimit: 20 };
     const inputSnapshot = { sourcePath: "snapshot.md" } as never;
@@ -473,32 +497,32 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/archive requires a thread. Usage: /archive <thread>");
   });
 
-  it("archives a selected thread by id argument", async () => {
+  it("archives a selected thread by quoted title", async () => {
     const ctx = context({
-      listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta" })],
+      listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta thread" })],
     });
 
-    await executeSlashCommand("archive", "thread-beta", ctx);
+    await executeSlashCommand("archive", '"Beta thread"', ctx);
 
     expect(ctx.threadActions.archiveThread).toHaveBeenCalledWith("thread-beta");
   });
 
-  it("renames a selected thread by id argument", async () => {
+  it("renames a selected thread by quoted title", async () => {
     const ctx = context({
-      listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta" })],
+      listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta thread" })],
     });
 
-    await executeSlashCommand("rename", "thread-beta New Beta Name", ctx);
+    await executeSlashCommand("rename", '"Beta thread" New Beta Name', ctx);
 
     expect(ctx.threadActions.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
   });
 
   it("trims /rename names before saving", async () => {
     const ctx = context({
-      listedThreads: [thread({ id: "thread-beta", name: "Beta" })],
+      listedThreads: [thread({ id: "thread-beta", name: "Beta thread" })],
     });
 
-    await executeSlashCommand("rename", "thread-beta   New Beta Name   ", ctx);
+    await executeSlashCommand("rename", '"Beta thread"   New Beta Name   ', ctx);
 
     expect(ctx.threadActions.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
   });

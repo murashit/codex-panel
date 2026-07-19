@@ -143,7 +143,6 @@ describe("CodexChatView workspace restoration", () => {
     expect(client.request).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault",
       archived: false,
-      limit: 100,
       sortKey: "recency_at",
       sortDirection: "desc",
     });

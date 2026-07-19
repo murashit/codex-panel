@@ -263,6 +263,47 @@ describe("ChatComposerController", () => {
     expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("/");
   });
 
+  it("captures completed thread identity across message edits and drops it when the title token changes", () => {
+    const stateStore = createChatStateStore();
+    const preview = `Long preview ${"x".repeat(120)}`;
+    const completedTitle = `${preview.slice(0, 93)}...`;
+    stateStore.dispatch({
+      type: "thread-list/applied",
+      threads: [
+        {
+          id: "target-thread",
+          preview,
+          name: null,
+          archived: false,
+          createdAt: 1,
+          updatedAt: 1,
+          provenance: { kind: "interactive" },
+        },
+      ],
+    });
+    const { controller, parent } = composerControllerFixture({ stateStore });
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "/refer long");
+    composer(parent).setSelectionRange(11, 11);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+
+    expect(composer(parent).value).toBe(`/refer "${completedTitle}" `);
+    expect(controller.captureInputSnapshot().threadCommandTarget).toEqual({
+      command: "refer",
+      threadId: "target-thread",
+      title: completedTitle,
+    });
+
+    setTextAreaValue(composer(parent), `${composer(parent).value}summarize`);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(controller.captureInputSnapshot().threadCommandTarget?.threadId).toBe("target-thread");
+
+    setTextAreaValue(composer(parent), composer(parent).value.replace(completedTitle, "edited title"));
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(controller.captureInputSnapshot().threadCommandTarget).toBeUndefined();
+  });
+
   it("applies ephemeral-thread suggestion restrictions on input without waiting for keyup", () => {
     const stateStore = createChatStateStore(
       chatStateFixture({

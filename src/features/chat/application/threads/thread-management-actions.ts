@@ -26,6 +26,7 @@ export interface ThreadManagementActionsHost {
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
   recordThread: (thread: Thread) => void;
+  threadHasPendingOrRunningPanel: (threadId: string) => boolean;
 }
 
 interface ThreadManagementOperations {
@@ -93,6 +94,10 @@ async function archiveThread(host: ThreadManagementActionsHost, threadId: string
 }
 
 async function archiveThreadFromPanel(host: ThreadManagementActionsHost, threadId: string, saveMarkdown?: boolean): Promise<boolean> {
+  if (host.threadHasPendingOrRunningPanel(threadId)) {
+    host.addSystemMessage("Finish or interrupt the thread before archiving it.");
+    return false;
+  }
   if (chatTurnBusy(threadManagementState(host))) {
     host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
     return false;

@@ -230,4 +230,17 @@ describe("threads view renderer decisions", () => {
     expect(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(false);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
   });
+
+  it("disables history expansion during any shared thread fetch", () => {
+    const parent = document.createElement("div");
+    const actions = threadsViewActions();
+
+    renderThreadsViewShell(parent, { status: null, loading: false, fetching: true, hasMore: true, rows: [rowFixture()] }, actions);
+
+    const loadMore = expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel-threads__load-more"));
+    expect(loadMore.textContent).toBe("Load more threads");
+    expect(loadMore.disabled).toBe(true);
+    loadMore.click();
+    expect(actions.loadMore).not.toHaveBeenCalled();
+  });
 });

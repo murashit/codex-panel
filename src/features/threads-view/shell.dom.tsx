@@ -11,6 +11,7 @@ type ButtonProps = ButtonHTMLAttributes & {
 export interface ThreadsViewShellModel {
   status: string | null;
   loading: boolean;
+  fetching?: boolean;
   hasMore?: boolean;
   rows: ThreadsRowModel[];
 }
@@ -75,7 +76,7 @@ function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; ac
               <button
                 type="button"
                 className="codex-panel-ui__nav-item codex-panel-threads__load-more"
-                disabled={model.loading}
+                disabled={model.fetching ?? model.loading}
                 onClick={actions.loadMore}
               >
                 {model.loading ? "Loading..." : "Load more threads"}
@@ -162,6 +163,7 @@ function ArchiveControls({
         icon="archive"
         label="Archive thread"
         className="codex-panel-threads__row-button"
+        disabled={threadArchiveDisabled(row)}
         onClick={(event) => {
           event.stopPropagation();
           actions.startArchive(row.threadId);
@@ -196,12 +198,17 @@ function ArchiveModeButton({
       icon={saveMarkdown ? "save" : "trash"}
       label={label}
       className={primary ? "codex-panel-threads__archive-default" : "codex-panel-threads__archive-alternate"}
+      disabled={threadArchiveDisabled(row)}
       onClick={(event) => {
         event.stopPropagation();
         actions.archiveThread(row.threadId, saveMarkdown);
       }}
     />
   );
+}
+
+function threadArchiveDisabled(row: ThreadsRowModel): boolean {
+  return row.live?.status === "pending" || row.live?.status === "running";
 }
 
 function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {

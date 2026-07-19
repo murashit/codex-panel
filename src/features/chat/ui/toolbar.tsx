@@ -13,6 +13,7 @@ export interface ToolbarThreadRow {
   threadId: string;
   selected: boolean;
   disabled: boolean;
+  openDisabled?: boolean;
   canArchive: boolean;
   archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
   rename: {
@@ -44,6 +45,11 @@ export interface ToolbarViewModel {
   debugDetails: () => string;
   openPanel: "history" | "chat-actions" | "status" | null;
   threads: ToolbarThreadRow[];
+  hasMoreThreads?: boolean;
+  threadListLoading?: boolean;
+  threadListFetching?: boolean;
+  loadingMoreThreads?: boolean;
+  threadListError?: string | null;
   connectLabel: string;
   permissionsAndApprovals: ToolbarStatusSection[];
   diagnostics: ToolbarStatusSection[];
@@ -70,6 +76,7 @@ interface ToolbarStatusActions {
 }
 
 interface ToolbarThreadActions {
+  loadMore?: () => void;
   resume: (threadId: string) => void;
   archive: {
     start: (threadId: string) => void;
@@ -156,7 +163,17 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
         .join(" ")}
       data-codex-panel-toolbar-panel={model.openPanel}
     >
-      {model.openPanel === "history" ? <ThreadList threads={model.threads} actions={actions.threads} /> : null}
+      {model.openPanel === "history" ? (
+        <ThreadList
+          threads={model.threads}
+          initialLoading={model.threadListLoading ?? false}
+          fetching={model.threadListFetching ?? false}
+          hasMore={model.hasMoreThreads ?? false}
+          loadingMore={model.loadingMoreThreads ?? false}
+          error={model.threadListError ?? null}
+          actions={actions.threads}
+        />
+      ) : null}
       {model.openPanel === "chat-actions" ? <ChatActionsPanel model={model} actions={actions.chat} /> : null}
       {model.openPanel === "status" ? <StatusPanel model={model} actions={actions.status} /> : null}
     </div>
@@ -314,12 +331,28 @@ function DiagnosticRow({ row }: { row: ToolbarStatusRow }): UiNode {
   );
 }
 
-function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions: ToolbarThreadActions }): UiNode {
-  if (threads.length === 0) {
+function ThreadList({
+  threads,
+  initialLoading,
+  fetching,
+  hasMore,
+  loadingMore,
+  error,
+  actions,
+}: {
+  threads: ToolbarThreadRow[];
+  initialLoading: boolean;
+  fetching: boolean;
+  hasMore: boolean;
+  loadingMore: boolean;
+  error: string | null;
+  actions: ToolbarThreadActions;
+}): UiNode {
+  if (threads.length === 0 && !hasMore && !error) {
     return (
       <div className="codex-panel__threads">
         <ToolbarPanelItem
-          label="No threads"
+          label={initialLoading ? "Loading threads…" : "No threads"}
           disabled={true}
           className="codex-panel__thread codex-panel__thread--empty"
           interactive={false}
@@ -332,6 +365,17 @@ function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions
       {threads.map((thread) => (
         <ThreadListRow key={thread.threadId} thread={thread} actions={actions} />
       ))}
+      {error ? <ToolbarPanelItem label={error} className="codex-panel__thread codex-panel__thread--error" interactive={false} /> : null}
+      {hasMore ? (
+        <ToolbarPanelItem
+          label={loadingMore ? "Loading more threads…" : "Load more threads"}
+          disabled={fetching || loadingMore}
+          className="codex-panel__thread codex-panel__thread--load-more"
+          onClick={() => {
+            actions.loadMore?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -360,7 +404,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
             label={thread.title}
             selected={thread.selected}
             selectionStyle="row"
-            disabled={thread.disabled}
+            disabled={thread.openDisabled ?? thread.disabled}
             className="codex-panel__thread"
             onClick={() => {
               actions.resume(thread.threadId);

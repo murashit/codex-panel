@@ -208,7 +208,7 @@ describe("CodexChatView connection lifecycle", () => {
     host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Original" })]);
     const blocker = deferred<void>();
     const blockerWork = nameMutations.run("thread-1", () => blocker.promise);
-    view.surface.setComposerText("/rename thread-1 Queued in A");
+    view.surface.setComposerText('/rename "Original" Queued in A');
     await submitComposerByEnter(view);
     expect(mutationRun).toHaveBeenCalledTimes(2);
 

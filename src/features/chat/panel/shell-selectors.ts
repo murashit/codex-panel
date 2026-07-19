@@ -9,6 +9,11 @@ const hasThreadTurnsByStream = new WeakMap<ChatState["threadStream"], boolean>()
 
 export interface ChatPanelToolbarModel {
   readonly threads: ChatState["threadList"]["listedThreads"];
+  readonly hasMoreThreads: boolean;
+  readonly threadListLoading: boolean;
+  readonly threadListFetching: boolean;
+  readonly isFetchingNextPage: boolean;
+  readonly threadListError: string | null;
   readonly activeThreadId: string | null;
   readonly activeThreadSubagent: boolean;
   readonly sideChatStartDisabled: boolean;
@@ -79,6 +84,11 @@ export function selectChatPanelToolbar(state: ChatState): ChatPanelToolbarModel 
   const activeThread = activeThreadState(state);
   return {
     threads: state.threadList.listedThreads,
+    hasMoreThreads: state.threadList.hasMore,
+    threadListLoading: state.threadList.isFetching && state.threadList.listedThreads.length === 0,
+    threadListFetching: state.threadList.isFetching,
+    isFetchingNextPage: state.threadList.isFetchingNextPage,
+    threadListError: state.threadList.error,
     activeThreadId: activeThread?.id ?? null,
     activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
     sideChatStartDisabled: activePanelOperationDecision(state, "start-side-chat").kind !== "allowed",

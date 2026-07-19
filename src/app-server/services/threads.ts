@@ -23,8 +23,6 @@ import {
 } from "../protocol/turn";
 import type { AppServerRequestClient } from "./request-client";
 
-const THREAD_LIST_PAGE_LIMIT = 100;
-
 export type ThreadTurnSortDirection = "asc" | "desc";
 
 interface TurnTranscriptSummaryPage {
@@ -63,6 +61,7 @@ export interface AppServerThreadListOptions {
 export interface ThreadPage {
   readonly threads: readonly Thread[];
   readonly nextCursor: string | null;
+  readonly fetchedSize: number;
 }
 
 export function startThread(
@@ -107,17 +106,21 @@ export function resumeThread(
   });
 }
 
-export async function listThreads(client: AppServerRequestClient, cwd: string, options: { archived?: boolean } = {}): Promise<Thread[]> {
+export async function listThreads(
+  client: AppServerRequestClient,
+  cwd: string,
+  options: { archived?: boolean; signal?: AbortSignal } = {},
+): Promise<Thread[]> {
   const archived = options.archived ?? false;
   const threads: Thread[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
 
   for (;;) {
+    options.signal?.throwIfAborted();
     const page = await readThreadPage(client, cwd, {
       archived,
       cursor,
-      limit: THREAD_LIST_PAGE_LIMIT,
     });
     threads.push(...page.threads);
 
@@ -141,11 +144,11 @@ export async function readThreadPage(
   const page = await readThreadRecordPage(client, cwd, {
     ...options,
     archived,
-    limit: options.limit ?? THREAD_LIST_PAGE_LIMIT,
   });
   return {
     threads: threadsFromThreadRecords(page.data, { archived }),
     nextCursor: page.nextCursor ?? null,
+    fetchedSize: page.data.length,
   };
 }
 

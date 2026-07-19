@@ -81,7 +81,13 @@ describe("reconnectPanel", () => {
     expect(host.resetConnection).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
-    expect(stateStore.getState().threadList).toEqual({ listedThreads: [{ id: "thread" }] });
+    expect(stateStore.getState().threadList).toEqual({
+      listedThreads: [{ id: "thread" }],
+      hasMore: false,
+      isFetching: false,
+      isFetchingNextPage: false,
+      error: null,
+    });
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
   });

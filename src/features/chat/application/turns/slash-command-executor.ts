@@ -50,6 +50,7 @@ export async function executeSlashCommandWithState(
     },
     activeThreadId: state.activeThreadId,
     listedThreads: state.listedThreads,
+    ...(inputSnapshot?.threadCommandTarget ? { threadCommandTarget: inputSnapshot.threadCommandTarget } : {}),
     referThread: host.referThread,
     readWebUrl: host.readWebUrl,
     ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),

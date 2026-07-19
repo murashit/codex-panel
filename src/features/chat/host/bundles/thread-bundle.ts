@@ -297,6 +297,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     recordThread: (thread) => {
       environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
     },
+    threadHasPendingOrRunningPanel: (threadId) => environment.plugin.workspace.threadHasPendingOrRunningPanel(threadId),
   };
   const actions = createThreadManagementActions(threadManagementHost);
   const toolbarPanelActions = createToolbarPanelActions({
@@ -310,6 +311,8 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
       toolbarPanelActions.closeForThreadSelection();
     },
     focusThreadInOpenView: (threadId) => environment.plugin.workspace.focusThreadInOpenView(threadId),
+    openThreadFromHistory: (threadId, originSwitchable) =>
+      environment.plugin.workspace.openThreadFromPanel(threadId, environment.obsidian.viewId, originSwitchable),
     resumeThread: (threadId, intent, options) => lifecycle.resume.resumeThread(threadId, intent, options),
     resumeWork: host.resumeWork,
     addSystemMessage: status.addSystemMessage,

@@ -170,6 +170,10 @@ export abstract class SuggestModal<T> extends Modal {
     // Test mock placeholder.
   }
 
+  onNoSuggestion(): void {
+    this.resultContainerEl.textContent = this.emptyStateText;
+  }
+
   selectActiveSuggestion(evt: MouseEvent | KeyboardEvent): void {
     const suggestions = this.getSuggestions(this.inputEl.value);
     if (!Array.isArray(suggestions)) return;

@@ -21,7 +21,15 @@ export interface ComposerSubmitActionsHost {
   composer: {
     readonly draft: string;
     readonly trimmedDraft: string;
-    setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean; preserveContext?: boolean }): void;
+    setDraft(
+      text: string,
+      options?: {
+        clearSuggestions?: boolean;
+        focus?: boolean;
+        preserveContext?: boolean;
+        threadCommandTarget?: ComposerInputSnapshot["threadCommandTarget"] | null;
+      },
+    ): void;
     captureInputSnapshot(): ComposerInputSnapshot;
   };
   slashCommandExecutor: {
@@ -133,7 +141,11 @@ async function sendMessage(
         if (pendingWeb) {
           if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id, originalDraft);
         } else {
-          host.composer.setDraft(originalDraft, { focus: true, clearSuggestions: true });
+          host.composer.setDraft(originalDraft, {
+            focus: true,
+            clearSuggestions: true,
+            ...(inputSnapshot.threadCommandTarget ? { threadCommandTarget: inputSnapshot.threadCommandTarget } : {}),
+          });
         }
       }
     }
@@ -171,7 +183,11 @@ async function executeSlashCommandAndRestoreOnFailure(
     if (!isCurrent()) return { failed: true };
     if (pendingWebSubmissionId && !pendingWebSubmissionIsCurrent(host, pendingWebSubmissionId)) return { failed: true };
     if (pendingWebSubmissionId) cancelPendingWebSubmission(host, pendingWebSubmissionId);
-    host.composer.setDraft(originalText, { focus: true, clearSuggestions: true });
+    host.composer.setDraft(originalText, {
+      focus: true,
+      clearSuggestions: true,
+      ...(inputSnapshot.threadCommandTarget ? { threadCommandTarget: inputSnapshot.threadCommandTarget } : {}),
+    });
     host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
     return { failed: true };
   }

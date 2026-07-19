@@ -56,6 +56,7 @@ function createActionsHarness(overrides: Partial<ThreadNavigationActionsHost> = 
     } as unknown as ActiveThreadIdentitySync,
     closeForThreadSelection: vi.fn(),
     focusThreadInOpenView: vi.fn().mockResolvedValue(false),
+    openThreadFromHistory: vi.fn().mockResolvedValue(undefined),
     resumeThread: vi.fn().mockResolvedValue(true),
     resumeWork: new ChatResumeWorkTracker(),
     addSystemMessage: vi.fn(),
@@ -275,14 +276,11 @@ describe("ThreadNavigationActions", () => {
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
-    expect(host.resumeThread).toHaveBeenCalledWith(
-      "thread",
-      expect.objectContaining({ threadId: "thread" }),
-      expect.objectContaining({ onAdopted: expect.any(Function) }),
-    );
+    expect(host.openThreadFromHistory).toHaveBeenCalledWith("thread", true);
+    expect(host.resumeThread).not.toHaveBeenCalled();
   });
 
-  it("ignores toolbar selection while another thread is busy", async () => {
+  it("routes toolbar selection away from a busy origin panel", async () => {
     const { actions, host, stateStore } = createActionsHarness();
     resumeThreadState(stateStore, "active");
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
@@ -290,9 +288,10 @@ describe("ThreadNavigationActions", () => {
 
     await actions.selectThreadFromToolbar("other");
 
-    expect(stateStore.getState().ui.toolbarPanel).toBe("history");
+    expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
-    expect(host.closeForThreadSelection).not.toHaveBeenCalled();
+    expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
+    expect(host.openThreadFromHistory).toHaveBeenCalledWith("other", false);
     expect(host.resumeThread).not.toHaveBeenCalled();
   });
 });

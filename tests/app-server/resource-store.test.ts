@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { AppServerQueryContextIdentity } from "../../src/app-server/query/keys";
-import type { ObservedResult } from "../../src/app-server/query/observed-result";
+import type { ObservedPaginatedResult } from "../../src/app-server/query/observed-result";
 import { AppServerResourceStore, StaleAppServerResourceContextError } from "../../src/app-server/query/resource-store";
 import type { Thread } from "../../src/domain/threads/model";
 import { deferred } from "../support/async";
@@ -69,7 +69,7 @@ describe("AppServerResourceStore", () => {
   });
 
   it("rebinds observers to each lease cache and ignores events from an earlier identical raw context", () => {
-    const listeners = new Map<number, (result: ObservedResult<readonly Thread[]>) => void>();
+    const listeners = new Map<number, (result: ObservedPaginatedResult<readonly Thread[]>) => void>();
     const unsubscribers = new Map<number, ReturnType<typeof vi.fn>>();
     const store = new AppServerResourceStore({
       cacheFactory: (identity) =>
@@ -121,8 +121,10 @@ function cacheWith(overrides: Partial<AppServerQueryCache> = {}): AppServerQuery
   return {
     dispose: vi.fn(),
     activeThreadsSnapshot: vi.fn(() => null),
+    recentActiveThreadsSnapshot: vi.fn(() => null),
     archivedThreadsSnapshot: vi.fn(() => null),
-    fetchAllActiveThreads: vi.fn(() => Promise.resolve([])),
+    fetchActiveThreadSearchInventory: vi.fn(() => Promise.resolve([])),
+    fetchActiveThreads: vi.fn(() => Promise.resolve([])),
     hasMoreActiveThreads: vi.fn(() => false),
     loadMoreActiveThreads: vi.fn(() => Promise.resolve([])),
     refreshActiveThreads: vi.fn(() => Promise.resolve([])),
@@ -142,8 +144,8 @@ function cacheWith(overrides: Partial<AppServerQueryCache> = {}): AppServerQuery
   } as unknown as AppServerQueryCache;
 }
 
-function observedResult<T>(value: T): ObservedResult<T> {
-  return { value, error: null, isFetching: false };
+function observedResult<T>(value: T): ObservedPaginatedResult<T> {
+  return { value, error: null, isFetching: false, hasMore: false, isFetchingNextPage: false };
 }
 
 function thread(id: string): Thread {

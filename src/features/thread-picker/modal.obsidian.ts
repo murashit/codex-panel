@@ -2,11 +2,11 @@ import { type App, Notice, Platform, SuggestModal } from "obsidian";
 import { shortThreadId } from "../../domain/threads/id";
 import type { Thread } from "../../domain/threads/model";
 import { threadSearchMatches } from "../../domain/threads/search";
-import type { ThreadCatalogActiveReader } from "../threads/catalog/thread-catalog";
+import type { ThreadCatalogPaginatedActiveReader, ThreadCatalogSearchReader } from "../threads/catalog/thread-catalog";
 
 export interface ThreadPickerHost {
   readonly app: App;
-  readonly threadCatalog: ThreadCatalogActiveReader;
+  readonly threadCatalog: ThreadCatalogPaginatedActiveReader & ThreadCatalogSearchReader;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
@@ -22,13 +22,14 @@ const THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS = { capture: true } as const
 
 export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
   try {
-    const snapshot = host.threadCatalog.activeSnapshot();
-    const threads = snapshot ?? (await host.threadCatalog.loadActive());
-    if (threads.length === 0) {
+    const recentSnapshot = host.threadCatalog.recentActiveSnapshot();
+    const loadedThreads = recentSnapshot ?? (await host.threadCatalog.loadActive());
+    const recentThreads = host.threadCatalog.recentActiveSnapshot() ?? loadedThreads;
+    if (recentThreads.length === 0 && !host.threadCatalog.hasMoreActive()) {
       new Notice("No Codex threads found.");
       return;
     }
-    new ThreadPickerModal(host, threads, snapshot === null).open();
+    new ThreadPickerModal(host, recentThreads).open();
   } catch (error) {
     new Notice(error instanceof Error ? error.message : String(error));
   }
@@ -47,17 +48,16 @@ function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMod
 }
 
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
-  private threads: readonly Thread[];
+  private readonly recentThreads: readonly Thread[];
   private completeThreadsPromise: Promise<readonly Thread[]> | null = null;
+  private completeThreads: readonly Thread[] | null = null;
 
   constructor(
     private readonly host: ThreadPickerHost,
-    threads: readonly Thread[],
-    private hasCompleteThreadList: boolean,
+    recentThreads: readonly Thread[],
   ) {
     super(host.app);
-    this.threads = threads;
-    this.limit = threads.length;
+    this.recentThreads = Object.freeze([...recentThreads]);
     this.emptyStateText = "No matching Codex threads";
     this.setPlaceholder("Open Codex thread...");
     this.setInstructions([
@@ -77,14 +77,21 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   }
 
   override async getSuggestions(query: string): Promise<ThreadSuggestion[]> {
-    if (query.trim().length > 0) {
-      try {
-        await this.loadCompleteThreadList();
-      } catch (error) {
-        new Notice(error instanceof Error ? error.message : String(error));
-      }
+    if (query.trim().length === 0) {
+      this.emptyStateText = "No matching Codex threads";
+      return threadPickerSuggestions(this.recentThreads, query);
     }
-    return threadPickerSuggestions(this.threads, query);
+
+    this.emptyStateText = "Searching older Codex threads…";
+    this.onNoSuggestion();
+    try {
+      return threadPickerSuggestions(await this.loadCompleteThreadList(), query);
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : String(error));
+      return [];
+    } finally {
+      this.emptyStateText = "No matching Codex threads";
+    }
   }
 
   override renderSuggestion(value: ThreadSuggestion, el: HTMLElement): void {
@@ -116,14 +123,13 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
     }
   }
 
-  private async loadCompleteThreadList(): Promise<void> {
-    if (this.hasCompleteThreadList) return;
-    const pending = this.completeThreadsPromise ?? this.host.threadCatalog.loadActive();
+  private async loadCompleteThreadList(): Promise<readonly Thread[]> {
+    if (this.completeThreads) return this.completeThreads;
+    const pending = this.completeThreadsPromise ?? this.host.threadCatalog.searchActive();
     this.completeThreadsPromise = pending;
     try {
-      this.threads = await pending;
-      this.limit = this.threads.length;
-      this.hasCompleteThreadList = true;
+      this.completeThreads = Object.freeze([...(await pending)]);
+      return this.completeThreads;
     } finally {
       if (this.completeThreadsPromise === pending) this.completeThreadsPromise = null;
     }

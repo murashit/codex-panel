@@ -14,6 +14,7 @@ export interface AppServerQueryContextIdentity extends AppServerQueryContext {
 
 type AppServerQueryScope = readonly ["app-server", number, string, string];
 export type AppServerActiveThreadsQueryKey = readonly [...AppServerQueryScope, "threads", "active"];
+export type AppServerActiveThreadSearchInventoryQueryKey = readonly [...AppServerQueryScope, "threads", "active-search-inventory"];
 export type AppServerArchivedThreadsQueryKey = readonly [...AppServerQueryScope, "threads", "archived"];
 export type AppServerModelsQueryKey = readonly [...AppServerQueryScope, "models"];
 export type AppServerRuntimeConfigQueryKey = readonly [...AppServerQueryScope, "runtime-config"];
@@ -73,6 +74,10 @@ function appServerQueryScope(context: AppServerQueryContextIdentity): AppServerQ
 
 export function activeThreadsQueryKey(context: AppServerQueryContextIdentity): AppServerActiveThreadsQueryKey {
   return [...appServerQueryScope(context), "threads", "active"];
+}
+
+export function activeThreadSearchInventoryQueryKey(context: AppServerQueryContextIdentity): AppServerActiveThreadSearchInventoryQueryKey {
+  return [...appServerQueryScope(context), "threads", "active-search-inventory"];
 }
 
 export function archivedThreadsQueryKey(context: AppServerQueryContextIdentity): AppServerArchivedThreadsQueryKey {

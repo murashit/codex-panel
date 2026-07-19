@@ -437,12 +437,18 @@ describe("composer suggestions", () => {
     expect(suggestions[0]).toMatchObject({
       display: "Codex Panel実装",
       detail: "019abcde",
-      replacement: "019abcde-0000-7000-8000-000000000001",
+      replacement: '"Codex Panel実装"',
       appendSpaceOnInsert: true,
+      threadCommandTarget: {
+        command: "resume",
+        threadId: "019abcde-0000-7000-8000-000000000001",
+        title: "Codex Panel実装",
+      },
     });
+    const resumedValue = '/resume "Codex Panel実装" ';
     expect(applyComposerSuggestionInsertion("/resume codex", 13, expectPresent(suggestions[0]))).toEqual({
-      value: "/resume 019abcde-0000-7000-8000-000000000001 ",
-      cursor: 45,
+      value: resumedValue,
+      cursor: resumedValue.length,
     });
     expect(activeComposerSuggestions("/resume ", notes, [], threads)).toHaveLength(2);
     expect(activeComposerSuggestions("/resume", notes, [], threads)).toEqual([]);
@@ -451,21 +457,21 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/refer codex", notes, [], threads)[0]).toMatchObject({
       display: "Codex Panel実装",
       detail: "019abcde",
-      replacement: "019abcde-0000-7000-8000-000000000001",
+      replacement: '"Codex Panel実装"',
       appendSpaceOnInsert: true,
     });
     expect(activeComposerSuggestions("/refer 019abcde-0000-7000-8000-000000000001 ", notes, [], threads)).toEqual([]);
     expect(activeComposerSuggestions("/archive codex", notes, [], threads)[0]).toMatchObject({
       display: "Codex Panel実装",
       detail: "019abcde",
-      replacement: "019abcde-0000-7000-8000-000000000001",
+      replacement: '"Codex Panel実装"',
       appendSpaceOnInsert: true,
     });
     expect(activeComposerSuggestions("/archive 019abcde-0000-7000-8000-000000000001 ", notes, [], threads)).toEqual([]);
     expect(activeComposerSuggestions("/rename codex", notes, [], threads)[0]).toMatchObject({
       display: "Codex Panel実装",
       detail: "019abcde",
-      replacement: "019abcde-0000-7000-8000-000000000001",
+      replacement: '"Codex Panel実装"',
       appendSpaceOnInsert: true,
     });
     expect(
@@ -474,10 +480,7 @@ describe("composer suggestions", () => {
         13,
         expectPresent(activeComposerSuggestions("/rename codex", notes, [], threads)[0]),
       ),
-    ).toEqual({
-      value: "/rename 019abcde-0000-7000-8000-000000000001 ",
-      cursor: 45,
-    });
+    ).toEqual({ value: '/rename "Codex Panel実装" ', cursor: '/rename "Codex Panel実装" '.length });
     expect(activeComposerSuggestions("/rename 019abcde-0000-7000-8000-000000000001 New name", notes, [], threads)).toEqual([]);
   });
 
@@ -489,9 +492,8 @@ describe("composer suggestions", () => {
     ];
 
     expect(suggestionReplacements(activeComposerSuggestions("/resume alpha", notes, [], threads))).toEqual([
-      "alpha-thread",
-      "thread-beta",
-      "thread-alpha",
+      '"Recent unrelated alpha mention"',
+      '"Older Alpha"',
     ]);
   });
 
@@ -516,21 +518,21 @@ describe("composer suggestions", () => {
           activeThreadId: "019abcde-0000-7000-8000-000000000002",
         }),
       ),
-    ).toEqual(["019abcde-0000-7000-8000-000000000002", "019abcde-0000-7000-8000-000000000001", "019abcde-0000-7000-8000-000000000003"]);
+    ).toEqual(['"Current panel thread"', '"Latest thread"', '"Older thread"']);
     expect(
       activeComposerSuggestions("/rename ", notes, [], threads, [], null, { activeThreadId: "019abcde-0000-7000-8000-000000000002" })[0]
         ?.replacement,
-    ).toBe("019abcde-0000-7000-8000-000000000002");
+    ).toBe('"Current panel thread"');
     expect(suggestionReplacements(activeComposerSuggestions("/archive ", notes, [], threads, [], null, { activeThreadId: null }))).toEqual([
-      "019abcde-0000-7000-8000-000000000001",
-      "019abcde-0000-7000-8000-000000000002",
-      "019abcde-0000-7000-8000-000000000003",
+      '"Latest thread"',
+      '"Current panel thread"',
+      '"Older thread"',
     ]);
     expect(
       activeComposerSuggestions("/archive latest", notes, [], threads, [], null, {
         activeThreadId: "019abcde-0000-7000-8000-000000000002",
       })[0]?.replacement,
-    ).toBe("019abcde-0000-7000-8000-000000000001");
+    ).toBe('"Latest thread"');
   });
 
   it("omits the active thread from resume and refer completions", () => {
@@ -542,15 +544,15 @@ describe("composer suggestions", () => {
     const activeThreadId = "019abcde-0000-7000-8000-000000000002";
 
     expect(suggestionReplacements(activeComposerSuggestions("/resume ", notes, [], threads, [], null, { activeThreadId }))).toEqual([
-      "019abcde-0000-7000-8000-000000000001",
-      "019abcde-0000-7000-8000-000000000003",
+      '"Latest thread"',
+      '"Older thread"',
     ]);
     expect(activeComposerSuggestions("/refer current", notes, [], threads, [], null, { activeThreadId })).toEqual([]);
     expect(activeComposerSuggestions("/archive current", notes, [], threads, [], null, { activeThreadId })[0]?.replacement).toBe(
-      activeThreadId,
+      '"Current panel thread"',
     );
     expect(activeComposerSuggestions("/rename current", notes, [], threads, [], null, { activeThreadId })[0]?.replacement).toBe(
-      activeThreadId,
+      '"Current panel thread"',
     );
   });
 

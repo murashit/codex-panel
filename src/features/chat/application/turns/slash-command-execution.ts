@@ -18,6 +18,7 @@ import {
   slashCommandSubcommandDefinition,
   slashCommandSubcommands,
 } from "../composer/slash-commands";
+import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCommand } from "../composer/thread-title-argument";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { GoalActions } from "../threads/goal-actions";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
@@ -67,6 +68,7 @@ export interface SlashCommandExecutionPorts {
 export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts {
   activeThreadId: string | null;
   listedThreads: readonly Thread[];
+  threadCommandTarget?: ThreadCommandTarget;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
@@ -108,7 +110,12 @@ export async function executeSlashCommand(
       await context.startNewThread();
       return;
     case "resume": {
-      const thread = resolveThreadArgument(args, context.listedThreads);
+      const query = parseThreadOnlyArgs(args, { allowEmpty: true });
+      if (query === null) {
+        context.addSystemMessage(usageError(command, "requires a quoted title when the title contains spaces"));
+        return;
+      }
+      const thread = resolveThreadArgument(command, query, context.listedThreads, context.threadCommandTarget);
       if (!thread.ok) {
         context.addSystemMessage(thread.message);
         return;
@@ -125,7 +132,7 @@ export async function executeSlashCommand(
         context.addSystemMessage(usageError(command, "requires a thread and a message"));
         return;
       }
-      const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads, {
+      const thread = resolveThreadArgument(command, parsed.threadQuery, context.listedThreads, context.threadCommandTarget, {
         excludedThreadId: context.activeThreadId,
         allowExactExcludedThread: true,
       });
@@ -193,7 +200,12 @@ export async function executeSlashCommand(
       await context.threadActions.compactThread(context.activeThreadId);
       return;
     case "archive": {
-      const thread = resolveThreadArgument(args, context.listedThreads);
+      const query = parseThreadOnlyArgs(args);
+      if (query === null) {
+        context.addSystemMessage(usageError(command, "requires one thread title"));
+        return;
+      }
+      const thread = resolveThreadArgument(command, query, context.listedThreads, context.threadCommandTarget);
       if (!thread.ok) {
         context.addSystemMessage(thread.message);
         return;
@@ -207,7 +219,7 @@ export async function executeSlashCommand(
         context.addSystemMessage(usageError(command, "requires a thread and a name"));
         return;
       }
-      const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
+      const thread = resolveThreadArgument(command, parsed.threadQuery, context.listedThreads, context.threadCommandTarget);
       if (!thread.ok) {
         context.addSystemMessage(thread.message);
         return;
@@ -478,11 +490,9 @@ function parseReferArgs(args: string): { threadQuery: string; message: string } 
 }
 
 function parseThreadAndTextArgs(args: string): { threadQuery: string; text: string } | null {
-  const match = /^(\S+)\s+([\s\S]*\S)\s*$/.exec(args);
-  if (!match) return null;
-  const threadQuery = match[1];
-  const text = match[2];
-  return threadQuery !== undefined && text !== undefined ? { threadQuery, text } : null;
+  const parsed = parseThreadTitleArgument(args);
+  const text = parsed?.rest.trim();
+  return parsed?.title.trim() && text ? { threadQuery: parsed.title, text } : null;
 }
 
 function parseThreadAndNameArgs(args: string): { threadQuery: string; text: string } | null {
@@ -500,28 +510,45 @@ export function parseWebCommandArgs(args: string): { url: string; message: strin
   return url !== undefined ? { url, message } : null;
 }
 
-function resolveThreadArgument(args: string, threads: readonly Thread[], options: ThreadResolutionOptions = {}): ThreadResolution {
+function parseThreadOnlyArgs(args: string, options: { allowEmpty?: boolean } = {}): string | null {
+  if (!args.trim()) return options.allowEmpty ? "" : null;
+  const parsed = parseThreadTitleArgument(args);
+  return parsed?.title.trim() && !parsed.rest ? parsed.title : null;
+}
+
+function resolveThreadArgument(
+  command: ThreadTitleCommand,
+  args: string,
+  threads: readonly Thread[],
+  completedTarget: ThreadCommandTarget | undefined,
+  options: ThreadResolutionOptions = {},
+): ThreadResolution {
   const query = args.trim();
-  const exactExcludedThread = options.allowExactExcludedThread
-    ? threads.find((thread) => thread.id === options.excludedThreadId && threadIdMatchesExactly(thread.id, query))
-    : null;
-  if (exactExcludedThread) return { ok: true, thread: exactExcludedThread };
+  if (completedTarget?.command === command && completedTarget.title === query) {
+    const completedThread = threads.find((thread) => thread.id === completedTarget.threadId);
+    return completedThread
+      ? { ok: true, thread: completedThread }
+      : { ok: false, message: `Completed thread is no longer available: ${completedTarget.title}` };
+  }
 
   const searchThreads = options.excludedThreadId ? threads.filter((thread) => thread.id !== options.excludedThreadId) : threads;
   const resolution = resolveThreadSearchQuery(searchThreads, query);
   if (resolution.kind === "match") return { ok: true, thread: resolution.match.thread };
-  if (resolution.kind === "multiple") {
-    const matches = resolution.matches.map((match) => threadResolutionLabel(match.thread)).join(", ");
-    return { ok: false, message: `Multiple matching threads: ${matches}` };
-  }
+  if (resolution.kind === "multiple") return multipleThreadResolution(resolution.matches.map((match) => match.thread));
+  const exactExcludedThread = options.allowExactExcludedThread
+    ? threads.find(
+        (thread) => thread.id === options.excludedThreadId && threadDisplayTitle(thread).trim().toLowerCase() === query.toLowerCase(),
+      )
+    : null;
+  if (exactExcludedThread) return { ok: true, thread: exactExcludedThread };
   return { ok: false, message: query ? `No matching thread: ${query}` : "No recent threads to resume." };
+}
+
+function multipleThreadResolution(threads: readonly Thread[]): ThreadResolution {
+  const matches = threads.map(threadResolutionLabel).join(", ");
+  return { ok: false, message: `Multiple matching threads: ${matches}` };
 }
 
 function threadResolutionLabel(thread: Thread): string {
   return `${threadDisplayTitle(thread)} (${shortThreadId(thread.id)})`;
-}
-
-function threadIdMatchesExactly(threadId: string, query: string): boolean {
-  const normalizedQuery = query.trim().toLowerCase();
-  return threadId.toLowerCase() === normalizedQuery || shortThreadId(threadId).toLowerCase() === normalizedQuery;
 }

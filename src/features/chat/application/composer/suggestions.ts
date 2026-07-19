@@ -10,6 +10,7 @@ import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime
 import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
 import { compareThreadSearchMatches, threadSearchMatches } from "../../../../domain/threads/search";
+import { threadCommandDisplayTitle } from "../../../../domain/threads/title";
 import {
   type ActiveNoteContextReference,
   activeNoteContextReferenceMarker,
@@ -20,6 +21,13 @@ import {
 } from "./context-references";
 import type { DailyNoteReferenceCandidate } from "./daily-note-references";
 import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
+import {
+  partialThreadTitleQuery,
+  quotedThreadTitleArgument,
+  THREAD_TITLE_COMMANDS,
+  type ThreadCommandTarget,
+  type ThreadTitleCommand,
+} from "./thread-title-argument";
 
 export interface ComposerSuggestion {
   display: string;
@@ -31,6 +39,7 @@ export interface ComposerSuggestion {
   suffixOnInsert?: string;
   activeNoteContext?: ActiveNoteContextReference;
   selectionContext?: SelectionContextReference;
+  threadCommandTarget?: ThreadCommandTarget;
 }
 
 export interface ComposerSuggestionOptions {
@@ -66,16 +75,12 @@ interface NoteCandidateMatch {
   path: string;
 }
 
-const THREAD_SUGGESTION_COMMANDS = ["resume", "refer", "archive", "rename"] as const;
-
-type ThreadSuggestionCommand = (typeof THREAD_SUGGESTION_COMMANDS)[number];
-
 interface ThreadCommandSuggestionPolicy {
   excludeActiveThread: boolean;
   prioritizeActiveThreadForEmptyQuery: boolean;
 }
 
-const THREAD_COMMAND_SUGGESTION_POLICIES: Record<ThreadSuggestionCommand, ThreadCommandSuggestionPolicy> = {
+const THREAD_COMMAND_SUGGESTION_POLICIES: Record<ThreadTitleCommand, ThreadCommandSuggestionPolicy> = {
   resume: {
     excludeActiveThread: true,
     prioritizeActiveThreadForEmptyQuery: false,
@@ -94,7 +99,7 @@ const THREAD_COMMAND_SUGGESTION_POLICIES: Record<ThreadSuggestionCommand, Thread
   },
 };
 
-const THREAD_SUGGESTION_COMMAND_PATTERN = new RegExp(`^/(${THREAD_SUGGESTION_COMMANDS.join("|")})\\s+([^\\s\\n]{0,120})$`);
+const THREAD_SUGGESTION_COMMAND_PATTERN = new RegExp(`^/(${THREAD_TITLE_COMMANDS.join("|")})\\s+([^\\n]{0,120})$`);
 const SELECTION_SUGGESTION_PREVIEW_LIMIT = 500;
 
 export function parseSlashCommand(text: string): { command: SlashCommandName; args: string } | null {
@@ -483,7 +488,6 @@ function activeThreadCommandSuggestions(
 
   const { command, query, start } = completion;
   const policy = THREAD_COMMAND_SUGGESTION_POLICIES[command];
-  if (threads.some((thread) => thread.id.toLowerCase() === query)) return null;
   const candidateThreads = threads.filter((thread) => !shouldExcludeActiveThreadSuggestion(policy, thread.id, activeThreadId));
 
   return threadSearchMatches(candidateThreads, query)
@@ -492,13 +496,17 @@ function activeThreadCommandSuggestions(
       return { ...match, activePriority };
     })
     .sort((a, b) => a.activePriority - b.activePriority || compareThreadSearchMatches(a, b))
-    .map(({ thread, title }) => ({
-      display: title,
-      detail: shortThreadId(thread.id),
-      replacement: thread.id,
-      start,
-      appendSpaceOnInsert: true,
-    }));
+    .map(({ thread }) => {
+      const title = threadCommandDisplayTitle(thread);
+      return {
+        display: title,
+        detail: shortThreadId(thread.id),
+        replacement: quotedThreadTitleArgument(title),
+        start,
+        appendSpaceOnInsert: true,
+        threadCommandTarget: { command, threadId: thread.id, title },
+      };
+    });
 }
 
 function shouldExcludeActiveThreadSuggestion(
@@ -518,22 +526,20 @@ function activeThreadSuggestionPriority(
   return policy.prioritizeActiveThreadForEmptyQuery && query.length === 0 && activeThreadId !== null && threadId === activeThreadId ? 0 : 1;
 }
 
-function activeThreadCommandCompletionQuery(
-  beforeCursor: string,
-): { command: ThreadSuggestionCommand; query: string; start: number } | null {
+function activeThreadCommandCompletionQuery(beforeCursor: string): { command: ThreadTitleCommand; query: string; start: number } | null {
   const match = THREAD_SUGGESTION_COMMAND_PATTERN.exec(beforeCursor);
   if (!match) return null;
 
   const command = threadSuggestionCommand(match[1]);
   const rawQuery = match[2];
   if (!command || rawQuery === undefined) return null;
-  const query = rawQuery.trim().toLowerCase();
-  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  const query = partialThreadTitleQuery(rawQuery);
+  if (query === null) return null;
   return { command, query, start: beforeCursor.length - rawQuery.length };
 }
 
-function threadSuggestionCommand(value: string | undefined): ThreadSuggestionCommand | null {
-  return THREAD_SUGGESTION_COMMANDS.find((command) => command === value) ?? null;
+function threadSuggestionCommand(value: string | undefined): ThreadTitleCommand | null {
+  return THREAD_TITLE_COMMANDS.find((command) => command === value) ?? null;
 }
 
 function modelOverrideSuggestions(beforeCursor: string, models: readonly ModelMetadata[]): ComposerSuggestion[] | null {

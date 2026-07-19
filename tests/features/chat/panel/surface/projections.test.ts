@@ -267,7 +267,7 @@ describe("chat panel surface projections", () => {
     );
     const archivedThread = parent.querySelectorAll<HTMLElement>(".codex-panel__thread")[1];
     expect(archivedThread?.tagName).toBe("DIV");
-    expect(archivedThread?.classList.contains("is-disabled")).toBe(true);
+    expect(archivedThread?.classList.contains("is-disabled")).toBe(false);
     unmountUiRoot(parent);
   });
 

@@ -7,15 +7,18 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
 
 describe("threadPickerSuggestions", () => {
-  it("orders title and id prefix matches before looser matches", async () => {
+  it("matches titles fuzzily without matching full or short ids", async () => {
     const modal = await openedThreadPicker([
       thread({ id: "thread-alpha", name: "Older Alpha", updatedAt: 10 }),
       thread({ id: "thread-beta", name: "Recent unrelated alpha mention", updatedAt: 30 }),
       thread({ id: "alpha-thread", name: "Newest unrelated", updatedAt: 40 }),
+      thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Project notes", updatedAt: 50 }),
+      thread({ id: "fuzzy", name: "Architecture proposal" }),
     ]);
-    const suggestions = await modal.getSuggestions("alpha");
 
-    expect(suggestions.map((item) => item.thread.id)).toEqual(["alpha-thread", "thread-beta", "thread-alpha"]);
+    expect((await modal.getSuggestions("alpha")).map((item) => item.thread.id)).toEqual(["thread-beta", "thread-alpha"]);
+    expect((await modal.getSuggestions("019abcde")).map((item) => item.thread.id)).toEqual([]);
+    expect((await modal.getSuggestions("ctpr")).map((item) => item.thread.id)).toEqual(["fuzzy"]);
   });
 
   it("uses recency time for empty queries", async () => {
@@ -50,8 +53,40 @@ describe("threadPickerSuggestions", () => {
     expect(host.completeHistoryLoads).toBe(1);
   });
 
+  it("uses the native searching empty state until the complete inventory resolves", async () => {
+    const pending = deferred<readonly Thread[]>();
+    const host = threadPickerHost([thread({ id: "recent" })]);
+    host.threadCatalog.searchActive = () => pending.promise;
+    const modal = await openedThreadPicker(host);
+
+    const suggestions = modal.getSuggestions("needle");
+
+    expect(modal.emptyStateText).toBe("Searching older Codex threads…");
+    expect(modal.resultContainerEl.textContent).toBe("Searching older Codex threads…");
+    pending.resolve([thread({ id: "older", name: "Needle" })]);
+    await expect(suggestions).resolves.toMatchObject([{ thread: { id: "older" } }]);
+    expect(modal.emptyStateText).toBe("No matching Codex threads");
+  });
+
+  it("clears the searching empty state when the query is cleared", async () => {
+    const pending = deferred<readonly Thread[]>();
+    const host = threadPickerHost([thread({ id: "recent" })]);
+    host.threadCatalog.searchActive = () => pending.promise;
+    const modal = await openedThreadPicker(host);
+
+    const suggestions = modal.getSuggestions("needle");
+    expect(modal.emptyStateText).toBe("Searching older Codex threads…");
+
+    await expect(modal.getSuggestions("")).resolves.toMatchObject([{ thread: { id: "recent" } }]);
+    expect(modal.emptyStateText).toBe("No matching Codex threads");
+
+    pending.resolve([]);
+    await suggestions;
+  });
+
   it("uses a modal-local inventory when the shared recent list is cold", async () => {
-    const host = threadPickerHost([], [thread({ id: "thread" })], false);
+    const threadHistory = [thread({ id: "thread" })];
+    const host = threadPickerHost([], threadHistory, threadHistory, false);
     const modal = await openedThreadPicker(host);
 
     expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["thread"]);
@@ -91,6 +126,8 @@ interface ThreadSuggestion {
 }
 
 interface CapturedThreadPickerModal {
+  emptyStateText: string;
+  resultContainerEl: HTMLElement;
   getSuggestions(query: string): Promise<ThreadSuggestion[]>;
   onChooseSuggestion(item: ThreadSuggestion, evt: MouseEvent | KeyboardEvent): void;
 }
@@ -131,6 +168,7 @@ interface TestThreadPickerHost extends ThreadPickerHost {
 function threadPickerHost(
   firstPage: readonly Thread[],
   completeHistory: readonly Thread[] = firstPage,
+  loadedThreads: readonly Thread[] = firstPage,
   hasSharedSnapshot = true,
 ): TestThreadPickerHost {
   const openedCurrent: string[] = [];
@@ -143,14 +181,18 @@ function threadPickerHost(
     sharedRefreshes: 0,
     threadCatalog: {
       activeSnapshot: () => (hasSharedSnapshot ? firstPage : null),
-      loadActive: async () => {
+      recentActiveSnapshot: () => (hasSharedSnapshot ? firstPage : null),
+      loadActive: async () => loadedThreads,
+      searchActive: async () => {
         host.completeHistoryLoads += 1;
         return completeHistory;
       },
       refreshActive: async () => {
         host.sharedRefreshes += 1;
-        return firstPage;
+        return loadedThreads;
       },
+      hasMoreActive: () => false,
+      loadMoreActive: async () => loadedThreads,
       observeActive: () => () => undefined,
     },
     openThreadInCurrentView: async (threadId) => {
@@ -174,4 +216,12 @@ function thread(options: Partial<Thread> & { id: string }): Thread {
     archived: false,
     provenance: options.provenance ?? { kind: "interactive" },
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
 }

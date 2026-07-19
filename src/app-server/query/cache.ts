@@ -1,6 +1,5 @@
 import {
   CancelledError,
-  type InfiniteData,
   InfiniteQueryObserver,
   type InfiniteQueryObserverOptions,
   type InfiniteQueryObserverResult,
@@ -28,7 +27,16 @@ import { listModelMetadata } from "../services/catalog";
 import { readEffectiveConfig } from "../services/runtime-metadata";
 import { listThreads, readThreadPage, type ThreadPage } from "../services/threads";
 import {
+  type ActiveThreadCursor,
+  type ActiveThreadData,
+  activeThreadDataHasMore,
+  activeThreadsFromData,
+  applyActiveThreadMutation,
+  recentActiveThreadsFromData,
+} from "./active-thread-inventory";
+import {
   type AppServerQueryContextIdentity as AppServerQueryContext,
+  activeThreadSearchInventoryQueryKey,
   activeThreadsQueryKey,
   appServerModelsQueryKey,
   appServerPermissionProfilesQueryKey,
@@ -40,7 +48,7 @@ import {
   cloneAppServerQueryContextIdentity,
 } from "./keys";
 import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
-import type { ObservedResult, ObservedResultListener } from "./observed-result";
+import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResult, ObservedResultListener } from "./observed-result";
 import { cloneModelMetadata, cloneSharedServerMetadata, cloneSharedServerMetadataResource, cloneThreads } from "./snapshots";
 import { applyThreadListMutation, type ThreadListKind, type ThreadListMutation } from "./thread-list-mutation";
 
@@ -56,12 +64,10 @@ export interface AppServerQueryClientRunner {
 
 interface AppServerQueryOptions<T> {
   readonly queryKey: readonly unknown[];
-  readonly queryFn: () => Promise<T>;
+  readonly queryFn: (context: { signal: AbortSignal }) => Promise<T>;
   readonly staleTime?: number;
 }
 
-type ActiveThreadPageParam = string | null;
-type ActiveThreadListData = InfiniteData<ThreadPage, ActiveThreadPageParam>;
 type ActiveThreadsQueryKey = ReturnType<typeof activeThreadsQueryKey>;
 
 interface MetadataResourceSnapshot<T> {
@@ -92,7 +98,17 @@ export class AppServerQueryCache {
 
   activeThreadsSnapshot(): readonly Thread[] | null {
     if (this.disposed) return null;
-    return this.threadListSnapshot("active");
+    if (!appServerQueryContextIsComplete(this.context)) return null;
+    const data = this.client.getQueryData<ActiveThreadData>(activeThreadsQueryKey(this.context));
+    const threads = activeThreadsFromData(data);
+    return threads ? cloneThreads(threads) : null;
+  }
+
+  recentActiveThreadsSnapshot(): readonly Thread[] | null {
+    if (this.disposed || !appServerQueryContextIsComplete(this.context)) return null;
+    const data = this.client.getQueryData<ActiveThreadData>(activeThreadsQueryKey(this.context));
+    const threads = recentActiveThreadsFromData(data);
+    return threads ? cloneThreads(threads) : null;
   }
 
   archivedThreadsSnapshot(): readonly Thread[] | null {
@@ -100,49 +116,104 @@ export class AppServerQueryCache {
     return this.threadListSnapshot("archived");
   }
 
-  observeActiveThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options: { emitCurrent?: boolean } = {}): () => void {
+  observeActiveThreadsResult(
+    listener: ObservedPaginatedResultListener<readonly Thread[]>,
+    options: { emitCurrent?: boolean } = {},
+  ): () => void {
     this.assertUsable();
-    const observer = this.activeThreadListObserver();
-    const emit = (result: InfiniteQueryObserverResult<ActiveThreadListData>): void => {
-      listener(this.projectObservedResult(result, flattenActiveThreadList));
+    const observer = new InfiniteQueryObserver(this.client, {
+      ...this.activeThreadsQueryOptions(),
+      enabled: false,
+    });
+    const emit = (result: InfiniteQueryObserverResult<ActiveThreadData>): void => {
+      listener(this.projectObservedActiveThreadsResult(result));
     };
     const unsubscribe = observer.subscribe(emit);
     if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      observer.destroy();
+    };
   }
 
   observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options: { emitCurrent?: boolean } = {}): () => void {
     this.assertUsable();
-    return this.observeQueryResult(this.archivedThreadListQueryOptions(), cloneThreads, listener, options);
+    return this.observeQueryResult(this.archivedThreadsQueryOptions(), cloneThreads, listener, options);
+  }
+
+  async fetchActiveThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
+    this.assertUsable();
+    if (!appServerQueryContextIsComplete(this.context)) return [];
+    const key = activeThreadsQueryKey(this.context);
+    if (options.force) {
+      if (this.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward") {
+        await this.client.cancelQueries({ queryKey: key, exact: true });
+      }
+      await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
+      this.assertUsable();
+    }
+    let data: ActiveThreadData;
+    try {
+      data = await this.client.fetchInfiniteQuery({
+        ...this.activeThreadsQueryOptions(),
+        ...(options.force ? { staleTime: 0 } : {}),
+      });
+    } catch (error) {
+      if (!(error instanceof CancelledError)) throw error;
+      const snapshot = this.activeThreadsSnapshot();
+      if (snapshot) return snapshot;
+      data = await this.client.fetchInfiniteQuery({
+        ...this.activeThreadsQueryOptions(),
+        ...(options.force ? { staleTime: 0 } : {}),
+      });
+    }
+    this.assertUsable();
+    return cloneThreads(activeThreadsFromData(data) ?? []);
   }
 
   async refreshActiveThreads(): Promise<readonly Thread[]> {
-    this.assertUsable();
-    return this.refreshActiveThreadList();
+    return this.fetchActiveThreads({ force: true });
   }
 
-  async fetchAllActiveThreads(): Promise<readonly Thread[]> {
+  async fetchActiveThreadSearchInventory(): Promise<readonly Thread[]> {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context)) return [];
-    return cloneThreads(await this.runWithClient((client) => listThreads(client, this.context.vaultPath)));
+    const options = {
+      queryKey: activeThreadSearchInventoryQueryKey(this.context),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        this.runWithClient((client) => listThreads(client, this.context.vaultPath, { signal })),
+      staleTime: Number.POSITIVE_INFINITY,
+    };
+    let threads: readonly Thread[];
+    try {
+      threads = await this.client.fetchQuery(options);
+    } catch (error) {
+      if (!(error instanceof CancelledError)) throw error;
+      threads = await this.client.fetchQuery(options);
+    }
+    this.assertUsable();
+    return cloneThreads(threads);
   }
 
   hasMoreActiveThreads(): boolean {
     if (this.disposed) return false;
     if (!appServerQueryContextIsComplete(this.context)) return false;
-    return Boolean(this.activeThreadListData()?.pages.at(-1)?.nextCursor);
+    return activeThreadDataHasMore(this.client.getQueryData<ActiveThreadData>(activeThreadsQueryKey(this.context)));
   }
 
   async loadMoreActiveThreads(): Promise<readonly Thread[]> {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context)) return [];
-    const current = this.activeThreadsSnapshot() ?? (await this.fetchActiveThreadList());
-    if (!this.hasMoreActiveThreads()) return current;
-    const observer = this.activeThreadListObserver();
+    const current = this.activeThreadsSnapshot() ?? (await this.fetchActiveThreads());
+    const observer = new InfiniteQueryObserver(this.client, {
+      ...this.activeThreadsQueryOptions(),
+      enabled: false,
+    });
     try {
+      if (!observer.getCurrentResult().hasNextPage) return current;
       const result = await observer.fetchNextPage({ cancelRefetch: false, throwOnError: true });
       this.assertUsable();
-      return result.data ? flattenActiveThreadList(result.data) : current;
+      return result.data ? cloneThreads(activeThreadsFromData(result.data) ?? []) : current;
     } catch (error) {
       if (error instanceof CancelledError) return this.activeThreadsSnapshot() ?? current;
       throw error;
@@ -152,31 +223,60 @@ export class AppServerQueryCache {
   }
 
   async refreshArchivedThreads(): Promise<readonly Thread[]> {
+    return this.fetchArchivedThreads({ force: true });
+  }
+
+  async fetchArchivedThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
     this.assertUsable();
-    return this.refreshArchivedThreadList();
+    if (!appServerQueryContextIsComplete(this.context)) return [];
+    const key = archivedThreadsQueryKey(this.context);
+    if (options.force) {
+      await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
+      this.assertUsable();
+    }
+    const threads = await this.client.fetchQuery(this.archivedThreadsQueryOptions());
+    this.assertUsable();
+    return cloneThreads(threads);
   }
 
   applyThreadListMutations(mutations: readonly ThreadListMutation[]): void {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context) || mutations.length === 0) return;
-    for (const kind of ["active", "archived"] as const) {
-      const relevant = mutations.filter((mutation) => mutation.list === kind);
-      if (relevant.length === 0) continue;
-
-      const key = kind === "active" ? activeThreadsQueryKey(this.context) : archivedThreadsQueryKey(this.context);
-      const before = this.threadListSnapshot(kind);
+    const activeMutations = mutations.filter((mutation) => mutation.list === "active");
+    if (activeMutations.length > 0) {
+      const key = activeThreadsQueryKey(this.context);
       const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
-      const activeFetchIsNextPage = wasFetching && kind === "active" && this.activeThreadListIsFetchingNextPage();
+      const fetchIsNextPage = this.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward";
       void this.client.cancelQueries({ queryKey: key, exact: true });
-      if (kind === "active") {
-        for (const mutation of relevant) this.projectActiveThreadListMutation(mutation);
-      } else {
-        const projected = before ? relevant.reduce<readonly Thread[] | null>(applyThreadListMutation, before) : null;
-        if (projected) this.client.setQueryData(archivedThreadsQueryKey(this.context), cloneThreads(projected));
+      const before = this.client.getQueryData<ActiveThreadData>(key);
+      const after = activeMutations.reduce<ActiveThreadData | undefined>(applyActiveThreadMutation, before);
+      if (after !== before) this.client.setQueryData(key, after);
+      void this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
+      const searchKey = activeThreadSearchInventoryQueryKey(this.context);
+      void this.client.cancelQueries({ queryKey: searchKey, exact: true });
+      void this.client.invalidateQueries({ queryKey: searchKey, refetchType: "none" });
+
+      const refreshRequested = activeMutations.some((mutation) => mutation.kind === "refresh");
+      if ((wasFetching && !fetchIsNextPage) || (refreshRequested && before)) {
+        void this.fetchActiveThreads({ force: true }).catch(() => {
+          // Query observers retain refresh failures while the event projection remains last-known-good state.
+        });
       }
-      if (wasFetching && !activeFetchIsNextPage) {
-        const refresh = kind === "active" ? this.refreshActiveThreadList() : this.refreshArchivedThreadList();
-        void refresh.catch(() => {
+    }
+
+    const archivedMutations = mutations.filter((mutation) => mutation.list === "archived");
+    if (archivedMutations.length > 0) {
+      const key = archivedThreadsQueryKey(this.context);
+      const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
+      void this.client.cancelQueries({ queryKey: key, exact: true });
+      const before = this.archivedThreadsSnapshot();
+      const after = archivedMutations.reduce<readonly Thread[] | null>(applyThreadListMutation, before);
+      if (after !== before && after) this.client.setQueryData(key, cloneThreads(after));
+      void this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
+
+      const refreshRequested = archivedMutations.some((mutation) => mutation.kind === "refresh");
+      if (wasFetching || (refreshRequested && before)) {
+        void this.fetchArchivedThreads({ force: true }).catch(() => {
           // Query observers retain refresh failures while the event projection remains last-known-good state.
         });
       }
@@ -185,79 +285,9 @@ export class AppServerQueryCache {
 
   private threadListSnapshot(kind: ThreadListKind): readonly Thread[] | null {
     if (!appServerQueryContextIsComplete(this.context)) return null;
-    if (kind === "active") {
-      const data = this.activeThreadListData();
-      return data ? flattenActiveThreadList(data) : null;
-    }
+    if (kind === "active") return this.activeThreadsSnapshot();
     const threads = this.client.getQueryData<readonly Thread[]>(archivedThreadsQueryKey(this.context));
     return threads ? cloneThreads(threads) : null;
-  }
-
-  private async refreshActiveThreadList(): Promise<readonly Thread[]> {
-    if (!appServerQueryContextIsComplete(this.context)) return [];
-    const key = activeThreadsQueryKey(this.context);
-    if (this.activeThreadListIsFetchingNextPage()) await this.client.cancelQueries({ queryKey: key, exact: true });
-    await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-    this.assertUsable();
-    return this.fetchActiveThreadList();
-  }
-
-  private async fetchActiveThreadList(): Promise<readonly Thread[]> {
-    if (!appServerQueryContextIsComplete(this.context)) return [];
-    const queryOptions = { ...this.activeThreadListQueryOptions(), pages: 1 };
-    let data: ActiveThreadListData;
-    try {
-      data = await this.client.fetchInfiniteQuery(queryOptions);
-    } catch (error) {
-      if (!(error instanceof CancelledError) || this.activeThreadListData()) throw error;
-      data = await this.client.fetchInfiniteQuery(queryOptions);
-    }
-    this.assertUsable();
-    return flattenActiveThreadList(data);
-  }
-
-  private async refreshArchivedThreadList(): Promise<readonly Thread[]> {
-    if (!appServerQueryContextIsComplete(this.context)) return [];
-    const key = archivedThreadsQueryKey(this.context);
-    await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-    this.assertUsable();
-    return this.fetchArchivedThreadList();
-  }
-
-  private async fetchArchivedThreadList(): Promise<readonly Thread[]> {
-    if (!appServerQueryContextIsComplete(this.context)) return [];
-    let threads: readonly Thread[];
-    try {
-      threads = await this.client.fetchQuery(this.archivedThreadListQueryOptions());
-    } catch (error) {
-      if (!(error instanceof CancelledError) || this.archivedThreadsSnapshot()) throw error;
-      threads = await this.client.fetchQuery(this.archivedThreadListQueryOptions());
-    }
-    this.assertUsable();
-    return cloneThreads(threads);
-  }
-
-  private projectActiveThreadListMutation(mutation: ThreadListMutation): void {
-    this.client.setQueryData<ActiveThreadListData>(activeThreadsQueryKey(this.context), (data) => {
-      if (!data) return data;
-      if (mutation.kind === "upsert") {
-        const existing = data.pages.some((page) => page.threads.some((thread) => thread.id === mutation.thread.id));
-        const pages = data.pages.map((page) => ({
-          ...page,
-          threads: page.threads.map((thread) => (thread.id === mutation.thread.id ? mutation.thread : thread)),
-        }));
-        const first = pages[0];
-        if (!existing && first) pages[0] = { ...first, threads: [mutation.thread, ...first.threads] };
-        return { ...data, pages };
-      }
-      return {
-        ...data,
-        pages: data.pages.map((page) => ({
-          ...page,
-          threads: applyThreadListMutation(page.threads, mutation) ?? page.threads,
-        })),
-      };
-    });
   }
 
   appServerMetadataSnapshot(): SharedServerMetadata | null {
@@ -408,47 +438,34 @@ export class AppServerQueryCache {
     return this.fetchModels({ force: true });
   }
 
-  private activeThreadListQueryOptions(): InfiniteQueryObserverOptions<
+  private activeThreadsQueryOptions(): InfiniteQueryObserverOptions<
     ThreadPage,
     Error,
-    ActiveThreadListData,
+    ActiveThreadData,
     ActiveThreadsQueryKey,
-    ActiveThreadPageParam
+    ActiveThreadCursor
   > {
     return {
       queryKey: activeThreadsQueryKey(this.context),
-      queryFn: ({ pageParam }) =>
-        this.runWithClient((client) => readThreadPage(client, this.context.vaultPath, { cursor: pageParam, archived: false })),
+      queryFn: async ({ pageParam, signal }) => {
+        signal.throwIfAborted();
+        const page = await this.runWithClient((client) =>
+          readThreadPage(client, this.context.vaultPath, { cursor: pageParam, archived: false }),
+        );
+        signal.throwIfAborted();
+        return page;
+      },
       initialPageParam: null,
       getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
       staleTime: Number.POSITIVE_INFINITY,
     };
   }
 
-  private activeThreadListObserver(): InfiniteQueryObserver<
-    ThreadPage,
-    Error,
-    ActiveThreadListData,
-    ActiveThreadsQueryKey,
-    ActiveThreadPageParam
-  > {
-    return new InfiniteQueryObserver(this.client, {
-      ...this.activeThreadListQueryOptions(),
-      enabled: false,
-    });
-  }
-
-  private activeThreadListIsFetchingNextPage(): boolean {
-    const observer = this.activeThreadListObserver();
-    const isFetchingNextPage = observer.getCurrentResult().isFetchingNextPage;
-    observer.destroy();
-    return isFetchingNextPage;
-  }
-
-  private archivedThreadListQueryOptions(): AppServerQueryOptions<readonly Thread[]> {
+  private archivedThreadsQueryOptions(): AppServerQueryOptions<readonly Thread[]> {
     return {
       queryKey: archivedThreadsQueryKey(this.context),
-      queryFn: () => this.runWithClient((client) => listThreads(client, this.context.vaultPath, { archived: true })).then(cloneThreads),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        this.runWithClient((client) => listThreads(client, this.context.vaultPath, { archived: true, signal })).then(cloneThreads),
       staleTime: Number.POSITIVE_INFINITY,
     };
   }
@@ -603,6 +620,19 @@ export class AppServerQueryCache {
     };
   }
 
+  private projectObservedActiveThreadsResult(
+    result: InfiniteQueryObserverResult<ActiveThreadData>,
+  ): ObservedPaginatedResult<readonly Thread[]> {
+    const threads = activeThreadsFromData(result.data);
+    return {
+      value: threads ? cloneThreads(threads) : null,
+      error: result.error instanceof Error ? result.error : null,
+      isFetching: result.isFetching,
+      hasMore: result.hasNextPage,
+      isFetchingNextPage: result.isFetchingNextPage,
+    };
+  }
+
   private runWithClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {
     this.assertUsable();
     const runner = this.clientRunner;
@@ -612,11 +642,6 @@ export class AppServerQueryCache {
 
   private assertUsable(): void {
     if (this.disposed) throw new Error("Codex app-server query cache was disposed.");
-  }
-
-  private activeThreadListData(): ActiveThreadListData | null {
-    if (!appServerQueryContextIsComplete(this.context)) return null;
-    return this.client.getQueryData<ActiveThreadListData>(activeThreadsQueryKey(this.context)) ?? null;
   }
 }
 
@@ -634,10 +659,6 @@ function successfulMetadataResource<T>(result: MetadataResourceSnapshot<T>): Met
 
 function diagnosticProbeFromError(error: unknown): DiagnosticProbeResult | null {
   return error instanceof MetadataResourceQueryError ? error.probe : null;
-}
-
-function flattenActiveThreadList(data: ActiveThreadListData): readonly Thread[] {
-  return cloneThreads(data.pages.flatMap((page) => page.threads));
 }
 
 function createAppServerQueryClient(): QueryClient {

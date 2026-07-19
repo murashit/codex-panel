@@ -111,6 +111,10 @@ interface ChatConnectionState {
 
 interface ChatThreadListState {
   readonly listedThreads: readonly Thread[];
+  readonly hasMore: boolean;
+  readonly isFetching: boolean;
+  readonly isFetchingNextPage: boolean;
+  readonly error: string | null;
 }
 
 export interface ChatActiveThreadState {
@@ -771,7 +775,13 @@ function reduceConnectionSlice(state: ChatConnectionState, action: ChatSliceActi
 
 function reduceThreadListSlice(state: ChatThreadListState, action: ChatSliceAction): ChatThreadListState {
   if (action.type !== "thread-list/applied") return state;
-  return patchObject(state, { listedThreads: action.threads });
+  return patchObject(state, {
+    listedThreads: action.threads,
+    ...definedPatch("hasMore", action.hasMore),
+    ...definedPatch("isFetching", action.isFetching),
+    ...definedPatch("isFetchingNextPage", action.isFetchingNextPage),
+    ...definedPatch("error", action.error),
+  });
 }
 
 function reducePanelThreadSlice(state: ChatPanelThreadState, action: ChatSliceAction): ChatPanelThreadState {
@@ -874,7 +884,7 @@ function initialConnectionState(): ChatConnectionState {
 }
 
 function initialThreadListState(): ChatThreadListState {
-  return { listedThreads: [] };
+  return { listedThreads: [], hasMore: false, isFetching: false, isFetchingNextPage: false, error: null };
 }
 
 function initialPanelThreadState(): ChatPanelThreadState {

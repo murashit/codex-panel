@@ -176,6 +176,20 @@ describe("app-server thread response adapters", () => {
     });
   });
 
+  it("stops a complete thread-list scan before requesting another page after cancellation", async () => {
+    const firstPage = deferred<{ data: never[]; nextCursor: string }>();
+    const request = vi.fn().mockImplementationOnce(() => firstPage.promise);
+    const client = { request } as unknown as AppServerRequestClient;
+    const abort = new AbortController();
+
+    const scan = listThreads(client, "/vault", { signal: abort.signal });
+    abort.abort();
+    firstPage.resolve({ data: [], nextCursor: "page-2" });
+
+    await expect(scan).rejects.toMatchObject({ name: "AbortError" });
+    expect(request).toHaveBeenCalledOnce();
+  });
+
   it("passes explicit service tier requests when starting panel-owned threads", async () => {
     const client = {
       request: vi.fn().mockResolvedValue({ thread: { id: "thread-new" } }),
@@ -234,7 +248,6 @@ describe("app-server thread response adapters", () => {
     expect(clientListThreads).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault",
       archived: true,
-      limit: 100,
       sortKey: "recency_at",
       sortDirection: "desc",
     });
@@ -320,7 +333,6 @@ describe("app-server thread response adapters", () => {
     expect(clientListThreads).toHaveBeenNthCalledWith(1, "thread/list", {
       cwd: "/vault",
       archived: false,
-      limit: 100,
       sortKey: "recency_at",
       sortDirection: "desc",
     });
@@ -328,7 +340,6 @@ describe("app-server thread response adapters", () => {
       cwd: "/vault",
       cursor: "next",
       archived: false,
-      limit: 100,
       sortKey: "recency_at",
       sortDirection: "desc",
     });
@@ -345,3 +356,11 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).rejects.toThrow("repeated thread list cursor");
   });
 });
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
