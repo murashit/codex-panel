@@ -72,7 +72,6 @@ interface ChatPanelSessionRuntimeHost {
   resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
-  reconnect?: () => Promise<void>;
 }
 
 export class ChatPanelSessionRuntime {
@@ -245,13 +244,12 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   const reconnect = async () => {
     await reconnectPanel();
   };
-  const reconnectForUser = host.reconnect ?? reconnect;
   const turn = createTurnBundle(host, {
     localItemIds,
     appServer,
     status,
     inboundHandler,
-    threadLifecycle: threadLifecycle.lifecycle,
+    threadLifecycle,
     threadActions: threadActions.actions,
     navigation: threadActions.navigation,
     composerController,
@@ -259,7 +257,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     threadStart,
     goals: threadLifecycle.goals,
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
-    reconnect: reconnectForUser,
+    reconnect,
     runtimeProjection: runtime.projection,
     refreshDiagnostics: () => connectionActions.refreshDiagnostics(),
     notifyActiveThreadIdentityChanged,
@@ -272,7 +270,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     threadActions: threadActions.actions,
     toolbarPanelActions: threadActions.toolbarPanelActions,
     navigation: threadActions.navigation,
-    reconnect: reconnectForUser,
+    reconnect,
     history: threadFoundation.history,
     pendingRequests: turn.pendingRequests,
     turn,

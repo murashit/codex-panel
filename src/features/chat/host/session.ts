@@ -85,10 +85,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.mountOrRepairShell();
   }
 
-  private async reconnect(): Promise<void> {
-    await this.runtime.actions.reconnect();
-  }
-
   runtimeSnapshot(): ChatPanelRuntimeSnapshot {
     const lifetime = activeThreadState(this.state)?.lifetime;
     return {
@@ -310,7 +306,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
-      reconnect: () => this.reconnect(),
     });
   }
 }

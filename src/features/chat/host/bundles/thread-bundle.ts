@@ -39,7 +39,6 @@ export type ChatPanelThreadActions = ReturnType<typeof createThreadManagementAct
 export type ChatPanelThreadNavigationActions = ReturnType<typeof createThreadNavigationActions>;
 
 export interface ChatPanelThreadLifecycle {
-  history: HistoryController;
   restoration: RestorationController;
   resume: ResumeActions;
   identity: ActiveThreadIdentitySync;
@@ -86,13 +85,9 @@ interface ChatPanelThreadLifecycleInput {
   notifyActiveThreadIdentityChanged: () => void;
 }
 
-interface ChatPanelThreadLifecycleBundle {
+interface ChatPanelThreadLifecycleBundle extends ChatPanelThreadLifecycle {
   goals: ChatPanelGoalActions;
   rename: ThreadRenameEditorActions;
-  lifecycle: ChatPanelThreadLifecycle;
-  identity: ActiveThreadIdentitySync;
-  restoration: RestorationController;
-  resume: ResumeActions;
 }
 
 interface ChatPanelThreadActionInput {
@@ -239,7 +234,6 @@ export function createThreadLifecycleBundle(
   return {
     goals,
     rename,
-    lifecycle,
     identity,
     restoration,
     resume,
@@ -342,7 +336,6 @@ function createSessionThreadLifecycle(
   });
 
   return {
-    history,
     restoration,
     resume,
     identity,
