@@ -7,16 +7,16 @@ const STATUS_CONNECTION_STARTING = "Starting Codex app-server...";
 const STATUS_CONNECTED = "Connected.";
 const STATUS_CONNECTION_FAILED = "Connection failed.";
 
-export interface ChatConnectionAdapter {
+interface ChatConnectionAdapter {
   connect(): Promise<ServerInitialization>;
   isConnected(): boolean;
 }
 
-export interface ChatConnectionMetadataActions {
+interface ChatConnectionMetadataActions {
   refreshAppServerMetadata: () => Promise<unknown>;
 }
 
-export interface ChatConnectionDiagnosticsActions {
+interface ChatConnectionDiagnosticsActions {
   refreshServerDiagnostics: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
 }
 

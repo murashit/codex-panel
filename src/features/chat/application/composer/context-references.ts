@@ -34,10 +34,6 @@ export interface ComposerContextReferenceProvider {
   dispose(): void;
 }
 
-export function emptyComposerContextReferences(): ComposerContextReferences {
-  return { activeNote: null, selection: null, activeNoteSnapshots: [], selectionSnapshots: [] };
-}
-
 export function formatComposerContextRange(range: ComposerContextRange): string {
   return `${formatComposerContextPosition(range.from)}-${formatComposerContextPosition(range.to)}`;
 }

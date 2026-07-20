@@ -2,10 +2,10 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
-import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
 import type { ChatPanelSession } from "../../../../src/features/chat/host/session";
 import { deferred, waitForAsyncWork } from "../../../support/async";
+import { runtimeConfigFixture } from "../../../support/runtime-config";
 import {
   chatHost,
   chatView,
@@ -185,7 +185,7 @@ describe("CodexChatView workspace restoration", () => {
         appServerMetadataSnapshot: vi.fn(
           () =>
             ({
-              runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-cached" },
+              runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-cached" },
               availableSkills: [{ name: "writer", enabled: true }],
               availablePermissionProfiles: [],
               rateLimit: null,

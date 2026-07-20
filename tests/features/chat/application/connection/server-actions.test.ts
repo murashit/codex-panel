@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
-import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import {
   createServerDiagnostics,
   type DiagnosticProbeResult,
@@ -18,6 +17,7 @@ import { createServerMetadataActions } from "../../../../../src/features/chat/ap
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/tool-inventory-diagnostic-sections";
 import { deferred } from "../../../../support/async";
+import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("server metadata actions", () => {
@@ -408,7 +408,7 @@ function skillFixture(name: string): SkillMetadata {
 
 function serverMetadataFixture(overrides: Partial<SharedServerMetadata> = {}): SharedServerMetadata {
   return {
-    runtimeConfig: emptyRuntimeConfigSnapshot(),
+    runtimeConfig: runtimeConfigFixture(),
     availableSkills: [],
     availablePermissionProfiles: [],
     rateLimit: null,

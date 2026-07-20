@@ -79,7 +79,7 @@ export function boundedTurnContextManifest(
   return { ...base, ...(included.length > 0 ? { fileReferences: included } : {}) };
 }
 
-export function turnContextManifestFromText(text: string): TurnContextManifest | null {
+function turnContextManifestFromText(text: string): TurnContextManifest | null {
   const trimmed = text.trim();
   if (!trimmed.startsWith(TURN_CONTEXT_MANIFEST_PREFIX)) return null;
   if (utf8ByteLength(trimmed) > TURN_CONTEXT_MANIFEST_MAX_BYTES) return null;

@@ -15,7 +15,7 @@ import {
   syncComposerHeight,
 } from "./composer.dom";
 
-export interface ComposerSuggestion {
+interface ComposerSuggestion {
   display: string;
   detail: string;
   replacement: string;

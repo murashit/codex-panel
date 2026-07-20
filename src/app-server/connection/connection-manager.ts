@@ -11,7 +11,7 @@ export interface ConnectionManagerHandlers {
   onExit: () => void;
 }
 
-export type AppServerClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => AppServerClient;
+type AppServerClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => AppServerClient;
 
 type ConnectionLifecycleState =
   | { kind: "idle"; generation: number }

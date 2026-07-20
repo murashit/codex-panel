@@ -6,7 +6,6 @@ import { modelMetadataFromCatalogModels } from "../../../../src/app-server/proto
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/app-server/query/observed-result";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
-import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
@@ -18,6 +17,7 @@ import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/setti
 import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import { notices } from "../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../support/dom";
+import { runtimeConfigFixture } from "../../../support/runtime-config";
 import { chatPanelSettingsAccess } from "../support/settings";
 
 export interface TestCodexChatHost extends CodexChatHost {
@@ -501,7 +501,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     await client.request("account/rateLimits/read", undefined);
     if (!connectionStillCurrent()) return null;
     return {
-      runtimeConfig: emptyRuntimeConfigSnapshot(),
+      runtimeConfig: runtimeConfigFixture(),
       availableSkills: skillsResponse.data.flatMap(
         (entry: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }) =>
           entry.skills.map((skill) => ({

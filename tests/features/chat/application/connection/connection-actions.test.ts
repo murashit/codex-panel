@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-
-import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import {
   type ChatConnectionActionsHost,
-  type ChatConnectionAdapter,
-  type ChatConnectionDiagnosticsActions,
-  type ChatConnectionMetadataActions,
   createChatConnectionActions,
 } from "../../../../../src/features/chat/application/connection/connection-actions";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { deferred } from "../../../../support/async";
+import { runtimeConfigFixture } from "../../../../support/runtime-config";
+
+type ChatConnectionAdapter = ChatConnectionActionsHost["connection"];
+type ChatConnectionMetadataActions = ChatConnectionActionsHost["metadata"];
+type ChatConnectionDiagnosticsActions = ChatConnectionActionsHost["diagnostics"];
 
 function createActionsHarness({ connected = false, canConnect = true } = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -183,7 +183,7 @@ describe("ChatConnectionActions", () => {
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {
     const { actions, host, stateStore } = createActionsHarness({ connected: true });
     const initializeResponse = { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" } as const;
-    const runtimeConfig = { ...emptyRuntimeConfigSnapshot(), model: "gpt-5.1" };
+    const runtimeConfig = { ...runtimeConfigFixture(), model: "gpt-5.1" };
     stateStore.dispatch({ type: "connection/initialized", initializeResponse });
     stateStore.dispatch({
       type: "thread-list/applied",

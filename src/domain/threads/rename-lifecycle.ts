@@ -4,7 +4,7 @@ export type ThreadRenameLifecycleState =
   | { kind: "generating"; draft: string; originalDraft: string; generationToken: number };
 
 export type ThreadRenameActiveState = Exclude<ThreadRenameLifecycleState, { kind: "idle" }>;
-export type ThreadRenameGeneratingState = Extract<ThreadRenameLifecycleState, { kind: "generating" }>;
+type ThreadRenameGeneratingState = Extract<ThreadRenameLifecycleState, { kind: "generating" }>;
 
 export type ThreadRenameLifecycleEvent =
   | { type: "started"; draft: string }

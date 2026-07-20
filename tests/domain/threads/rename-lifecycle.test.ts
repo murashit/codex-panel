@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   initialThreadRenameLifecycleState,
-  type ThreadRenameGeneratingState,
   type ThreadRenameLifecycleState,
   transitionThreadRenameLifecycleState,
 } from "../../../src/domain/threads/rename-lifecycle";
@@ -40,6 +39,8 @@ describe("thread rename lifecycle", () => {
     expect(transitionThreadRenameLifecycleState(idle, { type: "draft-updated", draft: "Stray" })).toBe(idle);
   });
 });
+
+type ThreadRenameGeneratingState = Extract<ThreadRenameLifecycleState, { kind: "generating" }>;
 
 function generatingRenameState(draft: string, generationToken: number): ThreadRenameGeneratingState {
   const editing = expectRenameState(transitionThreadRenameLifecycleState(initialThreadRenameLifecycleState(), { type: "started", draft }));

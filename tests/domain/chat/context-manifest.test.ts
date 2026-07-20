@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  type TurnContextManifest,
-  turnContextManifestFromText,
-  turnContextManifestText,
-  userMessageContextProjection,
-} from "../../../src/domain/chat/context-manifest";
+import { type TurnContextManifest, turnContextManifestText, userMessageContextProjection } from "../../../src/domain/chat/context-manifest";
 
 const SUBMISSION_ID = "local-user-1-seed-1-1";
+
+function turnContextManifestFromText(text: string): TurnContextManifest | null {
+  return userMessageContextProjection(
+    [
+      { type: "text", text: "visible request" },
+      { type: "text", text: text.startsWith("\n") ? text : `\n${text}` },
+    ],
+    SUBMISSION_ID,
+  ).manifest;
+}
 
 function webEntry(): Record<string, unknown> {
   return {

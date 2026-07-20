@@ -26,8 +26,8 @@ export interface AppServerTurnInput {
   additionalContext?: Record<string, AppServerAdditionalContextEntry>;
 }
 
-export const ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES = 2_800;
-export const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
+const ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES = 2_800;
+const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
 
 export function toAppServerUserInput(input: readonly CodexInputItem[], manifest: TurnContextManifest | null = null): AppServerUserInput[] {
   const userInput = input.flatMap((item) => appServerUserInputItemFromCodexInputItem(item));
@@ -35,13 +35,6 @@ export function toAppServerUserInput(input: readonly CodexInputItem[], manifest:
     userInput.push({ type: "text", text: `\n${turnContextManifestText(manifest)}`, text_elements: [] });
   }
   return userInput;
-}
-
-export function additionalContextFromCodexInput(
-  input: readonly CodexInputItem[],
-  submissionId = "submission",
-): Record<string, AppServerAdditionalContextEntry> | undefined {
-  return appServerTurnInputFromCodexInput(input, submissionId).additionalContext;
 }
 
 export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[], submissionId: string): AppServerTurnInput {

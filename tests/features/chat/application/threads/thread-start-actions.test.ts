@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
@@ -11,6 +10,7 @@ import { createThreadStartActions } from "../../../../../src/features/chat/appli
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { deferred } from "../../../../support/async";
+import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("thread start actions", () => {
@@ -161,7 +161,7 @@ describe("thread start actions", () => {
 
   it("starts threads with service tier from explicit effective config", async () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { connection: { runtimeConfig: { ...emptyRuntimeConfigSnapshot(), serviceTier: "flex" } } });
+    state = chatStateWith(state, { connection: { runtimeConfig: { ...runtimeConfigFixture(), serviceTier: "flex" } } });
     const stateStore = createChatStateStore(state);
     const startThread = vi
       .fn()
@@ -184,9 +184,9 @@ describe("thread start actions", () => {
     state = chatStateWith(state, {
       connection: {
         runtimeConfig: {
-          ...emptyRuntimeConfigSnapshot(),
+          ...runtimeConfigFixture(),
           startupPermissions: {
-            ...emptyRuntimeConfigSnapshot().startupPermissions,
+            ...runtimeConfigFixture().startupPermissions,
             activePermissionProfile: { id: ":workspace", extends: null },
           },
         },

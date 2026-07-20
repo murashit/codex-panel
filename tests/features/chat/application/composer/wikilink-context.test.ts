@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { CodexInput } from "../../../../../src/domain/chat/input";
-import { emptyComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
+import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
 import {
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,
   type WikiLinkFileReferenceResolver,
@@ -16,6 +16,10 @@ const obsidianContext = (...sections: string[]) => ({
 });
 
 const wikilinkContext = (...mappings: string[]) => obsidianContext(...mappings);
+
+function emptyComposerContextReferences(): ComposerContextReferences {
+  return { activeNote: null, selection: null, activeNoteSnapshots: [], selectionSnapshots: [] };
+}
 
 function userInputWithWikiLinkReferencesAndSkills(
   text: string,

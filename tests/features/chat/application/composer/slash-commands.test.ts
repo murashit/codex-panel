@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   SLASH_COMMANDS,
   type SlashCommandName,
-  slashCommandAvailableInSideChat,
   slashCommandHelpSections,
   slashCommandRequiresConnection,
 } from "../../../../../src/features/chat/application/composer/slash-commands";
@@ -28,16 +27,11 @@ describe("slash command catalog", () => {
     expect(keys("Composition")).toEqual(["/refer <thread> <message>", "/web <url> [message]"]);
   });
 
-  it("owns connection and side-chat availability metadata", () => {
+  it("owns connection availability metadata", () => {
     expect(
       SLASH_COMMANDS.filter((definition) => !slashCommandRequiresConnection(definition.command.slice(1) as SlashCommandName)).map(
         (item) => item.command,
       ),
     ).toEqual(["/reconnect", "/compact"]);
-    expect(
-      SLASH_COMMANDS.filter((definition) => !slashCommandAvailableInSideChat(definition.command.slice(1) as SlashCommandName)).map(
-        (item) => item.command,
-      ),
-    ).toEqual(["/fork", "/btw", "/rollback", "/auto-review", "/fast", "/plan", "/goal"]);
   });
 });

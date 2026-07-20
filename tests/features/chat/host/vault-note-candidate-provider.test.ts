@@ -1,5 +1,5 @@
 import { type App, type EventRef, TFile } from "obsidian";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dailyNotesInterface = vi.hoisted(() => ({
   appHasDailyNotesPluginLoaded: vi.fn<() => boolean>(),
@@ -9,16 +9,17 @@ const dailyNotesInterface = vi.hoisted(() => ({
 vi.mock("obsidian-daily-notes-interface", () => dailyNotesInterface);
 
 import { VaultComposerContextReferenceProvider } from "../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
-import {
-  configuredDailyNoteReferences,
-  dailyNoteReferencesFromSettings,
-} from "../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
+import { configuredDailyNoteReferences } from "../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
 import { VaultNoteCandidateProvider } from "../../../../src/features/chat/host/obsidian/vault-note-candidate-provider.obsidian";
 
 describe("VaultNoteCandidateProvider", () => {
   beforeEach(() => {
     dailyNotesInterface.appHasDailyNotesPluginLoaded.mockReset().mockReturnValue(false);
     dailyNotesInterface.getDailyNoteSettings.mockReset().mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("keeps optional daily-note integration failures out of composer suggestions", () => {
@@ -30,6 +31,14 @@ describe("VaultNoteCandidateProvider", () => {
   });
 
   it("builds relative references from the configured daily-note folder and format", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 10, 12));
+    dailyNotesInterface.appHasDailyNotesPluginLoaded.mockReturnValue(true);
+    dailyNotesInterface.getDailyNoteSettings.mockReturnValue({
+      folder: "Journal",
+      format: "YYYY/MM/YYYY-MM-DD",
+      template: "",
+    });
     const existingToday = tFile("Journal/2026/07/2026-07-10.md", "2026-07-10");
     const fileToLinktext = vi.fn((file: TFile) => (file === existingToday ? "2026-07-10" : file.path));
     const app = appFixture({
@@ -37,14 +46,7 @@ describe("VaultNoteCandidateProvider", () => {
       fileToLinktext,
     });
 
-    expect(
-      dailyNoteReferencesFromSettings(
-        app,
-        "Projects/Codex.md",
-        { folder: "Journal", format: "YYYY/MM/YYYY-MM-DD", template: "" },
-        new Date(2026, 6, 10, 12),
-      ),
-    ).toEqual([
+    expect(configuredDailyNoteReferences(app, "Projects/Codex.md")).toEqual([
       {
         keyword: "today",
         display: "Today",

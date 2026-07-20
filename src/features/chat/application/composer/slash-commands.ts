@@ -1,4 +1,4 @@
-import { type ActivePanelOperation, activePanelOperationDecisionForFacts } from "../panel-operation-policy";
+import type { ActivePanelOperation } from "../panel-operation-policy";
 
 type SlashCommandArgsKind =
   | "none"
@@ -215,15 +215,6 @@ export interface SlashCommandHelpSection {
 
 export function slashCommandRequiresConnection(command: SlashCommandName): boolean {
   return !CONNECTION_INDEPENDENT_SLASH_COMMANDS.has(command);
-}
-
-export function slashCommandAvailableInSideChat(command: SlashCommandName): boolean {
-  const operation = activePanelOperationForSlashCommandSuggestion(command);
-  return (
-    !operation ||
-    activePanelOperationDecisionForFacts({ phase: "active", lifetime: "ephemeral", provenance: "interactive" }, operation).kind ===
-      "allowed"
-  );
 }
 
 /** Maps a parsed command to the active-panel operation it performs, if any. */

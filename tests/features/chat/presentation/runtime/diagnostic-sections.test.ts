@@ -6,7 +6,6 @@ import {
   diagnosticProbeOk,
   diagnosticsWithProbe,
   upsertMcpServerDiagnostic,
-  upsertMcpServerStatusDiagnostics,
 } from "../../../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
 import { appServerDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/diagnostic-sections";
@@ -62,36 +61,6 @@ describe("connection diagnostics", () => {
     expect(rows.find((row) => row.label === "Skills")).toBeUndefined();
     expect(rows.find((row) => row.label === "MCP servers")).toBeUndefined();
     expect(rows.find((row) => row.label === "mcp github")).toBeUndefined();
-  });
-
-  it("maps app-server MCP status snapshots into diagnostics", () => {
-    const diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
-      name: "github",
-      startupStatus: "starting",
-      authStatus: null,
-      toolCount: null,
-      message: "launching",
-    });
-
-    const next = upsertMcpServerStatusDiagnostics(diagnostics, [
-      {
-        name: "github",
-        authStatus: "oAuth",
-        toolCount: 2,
-        resourceCount: 0,
-        resourceTemplateCount: 0,
-      },
-    ]);
-
-    expect(next.mcpServers).toEqual([
-      {
-        name: "github",
-        startupStatus: "starting",
-        authStatus: "oAuth",
-        toolCount: 2,
-        message: "launching",
-      },
-    ]);
   });
 
   it("summarizes usable Codex capabilities and groups skills by provenance", () => {

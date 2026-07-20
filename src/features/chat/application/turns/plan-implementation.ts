@@ -24,7 +24,7 @@ interface PlanImplementationState {
   threadStream: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">;
 }
 
-export function implementPlanTargetFromState(state: ChatState): PlanImplementationTarget | null {
+function implementPlanTargetFromState(state: ChatState): PlanImplementationTarget | null {
   return implementPlanTarget({
     activeThread: activeThreadState(state),
     modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",

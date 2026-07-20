@@ -1,12 +1,8 @@
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  type AppServerTransportHandlers,
-  createAppServerSpawnSpec,
-  StdioAppServerTransport,
-} from "../../src/app-server/connection/transport";
+import { type AppServerTransportHandlers, StdioAppServerTransport } from "../../src/app-server/connection/transport";
 
 const spawnMock = vi.hoisted(() => vi.fn());
 
@@ -19,40 +15,14 @@ interface TestableTransport {
   flushStderr(): void;
 }
 
-describe("createAppServerSpawnSpec", () => {
-  it("starts regular commands directly", () => {
-    expect(createAppServerSpawnSpec("codex", { platform: "darwin" })).toEqual({
-      command: "codex",
-      args: ["app-server"],
-      killProcessTreeOnStop: false,
-    });
-  });
-
-  it("starts Windows executables directly", () => {
-    const codexExe = String.raw`C:\Program Files\Codex\codex.exe`;
-
-    expect(createAppServerSpawnSpec(codexExe, { platform: "win32" })).toEqual({
-      command: codexExe,
-      args: ["app-server"],
-      killProcessTreeOnStop: false,
-    });
-  });
-
-  it("quotes Windows command shim paths that contain spaces", () => {
-    const codexBat = String.raw`C:\Program Files\nodejs\codex.bat`;
-
-    expect(createAppServerSpawnSpec(codexBat, { platform: "win32", comSpec: " " })).toEqual({
-      command: "cmd.exe",
-      args: ["/d", "/s", "/c", `""${codexBat}" app-server"`],
-      killProcessTreeOnStop: true,
-      windowsVerbatimArguments: true,
-    });
-  });
-});
-
 describe("StdioAppServerTransport", () => {
   beforeEach(() => {
     spawnMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it("starts once, forwards stdout lines, and reports its running state", () => {
@@ -71,6 +41,38 @@ describe("StdioAppServerTransport", () => {
     expect(instance.isRunning()).toBe(true);
     expect(handlers.onLine).toHaveBeenCalledWith("one line");
     expect(() => instance.start()).toThrow("Codex app-server is already running.");
+  });
+
+  it("starts Windows executables directly", () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    const child = fakeChildProcess();
+    const codexExe = String.raw`C:\Program Files\Codex\codex.exe`;
+    spawnMock.mockReturnValue(child);
+
+    transportInstance(codexExe).instance.start();
+
+    expect(spawnMock).toHaveBeenCalledWith(codexExe, ["app-server"], {
+      cwd: "/vault",
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsVerbatimArguments: undefined,
+    });
+  });
+
+  it("quotes Windows command shim paths that contain spaces", () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    vi.stubEnv("ComSpec", " ");
+    vi.stubEnv("COMSPEC", " ");
+    const child = fakeChildProcess();
+    const codexBat = String.raw`C:\Program Files\nodejs\codex.bat`;
+    spawnMock.mockReturnValue(child);
+
+    transportInstance(codexBat).instance.start();
+
+    expect(spawnMock).toHaveBeenCalledWith("cmd.exe", ["/d", "/s", "/c", `""${codexBat}" app-server"`], {
+      cwd: "/vault",
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsVerbatimArguments: true,
+    });
   });
 
   it("serializes outbound messages and reports asynchronous write failures", () => {
@@ -195,7 +197,7 @@ describe("StdioAppServerTransport", () => {
   });
 });
 
-function transportInstance() {
+function transportInstance(codexPath = "codex") {
   const handlers: AppServerTransportHandlers = {
     onLine: vi.fn(),
     onLog: vi.fn(),
@@ -204,7 +206,7 @@ function transportInstance() {
   };
   return {
     handlers,
-    instance: new StdioAppServerTransport("codex", "/vault", handlers),
+    instance: new StdioAppServerTransport(codexPath, "/vault", handlers),
   };
 }
 

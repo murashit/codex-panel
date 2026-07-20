@@ -18,7 +18,7 @@ type SettingsDynamicSectionLifecycleState =
   | { kind: "loaded"; status: string }
   | { kind: "failed"; status: string };
 
-export interface SettingsDynamicSectionsSnapshot {
+interface SettingsDynamicSectionsSnapshot {
   archivedThreads: readonly Thread[];
   archivedThreadsLifecycle: SettingsDynamicSectionLifecycleState;
   archivedThreadsLoaded: boolean;

@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
-import {
-  ADDITIONAL_CONTEXT_MAX_PARTS,
-  ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES,
-  additionalContextFromCodexInput,
-  appServerTurnInputFromCodexInput,
-  toAppServerUserInput,
-} from "../../src/app-server/protocol/request-input";
+import { appServerTurnInputFromCodexInput, toAppServerUserInput } from "../../src/app-server/protocol/request-input";
 import { utf8ByteLength } from "../../src/domain/chat/context-budget";
-import { turnContextManifestFromText } from "../../src/domain/chat/context-manifest";
+import { type TurnContextManifest, userMessageContextProjection } from "../../src/domain/chat/context-manifest";
 import { type CodexInput, codexTextInputWithAttachments, codexTextInputWithReferences } from "../../src/domain/chat/input";
+
+const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
+const PANEL_SUBMISSION_ID = "local-user-1-seed-1-1";
+
+function turnContextManifestFromText(text: string, submissionId: string): TurnContextManifest | null {
+  return userMessageContextProjection(
+    [
+      { type: "text", text: "visible request" },
+      { type: "text", text: text.startsWith("\n") ? text : `\n${text}` },
+    ],
+    submissionId,
+  ).manifest;
+}
 
 describe("app-server request input", () => {
   it("builds text input with file references and skills", () => {
@@ -61,7 +68,7 @@ describe("app-server request input", () => {
     );
 
     expect(toAppServerUserInput(input)).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
-    expect(additionalContextFromCodexInput(input, "local-user")).toEqual({
+    expect(appServerTurnInputFromCodexInput(input, "local-user").additionalContext).toEqual({
       "codex_panel.local-user.00.codex_panel_obsidian_context.part_01_of_01": {
         kind: "untrusted",
         value: "Codex Panel context part 1/1.\nSource: codex_panel_obsidian_context\n\n- [[Note]] -> Note.md",
@@ -82,7 +89,7 @@ describe("app-server request input", () => {
     expect(prepared.input).toHaveLength(2);
     expect(prepared.input).not.toContainEqual(expect.objectContaining({ type: "mention" }));
     const descriptor = prepared.input.at(-1);
-    const manifest = descriptor?.type === "text" ? turnContextManifestFromText(descriptor.text) : null;
+    const manifest = descriptor?.type === "text" ? turnContextManifestFromText(descriptor.text, "local-user-1-seed-1-1") : null;
     expect(manifest).toEqual({
       version: 2,
       submissionId: "local-user-1-seed-1-1",
@@ -115,7 +122,7 @@ describe("app-server request input", () => {
 
     const descriptor = prepared.input.at(-1);
     const descriptorText = descriptor?.type === "text" ? descriptor.text : "";
-    const manifest = turnContextManifestFromText(descriptorText);
+    const manifest = turnContextManifestFromText(descriptorText, "local-user-1-seed-1-1");
     expect(utf8ByteLength(descriptorText)).toBeLessThanOrEqual(2_801);
     expect(manifest?.contexts).toEqual([expect.objectContaining({ kind: "web" })]);
     expect(manifest?.fileReferences?.length).toBeGreaterThan(0);
@@ -135,7 +142,7 @@ describe("app-server request input", () => {
           attachment: { kind: "web" },
         },
       ],
-      "local-user-1",
+      PANEL_SUBMISSION_ID,
     );
 
     const entries = Object.entries(prepared.additionalContext ?? {});
@@ -143,11 +150,10 @@ describe("app-server request input", () => {
     expect(entries.map(([key]) => key)).toEqual([...entries.map(([key]) => key)].sort());
     expect(entries.every(([, entry]) => utf8ByteLength(entry.value) < 4_000)).toBe(true);
     expect(entries.every(([, entry]) => entry.value.includes("Codex Panel context part"))).toBe(true);
-    expect(ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES).toBeLessThan(4_000);
 
     const manifestInput = prepared.input.at(-1);
     expect(manifestInput?.type).toBe("text");
-    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text) : null;
+    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text, PANEL_SUBMISSION_ID) : null;
     expect(manifest?.contexts).toEqual([
       expect.objectContaining({
         kind: "web",
@@ -180,13 +186,13 @@ describe("app-server request input", () => {
           attachment: { kind: "obsidian", inlineExcerpts: 1 },
         },
       ],
-      "local-user",
+      PANEL_SUBMISSION_ID,
     );
 
     const firstPart = Object.values(prepared.additionalContext ?? {})[0];
     expect(firstPart?.value).toContain(reference);
     const manifestInput = prepared.input.at(-1);
-    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text) : null;
+    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text, PANEL_SUBMISSION_ID) : null;
     expect(manifest?.contexts).toEqual([expect.objectContaining({ kind: "obsidian", inlineExcerpts: 1, truncated: true })]);
   });
 
@@ -195,8 +201,8 @@ describe("app-server request input", () => {
       { type: "text", text: "read it" },
       { type: "additionalContext", key: "same", kind: "untrusted", value: "same" },
     ];
-    const first = Object.keys(additionalContextFromCodexInput(input, "first") ?? {});
-    const second = Object.keys(additionalContextFromCodexInput(input, "second") ?? {});
+    const first = Object.keys(appServerTurnInputFromCodexInput(input, "first").additionalContext ?? {});
+    const second = Object.keys(appServerTurnInputFromCodexInput(input, "second").additionalContext ?? {});
     expect(first).not.toEqual(second);
   });
 
@@ -207,14 +213,14 @@ describe("app-server request input", () => {
         { type: "additionalContext", key: "web", kind: "untrusted", value: "w".repeat(30_000), attachment: { kind: "web" } },
         { type: "additionalContext", key: "selection", kind: "untrusted", value: "selected text" },
       ],
-      "local-user",
+      PANEL_SUBMISSION_ID,
     );
     const entries = Object.entries(prepared.additionalContext ?? {});
 
     expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
     expect(entries.some(([key, entry]) => key.includes(".selection.") && entry.value.includes("selected text"))).toBe(true);
     const manifestInput = prepared.input.at(-1);
-    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text) : null;
+    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text, PANEL_SUBMISSION_ID) : null;
     expect(manifest?.contexts.map((context) => context.parts)).toEqual([7]);
   });
 

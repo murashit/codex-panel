@@ -38,7 +38,7 @@ export interface EphemeralStructuredTurnClient {
 
 type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient & ModelMetadataClient;
 
-export type EphemeralStructuredTurnClientFactory = (
+type EphemeralStructuredTurnClientFactory = (
   codexPath: string,
   cwd: string,
   handlers: AppServerClientHandlers,

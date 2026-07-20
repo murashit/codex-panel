@@ -14,7 +14,7 @@ import { createChatStateStore } from "../../../../src/features/chat/application/
 import { threadStreamItems } from "../../../../src/features/chat/application/state/thread-stream";
 import { pendingWebSubmissionItem } from "../../../../src/features/chat/application/turns/web-submission";
 import type { ThreadStreamItem } from "../../../../src/features/chat/domain/thread-stream/items";
-import { ChatComposerController, type ChatComposerRenderActions } from "../../../../src/features/chat/panel/composer-controller";
+import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import type { ChatPanelComposerModel } from "../../../../src/features/chat/panel/shell-selectors";
 import { ComposerShell } from "../../../../src/features/chat/ui/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/dom/preact-root.dom";
@@ -24,6 +24,8 @@ import { composerModelFromChatState } from "../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../support/state";
 
 installObsidianDomShims();
+
+type ChatComposerRenderActions = Parameters<ChatComposerController["renderState"]>[1];
 
 const renderedComposerParents = new Set<HTMLElement>();
 const composerControllerTestCleanups: (() => void)[] = [];
@@ -303,7 +305,14 @@ describe("ChatComposerController", () => {
     expect(controller.captureInputSnapshot().threadCommandTarget).toBeUndefined();
   });
 
-  it("applies ephemeral-thread suggestion restrictions on input without waiting for keyup", () => {
+  it.each([
+    ["/f", "/fork", false],
+    ["/f", "/fast", false],
+    ["/b", "/btw", false],
+    ["/r", "/rollback", false],
+    ["/g", "/goal", false],
+    ["/c", "/compact", true],
+  ])("applies ephemeral-thread suggestion policy for %s -> %s", (draft, suggestion, available) => {
     const stateStore = createChatStateStore(
       chatStateFixture({
         activeThread: {
@@ -315,12 +324,16 @@ describe("ChatComposerController", () => {
     const { controller, parent } = composerControllerFixture({ stateStore });
 
     renderComposerController(parent, controller, stateStore);
-    setTextAreaValue(composer(parent), "/f");
-    composer(parent).setSelectionRange(2, 2);
+    setTextAreaValue(composer(parent), draft);
+    composer(parent).setSelectionRange(draft.length, draft.length);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(stateStore.getState().composer.suggestions.map((suggestion) => suggestion.replacement)).not.toContain("/fork");
-    expect(stateStore.getState().composer.suggestions.map((suggestion) => suggestion.replacement)).not.toContain("/fast");
+    expect(
+      stateStore
+        .getState()
+        .composer.suggestions.map((item) => item.replacement)
+        .includes(suggestion),
+    ).toBe(available);
   });
 
   it("keeps a disconnected subagent composer read-only without slash suggestions", () => {

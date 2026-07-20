@@ -4,7 +4,7 @@ import type { AppServerClient, ClientResponseByMethod } from "../../../../src/ap
 import * as shortLivedClient from "../../../../src/app-server/connection/short-lived-client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
-import { turnContextManifestFromText } from "../../../../src/domain/chat/context-manifest";
+import { userMessageContextProjection } from "../../../../src/domain/chat/context-manifest";
 import type { CodexInput } from "../../../../src/domain/chat/input";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
@@ -126,21 +126,31 @@ describe("chat app-server transports", () => {
     await transport.startTurn({
       threadId: "thread",
       input: prepared.input,
-      clientUserMessageId: "local-user",
+      clientUserMessageId: "local-user-1-seed-1-1",
     });
 
     const [, params] = request.mock.calls[0] ?? [];
     expect(params).toMatchObject({
       threadId: "thread",
       cwd: "/vault",
-      clientUserMessageId: "local-user",
+      clientUserMessageId: "local-user-1-seed-1-1",
     });
     expect(params?.input[0]).toEqual({ type: "text", text, text_elements: [] });
     expect(params?.input).toHaveLength(2);
     const descriptor = params?.input.at(-1);
-    expect(descriptor?.type === "text" ? turnContextManifestFromText(descriptor.text) : null).toEqual({
+    expect(
+      descriptor?.type === "text"
+        ? userMessageContextProjection(
+            [
+              { type: "text", text },
+              { type: "text", text: descriptor.text },
+            ],
+            "local-user-1-seed-1-1",
+          ).manifest
+        : null,
+    ).toEqual({
       version: 2,
-      submissionId: "local-user",
+      submissionId: "local-user-1-seed-1-1",
       contexts: [],
       fileReferences: [
         { name: "Alpha", path: "notes/Alpha.md" },
@@ -148,7 +158,7 @@ describe("chat app-server transports", () => {
       ],
     });
     expect(params?.additionalContext).toEqual({
-      "codex_panel.local-user.00.codex_panel_obsidian_context.part_01_of_01": {
+      "codex_panel.local-user-1-seed-1-1.00.codex_panel_obsidian_context.part_01_of_01": {
         kind: "untrusted",
         value:
           "Codex Panel context part 1/1.\nSource: codex_panel_obsidian_context\n\nObsidian references for the current user input:\n- [[Alpha]] -> notes/Alpha.md\n- <active> -> notes/Alpha.md",

@@ -26,7 +26,7 @@ export function configuredDailyNoteReferences(app: App, sourcePath: string): rea
   }
 }
 
-export function dailyNoteReferencesFromSettings(
+function dailyNoteReferencesFromSettings(
   app: App,
   sourcePath: string,
   settings: IPeriodicNoteSettings,

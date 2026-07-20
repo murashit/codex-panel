@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../../src/app-server/connection/client";
 import {
-  type AppServerClientFactory,
   ConnectionManager,
   type ConnectionManagerHandlers,
   StaleConnectionError,
@@ -185,6 +184,8 @@ function silentConnectionHandlers(): ConnectionManagerHandlers {
     onExit: () => undefined,
   };
 }
+
+type AppServerClientFactory = NonNullable<ConstructorParameters<typeof ConnectionManager>[3]>;
 
 function testClientFactory(options: {
   requestTimeoutMs?: number;

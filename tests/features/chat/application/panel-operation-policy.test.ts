@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import {
-  type ActivePanelOperation,
-  type ActivePanelThreadFacts,
-  activePanelOperationDecisionForFacts,
-} from "../../../../src/features/chat/application/panel-operation-policy";
+import { type ActivePanelOperation, activePanelOperationDecision } from "../../../../src/features/chat/application/panel-operation-policy";
+import { type ChatState, createChatState } from "../../../../src/features/chat/application/state/root-reducer";
+
+type ActivePanelThreadFacts =
+  | { readonly phase: "empty" }
+  | { readonly phase: "awaiting-resume"; readonly provenance: "interactive" | "subagent" | null }
+  | {
+      readonly phase: "active";
+      readonly lifetime: "persistent" | "ephemeral";
+      readonly provenance: "interactive" | "subagent" | null;
+    };
 
 const operations: readonly ActivePanelOperation[] = [
   "submit",
@@ -39,13 +45,13 @@ describe("activePanelOperationDecisionForFacts", () => {
   });
 
   it("requires restoration before a persistent goal mutation", () => {
-    expect(activePanelOperationDecisionForFacts({ phase: "awaiting-resume", provenance: "interactive" }, "goal-mutation")).toEqual({
+    expect(activePanelOperationDecision(stateFromFacts({ phase: "awaiting-resume", provenance: "interactive" }), "goal-mutation")).toEqual({
       kind: "resume-required",
     });
   });
 
   it("keeps restored subagent goals read-only before loading", () => {
-    expect(activePanelOperationDecisionForFacts({ phase: "awaiting-resume", provenance: "subagent" }, "goal-mutation")).toEqual({
+    expect(activePanelOperationDecision(stateFromFacts({ phase: "awaiting-resume", provenance: "subagent" }), "goal-mutation")).toEqual({
       kind: "blocked",
       message: "Goals are read-only in agent threads.",
     });
@@ -69,6 +75,47 @@ function decisions(allowed: Partial<Record<ActivePanelOperation, "allowed">>): R
 
 function expectDecisionKinds(facts: ActivePanelThreadFacts, expected: Record<ActivePanelOperation, "allowed" | "blocked">): void {
   for (const operation of operations) {
-    expect(activePanelOperationDecisionForFacts(facts, operation).kind).toBe(expected[operation]);
+    expect(activePanelOperationDecision(stateFromFacts(facts), operation).kind).toBe(expected[operation]);
   }
+}
+
+function stateFromFacts(facts: ActivePanelThreadFacts): ChatState {
+  const state = createChatState();
+  if (facts.phase === "empty") return state;
+  const provenance =
+    facts.provenance === null
+      ? null
+      : facts.provenance === "interactive"
+        ? ({ kind: "interactive" } as const)
+        : ({
+            kind: "subagent",
+            subagentKind: "other",
+            parentThreadId: null,
+            sessionId: null,
+            depth: null,
+            agentNickname: null,
+            agentRole: null,
+          } as const);
+  if (facts.phase === "awaiting-resume") {
+    return {
+      ...state,
+      panelThread: { kind: "awaiting-resume", threadId: "thread", fallbackTitle: null, provenance },
+    };
+  }
+  return {
+    ...state,
+    panelThread: {
+      kind: "active",
+      thread: {
+        id: "thread",
+        goal: null,
+        tokenUsage: null,
+        lifetime:
+          facts.lifetime === "persistent"
+            ? { kind: "persistent" }
+            : { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: null },
+        provenance,
+      },
+    },
+  };
 }

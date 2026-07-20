@@ -6,7 +6,7 @@ import type { ObservedResult } from "../../src/app-server/query/observed-result"
 import { StaleAppServerResourceContextError } from "../../src/app-server/query/resource-store";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
-import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
+import { SettingsDynamicSectionsController } from "../../src/settings/dynamic-sections-controller";
 import { deferred } from "../support/async";
 import {
   appServerThread,
@@ -20,6 +20,8 @@ import {
   settingsTabHost,
   useShortLivedClients,
 } from "./test-support";
+
+type SettingsDynamicSectionsSnapshot = ReturnType<SettingsDynamicSectionsController["snapshot"]>;
 
 const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
   withShortLivedAppServerClientMock: vi.fn(),

@@ -3,13 +3,15 @@
 import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
 import type { ComposerMetaViewModel } from "../../../../src/features/chat/ui/composer";
-import { type ComposerCallbacks, ComposerShell, type ComposerSuggestion } from "../../../../src/features/chat/ui/composer";
+import { type ComposerCallbacks, ComposerShell } from "../../../../src/features/chat/ui/composer";
 import { scrollComposerSuggestionIntoView, syncComposerHeight } from "../../../../src/features/chat/ui/composer.dom";
 import { renderUiRoot } from "../../../../src/shared/dom/preact-root.dom";
 import { waitForAsyncWork } from "../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
+
+type ComposerSuggestion = Parameters<ComposerCallbacks["onSuggestionInsert"]>[0];
 
 function mountComposerShell(
   parent: HTMLElement,

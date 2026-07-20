@@ -72,7 +72,7 @@ export interface ChatComposerControllerOptions {
   onAttachmentError?: (message: string) => void;
 }
 
-export interface ChatComposerRenderActions {
+interface ChatComposerRenderActions {
   submit: () => void;
 }
 

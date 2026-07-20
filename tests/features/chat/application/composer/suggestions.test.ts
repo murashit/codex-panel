@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ModelMetadata, ReasoningEffort, SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { emptyComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
-import { slashCommandAvailableInSideChat } from "../../../../../src/features/chat/application/composer/slash-commands";
+import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -23,6 +22,10 @@ function expectPresent<T>(value: T | null | undefined): T {
 
 function wikiLinkSuggestions(query: string, notes: Parameters<typeof activeComposerSuggestions>[1]) {
   return activeComposerSuggestions(`[[${query}`, notes, []);
+}
+
+function emptyComposerContextReferences(): ComposerContextReferences {
+  return { activeNote: null, selection: null, activeNoteSnapshots: [], selectionSnapshots: [] };
 }
 
 function userInputWithWikiLinkReferencesAndSkills(
@@ -284,16 +287,6 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/doc", notes, [])[0]?.replacement).toBe("/doctor");
     expect(activeComposerSuggestions("/status", notes, [])).toEqual([]);
     expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
-  });
-
-  it("omits unavailable thread mutations from side-chat slash suggestions", () => {
-    const options = { slashCommandAvailable: slashCommandAvailableInSideChat };
-
-    expect(suggestionReplacements(activeComposerSuggestions("/f", notes, [], [], [], null, options))).not.toContain("/fork");
-    expect(suggestionReplacements(activeComposerSuggestions("/r", notes, [], [], [], null, options))).not.toContain("/rollback");
-    expect(suggestionReplacements(activeComposerSuggestions("/b", notes, [], [], [], null, options))).not.toContain("/btw");
-    expect(suggestionReplacements(activeComposerSuggestions("/c", notes, [], [], [], null, options))).toContain("/compact");
-    expect(suggestionReplacements(activeComposerSuggestions("/g", notes, [], [], [], null, options))).not.toContain("/goal");
   });
 
   it("omits slash suggestions from subagent threads", () => {

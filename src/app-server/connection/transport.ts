@@ -24,10 +24,7 @@ export interface AppServerTransportHandlers {
   onError: (error: Error) => void;
 }
 
-export function createAppServerSpawnSpec(
-  codexPath: string,
-  options: { platform?: NodeJS.Platform; comSpec?: string } = {},
-): AppServerSpawnSpec {
+function createAppServerSpawnSpec(codexPath: string, options: { platform?: NodeJS.Platform; comSpec?: string } = {}): AppServerSpawnSpec {
   const platform = options.platform ?? process.platform;
   if (platform !== "win32" || !isWindowsCommandScript(codexPath)) {
     return { command: codexPath, args: ["app-server"], killProcessTreeOnStop: false };

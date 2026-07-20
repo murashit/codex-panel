@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activePanelOperationDecision } from "../../../../../src/features/chat/application/panel-operation-policy";
+import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   implementPlan,
-  implementPlanTargetFromState,
+  implementPlanTarget,
   type PlanImplementationHost,
 } from "../../../../../src/features/chat/application/turns/plan-implementation";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
@@ -75,6 +76,16 @@ function createPlanImplementationHost() {
     sendTurnText,
     stateStore,
   };
+}
+
+function implementPlanTargetFromState(state: ReturnType<ChatStateStore["getState"]>) {
+  return implementPlanTarget({
+    activeThread: activeThreadState(state),
+    modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
+    turn: state.turn,
+    runtime: state.runtime,
+    threadStream: state.threadStream,
+  });
 }
 
 describe("implementPlan", () => {

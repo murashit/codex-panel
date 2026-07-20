@@ -54,14 +54,14 @@ export interface ChatPanelConnectionBundle {
   refreshSharedThreads: () => Promise<void>;
 }
 
-export interface DeferredDiagnosticsRefreshHost {
+interface DeferredDiagnosticsRefreshHost {
   scheduleDiagnostics(callback: () => void): void;
   isConnected(): boolean;
   refreshServerDiagnostics(options: { appServerMetadataSnapshot: true }): Promise<void>;
   addSystemMessage(text: string): void;
 }
 
-export function scheduleDeferredDiagnosticsRefresh(host: DeferredDiagnosticsRefreshHost): void {
+function scheduleDeferredDiagnosticsRefresh(host: DeferredDiagnosticsRefreshHost): void {
   host.scheduleDiagnostics(() => {
     if (!host.isConnected()) return;
     void host.refreshServerDiagnostics({ appServerMetadataSnapshot: true }).catch((error: unknown) => {
@@ -70,14 +70,14 @@ export function scheduleDeferredDiagnosticsRefresh(host: DeferredDiagnosticsRefr
   });
 }
 
-export interface ServerRequestResponderRegistry {
+interface ServerRequestResponderRegistry {
   remember(requestId: RespondRequestId, responder: AppServerServerRequestResponder): void;
   respond(requestId: RespondRequestId, result: unknown): boolean;
   reject(requestId: RejectRequestId, code: number, message: string): boolean;
   clear(): void;
 }
 
-export function createServerRequestResponderRegistry(): ServerRequestResponderRegistry {
+function createServerRequestResponderRegistry(): ServerRequestResponderRegistry {
   const responders = new Map<RespondRequestId, AppServerServerRequestResponder>();
   const take = (requestId: RespondRequestId): AppServerServerRequestResponder | null => {
     const responder = responders.get(requestId) ?? null;

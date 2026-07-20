@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../../../../src/domain/server/diagnostics";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
@@ -11,6 +10,7 @@ import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -227,7 +227,7 @@ describe("chatReducer", () => {
     };
     const state = chatStateWith(chatStateFixture(), {
       connection: {
-        runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-old" },
+        runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-old" },
         initializeResponse: {
           codexHome: "/old/codex-home",
           platformFamily: "unix",
@@ -264,7 +264,7 @@ describe("chatReducer", () => {
     const serverDiagnostics = diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "1 model", 1));
     let state = chatStateWith(chatStateFixture(), {
       connection: {
-        runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-old" },
+        runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-old" },
         initializeResponse: {
           codexHome: "/old/codex-home",
           platformFamily: "unix",

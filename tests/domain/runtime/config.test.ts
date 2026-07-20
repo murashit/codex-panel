@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { emptyRuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../src/domain/runtime/config";
+import { runtimeConfigOrDefault } from "../../../src/domain/runtime/config";
+import { runtimeConfigFixture } from "../../support/runtime-config";
 
 describe("runtime config", () => {
   it("clones nested permission policy state", () => {
     const config = {
-      ...emptyRuntimeConfigSnapshot(),
+      ...runtimeConfigFixture(),
       startupPermissions: {
         activePermissionProfile: null,
         sandboxPolicy: null,

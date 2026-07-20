@@ -4,11 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../src/app-server/connection/client";
 import type { ClientRequestParams } from "../../src/app-server/connection/rpc-messages";
 import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
-import {
-  type EphemeralStructuredTurnClient,
-  type EphemeralStructuredTurnClientFactory,
-  runEphemeralStructuredTurn,
-} from "../../src/app-server/services/ephemeral-structured-turn";
+import { type EphemeralStructuredTurnClient, runEphemeralStructuredTurn } from "../../src/app-server/services/ephemeral-structured-turn";
 import type { AppServerStartEphemeralThreadOptions } from "../../src/app-server/services/threads";
 import type { AppServerStartStructuredTurnOptions } from "../../src/app-server/services/turns";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
@@ -301,6 +297,8 @@ function runOptions(): Parameters<typeof runEphemeralStructuredTurn>[0] {
     timedOutMessage: "Structured test timed out.",
   };
 }
+
+type EphemeralStructuredTurnClientFactory = NonNullable<Parameters<typeof runEphemeralStructuredTurn>[1]>["clientFactory"];
 
 function fakeStructuredTurnClientFactory(configure?: (client: FakeStructuredTurnClient) => void): {
   clientFactory: EphemeralStructuredTurnClientFactory;

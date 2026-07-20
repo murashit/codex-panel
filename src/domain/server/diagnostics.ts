@@ -125,12 +125,6 @@ export function upsertMcpServerDiagnostic(diagnostics: Diagnostics, server: McpS
   };
 }
 
-export function upsertMcpServerStatusDiagnostics(diagnostics: Diagnostics, servers: readonly McpServerStatusSummary[]): Diagnostics {
-  let next = diagnostics;
-  for (const server of servers) next = upsertMcpServerDiagnostic(next, mcpServerDiagnosticFromStatus(server));
-  return next;
-}
-
 export function replaceMcpServerStatusDiagnostics(diagnostics: Diagnostics, servers: readonly McpServerStatusSummary[]): Diagnostics {
   return {
     ...diagnostics,

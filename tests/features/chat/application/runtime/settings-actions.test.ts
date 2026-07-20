@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
-import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import {
   type ChatRuntimeSettingsActions,
   createChatRuntimeSettingsActions,
@@ -12,6 +11,7 @@ import { activeThreadId, type ChatState } from "../../../../../src/features/chat
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import { createKeyedOperationQueue, type KeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
+import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatRuntimeSettingsActions", () => {
@@ -234,7 +234,7 @@ describe("createChatRuntimeSettingsActions", () => {
   it("keeps Fast disabled after clearing a thread tier when config defaults to Fast", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { connection: { runtimeConfig: { ...emptyRuntimeConfigSnapshot(), serviceTier: "fast" } } });
+    state = chatStateWith(state, { connection: { runtimeConfig: { ...runtimeConfigFixture(), serviceTier: "fast" } } });
     state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
@@ -318,7 +318,7 @@ describe("createChatRuntimeSettingsActions", () => {
     state = chatStateWith(state, {
       connection: {
         runtimeConfig: {
-          ...emptyRuntimeConfigSnapshot(),
+          ...runtimeConfigFixture(),
           model: "gpt-config",
           reasoningEffort: "medium",
         },

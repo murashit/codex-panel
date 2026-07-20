@@ -24,7 +24,7 @@ export type ActivePanelOperationDecision =
   | { readonly kind: "blocked"; readonly message: string }
   | { readonly kind: "resume-required" };
 
-export type ActivePanelThreadFacts =
+type ActivePanelThreadFacts =
   | { readonly phase: "empty" }
   | { readonly phase: "awaiting-resume"; readonly provenance: "interactive" | "subagent" | null }
   | {
@@ -39,7 +39,7 @@ export function activePanelOperationDecision(state: ChatState, operation: Active
   return activePanelOperationDecisionForFacts(activePanelThreadFacts(state), operation);
 }
 
-export function activePanelOperationDecisionForFacts(
+function activePanelOperationDecisionForFacts(
   facts: ActivePanelThreadFacts,
   operation: ActivePanelOperation,
 ): ActivePanelOperationDecision {

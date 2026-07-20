@@ -19,7 +19,7 @@ export interface RuntimeConfigSnapshot {
   readonly autoCompactTokenLimit: number | null;
 }
 
-export function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
+function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
   return {
     profile: null,
     model: null,
