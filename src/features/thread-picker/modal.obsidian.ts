@@ -24,9 +24,15 @@ type ThreadOpenMode = "current" | "available";
 
 const THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS = { capture: true } as const;
 
-export function openThreadPicker(host: ThreadPickerHost): ThreadPickerController {
+export function openThreadPicker(host: ThreadPickerHost, onClosed: () => void): ThreadPickerController {
   const state: { closed: boolean; modal: ThreadPickerModal | null } = { closed: false, modal: null };
-  void (async () => {
+  const finish = (): void => {
+    if (state.closed) return;
+    state.closed = true;
+    state.modal = null;
+    onClosed();
+  };
+  const loadAndOpen = async (): Promise<void> => {
     try {
       const recentSnapshot = host.threadCatalog.recentActiveSnapshot();
       const loadedThreads = recentSnapshot ?? (await host.threadCatalog.loadActive());
@@ -34,19 +40,22 @@ export function openThreadPicker(host: ThreadPickerHost): ThreadPickerController
       const recentThreads = host.threadCatalog.recentActiveSnapshot() ?? loadedThreads;
       if (recentThreads.length === 0 && !host.threadCatalog.hasMoreActive()) {
         new Notice("No Codex threads found.");
+        finish();
         return;
       }
-      state.modal = new ThreadPickerModal(host, recentThreads);
+      state.modal = new ThreadPickerModal(host, recentThreads, finish);
       state.modal.open();
     } catch (error) {
       if (!state.closed) new Notice(error instanceof Error ? error.message : String(error));
+      finish();
     }
-  })();
+  };
+  queueMicrotask(() => void loadAndOpen());
   return {
     close: () => {
-      state.closed = true;
+      if (state.closed) return;
       state.modal?.close();
-      state.modal = null;
+      finish();
     },
   };
 }
@@ -71,6 +80,7 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   constructor(
     private readonly host: ThreadPickerHost,
     recentThreads: readonly Thread[],
+    private readonly onClosed: () => void,
   ) {
     super(host.app);
     this.recentThreads = Object.freeze([...recentThreads]);
@@ -90,6 +100,7 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   override onClose(): void {
     this.inputEl.removeEventListener("keydown", this.handleInputKeydown, THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS);
     super.onClose();
+    this.onClosed();
   }
 
   override async getSuggestions(query: string): Promise<ThreadSuggestion[]> {

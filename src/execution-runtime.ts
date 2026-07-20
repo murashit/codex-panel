@@ -54,7 +54,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly shortLivedClients = new Set<AppServerClient>();
   private readonly structuredTurnClients = new Set<EphemeralStructuredTurnClient>();
   private readonly structuredTurnOperations = new Set<AbortController>();
-  private readonly threadPickers = new Set<ThreadPickerController>();
+  private activeThreadPicker: ThreadPickerController | null = null;
   private readonly chatViews = new Set<ChatRuntimeView>();
   private readonly threadsViews = new Set<ThreadsRuntimeView>();
   private disposed = false;
@@ -206,13 +206,19 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   }
 
   openThreadPicker(): void {
-    const picker = openThreadPicker({
-      app: this.options.app,
-      threadCatalog: this.threadCatalog,
-      openThreadInCurrentView: (threadId) => this.options.openThreadInCurrentView(threadId),
-      openThreadInAvailableView: (threadId) => this.options.openThreadInAvailableView(threadId),
-    });
-    this.threadPickers.add(picker);
+    this.activeThreadPicker?.close();
+    const picker = openThreadPicker(
+      {
+        app: this.options.app,
+        threadCatalog: this.threadCatalog,
+        openThreadInCurrentView: (threadId) => this.options.openThreadInCurrentView(threadId),
+        openThreadInAvailableView: (threadId) => this.options.openThreadInAvailableView(threadId),
+      },
+      () => {
+        if (this.activeThreadPicker === picker) this.activeThreadPicker = null;
+      },
+    );
+    this.activeThreadPicker = picker;
   }
 
   dispose(): ExecutionRuntimeViews {
@@ -237,11 +243,10 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     }
     this.chatViews.clear();
     this.threadsViews.clear();
-    for (const picker of this.threadPickers)
-      this.tryCleanup(() => {
-        picker.close();
-      });
-    this.threadPickers.clear();
+    this.tryCleanup(() => {
+      this.activeThreadPicker?.close();
+    });
+    this.activeThreadPicker = null;
     for (const operation of this.structuredTurnOperations)
       this.tryCleanup(() => {
         operation.abort();

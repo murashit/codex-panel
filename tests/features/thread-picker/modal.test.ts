@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { SuggestModal } from "obsidian";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
 import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
@@ -120,6 +120,61 @@ describe("threadOpenModeFromEvent", () => {
   });
 });
 
+describe("thread picker lifecycle", () => {
+  it("reports natural close only once", async () => {
+    const onClosed = vi.fn();
+    const { controller, modal } = await openedThreadPickerSession([thread({ id: "thread" })], onClosed);
+
+    modal.onClose();
+    controller.close();
+
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
+  it("finishes when the initial inventory is empty", async () => {
+    const onClosed = vi.fn();
+
+    openThreadPicker(threadPickerHost([]), onClosed);
+    await flushMicrotasks();
+
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
+  it("finishes when the initial inventory fails to load", async () => {
+    const host = threadPickerHost([], [], [], false);
+    host.threadCatalog.loadActive = async () => {
+      throw new Error("inventory unavailable");
+    };
+    const onClosed = vi.fn();
+
+    openThreadPicker(host, onClosed);
+    await flushMicrotasks();
+
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
+  it("does not open after being replaced during the initial inventory load", async () => {
+    const pending = deferred<readonly Thread[]>();
+    const host = threadPickerHost([], [], [], false);
+    host.threadCatalog.loadActive = () => pending.promise;
+    const open = vi.spyOn(SuggestModal.prototype, "open");
+    const onClosed = vi.fn();
+
+    try {
+      const controller = openThreadPicker(host, onClosed);
+      await Promise.resolve();
+      controller.close();
+      pending.resolve([thread({ id: "stale" })]);
+      await flushMicrotasks();
+
+      expect(open).not.toHaveBeenCalled();
+      expect(onClosed).toHaveBeenCalledOnce();
+    } finally {
+      open.mockRestore();
+    }
+  });
+});
+
 interface ThreadSuggestion {
   thread: Thread;
   title: string;
@@ -129,23 +184,33 @@ interface CapturedThreadPickerModal {
   emptyStateText: string;
   resultContainerEl: HTMLElement;
   getSuggestions(query: string): Promise<ThreadSuggestion[]>;
+  onClose(): void;
   onChooseSuggestion(item: ThreadSuggestion, evt: MouseEvent | KeyboardEvent): void;
 }
 
 async function openedThreadPicker(input: readonly Thread[] | TestThreadPickerHost): Promise<CapturedThreadPickerModal> {
+  return (await openedThreadPickerSession(input)).modal;
+}
+
+async function openedThreadPickerSession(
+  input: readonly Thread[] | TestThreadPickerHost,
+  onClosed: () => void = () => undefined,
+): Promise<{ controller: ReturnType<typeof openThreadPicker>; modal: CapturedThreadPickerModal }> {
   const captured: CapturedThreadPickerModal[] = [];
   const originalOpen = Object.getOwnPropertyDescriptor(SuggestModal.prototype, "open");
   SuggestModal.prototype.open = function captureOpen(this: SuggestModal<ThreadSuggestion>): void {
     captured.push(this as CapturedThreadPickerModal);
   };
+  let controller: ReturnType<typeof openThreadPicker>;
   try {
-    await openThreadPicker(isThreadPickerHost(input) ? input : threadPickerHost(input));
+    controller = openThreadPicker(isThreadPickerHost(input) ? input : threadPickerHost(input), onClosed);
+    await flushMicrotasks();
   } finally {
     if (originalOpen) Object.defineProperty(SuggestModal.prototype, "open", originalOpen);
   }
   const modal = captured[0];
   if (!modal) throw new Error("Expected thread picker modal to open");
-  return modal;
+  return { controller, modal };
 }
 
 async function firstSuggestion(modal: CapturedThreadPickerModal): Promise<ThreadSuggestion> {
@@ -224,4 +289,9 @@ function deferred<T>() {
     resolve = promiseResolve;
   });
   return { promise, resolve };
+}
+
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
 }
