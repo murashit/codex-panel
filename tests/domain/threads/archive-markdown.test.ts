@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { type ArchiveExportSettings, archivedThreadMarkdown } from "../../../src/domain/threads/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
 import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";
-import { referencedThreadV1Fixture } from "../../helpers/referenced-thread-v1";
 
 describe("thread archive export", () => {
   it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
@@ -117,21 +116,6 @@ describe("thread archive export", () => {
     expect(rolledBackEntries).toHaveLength(2);
     expect(output).not.toContain(rolledBackUserText);
     expect(output).not.toContain(rolledBackAssistantText);
-  });
-
-  it("hides embedded /refer context and keeps a compact reference line", () => {
-    const prompt = referencedThreadV1Fixture(
-      thread({ id: "thread-ref", name: "参照元" }),
-      [{ userText: "元の依頼", assistantText: "回答" }],
-      "続きです",
-    );
-
-    const output = exportedMarkdown(thread({ transcriptEntries: [transcriptEntry("user", prompt, 1)] }), new Date(2026, 4, 18));
-
-    expect(output).toContain("続きです");
-    expect(output).toContain("> Referenced: 参照元 (1/20 turns, thread-ref)");
-    expect(output).not.toContain("Reference thread history:");
-    expect(output).not.toContain("元の依頼");
   });
 
   it("renders persisted v2 reference metadata without embedding its payload", () => {

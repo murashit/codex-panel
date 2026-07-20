@@ -2,7 +2,6 @@ import { yamlFrontmatterInlineList, yamlFrontmatterString } from "../markdown/fr
 import { isExternalFileHref, parseFileHref } from "../vault/file-hrefs";
 import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, vaultRelativePath } from "../vault/paths";
 import type { Thread } from "./model";
-import { referencedThreadMetadataFromPrompt } from "./reference";
 import { threadArchiveTitle } from "./title";
 import type { ThreadTranscriptEntry } from "./transcript";
 
@@ -99,16 +98,14 @@ function markdownLinesFromTranscriptEntry(entry: ThreadTranscriptEntry): string[
   switch (entry.kind) {
     case "user": {
       const heading = timestampedHeading("User", entry.timestamp);
-      const legacyReferenced = referencedThreadMetadataFromPrompt(entry.text);
-      const referenced = entry.referencedThread ? { text: entry.text, reference: entry.referencedThread } : legacyReferenced;
       return [
         heading,
         "",
-        referenced?.text ?? entry.text,
+        entry.text,
         "",
-        ...(referenced
+        ...(entry.referencedThread
           ? [
-              `> Referenced: ${referenced.reference.title} (${String(referenced.reference.includedTurns)}/${String(referenced.reference.turnLimit)} turns${referenced.reference.truncated ? ", truncated" : ""}, ${referenced.reference.threadId})`,
+              `> Referenced: ${entry.referencedThread.title} (${String(entry.referencedThread.includedTurns)}/${String(entry.referencedThread.turnLimit)} turns${entry.referencedThread.truncated ? ", truncated" : ""}, ${entry.referencedThread.threadId})`,
               "",
             ]
           : []),

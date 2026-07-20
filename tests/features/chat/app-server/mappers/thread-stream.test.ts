@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appServerTurnInputFromCodexInput } from "../../../../../src/app-server/protocol/request-input";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
-import type { Thread } from "../../../../../src/domain/threads/model";
 import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/thread-stream/execution-state";
 import { hookRunThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/hook-run-items";
 import { autoReviewPermissionRows } from "../../../../../src/features/chat/app-server/mappers/thread-stream/permission-rows";
@@ -15,7 +14,6 @@ import {
   threadStreamItemsFromTurns,
 } from "../../../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import { referencedThreadV1Fixture } from "../../../../helpers/referenced-thread-v1";
 
 describe("turn item conversion preserves app-server semantics", () => {
   it("sorts app-server turns oldest first before converting messages", () => {
@@ -47,139 +45,6 @@ describe("turn item conversion preserves app-server semantics", () => {
     ).toEqual(["hello", "world"]);
     expect(threadStreamItemFromTurnItem(userMessage)).toMatchObject({ role: "user", copyText: "hello" });
     expect(threadStreamItemFromTurnItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
-  });
-
-  it("keeps legacy file references visible as user message metadata", () => {
-    const userMessage: TurnItem = {
-      type: "userMessage",
-      id: "u1",
-      clientId: "local-user-1-seed-1-1",
-      content: [
-        { type: "text", text: "Read [[Alpha]] and [[Beta]].", text_elements: [] },
-        { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
-        { type: "mention", name: "Alpha duplicate", path: "thoughts/Alpha.md" },
-        { type: "mention", name: "Beta", path: "thoughts/Beta.md" },
-      ],
-    };
-
-    expect(threadStreamItemFromTurnItem(userMessage)).toMatchObject({
-      kind: "dialogue",
-      dialogueKind: "user",
-      role: "user",
-      text: "Read [[Alpha]] and [[Beta]].",
-      referencedFiles: [
-        { name: "Alpha", path: "thoughts/Alpha.md" },
-        { name: "Beta", path: "thoughts/Beta.md" },
-      ],
-    });
-  });
-
-  it("keeps the active file reference visible when a wikilink resolves to the same path", () => {
-    const userMessage: TurnItem = {
-      type: "userMessage",
-      id: "u1",
-      clientId: "local-user-1-seed-1-1",
-      content: [
-        { type: "text", text: "Read [[Alpha]].", text_elements: [] },
-        { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
-        { type: "mention", name: "Alpha duplicate", path: "thoughts/Alpha.md" },
-        { type: "mention", name: "<active>", path: "thoughts/Alpha.md" },
-      ],
-    };
-
-    expect(threadStreamItemFromTurnItem(userMessage)).toMatchObject({
-      referencedFiles: [
-        { name: "Alpha", path: "thoughts/Alpha.md" },
-        { name: "Active file", path: "thoughts/Alpha.md" },
-      ],
-    });
-  });
-
-  it("does not present Codex tool mentions as Vault file references", () => {
-    const userMessage: TurnItem = {
-      type: "userMessage",
-      id: "u1",
-      clientId: null,
-      content: [
-        { type: "text", text: "Use $drive.", text_elements: [] },
-        { type: "mention", name: "Drive", path: "app://google-drive" },
-      ],
-    };
-
-    expect(threadStreamItemFromTurnItem(userMessage)).not.toHaveProperty("referencedFiles");
-  });
-
-  it("restores legacy bare-path file references from before Panel submission IDs", () => {
-    const legacyPanelMessage: TurnItem = {
-      type: "userMessage",
-      id: "u1",
-      clientId: "local-user-1-seed-1-1",
-      content: [
-        { type: "text", text: "Read [[Old]].", text_elements: [] },
-        { type: "mention", name: "Old", path: "notes/Old.md" },
-      ],
-    };
-    const foreignMessage = { ...legacyPanelMessage, clientId: null };
-
-    expect(threadStreamItemFromTurnItem(legacyPanelMessage)).toMatchObject({
-      referencedFiles: [{ name: "Old", path: "notes/Old.md" }],
-    });
-    expect(threadStreamItemFromTurnItem(foreignMessage)).toMatchObject({
-      referencedFiles: [{ name: "Old", path: "notes/Old.md" }],
-    });
-  });
-
-  it("renders a decoded Vault path for empty-text legacy file-reference messages", () => {
-    const userMessage: TurnItem = {
-      type: "userMessage",
-      id: "u1",
-      clientId: "local-user-1-seed-1-1",
-      content: [{ type: "mention", name: "設計メモ", path: "メモ/設計.md" }],
-    };
-
-    expect(threadStreamItemFromTurnItem(userMessage)).toMatchObject({
-      text: "[file] メモ/設計.md",
-      copyText: "[file] メモ/設計.md",
-      referencedFiles: [{ name: "設計メモ", path: "メモ/設計.md" }],
-    });
-  });
-
-  it("hides persisted /refer context in displayed user messages", () => {
-    const text = referencedThreadV1Fixture(
-      {
-        id: "thread-reference",
-        name: "参照元",
-        preview: "",
-        archived: false,
-        createdAt: 1,
-        updatedAt: 1,
-        provenance: { kind: "interactive" },
-      } satisfies Thread,
-      [
-        { userText: "元の依頼", assistantText: "元の回答" },
-        { userText: "次の依頼", assistantText: "次の回答" },
-      ],
-      "この続きです",
-    );
-
-    expect(
-      threadStreamItemFromTurnItem({
-        type: "userMessage",
-        id: "u1",
-        clientId: null,
-        content: [{ type: "text", text, text_elements: [] }],
-      }),
-    ).toMatchObject({
-      role: "user",
-      text: "この続きです",
-      copyText: "この続きです",
-      referencedThread: {
-        threadId: "thread-reference",
-        title: "参照元",
-        includedTurns: 2,
-        turnLimit: 20,
-      },
-    });
   });
 
   it("restores v2 context metadata without exposing its descriptor", () => {

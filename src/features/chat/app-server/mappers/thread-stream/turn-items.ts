@@ -2,7 +2,6 @@ import {
   completedTurnTranscriptSummaryFromTurnRecord,
   type TurnItem,
   type TurnRecord,
-  turnUserFileReferences,
   turnUserItemProjection,
 } from "../../../../../app-server/protocol/turn";
 import { jsonPreview } from "../../../../../domain/display/json-preview";
@@ -134,7 +133,7 @@ function userThreadStreamItem(item: UserMessageItem, turnId?: string): ThreadStr
   const projection = turnUserItemProjection(item);
   const text = projection.text;
   const referencedThread = projection.referencedThread;
-  const referencedFiles = threadStreamFileReferences(turnUserFileReferences(item, projection.manifest));
+  const referencedFiles = threadStreamFileReferences(projection.fileReferences);
   const contextAttachments = contextAttachmentsFromManifest(projection.manifest, text);
   if (referencedThread) {
     return {

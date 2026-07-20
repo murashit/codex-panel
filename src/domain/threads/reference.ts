@@ -14,12 +14,6 @@ export interface ReferencedThreadMetadata {
   truncated?: boolean;
 }
 
-interface ReferencedThreadEnvelope {
-  version: 1;
-  reference: ReferencedThreadMetadata;
-  visibleText: string;
-}
-
 export interface ReferencedThreadContextBundle {
   value: string;
   referencedThread: ReferencedThreadMetadata;
@@ -106,88 +100,4 @@ function truncatedReferenceTurn(turn: TurnTranscriptSummary, index: number, maxB
     assistant ? `${assistantLabel}${truncateUtf8(assistant, assistantBudget)}` : "",
     suffix,
   ].join("");
-}
-
-export function referencedThreadMetadataFromPrompt(text: string): { text: string; reference: ReferencedThreadMetadata } | null {
-  const envelope = referencedThreadEnvelopeFromPrompt(text);
-  return envelope ? { text: envelope.visibleText, reference: envelope.reference } : null;
-}
-
-const REFERENCED_THREAD_ENVELOPE_START = "[Codex Panel referenced thread v1]";
-const REFERENCED_THREAD_ENVELOPE_END = "[/Codex Panel referenced thread]";
-
-interface ReferencedThreadEnvelopeMetadata {
-  version: 1;
-  threadId: string;
-  title: string;
-  includedTurns: number;
-  turnLimit: number;
-}
-
-function referencedThreadEnvelopeFromPrompt(text: string): ReferencedThreadEnvelope | null {
-  const headerStart = text.indexOf(REFERENCED_THREAD_ENVELOPE_START);
-  const requestBoundary = `\n${REFERENCED_THREAD_ENVELOPE_END}\n\nCurrent user request:\n`;
-  const boundaryStart = text.lastIndexOf(requestBoundary);
-  if (headerStart !== 0 || boundaryStart === -1) return null;
-
-  const metadataText = firstNonEmptyLine(text.slice(REFERENCED_THREAD_ENVELOPE_START.length, boundaryStart));
-  const metadata = referencedThreadEnvelopeMetadataFromJson(metadataText);
-  const visibleText = text.slice(boundaryStart + requestBoundary.length).trim();
-  if (!metadata || !visibleText) return null;
-  return {
-    version: 1,
-    visibleText,
-    reference: {
-      threadId: metadata.threadId,
-      title: metadata.title,
-      includedTurns: metadata.includedTurns,
-      turnLimit: metadata.turnLimit,
-    },
-  };
-}
-
-function firstNonEmptyLine(text: string): string | null {
-  return (
-    text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? null
-  );
-}
-
-function referencedThreadEnvelopeMetadataFromJson(text: string | null): ReferencedThreadEnvelopeMetadata | null {
-  if (!text) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text) as unknown;
-  } catch {
-    return null;
-  }
-  if (!parsed || typeof parsed !== "object") return null;
-  const value = parsed as Record<string, unknown>;
-  if (value["version"] !== 1) return null;
-  const threadId = stringValue(value["threadId"]);
-  const title = stringValue(value["title"]);
-  const includedTurns = finiteNonNegativeInteger(value["includedTurns"]);
-  const turnLimit = finitePositiveInteger(value["turnLimit"]);
-  if (!threadId || !title || includedTurns === null || turnLimit === null) return null;
-  return {
-    version: 1,
-    threadId,
-    title,
-    includedTurns,
-    turnLimit,
-  };
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function finiteNonNegativeInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
-}
-
-function finitePositiveInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 }

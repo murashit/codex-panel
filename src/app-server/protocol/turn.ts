@@ -1,6 +1,6 @@
 import { fileReferencesFromManifest, referencedThreadFromManifest, userMessageContextProjection } from "../../domain/chat/context-manifest";
 import type { VaultFileReference } from "../../domain/chat/input";
-import { type ReferencedThreadMetadata, referencedThreadMetadataFromPrompt } from "../../domain/threads/reference";
+import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
 import {
   nonEmptyTurnTranscriptSummaries,
   type ThreadTranscriptEntry,
@@ -9,6 +9,7 @@ import {
 } from "../../domain/threads/transcript";
 import type { ThreadItem as GeneratedThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn as GeneratedTurn } from "../../generated/app-server/v2/Turn";
+import { legacyPanelUserMessageProjection } from "./legacy-panel-user-message";
 
 export type TurnItem = GeneratedThreadItem;
 export type TurnRecord = GeneratedTurn;
@@ -51,31 +52,33 @@ export function chronologicalTurnTranscriptSummariesFromTurnRecords(turns: reado
 export interface TurnUserItemProjection {
   text: string;
   referencedThread: ReferencedThreadMetadata | null;
+  fileReferences: VaultFileReference[];
   manifest: ReturnType<typeof userMessageContextProjection>["manifest"];
 }
 
 export function turnUserItemProjection(item: Extract<TurnItem, { type: "userMessage" }>): TurnUserItemProjection {
   const projected = userMessageContextProjection(item.content, item.clientId);
+  if (!projected.manifest) {
+    const legacy = legacyPanelUserMessageProjection({
+      content: item.content,
+      visibleText: projected.text,
+    });
+    const supplementalText = nonTextUserInputText(item.content, projected.text, legacy.mentionTextByContentIndex);
+    return {
+      text: [legacy.text, supplementalText].filter(Boolean).join("\n"),
+      referencedThread: legacy.referencedThread,
+      fileReferences: legacy.fileReferences,
+      manifest: null,
+    };
+  }
   const supplementalText = nonTextUserInputText(item.content, projected.text);
   const text = [projected.text, supplementalText].filter(Boolean).join("\n");
-  const legacyReference = referencedThreadMetadataFromPrompt(text);
   return {
-    text: legacyReference?.text ?? text,
-    referencedThread: referencedThreadFromManifest(projected.manifest) ?? legacyReference?.reference ?? null,
+    text,
+    referencedThread: referencedThreadFromManifest(projected.manifest),
+    fileReferences: fileReferencesFromManifest(projected.manifest),
     manifest: projected.manifest,
   };
-}
-
-export function turnUserFileReferences(
-  item: Extract<TurnItem, { type: "userMessage" }>,
-  manifest: ReturnType<typeof userMessageContextProjection>["manifest"],
-): VaultFileReference[] {
-  const legacyReferences = item.content.flatMap((input) => {
-    if (input.type !== "mention") return [];
-    const reference = legacyPanelFileReference(input);
-    return reference ? [reference] : [];
-  });
-  return [...fileReferencesFromManifest(manifest), ...legacyReferences];
 }
 
 export function lastAgentMessageTextFromTurnRecord(turn: TurnRecord): string | null {
@@ -120,26 +123,21 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
   return [];
 }
 
-function nonTextUserInputText(content: Extract<TurnItem, { type: "userMessage" }>["content"], visibleText: string): string {
+function nonTextUserInputText(
+  content: Extract<TurnItem, { type: "userMessage" }>["content"],
+  visibleText: string,
+  mentionTextByContentIndex?: ReadonlyMap<number, string>,
+): string {
   const hasText = visibleText.length > 0;
   const textIncludes = (value: string) => value.length > 0 && visibleText.includes(value);
   return content
-    .map((item) => {
+    .map((item, index) => {
       if (item.type === "localImage") return hasText && textIncludes(item.path) ? "" : `[local image] ${item.path}`;
       if (item.type === "image") return hasText && textIncludes(item.url) ? "" : `[image] ${item.url}`;
-      if (item.type === "mention") {
-        if (hasText) return "";
-        const fileReference = legacyPanelFileReference(item);
-        return fileReference ? `[file] ${fileReference.path}` : `[@${item.name}] ${item.path}`;
-      }
+      if (item.type === "mention") return mentionTextByContentIndex?.get(index) ?? "";
       if (item.type === "skill") return hasText ? "" : `[$${item.name}] ${item.path}`;
       return "";
     })
     .filter(Boolean)
     .join("\n");
-}
-
-function legacyPanelFileReference(input: { name: string; path: string }): VaultFileReference | null {
-  if (!input.path || /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(input.path)) return null;
-  return { name: input.name, path: input.path };
 }
