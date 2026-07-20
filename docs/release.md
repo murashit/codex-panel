@@ -20,7 +20,7 @@ jj git push --remote origin --bookmark main
 git push origin X.Y.Z
 ```
 
-`release:prepare` updates version files and drafts `## Changes` from selected Conventional Commits since the previous version. Review the draft against the full diff for complete, user-facing notes; consolidate and reorder entries as needed, and replace an empty placeholder.
+`release:prepare` updates version files and drafts `## Changes` from selected Conventional Commits since the previous version. Use those commits to locate candidate changes, then compare the resulting user-visible behavior with the previous release before choosing the version. Review the draft against the full diff for complete, user-facing notes; consolidate and reorder entries as needed, and replace an empty placeholder.
 
 Run `release:preflight` after the release commit is on `main`; it validates the commit range and release readiness.
 
