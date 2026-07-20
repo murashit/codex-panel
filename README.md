@@ -2,7 +2,7 @@
 
 Codex Panel brings Codex into an Obsidian sidebar. It keeps Codex threads beside your notes, helps you add vault context to prompts, and lets you handle approvals and file changes without switching windows.
 
-If the Codex CLI is already installed and authenticated, Codex Panel uses that local setup. The plugin handles the Obsidian side of the workflow, while models, credentials, sandboxing, tools, hooks, and thread state stay with Codex.
+If the Codex CLI is already installed and authenticated, Codex Panel uses that local setup.
 
 ![Codex Panel](assets/screenshot.webp)
 
@@ -55,9 +55,6 @@ For a one-off question alongside the current thread, use `/btw` to open a tempor
 The composer lets you point Codex to relevant material without pasting it into the prompt. Type wikilinks to reference vault files while keeping their names readable. Use `@active` for the active file or `@selection` for the current Markdown selection.
 
 When Obsidian Daily Notes or the daily section of Periodic Notes is enabled, `@today`, `@tomorrow`, and `@yesterday` resolve through its folder and date format. Paste or drop files to save them in the configured attachment folder and reference them from the same prompt. For material outside the vault, `/web <url> [message]` fetches readable page content and attaches it to the next turn without creating a note.
-
-These references tell Codex what is relevant to the request; they do not change its vault-root working directory or its permissions.
-Large transient references are bounded before they reach Codex, and the panel marks a web or thread reference when it had to truncate it.
 
 ### Guide a running turn
 
