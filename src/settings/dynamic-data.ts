@@ -23,14 +23,3 @@ export interface SettingsDynamicDataAccess {
   restoreArchivedThread(threadId: string): Promise<Thread>;
   deleteArchivedThread(threadId: string): Promise<void>;
 }
-
-export class StaleSettingsDynamicDataContextError extends Error {
-  constructor() {
-    super("Settings dynamic data context changed while loading Codex details.");
-    this.name = "StaleSettingsDynamicDataContextError";
-  }
-}
-
-export function isStaleSettingsDynamicDataContextError(error: unknown): error is StaleSettingsDynamicDataContextError {
-  return error instanceof StaleSettingsDynamicDataContextError;
-}

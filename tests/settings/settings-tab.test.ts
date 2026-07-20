@@ -329,6 +329,32 @@ describe("settings tab", () => {
     expect(tab.containerEl.children).toHaveLength(0);
   });
 
+  it("binds the replacement executable data source when a hidden tab is shown again", async () => {
+    const save = deferred<void>();
+    const observeModels = vi.fn(() => vi.fn());
+    useShortLivedClients(settingsClient(), settingsClient());
+    const host = settingsTabHost({
+      saveSettings: vi.fn(() => save.promise),
+      observeModels,
+    });
+    const tab = new CodexPanelSettingTab({} as never, {} as never, host);
+
+    tab.display();
+    const codexInput = inputForSetting(tab, "Codex executable");
+    if (!codexInput) throw new Error("Missing Codex executable input");
+    codexInput.value = "/opt/codex-next";
+    codexInput.dispatchEvent(new FocusEvent("blur"));
+    await Promise.resolve();
+    tab.hide();
+
+    save.resolve(undefined);
+    await flushPromises();
+    tab.display();
+
+    expect(host.settings.codexPath).toBe("/opt/codex-next");
+    expect(observeModels).toHaveBeenCalledTimes(2);
+  });
+
   it("serializes overlapping settings saves", async () => {
     const firstSave = deferred<void>();
     const saveSettings = vi.fn().mockReturnValueOnce(firstSave.promise).mockResolvedValueOnce(undefined);

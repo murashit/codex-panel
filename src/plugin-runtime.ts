@@ -1,10 +1,7 @@
 import type { App } from "obsidian";
 import type { AppServerClient } from "./app-server/connection/client";
 import type { AppServerClientAccessOptions } from "./app-server/connection/client-access";
-import type { ObservedResultListener } from "./app-server/query/observed-result";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
-import type { ModelMetadata } from "./domain/catalog/metadata";
-import type { Thread } from "./domain/threads/model";
 import { CodexExecutionRuntime } from "./execution-runtime";
 import type {
   ChatRuntimeView,
@@ -40,7 +37,6 @@ export interface CodexPanelRuntimeOptions {
 export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRuntimeOwner {
   private readonly panels: WorkspacePanelCoordinator;
   private executionRuntime: CodexExecutionRuntime | null = null;
-  private readonly settingsDynamicData = new SwappableSettingsDynamicData();
   private selectionRewriteController: SelectionRewriteCommandController | null = null;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
@@ -55,7 +51,6 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   initialize(): void {
     if (this.executionRuntime) throw new Error("Codex execution runtime is already initialized.");
     this.executionRuntime = this.createExecutionRuntime(this.options.settingsRef.settings.codexPath);
-    this.settingsDynamicData.replace(this.executionRuntime.settingsDynamicData);
   }
 
   reset(): void {
@@ -64,7 +59,6 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     const executionRuntime = this.executionRuntime;
     this.executionRuntime = null;
     executionRuntime?.dispose();
-    this.settingsDynamicData.replace(null);
     this.panels.reset();
   }
 
@@ -145,15 +139,16 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   settingTabHost(): CodexPanelSettingTabHost {
     return {
       settings: this.options.settingsRef.settings,
-      dynamicData: this.settingsDynamicData,
+      dynamicData: this.currentExecutionRuntime().settingsDynamicData,
       publishSettings: (settings) => this.publishSettings(settings),
     };
   }
 
-  private async publishSettings(settings: CodexPanelSettings): Promise<{ appServerContextReplaced: boolean }> {
+  private async publishSettings(settings: CodexPanelSettings): Promise<{ replacementDynamicData: SettingsDynamicDataAccess | null }> {
     const previousSettings = { ...this.options.settingsRef.settings };
     await this.options.saveSettings(settings);
     const appServerContextReplaced = previousSettings.codexPath !== settings.codexPath;
+    let replacementDynamicData: SettingsDynamicDataAccess | null = null;
     if (appServerContextReplaced) {
       const nextRuntime = this.createExecutionRuntime(settings.codexPath);
       this.selectionRewriteController?.closeAll();
@@ -162,14 +157,14 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       this.executionRuntime = null;
       const views = previousRuntime?.dispose() ?? { chat: [], threads: [] };
       Object.assign(this.options.settingsRef.settings, settings);
-      this.settingsDynamicData.replace(nextRuntime.settingsDynamicData);
       nextRuntime.adoptViews(views);
       this.executionRuntime = nextRuntime;
+      replacementDynamicData = nextRuntime.settingsDynamicData;
     } else {
       Object.assign(this.options.settingsRef.settings, settings);
     }
     if (appServerContextReplaced || previousSettings.showToolbar !== settings.showToolbar) this.refreshOpenViews();
-    return { appServerContextReplaced };
+    return { replacementDynamicData };
   }
 
   private async openTurnDiff(state: TurnDiffViewState): Promise<void> {
@@ -273,100 +268,5 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
       openPanelActivities: () => this.openPanelActivities(),
     });
-  }
-}
-
-interface StableObserver<T> {
-  readonly listener: ObservedResultListener<readonly T[]>;
-  readonly options: { emitCurrent?: boolean } | undefined;
-  unsubscribe: (() => void) | null;
-}
-
-export class SwappableSettingsDynamicData implements SettingsDynamicDataAccess {
-  private current: SettingsDynamicDataAccess | null = null;
-  private readonly modelObservers = new Set<StableObserver<ModelMetadata>>();
-  private readonly archivedThreadObservers = new Set<StableObserver<Thread>>();
-
-  replace(next: SettingsDynamicDataAccess | null): void {
-    for (const observer of [...this.modelObservers, ...this.archivedThreadObservers]) {
-      observer.unsubscribe?.();
-      observer.unsubscribe = null;
-    }
-    this.current = next;
-    if (!next) return;
-    for (const observer of this.modelObservers) {
-      observer.unsubscribe = next.observeModelsResult(observer.listener, observer.options);
-    }
-    for (const observer of this.archivedThreadObservers) {
-      observer.unsubscribe = next.observeArchivedThreadsResult(observer.listener, observer.options);
-    }
-  }
-
-  modelsSnapshot(): readonly ModelMetadata[] | null {
-    return this.delegate().modelsSnapshot();
-  }
-
-  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void {
-    const observer: StableObserver<ModelMetadata> = { listener, options, unsubscribe: null };
-    this.modelObservers.add(observer);
-    observer.unsubscribe = this.delegate().observeModelsResult(listener, options);
-    return () => {
-      observer.unsubscribe?.();
-      this.modelObservers.delete(observer);
-    };
-  }
-
-  fetchModels(): Promise<readonly ModelMetadata[]> {
-    return this.delegate().fetchModels();
-  }
-
-  refreshModels(): Promise<readonly ModelMetadata[]> {
-    return this.delegate().refreshModels();
-  }
-
-  archivedThreadsSnapshot(): readonly Thread[] | null {
-    return this.delegate().archivedThreadsSnapshot();
-  }
-
-  observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
-    const observer: StableObserver<Thread> = { listener, options, unsubscribe: null };
-    this.archivedThreadObservers.add(observer);
-    observer.unsubscribe = this.delegate().observeArchivedThreadsResult(listener, options);
-    return () => {
-      observer.unsubscribe?.();
-      this.archivedThreadObservers.delete(observer);
-    };
-  }
-
-  refreshArchivedThreads(): Promise<readonly Thread[]> {
-    return this.delegate().refreshArchivedThreads();
-  }
-
-  refreshHooks(): ReturnType<SettingsDynamicDataAccess["refreshHooks"]> {
-    return this.delegate().refreshHooks();
-  }
-
-  trustHook(hook: Parameters<SettingsDynamicDataAccess["trustHook"]>[0]): ReturnType<SettingsDynamicDataAccess["trustHook"]> {
-    return this.delegate().trustHook(hook);
-  }
-
-  setHookEnabled(
-    hook: Parameters<SettingsDynamicDataAccess["setHookEnabled"]>[0],
-    enabled: boolean,
-  ): ReturnType<SettingsDynamicDataAccess["setHookEnabled"]> {
-    return this.delegate().setHookEnabled(hook, enabled);
-  }
-
-  restoreArchivedThread(threadId: string): Promise<Thread> {
-    return this.delegate().restoreArchivedThread(threadId);
-  }
-
-  deleteArchivedThread(threadId: string): Promise<void> {
-    return this.delegate().deleteArchivedThread(threadId);
-  }
-
-  private delegate(): SettingsDynamicDataAccess {
-    if (!this.current) throw new Error("Codex execution runtime is not initialized.");
-    return this.current;
   }
 }

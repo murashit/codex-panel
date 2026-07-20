@@ -478,18 +478,11 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private setCodexPath(value: string): Promise<void> {
     const codexPath = value.trim() || DEFAULT_CODEX_PATH;
-    return this.queueSettingsMutation(
-      (settings) => {
-        if (codexPath === settings.codexPath) return false;
-        settings.codexPath = codexPath;
-        return true;
-      },
-      {
-        onPublished: ({ appServerContextReplaced }) => {
-          if (appServerContextReplaced) this.dynamicSections.resetDynamicSectionContext();
-        },
-      },
-    );
+    return this.queueSettingsMutation((settings) => {
+      if (codexPath === settings.codexPath) return false;
+      settings.codexPath = codexPath;
+      return true;
+    });
   }
 
   private setShowToolbar(value: boolean): Promise<void> {
@@ -576,16 +569,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
   }
 
-  private queueSettingsMutation(
-    mutate: (settings: CodexPanelSettings) => boolean | undefined,
-    publication: { onPublished?: (result: { appServerContextReplaced: boolean }) => void } = {},
-  ): Promise<void> {
+  private queueSettingsMutation(mutate: (settings: CodexPanelSettings) => boolean | undefined): Promise<void> {
     const operation = this.settingsMutationQueue.then(async () => {
       const candidateSettings: CodexPanelSettings = { ...this.plugin.settings };
       if (mutate(candidateSettings) === false) return;
       try {
-        const result = await this.plugin.publishSettings(candidateSettings);
-        publication.onPublished?.(result);
+        const { replacementDynamicData } = await this.plugin.publishSettings(candidateSettings);
+        if (replacementDynamicData) this.dynamicSections.replaceDynamicData(replacementDynamicData);
       } catch (error) {
         this.settingsShellRevision += 1;
         new Notice(`Failed to save Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);

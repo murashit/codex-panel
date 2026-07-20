@@ -8,7 +8,6 @@ import { StaleAppServerResourceContextError } from "../../src/app-server/query/r
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import type { ThreadCatalogEvent } from "../../src/features/threads/catalog/thread-catalog";
-import { SwappableSettingsDynamicData } from "../../src/plugin-runtime";
 import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
@@ -243,8 +242,6 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       return result;
     },
   };
-  const swappableDynamicData = options.dynamicData ? null : new SwappableSettingsDynamicData();
-  const dynamicData: SettingsDynamicDataAccess = options.dynamicData ?? (swappableDynamicData as SwappableSettingsDynamicData);
   const createDynamicData = () =>
     createSettingsAppServerDynamicData({
       vaultPath: "/vault",
@@ -252,8 +249,8 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       appServerQueries,
       threadCatalog,
     });
-  swappableDynamicData?.replace(createDynamicData());
-  return {
+  let dynamicData = options.dynamicData ?? createDynamicData();
+  const host: CodexPanelSettingTabHost = {
     settings,
     dynamicData,
     publishSettings: async (nextSettings) => {
@@ -261,11 +258,14 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       await (options.saveSettings ?? vi.fn().mockResolvedValue(undefined))(nextSettings);
       const appServerContextReplaced = previousSettings.codexPath !== nextSettings.codexPath;
       Object.assign(settings, nextSettings);
-      if (appServerContextReplaced) swappableDynamicData?.replace(createDynamicData());
+      if (appServerContextReplaced && !options.dynamicData) {
+        dynamicData = createDynamicData();
+      }
       if (appServerContextReplaced || previousSettings.showToolbar !== nextSettings.showToolbar) options.refreshOpenViews?.();
-      return { appServerContextReplaced };
+      return { replacementDynamicData: appServerContextReplaced ? dynamicData : null };
     },
   };
+  return host;
 }
 
 export async function flushPromises(): Promise<void> {

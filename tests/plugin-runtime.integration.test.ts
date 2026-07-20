@@ -6,7 +6,6 @@ import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
 import type { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
-import { SwappableSettingsDynamicData } from "../src/plugin-runtime";
 import { deferred } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
 import {
@@ -406,31 +405,5 @@ describe("CodexPanelPlugin runtime integration", () => {
     await publishCodexPath(plugin, "codex-next");
 
     expect(closeAll).toHaveBeenCalledOnce();
-  });
-});
-
-describe("SwappableSettingsDynamicData", () => {
-  it("moves existing observers to the replacement runtime", () => {
-    const firstUnsubscribe = vi.fn();
-    const secondUnsubscribe = vi.fn();
-    const first = {
-      observeModelsResult: vi.fn(() => firstUnsubscribe),
-      observeArchivedThreadsResult: vi.fn(() => vi.fn()),
-    };
-    const second = {
-      observeModelsResult: vi.fn(() => secondUnsubscribe),
-      observeArchivedThreadsResult: vi.fn(() => vi.fn()),
-    };
-    const dynamicData = new SwappableSettingsDynamicData();
-    const listener = vi.fn();
-    dynamicData.replace(first as never);
-    const unsubscribe = dynamicData.observeModelsResult(listener, { emitCurrent: false });
-
-    dynamicData.replace(second as never);
-
-    expect(firstUnsubscribe).toHaveBeenCalledOnce();
-    expect(second.observeModelsResult).toHaveBeenCalledWith(listener, { emitCurrent: false });
-    unsubscribe();
-    expect(secondUnsubscribe).toHaveBeenCalledOnce();
   });
 });

@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ObservedResult } from "../../src/app-server/query/observed-result";
+import { StaleAppServerResourceContextError } from "../../src/app-server/query/resource-store";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
-import { StaleSettingsDynamicDataContextError } from "../../src/settings/dynamic-data";
 import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
 import { deferred } from "../support/async";
 import {
@@ -189,8 +189,8 @@ describe("SettingsDynamicSectionsController", () => {
 
     const oldMutation = controller.trustHook(hook({ key: "hook-old-context", trustStatus: "untrusted" }));
     await flushPromises();
-    await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
-    controller.resetDynamicSectionContext();
+    const publication = await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
+    controller.replaceDynamicData(publication.replacementDynamicData as NonNullable<typeof publication.replacementDynamicData>);
     await controller.refreshDynamicSections();
 
     expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
@@ -338,8 +338,9 @@ describe("SettingsDynamicSectionsController", () => {
 
     const staleMutation = host.dynamicData.restoreArchivedThread("thread-shared");
     await flushPromises();
-    await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
-    const currentMutation = host.dynamicData.restoreArchivedThread("thread-shared");
+    const publication = await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
+    if (!publication.replacementDynamicData) throw new Error("Expected replacement settings data.");
+    const currentMutation = publication.replacementDynamicData.restoreArchivedThread("thread-shared");
 
     await expect(currentMutation).resolves.toMatchObject({ id: "thread-shared", preview: "New context" });
     expect(newClient.requestHandlers["thread/unarchive"]).toHaveBeenCalledOnce();
@@ -347,7 +348,7 @@ describe("SettingsDynamicSectionsController", () => {
     oldRestore.resolve({
       thread: appServerThread({ id: "thread-shared", preview: "Old context" }),
     });
-    await expect(staleMutation).rejects.toBeInstanceOf(StaleSettingsDynamicDataContextError);
+    await expect(staleMutation).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
   });
 
   it("records restored archived threads in the active catalog", async () => {

@@ -1,13 +1,12 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerClientAccess } from "../app-server/connection/client-access";
 import type { ObservedResultListener } from "../app-server/query/observed-result";
-import { isStaleAppServerResourceContextError } from "../app-server/query/resource-store";
 import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
 import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../features/threads/catalog/thread-catalog";
 import { createKeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
-import { type SettingsDynamicDataAccess, type SettingsHookCatalog, StaleSettingsDynamicDataContextError } from "./dynamic-data";
+import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
 
 interface SettingsAppServerQueries {
   modelsSnapshot(): readonly ModelMetadata[] | null;
@@ -32,26 +31,24 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
       serverRequests: { kind: "reject", message: "Codex Panel settings does not handle server requests." },
     });
   const runArchivedThreadMutation = <T>(threadId: string, operation: () => Promise<T>): Promise<T> => {
-    return archivedThreadMutations.run(threadId, () => mapStaleContextError(operation));
+    return archivedThreadMutations.run(threadId, operation);
   };
   const loadHooks = (client: AppServerClient): Promise<SettingsHookCatalog> => loadSettingsHookCatalog(client, options.vaultPath);
   const mutateHook = (hook: HookItem, mutation: (client: AppServerClient, hook: HookItem) => Promise<void>): Promise<SettingsHookCatalog> =>
-    mapStaleContextError(() =>
-      withSettingsConnection(async (client) => {
-        await mutation(client, hook);
-        return loadHooks(client);
-      }),
-    );
+    withSettingsConnection(async (client) => {
+      await mutation(client, hook);
+      return loadHooks(client);
+    });
 
   return {
     modelsSnapshot: () => options.appServerQueries.modelsSnapshot(),
     observeModelsResult: (listener, observeOptions) => options.appServerQueries.observeModelsResult(listener, observeOptions),
-    fetchModels: () => mapStaleContextError(() => options.appServerQueries.fetchModels()),
-    refreshModels: () => mapStaleContextError(() => options.appServerQueries.refreshModels()),
+    fetchModels: () => options.appServerQueries.fetchModels(),
+    refreshModels: () => options.appServerQueries.refreshModels(),
     archivedThreadsSnapshot: () => options.threadCatalog.archivedSnapshot(),
     observeArchivedThreadsResult: (listener, observeOptions) => options.threadCatalog.observeArchived(listener, observeOptions),
-    refreshArchivedThreads: () => mapStaleContextError(() => options.threadCatalog.refreshArchived()),
-    refreshHooks: () => mapStaleContextError(() => withSettingsConnection(loadHooks)),
+    refreshArchivedThreads: () => options.threadCatalog.refreshArchived(),
+    refreshHooks: () => withSettingsConnection(loadHooks),
     trustHook: (hook) => mutateHook(hook, trustHookItem),
     setHookEnabled: (hook, enabled) => mutateHook(hook, (client, item) => setHookItemEnabled(client, item, enabled)),
     restoreArchivedThread: (threadId) =>
@@ -75,13 +72,4 @@ async function loadSettingsHookCatalog(client: AppServerClient, vaultPath: strin
     ...catalog,
     status: `Loaded ${String(hookCount)} hook${hookCount === 1 ? "" : "s"}.`,
   };
-}
-
-async function mapStaleContextError<T>(operation: () => Promise<T>): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    if (isStaleAppServerResourceContextError(error)) throw new StaleSettingsDynamicDataContextError();
-    throw error;
-  }
 }

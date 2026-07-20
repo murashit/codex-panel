@@ -3,9 +3,9 @@ import type { CodexPanelSettings } from "./model";
 
 export interface SettingsDynamicSectionsHost {
   settings: CodexPanelSettings;
-  dynamicData: SettingsDynamicDataAccess;
+  readonly dynamicData: SettingsDynamicDataAccess;
 }
 
 export interface CodexPanelSettingTabHost extends SettingsDynamicSectionsHost {
-  publishSettings(settings: CodexPanelSettings): Promise<{ appServerContextReplaced: boolean }>;
+  publishSettings(settings: CodexPanelSettings): Promise<{ replacementDynamicData: SettingsDynamicDataAccess | null }>;
 }
