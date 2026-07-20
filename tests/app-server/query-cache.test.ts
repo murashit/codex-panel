@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
 import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
@@ -303,6 +304,48 @@ describe("AppServerQueryCache", () => {
     expect(listThreads).toHaveBeenCalledTimes(2);
   });
 
+  it("rejoins the active thread query through repeated event cancellations", async () => {
+    const firstRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const secondRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const listThreads = vi
+      .fn()
+      .mockImplementationOnce(() => firstRead.promise)
+      .mockImplementationOnce(() => secondRead.promise)
+      .mockResolvedValueOnce({ data: [thread("authoritative")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+
+    const initial = cache.refreshActiveThreads();
+    await flushMicrotasks();
+    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "first-event", changes: { name: "first" } }]);
+    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "second-event", changes: { name: "second" } }]);
+
+    await expect(initial).resolves.toEqual([thread("authoritative")]);
+    expect(listThreads).toHaveBeenCalledTimes(3);
+    firstRead.resolve({ data: [thread("obsolete-first")], nextCursor: null });
+    secondRead.resolve({ data: [thread("obsolete-second")], nextCursor: null });
+  });
+
+  it("rejoins an archived thread refresh cancelled by an exact event", async () => {
+    const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("cached", true)], nextCursor: null })
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockResolvedValueOnce({ data: [thread("authoritative", true)], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshArchivedThreads();
+
+    const refresh = cache.refreshArchivedThreads();
+    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+    cache.applyThreadListMutations([{ kind: "update", list: "archived", threadId: "cached", changes: { name: "from-event" } }]);
+
+    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(3));
+    await expect(refresh).resolves.toEqual([thread("authoritative", true)]);
+    expect(cache.archivedThreadsSnapshot()).toEqual([thread("authoritative", true)]);
+    staleRead.resolve({ data: [thread("stale", true)], nextCursor: null });
+  });
+
   it("keeps a thread-picker inventory read out of the shared recent list", async () => {
     const oldInventory = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
     const listThreads = vi
@@ -319,6 +362,73 @@ describe("AppServerQueryCache", () => {
     await expect(inventory).resolves.toEqual([thread("old")]);
     expect(cache.activeThreadsSnapshot()).toEqual([thread("new-first")]);
     expect(cache.hasMoreActiveThreads()).toBe(true);
+  });
+
+  it("refreshes the complete thread-picker inventory for each operation", async () => {
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: null })
+      .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+
+    await expect(cache.fetchActiveThreadSearchInventory()).resolves.toEqual([thread("first")]);
+    await expect(cache.fetchActiveThreadSearchInventory()).resolves.toEqual([thread("second")]);
+
+    expect(listThreads).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejoins the complete thread-picker inventory through repeated event cancellations", async () => {
+    const firstRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const secondRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const listThreads = vi
+      .fn()
+      .mockImplementationOnce(() => firstRead.promise)
+      .mockImplementationOnce(() => secondRead.promise)
+      .mockResolvedValueOnce({ data: [thread("authoritative")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+
+    const inventory = cache.fetchActiveThreadSearchInventory();
+    await flushMicrotasks();
+    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "first-event", changes: { name: "first" } }]);
+    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "second-event", changes: { name: "second" } }]);
+
+    await expect(inventory).resolves.toEqual([thread("authoritative")]);
+    expect(listThreads).toHaveBeenCalledTimes(3);
+    firstRead.resolve({ data: [thread("obsolete-first")], nextCursor: null });
+    secondRead.resolve({ data: [thread("obsolete-second")], nextCursor: null });
+  });
+
+  it("does not reuse a cached complete inventory after an event cancels its refresh", async () => {
+    const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("cached")], nextCursor: null })
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockResolvedValueOnce({ data: [thread("authoritative")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.fetchActiveThreadSearchInventory();
+
+    const inventory = cache.fetchActiveThreadSearchInventory();
+    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "event", changes: { name: "changed" } }]);
+
+    await expect(inventory).resolves.toEqual([thread("authoritative")]);
+    expect(listThreads).toHaveBeenCalledTimes(3);
+    staleRead.resolve({ data: [thread("stale")], nextCursor: null });
+  });
+
+  it("runs local app-server queries independently of browser network state", async () => {
+    const listModels = vi.fn().mockResolvedValue({ data: [catalogModel("local")] });
+    const cache = cacheWithRequestHandlers({ "model/list": listModels });
+    onlineManager.setOnline(false);
+
+    try {
+      await expect(cache.fetchModels()).resolves.toMatchObject([{ model: "local" }]);
+      expect(listModels).toHaveBeenCalledOnce();
+    } finally {
+      onlineManager.setOnline(true);
+    }
   });
 
   it("clears snapshots and rejects new reads after disposal", async () => {

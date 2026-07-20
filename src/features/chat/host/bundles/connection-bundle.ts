@@ -134,9 +134,6 @@ export function createConnectionBundle(
     diagnosticsTransport,
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
   });
-  const loadSharedThreads = async (): Promise<void> => {
-    await environment.plugin.threadCatalog.loadActive();
-  };
   const refreshSharedThreads = async (): Promise<void> => {
     await environment.plugin.threadCatalog.refreshActive();
   };
@@ -208,7 +205,6 @@ export function createConnectionBundle(
     diagnostics: {
       refreshServerDiagnostics: (options) => serverDiagnostics.refreshServerDiagnostics(options),
     },
-    loadSharedThreads,
     refreshSharedThreads,
     scheduleDeferredDiagnostics: () => {
       scheduleDeferredDiagnosticsRefresh({

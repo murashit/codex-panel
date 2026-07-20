@@ -27,7 +27,6 @@ export interface ChatConnectionActionsHost {
   metadata: ChatConnectionMetadataActions;
   diagnostics: ChatConnectionDiagnosticsActions;
   invalidateThreadWork: () => void;
-  loadSharedThreads: () => Promise<void>;
   refreshSharedThreads: () => Promise<void>;
   scheduleDeferredDiagnostics: () => void;
   clearDeferredDiagnostics: () => void;
@@ -165,7 +164,7 @@ async function hydrateConnectedResources(host: ChatConnectionActionsHost, isStal
   if (isStale()) return;
 
   try {
-    await host.loadSharedThreads();
+    await host.refreshSharedThreads();
   } catch (error) {
     if (isStale() || host.isStaleResourceContextError(error)) return;
     host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);

@@ -152,23 +152,13 @@ export class AppServerQueryCache {
       await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
       this.assertUsable();
     }
-    let data: ActiveThreadData;
-    try {
-      data = await this.client.fetchInfiniteQuery({
-        ...this.activeThreadsQueryOptions(),
-        ...(options.force ? { staleTime: 0 } : {}),
-      });
-    } catch (error) {
-      if (!(error instanceof CancelledError)) throw error;
-      const snapshot = this.activeThreadsSnapshot();
-      if (snapshot) return snapshot;
-      data = await this.client.fetchInfiniteQuery({
-        ...this.activeThreadsQueryOptions(),
-        ...(options.force ? { staleTime: 0 } : {}),
-      });
-    }
-    this.assertUsable();
-    return cloneThreads(activeThreadsFromData(data) ?? []);
+    return this.readThroughQueryCancellation(
+      async () => {
+        const data = await this.client.fetchInfiniteQuery(this.activeThreadsQueryOptions());
+        return cloneThreads(activeThreadsFromData(data) ?? []);
+      },
+      () => this.activeThreadsSnapshot(),
+    );
   }
 
   async refreshActiveThreads(): Promise<readonly Thread[]> {
@@ -178,21 +168,13 @@ export class AppServerQueryCache {
   async fetchActiveThreadSearchInventory(): Promise<readonly Thread[]> {
     this.assertUsable();
     if (!appServerQueryContextIsComplete(this.context)) return [];
+    const key = activeThreadSearchInventoryQueryKey(this.context);
     const options = {
-      queryKey: activeThreadSearchInventoryQueryKey(this.context),
+      queryKey: key,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         this.runWithClient((client) => listThreads(client, this.context.vaultPath, { signal })),
-      staleTime: Number.POSITIVE_INFINITY,
     };
-    let threads: readonly Thread[];
-    try {
-      threads = await this.client.fetchQuery(options);
-    } catch (error) {
-      if (!(error instanceof CancelledError)) throw error;
-      threads = await this.client.fetchQuery(options);
-    }
-    this.assertUsable();
-    return cloneThreads(threads);
+    return this.readFreshThroughQueryCancellation(key, async () => cloneThreads(await this.client.fetchQuery(options)));
   }
 
   hasMoreActiveThreads(): boolean {
@@ -234,9 +216,9 @@ export class AppServerQueryCache {
       await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
       this.assertUsable();
     }
-    const threads = await this.client.fetchQuery(this.archivedThreadsQueryOptions());
-    this.assertUsable();
-    return cloneThreads(threads);
+    return this.readFreshThroughQueryCancellation(key, async () =>
+      cloneThreads(await this.client.fetchQuery(this.archivedThreadsQueryOptions())),
+    );
   }
 
   applyThreadListMutations(mutations: readonly ThreadListMutation[]): void {
@@ -640,6 +622,29 @@ export class AppServerQueryCache {
     return runner.runWithClient(this.context, operation, options);
   }
 
+  private async readThroughQueryCancellation<T>(read: () => Promise<T>, fallback?: () => T | null): Promise<T> {
+    for (;;) {
+      try {
+        const value = await read();
+        this.assertUsable();
+        return value;
+      } catch (error) {
+        if (!(error instanceof CancelledError)) throw error;
+        this.assertUsable();
+        const fallbackValue = fallback?.();
+        if (fallbackValue != null) return fallbackValue;
+      }
+    }
+  }
+
+  private async readFreshThroughQueryCancellation<T>(queryKey: readonly unknown[], read: () => Promise<T>): Promise<T> {
+    for (;;) {
+      const value = await this.readThroughQueryCancellation(read);
+      this.assertUsable();
+      if (!this.client.getQueryState(queryKey)?.isInvalidated) return value;
+    }
+  }
+
   private assertUsable(): void {
     if (this.disposed) throw new Error("Codex app-server query cache was disposed.");
   }
@@ -665,8 +670,8 @@ function createAppServerQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        networkMode: "always",
         retry: false,
-        refetchOnReconnect: false,
         refetchOnWindowFocus: false,
       },
       mutations: {
