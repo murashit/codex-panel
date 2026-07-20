@@ -105,10 +105,6 @@ export class ConnectionManager {
     return promise;
   }
 
-  resetConnection(): void {
-    this.disconnect();
-  }
-
   disconnect(): void {
     const previous = this.state;
     this.state = { kind: "disconnected", generation: previous.generation + 1 };

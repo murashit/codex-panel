@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { type ChatReconnectActionsHost, reconnectPanel } from "../../../../../src/features/chat/application/connection/reconnect-actions";
+import {
+  type ChatReconnectActionsHost,
+  createReconnectPanelAction,
+} from "../../../../../src/features/chat/application/connection/reconnect-actions";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 
@@ -36,10 +39,7 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
   stateStore.dispatch({ type: "thread-list/applied", threads: [{ id: "thread" } as never] });
   const host: ChatReconnectActionsHost = {
     stateStore,
-    invalidateConnectionWork: vi.fn(),
-    invalidateThreadWork: vi.fn(),
-    clearDeferredDiagnostics: vi.fn(),
-    resetConnection: vi.fn(),
+    resetConnectionScope: vi.fn(),
     setStatus: vi.fn(),
     ensureConnected: vi.fn().mockResolvedValue(undefined),
     isConnected: vi.fn(() => true),
@@ -63,20 +63,17 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
     addSystemMessage: vi.fn(),
     ...overrides,
   };
-  return { host, stateStore };
+  return { host, stateStore, reconnect: createReconnectPanelAction(host) };
 }
 
-describe("reconnectPanel", () => {
+describe("createReconnectPanelAction", () => {
   it("resets local connection work before reconnecting and retains shared thread projections", async () => {
-    const { host, stateStore } = createHost();
+    const { host, stateStore, reconnect } = createHost();
 
-    await expect(reconnectPanel(host)).resolves.toBe(true);
+    await expect(reconnect()).resolves.toBe(true);
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
-    expect(host.invalidateConnectionWork).toHaveBeenCalledOnce();
-    expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
-    expect(host.clearDeferredDiagnostics).toHaveBeenCalledOnce();
-    expect(host.resetConnection).toHaveBeenCalledOnce();
+    expect(host.resetConnectionScope).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
     expect(stateStore.getState().threadList).toEqual({
@@ -124,7 +121,7 @@ describe("reconnectPanel", () => {
       },
     },
   ] as const)("resumes the same $label thread after an unexpected exit", async ({ thread }) => {
-    const { host, stateStore } = createHost();
+    const { host, stateStore, reconnect } = createHost();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -148,14 +145,14 @@ describe("reconnectPanel", () => {
       provenance: thread.provenance,
     });
 
-    await expect(reconnectPanel(host)).resolves.toBe(true);
+    await expect(reconnect()).resolves.toBe(true);
 
     expect(host.resumeThread).toHaveBeenCalledWith(thread.id);
     expect(activeThreadId(stateStore.getState())).toBe(thread.id);
   });
 
   it("does not resume an ephemeral thread after an unexpected exit", async () => {
-    const { host, stateStore } = createHost();
+    const { host, stateStore, reconnect } = createHost();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -174,18 +171,55 @@ describe("reconnectPanel", () => {
     stateStore.dispatch({ type: "connection/scoped-cleared" });
     expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
 
-    await reconnectPanel(host);
+    await reconnect();
 
     expect(host.resumeThread).not.toHaveBeenCalled();
   });
 
   it("reports resume failures after reconnecting", async () => {
-    const { host } = createHost({
+    const { host, reconnect } = createHost({
       resumeThread: vi.fn().mockRejectedValue(new Error("resume failed")),
     });
 
-    await reconnectPanel(host);
+    await reconnect();
 
     expect(host.addSystemMessage).toHaveBeenCalledWith("resume failed");
+  });
+
+  it("coalesces overlapping manual reconnect requests", async () => {
+    let finishConnecting: () => void = () => undefined;
+    const connecting = new Promise<void>((resolve) => {
+      finishConnecting = resolve;
+    });
+    const { host, reconnect } = createHost({
+      ensureConnected: vi.fn(() => connecting),
+    });
+
+    const first = reconnect();
+    const second = reconnect();
+
+    expect(host.resetConnectionScope).toHaveBeenCalledOnce();
+    expect(host.ensureConnected).toHaveBeenCalledOnce();
+
+    finishConnecting();
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    expect(host.resumeThread).toHaveBeenCalledOnce();
+  });
+
+  it("does not resume the old target after navigation while reconnecting", async () => {
+    let finishConnecting: () => void = () => undefined;
+    const connecting = new Promise<void>((resolve) => {
+      finishConnecting = resolve;
+    });
+    const { host, stateStore, reconnect } = createHost({
+      ensureConnected: vi.fn(() => connecting),
+    });
+
+    const operation = reconnect();
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    finishConnecting();
+
+    await expect(operation).resolves.toBe(false);
+    expect(host.resumeThread).not.toHaveBeenCalled();
   });
 });

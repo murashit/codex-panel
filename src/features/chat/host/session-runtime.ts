@@ -2,7 +2,7 @@ import { codexPanelAppServerInitializeParams } from "../../../app-server/connect
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerResourceContextError } from "../../../app-server/query/resource-store";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../app-server/session-gateway";
-import { reconnectPanel } from "../application/connection/reconnect-actions";
+import { createReconnectPanelAction } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
@@ -224,18 +224,12 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   });
   const reconnectHost = {
     stateStore,
-    invalidateConnectionWork: () => {
+    resetConnectionScope: () => {
       connectionActions.invalidate();
-    },
-    invalidateThreadWork: () => {
       invalidateThreadWork();
-    },
-    clearDeferredDiagnostics: () => {
       host.deferredTasks.clearDiagnostics();
-    },
-    resetConnection: () => {
       connectionBundle.invalidateConnectionScope();
-      connection.resetConnection();
+      connection.disconnect();
     },
     setStatus: (statusText: string, phase?: ChatConnectionPhase) => {
       status.set(statusText, phase);
@@ -247,8 +241,9 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
       status.addSystemMessage(text);
     },
   };
+  const reconnectPanel = createReconnectPanelAction(reconnectHost);
   const reconnect = async () => {
-    await reconnectPanel(reconnectHost);
+    await reconnectPanel();
   };
   const reconnectForUser = host.reconnect ?? reconnect;
   const turn = createTurnBundle(host, {

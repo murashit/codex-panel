@@ -6,10 +6,7 @@ const STATUS_RECONNECTING = "Reconnecting...";
 
 export interface ChatReconnectActionsHost {
   stateStore: ChatStateStore;
-  invalidateConnectionWork: () => void;
-  invalidateThreadWork: () => void;
-  clearDeferredDiagnostics: () => void;
-  resetConnection: () => void;
+  resetConnectionScope: () => void;
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
   ensureConnected: () => Promise<void>;
   isConnected: () => boolean;
@@ -17,34 +14,35 @@ export interface ChatReconnectActionsHost {
   addSystemMessage: (text: string) => void;
 }
 
-export async function reconnectPanel(
-  host: ChatReconnectActionsHost,
-  target: { resumeThreadId: string | null; isCurrent?: () => boolean } | null = null,
-): Promise<boolean> {
+export function createReconnectPanelAction(host: ChatReconnectActionsHost): () => Promise<boolean> {
+  let activeReconnect: Promise<boolean> | null = null;
+  return async () => {
+    if (activeReconnect) return activeReconnect;
+    const operation = reconnectPanel(host);
+    activeReconnect = operation;
+    try {
+      return await operation;
+    } finally {
+      if (activeReconnect === operation) activeReconnect = null;
+    }
+  };
+}
+
+async function reconnectPanel(host: ChatReconnectActionsHost): Promise<boolean> {
   const currentState = host.stateStore.getState();
   const panelTarget = capturePanelTargetLease(currentState);
-  const threadId = target
-    ? target.resumeThreadId
-    : activeThreadState(currentState)?.lifetime?.kind === "ephemeral"
-      ? null
-      : panelThreadId(currentState);
-  const isCurrent = target?.isCurrent ?? (() => true);
+  const threadId = activeThreadState(currentState)?.lifetime?.kind === "ephemeral" ? null : panelThreadId(currentState);
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
-  host.invalidateConnectionWork();
-  host.invalidateThreadWork();
-  host.clearDeferredDiagnostics();
-  host.resetConnection();
+  host.resetConnectionScope();
   host.stateStore.dispatch({ type: "connection/scoped-cleared" });
   host.setStatus(STATUS_RECONNECTING, { kind: "connecting" });
 
   await host.ensureConnected();
-  if (!isCurrent() || !host.isConnected() || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
+  if (!host.isConnected() || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
   if (!threadId) return true;
   try {
     if (!(await host.resumeThread(threadId))) return false;
-    if (!isCurrent() || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) {
-      return false;
-    }
+    if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
     return activeThreadId(host.stateStore.getState()) === threadId;
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
