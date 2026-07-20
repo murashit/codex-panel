@@ -10,6 +10,8 @@ Keep the panel thin. Codex Panel owns the Obsidian experience around Codex: pane
 
 Codex owns runtime behavior and thread state: models, credentials, sandboxing, approval policy, MCP servers, hooks, providers, agent-initiated network access, thread history, archived state, goals, and runtime settings. The panel should read and update that state through `codex app-server`, not redefine it.
 
+The panel may provide a narrow management surface when direct configuration of Codex-owned state is impractical and app-server still owns the semantics. Hook controls serve this role: help users recognize and manage hooks they added or changed without presenting the panel as a code-audit surface.
+
 The panel may acquire prompt context through an explicit user action. `/web` fetches the requested page through Obsidian and attaches the extracted content as untrusted turn context; it is not a search surface or agent network policy.
 
 Panel-acquired context remains reference material rather than current user authorization. Send its bounded payload as untrusted app-server context, while persisting only a tightly bounded, context-body-free metadata descriptor needed to reconstruct panel display and archive metadata. Treat that fixed-schema envelope as inert reference metadata rather than user instructions. Apply physical byte and part limits at the app-server boundary; keep source-specific selection and truncation policy with the context producer.
