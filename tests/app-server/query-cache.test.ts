@@ -8,16 +8,6 @@ import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/p
 import type { Thread } from "../../src/domain/threads/model";
 
 describe("AppServerQueryCache", () => {
-  it("does not share or store snapshots before the cache context is complete", async () => {
-    const context = cacheContext({ codexPath: "" });
-    const cache = new AppServerQueryCache(context);
-
-    await expect(cache.refreshActiveThreads()).resolves.toEqual([]);
-    expect(cache.activeThreadsSnapshot()).toBeNull();
-    expect(cache.appServerMetadataSnapshot()).toBeNull();
-    expect(cache.modelsSnapshot()).toBeNull();
-  });
-
   it("stores successful empty thread list snapshots as shared cache truth", async () => {
     const fetchThreads = vi.fn().mockResolvedValue([]);
     const cache = cacheWithThreads(fetchThreads);
@@ -444,7 +434,7 @@ describe("AppServerQueryCache", () => {
   });
 
   it("freezes its lease context before starting requests", async () => {
-    const context = cacheContext({ codexPath: "codex-captured" });
+    const context = { codexPath: "codex-captured", vaultPath: "/vault" };
     const capturedContext = { ...context };
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
     const fetchThreads = vi.fn(() => refresh.promise);
@@ -783,14 +773,15 @@ function cacheWithThreads(
   fetchThreads: (context: AppServerQueryContext, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
   context: AppServerQueryContext = cacheContext(),
 ): AppServerQueryCache {
+  const runtimeContext = { ...context };
   return new AppServerQueryCache(context, {
     clientRunner: {
-      runWithClient: async (context, operation) => {
+      runWithClient: async (operation) => {
         return operation({
           request: async (method: string, params: { archived?: boolean }) => {
             if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
             return {
-              data: await fetchThreads(context, params.archived ?? false),
+              data: await fetchThreads(runtimeContext, params.archived ?? false),
               nextCursor: null,
             };
           },
@@ -813,7 +804,7 @@ function cacheWithRequestHandlers(
   };
   return new AppServerQueryCache(context, {
     clientRunner: {
-      runWithClient: async (_context, operation) => operation(requestClient as never),
+      runWithClient: async (operation) => operation(requestClient as never),
     },
   });
 }

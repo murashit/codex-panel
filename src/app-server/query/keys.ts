@@ -1,6 +1,6 @@
 export interface AppServerQueryContext {
-  codexPath: string;
-  vaultPath: string;
+  readonly codexPath: string;
+  readonly vaultPath: string;
 }
 
 type AppServerQueryScope = readonly ["app-server", string, string];
@@ -12,22 +12,6 @@ export type AppServerRuntimeConfigQueryKey = readonly [...AppServerQueryScope, "
 export type AppServerSkillsQueryKey = readonly [...AppServerQueryScope, "skills"];
 export type AppServerPermissionProfilesQueryKey = readonly [...AppServerQueryScope, "permission-profiles"];
 export type AppServerRateLimitsQueryKey = readonly [...AppServerQueryScope, "rate-limits"];
-
-export function appServerQueryContextIsComplete(context: AppServerQueryContext): boolean {
-  return nonEmptyString(context.codexPath) && nonEmptyString(context.vaultPath);
-}
-
-export function cloneAppServerQueryContext(context: AppServerQueryContext): AppServerQueryContext {
-  return { ...context };
-}
-
-function appServerQueryContextRawEquals(left: AppServerQueryContext, right: AppServerQueryContext): boolean {
-  return left.codexPath === right.codexPath && left.vaultPath === right.vaultPath;
-}
-
-export function appServerQueryContextMatches(left: AppServerQueryContext, right: AppServerQueryContext): boolean {
-  return appServerQueryContextIsComplete(left) && appServerQueryContextIsComplete(right) && appServerQueryContextRawEquals(left, right);
-}
 
 function appServerQueryScope(context: AppServerQueryContext): AppServerQueryScope {
   return ["app-server", context.codexPath, context.vaultPath];
@@ -63,8 +47,4 @@ export function appServerPermissionProfilesQueryKey(context: AppServerQueryConte
 
 export function appServerRateLimitsQueryKey(context: AppServerQueryContext): AppServerRateLimitsQueryKey {
   return [...appServerQueryScope(context), "rate-limits"];
-}
-
-function nonEmptyString(value: string): boolean {
-  return value.trim().length > 0;
 }

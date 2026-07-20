@@ -8,8 +8,7 @@ import type { ThreadListMutation } from "./thread-list-mutation";
 
 export interface AppServerResourceStoreOptions {
   context: AppServerQueryContext;
-  cacheFactory?: (context: AppServerQueryContext) => AppServerQueryCache;
-  clientRunner?: AppServerQueryClientRunner;
+  clientRunner: AppServerQueryClientRunner;
 }
 
 export class StaleAppServerResourceContextError extends Error {
@@ -23,43 +22,34 @@ export function isStaleAppServerResourceContextError(error: unknown): error is S
   return error instanceof StaleAppServerResourceContextError;
 }
 
-interface ResourceObserver<T> {
-  readonly observe: (cache: AppServerQueryCache, listener: (value: T) => void, options: { emitCurrent?: boolean }) => () => void;
-  readonly listener: (value: T) => void;
-  readonly options: { emitCurrent?: boolean };
-  unsubscribeQuery: (() => void) | null;
-}
-
 export class AppServerResourceStore {
-  private readonly observers = new Set<ResourceObserver<unknown>>();
-  private cache: AppServerQueryCache | null;
+  private readonly cache: AppServerQueryCache;
+  private readonly observerUnsubscribes = new Set<() => void>();
   private disposed = false;
 
   constructor(options: AppServerResourceStoreOptions) {
-    const cacheFactory =
-      options.cacheFactory ??
-      ((context) => new AppServerQueryCache(context, options.clientRunner ? { clientRunner: options.clientRunner } : {}));
-    this.cache = cacheFactory(Object.freeze({ ...options.context }));
+    const context = Object.freeze({ ...options.context });
+    this.cache = new AppServerQueryCache(context, { clientRunner: options.clientRunner });
   }
 
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.unsubscribeObservers();
-    this.cache?.dispose();
-    this.cache = null;
+    for (const unsubscribe of this.observerUnsubscribes) unsubscribe();
+    this.observerUnsubscribes.clear();
+    this.cache.dispose();
   }
 
   activeThreadsSnapshot(): readonly Thread[] | null {
-    return this.cache?.activeThreadsSnapshot() ?? null;
+    return this.cache.activeThreadsSnapshot();
   }
 
   recentActiveThreadsSnapshot(): readonly Thread[] | null {
-    return this.cache?.recentActiveThreadsSnapshot() ?? null;
+    return this.cache.recentActiveThreadsSnapshot();
   }
 
   archivedThreadsSnapshot(): readonly Thread[] | null {
-    return this.cache?.archivedThreadsSnapshot() ?? null;
+    return this.cache.archivedThreadsSnapshot();
   }
 
   fetchActiveThreadSearchInventory(): Promise<readonly Thread[]> {
@@ -67,7 +57,7 @@ export class AppServerResourceStore {
   }
 
   hasMoreActiveThreads(): boolean {
-    return this.cache?.hasMoreActiveThreads() ?? false;
+    return this.cache.hasMoreActiveThreads();
   }
 
   loadMoreActiveThreads(): Promise<readonly Thread[]> {
@@ -87,30 +77,23 @@ export class AppServerResourceStore {
   }
 
   applyThreadListMutations(mutations: readonly ThreadListMutation[]): void {
-    this.currentCache().applyThreadListMutations(mutations);
+    this.assertActive();
+    this.cache.applyThreadListMutations(mutations);
   }
 
   observeActiveThreadsResult(
     listener: ObservedPaginatedResultListener<readonly Thread[]>,
     options?: { emitCurrent?: boolean },
   ): () => void {
-    return this.observeCurrentContext(
-      (cache, contextListener, observeOptions) => cache.observeActiveThreadsResult(contextListener, observeOptions),
-      listener,
-      options,
-    );
+    return this.observe((contextListener) => this.cache.observeActiveThreadsResult(contextListener, options), listener);
   }
 
   observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
-    return this.observeCurrentContext(
-      (cache, contextListener, observeOptions) => cache.observeArchivedThreadsResult(contextListener, observeOptions),
-      listener,
-      options,
-    );
+    return this.observe((contextListener) => this.cache.observeArchivedThreadsResult(contextListener, options), listener);
   }
 
   appServerMetadataSnapshot(): SharedServerMetadata | null {
-    return this.cache?.appServerMetadataSnapshot() ?? null;
+    return this.cache.appServerMetadataSnapshot();
   }
 
   refreshAppServerMetadata(): Promise<void> {
@@ -129,15 +112,11 @@ export class AppServerResourceStore {
     listener: (resource: SharedServerMetadataResource) => void,
     options?: { emitCurrent?: boolean },
   ): () => void {
-    return this.observeCurrentContext(
-      (cache, contextListener, observeOptions) => cache.observeAppServerMetadataResources(contextListener, observeOptions),
-      listener,
-      options,
-    );
+    return this.observe((contextListener) => this.cache.observeAppServerMetadataResources(contextListener, options), listener);
   }
 
   modelsSnapshot(): readonly ModelMetadata[] | null {
-    return this.cache?.modelsSnapshot() ?? null;
+    return this.cache.modelsSnapshot();
   }
 
   fetchModels(): Promise<readonly ModelMetadata[]> {
@@ -149,73 +128,39 @@ export class AppServerResourceStore {
   }
 
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void {
-    return this.observeCurrentContext(
-      (cache, contextListener, observeOptions) => cache.observeModelsResult(contextListener, observeOptions),
-      listener,
-      options,
-    );
+    return this.observe((contextListener) => this.cache.observeModelsResult(contextListener, options), listener);
   }
 
   private runForCurrentContext<T>(operation: (cache: AppServerQueryCache) => Promise<T>): Promise<T> {
-    const cache = this.currentCache();
-    return this.runWhileActive(cache, () => operation(cache));
+    this.assertActive();
+    return this.runWhileActive(() => operation(this.cache));
   }
 
-  private async runWhileActive<T>(cache: AppServerQueryCache, operation: () => Promise<T>): Promise<T> {
+  private async runWhileActive<T>(operation: () => Promise<T>): Promise<T> {
     let result: T;
     try {
       result = await operation();
     } catch (error) {
-      if (this.cache !== cache) throw new StaleAppServerResourceContextError();
+      if (this.disposed) throw new StaleAppServerResourceContextError();
       throw error;
     }
-    if (this.cache !== cache) throw new StaleAppServerResourceContextError();
+    if (this.disposed) throw new StaleAppServerResourceContextError();
     return result;
   }
 
-  private observeCurrentContext<T>(
-    observe: ResourceObserver<T>["observe"],
-    listener: ResourceObserver<T>["listener"],
-    options: { emitCurrent?: boolean } = {},
-  ): () => void {
-    const observer: ResourceObserver<T> = {
-      observe,
-      listener,
-      options,
-      unsubscribeQuery: null,
-    };
-    this.observers.add(observer as ResourceObserver<unknown>);
-    this.bindObserver(observer);
+  private observe<T>(subscribe: (listener: (value: T) => void) => () => void, listener: (value: T) => void): () => void {
+    this.assertActive();
+    const unsubscribe = subscribe((value) => {
+      if (!this.disposed) listener(value);
+    });
+    this.observerUnsubscribes.add(unsubscribe);
     return () => {
-      this.observers.delete(observer as ResourceObserver<unknown>);
-      observer.unsubscribeQuery?.();
-      observer.unsubscribeQuery = null;
+      if (!this.observerUnsubscribes.delete(unsubscribe)) return;
+      unsubscribe();
     };
   }
 
-  private bindObserver<T>(observer: ResourceObserver<T>): void {
-    if (this.disposed || !this.cache) return;
-    const cache = this.cache;
-    const observeOptions: { emitCurrent?: boolean } = {};
-    if (observer.options.emitCurrent !== undefined) observeOptions.emitCurrent = observer.options.emitCurrent;
-    observer.unsubscribeQuery = observer.observe(
-      cache,
-      (value) => {
-        if (!this.disposed) observer.listener(value);
-      },
-      observeOptions,
-    );
-  }
-
-  private unsubscribeObservers(): void {
-    for (const observer of this.observers) {
-      observer.unsubscribeQuery?.();
-      observer.unsubscribeQuery = null;
-    }
-  }
-
-  private currentCache(): AppServerQueryCache {
-    if (!this.cache) throw new Error("Codex app-server resource store is not initialized.");
-    return this.cache;
+  private assertActive(): void {
+    if (this.disposed) throw new StaleAppServerResourceContextError();
   }
 }

@@ -3,7 +3,7 @@ import type { App } from "obsidian";
 import type { AppServerClient } from "./app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
-import { type AppServerQueryContext, appServerQueryContextIsComplete, appServerQueryContextMatches } from "./app-server/query/keys";
+import type { AppServerQueryContext } from "./app-server/query/keys";
 import { AppServerResourceStore, StaleAppServerResourceContextError } from "./app-server/query/resource-store";
 import {
   type EphemeralStructuredTurnClient,
@@ -64,7 +64,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.resourceStore = new AppServerResourceStore({
       context: this.context,
       clientRunner: {
-        runWithClient: (context, operation, clientOptions) => this.runWithAppServerClient(context, operation, clientOptions),
+        runWithClient: (operation, clientOptions) => this.runWithAppServerClient(operation, clientOptions),
       },
     });
     this.threadCatalog = createThreadCatalog({
@@ -116,7 +116,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   }
 
   withClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {
-    return this.runWithAppServerClient(this.context, operation, options);
+    return this.runWithAppServerClient(operation, options);
   }
 
   attachChatView(view: ChatRuntimeView): void {
@@ -264,16 +264,15 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   }
 
   private async runWithAppServerClient<T>(
-    context: AppServerQueryContext,
     operation: (client: AppServerClient) => Promise<T>,
     options: AppServerClientAccessOptions = {},
   ): Promise<T> {
-    this.assertCurrent(context);
+    this.assertActive();
     const guardedOperation = (client: AppServerClient): Promise<T> => {
-      this.assertCurrent(context);
+      this.assertActive();
       return operation(client);
     };
-    const result = await withShortLivedAppServerClient(context.codexPath, context.vaultPath, guardedOperation, options, {
+    const result = await withShortLivedAppServerClient(this.context.codexPath, this.context.vaultPath, guardedOperation, options, {
       created: (client) => {
         if (this.disposed) {
           client.disconnect();
@@ -285,7 +284,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
         this.shortLivedClients.delete(client);
       },
     });
-    this.assertCurrent(context);
+    this.assertActive();
     return result;
   }
 
@@ -333,13 +332,6 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadNamingEffort: () => this.options.settings().threadNamingEffort,
       runner: this.structuredTurnRunner(),
     });
-  }
-
-  private assertCurrent(context: AppServerQueryContext): void {
-    if (this.disposed || !appServerQueryContextIsComplete(context)) throw new StaleAppServerResourceContextError();
-    if (!appServerQueryContextMatches(this.context, context)) {
-      throw new StaleAppServerResourceContextError();
-    }
   }
 
   private assertActive(): void {

@@ -1,58 +1,73 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerQueryCache } from "../../src/app-server/query/cache";
-import type { AppServerQueryContext } from "../../src/app-server/query/keys";
-import { AppServerResourceStore } from "../../src/app-server/query/resource-store";
+import type { AppServerQueryClientRunner } from "../../src/app-server/query/cache";
+import { AppServerResourceStore, StaleAppServerResourceContextError } from "../../src/app-server/query/resource-store";
 
 describe("AppServerResourceStore", () => {
-  it("constructs its only query cache from an immutable context", () => {
-    const cacheFactory = vi.fn((_context: AppServerQueryContext) => cacheWith());
-    const context = { codexPath: "codex-a", vaultPath: "/vault" };
+  it("uses its required runtime-owned client runner", async () => {
+    const runWithClient = vi.fn(async (operation) =>
+      operation({
+        request: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      } as never),
+    );
+    const store = createStore({ runWithClient });
 
-    new AppServerResourceStore({ context, cacheFactory });
-    context.codexPath = "changed";
+    await expect(store.fetchActiveThreads()).resolves.toEqual([]);
 
-    expect(cacheFactory).toHaveBeenCalledWith({ codexPath: "codex-a", vaultPath: "/vault" });
-    expect(Object.isFrozen(cacheFactory.mock.calls[0]?.[0])).toBe(true);
+    expect(runWithClient).toHaveBeenCalledOnce();
   });
 
-  it("disposes its only query cache once", () => {
-    const cache = cacheWith();
-    const store = new AppServerResourceStore({
-      context: { codexPath: "codex", vaultPath: "/vault" },
-      cacheFactory: () => cache,
+  it("rejects new work after disposal", async () => {
+    const store = createStore({
+      runWithClient: vi.fn(() => Promise.resolve([])) as AppServerQueryClientRunner["runWithClient"],
     });
 
     store.dispose();
     store.dispose();
 
-    expect(cache.dispose).toHaveBeenCalledOnce();
+    expect(() => store.fetchModels()).toThrow(StaleAppServerResourceContextError);
+  });
+
+  it("rejects a completion after its runtime-owned store is disposed", async () => {
+    let resolveFetch: (models: readonly []) => void = () => undefined;
+    const pending = new Promise<readonly []>((resolve) => {
+      resolveFetch = resolve;
+    });
+    const store = createStore({
+      runWithClient: vi.fn(() => pending) as AppServerQueryClientRunner["runWithClient"],
+    });
+
+    const fetch = store.fetchModels();
+    store.dispose();
+    resolveFetch([]);
+
+    await expect(fetch).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
+  });
+
+  it("does not notify observers after disposal", async () => {
+    let resolveFetch: (models: readonly []) => void = () => undefined;
+    const pending = new Promise<readonly []>((resolve) => {
+      resolveFetch = resolve;
+    });
+    const store = createStore({
+      runWithClient: vi.fn(() => pending) as AppServerQueryClientRunner["runWithClient"],
+    });
+    const listener = vi.fn();
+    store.observeModelsResult(listener, { emitCurrent: false });
+
+    const fetch = store.fetchModels();
+    listener.mockClear();
+    store.dispose();
+    resolveFetch([]);
+    await expect(fetch).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });
 
-function cacheWith(overrides: Partial<AppServerQueryCache> = {}): AppServerQueryCache {
-  return {
-    dispose: vi.fn(),
-    activeThreadsSnapshot: vi.fn(() => null),
-    recentActiveThreadsSnapshot: vi.fn(() => null),
-    archivedThreadsSnapshot: vi.fn(() => null),
-    fetchActiveThreadSearchInventory: vi.fn(() => Promise.resolve([])),
-    fetchActiveThreads: vi.fn(() => Promise.resolve([])),
-    hasMoreActiveThreads: vi.fn(() => false),
-    loadMoreActiveThreads: vi.fn(() => Promise.resolve([])),
-    refreshActiveThreads: vi.fn(() => Promise.resolve([])),
-    refreshArchivedThreads: vi.fn(() => Promise.resolve([])),
-    observeActiveThreadsResult: vi.fn(() => () => undefined),
-    observeArchivedThreadsResult: vi.fn(() => () => undefined),
-    appServerMetadataSnapshot: vi.fn(() => null),
-    refreshAppServerMetadata: vi.fn(() => Promise.resolve()),
-    refreshSkills: vi.fn(() => Promise.resolve()),
-    refreshRateLimits: vi.fn(() => Promise.resolve()),
-    observeAppServerMetadataResources: vi.fn(() => () => undefined),
-    modelsSnapshot: vi.fn(() => null),
-    fetchModels: vi.fn(() => Promise.resolve([])),
-    refreshModels: vi.fn(() => Promise.resolve([])),
-    observeModelsResult: vi.fn(() => () => undefined),
-    ...overrides,
-  } as unknown as AppServerQueryCache;
+function createStore(clientRunner: AppServerQueryClientRunner): AppServerResourceStore {
+  return new AppServerResourceStore({
+    context: { codexPath: "codex", vaultPath: "/vault" },
+    clientRunner,
+  });
 }
