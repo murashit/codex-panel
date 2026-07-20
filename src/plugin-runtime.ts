@@ -1,6 +1,4 @@
 import type { App } from "obsidian";
-import type { AppServerClient } from "./app-server/connection/client";
-import type { AppServerClientAccessOptions } from "./app-server/connection/client-access";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { CodexExecutionRuntime } from "./execution-runtime";
 import type {
@@ -8,12 +6,10 @@ import type {
   ChatSharedThreadSurface,
   ChatViewLifecycleSurface,
   ChatViewRuntimeOwner,
-  CodexChatHost,
 } from "./features/chat/host/contracts";
 import type { SelectionRewriteCommandController } from "./features/selection-rewrite/command.obsidian";
 import type { SelectionRewriteTransport } from "./features/selection-rewrite/transport";
 import type { ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
-import type { ThreadsViewHost } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
 import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/turn-diff/model";
@@ -124,18 +120,6 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     };
   }
 
-  withClient<T>(operation: (client: AppServerClient) => Promise<T>, options?: AppServerClientAccessOptions): Promise<T> {
-    return this.currentExecutionRuntime().withClient(operation, options);
-  }
-
-  chatHost(): CodexChatHost {
-    return this.currentExecutionRuntime().chatHost();
-  }
-
-  threadsHost(): ThreadsViewHost {
-    return this.currentExecutionRuntime().threadsHost();
-  }
-
   settingTabHost(): CodexPanelSettingTabHost {
     return {
       settings: this.options.settingsRef.settings,
@@ -163,7 +147,10 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     } else {
       Object.assign(this.options.settingsRef.settings, settings);
     }
-    if (appServerContextReplaced || previousSettings.showToolbar !== settings.showToolbar) this.refreshOpenViews();
+    if (previousSettings.showToolbar !== settings.showToolbar || previousSettings.archiveExportEnabled !== settings.archiveExportEnabled) {
+      this.refreshChatViewSettings();
+    }
+    if (previousSettings.archiveExportEnabled !== settings.archiveExportEnabled) this.refreshThreadsViewSettings();
     return { replacementDynamicData };
   }
 
@@ -178,11 +165,14 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     await this.options.app.workspace.revealLeaf(leaf);
   }
 
-  private refreshOpenViews(): void {
+  private refreshChatViewSettings(): void {
     for (const view of this.panels.panelViews()) {
       const surface: ChatViewLifecycleSurface = view.surface;
       surface.refreshSettings();
     }
+  }
+
+  private refreshThreadsViewSettings(): void {
     for (const view of this.threadsViews()) view.refreshSettings();
   }
 

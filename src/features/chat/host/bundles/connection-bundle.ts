@@ -222,7 +222,7 @@ export function createConnectionBundle(
     },
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
-    configuredCommand: () => environment.plugin.settingsRef.settings.codexPath(),
+    configuredCommand: () => environment.plugin.appServerContext.codexPath,
     isStaleConnectionError: (error) => error instanceof StaleConnectionError,
     isStaleResourceContextError: isStaleAppServerResourceContextError,
     notifyConnectionFailed: () => {

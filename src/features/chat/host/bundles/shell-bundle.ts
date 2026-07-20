@@ -89,13 +89,13 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       nowMs: () => Date.now(),
     },
     settings: {
-      vaultPath: () => environment.plugin.settingsRef.vaultPath,
-      configuredCommand: () => environment.plugin.settingsRef.settings.codexPath(),
-      archiveExportEnabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),
+      vaultPath: () => environment.plugin.appServerContext.vaultPath,
+      configuredCommand: () => environment.plugin.appServerContext.codexPath,
+      archiveExportEnabled: () => environment.plugin.settings.archiveExportEnabled(),
     },
   };
   const goalSurface: ChatPanelGoalSurface = {
-    sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
+    sendShortcut: () => environment.plugin.settings.sendShortcut(),
     actions: goals,
   };
   const threadStreamContext = createChatThreadStreamSurfaceContext({
@@ -103,7 +103,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     app: environment.obsidian.app,
     owner: environment.obsidian.owner,
     stateStore,
-    vaultPath: environment.plugin.settingsRef.vaultPath,
+    vaultPath: environment.plugin.appServerContext.vaultPath,
     loadOlderTurns: () => void history.loadOlder(),
     actions: {
       rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),

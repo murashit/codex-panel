@@ -48,8 +48,8 @@ export function createRuntimeBundle(
     projection: createChatPanelRuntimeProjection({
       state: () => host.stateStore.getState(),
       connected: () => input.connection.isConnected(),
-      configuredCommand: () => host.environment.plugin.settingsRef.settings.codexPath(),
-      vaultPath: () => host.environment.plugin.settingsRef.vaultPath,
+      configuredCommand: () => host.environment.plugin.appServerContext.codexPath,
+      vaultPath: () => host.environment.plugin.appServerContext.vaultPath,
       nowMs: () => Date.now(),
     }),
   };

@@ -125,9 +125,9 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     transport: threadOperationsTransport,
     nameMutations: environment.plugin.threadNameMutations,
     archiveExport: {
-      settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
-      enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),
-      vaultPath: environment.plugin.settingsRef.vaultPath,
+      settings: () => environment.plugin.settings.archiveExportSettings(),
+      enabled: () => environment.plugin.settings.archiveExportEnabled(),
+      vaultPath: environment.plugin.appServerContext.vaultPath,
       vaultConfigDir: environment.obsidian.app.vault.configDir,
     },
     archiveDestination: environment.obsidian.archiveDestination,

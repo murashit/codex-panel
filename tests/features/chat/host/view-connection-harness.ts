@@ -564,10 +564,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     },
     threadGoalOperations: createThreadGoalOperationCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationQueue(),
-    settingsRef: {
-      settings: chatPanelSettingsAccess(settings),
-      vaultPath,
-    },
+    settings: chatPanelSettingsAccess(settings),
     workspace: {
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
       openThreadFromPanel: overrides.openThreadFromPanel ?? vi.fn(),

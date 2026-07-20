@@ -11,11 +11,8 @@ export function chatPanelSettingsAccess(settings: CodexPanelSettings): ChatPanel
       archiveExportFilenameTemplate: settings.archiveExportFilenameTemplate,
       archiveExportTags: settings.archiveExportTags,
     }),
-    codexPath: () => settings.codexPath,
     scrollThreadFromComposerEdges: () => settings.scrollThreadFromComposerEdges,
     sendShortcut: () => settings.sendShortcut,
     showToolbar: () => settings.showToolbar,
-    threadNamingEffort: () => settings.threadNamingEffort,
-    threadNamingModel: () => settings.threadNamingModel,
   };
 }

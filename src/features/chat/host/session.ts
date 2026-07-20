@@ -214,7 +214,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (!root) return;
     renderChatPanelShell(root, {
       stateStore: this.stateStore,
-      showToolbar: this.environment.plugin.settingsRef.settings.showToolbar(),
+      showToolbar: this.environment.plugin.settings.showToolbar(),
       parts: this.runtime.shell.parts,
     });
   }

@@ -188,7 +188,8 @@ export interface SettingsTabHostOptions {
   fetchModels?: () => Promise<readonly ModelMetadata[]>;
   refreshModels?: () => Promise<readonly ModelMetadata[]>;
   observeModels?: SettingsDynamicDataAccess["observeModelsResult"];
-  refreshOpenViews?: () => void;
+  refreshChatViews?: () => void;
+  refreshThreadsViews?: () => void;
   archivedThreads?: Thread[];
   archivedSnapshot?: Thread[] | null;
   refreshArchived?: () => Promise<readonly Thread[]>;
@@ -261,7 +262,13 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       if (appServerContextReplaced && !options.dynamicData) {
         dynamicData = createDynamicData();
       }
-      if (appServerContextReplaced || previousSettings.showToolbar !== nextSettings.showToolbar) options.refreshOpenViews?.();
+      if (
+        previousSettings.showToolbar !== nextSettings.showToolbar ||
+        previousSettings.archiveExportEnabled !== nextSettings.archiveExportEnabled
+      ) {
+        options.refreshChatViews?.();
+      }
+      if (previousSettings.archiveExportEnabled !== nextSettings.archiveExportEnabled) options.refreshThreadsViews?.();
       return { replacementDynamicData: appServerContextReplaced ? dynamicData : null };
     },
   };

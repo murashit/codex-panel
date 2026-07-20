@@ -31,14 +31,14 @@ export function createChatComposerController(
     contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app),
     attachmentHandler: createVaultComposerAttachmentHandler({
       app: environment.obsidian.app,
-      attachmentFolder: () => environment.plugin.settingsRef.settings.attachmentFolder(),
+      attachmentFolder: () => environment.plugin.settings.attachmentFolder(),
     }),
     sourcePath: () => environment.obsidian.app.workspace.getActiveFile()?.path ?? "",
     stateStore,
     viewId: environment.obsidian.viewId,
-    referenceActiveNoteOnSend: () => environment.plugin.settingsRef.settings.referenceActiveNoteOnSend(),
-    sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
-    scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges(),
+    referenceActiveNoteOnSend: () => environment.plugin.settings.referenceActiveNoteOnSend(),
+    sendShortcut: () => environment.plugin.settings.sendShortcut(),
+    scrollThreadFromComposerEdges: () => environment.plugin.settings.scrollThreadFromComposerEdges(),
     canInterrupt: (model) => {
       return model.turnBusy && Boolean(model.activeThreadId && model.activeTurnId);
     },

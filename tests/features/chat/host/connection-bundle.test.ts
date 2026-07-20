@@ -82,11 +82,7 @@ function connectionBundleFixture(overrides: { readServerDiagnostics?: ReturnType
           refreshActive: vi.fn().mockResolvedValue(undefined),
           apply: vi.fn(),
         },
-        settingsRef: {
-          settings: {
-            codexPath: () => "codex",
-          },
-        },
+        appServerContext: { codexPath: "codex", vaultPath: "/vault" },
       },
     },
     stateStore,

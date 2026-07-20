@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
+import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
 import { deferred } from "./support/async";
@@ -30,7 +31,30 @@ vi.mock("../src/app-server/connection/short-lived-client", () => ({
 }));
 
 function threadCatalog(plugin: CodexPanelPlugin) {
-  return plugin.runtime.chatHost().threadCatalog;
+  return currentChatHost(plugin).threadCatalog;
+}
+
+const capturedChatHosts = new WeakMap<CodexPanelPlugin, { current: CodexChatHost | null }>();
+
+function currentChatHost(plugin: CodexPanelPlugin): CodexChatHost {
+  let capture = capturedChatHosts.get(plugin);
+  if (!capture) {
+    const createdCapture = { current: null as CodexChatHost | null };
+    const view: ChatRuntimeView = {
+      attachRuntime: (host) => {
+        createdCapture.current = host;
+      },
+      activateRuntime: () => undefined,
+      detachRuntime: () => {
+        createdCapture.current = null;
+      },
+    };
+    capturedChatHosts.set(plugin, createdCapture);
+    capture = createdCapture;
+    plugin.runtime.attachChatView(view);
+  }
+  if (!capture.current) throw new Error("Expected a captured chat runtime host.");
+  return capture.current;
 }
 
 describe("CodexPanelPlugin runtime integration", () => {
@@ -174,9 +198,12 @@ describe("CodexPanelPlugin runtime integration", () => {
     const plugin = await pluginWithLeaves([]);
     plugin.settings.codexPath = "codex";
 
-    const result = await plugin.runtime.withClient((client) => client.request("config/read", { cwd: "/vault", includeLayers: true }), {
-      serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
-    });
+    const result = await currentChatHost(plugin).appServerClientAccess.withClient(
+      (client) => client.request("config/read", { cwd: "/vault", includeLayers: true }),
+      {
+        serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
+      },
+    );
 
     expect(result).toEqual({});
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith(
@@ -197,7 +224,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-a");
 
-    const operation = plugin.runtime.withClient(() => Promise.resolve("unused"), {
+    const operation = currentChatHost(plugin).appServerClientAccess.withClient(() => Promise.resolve("unused"), {
       serverRequests: { kind: "reject", message: "test" },
     });
     await publishCodexPath(plugin, "codex-b");
@@ -212,7 +239,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-a");
 
-    const operation = plugin.runtime.withClient(() => Promise.resolve("unused"), {
+    const operation = currentChatHost(plugin).appServerClientAccess.withClient(() => Promise.resolve("unused"), {
       serverRequests: { kind: "reject", message: "test" },
     });
     await publishCodexPath(plugin, "codex-b");
@@ -220,7 +247,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     result.resolve("stale-a");
 
     await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
-    expect(plugin.runtime.chatHost().appServerContext).toEqual({ codexPath: "codex-a", vaultPath: "/vault" });
+    expect(currentChatHost(plugin).appServerContext).toEqual({ codexPath: "codex-a", vaultPath: "/vault" });
   });
 
   it("does not start a short-lived operation when its app-server context changes while connecting", async () => {
@@ -234,7 +261,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     await publishCodexPath(plugin, "codex-a");
     const callback = vi.fn(() => Promise.resolve("unused"));
 
-    const operation = plugin.runtime.withClient(callback, {
+    const operation = currentChatHost(plugin).appServerClientAccess.withClient(callback, {
       serverRequests: { kind: "reject", message: "test" },
     });
     await publishCodexPath(plugin, "codex-b");
@@ -247,7 +274,7 @@ describe("CodexPanelPlugin runtime integration", () => {
 
   it("publishes a persisted context and its replacement runtime atomically", async () => {
     const plugin = await pluginWithLeaves([]);
-    const firstContext = plugin.runtime.chatHost().appServerContext;
+    const firstContext = currentChatHost(plugin).appServerContext;
     const save = deferred<void>();
     const saveSettings = vi.spyOn(plugin, "saveSettings").mockReturnValue(save.promise);
 
@@ -256,14 +283,14 @@ describe("CodexPanelPlugin runtime integration", () => {
 
     expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ codexPath: "codex-next" }));
     expect(plugin.settings.codexPath).toBe(firstContext.codexPath);
-    expect(plugin.runtime.chatHost().appServerContext).toBe(firstContext);
+    expect(currentChatHost(plugin).appServerContext).toBe(firstContext);
 
     save.resolve(undefined);
     await publication;
 
     expect(plugin.settings.codexPath).toBe("codex-next");
-    expect(plugin.runtime.chatHost().appServerContext).toEqual({ codexPath: "codex-next", vaultPath: "/vault" });
-    expect(plugin.runtime.chatHost().appServerContext).not.toBe(firstContext);
+    expect(currentChatHost(plugin).appServerContext).toEqual({ codexPath: "codex-next", vaultPath: "/vault" });
+    expect(currentChatHost(plugin).appServerContext).not.toBe(firstContext);
   });
 
   it("detaches and reattaches every open Chat view to the new execution runtime", async () => {
@@ -280,8 +307,8 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(detachRuntime).toHaveBeenCalledOnce();
     expect(attachRuntime).toHaveBeenCalledOnce();
     expect(activateRuntime).toHaveBeenCalledOnce();
-    expect(attachRuntime.mock.calls[0]?.[0].settingsRef.settings.codexPath()).toBe("codex-next");
-    expect(attachRuntime.mock.calls[0]?.[0].settingsRef.vaultPath).toBe("/vault");
+    expect(attachRuntime.mock.calls[0]?.[0].appServerContext.codexPath).toBe("codex-next");
+    expect(attachRuntime.mock.calls[0]?.[0].appServerContext.vaultPath).toBe("/vault");
   });
 
   it("detaches and reattaches every open Threads view to the new execution runtime", async () => {
@@ -299,7 +326,6 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(attachRuntime).toHaveBeenCalledOnce();
     expect(activateRuntime).toHaveBeenCalledOnce();
     expect(attachRuntime.mock.calls[0]?.[0].vaultPath).toBe("/vault");
-    expect(attachRuntime.mock.calls[0]?.[0].settings.codexPath()).toBe("codex-next");
   });
 
   it("constructs every replacement session before activating any of them", async () => {
@@ -366,7 +392,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(broken.detachRuntime).toHaveBeenCalledOnce();
     expect(healthy.detachRuntime).toHaveBeenCalledOnce();
     expect(healthy.attachRuntime).toHaveBeenCalledOnce();
-    expect(plugin.runtime.chatHost().appServerContext.codexPath).toBe("codex-next");
+    expect(currentChatHost(plugin).appServerContext.codexPath).toBe("codex-next");
   });
 
   it("keeps activating healthy views when one replacement attachment fails", async () => {
@@ -394,7 +420,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(broken.detachRuntime).toHaveBeenCalledTimes(2);
     expect(broken.activateRuntime).toHaveBeenCalledOnce();
     expect(healthy.activateRuntime).toHaveBeenCalledOnce();
-    expect(plugin.runtime.chatHost().appServerContext.codexPath).toBe("codex-next");
+    expect(currentChatHost(plugin).appServerContext.codexPath).toBe("codex-next");
   });
 
   it("cancels selection rewrites before publishing a new app-server context", async () => {
@@ -405,5 +431,55 @@ describe("CodexPanelPlugin runtime integration", () => {
     await publishCodexPath(plugin, "codex-next");
 
     expect(closeAll).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes only chat settings when toolbar visibility changes", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const chatLeaf = leaf();
+    chatLeaf.view = chatView(CodexChatView, chatLeaf);
+    const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
+    const plugin = await pluginWithLeaves([chatLeaf]);
+
+    await plugin.runtime.settingTabHost().publishSettings({ ...plugin.settings, showToolbar: !plugin.settings.showToolbar });
+
+    expect(refreshChat).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes chat and Threads settings when the archive default changes", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const { CodexThreadsView } = await import("../src/features/threads-view/view.obsidian");
+    const chatLeaf = leaf();
+    chatLeaf.view = chatView(CodexChatView, chatLeaf);
+    const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
+    const threadsView = Object.create(CodexThreadsView.prototype) as InstanceType<typeof CodexThreadsView>;
+    const refreshThreads = vi.spyOn(threadsView, "refreshSettings");
+    const threadsLeaf = leaf();
+    threadsLeaf.view = threadsView;
+    const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
+
+    await plugin.runtime
+      .settingTabHost()
+      .publishSettings({ ...plugin.settings, archiveExportEnabled: !plugin.settings.archiveExportEnabled });
+
+    expect(refreshChat).toHaveBeenCalledOnce();
+    expect(refreshThreads).toHaveBeenCalledOnce();
+  });
+
+  it("does not redundantly refresh workspace views after runtime replacement", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const { CodexThreadsView } = await import("../src/features/threads-view/view.obsidian");
+    const chatLeaf = leaf();
+    chatLeaf.view = chatView(CodexChatView, chatLeaf);
+    const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
+    const threadsView = Object.create(CodexThreadsView.prototype) as InstanceType<typeof CodexThreadsView>;
+    const refreshThreads = vi.spyOn(threadsView, "refreshSettings");
+    const threadsLeaf = leaf();
+    threadsLeaf.view = threadsView;
+    const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
+
+    await publishCodexPath(plugin, "codex-next");
+
+    expect(refreshChat).not.toHaveBeenCalled();
+    expect(refreshThreads).not.toHaveBeenCalled();
   });
 });

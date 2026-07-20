@@ -74,8 +74,9 @@ describe("settings tab", () => {
 
   it("routes every declarative control through the existing settings publication boundary", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const refreshOpenViews = vi.fn();
-    const tab = newSettingsTab({ saveSettings, refreshOpenViews });
+    const refreshChatViews = vi.fn();
+    const refreshThreadsViews = vi.fn();
+    const tab = newSettingsTab({ saveSettings, refreshChatViews, refreshThreadsViews });
 
     const changes = [
       ["showToolbar", false],
@@ -91,7 +92,8 @@ describe("settings tab", () => {
     }
 
     expect(saveSettings).toHaveBeenCalledTimes(changes.length);
-    expect(refreshOpenViews).toHaveBeenCalledOnce();
+    expect(refreshChatViews).toHaveBeenCalledTimes(2);
+    expect(refreshThreadsViews).toHaveBeenCalledOnce();
   });
 
   it("ignores invalid declarative control values and rejects unknown keys", async () => {
@@ -290,8 +292,8 @@ describe("settings tab", () => {
 
   it("saves the toolbar visibility setting and refreshes open panels", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const refreshOpenViews = vi.fn();
-    const tab = newSettingsTab({ saveSettings, refreshOpenViews });
+    const refreshChatViews = vi.fn();
+    const tab = newSettingsTab({ saveSettings, refreshChatViews });
 
     tab.display();
     const toggle = inputForSetting(tab, "Show chat toolbar");
@@ -301,15 +303,15 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(refreshOpenViews).toHaveBeenCalledOnce();
+    expect(refreshChatViews).toHaveBeenCalledOnce();
     expect(settingDesc(tab, "Show chat toolbar")).toContain("toolbar above chat panels");
   });
 
   it("finishes a pending settings save without remounting a hidden tab", async () => {
     const save = deferred<void>();
     const saveSettings = vi.fn(() => save.promise);
-    const refreshOpenViews = vi.fn();
-    const tab = newSettingsTab({ saveSettings, refreshOpenViews });
+    const refreshChatViews = vi.fn();
+    const tab = newSettingsTab({ saveSettings, refreshChatViews });
 
     tab.display();
     const toggle = inputForSetting(tab, "Show chat toolbar");
@@ -325,7 +327,7 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(refreshOpenViews).toHaveBeenCalledOnce();
+    expect(refreshChatViews).toHaveBeenCalledOnce();
     expect(tab.containerEl.children).toHaveLength(0);
   });
 
@@ -556,7 +558,7 @@ describe("settings tab", () => {
 
   it("clears dynamic sections when the Codex executable changes", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const refreshOpenViews = vi.fn();
+    const refreshChatViews = vi.fn();
     const oldClient = settingsClient({
       models: [model("gpt-old")],
       hooks: [hook({ key: "hook-old", command: "old hook", currentHash: "oldhash" })],
@@ -572,7 +574,7 @@ describe("settings tab", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const tab = newSettingsTab({ saveSettings, refreshOpenViews, fetchModels, refreshModels, refreshArchived });
+    const tab = newSettingsTab({ saveSettings, refreshChatViews, fetchModels, refreshModels, refreshArchived });
 
     tab.display();
     await flushPromises();
@@ -587,13 +589,13 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).not.toHaveBeenCalled();
-    expect(refreshOpenViews).not.toHaveBeenCalled();
+    expect(refreshChatViews).not.toHaveBeenCalled();
 
     codexInput.dispatchEvent(new FocusEvent("blur"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(refreshOpenViews).toHaveBeenCalledOnce();
+    expect(refreshChatViews).not.toHaveBeenCalled();
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
     expect(tab.containerEl.textContent).not.toContain("Old archived");

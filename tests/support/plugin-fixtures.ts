@@ -136,10 +136,7 @@ function chatHostFixture(): CodexChatHost {
     },
     threadGoalOperations: createThreadGoalOperationCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationQueue(),
-    settingsRef: {
-      settings: chatPanelSettingsAccess(settings),
-      vaultPath: "/vault",
-    },
+    settings: chatPanelSettingsAccess(settings),
     workspace: {
       openThreadInNewView: vi.fn(),
       openThreadFromPanel: vi.fn(),

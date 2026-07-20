@@ -81,15 +81,12 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     });
   }
 
-  chatHost(): CodexChatHost {
+  private chatHost(): CodexChatHost {
     this.assertActive();
     return {
       appServerClientAccess: this,
       appServerContext: this.context,
-      settingsRef: {
-        settings: this.chatSettings(),
-        vaultPath: this.context.vaultPath,
-      },
+      settings: this.chatSettings(),
       workspace: this.options.workspace,
       appServerQueries: this.resourceStore,
       threadCatalog: this.threadCatalog,
@@ -100,7 +97,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     };
   }
 
-  threadsHost(): ThreadsViewHost {
+  private threadsHost(): ThreadsViewHost {
     this.assertActive();
     return {
       settings: this.threadsSettings(),
@@ -362,21 +359,15 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
         archiveExportFilenameTemplate: this.options.settings().archiveExportFilenameTemplate,
         archiveExportTags: this.options.settings().archiveExportTags,
       }),
-      codexPath: () => this.context.codexPath,
       scrollThreadFromComposerEdges: () => this.options.settings().scrollThreadFromComposerEdges,
       sendShortcut: () => this.options.settings().sendShortcut,
       showToolbar: () => this.options.settings().showToolbar,
-      threadNamingEffort: () => this.options.settings().threadNamingEffort,
-      threadNamingModel: () => this.options.settings().threadNamingModel,
     };
   }
 
   private threadsSettings(): ThreadsViewSettingsAccess {
     return {
       archiveExportEnabled: () => this.options.settings().archiveExportEnabled,
-      codexPath: () => this.context.codexPath,
-      threadNamingModel: () => this.options.settings().threadNamingModel,
-      threadNamingEffort: () => this.options.settings().threadNamingEffort,
       archiveExportSettings: () => ({
         archiveExportFolderTemplate: this.options.settings().archiveExportFolderTemplate,
         archiveExportFilenameTemplate: this.options.settings().archiveExportFilenameTemplate,

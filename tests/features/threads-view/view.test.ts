@@ -649,9 +649,6 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
   return {
     settings: {
       archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
-      codexPath: () => "codex",
-      threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
-      threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
       archiveExportSettings: () => ({
         archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
         archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,

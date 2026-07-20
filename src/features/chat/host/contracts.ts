@@ -3,7 +3,7 @@ import type { App, Component, EventRef } from "obsidian";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { AppServerQueryContext } from "../../../app-server/query/keys";
 import type { ObservedResultListener } from "../../../app-server/query/observed-result";
-import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
+import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
@@ -18,7 +18,7 @@ import type { ThreadGoalOperationCoordinator } from "../application/threads/goal
 export interface CodexChatHost {
   readonly appServerClientAccess: AppServerClientAccess;
   readonly appServerContext: Readonly<AppServerQueryContext>;
-  readonly settingsRef: ChatPanelSettingsRef;
+  readonly settings: ChatPanelSettingsAccess;
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
@@ -28,22 +28,14 @@ export interface CodexChatHost {
   readonly runtimeSettingsCommitQueue: KeyedOperationQueue<string>;
 }
 
-interface ChatPanelSettingsRef {
-  readonly settings: ChatPanelSettingsAccess;
-  readonly vaultPath: string;
-}
-
 export interface ChatPanelSettingsAccess {
   referenceActiveNoteOnSend(): boolean;
   attachmentFolder(): string;
   archiveExportEnabled(): boolean;
   archiveExportSettings(): ArchiveExportSettings;
-  codexPath(): string;
   scrollThreadFromComposerEdges(): boolean;
   sendShortcut(): SendShortcut;
   showToolbar(): boolean;
-  threadNamingEffort(): ReasoningEffort | null;
-  threadNamingModel(): string | null;
 }
 
 export interface WorkspacePanels {

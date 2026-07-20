@@ -217,7 +217,8 @@ describe("ChatPanelSessionRuntime actions", () => {
       workspace?: Partial<ChatPanelEnvironment["plugin"]["workspace"]>;
       threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
       appServerQueries?: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]>;
-      settingsRef?: Partial<ChatPanelEnvironment["plugin"]["settingsRef"]>;
+      settings?: ChatPanelEnvironment["plugin"]["settings"];
+      appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
     };
     view?: Partial<ChatPanelEnvironment["view"]>;
   }
@@ -225,7 +226,6 @@ describe("ChatPanelSessionRuntime actions", () => {
   function chatPanelEnvironmentFixture(overrides: PartialChatPanelEnvironment = {}): ChatPanelEnvironment {
     const threadCatalog = threadCatalogFixture(overrides.plugin?.threadCatalog);
     const appServerQueries = appServerQueriesFixture(overrides.plugin?.appServerQueries);
-    const settingsRef = overrides.plugin?.settingsRef;
     const settingsSource: CodexPanelSettings = {
       ...DEFAULT_SETTINGS,
       codexPath: "codex",
@@ -269,15 +269,12 @@ describe("ChatPanelSessionRuntime actions", () => {
         appServerClientAccess: {
           withClient: vi.fn(() => Promise.reject(new Error("Unexpected fallback app-server client request."))),
         },
-        appServerContext: { codexPath: "codex", vaultPath: "/vault" },
+        appServerContext: overrides.plugin?.appServerContext ?? { codexPath: "codex", vaultPath: "/vault" },
         threadTitleTransport: {
           persistedContext: vi.fn().mockResolvedValue(null),
           generateTitle: vi.fn().mockResolvedValue(null),
         },
-        settingsRef: {
-          settings: settingsRef?.settings ?? chatPanelSettingsAccess(settingsSource),
-          vaultPath: settingsRef?.vaultPath ?? "/vault",
-        },
+        settings: overrides.plugin?.settings ?? chatPanelSettingsAccess(settingsSource),
         workspace: {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
           threadHasPendingOrRunningPanel: vi.fn(() => false),
