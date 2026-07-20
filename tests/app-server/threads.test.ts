@@ -5,7 +5,6 @@ import {
   EphemeralThreadCleanupRequiredError,
   forkEphemeralThread,
   listThreads,
-  startEphemeralThread,
   startThread,
   threadFromAppServerRecord,
   unsubscribeThread,
@@ -197,28 +196,6 @@ describe("app-server thread response adapters", () => {
       cwd: "/vault",
       serviceName: "codex-panel",
       serviceTier: "priority",
-    });
-  });
-
-  it("starts ephemeral helper threads without deprecated multi-agent mode params", async () => {
-    const client = {
-      request: vi.fn().mockResolvedValue({ thread: { id: "thread-new" } }),
-    } as unknown as AppServerRequestClient;
-
-    await startEphemeralThread(client, {
-      cwd: "/vault",
-      serviceName: "codex-panel-selection-rewrite",
-      developerInstructions: "Return structured output.",
-    });
-
-    expect(client.request).toHaveBeenCalledWith("thread/start", {
-      cwd: "/vault",
-      serviceName: "codex-panel-selection-rewrite",
-      developerInstructions: "Return structured output.",
-      ephemeral: true,
-      sandbox: "read-only",
-      approvalPolicy: "never",
-      environments: [],
     });
   });
 

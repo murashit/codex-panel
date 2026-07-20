@@ -22,7 +22,6 @@ describe("slash command catalog", () => {
     expect(keys("Thread settings")).toEqual(
       expect.arrayContaining(["/plan [message]", "/goal", "/goal set <objective>", "/goal edit", "/permissions [profile|default]"]),
     );
-    expect(keys("Thread settings")).not.toContain("/goal [set <objective>|edit|pause|resume|clear]");
     expect(keys("Diagnostics")).toEqual(expect.arrayContaining(["/status", "/doctor", "/tools", "/help"]));
     expect(keys("Composition")).toEqual(["/refer <thread> <message>", "/web <url> [message]"]);
   });

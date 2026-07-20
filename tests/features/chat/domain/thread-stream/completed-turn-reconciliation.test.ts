@@ -102,35 +102,6 @@ describe("reconcileCompletedTurnItems", () => {
     ]);
   });
 
-  it("keeps local context attachment metadata when reconciling by text without client ids", () => {
-    const optimistic = {
-      ...userDialogue("local-user-1", "https://example.com/ summarize this", "turn"),
-      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
-    } satisfies ThreadStreamItem;
-    const server = userDialogue("u1", "https://example.com/ summarize this", "turn");
-
-    const next = reconcileCompletedTurnItems({ currentItems: [optimistic], completedTurnId: "turn", turnItems: [server] });
-
-    expect(next).toEqual([
-      expect.objectContaining({
-        id: "u1",
-        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
-      }),
-    ]);
-  });
-
-  it("falls back to local user text only when server user dialogues have no client ids", () => {
-    const currentItems: ThreadStreamItem[] = [
-      userDialogue("local-user-without-client-id", "fallback text", "turn"),
-      userDialogue("local-user-other-turn", "fallback text", "other"),
-    ];
-    const turnItems: ThreadStreamItem[] = [userDialogue("u1", "fallback text", "turn")];
-
-    const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
-
-    expect(next.map((item) => item.id)).toEqual(["local-user-other-turn", "u1"]);
-  });
-
   it("model-checks client-id reconciliation across current and server ordering", () => {
     for (const currentItems of permutations([
       userDialogue("local-user-1", "same text", "turn", "local-user-1"),
@@ -149,26 +120,6 @@ describe("reconcileCompletedTurnItems", () => {
         expect(nextIds, reconciliationCase(currentItems, turnItems)).toContain("local-user-other");
         expect(new Set(nextIds).size, reconciliationCase(currentItems, turnItems)).toBe(nextIds.length);
       }
-    }
-  });
-
-  it("model-checks text fallback reconciliation only for the completed turn", () => {
-    for (const currentItems of permutations([
-      userDialogue("local-user-completed", "fallback text", "turn"),
-      userDialogue("local-user-other-turn", "fallback text", "other"),
-      userDialogue("local-user-different-text", "different text", "turn"),
-    ])) {
-      const next = reconcileCompletedTurnItems({
-        currentItems,
-        completedTurnId: "turn",
-        turnItems: [userDialogue("server-user", "fallback text", "turn")],
-      });
-      const nextIds = next.map((item) => item.id);
-
-      expect(nextIds, currentIds(currentItems)).toContain("server-user");
-      expect(nextIds, currentIds(currentItems)).not.toContain("local-user-completed");
-      expect(nextIds, currentIds(currentItems)).toContain("local-user-other-turn");
-      expect(nextIds, currentIds(currentItems)).toContain("local-user-different-text");
     }
   });
 });

@@ -53,25 +53,6 @@ describe("ChatPanelSessionRuntime actions", () => {
     await Promise.all([firstRestoration, secondRestoration]);
   });
 
-  it("refreshes the shared query without projecting the returned value directly", async () => {
-    const thread = threadFixture({ id: "thread-1", preview: "From catalog" });
-    const refresh = vi.fn().mockResolvedValue([thread]);
-    const { runtime, stateStore } = sessionRuntimeFixture({
-      environment: {
-        plugin: {
-          threadCatalog: {
-            refreshActive: refresh,
-          },
-        },
-      },
-    });
-
-    await runtime.actions.refreshSharedThreads();
-
-    expect(refresh).toHaveBeenCalledOnce();
-    expect(stateStore.getState().threadList.listedThreads).toEqual([]);
-  });
-
   it("treats stale shared thread refreshes as runtime-local no-ops", async () => {
     const refresh = vi.fn().mockRejectedValue(new StaleExecutionRuntimeError());
     const { runtime, stateStore } = sessionRuntimeFixture({

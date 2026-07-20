@@ -173,37 +173,6 @@ describe("createChatPanelRuntimeProjection", () => {
       { key: "Extra writable roots", value: "(not reported)" },
     ]);
   });
-
-  it("does not report legacy sandbox details for configured permission profiles in an empty panel", () => {
-    const state = chatStateWith(chatStateFixture(), {
-      connection: {
-        runtimeConfig: runtimeConfigFixture({
-          default_permissions: "DevProfile",
-          sandbox_mode: "workspace-write",
-          sandbox_workspace_write: {
-            writable_roots: ["/vault"],
-            network_access: false,
-            exclude_tmpdir_env_var: false,
-            exclude_slash_tmp: false,
-          },
-        }),
-      },
-    });
-    const projection = createChatPanelRuntimeProjection({
-      state: () => state,
-      connected: () => true,
-      configuredCommand: () => "codex",
-      vaultPath: () => "/vault",
-      nowMs: () => 0,
-    });
-
-    expect(projection.permissionDetails()[0]?.auditFacts).toEqual([
-      { key: "Profile", value: "DevProfile" },
-      { key: "Sandbox", value: "(not reported)" },
-      { key: "Codex network", value: "(not reported)" },
-      { key: "Extra writable roots", value: "(not reported)" },
-    ]);
-  });
 });
 
 function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {

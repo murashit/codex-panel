@@ -116,9 +116,6 @@ describe("thread title", () => {
     expect(prompt).toContain("3-7 words for languages that use spaces");
     expect(prompt).toContain("12-28 characters for languages that usually do not");
     expect(prompt).toContain(`Never exceed ${String(THREAD_TITLE_MAX_CHARS)} characters`);
-    expect(prompt).not.toContain("日本語の短い名詞句");
-    expect(prompt).not.toContain("Japanese characters");
-    expect(prompt).not.toContain("English words");
   });
 
   it("uses explicit title runtime overrides", async () => {

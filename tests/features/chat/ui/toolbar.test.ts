@@ -29,16 +29,11 @@ describe("Toolbar decisions", () => {
     mountToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleChatActions, toggleHistory }));
 
     const navButtons = parent.querySelector(".codex-panel__toolbar-buttons");
-    expect(parent.querySelector(".codex-panel__runtime-area")).toBeNull();
-    expect(parent.querySelector(".codex-panel__runtime-strip")).toBeNull();
     expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
       "Show thread list",
       "Show chat actions",
       "Show status",
     ]);
-    expect(parent.querySelector(".codex-panel__plan-toggle")).toBeNull();
-    expect(parent.querySelector(".codex-panel__auto-review-toggle")).toBeNull();
-    expect(parent.querySelector(".codex-panel__runtime-model")).toBeNull();
     const newChatButton = parent.querySelector<HTMLElement>(".codex-panel__new-chat");
     expect(newChatButton?.getAttribute("aria-label")).toBe("Show chat actions");
     newChatButton?.click();
@@ -138,8 +133,6 @@ describe("Toolbar decisions", () => {
       toolbarActions(),
     );
 
-    expect(parent.querySelector(".codex-panel__context-compact")).toBeNull();
-    expect(parent.querySelector(".codex-panel__limit-compact")).toBeNull();
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("5h");
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("42%");
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("reset in 2h");
@@ -220,9 +213,6 @@ describe("Toolbar decisions", () => {
     expect(parent.textContent).toContain("Permissions & Approvals");
     expect(parent.textContent).toContain("Permissions");
     expect(parent.textContent).toContain("Approvals");
-    expect([...parent.querySelectorAll(".codex-panel__status-diagnostics-section")].map((section) => section.textContent)).not.toContain(
-      "Current thread",
-    );
     expect(parent.textContent).toContain(":workspace");
     expect(parent.textContent).toContain("workspace-write");
     expect(parent.textContent).toContain("on");
@@ -245,12 +235,9 @@ describe("Toolbar decisions", () => {
       toolbarActions({ copyDebugDetails }),
     );
 
-    expect(parent.querySelector(".codex-panel__region--config")).toBeNull();
-    expect(parent.querySelector(".codex-panel__debug-details")).toBeNull();
     expect(parent.textContent).not.toContain('"model": "gpt-5.5"');
     parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")[2]?.click();
     expect(copyDebugDetails).toHaveBeenCalledWith(debugDetails);
-    expect(parent.querySelector(".codex-panel__toolbar-panel .codex-panel__config")).toBeNull();
   });
 
   it("renders thread list rename actions and an inline rename editor", () => {

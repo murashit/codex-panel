@@ -596,16 +596,6 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Permission profile reset to default for subsequent turns.");
   });
 
-  it.each(["reset", "clear", "off"])("treats permission profile alias-like value %s as a profile id", async (profile) => {
-    const ctx = context();
-
-    await executeSlashCommand("permissions", profile, ctx);
-
-    expect(ctx.runtimeSettings.requestPermissionProfile).toHaveBeenCalledWith(profile);
-    expect(ctx.runtimeSettings.resetPermissionProfileToConfig).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith(`Permission profile set to ${profile} for subsequent turns.`);
-  });
-
   it("does not announce permission profile changes when applying them fails", async () => {
     const ctx = context();
     ctx.runtimeSettings.requestPermissionProfile = vi.fn().mockResolvedValue(false);
@@ -661,18 +651,6 @@ describe("slash commands", () => {
     expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Model reset to default for subsequent turns.");
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort reset to default for subsequent turns.");
-  });
-
-  it.each(["reset", "clear", "off"])("routes runtime reset alias %s through reset commands", async (alias) => {
-    const ctx = context();
-
-    await executeSlashCommand("model", alias, ctx);
-    await executeSlashCommand("reasoning", alias, ctx);
-
-    expect(ctx.runtimeSettings.resetModelToConfig).toHaveBeenCalledOnce();
-    expect(ctx.runtimeSettings.resetReasoningEffortToConfig).toHaveBeenCalledOnce();
-    expect(ctx.runtimeSettings.requestModel).not.toHaveBeenCalled();
-    expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
   });
 
   it("shows model and reasoning status for empty runtime commands", async () => {

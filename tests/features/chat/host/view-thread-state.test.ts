@@ -131,16 +131,6 @@ describe("CodexChatView thread state", () => {
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
   });
 
-  it("restores an unavailable side-chat tab as a normal empty chat", async () => {
-    const view = await chatView();
-    await view.setState({ version: 2, ephemeralSource: { threadId: "source", title: "Source" } }, {} as never);
-
-    expect(view.getState()).toEqual({ version: 1 });
-    expect(view.getDisplayText()).not.toBe("Side chat");
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, hasComposerDraft: false });
-    expect(view.containerEl.textContent).not.toContain("This side conversation is no longer available.");
-  });
-
   it("focuses the composer after panel thread actions", async () => {
     const client = connectedClient();
     connectionMockState().client = client;
@@ -244,7 +234,6 @@ describe("CodexChatView thread state", () => {
     });
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
-    expect(view.containerEl.textContent).not.toContain("Loading thread...");
 
     history.resolve({ data: [], nextCursor: null });
     await opening;

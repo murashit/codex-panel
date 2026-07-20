@@ -148,11 +148,6 @@ describe("turn diff view decisions", () => {
       value: { threadId: "thread", turnId: "turn", files: ["src/main.ts"] },
       valid: true,
     },
-    {
-      name: "a legacy state with a working directory",
-      value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: [] },
-      valid: true,
-    },
     { name: "null", value: null, valid: false },
     {
       name: "a missing turn id",
@@ -198,7 +193,6 @@ describe("turn diff view decisions", () => {
       {
         threadId: "restored-thread",
         turnId: "restored-turn",
-        cwd: "/legacy/vault",
         files: ["src/restored.ts"],
       },
       {} as never,

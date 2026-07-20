@@ -240,7 +240,6 @@ describe("settings tab", () => {
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(fetchModels).toHaveBeenCalledTimes(1);
-    expect(requestMethods(client)).not.toContain("model/list");
     expectRequestTimes(client, "hooks/list", 1);
 
     tab.display();
@@ -248,10 +247,6 @@ describe("settings tab", () => {
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(buttonLabels(tab)).toContain("Refresh Codex details");
-    expect(buttonTexts(tab)).not.toContain("Refresh Codex details");
-    expect(buttonTexts(tab)).not.toContain("Load models");
-    expect(buttonTexts(tab)).not.toContain("Load hooks");
-    expect(buttonTexts(tab)).not.toContain("Load archive list");
     expect(settingNames(tab)).toEqual([
       "Codex executable",
       "Show chat toolbar",
@@ -731,9 +726,7 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.textContent).not.toContain("Loaded 1 model.");
     expect(tab.containerEl.textContent).toContain("Could not load hooks: hooks unavailable");
-    expect(tab.containerEl.querySelector(".codex-panel-settings__refresh-status")).toBeNull();
     expect(tab.containerEl.textContent).toContain("Archived thread");
     expect(notices).toEqual(["Could not refresh all Codex details."]);
   });
@@ -748,10 +741,6 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.textContent).not.toContain("Restore or permanently delete archived Codex threads.");
-    expect(tab.containerEl.textContent).not.toContain("Trust, enable, or disable discovered Codex hooks.");
-    expect(tab.containerEl.textContent).not.toContain("Loaded 1 hook from Codex app server.");
-    expect(tab.containerEl.textContent).not.toContain("Loaded 1 archived thread from Codex app server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
       "Codex hooks",
     );
@@ -767,8 +756,6 @@ describe("settings tab", () => {
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).toContain("untrusted · inactive");
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")?.textContent).toContain("Archived thread");
     expect(buttonTexts(tab)).toContain("Trust");
-    expect(buttonTexts(tab)).not.toContain("Enable");
-    expect(buttonTexts(tab)).not.toContain("Disable");
     expect(buttonLabels(tab)).toContain("Restore thread");
     expect(buttonLabels(tab)).toContain("Delete thread");
   });

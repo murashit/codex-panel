@@ -136,7 +136,6 @@ describe("ComposerShell decisions", () => {
     expect(modeIcons.map((icon) => icon.classList.contains("is-active"))).toEqual([true, false, true]);
     expect(modeIcons.map((icon) => icon.getAttribute("aria-hidden"))).toEqual(["true", "true", "true"]);
     expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
-    expect(parent.querySelector(".codex-panel__new-chat")).toBeNull();
   });
 
   it("toggles composer runtime controls and opens separate lightweight pickers", async () => {

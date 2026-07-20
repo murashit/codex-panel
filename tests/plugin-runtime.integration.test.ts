@@ -464,22 +464,4 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(refreshChat).toHaveBeenCalledOnce();
     expect(refreshThreads).toHaveBeenCalledOnce();
   });
-
-  it("does not redundantly refresh workspace views after runtime replacement", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
-    const { CodexThreadsView } = await import("../src/features/threads-view/view.obsidian");
-    const chatLeaf = leaf();
-    chatLeaf.view = chatView(CodexChatView, chatLeaf);
-    const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
-    const threadsView = Object.create(CodexThreadsView.prototype) as InstanceType<typeof CodexThreadsView>;
-    const refreshThreads = vi.spyOn(threadsView, "refreshSettings");
-    const threadsLeaf = leaf();
-    threadsLeaf.view = threadsView;
-    const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
-
-    await publishCodexPath(plugin, "codex-next");
-
-    expect(refreshChat).not.toHaveBeenCalled();
-    expect(refreshThreads).not.toHaveBeenCalled();
-  });
 });

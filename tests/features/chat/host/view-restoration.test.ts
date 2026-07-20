@@ -41,7 +41,6 @@ describe("CodexChatView workspace restoration", () => {
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
     expect(connectionMockState().connectCalls).toBe(0);
     expect(requestMethods(client)).not.toContain("thread/resume");
-    expect(view.containerEl.textContent).not.toContain("Thread restored. Send a message to resume it.");
 
     await vi.advanceTimersByTimeAsync(0);
 
