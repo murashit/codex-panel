@@ -5,13 +5,28 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
-  createGoalActions,
+  createGoalActions as createGoalActionsImpl,
   createThreadGoalOperationCoordinator,
   createThreadGoalSyncActions,
 } from "../../../../../src/features/chat/application/threads/goal-actions";
 import type { ThreadGoalTransport } from "../../../../../src/features/chat/application/threads/goal-transport";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
+
+type GoalActionsHost = Parameters<typeof createGoalActionsImpl>[0];
+
+function createGoalActions(
+  host: Omit<GoalActionsHost, "ensureRestoredThreadLoaded"> & Partial<Pick<GoalActionsHost, "ensureRestoredThreadLoaded">>,
+  goalOperations?: Parameters<typeof createGoalActionsImpl>[1],
+) {
+  return createGoalActionsImpl(
+    {
+      ensureRestoredThreadLoaded: async () => true,
+      ...host,
+    },
+    goalOperations,
+  );
+}
 
 describe("createGoalActions", () => {
   it("syncs the active thread goal into chat state", async () => {

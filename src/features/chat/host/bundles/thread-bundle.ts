@@ -197,19 +197,27 @@ export function createThreadLifecycleBundle(
   input: ChatPanelThreadLifecycleInput,
 ): ChatPanelThreadLifecycleBundle {
   const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, notifyActiveThreadIdentityChanged } = input;
-  let sessionLifecycle: ChatPanelThreadLifecycle | null = null;
+  const lifecycle = createSessionThreadLifecycle(host, {
+    appServer,
+    status,
+    goalSync: foundation.goalSync,
+    autoTitleCoordinator: foundation.autoTitleCoordinator,
+    history: foundation.history,
+    invalidateThreadWork: () => {
+      foundation.invalidateThreadWork();
+    },
+    notifyActiveThreadIdentityChanged,
+  });
   const goals = createGoalActions(
     {
       stateStore: host.stateStore,
       goalTransport: appServer.threadGoal,
       localItemIds,
       startThread: (preview, options) => threadStart.startThread(preview, options),
-      ensureRestoredThreadLoaded: async () => {
-        if (!sessionLifecycle) return false;
-        return sessionLifecycle.restoration.ensureLoaded(async (threadId) => {
-          await sessionLifecycle?.resume.resumeThread(threadId);
-        });
-      },
+      ensureRestoredThreadLoaded: () =>
+        lifecycle.restoration.ensureLoaded(async (threadId) => {
+          await lifecycle.resume.resumeThread(threadId);
+        }),
       addSystemMessage: (text) => {
         status.addSystemMessage(text);
       },
@@ -226,18 +234,6 @@ export function createThreadLifecycleBundle(
     renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
     generateThreadTitle: (threadId) => foundation.titleService.generateTitle(threadId),
   });
-  const lifecycle = createSessionThreadLifecycle(host, {
-    appServer,
-    status,
-    goals,
-    autoTitleCoordinator: foundation.autoTitleCoordinator,
-    history: foundation.history,
-    invalidateThreadWork: () => {
-      foundation.invalidateThreadWork();
-    },
-    notifyActiveThreadIdentityChanged,
-  });
-  sessionLifecycle = lifecycle;
   const { identity, restoration, resume } = lifecycle;
 
   return {
@@ -308,14 +304,14 @@ function createSessionThreadLifecycle(
   input: {
     appServer: ChatAppServerGateway;
     status: ChatPanelThreadStatus;
-    goals: ChatPanelGoalActions;
+    goalSync: ChatPanelGoalSyncActions;
     autoTitleCoordinator: AutoTitleCoordinator;
     history: HistoryController;
     invalidateThreadWork: () => void;
     notifyActiveThreadIdentityChanged: () => void;
   },
 ): ChatPanelThreadLifecycle {
-  const { appServer, status, goals, autoTitleCoordinator, history, invalidateThreadWork, notifyActiveThreadIdentityChanged } = input;
+  const { appServer, status, goalSync, autoTitleCoordinator, history, invalidateThreadWork, notifyActiveThreadIdentityChanged } = input;
   const restoration = new RestorationController({
     stateStore: host.stateStore,
   });
@@ -334,7 +330,7 @@ function createSessionThreadLifecycle(
       host.environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
     },
     addSystemMessage: status.addSystemMessage,
-    syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),
+    syncThreadGoal: (threadId) => goalSync.syncThreadGoal(threadId),
     recoverTokenUsageFromRollout: (path) =>
       recoverRolloutTokenUsage(path, (filePath, options) => appServer.readFileBase64(filePath, options)),
   });

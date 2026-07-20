@@ -22,7 +22,7 @@ export interface ThreadGoalSyncHost {
 export interface GoalActionsHost extends ThreadGoalSyncHost {
   goalTransport: ThreadGoalTransport;
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<ThreadStartOutcome>;
-  ensureRestoredThreadLoaded?: () => Promise<boolean>;
+  ensureRestoredThreadLoaded: () => Promise<boolean>;
 }
 
 interface GoalActionsContext extends GoalActionsHost {
@@ -269,7 +269,7 @@ async function prepareGoalMutation(host: GoalActionsContext): Promise<boolean> {
     host.addSystemMessage(decision.message);
     return false;
   }
-  if (!host.ensureRestoredThreadLoaded || !(await host.ensureRestoredThreadLoaded())) return false;
+  if (!(await host.ensureRestoredThreadLoaded())) return false;
   const resumedDecision = activePanelOperationDecision(host.stateStore.getState(), "goal-mutation");
   if (resumedDecision.kind === "allowed") return true;
   if (resumedDecision.kind === "blocked") host.addSystemMessage(resumedDecision.message);
