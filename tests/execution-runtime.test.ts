@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { StaleAppServerResourceContextError } from "../src/app-server/query/cache";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
+import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
+import { StaleExecutionRuntimeError } from "../src/shared/runtime/execution-runtime-lifetime";
 
 const { openThreadPickerMock, withShortLivedAppServerClientMock } = vi.hoisted(() => ({
   openThreadPickerMock: vi.fn(),
@@ -80,15 +81,44 @@ describe("CodexExecutionRuntime", () => {
     );
     const runtime = executionRuntime();
 
-    const fetch = runtime.appServerQueries.fetchModels();
+    const fetch = attachChatHost(runtime).appServerQueries.fetchModels();
     await Promise.resolve();
     runtime.dispose();
 
     expect(client.disconnect).toHaveBeenCalledOnce();
     resolveModels({ data: [] });
-    await expect(fetch).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
+    await expect(fetch).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+  });
+
+  it("classifies a rejected short-lived operation as stale when disposed in flight", async () => {
+    let rejectOperation: (error: Error) => void = () => undefined;
+    const operation = new Promise<never>((_resolve, reject) => {
+      rejectOperation = reject;
+    });
+    withShortLivedAppServerClientMock.mockReturnValue(operation);
+    const runtime = executionRuntime();
+
+    const request = attachChatHost(runtime).appServerClientAccess.withClient(() => Promise.resolve("unused"));
+    runtime.dispose();
+    rejectOperation(new Error("Disconnected"));
+
+    await expect(request).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
   });
 });
+
+function attachChatHost(runtime: CodexExecutionRuntime): CodexChatHost {
+  let host: CodexChatHost | null = null;
+  const view: ChatRuntimeView = {
+    attachRuntime: (nextHost) => {
+      host = nextHost;
+    },
+    detachRuntime: vi.fn(),
+    activateRuntime: vi.fn(),
+  };
+  runtime.attachChatView(view);
+  if (!host) throw new Error("Runtime did not attach a chat host");
+  return host;
+}
 
 function pickerFactory(): {
   controllers: Array<ThreadPickerController & { close: ReturnType<typeof vi.fn> }>;

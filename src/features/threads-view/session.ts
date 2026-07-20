@@ -1,12 +1,12 @@
 import { Notice } from "obsidian";
 
-import { isStaleAppServerResourceContextError } from "../../app-server/query/cache";
 import type { ObservedPaginatedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
 import { DeferredTask } from "../../shared/runtime/deferred-task";
+import { isStaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
@@ -135,7 +135,7 @@ export class ThreadsViewSession {
     try {
       await request();
     } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime) || isStaleAppServerResourceContextError(error)) return;
+      if (!this.lifetime.isCurrent(lifetime) || isStaleExecutionRuntimeError(error)) return;
       if (!this.currentThreadsSnapshot()) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
         this.render();
@@ -149,7 +149,7 @@ export class ThreadsViewSession {
     try {
       await this.host.threadCatalog.loadMoreActive();
     } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime) || isStaleAppServerResourceContextError(error)) return;
+      if (!this.lifetime.isCurrent(lifetime) || isStaleExecutionRuntimeError(error)) return;
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();
     }

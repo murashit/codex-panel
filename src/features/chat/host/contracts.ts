@@ -1,7 +1,7 @@
 import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import type { AppServerQueryContext } from "../../../app-server/query/keys";
+import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
 import type { ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
@@ -17,7 +17,7 @@ import type { ThreadGoalOperationCoordinator } from "../application/threads/goal
 
 export interface CodexChatHost {
   readonly appServerClientAccess: AppServerClientAccess;
-  readonly appServerContext: Readonly<AppServerQueryContext>;
+  readonly appServerContext: Readonly<AppServerExecutionContext>;
   readonly settings: ChatPanelSettingsAccess;
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;

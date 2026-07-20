@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
-import { StaleAppServerResourceContextError } from "../../src/app-server/query/cache";
 import type { ObservedResult } from "../../src/app-server/query/observed-result";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import { SettingsDynamicSectionsController } from "../../src/settings/dynamic-sections-controller";
+import { StaleExecutionRuntimeError } from "../../src/shared/runtime/execution-runtime-lifetime";
 import { deferred } from "../support/async";
 import {
   appServerThread,
@@ -350,7 +350,7 @@ describe("SettingsDynamicSectionsController", () => {
     oldRestore.resolve({
       thread: appServerThread({ id: "thread-shared", preview: "Old context" }),
     });
-    await expect(staleMutation).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
+    await expect(staleMutation).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
   });
 
   it("records restored archived threads in the active catalog", async () => {

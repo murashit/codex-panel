@@ -19,7 +19,7 @@ export interface ServerMetadataActionsHost {
   refreshAppServerMetadata: () => Promise<void>;
   refreshSkills: () => Promise<void>;
   refreshRateLimits: () => Promise<void>;
-  isStaleResourceContextError: (error: unknown) => boolean;
+  isStaleRuntimeError: (error: unknown) => boolean;
 }
 
 export interface ServerMetadataActions {
@@ -106,7 +106,7 @@ async function refreshAppServerMetadata(host: ServerMetadataActionsHost): Promis
   try {
     await host.refreshAppServerMetadata();
   } catch (error) {
-    if (host.isStaleResourceContextError(error)) return;
+    if (host.isStaleRuntimeError(error)) return;
     throw error;
   }
 }
@@ -115,7 +115,7 @@ async function refreshMetadataResource(host: ServerMetadataActionsHost, refresh:
   try {
     await refresh();
   } catch (error) {
-    if (!host.isStaleResourceContextError(error)) throw error;
+    if (!host.isStaleRuntimeError(error)) throw error;
   }
 }
 

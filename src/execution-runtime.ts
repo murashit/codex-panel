@@ -2,9 +2,9 @@ import type { App } from "obsidian";
 
 import type { AppServerClient } from "./app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
+import type { AppServerExecutionContext } from "./app-server/connection/execution-context";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
-import { AppServerQueryCache, StaleAppServerResourceContextError } from "./app-server/query/cache";
-import type { AppServerQueryContext } from "./app-server/query/keys";
+import { AppServerQueryCache } from "./app-server/query/cache";
 import {
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnRunner,
@@ -24,11 +24,12 @@ import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
 import { createSettingsAppServerDynamicData } from "./settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
 import type { CodexPanelSettings } from "./settings/model";
+import { StaleExecutionRuntimeError } from "./shared/runtime/execution-runtime-lifetime";
 import { createKeyedOperationQueue } from "./shared/runtime/keyed-operation-queue";
 
 export interface CodexExecutionRuntimeOptions {
   app: App;
-  context: AppServerQueryContext;
+  context: AppServerExecutionContext;
   settings: () => CodexPanelSettings;
   workspace: WorkspacePanels;
   onThreadCatalogEvent(event: ThreadCatalogEvent): void;
@@ -44,9 +45,9 @@ export interface ExecutionRuntimeViews {
 }
 
 export class CodexExecutionRuntime implements AppServerClientAccess {
-  readonly context: Readonly<AppServerQueryContext>;
-  readonly appServerQueries: AppServerQueryCache;
-  readonly threadCatalog: ThreadCatalog;
+  private readonly context: Readonly<AppServerExecutionContext>;
+  private readonly appServerQueries: AppServerQueryCache;
+  private readonly threadCatalog: ThreadCatalog;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
   private readonly threadNameMutations = createThreadNameMutationCoordinator();
   private readonly threadGoalOperations = createThreadGoalOperationCoordinator();
@@ -61,7 +62,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
 
   constructor(private readonly options: CodexExecutionRuntimeOptions) {
     this.context = Object.freeze({ ...options.context });
-    this.appServerQueries = new AppServerQueryCache(this.context, { clientAccess: this });
+    this.appServerQueries = new AppServerQueryCache(this.context, this);
     this.threadCatalog = createThreadCatalog({
       store: this.appServerQueries,
       onEventApplied: (event) => {
@@ -269,20 +270,25 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       this.assertActive();
       return operation(client);
     };
-    const result = await withShortLivedAppServerClient(this.context.codexPath, this.context.vaultPath, guardedOperation, options, {
-      created: (client) => {
-        if (this.disposed) {
-          client.disconnect();
-          throw new StaleAppServerResourceContextError();
-        }
-        this.shortLivedClients.add(client);
-      },
-      disposed: (client) => {
-        this.shortLivedClients.delete(client);
-      },
-    });
-    this.assertActive();
-    return result;
+    try {
+      const result = await withShortLivedAppServerClient(this.context.codexPath, this.context.vaultPath, guardedOperation, options, {
+        created: (client) => {
+          if (this.disposed) {
+            client.disconnect();
+            throw new StaleExecutionRuntimeError();
+          }
+          this.shortLivedClients.add(client);
+        },
+        disposed: (client) => {
+          this.shortLivedClients.delete(client);
+        },
+      });
+      this.assertActive();
+      return result;
+    } catch (error) {
+      if (this.disposed) throw new StaleExecutionRuntimeError();
+      throw error;
+    }
   }
 
   private structuredTurnRunner(): EphemeralStructuredTurnRunner {
@@ -303,7 +309,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
               created: (client) => {
                 if (this.disposed) {
                   client.disconnect();
-                  throw new StaleAppServerResourceContextError();
+                  throw new StaleExecutionRuntimeError();
                 }
                 this.structuredTurnClients.add(client);
               },
@@ -332,7 +338,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   }
 
   private assertActive(): void {
-    if (this.disposed) throw new StaleAppServerResourceContextError();
+    if (this.disposed) throw new StaleExecutionRuntimeError();
   }
 
   private tryCleanup(operation: () => void): boolean {

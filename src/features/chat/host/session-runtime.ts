@@ -1,6 +1,6 @@
 import { codexPanelAppServerInitializeParams } from "../../../app-server/connection/client-profile";
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import { isStaleAppServerResourceContextError } from "../../../app-server/query/cache";
+import { isStaleExecutionRuntimeError } from "../../../shared/runtime/execution-runtime-lifetime";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../app-server/session-gateway";
 import { createReconnectPanelAction } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
@@ -282,7 +282,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     try {
       await connectionBundle.refreshSharedThreads();
     } catch (error) {
-      if (isStaleAppServerResourceContextError(error)) return;
+      if (isStaleExecutionRuntimeError(error)) return;
       throw error;
     }
   };

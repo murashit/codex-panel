@@ -2,8 +2,8 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
-import { isStaleAppServerResourceContextError } from "../../../../app-server/query/cache";
 import type { SharedServerMetadataResource } from "../../../../domain/server/metadata";
+import { isStaleExecutionRuntimeError } from "../../../../shared/runtime/execution-runtime-lifetime";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionActions, createChatConnectionActions } from "../../application/connection/connection-actions";
 import type { ServerDiagnosticsTransport } from "../../application/connection/metadata-transport";
@@ -127,7 +127,7 @@ export function createConnectionBundle(
     refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
     refreshSkills: () => environment.plugin.appServerQueries.refreshSkills(),
     refreshRateLimits: () => environment.plugin.appServerQueries.refreshRateLimits(),
-    isStaleResourceContextError: isStaleAppServerResourceContextError,
+    isStaleRuntimeError: isStaleExecutionRuntimeError,
   });
   const serverDiagnostics = createServerDiagnosticsActions({
     stateStore,
@@ -224,7 +224,7 @@ export function createConnectionBundle(
     addSystemMessage: status.addSystemMessage,
     configuredCommand: () => environment.plugin.appServerContext.codexPath,
     isStaleConnectionError: (error) => error instanceof StaleConnectionError,
-    isStaleResourceContextError: isStaleAppServerResourceContextError,
+    isStaleRuntimeError: isStaleExecutionRuntimeError,
     notifyConnectionFailed: () => {
       new Notice("Codex app-server connection failed.");
     },

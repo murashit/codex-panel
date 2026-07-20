@@ -4,7 +4,6 @@ import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
-import { StaleAppServerResourceContextError } from "../../src/app-server/query/cache";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import type { ThreadCatalogEvent } from "../../src/features/threads/catalog/thread-catalog";
@@ -12,6 +11,7 @@ import { createSettingsAppServerDynamicData } from "../../src/settings/app-serve
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
+import { StaleExecutionRuntimeError } from "../../src/shared/runtime/execution-runtime-lifetime";
 
 type ShortLivedClientOperation = (
   codexPath: string,
@@ -234,12 +234,12 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
         settings.codexPath,
         "/vault",
         async (client) => {
-          if (appServerQueries.contextKey() !== contextKey) throw new StaleAppServerResourceContextError();
+          if (appServerQueries.contextKey() !== contextKey) throw new StaleExecutionRuntimeError();
           return operation(client);
         },
         clientOptions,
       )) as T;
-      if (appServerQueries.contextKey() !== contextKey) throw new StaleAppServerResourceContextError();
+      if (appServerQueries.contextKey() !== contextKey) throw new StaleExecutionRuntimeError();
       return result;
     },
   };

@@ -130,10 +130,7 @@ function ChatPanelToolbarRegion({
   actions: ToolbarActions;
 }): UiNode {
   const model = useChatSelector(stateStore, selectChatPanelToolbar);
-  return useMemo(
-    () => <ChatPanelToolbar model={model} stateStore={stateStore} surface={surface} actions={actions} />,
-    [model, stateStore, surface, actions],
-  );
+  return <ChatPanelToolbar model={model} stateStore={stateStore} surface={surface} actions={actions} />;
 }
 
 function ChatPanelGoalRegion({ stateStore, surface }: { stateStore: ChatStateStore; surface: ChatPanelGoalSurface }): UiNode {

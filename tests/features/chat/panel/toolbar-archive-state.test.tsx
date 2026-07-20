@@ -51,9 +51,45 @@ describe("chat toolbar archive confirmation state", () => {
       unmountChatPanelShell(container);
     });
   });
+
+  it("reprojects the archive default when settings refresh the mounted shell", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    const toolbarActions = createToolbarPanelActions({
+      stateStore: store,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
+    });
+    let archiveExportEnabled = true;
+    const parts = shellParts(store, toolbarActions, () => archiveExportEnabled);
+    store.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread-1", "Thread one")] });
+    store.dispatch({ type: "ui/panel-set", panel: "history" });
+    toolbarActions.startArchive("thread-1");
+    document.body.appendChild(container);
+
+    await act(async () => {
+      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
+      await settle();
+    });
+    expect(container.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Save and archive thread");
+
+    archiveExportEnabled = false;
+    await act(async () => {
+      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
+      await settle();
+    });
+    expect(container.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Archive thread without saving");
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
 });
 
-function toolbarSurface(_store: ReturnType<typeof createChatStateStore>, _toolbarActions: ToolbarPanelActions): ChatPanelToolbarSurface {
+function toolbarSurface(
+  _store: ReturnType<typeof createChatStateStore>,
+  _toolbarActions: ToolbarPanelActions,
+  archiveExportEnabled: () => boolean,
+): ChatPanelToolbarSurface {
   return {
     connection: {
       connected: () => false,
@@ -64,13 +100,17 @@ function toolbarSurface(_store: ReturnType<typeof createChatStateStore>, _toolba
     settings: {
       vaultPath: () => "/vault",
       configuredCommand: () => "codex",
-      archiveExportEnabled: () => true,
+      archiveExportEnabled,
     },
   };
 }
 
-function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanelActions: ToolbarPanelActions): ChatPanelShellParts {
-  const surface = surfaceFixture(store, toolbarPanelActions);
+function shellParts(
+  store: ReturnType<typeof createChatStateStore>,
+  toolbarPanelActions: ToolbarPanelActions,
+  archiveExportEnabled: () => boolean = () => true,
+): ChatPanelShellParts {
+  const surface = surfaceFixture(store, toolbarPanelActions, archiveExportEnabled);
   return {
     toolbar: {
       surface: surface.toolbar,
@@ -168,12 +208,13 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanel
 function surfaceFixture(
   store: ReturnType<typeof createChatStateStore>,
   toolbarActions: ToolbarPanelActions,
+  archiveExportEnabled: () => boolean,
 ): {
   toolbar: ChatPanelToolbarSurface;
   goal: ChatPanelGoalSurface;
 } {
   return {
-    toolbar: toolbarSurface(store, toolbarActions),
+    toolbar: toolbarSurface(store, toolbarActions, archiveExportEnabled),
     goal: {
       sendShortcut: () => "enter",
       actions: {

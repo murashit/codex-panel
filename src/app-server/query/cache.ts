@@ -20,8 +20,10 @@ import {
 } from "../../domain/server/diagnostics";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
+import { StaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "../connection/client-access";
+import type { AppServerExecutionContext } from "../connection/execution-context";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listModelMetadata } from "../services/catalog";
 import { readEffectiveConfig } from "../services/runtime-metadata";
@@ -34,34 +36,20 @@ import {
   applyActiveThreadMutation,
   recentActiveThreadsFromData,
 } from "./active-thread-inventory";
-import {
-  type AppServerQueryContext,
-  activeThreadSearchInventoryQueryKey,
-  activeThreadsQueryKey,
-  appServerModelsQueryKey,
-  appServerPermissionProfilesQueryKey,
-  appServerRateLimitsQueryKey,
-  appServerRuntimeConfigQueryKey,
-  appServerSkillsQueryKey,
-  archivedThreadsQueryKey,
-} from "./keys";
 import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
 import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResult, ObservedResultListener } from "./observed-result";
 import { cloneModelMetadata, cloneSharedServerMetadata, cloneSharedServerMetadataResource, cloneThreads } from "./snapshots";
 import { applyThreadListMutation, type ThreadListKind, type ThreadListMutation } from "./thread-list-mutation";
 
 const MODELS_STALE_TIME_MS = 60_000;
-
-export class StaleAppServerResourceContextError extends Error {
-  constructor() {
-    super("Codex app-server resource context changed while loading.");
-    this.name = "StaleAppServerResourceContextError";
-  }
-}
-
-export function isStaleAppServerResourceContextError(error: unknown): error is StaleAppServerResourceContextError {
-  return error instanceof StaleAppServerResourceContextError;
-}
+const ACTIVE_THREADS_QUERY_KEY = ["threads", "active"] as const;
+const ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY = ["threads", "active-search-inventory"] as const;
+const ARCHIVED_THREADS_QUERY_KEY = ["threads", "archived"] as const;
+const MODELS_QUERY_KEY = ["models"] as const;
+const RUNTIME_CONFIG_QUERY_KEY = ["runtime-config"] as const;
+const SKILLS_QUERY_KEY = ["skills"] as const;
+const PERMISSION_PROFILES_QUERY_KEY = ["permission-profiles"] as const;
+const RATE_LIMITS_QUERY_KEY = ["rate-limits"] as const;
 
 interface AppServerQueryOptions<T> {
   readonly queryKey: readonly unknown[];
@@ -69,7 +57,7 @@ interface AppServerQueryOptions<T> {
   readonly staleTime?: number;
 }
 
-type ActiveThreadsQueryKey = ReturnType<typeof activeThreadsQueryKey>;
+type ActiveThreadsQueryKey = typeof ACTIVE_THREADS_QUERY_KEY;
 
 interface MetadataResourceSnapshot<T> {
   readonly value: T;
@@ -80,16 +68,16 @@ type MetadataResourceKind = "skills" | "permissionProfiles" | "rateLimits";
 type MetadataResourceValue = readonly SkillMetadata[] | readonly RuntimePermissionProfileSummary[] | RateLimitSnapshot | null;
 
 export class AppServerQueryCache {
-  private readonly context: Readonly<AppServerQueryContext>;
+  private readonly context: Readonly<AppServerExecutionContext>;
   private readonly client: QueryClient;
   private readonly clientAccess: AppServerClientAccess;
   private readonly observerUnsubscribes = new Set<() => void>();
   private disposed = false;
 
-  constructor(context: AppServerQueryContext, options: { client?: QueryClient; clientAccess: AppServerClientAccess }) {
+  constructor(context: AppServerExecutionContext, clientAccess: AppServerClientAccess) {
     this.context = Object.freeze({ ...context });
-    this.client = options.client ?? createAppServerQueryClient();
-    this.clientAccess = options.clientAccess;
+    this.client = createAppServerQueryClient();
+    this.clientAccess = clientAccess;
   }
 
   dispose(): void {
@@ -102,14 +90,14 @@ export class AppServerQueryCache {
 
   activeThreadsSnapshot(): readonly Thread[] | null {
     if (this.disposed) return null;
-    const data = this.client.getQueryData<ActiveThreadData>(activeThreadsQueryKey());
+    const data = this.client.getQueryData<ActiveThreadData>(ACTIVE_THREADS_QUERY_KEY);
     const threads = activeThreadsFromData(data);
     return threads ? cloneThreads(threads) : null;
   }
 
   recentActiveThreadsSnapshot(): readonly Thread[] | null {
     if (this.disposed) return null;
-    const data = this.client.getQueryData<ActiveThreadData>(activeThreadsQueryKey());
+    const data = this.client.getQueryData<ActiveThreadData>(ACTIVE_THREADS_QUERY_KEY);
     const threads = recentActiveThreadsFromData(data);
     return threads ? cloneThreads(threads) : null;
   }
@@ -146,7 +134,7 @@ export class AppServerQueryCache {
 
   fetchActiveThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
     return this.runWhileActive(async () => {
-      const key = activeThreadsQueryKey();
+      const key = ACTIVE_THREADS_QUERY_KEY;
       if (options.force) {
         if (this.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward") {
           await this.client.cancelQueries({ queryKey: key, exact: true });
@@ -170,7 +158,7 @@ export class AppServerQueryCache {
 
   fetchActiveThreadSearchInventory(): Promise<readonly Thread[]> {
     return this.runWhileActive(async () => {
-      const key = activeThreadSearchInventoryQueryKey();
+      const key = ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY;
       const options = {
         queryKey: key,
         queryFn: ({ signal }: { signal: AbortSignal }) =>
@@ -182,7 +170,7 @@ export class AppServerQueryCache {
 
   hasMoreActiveThreads(): boolean {
     if (this.disposed) return false;
-    return activeThreadDataHasMore(this.client.getQueryData<ActiveThreadData>(activeThreadsQueryKey()));
+    return activeThreadDataHasMore(this.client.getQueryData<ActiveThreadData>(ACTIVE_THREADS_QUERY_KEY));
   }
 
   loadMoreActiveThreads(): Promise<readonly Thread[]> {
@@ -212,7 +200,7 @@ export class AppServerQueryCache {
 
   fetchArchivedThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
     return this.runWhileActive(async () => {
-      const key = archivedThreadsQueryKey();
+      const key = ARCHIVED_THREADS_QUERY_KEY;
       if (options.force) {
         await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
         this.assertUsable();
@@ -228,7 +216,7 @@ export class AppServerQueryCache {
     if (mutations.length === 0) return;
     const activeMutations = mutations.filter((mutation) => mutation.list === "active");
     if (activeMutations.length > 0) {
-      const key = activeThreadsQueryKey();
+      const key = ACTIVE_THREADS_QUERY_KEY;
       const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
       const fetchIsNextPage = this.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward";
       void this.client.cancelQueries({ queryKey: key, exact: true });
@@ -236,7 +224,7 @@ export class AppServerQueryCache {
       const after = activeMutations.reduce<ActiveThreadData | undefined>(applyActiveThreadMutation, before);
       if (after !== before) this.client.setQueryData(key, after);
       void this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-      const searchKey = activeThreadSearchInventoryQueryKey();
+      const searchKey = ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY;
       void this.client.cancelQueries({ queryKey: searchKey, exact: true });
       void this.client.invalidateQueries({ queryKey: searchKey, refetchType: "none" });
 
@@ -250,7 +238,7 @@ export class AppServerQueryCache {
 
     const archivedMutations = mutations.filter((mutation) => mutation.list === "archived");
     if (archivedMutations.length > 0) {
-      const key = archivedThreadsQueryKey();
+      const key = ARCHIVED_THREADS_QUERY_KEY;
       const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
       void this.client.cancelQueries({ queryKey: key, exact: true });
       const before = this.archivedThreadsSnapshot();
@@ -269,13 +257,13 @@ export class AppServerQueryCache {
 
   private threadListSnapshot(kind: ThreadListKind): readonly Thread[] | null {
     if (kind === "active") return this.activeThreadsSnapshot();
-    const threads = this.client.getQueryData<readonly Thread[]>(archivedThreadsQueryKey());
+    const threads = this.client.getQueryData<readonly Thread[]>(ARCHIVED_THREADS_QUERY_KEY);
     return threads ? cloneThreads(threads) : null;
   }
 
   appServerMetadataSnapshot(): SharedServerMetadata | null {
     if (this.disposed) return null;
-    const runtimeConfig = this.client.getQueryData<RuntimeConfigSnapshot>(appServerRuntimeConfigQueryKey());
+    const runtimeConfig = this.client.getQueryData<RuntimeConfigSnapshot>(RUNTIME_CONFIG_QUERY_KEY);
     if (!runtimeConfig) return null;
     const skills = this.metadataResourceState("skills");
     const permissionProfiles = this.metadataResourceState("permissionProfiles");
@@ -398,7 +386,7 @@ export class AppServerQueryCache {
 
   modelsSnapshot(): readonly ModelMetadata[] | null {
     if (this.disposed) return null;
-    const models = this.client.getQueryData<readonly ModelMetadata[]>(appServerModelsQueryKey());
+    const models = this.client.getQueryData<readonly ModelMetadata[]>(MODELS_QUERY_KEY);
     return models ? cloneModelMetadata(models) : null;
   }
 
@@ -409,7 +397,7 @@ export class AppServerQueryCache {
 
   fetchModels(options: { force?: boolean } = {}): Promise<readonly ModelMetadata[]> {
     return this.runWhileActive(async () => {
-      const key = appServerModelsQueryKey();
+      const key = MODELS_QUERY_KEY;
       if (options.force) {
         await this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
         this.assertUsable();
@@ -432,7 +420,7 @@ export class AppServerQueryCache {
     ActiveThreadCursor
   > {
     return {
-      queryKey: activeThreadsQueryKey(),
+      queryKey: ACTIVE_THREADS_QUERY_KEY,
       queryFn: async ({ pageParam, signal }) => {
         signal.throwIfAborted();
         const page = await this.runWithClient((client) =>
@@ -449,7 +437,7 @@ export class AppServerQueryCache {
 
   private archivedThreadsQueryOptions(): AppServerQueryOptions<readonly Thread[]> {
     return {
-      queryKey: archivedThreadsQueryKey(),
+      queryKey: ARCHIVED_THREADS_QUERY_KEY,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         this.runWithClient((client) => listThreads(client, this.context.vaultPath, { archived: true, signal })).then(cloneThreads),
       staleTime: Number.POSITIVE_INFINITY,
@@ -458,7 +446,7 @@ export class AppServerQueryCache {
 
   private runtimeConfigQueryOptions(): AppServerQueryOptions<RuntimeConfigSnapshot> {
     return {
-      queryKey: appServerRuntimeConfigQueryKey(),
+      queryKey: RUNTIME_CONFIG_QUERY_KEY,
       queryFn: async (): Promise<RuntimeConfigSnapshot> =>
         this.runWithClient(async (client) =>
           runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, this.context.vaultPath)),
@@ -468,7 +456,7 @@ export class AppServerQueryCache {
 
   private skillsQueryOptions(): AppServerQueryOptions<MetadataResourceSnapshot<readonly SkillMetadata[]>> {
     return {
-      queryKey: appServerSkillsQueryKey(),
+      queryKey: SKILLS_QUERY_KEY,
       queryFn: async () =>
         this.runWithClient(async (client) => successfulMetadataResource(await readSkillMetadataProbe(client, this.context.vaultPath))),
     };
@@ -476,7 +464,7 @@ export class AppServerQueryCache {
 
   private permissionProfilesQueryOptions(): AppServerQueryOptions<MetadataResourceSnapshot<readonly RuntimePermissionProfileSummary[]>> {
     return {
-      queryKey: appServerPermissionProfilesQueryKey(),
+      queryKey: PERMISSION_PROFILES_QUERY_KEY,
       queryFn: async () =>
         this.runWithClient(async (client) =>
           successfulMetadataResource(await readPermissionProfileMetadataProbe(client, this.context.vaultPath)),
@@ -486,7 +474,7 @@ export class AppServerQueryCache {
 
   private rateLimitsQueryOptions(): AppServerQueryOptions<MetadataResourceSnapshot<RateLimitSnapshot | null>> {
     return {
-      queryKey: appServerRateLimitsQueryKey(),
+      queryKey: RATE_LIMITS_QUERY_KEY,
       queryFn: async () => this.runWithClient(async (client) => successfulMetadataResource(await readRateLimitMetadataProbe(client))),
     };
   }
@@ -518,7 +506,7 @@ export class AppServerQueryCache {
   }
 
   private async refreshNotifiedMetadataResource(resource: "skills" | "rateLimits"): Promise<void> {
-    const queryKey = resource === "skills" ? appServerSkillsQueryKey() : appServerRateLimitsQueryKey();
+    const queryKey = resource === "skills" ? SKILLS_QUERY_KEY : RATE_LIMITS_QUERY_KEY;
     await this.client.cancelQueries({ queryKey, exact: true });
     this.assertUsable();
     try {
@@ -536,11 +524,7 @@ export class AppServerQueryCache {
   private metadataResourceState(resource: "rateLimits"): { value: RateLimitSnapshot | null; probe: DiagnosticProbeResult };
   private metadataResourceState(resource: MetadataResourceKind): { value: MetadataResourceValue; probe: DiagnosticProbeResult } {
     const key =
-      resource === "skills"
-        ? appServerSkillsQueryKey()
-        : resource === "permissionProfiles"
-          ? appServerPermissionProfilesQueryKey()
-          : appServerRateLimitsQueryKey();
+      resource === "skills" ? SKILLS_QUERY_KEY : resource === "permissionProfiles" ? PERMISSION_PROFILES_QUERY_KEY : RATE_LIMITS_QUERY_KEY;
     const state = this.client.getQueryState<MetadataResourceSnapshot<MetadataResourceValue>>(key);
     const failedProbe = diagnosticProbeFromError(state?.error);
     return {
@@ -550,7 +534,7 @@ export class AppServerQueryCache {
   }
 
   private modelsProbe(): DiagnosticProbeResult {
-    const state = this.client.getQueryState<readonly ModelMetadata[]>(appServerModelsQueryKey());
+    const state = this.client.getQueryState<readonly ModelMetadata[]>(MODELS_QUERY_KEY);
     return (
       diagnosticProbeFromError(state?.error) ??
       (state?.data
@@ -561,7 +545,7 @@ export class AppServerQueryCache {
 
   private modelsQueryOptions(): AppServerQueryOptions<readonly ModelMetadata[]> {
     return {
-      queryKey: appServerModelsQueryKey(),
+      queryKey: MODELS_QUERY_KEY,
       queryFn: async (): Promise<readonly ModelMetadata[]> => {
         try {
           return cloneModelMetadata(
@@ -651,7 +635,7 @@ export class AppServerQueryCache {
   }
 
   private assertUsable(): void {
-    if (this.disposed) throw new StaleAppServerResourceContextError();
+    if (this.disposed) throw new StaleExecutionRuntimeError();
   }
 
   private runWhileActive<T>(operation: () => Promise<T>): Promise<T> {
@@ -662,7 +646,7 @@ export class AppServerQueryCache {
         this.assertUsable();
         return result;
       } catch (error) {
-        if (this.disposed) throw new StaleAppServerResourceContextError();
+        if (this.disposed) throw new StaleExecutionRuntimeError();
         throw error;
       }
     })();

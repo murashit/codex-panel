@@ -2,7 +2,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { StaleAppServerResourceContextError } from "../../../../src/app-server/query/cache";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
@@ -13,6 +12,7 @@ import { ChatPanelSessionRuntime } from "../../../../src/features/chat/host/sess
 import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
 import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { StaleExecutionRuntimeError } from "../../../../src/shared/runtime/execution-runtime-lifetime";
 import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
@@ -73,7 +73,7 @@ describe("ChatPanelSessionRuntime actions", () => {
   });
 
   it("treats stale shared thread refreshes as runtime-local no-ops", async () => {
-    const refresh = vi.fn().mockRejectedValue(new StaleAppServerResourceContextError());
+    const refresh = vi.fn().mockRejectedValue(new StaleExecutionRuntimeError());
     const { runtime, stateStore } = sessionRuntimeFixture({
       environment: {
         plugin: {

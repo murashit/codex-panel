@@ -47,7 +47,7 @@ function createActionsHarness({ connected = false, canConnect = true } = {}) {
     addSystemMessage: vi.fn(),
     configuredCommand: () => "codex",
     isStaleConnectionError: () => false,
-    isStaleResourceContextError: () => false,
+    isStaleRuntimeError: () => false,
     notifyConnectionFailed: vi.fn(),
   };
   return {
@@ -172,11 +172,11 @@ describe("ChatConnectionActions", () => {
     const { actions, host } = createActionsHarness({ connected: true });
     const error = new Error("stale");
     vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(error);
-    host.isStaleResourceContextError = vi.fn((candidate) => candidate === error);
+    host.isStaleRuntimeError = vi.fn((candidate) => candidate === error);
 
     await actions.refreshActiveThreads();
 
-    expect(host.isStaleResourceContextError).toHaveBeenCalledWith(error);
+    expect(host.isStaleRuntimeError).toHaveBeenCalledWith(error);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 

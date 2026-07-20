@@ -152,7 +152,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     );
 
     const first = threadCatalog(plugin).refreshActive();
-    const staleFirst = expect(first).rejects.toThrow("Codex app-server resource context changed while loading.");
+    const staleFirst = expect(first).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
     await flushMicrotasks();
     await publishCodexPath(plugin, "codex-b");
     const second = threadCatalog(plugin).refreshActive();
@@ -230,7 +230,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     await publishCodexPath(plugin, "codex-b");
     result.resolve("stale-result");
 
-    await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
+    await expect(operation).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
   });
 
   it("rejects an old A result after switching from A to B and back to A", async () => {
@@ -246,7 +246,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     await publishCodexPath(plugin, "codex-a");
     result.resolve("stale-a");
 
-    await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
+    await expect(operation).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
     expect(currentChatHost(plugin).appServerContext).toEqual({ codexPath: "codex-a", vaultPath: "/vault" });
   });
 
@@ -267,7 +267,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     await publishCodexPath(plugin, "codex-b");
     clientReady.resolve();
 
-    await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
+    await expect(operation).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
     expect(callback).not.toHaveBeenCalled();
     expect(shortLivedClient.request).not.toHaveBeenCalled();
   });

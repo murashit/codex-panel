@@ -1,12 +1,13 @@
-import { onlineManager, QueryClient } from "@tanstack/query-core";
+import { onlineManager } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClientAccess } from "../../src/app-server/connection/client-access";
+import type { AppServerExecutionContext } from "../../src/app-server/connection/execution-context";
 import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
-import { AppServerQueryCache, StaleAppServerResourceContextError } from "../../src/app-server/query/cache";
-import type { AppServerQueryContext } from "../../src/app-server/query/keys";
+import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
 import type { Thread } from "../../src/domain/threads/model";
+import { StaleExecutionRuntimeError } from "../../src/shared/runtime/execution-runtime-lifetime";
 
 describe("AppServerQueryCache", () => {
   it("uses its required runtime-owned client access", async () => {
@@ -22,25 +23,15 @@ describe("AppServerQueryCache", () => {
     expect(withClient).toHaveBeenCalledOnce();
   });
 
-  it("keeps executable and vault context out of runtime-local query keys", async () => {
-    const queryClient = new QueryClient();
+  it("copies its execution context before performing requests", async () => {
     const context = { codexPath: "/opt/codex", vaultPath: "/vault-a" };
     const request = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
-    const cache = new AppServerQueryCache(context, {
-      client: queryClient,
-      clientAccess: { withClient: async (operation) => operation({ request } as never) },
-    });
+    const cache = new AppServerQueryCache(context, { withClient: async (operation) => operation({ request } as never) });
 
     context.codexPath = "/changed";
     context.vaultPath = "/vault-b";
     await cache.fetchActiveThreads();
 
-    expect(
-      queryClient
-        .getQueryCache()
-        .getAll()
-        .map((query) => query.queryKey),
-    ).toEqual([["app-server", "threads", "active"]]);
     expect(request).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault-a",
       archived: false,
@@ -57,10 +48,10 @@ describe("AppServerQueryCache", () => {
     cache.dispose();
     cache.dispose();
 
-    expect(() => cache.fetchModels()).toThrow(StaleAppServerResourceContextError);
+    expect(() => cache.fetchModels()).toThrow(StaleExecutionRuntimeError);
   });
 
-  it("classifies late completion after disposal as a stale resource context", async () => {
+  it("classifies late completion after disposal as a stale execution runtime", async () => {
     const pending = deferred<readonly []>();
     const cache = createCache({
       withClient: vi.fn(() => pending.promise) as AppServerClientAccess["withClient"],
@@ -70,7 +61,7 @@ describe("AppServerQueryCache", () => {
     cache.dispose();
     pending.resolve([]);
 
-    await expect(fetch).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
+    await expect(fetch).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
   });
 
   it("tears down observers without notifying them after disposal", async () => {
@@ -85,7 +76,7 @@ describe("AppServerQueryCache", () => {
     listener.mockClear();
     cache.dispose();
     pending.resolve([]);
-    await expect(fetch).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
+    await expect(fetch).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
 
     expect(listener).not.toHaveBeenCalled();
   });
@@ -146,7 +137,7 @@ describe("AppServerQueryCache", () => {
   });
 
   it("keeps active and archived thread list snapshots separate", async () => {
-    const fetchThreads = vi.fn((_context: AppServerQueryContext, archived: boolean) =>
+    const fetchThreads = vi.fn((_context: AppServerExecutionContext, archived: boolean) =>
       Promise.resolve(archived ? [thread("archived", true)] : [thread("active")]),
     );
     const cache = cacheWithThreads(fetchThreads);
@@ -511,7 +502,7 @@ describe("AppServerQueryCache", () => {
     cache.dispose();
 
     expect(cache.modelsSnapshot()).toBeNull();
-    expect(() => cache.fetchModels()).toThrow(StaleAppServerResourceContextError);
+    expect(() => cache.fetchModels()).toThrow(StaleExecutionRuntimeError);
     expect(listModels).toHaveBeenCalledOnce();
   });
 
@@ -843,7 +834,7 @@ describe("AppServerQueryCache", () => {
   });
 });
 
-function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServerQueryContext {
+function cacheContext(overrides: Partial<AppServerExecutionContext> = {}): AppServerExecutionContext {
   return {
     codexPath: "codex",
     vaultPath: "/vault",
@@ -852,30 +843,28 @@ function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServer
 }
 
 function cacheWithThreads(
-  fetchThreads: (context: AppServerQueryContext, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
-  context: AppServerQueryContext = cacheContext(),
+  fetchThreads: (context: AppServerExecutionContext, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
+  context: AppServerExecutionContext = cacheContext(),
 ): AppServerQueryCache {
   const runtimeContext = { ...context };
   return new AppServerQueryCache(context, {
-    clientAccess: {
-      withClient: async (operation) => {
-        return operation({
-          request: async (method: string, params: { archived?: boolean }) => {
-            if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
-            return {
-              data: await fetchThreads(runtimeContext, params.archived ?? false),
-              nextCursor: null,
-            };
-          },
-        } as never);
-      },
+    withClient: async (operation) => {
+      return operation({
+        request: async (method: string, params: { archived?: boolean }) => {
+          if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
+          return {
+            data: await fetchThreads(runtimeContext, params.archived ?? false),
+            nextCursor: null,
+          };
+        },
+      } as never);
     },
   });
 }
 
 function cacheWithRequestHandlers(
   handlers: Record<string, (params: unknown) => Promise<unknown>>,
-  context: AppServerQueryContext = cacheContext(),
+  context: AppServerExecutionContext = cacheContext(),
 ): AppServerQueryCache {
   const requestClient = {
     request: async (method: string, params: unknown) => {
@@ -885,14 +874,12 @@ function cacheWithRequestHandlers(
     },
   };
   return new AppServerQueryCache(context, {
-    clientAccess: {
-      withClient: async (operation) => operation(requestClient as never),
-    },
+    withClient: async (operation) => operation(requestClient as never),
   });
 }
 
 function createCache(clientAccess: AppServerClientAccess): AppServerQueryCache {
-  return new AppServerQueryCache(cacheContext(), { clientAccess });
+  return new AppServerQueryCache(cacheContext(), clientAccess);
 }
 
 function permissionProfile(id: string): RuntimePermissionProfileSummary {
