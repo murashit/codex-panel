@@ -717,7 +717,7 @@ async function flushPromises(): Promise<void> {
 function runSelectionRewrite(options: SelectionRewriteTestRunOptions) {
   const { runner, ...request } = options;
   return createAppServerSelectionRewriteTransport({
-    codexPath: () => "/bin/codex",
+    codexPath: "/bin/codex",
     cwd: "/vault",
     runner,
   }).generate(request);

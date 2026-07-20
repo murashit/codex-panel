@@ -1,8 +1,7 @@
 import { Notice } from "obsidian";
 
-import { appServerQueryContextIdentity, appServerQueryContextIdentityMatches } from "../../../../app-server/query/keys";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
-import { createThreadOperationsTransport, createThreadTitleTransport } from "../../../threads/app-server/workflow-transports";
+import { createThreadOperationsTransport } from "../../../threads/app-server/workflow-transports";
 import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
@@ -116,15 +115,8 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   const { appServer, localItemIds, status } = input;
   const { environment, stateStore } = host;
   const threadOperationsTransport = createThreadOperationsTransport(appServer.clientAccess);
-  const threadTitleTransport = createThreadTitleTransport({
-    clientAccess: appServer.clientAccess,
-    codexPath: () => environment.plugin.appServerQueries.contextLease().context.codexPath,
-    vaultPath: environment.plugin.appServerQueries.contextLease().context.vaultPath,
-    threadNamingModel: () => environment.plugin.settingsRef.settings.threadNamingModel(),
-    threadNamingEffort: () => environment.plugin.settingsRef.settings.threadNamingEffort(),
-  });
   const titleService = createThreadTitleService({
-    transport: threadTitleTransport,
+    transport: environment.plugin.threadTitleTransport,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
     visibleCompletedTurnContext: (turnId) =>
       threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
@@ -132,19 +124,6 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   const threadOperations = createThreadOperations({
     transport: threadOperationsTransport,
     nameMutations: environment.plugin.threadNameMutations,
-    resourceContext: {
-      capture: () => appServerQueryContextIdentity(environment.plugin.appServerQueries.contextLease()),
-      isCurrent: (context) => {
-        try {
-          return appServerQueryContextIdentityMatches(
-            context,
-            appServerQueryContextIdentity(environment.plugin.appServerQueries.contextLease()),
-          );
-        } catch {
-          return false;
-        }
-      },
-    },
     archiveExport: {
       settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
       enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),

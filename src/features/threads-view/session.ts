@@ -1,12 +1,5 @@
 import { Notice } from "obsidian";
 
-import {
-  type AppServerContextLease,
-  type AppServerQueryContext,
-  appServerQueryContextIdentity,
-  appServerQueryContextIdentityMatches,
-  appServerQueryContextRawEquals,
-} from "../../app-server/query/keys";
 import type { ObservedPaginatedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
 import { isStaleAppServerResourceContextError } from "../../app-server/query/resource-store";
@@ -27,7 +20,6 @@ import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows, tra
 export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
-  appServerContextLease(): AppServerContextLease;
   readonly threadCatalog: ThreadsViewThreadCatalog;
   readonly threadNameMutations: ThreadNameMutationCoordinator;
   readonly threadOperationsTransport: ThreadOperationsTransport;
@@ -65,7 +57,6 @@ type ThreadsViewStatus =
 
 interface ThreadsViewOperationLease {
   readonly lifetime: AbortSignal;
-  readonly appServerContextGeneration: number;
 }
 
 export class ThreadsViewSession {
@@ -82,25 +73,12 @@ export class ThreadsViewSession {
   private nextRenameGenerationToken = 1;
   private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
-  private observedAppServerContext: AppServerQueryContext;
-  private appServerContextGeneration = 0;
 
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
-    this.observedAppServerContext = this.currentAppServerContext();
     this.renderTask = new DeferredTask(() => this.viewWindow(), 0);
     this.operations = createThreadOperations({
       transport: this.host.threadOperationsTransport,
       nameMutations: this.host.threadNameMutations,
-      resourceContext: {
-        capture: () => appServerQueryContextIdentity(this.host.appServerContextLease()),
-        isCurrent: (context) => {
-          try {
-            return appServerQueryContextIdentityMatches(context, appServerQueryContextIdentity(this.host.appServerContextLease()));
-          } catch {
-            return false;
-          }
-        },
-      },
       archiveExport: {
         settings: () => this.host.settings.archiveExportSettings(),
         enabled: () => this.host.settings.archiveExportEnabled(),
@@ -185,33 +163,8 @@ export class ThreadsViewSession {
     this.scheduleRender();
   }
 
-  prepareAppServerContextChange(): void {
-    this.appServerContextGeneration += 1;
-    this.titleService.invalidate();
-    this.observedFetching = false;
-    this.observedFetchingNextPage = false;
-    this.renderTask.clear();
-    this.threads = [];
-    this.threadsLoaded = false;
-    this.renameStates.clear();
-    this.archiveConfirmThreadId = null;
-    this.status = { kind: "idle" };
-    this.render();
-  }
-
   refreshSettings(): void {
-    const nextContext = this.currentAppServerContext();
-    if (appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
-      this.render();
-      return;
-    }
-    this.observedAppServerContext = nextContext;
-    const snapshot = this.host.threadCatalog.activeSnapshot();
-    this.threads = snapshot ?? [];
-    this.threadsLoaded = snapshot !== null;
-    this.status = snapshot?.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     this.render();
-    void this.load();
   }
 
   private receiveObservedThreadsResult(result: ObservedPaginatedResult<readonly Thread[]>): void {
@@ -409,18 +362,15 @@ export class ThreadsViewSession {
   }
 
   private captureOperationLease(): ThreadsViewOperationLease {
-    return {
-      lifetime: this.lifetime.signal(),
-      appServerContextGeneration: this.appServerContextGeneration,
-    };
+    return { lifetime: this.lifetime.signal() };
   }
 
   private operationContextIsCurrent(lease: ThreadsViewOperationLease): boolean {
-    return lease.appServerContextGeneration === this.appServerContextGeneration;
+    return this.lifetime.isCurrent(lease.lifetime);
   }
 
   private operationViewIsCurrent(lease: ThreadsViewOperationLease): boolean {
-    return this.operationContextIsCurrent(lease) && this.lifetime.isCurrent(lease.lifetime);
+    return this.lifetime.isCurrent(lease.lifetime);
   }
 
   private finishAutoNameThread(threadId: string, generationToken: number): void {
@@ -441,9 +391,5 @@ export class ThreadsViewSession {
 
   private viewWindow(): Window {
     return this.environment.viewWindow() ?? window;
-  }
-
-  private currentAppServerContext(): AppServerQueryContext {
-    return { codexPath: this.host.settings.codexPath(), vaultPath: this.host.vaultPath };
   }
 }

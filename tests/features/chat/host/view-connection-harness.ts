@@ -11,7 +11,7 @@ import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/doma
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
-import type { CodexChatHost } from "../../../../src/features/chat/host/contracts";
+import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadCatalogEvent } from "../../../../src/features/threads/catalog/thread-catalog";
 import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
@@ -64,7 +64,7 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {
-    private readonly codexPath: () => string;
+    private readonly codexPath: string;
     private readonly cwd: string;
     private handlers: {
       onNotification: (notification: ServerNotification, context: { codexPath: string; cwd: string }) => void;
@@ -76,7 +76,7 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
       onExit: (context: { codexPath: string; cwd: string }) => void;
     } | null;
 
-    constructor(codexPath: () => string, cwd: string) {
+    constructor(codexPath: string, cwd: string) {
       this.codexPath = codexPath;
       this.cwd = cwd;
       this.handlers = null;
@@ -121,11 +121,11 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
 
     exit(): void {
       connectionMock.state.connected = false;
-      this.handlers?.onExit({ codexPath: this.codexPath(), cwd: this.cwd });
+      this.handlers?.onExit({ codexPath: this.codexPath, cwd: this.cwd });
     }
 
     private publishHandlers(handlers: NonNullable<ConnectionManager["handlers"]>): void {
-      const context = { codexPath: this.codexPath(), cwd: this.cwd };
+      const context = { codexPath: this.codexPath, cwd: this.cwd };
       connectionMock.state.onNotification = (notification) => handlers.onNotification(notification, context);
       connectionMock.state.onServerRequest = (request, responder) => handlers.onServerRequest(request, responder);
       connectionMock.state.onExit = () => handlers.onExit(context);
@@ -398,7 +398,7 @@ export async function submitComposerByEnter(view: { containerEl: HTMLElement }):
   await flushAsyncTicks();
 }
 
-export async function flushAsyncTicks(): Promise<void> {
+async function flushAsyncTicks(): Promise<void> {
   for (let index = 0; index < 10; index += 1) {
     await Promise.resolve();
   }
@@ -544,12 +544,24 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     }
   };
   return {
+    appServerClientAccess: {
+      withClient: async (operation) => {
+        const client = connectionMock.state.client as TestAppServerClient | null;
+        if (!client) throw new Error("Codex app-server is not connected.");
+        return operation(client as never);
+      },
+    },
+    appServerContext: { codexPath: settings.codexPath, vaultPath },
     settingsSource: settings,
     receiveActiveThreads: (threads) => {
       activeThreads = threads;
       emitActiveThreads();
     },
     threadNameMutations: overrides.threadNameMutations ?? createThreadNameMutationCoordinator(),
+    threadTitleTransport: {
+      persistedContext: vi.fn().mockResolvedValue(null),
+      generateTitle: vi.fn().mockResolvedValue(null),
+    },
     threadGoalOperations: createThreadGoalOperationCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationQueue(),
     settingsRef: {
@@ -566,7 +578,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
     },
     appServerQueries: {
-      contextLease: () => ({ context: { codexPath: settings.codexPath, vaultPath }, generation: 1 }),
       appServerMetadataSnapshot: overrides.appServerMetadataSnapshot ?? vi.fn(() => metadata),
       refreshAppServerMetadata:
         overrides.refreshAppServerMetadata ??
@@ -613,7 +624,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     },
     threadCatalog: {
       apply: overrides.applyThreadCatalogEvent ?? applyThreadCatalogEvent,
-      applyConnectionEvent: (_context, event) => (overrides.applyThreadCatalogEvent ?? applyThreadCatalogEvent)(event),
       hasMoreActive: vi.fn(() => false),
       loadMoreActive: vi.fn(async () => activeThreads ?? []),
       refreshActive:
@@ -675,7 +685,36 @@ function queryResult<T>(value: T | null): ObservedResult<T> {
   };
 }
 
-export async function chatView(options: { host?: CodexChatHost; requestSaveLayout?: () => void } = {}) {
+export interface TestChatViewRuntimeOwner extends ChatViewRuntimeOwner {
+  replace(host: CodexChatHost): void;
+}
+
+export function chatViewRuntimeOwner(initialHost: CodexChatHost): TestChatViewRuntimeOwner {
+  let host = initialHost;
+  let view: ChatRuntimeView | null = null;
+  return {
+    attachChatView: (nextView) => {
+      view = nextView;
+      nextView.attachRuntime(host);
+      nextView.activateRuntime();
+    },
+    detachChatView: (nextView) => {
+      if (view !== nextView) return;
+      nextView.detachRuntime();
+      view = null;
+    },
+    replace: (nextHost) => {
+      host = nextHost;
+      view?.detachRuntime();
+      view?.attachRuntime(host);
+      view?.activateRuntime();
+    },
+  };
+}
+
+export async function chatView(
+  options: { host?: CodexChatHost; runtimeOwner?: ChatViewRuntimeOwner; requestSaveLayout?: () => void } = {},
+) {
   const host = options.host ?? chatHost();
   const containerEl = document.createElement("div");
   document.body.appendChild(containerEl);
@@ -709,7 +748,7 @@ export async function chatView(options: { host?: CodexChatHost; requestSaveLayou
       },
       containerEl,
     } as never,
-    host,
+    options.runtimeOwner ?? chatViewRuntimeOwner(host),
   );
   (view.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(view);
   const tracked: TrackedView = { view, opened: false };

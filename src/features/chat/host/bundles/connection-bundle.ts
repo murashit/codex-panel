@@ -153,8 +153,8 @@ export function createConnectionBundle(
       maybeNameThread: (threadId, turnId, completedTurnTranscriptSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
       },
-      applyThreadCatalogEvent: (event, sourceContext) => {
-        environment.plugin.threadCatalog.applyConnectionEvent(sourceContext, event);
+      applyThreadCatalogEvent: (event) => {
+        environment.plugin.threadCatalog.apply(event);
       },
       respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
       rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),
@@ -177,12 +177,8 @@ export function createConnectionBundle(
     connection: {
       connect: () =>
         connection.connect({
-          onNotification: (notification, sourceContext) => {
-            inboundHandler.handleNotification(notification, {
-              codexPath: sourceContext.codexPath,
-              vaultPath: sourceContext.cwd,
-              generation: sourceContext.generation,
-            });
+          onNotification: (notification) => {
+            inboundHandler.handleNotification(notification);
           },
           onServerRequest: (request, responder) => {
             serverRequestResponders.remember(request.id, responder);

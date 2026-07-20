@@ -4,7 +4,6 @@ import { Setting } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { DeclarativeSettingDefinition, DeclarativeSettingDefinitionItem } from "../../src/settings/declarative-settings.compat";
-import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { DEFAULT_SETTINGS } from "../../src/settings/model";
 import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
 import { notices } from "../mocks/obsidian";
@@ -582,14 +581,10 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).toContain("New archived");
   });
 
-  it("publishes a Codex executable change only after persistence and old-context invalidation", async () => {
+  it("publishes a Codex executable change only after persistence", async () => {
     const save = deferred<void>();
     const saveSettings = vi.fn(() => save.promise);
-    let host!: CodexPanelSettingTabHost;
-    const prepareAppServerContextChange = vi.fn(() => {
-      expect(host.settings.codexPath).toBe("codex");
-    });
-    host = settingsTabHost({ saveSettings, prepareAppServerContextChange });
+    const host = settingsTabHost({ saveSettings });
     const tab = new CodexPanelSettingTab({} as never, {} as never, host);
 
     tab.display();
@@ -601,12 +596,10 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ codexPath: "/opt/codex-next" }));
     expect(host.settings.codexPath).toBe("codex");
-    expect(prepareAppServerContextChange).not.toHaveBeenCalled();
 
     save.resolve(undefined);
     await flushPromises();
 
-    expect(prepareAppServerContextChange).toHaveBeenCalledOnce();
     expect(host.settings.codexPath).toBe("/opt/codex-next");
   });
 

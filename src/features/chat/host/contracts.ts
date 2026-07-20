@@ -1,29 +1,29 @@
 import type { App, Component, EventRef } from "obsidian";
 
-import type { AppServerClient } from "../../../app-server/connection/client";
-import type { AppServerContextLease, AppServerQueryContextIdentity } from "../../../app-server/query/keys";
+import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
+import type { AppServerQueryContext } from "../../../app-server/query/keys";
 import type { ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
-import type {
-  ThreadCatalogConnectionEventSink,
-  ThreadCatalogEventSink,
-  ThreadCatalogPaginatedActiveReader,
-} from "../../threads/catalog/thread-catalog";
+import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../../threads/workflows/archive-export";
+import type { ThreadTitleTransport } from "../../threads/workflows/ports";
 import type { ThreadNameMutationCoordinator } from "../../threads/workflows/thread-name-mutation-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ThreadGoalOperationCoordinator } from "../application/threads/goal-actions";
 
 export interface CodexChatHost {
+  readonly appServerClientAccess: AppServerClientAccess;
+  readonly appServerContext: Readonly<AppServerQueryContext>;
   readonly settingsRef: ChatPanelSettingsRef;
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadNameMutations: ThreadNameMutationCoordinator;
+  readonly threadTitleTransport: ThreadTitleTransport;
   readonly threadGoalOperations: ThreadGoalOperationCoordinator;
   readonly runtimeSettingsCommitQueue: KeyedOperationQueue<string>;
 }
@@ -46,7 +46,7 @@ export interface ChatPanelSettingsAccess {
   threadNamingModel(): string | null;
 }
 
-interface WorkspacePanels {
+export interface WorkspacePanels {
   openThreadInNewView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
   focusThreadInOpenView(threadId: string): Promise<boolean>;
@@ -56,10 +56,9 @@ interface WorkspacePanels {
   openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void>;
 }
 
-type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader & ThreadCatalogEventSink & ThreadCatalogConnectionEventSink;
+type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader & ThreadCatalogEventSink;
 
 interface ChatAppServerQueries {
-  contextLease(): AppServerContextLease;
   appServerMetadataSnapshot(): SharedServerMetadata | null;
   refreshAppServerMetadata(): Promise<void>;
   refreshSkills(): Promise<void>;
@@ -99,8 +98,24 @@ export interface ChatViewLifecycleSurface {
   applyViewState(state: unknown): void;
   open(): void;
   close(): Promise<void>;
-  prepareAppServerContextChange(): void;
   refreshSettings(): void;
+}
+
+export interface ChatPanelRuntimeSnapshot {
+  readonly viewState: Record<string, unknown>;
+  readonly composerDraft: string;
+  readonly ephemeralSource: { readonly threadId: string; readonly title: string | null } | null;
+}
+
+export interface ChatViewRuntimeOwner {
+  attachChatView(view: ChatRuntimeView): void;
+  detachChatView(view: ChatRuntimeView): void;
+}
+
+export interface ChatRuntimeView {
+  attachRuntime(host: CodexChatHost): void;
+  activateRuntime(): void;
+  detachRuntime(): void;
 }
 
 export interface ChatWorkspacePanelSnapshot {
@@ -136,14 +151,8 @@ export interface ChatSharedThreadSurface {
   applyThreadRenamed(threadId: string, name: string | null): void;
 }
 
-export interface ChatPanelClientSurface {
-  canServeAppServerContext(context: AppServerQueryContextIdentity): boolean;
-  runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T>;
-}
-
 export type ChatPanelHandle = ChatViewLifecycleSurface &
   ChatWorkspacePanelSurface &
-  ChatSharedThreadSurface &
-  ChatPanelClientSurface & {
+  ChatSharedThreadSurface & {
     setComposerText(text: string): void;
   };

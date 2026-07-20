@@ -120,6 +120,18 @@ describe("runEphemeralStructuredTurn", () => {
     );
   });
 
+  it("reports its client lifetime to the owning execution runtime", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+    const clientLifecycle = { created: vi.fn(), disposed: vi.fn() };
+
+    await runEphemeralStructuredTurn(runOptions(), { clientFactory, clientLifecycle });
+
+    expect(clientLifecycle.created).toHaveBeenCalledWith(client.current);
+    expect(clientLifecycle.disposed).toHaveBeenCalledWith(client.current);
+  });
+
   it("does not try to delete when no ephemeral thread was started", async () => {
     const timers = timerHarness();
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {

@@ -2,21 +2,13 @@ import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 import { AppServerQueryCache, type AppServerQueryClientRunner } from "./cache";
-import {
-  type AppServerContextLease,
-  type AppServerQueryContext,
-  type AppServerQueryContextIdentity,
-  appServerQueryContextIdentity,
-  appServerQueryContextIdentityKey,
-  appServerQueryContextIdentityMatches,
-  appServerQueryContextRawEquals,
-  createAppServerContextLease,
-} from "./keys";
+import type { AppServerQueryContext } from "./keys";
 import type { ObservedPaginatedResultListener, ObservedResultListener } from "./observed-result";
 import type { ThreadListMutation } from "./thread-list-mutation";
 
 export interface AppServerResourceStoreOptions {
-  cacheFactory?: (context: AppServerQueryContextIdentity) => AppServerQueryCache;
+  context: AppServerQueryContext;
+  cacheFactory?: (context: AppServerQueryContext) => AppServerQueryCache;
   clientRunner?: AppServerQueryClientRunner;
 }
 
@@ -35,64 +27,27 @@ interface ResourceObserver<T> {
   readonly observe: (cache: AppServerQueryCache, listener: (value: T) => void, options: { emitCurrent?: boolean }) => () => void;
   readonly listener: (value: T) => void;
   readonly options: { emitCurrent?: boolean };
-  firstSubscribe: boolean;
   unsubscribeQuery: (() => void) | null;
 }
 
 export class AppServerResourceStore {
   private readonly observers = new Set<ResourceObserver<unknown>>();
-  private readonly cacheFactory: (context: AppServerQueryContextIdentity) => AppServerQueryCache;
-  private cache: AppServerQueryCache | null = null;
-  private lease: AppServerContextLease | null = null;
-  private generation = 0;
+  private cache: AppServerQueryCache | null;
+  private disposed = false;
 
-  constructor(options: AppServerResourceStoreOptions = {}) {
-    this.cacheFactory =
+  constructor(options: AppServerResourceStoreOptions) {
+    const cacheFactory =
       options.cacheFactory ??
       ((context) => new AppServerQueryCache(context, options.clientRunner ? { clientRunner: options.clientRunner } : {}));
+    this.cache = cacheFactory(Object.freeze({ ...options.context }));
   }
 
-  initialize(context: AppServerQueryContext): AppServerContextLease {
-    if (this.lease) throw new Error("Codex app-server resource store is already initialized.");
-    this.lease = this.nextLease(context);
-    this.cache = this.cacheFactory(this.contextIdentity());
-    this.rebindObservers();
-    return this.lease;
-  }
-
-  replaceContext(context: AppServerQueryContext): AppServerContextLease {
-    if (!this.lease) throw new Error("Codex app-server resource store is not initialized.");
-    if (appServerQueryContextRawEquals(this.lease.context, context)) return this.lease;
-    this.unsubscribeObservers();
-    this.cache?.dispose();
-    this.lease = this.nextLease(context);
-    this.cache = this.cacheFactory(this.contextIdentity());
-    this.rebindObservers();
-    return this.lease;
-  }
-
-  reset(): void {
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
     this.unsubscribeObservers();
     this.cache?.dispose();
     this.cache = null;
-    this.lease = null;
-  }
-
-  contextLease(): AppServerContextLease {
-    if (!this.lease) throw new Error("Codex app-server resource store is not initialized.");
-    return this.lease;
-  }
-
-  contextIdentity(): AppServerQueryContextIdentity {
-    return appServerQueryContextIdentity(this.contextLease());
-  }
-
-  contextKey(): string {
-    return appServerQueryContextIdentityKey(this.contextIdentity());
-  }
-
-  contextKeyFor(context: AppServerQueryContextIdentity): string {
-    return appServerQueryContextIdentityKey(context);
   }
 
   activeThreadsSnapshot(): readonly Thread[] | null {
@@ -201,30 +156,20 @@ export class AppServerResourceStore {
     );
   }
 
-  private nextLease(context: AppServerQueryContext): AppServerContextLease {
-    return createAppServerContextLease(context, ++this.generation);
-  }
-
-  private isCurrent(context: AppServerQueryContextIdentity): boolean {
-    return Boolean(this.lease && appServerQueryContextIdentityMatches(this.contextIdentity(), context));
-  }
-
   private runForCurrentContext<T>(operation: (cache: AppServerQueryCache) => Promise<T>): Promise<T> {
-    const context = this.contextIdentity();
     const cache = this.currentCache();
-    return this.runForIdentity(context, () => operation(cache));
+    return this.runWhileActive(cache, () => operation(cache));
   }
 
-  private async runForIdentity<T>(context: AppServerQueryContextIdentity, operation: () => Promise<T>): Promise<T> {
-    if (!this.isCurrent(context)) throw new StaleAppServerResourceContextError();
+  private async runWhileActive<T>(cache: AppServerQueryCache, operation: () => Promise<T>): Promise<T> {
     let result: T;
     try {
       result = await operation();
     } catch (error) {
-      if (!this.isCurrent(context)) throw new StaleAppServerResourceContextError();
+      if (this.cache !== cache) throw new StaleAppServerResourceContextError();
       throw error;
     }
-    if (!this.isCurrent(context)) throw new StaleAppServerResourceContextError();
+    if (this.cache !== cache) throw new StaleAppServerResourceContextError();
     return result;
   }
 
@@ -237,7 +182,6 @@ export class AppServerResourceStore {
       observe,
       listener,
       options,
-      firstSubscribe: true,
       unsubscribeQuery: null,
     };
     this.observers.add(observer as ResourceObserver<unknown>);
@@ -250,23 +194,17 @@ export class AppServerResourceStore {
   }
 
   private bindObserver<T>(observer: ResourceObserver<T>): void {
-    if (!this.lease || !this.cache) return;
-    const context = this.contextIdentity();
+    if (this.disposed || !this.cache) return;
     const cache = this.cache;
     const observeOptions: { emitCurrent?: boolean } = {};
-    if (observer.firstSubscribe) {
-      if (observer.options.emitCurrent !== undefined) observeOptions.emitCurrent = observer.options.emitCurrent;
-    } else {
-      observeOptions.emitCurrent = true;
-    }
+    if (observer.options.emitCurrent !== undefined) observeOptions.emitCurrent = observer.options.emitCurrent;
     observer.unsubscribeQuery = observer.observe(
       cache,
       (value) => {
-        if (this.isCurrent(context)) observer.listener(value);
+        if (!this.disposed) observer.listener(value);
       },
       observeOptions,
     );
-    observer.firstSubscribe = false;
   }
 
   private unsubscribeObservers(): void {
@@ -274,10 +212,6 @@ export class AppServerResourceStore {
       observer.unsubscribeQuery?.();
       observer.unsubscribeQuery = null;
     }
-  }
-
-  private rebindObservers(): void {
-    for (const observer of this.observers) this.bindObserver(observer);
   }
 
   private currentCache(): AppServerQueryCache {

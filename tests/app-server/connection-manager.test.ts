@@ -66,7 +66,7 @@ describe("ConnectionManager", () => {
   it("disconnects clients whose initialization fails", async () => {
     let transport!: SilentTransport;
     const manager = new ConnectionManager(
-      () => "/bin/codex",
+      "/bin/codex",
       "/vault",
       TEST_INITIALIZE_PARAMS,
       testClientFactory({ requestTimeoutMs: 5, onTransport: (next) => (transport = next) }),
@@ -81,7 +81,7 @@ describe("ConnectionManager", () => {
   it("shares an in-flight connection attempt", async () => {
     let transport!: SilentTransport;
     const manager = new ConnectionManager(
-      () => "/bin/codex",
+      "/bin/codex",
       "/vault",
       TEST_INITIALIZE_PARAMS,
       testClientFactory({ onTransport: (next) => (transport = next) }),
@@ -97,42 +97,11 @@ describe("ConnectionManager", () => {
     expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
   });
 
-  it("does not reuse a connected client after the command context changes", async () => {
-    let codexPath = "/bin/codex-a";
-    const transports: SilentTransport[] = [];
-    const manager = new ConnectionManager(
-      () => codexPath,
-      "/vault",
-      TEST_INITIALIZE_PARAMS,
-      testClientFactory({ onTransport: (transport) => transports.push(transport) }),
-    );
-
-    const first = manager.connect(silentConnectionHandlers());
-    transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex-a" } });
-    await expect(first).resolves.toMatchObject({ codexHome: "/tmp/codex-a" });
-    expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
-    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-a", cwd: "/vault", generation: 0 });
-
-    codexPath = "/bin/codex-b";
-
-    expect(manager.currentClient()).toBeNull();
-    expect(manager.currentConnectionContext()).toBeNull();
-    const second = manager.connect(silentConnectionHandlers());
-    transports[1]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex-b" } });
-
-    await expect(second).resolves.toMatchObject({ codexHome: "/tmp/codex-b" });
-    expect(transports).toHaveLength(2);
-    expect(transports[0]?.running).toBe(false);
-    expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
-    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-b", cwd: "/vault", generation: 0 });
-  });
-
-  it("labels inbound events with the context captured when the connection was created", async () => {
-    let codexPath = "/bin/codex-a";
+  it("delivers inbound events from the active connection", async () => {
     let transport!: SilentTransport;
     const onNotification = vi.fn();
     const manager = new ConnectionManager(
-      () => codexPath,
+      "/bin/codex-a",
       "/vault",
       TEST_INITIALIZE_PARAMS,
       testClientFactory({ onTransport: (next) => (transport = next) }),
@@ -141,7 +110,6 @@ describe("ConnectionManager", () => {
     const connecting = manager.connect({ ...silentConnectionHandlers(), onNotification });
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex-a" } });
     await connecting;
-    codexPath = "/bin/codex-b";
     const notification = {
       method: "thread/name/updated",
       params: { threadId: "thread-a", threadName: "A" },
@@ -149,18 +117,17 @@ describe("ConnectionManager", () => {
 
     transport.emitLine(notification);
 
-    expect(onNotification).toHaveBeenCalledWith(notification, { codexPath: "/bin/codex-a", cwd: "/vault", generation: 0 });
+    expect(onNotification).toHaveBeenCalledWith(notification);
   });
 
-  it("transitions to disconnected and reports the captured context when a connected client exits", async () => {
+  it("transitions to disconnected when a connected client exits", async () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();
     const manager = new ConnectionManager(
-      () => "/bin/codex",
+      "/bin/codex",
       "/vault",
       TEST_INITIALIZE_PARAMS,
       testClientFactory({ onTransport: (next) => (transport = next) }),
-      () => 4,
     );
     const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
@@ -169,40 +136,14 @@ describe("ConnectionManager", () => {
     transport.emitExit();
 
     expect(manager.currentClient()).toBeNull();
-    expect(manager.currentConnectionContext()).toBeNull();
     expect(onExit).toHaveBeenCalledOnce();
-    expect(onExit).toHaveBeenCalledWith({ codexPath: "/bin/codex", cwd: "/vault", generation: 4 });
-  });
-
-  it("does not reuse a connected client across generations of the same raw context", async () => {
-    let contextGeneration = 1;
-    const transports: SilentTransport[] = [];
-    const manager = new ConnectionManager(
-      () => "/bin/codex",
-      "/vault",
-      TEST_INITIALIZE_PARAMS,
-      testClientFactory({ onTransport: (transport) => transports.push(transport) }),
-      () => contextGeneration,
-    );
-    const first = manager.connect(silentConnectionHandlers());
-    transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
-    await first;
-
-    contextGeneration = 3;
-
-    expect(manager.currentClient()).toBeNull();
-    const second = manager.connect(silentConnectionHandlers());
-    transports[1]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
-    await second;
-    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex", cwd: "/vault", generation: 3 });
-    expect(transports[0]?.running).toBe(false);
   });
 
   it("rejects app-server exit during initialization without reporting a connected-client exit", async () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();
     const manager = new ConnectionManager(
-      () => "/bin/codex",
+      "/bin/codex",
       "/vault",
       TEST_INITIALIZE_PARAMS,
       testClientFactory({ onTransport: (next) => (transport = next) }),
@@ -220,7 +161,7 @@ describe("ConnectionManager", () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();
     const manager = new ConnectionManager(
-      () => "/bin/codex",
+      "/bin/codex",
       "/vault",
       TEST_INITIALIZE_PARAMS,
       testClientFactory({ onTransport: (next) => (transport = next) }),

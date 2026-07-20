@@ -1,6 +1,5 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "../../../app-server/connection/client-access";
-import { withShortLivedAppServerClient } from "../../../app-server/connection/short-lived-client";
 import type { CodexInput } from "../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
@@ -13,7 +12,7 @@ import {
 } from "./transports/session-transports";
 
 export interface ChatCurrentAppServerGatewayHost {
-  codexPath(): string;
+  fallbackClientAccess: AppServerClientAccess;
   vaultPath: string;
   currentClient(): AppServerClient | null;
 }
@@ -74,7 +73,7 @@ function createCurrentClientAccess(host: ChatCurrentAppServerGatewayHost): AppSe
   return {
     withClient: async (operation, options: AppServerClientAccessOptions = {}) => {
       if (options.serverRequests?.kind === "reject") {
-        return withShortLivedAppServerClient(host.codexPath(), host.vaultPath, operation, options);
+        return host.fallbackClientAccess.withClient(operation, options);
       }
 
       const client = host.currentClient();

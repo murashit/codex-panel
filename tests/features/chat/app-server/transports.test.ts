@@ -17,7 +17,9 @@ describe("chat app-server transports", () => {
   it("adds connection-requiring capabilities only after the connected client host exists", async () => {
     const client = { request: vi.fn() } as unknown as AppServerClient;
     const currentGateway = createChatCurrentAppServerGateway({
-      codexPath: () => "codex",
+      fallbackClientAccess: {
+        withClient: (operation) => operation(client),
+      },
       vaultPath: "/vault",
       currentClient: () => client,
     });
@@ -601,28 +603,6 @@ describe("chat app-server transports", () => {
     withShortLived.mockRestore();
   });
 
-  it("reads the current Codex command when creating short-lived clientAccess clients", async () => {
-    let codexPath = "/first/codex";
-    const shortClient = { request: vi.fn().mockResolvedValue("short-lived") } as unknown as AppServerClient;
-    const withShortLived = vi
-      .spyOn(shortLivedClient, "withShortLivedAppServerClient")
-      .mockImplementation(async (_codexPath, _cwd, operation) => {
-        return operation(shortClient);
-      });
-    const gateway = createTestGateway({
-      codexPath: () => codexPath,
-      currentClient: () => ({ request: vi.fn() }) as unknown as AppServerClient,
-    });
-
-    codexPath = "/second/codex";
-    await gateway.clientAccess.withClient((client) => client.request("thread/list", {}), {
-      serverRequests: { kind: "reject", message: "Background operation cannot answer server requests." },
-    });
-
-    expect(withShortLived).toHaveBeenCalledWith("/second/codex", "/vault", expect.any(Function), expect.any(Object));
-    withShortLived.mockRestore();
-  });
-
   it("rejects current-client operations while disconnected", async () => {
     const operation = vi.fn();
     const gateway = createTestGateway({ currentClient: () => null });
@@ -677,15 +657,19 @@ type AppServerThreadStartResponse = ClientResponseByMethod["thread/start"];
 type AppServerThreadResumeResponse = ClientResponseByMethod["thread/resume"];
 
 function createTestGateway(options: {
-  codexPath?: string | (() => string);
+  codexPath?: string;
   vaultPath?: string;
   currentClient: () => AppServerClient | null;
   connectedClient?: () => Promise<AppServerClient | null>;
 }) {
-  const codexPath = options.codexPath;
+  const codexPath = options.codexPath ?? "codex";
+  const vaultPath = options.vaultPath ?? "/vault";
   const currentGateway = createChatCurrentAppServerGateway({
-    codexPath: typeof codexPath === "function" ? codexPath : () => codexPath ?? "codex",
-    vaultPath: options.vaultPath ?? "/vault",
+    fallbackClientAccess: {
+      withClient: (operation, clientOptions) =>
+        shortLivedClient.withShortLivedAppServerClient(codexPath, vaultPath, operation, clientOptions),
+    },
+    vaultPath,
     currentClient: options.currentClient,
   });
   return createChatAppServerGateway(currentGateway, {

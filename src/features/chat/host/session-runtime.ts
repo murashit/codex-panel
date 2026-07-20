@@ -49,9 +49,7 @@ interface ChatPanelSessionRuntimeParts {
   shell: ChatPanelShellBundle;
   actions: {
     invalidateThreadWork(): void;
-    prepareAppServerContextChange(): void;
     reconnect(): Promise<void>;
-    reconnectAfterAppServerContextChange(threadId: string | null, isCurrent: () => boolean): Promise<boolean>;
     refreshSharedThreads(): Promise<void>;
     startNewThread(options?: { focus?: boolean }): Promise<void>;
   };
@@ -98,15 +96,15 @@ export class ChatPanelSessionRuntime {
   }
 
   async dispose(unmount: () => void): Promise<void> {
+    this.connection.manager.disconnect();
     this.connection.actions.invalidate();
     this.actions.invalidateThreadWork();
     this.host.deferredTasks.clearAll();
     this.runtime.sharedState.unsubscribe();
-    await this.thread.ephemeral.dispose();
     this.disposeOwnedResources();
     this.host.threadStreamScrollBinding.dispose();
     unmount();
-    this.connection.manager.disconnect();
+    await this.thread.ephemeral.dispose();
   }
 }
 
@@ -115,10 +113,10 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   const localItemIds = createLocalIdSource();
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
-  const resourceContext = () => environment.plugin.appServerQueries.contextLease().context;
+  const resourceContext = environment.plugin.appServerContext;
   const currentAppServer = createChatCurrentAppServerGateway({
-    codexPath: () => resourceContext().codexPath,
-    vaultPath: resourceContext().vaultPath,
+    fallbackClientAccess: environment.plugin.appServerClientAccess,
+    vaultPath: resourceContext.vaultPath,
     currentClient,
   });
   const status = createSessionStatus(stateStore, localItemIds);
@@ -161,7 +159,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   } = connectionBundle;
   const ensureConnected = () => connectionActions.ensureConnected();
   const appServer = createChatAppServerGateway(currentAppServer, {
-    vaultPath: resourceContext().vaultPath,
+    vaultPath: resourceContext.vaultPath,
     currentClient,
     connectedClient: async () => {
       if (host.getClosing()) return null;
@@ -252,19 +250,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   const reconnect = async () => {
     await reconnectPanel(reconnectHost);
   };
-  const reconnectAfterAppServerContextChange = (threadId: string | null, isCurrent: () => boolean) =>
-    reconnectPanel(reconnectHost, { resumeThreadId: threadId, isCurrent });
   const reconnectForUser = host.reconnect ?? reconnect;
-  const prepareAppServerContextChange = (): void => {
-    connectionActions.invalidate();
-    invalidateThreadWork();
-    threadLifecycle.rename.invalidate();
-    threadLifecycle.restoration.invalidate();
-    host.deferredTasks.clearDiagnostics();
-    connectionBundle.invalidateConnectionScope();
-    connection.resetConnection();
-    stateStore.dispatch({ type: "connection/context-replaced" });
-  };
   const turn = createTurnBundle(host, {
     localItemIds,
     appServer,
@@ -334,9 +320,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
         invalidateThreadWork();
         threadLifecycle.restoration.invalidate();
       },
-      prepareAppServerContextChange,
       reconnect,
-      reconnectAfterAppServerContextChange,
       refreshSharedThreads,
       startNewThread: (options) => threadActions.navigation.startNewThread(options),
     },
@@ -351,13 +335,8 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
 }
 
 function createConnectionManager(environment: ChatPanelEnvironment): ConnectionManager {
-  return new ConnectionManager(
-    () => environment.plugin.appServerQueries.contextLease().context.codexPath,
-    environment.plugin.appServerQueries.contextLease().context.vaultPath,
-    codexPanelAppServerInitializeParams(),
-    undefined,
-    () => environment.plugin.appServerQueries.contextLease().generation,
-  );
+  const context = environment.plugin.appServerContext;
+  return new ConnectionManager(context.codexPath, context.vaultPath, codexPanelAppServerInitializeParams());
 }
 
 function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {

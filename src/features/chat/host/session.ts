@@ -1,9 +1,3 @@
-import type { AppServerClient } from "../../../app-server/connection/client";
-import {
-  type AppServerQueryContextIdentity,
-  appServerQueryContextIdentity,
-  appServerQueryContextIdentityMatches,
-} from "../../../app-server/query/keys";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
 import { activeThreadState, awaitingResumeThreadState, type ChatState, panelThreadId } from "../application/state/root-reducer";
@@ -12,7 +6,7 @@ import { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { chatTurnBusy } from "../application/turns/turn-state";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
-import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot } from "./contracts";
+import type { ChatPanelEnvironment, ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatWorkspacePanelSnapshot } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
 import { ChatPanelSessionRuntime } from "./session-runtime";
 import { parseChatPanelViewState } from "./view-state";
@@ -24,19 +18,23 @@ export class ChatPanelSession implements ChatPanelHandle {
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly threadStreamScrollBinding: ChatThreadStreamScrollBinding = createChatThreadStreamScrollBinding();
-  private observedAppServerContext: AppServerQueryContextIdentity;
-  private appServerContextReconnectAttemptGeneration = 0;
-  private appServerContextReplacementGeneration = 0;
-  private pendingAppServerContextReplacement: { panelThreadId: string | null; generation: number } | null = null;
   private opened = false;
   private closing = false;
   private observedPanelActivity: PanelActivity | null = null;
   private unsubscribePanelActivity: (() => void) | null = null;
+  private pendingRuntimeRestore: ChatPanelRuntimeSnapshot | null;
 
-  constructor(private readonly environment: ChatPanelEnvironment) {
-    this.observedAppServerContext = this.currentAppServerContext();
+  constructor(
+    private readonly environment: ChatPanelEnvironment,
+    snapshot: ChatPanelRuntimeSnapshot | null = null,
+  ) {
+    this.pendingRuntimeRestore = snapshot;
     this.deferredTasks = createChatViewDeferredTasks(() => this.viewWindow());
     this.runtime = this.createSessionRuntime();
+    if (snapshot) {
+      this.applyViewState(snapshot.viewState);
+      if (!snapshot.ephemeralSource) this.runtime.composer.controller.setDraft(snapshot.composerDraft);
+    }
   }
 
   displayTitle(): string {
@@ -84,88 +82,24 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   refreshSettings(): void {
-    const nextContext = this.currentAppServerContext();
-    if (!appServerQueryContextIdentityMatches(this.observedAppServerContext, nextContext)) {
-      this.observedAppServerContext = nextContext;
-      const replacement = this.pendingAppServerContextReplacement ?? this.captureAppServerContextReplacement(panelThreadId(this.state));
-      void this.reconnectAfterAppServerContextChange(replacement);
-      this.runtime.runtime.sharedState.applyCached();
-    }
     this.mountOrRepairShell();
   }
 
-  prepareAppServerContextChange(): void {
-    const threadId = this.pendingAppServerContextReplacement?.panelThreadId ?? panelThreadId(this.state);
-    this.captureAppServerContextReplacement(threadId);
-    this.runtime.actions.prepareAppServerContextChange();
-  }
-
-  private captureAppServerContextReplacement(panelThreadId: string | null): {
-    panelThreadId: string | null;
-    generation: number;
-  } {
-    const replacement = { panelThreadId, generation: ++this.appServerContextReplacementGeneration };
-    this.pendingAppServerContextReplacement = replacement;
-    return replacement;
-  }
-
-  private async reconnectAfterAppServerContextChange(replacement: { panelThreadId: string | null; generation: number }): Promise<void> {
-    const attemptGeneration = ++this.appServerContextReconnectAttemptGeneration;
-    try {
-      const resumed = await this.runtime.actions.reconnectAfterAppServerContextChange(
-        replacement.panelThreadId,
-        () =>
-          this.pendingAppServerContextReplacement?.generation === replacement.generation &&
-          this.appServerContextReconnectAttemptGeneration === attemptGeneration,
-      );
-      if (
-        resumed &&
-        this.pendingAppServerContextReplacement?.generation === replacement.generation &&
-        this.appServerContextReconnectAttemptGeneration === attemptGeneration
-      ) {
-        this.pendingAppServerContextReplacement = null;
-      }
-    } catch {
-      // Keep the captured thread for a later context correction or retry.
-    }
-  }
-
   private async reconnect(): Promise<void> {
-    const replacement = this.pendingAppServerContextReplacement;
-    if (replacement) {
-      await this.reconnectAfterAppServerContextChange(replacement);
-      return;
-    }
     await this.runtime.actions.reconnect();
+  }
+
+  runtimeSnapshot(): ChatPanelRuntimeSnapshot {
+    const lifetime = activeThreadState(this.state)?.lifetime;
+    return {
+      viewState: this.persistedState(),
+      composerDraft: this.state.composer.draft,
+      ephemeralSource: lifetime?.kind === "ephemeral" ? { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle } : null,
+    };
   }
 
   refreshSharedThreads(): Promise<void> {
     return this.runtime.actions.refreshSharedThreads();
-  }
-
-  canServeAppServerContext(context: AppServerQueryContextIdentity): boolean {
-    const connectionContext = this.runtime.connection.manager.currentConnectionContext();
-    return Boolean(
-      connectionContext &&
-        appServerQueryContextIdentityMatches(
-          {
-            codexPath: connectionContext.codexPath,
-            vaultPath: connectionContext.cwd,
-            generation: connectionContext.generation,
-          },
-          context,
-        ),
-    );
-  }
-
-  async runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    const client = this.runtime.connection.manager.currentClient();
-    if (!client) throw new Error("Codex app-server is not connected.");
-    const result = await operation(client);
-    if (this.runtime.connection.manager.currentClient() !== client) {
-      throw new Error("Codex app-server connection changed while loading shared queries.");
-    }
-    return result;
   }
 
   openPanelSnapshot(): ChatWorkspacePanelSnapshot {
@@ -230,6 +164,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.runtime.runtime.sharedState.subscribe();
     this.mountOrRepairShell();
     this.scheduleWarmup();
+    this.restoreRuntimeSnapshot();
   }
 
   async close(): Promise<void> {
@@ -238,15 +173,14 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.unsubscribePanelActivity?.();
     this.unsubscribePanelActivity = null;
     this.observedPanelActivity = null;
-    const viewWindow = this.viewWindow();
-    const panelRoot = this.environment.view.panelRoot();
-    await this.runtime.dispose(() => {
-      unmountChatPanelShell(panelRoot);
+    const disposal = this.runtime.dispose(() => {
+      unmountChatPanelShell(this.environment.view.panelRoot());
     });
     this.notifyPanelActivityChanged();
-    viewWindow.setTimeout(() => {
+    this.viewWindow().setTimeout(() => {
       this.notifyPanelActivityChanged();
     }, 0);
+    await disposal;
   }
 
   setComposerText(text: string): void {
@@ -295,12 +229,28 @@ export class ChatPanelSession implements ChatPanelHandle {
     });
   }
 
-  private viewWindow(): Window {
-    return this.environment.view.viewWindow() ?? window;
+  private restoreRuntimeSnapshot(): void {
+    const snapshot = this.pendingRuntimeRestore;
+    if (!snapshot) return;
+    this.pendingRuntimeRestore = null;
+    if (snapshot.ephemeralSource) {
+      void this.runtime.thread.ephemeral
+        .open({
+          sourceThreadId: snapshot.ephemeralSource.threadId,
+          sourceThreadTitle: snapshot.ephemeralSource.title,
+        })
+        .then(() => {
+          if (!this.closing) this.runtime.composer.controller.setDraft(snapshot.composerDraft);
+        });
+      return;
+    }
+    if (parseChatPanelViewState(snapshot.viewState).kind === "thread") {
+      void this.ensureRestoredThreadLoaded();
+    }
   }
 
-  private currentAppServerContext(): AppServerQueryContextIdentity {
-    return appServerQueryContextIdentity(this.environment.plugin.appServerQueries.contextLease());
+  private viewWindow(): Window {
+    return this.environment.view.viewWindow() ?? window;
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {

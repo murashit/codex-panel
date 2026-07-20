@@ -2,24 +2,21 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
-import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
   chatView,
+  chatViewRuntimeOwner,
   connectedClient,
   connectionMockState,
   expectRequestTimes,
-  flushAsyncTicks,
-  panelThread,
   requestMethods,
   requiredButton,
   requiredTextArea,
-  resumedThread,
   setupViewConnectionHarness,
-  submitComposerByEnter,
   type TestAppServerClient,
+  threadFixture,
 } from "./view-connection-harness";
 
 describe("CodexChatView connection lifecycle", () => {
@@ -81,327 +78,56 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
   });
 
-  it("reconnects and resumes the active thread only when settings change the app-server context", async () => {
+  it("recreates the session while preserving its thread target and composer draft", async () => {
+    const owner = chatViewRuntimeOwner(chatHost());
     connectionMockState().client = connectedClient();
-    const host = chatHost();
-    const view = await chatView({ host });
-
+    const view = await chatView({ runtimeOwner: owner });
     await view.onOpen();
     await view.surface.connect();
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
-
-    host.settingsSource.showToolbar = false;
-    view.surface.refreshSettings();
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
-
     await view.surface.openThread("thread-1");
+    view.surface.setComposerText("Keep this draft");
+
+    const nextHost = chatHost();
+    nextHost.settingsSource.codexPath = "codex-next";
     const nextClient = connectedClient();
     connectionMockState().client = nextClient;
-    host.settingsSource.codexPath = "codex-next";
-    view.surface.refreshSettings();
+    owner.replace(nextHost);
+
     await waitForAsyncWork(() => {
-      expect(connectionMockState().connectCalls).toBe(2);
       expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Keep this draft");
       expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
     });
   });
 
-  it("invalidates the old connection before publishing a new app-server context", async () => {
-    connectionMockState().client = connectedClient();
-    const host = chatHost();
-    const view = await chatView({ host });
-
-    await view.surface.connect();
-    expect(view.surface.openPanelSnapshot().connected).toBe(true);
-
-    view.surface.prepareAppServerContextChange();
-
-    expect(view.surface.openPanelSnapshot().connected).toBe(false);
-    expect(host.settingsSource.codexPath).toBe("codex");
-    expect(connectionMockState().connectCalls).toBe(1);
-
-    connectionMockState().client = connectedClient();
-    host.settingsSource.codexPath = "codex-next";
-    view.surface.refreshSettings();
-    await waitForAsyncWork(() => {
-      expect(connectionMockState().connectCalls).toBe(2);
-      expect(view.surface.openPanelSnapshot().connected).toBe(true);
+  it("recreates a side chat from its source intent instead of reusing the old ephemeral thread", async () => {
+    const owner = chatViewRuntimeOwner(chatHost());
+    const firstClient = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-a") }),
     });
-  });
-
-  it("keeps a disconnected panel's awaiting thread across an app-server context replacement", async () => {
-    connectionMockState().client = connectedClient();
-    const host = chatHost();
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    await view.surface.openThread("thread-1");
-
-    connectionMockState().connected = false;
-    connectionMockState().onExit?.();
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false, threadId: "thread-1" });
-
-    view.surface.prepareAppServerContextChange();
-    const nextClient = connectedClient();
-    connectionMockState().client = nextClient;
-    host.settingsSource.codexPath = "codex-next";
-    view.surface.refreshSettings();
-
-    await waitForAsyncWork(() => {
-      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
-    });
-  });
-
-  it("does not run an inline rename queued before an app-server context replacement", async () => {
-    const oldClient = connectedClient();
-    connectionMockState().client = oldClient;
-    const nameMutations = createThreadNameMutationCoordinator();
-    const mutationRun = vi.spyOn(nameMutations, "run");
-    const host = chatHost({ threadNameMutations: nameMutations });
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Original" })]);
-    await view.surface.openThread("thread-1");
-
-    const blocker = deferred<void>();
-    const blockerWork = nameMutations.run("thread-1", () => blocker.promise);
-    requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
-    await flushAsyncTicks();
-    requiredButton(view.containerEl, '[aria-label="Rename thread"]').click();
-    await flushAsyncTicks();
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
-    if (!input) throw new Error("Missing inline rename input");
-    input.value = "Queued in A";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-    await flushAsyncTicks();
-    expect(mutationRun).toHaveBeenCalledTimes(2);
-
-    view.surface.prepareAppServerContextChange();
-    const nextClient = connectedClient();
-    connectionMockState().client = nextClient;
-    host.settingsSource.codexPath = "codex-next";
-    view.surface.refreshSettings();
-    await waitForAsyncWork(() => expect(connectionMockState().connectCalls).toBe(2));
-    blocker.resolve(undefined);
-    await blockerWork;
-    await flushAsyncTicks();
-
-    expectRequestTimes(oldClient, "thread/name/set", 0);
-    expectRequestTimes(nextClient, "thread/name/set", 0);
-  });
-
-  it("does not run a slash rename queued before an app-server context replacement", async () => {
-    const oldClient = connectedClient();
-    connectionMockState().client = oldClient;
-    const nameMutations = createThreadNameMutationCoordinator();
-    const mutationRun = vi.spyOn(nameMutations, "run");
-    const host = chatHost({ threadNameMutations: nameMutations });
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Original" })]);
-    const blocker = deferred<void>();
-    const blockerWork = nameMutations.run("thread-1", () => blocker.promise);
-    view.surface.setComposerText('/rename "Original" Queued in A');
-    await submitComposerByEnter(view);
-    expect(mutationRun).toHaveBeenCalledTimes(2);
-
-    view.surface.prepareAppServerContextChange();
-    const nextClient = connectedClient();
-    connectionMockState().client = nextClient;
-    host.settingsSource.codexPath = "codex-next";
-    view.surface.refreshSettings();
-    await waitForAsyncWork(() => expect(connectionMockState().connectCalls).toBe(2));
-    blocker.resolve(undefined);
-    await blockerWork;
-    await flushAsyncTicks();
-
-    expectRequestTimes(oldClient, "thread/name/set", 0);
-    expectRequestTimes(nextClient, "thread/name/set", 0);
-  });
-
-  it("resumes each panel's captured thread after a shared app-server context replacement", async () => {
-    const host = chatHost();
-    const resumeRequestedThread = vi.fn((params: unknown) => {
-      const threadId = (params as { threadId: string }).threadId;
-      return resumedThread(threadId);
-    });
-    const oldClient = connectedClient({ "thread/resume": resumeRequestedThread });
-    connectionMockState().client = oldClient;
-    const first = await chatView({ host });
-    const second = await chatView({ host });
-
-    await first.onOpen();
-    await second.onOpen();
-    await first.surface.connect();
-    await second.surface.connect();
-    await first.surface.openThread("thread-1");
-    await second.surface.openThread("thread-2");
-
-    first.surface.prepareAppServerContextChange();
-    second.surface.prepareAppServerContextChange();
-    const nextClient = connectedClient({ "thread/resume": resumeRequestedThread });
-    connectionMockState().client = nextClient;
-    host.settingsSource.codexPath = "codex-next";
-    first.surface.refreshSettings();
-    await waitForAsyncWork(() => {
-      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
-    });
-
-    connectionMockState().connected = false;
-    second.surface.refreshSettings();
-    await waitForAsyncWork(() => {
-      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-2", cwd: "/vault" }));
-      expect(first.surface.openPanelSnapshot().threadId).toBe("thread-1");
-      expect(second.surface.openPanelSnapshot().threadId).toBe("thread-2");
-    });
-  });
-
-  it("keeps the captured thread across consecutive app-server context replacements", async () => {
-    const host = chatHost();
-    const firstClient = connectedClient();
     connectionMockState().client = firstClient;
-    const view = await chatView({ host });
-
+    const view = await chatView({ runtimeOwner: owner });
     await view.onOpen();
     await view.surface.connect();
-    await view.surface.openThread("thread-1");
+    await view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" });
+    view.surface.setComposerText("Side draft");
 
-    const stalledConfig = deferred<unknown>();
-    const stalledClient = connectedClient({ "config/read": vi.fn(() => stalledConfig.promise) });
-    view.surface.prepareAppServerContextChange();
-    connectionMockState().client = stalledClient;
-    host.settingsSource.codexPath = "codex-broken";
-    view.surface.refreshSettings();
-    await waitForAsyncWork(() => {
-      expectRequestTimes(stalledClient, "config/read", 1);
+    const nextHost = chatHost();
+    nextHost.settingsSource.codexPath = "codex-next";
+    const nextClient = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-b") }),
     });
-
-    const recoveredClient = connectedClient();
-    view.surface.prepareAppServerContextChange();
-    connectionMockState().client = recoveredClient;
-    host.settingsSource.codexPath = "codex-recovered";
-    view.surface.refreshSettings();
+    connectionMockState().client = nextClient;
+    owner.replace(nextHost);
 
     await waitForAsyncWork(() => {
-      expect(recoveredClient.request).toHaveBeenCalledWith(
-        "thread/resume",
-        expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }),
-      );
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+      expect(nextClient.request).toHaveBeenCalledWith("thread/fork", expect.objectContaining({ threadId: "source", cwd: "/vault" }));
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "ephemeral-b" });
+      expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Side draft");
     });
-
-    stalledConfig.resolve({});
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expectRequestTimes(recoveredClient, "thread/resume", 1);
-  });
-
-  it("keeps the captured thread after a context reconnect cannot resume it", async () => {
-    const host = chatHost();
-    connectionMockState().client = connectedClient();
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    await view.surface.openThread("thread-1");
-
-    const failedClient = connectedClient({ "thread/resume": vi.fn().mockResolvedValue(null) });
-    view.surface.prepareAppServerContextChange();
-    connectionMockState().client = failedClient;
-    host.settingsSource.codexPath = "codex-broken";
-    view.surface.refreshSettings();
-    await waitForAsyncWork(() => {
-      expectRequestTimes(failedClient, "thread/resume", 1);
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: null });
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    const recoveredClient = connectedClient();
-    view.surface.prepareAppServerContextChange();
-    connectionMockState().client = recoveredClient;
-    host.settingsSource.codexPath = "codex-recovered";
-    view.surface.refreshSettings();
-
-    await waitForAsyncWork(() => {
-      expect(recoveredClient.request).toHaveBeenCalledWith(
-        "thread/resume",
-        expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }),
-      );
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
-    });
-  });
-
-  it("retries the captured thread when reconnecting after a context resume failure", async () => {
-    const host = chatHost();
-    connectionMockState().client = connectedClient();
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    await view.surface.openThread("thread-1");
-
-    const failedClient = connectedClient({ "thread/resume": vi.fn().mockResolvedValue(null) });
-    view.surface.prepareAppServerContextChange();
-    connectionMockState().client = failedClient;
-    host.settingsSource.codexPath = "codex-next";
-    view.surface.refreshSettings();
-    await waitForAsyncWork(() => {
-      expectRequestTimes(failedClient, "thread/resume", 1);
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: null });
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    const recoveredClient = connectedClient();
-    connectionMockState().client = recoveredClient;
-    view.surface.setComposerText("/reconnect");
-    await submitComposerByEnter(view);
-
-    await waitForAsyncWork(() => {
-      expect(recoveredClient.request).toHaveBeenCalledWith(
-        "thread/resume",
-        expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }),
-      );
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
-    });
-  });
-
-  it("does not let a stale automatic reconnect resume again after a manual retry", async () => {
-    const host = chatHost();
-    connectionMockState().client = connectedClient();
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    await view.surface.openThread("thread-1");
-
-    const stalledConfig = deferred<unknown>();
-    const stalledClient = connectedClient({ "config/read": vi.fn(() => stalledConfig.promise) });
-    view.surface.prepareAppServerContextChange();
-    connectionMockState().client = stalledClient;
-    host.settingsSource.codexPath = "codex-next";
-    view.surface.refreshSettings();
-    await waitForAsyncWork(() => {
-      expectRequestTimes(stalledClient, "config/read", 1);
-    });
-
-    const recoveredClient = connectedClient();
-    connectionMockState().client = recoveredClient;
-    view.surface.setComposerText("/reconnect");
-    await submitComposerByEnter(view);
-    await waitForAsyncWork(() => {
-      expectRequestTimes(recoveredClient, "thread/resume", 1);
-    });
-
-    stalledConfig.resolve({});
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expectRequestTimes(recoveredClient, "thread/resume", 1);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    expect(view.surface.openPanelSnapshot().threadId).not.toBe("ephemeral-a");
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {

@@ -35,7 +35,7 @@ import {
   recentActiveThreadsFromData,
 } from "./active-thread-inventory";
 import {
-  type AppServerQueryContextIdentity as AppServerQueryContext,
+  type AppServerQueryContext,
   activeThreadSearchInventoryQueryKey,
   activeThreadsQueryKey,
   appServerModelsQueryKey,
@@ -45,7 +45,7 @@ import {
   appServerRuntimeConfigQueryKey,
   appServerSkillsQueryKey,
   archivedThreadsQueryKey,
-  cloneAppServerQueryContextIdentity,
+  cloneAppServerQueryContext,
 } from "./keys";
 import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
 import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResult, ObservedResultListener } from "./observed-result";
@@ -85,7 +85,7 @@ export class AppServerQueryCache {
   private disposed = false;
 
   constructor(context: AppServerQueryContext, options: { client?: QueryClient; clientRunner?: AppServerQueryClientRunner } = {}) {
-    this.context = cloneAppServerQueryContextIdentity(context);
+    this.context = cloneAppServerQueryContext(context);
     this.client = options.client ?? createAppServerQueryClient();
     this.clientRunner = options.clientRunner ?? null;
   }

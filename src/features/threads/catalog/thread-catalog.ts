@@ -1,4 +1,3 @@
-import type { AppServerQueryContextIdentity } from "../../../app-server/query/keys";
 import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { ThreadListMutation } from "../../../app-server/query/thread-list-mutation";
 import type { Thread } from "../../../domain/threads/model";
@@ -7,8 +6,6 @@ type ActiveThreadListObserver = ObservedPaginatedResultListener<readonly Thread[
 type ArchivedThreadListObserver = ObservedResultListener<readonly Thread[]>;
 
 interface ThreadCatalogStore {
-  contextKey(): string;
-  contextKeyFor(context: AppServerQueryContextIdentity): string;
   activeThreadsSnapshot(): readonly Thread[] | null;
   recentActiveThreadsSnapshot(): readonly Thread[] | null;
   archivedThreadsSnapshot(): readonly Thread[] | null;
@@ -62,16 +59,11 @@ export interface ThreadCatalogEventSink {
   apply(event: ThreadCatalogEvent): void;
 }
 
-export interface ThreadCatalogConnectionEventSink {
-  applyConnectionEvent(context: AppServerQueryContextIdentity, event: ThreadCatalogEvent): void;
-}
-
 export interface ThreadCatalog
   extends ThreadCatalogPaginatedActiveReader,
     ThreadCatalogSearchReader,
     ThreadCatalogArchivedReader,
-    ThreadCatalogEventSink,
-    ThreadCatalogConnectionEventSink {}
+    ThreadCatalogEventSink {}
 
 export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalog {
   const { store } = options;
@@ -82,10 +74,6 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
 
   return {
     apply,
-    applyConnectionEvent: (context, event) => {
-      if (store.contextKeyFor(context) !== store.contextKey()) return;
-      apply(event);
-    },
     activeSnapshot: () => store.activeThreadsSnapshot(),
     recentActiveSnapshot: () => store.recentActiveThreadsSnapshot(),
     loadActive: () => store.fetchActiveThreads(),

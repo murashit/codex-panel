@@ -22,7 +22,6 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
-const TEST_APP_SERVER_CONTEXT = { codexPath: "codex", vaultPath: "/vault", generation: 1 } as const;
 
 type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
   handleNotification(notification: ServerNotification): void;
@@ -44,17 +43,9 @@ function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboun
     },
     createLocalIdSource({ nowMs: () => 1, seed: "test" }),
   );
-  return Object.assign(
-    {
-      ...handler,
-      handleNotification: (notification: ServerNotification) => {
-        handler.handleNotification(notification, TEST_APP_SERVER_CONTEXT);
-      },
-    },
-    {
-      currentState: () => store.getState(),
-    },
-  );
+  return Object.assign(handler, {
+    currentState: () => store.getState(),
+  });
 }
 
 function testStoreForState(state: ChatState): ChatStateStore {
@@ -1282,13 +1273,10 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
       expect(activeThreadState(handler.currentState())?.id).toBe("thread-active");
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
-        {
-          type: "thread-archived",
-          threadId: "thread-active",
-        } satisfies ThreadCatalogEvent,
-        TEST_APP_SERVER_CONTEXT,
-      );
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-archived",
+        threadId: "thread-active",
+      } satisfies ThreadCatalogEvent);
     });
 
     it("records deleted thread notifications in the active catalog", () => {
@@ -1300,13 +1288,10 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/deleted" }>);
 
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
-        {
-          type: "thread-deleted",
-          threadId: "thread-active",
-        } satisfies ThreadCatalogEvent,
-        TEST_APP_SERVER_CONTEXT,
-      );
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-deleted",
+        threadId: "thread-active",
+      } satisfies ThreadCatalogEvent);
     });
 
     it("routes unarchived thread notifications through the catalog instead of refreshing in the handler", () => {
@@ -1318,13 +1303,10 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/unarchived" }>);
 
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
-        {
-          type: "thread-unarchived",
-          threadId: "thread-active",
-        } satisfies ThreadCatalogEvent,
-        TEST_APP_SERVER_CONTEXT,
-      );
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-unarchived",
+        threadId: "thread-active",
+      } satisfies ThreadCatalogEvent);
     });
 
     it("records unrelated thread-started notifications", () => {
@@ -1338,13 +1320,10 @@ describe("ChatInboundHandler", () => {
         params: { thread: appServerThread("thread-other", "/workspace/other") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
-        {
-          type: "thread-upserted",
-          thread: expect.objectContaining({ id: "thread-other" }),
-        },
-        TEST_APP_SERVER_CONTEXT,
-      );
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-upserted",
+        thread: expect.objectContaining({ id: "thread-other" }),
+      });
     });
 
     it("records active thread-started notifications without projecting protocol cwd", () => {
@@ -1359,13 +1338,10 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
-        {
-          type: "thread-upserted",
-          thread: expect.objectContaining({ id: "thread-active" }),
-        },
-        TEST_APP_SERVER_CONTEXT,
-      );
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-upserted",
+        thread: expect.objectContaining({ id: "thread-active" }),
+      });
     });
 
     it("keeps ephemeral thread-started notifications out of the shared catalog and an empty panel", () => {
@@ -1751,14 +1727,11 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>);
 
       expect(state.threadList.listedThreads[0]?.name).toBeNull();
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
-        {
-          type: "thread-renamed",
-          threadId: "thread-active",
-          name: "Codex Panel自動命名",
-        } satisfies ThreadCatalogEvent,
-        TEST_APP_SERVER_CONTEXT,
-      );
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-renamed",
+        threadId: "thread-active",
+        name: "Codex Panel自動命名",
+      } satisfies ThreadCatalogEvent);
     });
 
     it("syncs active runtime state from thread settings notifications", () => {

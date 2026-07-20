@@ -186,24 +186,38 @@ export abstract class SuggestModal<T> extends Modal {
   abstract onChooseSuggestion(item: T, evt: MouseEvent | KeyboardEvent): void;
 }
 
-export class ItemView {
+export class Component {
+  private readonly cleanups: (() => void)[] = [];
+
+  addChild(_child: Component): void {}
+
+  removeChild(child: Component): void {
+    child.unload();
+  }
+
+  registerDomEvent<K extends keyof DocumentEventMap>(element: Document, type: K, callback: (event: DocumentEventMap[K]) => void): void {
+    element.addEventListener(type, callback);
+    this.cleanups.push(() => element.removeEventListener(type, callback));
+  }
+
+  registerEvent(_eventRef: unknown): void {}
+
+  unload(): void {
+    for (const cleanup of this.cleanups.splice(0)) cleanup();
+  }
+}
+
+export class ItemView extends Component {
   readonly app: App;
   readonly contentEl: HTMLElement;
   readonly containerEl: HTMLElement;
 
   constructor(readonly leaf: { app?: App; containerEl?: HTMLElement }) {
+    super();
     ensureElementHelpers();
     this.app = leaf.app ?? {};
     this.containerEl = leaf.containerEl ?? document.createElement("div");
     this.contentEl = this.containerEl.createDiv();
-  }
-
-  registerDomEvent<K extends keyof DocumentEventMap>(element: Document, type: K, callback: (event: DocumentEventMap[K]) => void): void {
-    element.addEventListener(type, callback);
-  }
-
-  registerEvent(_eventRef: unknown): void {
-    // Test mock placeholder.
   }
 
   getState(): Record<string, unknown> {

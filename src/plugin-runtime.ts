@@ -1,40 +1,29 @@
 import type { App } from "obsidian";
 import type { AppServerClient } from "./app-server/connection/client";
-import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
-import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
-import {
-  type AppServerContextLease,
-  type AppServerQueryContext,
-  type AppServerQueryContextIdentity,
-  appServerQueryContextIdentityMatches,
-  appServerQueryContextIsComplete,
-} from "./app-server/query/keys";
-import { AppServerResourceStore, StaleAppServerResourceContextError } from "./app-server/query/resource-store";
+import type { AppServerClientAccessOptions } from "./app-server/connection/client-access";
+import type { ObservedResultListener } from "./app-server/query/observed-result";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
-import { createThreadGoalOperationCoordinator } from "./features/chat/application/threads/goal-actions";
+import type { ModelMetadata } from "./domain/catalog/metadata";
+import type { Thread } from "./domain/threads/model";
+import { CodexExecutionRuntime } from "./execution-runtime";
 import type {
-  ChatPanelClientSurface,
-  ChatPanelSettingsAccess,
+  ChatRuntimeView,
   ChatSharedThreadSurface,
   ChatViewLifecycleSurface,
-  ChatWorkspacePanelSurface,
+  ChatViewRuntimeOwner,
   CodexChatHost,
 } from "./features/chat/host/contracts";
 import type { SelectionRewriteCommandController } from "./features/selection-rewrite/command.obsidian";
-import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
-import { createThreadOperationsTransport, createThreadTitleTransport } from "./features/threads/app-server/workflow-transports";
-import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
-import { createThreadNameMutationCoordinator } from "./features/threads/workflows/thread-name-mutation-coordinator";
-import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
+import type { SelectionRewriteTransport } from "./features/selection-rewrite/transport";
+import type { ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
+import type { ThreadsViewHost } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
-import { CodexThreadsView } from "./features/threads-view/view.obsidian";
+import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
 import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/turn-diff/model";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
-import { createSettingsAppServerDynamicData } from "./settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import type { CodexPanelSettings } from "./settings/model";
-import { createKeyedOperationQueue } from "./shared/runtime/keyed-operation-queue";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 
 interface CodexPanelRuntimeSettingsRef {
@@ -48,18 +37,10 @@ export interface CodexPanelRuntimeOptions {
   saveSettings(settings: CodexPanelSettings): Promise<void>;
 }
 
-export class CodexPanelRuntime implements AppServerClientAccess {
-  private readonly appServerResourceStore = new AppServerResourceStore({
-    clientRunner: {
-      runWithClient: (context, operation, options) => this.runWithAppServerClient(context, operation, options),
-    },
-  });
+export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRuntimeOwner {
   private readonly panels: WorkspacePanelCoordinator;
-  private readonly threadCatalog: ThreadCatalog;
-  private readonly settingsDynamicData: SettingsDynamicDataAccess;
-  private readonly threadNameMutations = createThreadNameMutationCoordinator();
-  private readonly threadGoalOperations = createThreadGoalOperationCoordinator();
-  private readonly runtimeSettingsCommitQueue = createKeyedOperationQueue<string>();
+  private executionRuntime: CodexExecutionRuntime | null = null;
+  private readonly settingsDynamicData = new SwappableSettingsDynamicData();
   private selectionRewriteController: SelectionRewriteCommandController | null = null;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
@@ -69,33 +50,38 @@ export class CodexPanelRuntime implements AppServerClientAccess {
         this.refreshThreadsViewLiveState();
       },
     });
-    this.threadCatalog = createThreadCatalog({
-      store: this.appServerResourceStore,
-      onEventApplied: (event) => {
-        this.applyThreadCatalogSurfaceEvent(event);
-      },
-    });
-    this.settingsDynamicData = createSettingsAppServerDynamicData({
-      vaultPath: options.settingsRef.vaultPath,
-      clientAccess: this,
-      appServerQueries: this.appServerResourceStore,
-      threadCatalog: this.threadCatalog,
-    });
   }
 
   initialize(): void {
-    this.appServerResourceStore.initialize(this.configuredAppServerContext());
-  }
-
-  appServerContextLease(): AppServerContextLease {
-    return this.appServerResourceStore.contextLease();
+    if (this.executionRuntime) throw new Error("Codex execution runtime is already initialized.");
+    this.executionRuntime = this.createExecutionRuntime(this.options.settingsRef.settings.codexPath);
+    this.settingsDynamicData.replace(this.executionRuntime.settingsDynamicData);
   }
 
   reset(): void {
     this.selectionRewriteController?.closeAll();
     this.selectionRewriteController = null;
+    const executionRuntime = this.executionRuntime;
+    this.executionRuntime = null;
+    executionRuntime?.dispose();
+    this.settingsDynamicData.replace(null);
     this.panels.reset();
-    this.appServerResourceStore.reset();
+  }
+
+  attachChatView(view: ChatRuntimeView): void {
+    this.currentExecutionRuntime().attachChatView(view);
+  }
+
+  detachChatView(view: ChatRuntimeView): void {
+    this.executionRuntime?.detachChatView(view);
+  }
+
+  attachThreadsView(view: ThreadsRuntimeView): void {
+    this.currentExecutionRuntime().attachThreadsView(view);
+  }
+
+  detachThreadsView(view: ThreadsRuntimeView): void {
+    this.executionRuntime?.detachThreadsView(view);
   }
 
   activeWorkspaceLeafChanged(leaf: Parameters<WorkspacePanelCoordinator["activeLeafChanged"]>[0]): void {
@@ -115,7 +101,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   }
 
   openThreadPicker(): void {
-    void openThreadPicker(this.threadPickerHost());
+    this.currentExecutionRuntime().openThreadPicker();
   }
 
   async activateThreadsView(): Promise<CodexThreadsView> {
@@ -138,84 +124,22 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     this.selectionRewriteController = controller;
   }
 
-  chatHost(): CodexChatHost {
+  selectionRewriteTransport(): SelectionRewriteTransport {
     return {
-      settingsRef: {
-        settings: this.chatSettings(),
-        vaultPath: this.options.settingsRef.vaultPath,
-      },
-      workspace: {
-        openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
-        openThreadFromPanel: (threadId, originViewId, originSwitchable) =>
-          this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
-        focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
-        threadHasPendingOrRunningPanel: (threadId) => this.threadHasPendingOrRunningPanel(threadId),
-        openTurnDiff: (state) => this.openTurnDiff(state),
-        openSideChat: (sourceThreadId, sourceThreadTitle) => this.panels.openSideChat(sourceThreadId, sourceThreadTitle),
-        notifyPanelActivityChanged: () => {
-          this.refreshThreadsViewLiveState();
-        },
-      },
-      appServerQueries: this.appServerResourceStore,
-      threadCatalog: this.threadCatalog,
-      threadNameMutations: this.threadNameMutations,
-      threadGoalOperations: this.threadGoalOperations,
-      runtimeSettingsCommitQueue: this.runtimeSettingsCommitQueue,
+      generate: (request) => this.currentExecutionRuntime().selectionRewriteTransport().generate(request),
     };
   }
 
-  private chatSettings(): ChatPanelSettingsAccess {
-    return {
-      referenceActiveNoteOnSend: () => this.options.settingsRef.settings.referenceActiveNoteOnSend,
-      attachmentFolder: () => this.options.settingsRef.settings.attachmentFolder,
-      archiveExportEnabled: () => this.options.settingsRef.settings.archiveExportEnabled,
-      archiveExportSettings: () => ({
-        archiveExportFolderTemplate: this.options.settingsRef.settings.archiveExportFolderTemplate,
-        archiveExportFilenameTemplate: this.options.settingsRef.settings.archiveExportFilenameTemplate,
-        archiveExportTags: this.options.settingsRef.settings.archiveExportTags,
-      }),
-      codexPath: () => this.options.settingsRef.settings.codexPath,
-      scrollThreadFromComposerEdges: () => this.options.settingsRef.settings.scrollThreadFromComposerEdges,
-      sendShortcut: () => this.options.settingsRef.settings.sendShortcut,
-      showToolbar: () => this.options.settingsRef.settings.showToolbar,
-      threadNamingEffort: () => this.options.settingsRef.settings.threadNamingEffort,
-      threadNamingModel: () => this.options.settingsRef.settings.threadNamingModel,
-    };
+  withClient<T>(operation: (client: AppServerClient) => Promise<T>, options?: AppServerClientAccessOptions): Promise<T> {
+    return this.currentExecutionRuntime().withClient(operation, options);
+  }
+
+  chatHost(): CodexChatHost {
+    return this.currentExecutionRuntime().chatHost();
   }
 
   threadsHost(): ThreadsViewHost {
-    return {
-      settings: this.threadsSettings(),
-      vaultPath: this.options.settingsRef.vaultPath,
-      appServerContextLease: () => this.appServerResourceStore.contextLease(),
-      threadCatalog: this.threadCatalog,
-      threadNameMutations: this.threadNameMutations,
-      threadOperationsTransport: createThreadOperationsTransport(this),
-      threadTitleTransport: createThreadTitleTransport({
-        clientAccess: this,
-        codexPath: () => this.appServerResourceStore.contextLease().context.codexPath,
-        vaultPath: this.appServerResourceStore.contextLease().context.vaultPath,
-        threadNamingModel: () => this.options.settingsRef.settings.threadNamingModel,
-        threadNamingEffort: () => this.options.settingsRef.settings.threadNamingEffort,
-      }),
-      openNewPanel: () => this.panels.openNewPanel(),
-      openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
-      openPanelActivities: () => this.openPanelActivities(),
-    };
-  }
-
-  private threadsSettings(): ThreadsViewSettingsAccess {
-    return {
-      archiveExportEnabled: () => this.options.settingsRef.settings.archiveExportEnabled,
-      codexPath: () => this.options.settingsRef.settings.codexPath,
-      threadNamingModel: () => this.options.settingsRef.settings.threadNamingModel,
-      threadNamingEffort: () => this.options.settingsRef.settings.threadNamingEffort,
-      archiveExportSettings: () => ({
-        archiveExportFolderTemplate: this.options.settingsRef.settings.archiveExportFolderTemplate,
-        archiveExportFilenameTemplate: this.options.settingsRef.settings.archiveExportFilenameTemplate,
-        archiveExportTags: this.options.settingsRef.settings.archiveExportTags,
-      }),
-    };
+    return this.currentExecutionRuntime().threadsHost();
   }
 
   settingTabHost(): CodexPanelSettingTabHost {
@@ -226,36 +150,26 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     };
   }
 
-  private threadPickerHost(): ThreadPickerHost {
-    return {
-      app: this.options.app,
-      threadCatalog: this.threadCatalog,
-      openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
-      openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
-    };
-  }
-
-  withClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {
-    return this.runWithAppServerClient(this.appServerResourceStore.contextIdentity(), operation, options);
-  }
-
   private async publishSettings(settings: CodexPanelSettings): Promise<{ appServerContextReplaced: boolean }> {
     const previousSettings = { ...this.options.settingsRef.settings };
     await this.options.saveSettings(settings);
     const appServerContextReplaced = previousSettings.codexPath !== settings.codexPath;
-    if (appServerContextReplaced) this.prepareAppServerContextChange();
-    Object.assign(this.options.settingsRef.settings, settings);
     if (appServerContextReplaced) {
-      this.appServerResourceStore.replaceContext(this.configuredAppServerContext());
+      const nextRuntime = this.createExecutionRuntime(settings.codexPath);
+      this.selectionRewriteController?.closeAll();
+      this.panels.invalidateRuntimeIntents();
+      const previousRuntime = this.executionRuntime;
+      this.executionRuntime = null;
+      const views = previousRuntime?.dispose() ?? { chat: [], threads: [] };
+      Object.assign(this.options.settingsRef.settings, settings);
+      this.settingsDynamicData.replace(nextRuntime.settingsDynamicData);
+      nextRuntime.adoptViews(views);
+      this.executionRuntime = nextRuntime;
+    } else {
+      Object.assign(this.options.settingsRef.settings, settings);
     }
     if (appServerContextReplaced || previousSettings.showToolbar !== settings.showToolbar) this.refreshOpenViews();
     return { appServerContextReplaced };
-  }
-
-  private prepareAppServerContextChange(): void {
-    this.selectionRewriteController?.closeAll();
-    for (const view of this.panels.panelViews()) view.surface.prepareAppServerContextChange();
-    for (const view of this.threadsViews()) view.prepareAppServerContextChange();
   }
 
   private async openTurnDiff(state: TurnDiffViewState): Promise<void> {
@@ -302,6 +216,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   }
 
   private refreshThreadsViewLiveState(): void {
+    if (!this.executionRuntime) return;
     for (const view of this.threadsViews()) {
       view.refreshLiveState();
     }
@@ -328,66 +243,130 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       .flatMap((leaf) => (leaf.view instanceof CodexThreadsView ? [leaf.view] : []));
   }
 
-  private async runWithAppServerClient<T>(
-    context: AppServerQueryContextIdentity,
-    operation: (client: AppServerClient) => Promise<T>,
-    options: AppServerClientAccessOptions = {},
-  ): Promise<T> {
-    if (!appServerQueryContextIsComplete(context)) {
-      throw new Error("Codex app-server query context is incomplete.");
-    }
-    this.assertCurrentAppServerContext(context);
-    const result = await this.runWithContextClient(
-      context,
-      (client) => {
-        this.assertCurrentAppServerContext(context);
-        return operation(client);
+  private currentExecutionRuntime(): CodexExecutionRuntime {
+    if (!this.executionRuntime) throw new Error("Codex execution runtime is not initialized.");
+    return this.executionRuntime;
+  }
+
+  private createExecutionRuntime(codexPath: string): CodexExecutionRuntime {
+    return new CodexExecutionRuntime({
+      app: this.options.app,
+      context: { codexPath, vaultPath: this.options.settingsRef.vaultPath },
+      settings: () => this.options.settingsRef.settings,
+      workspace: {
+        openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
+        openThreadFromPanel: (threadId, originViewId, originSwitchable) =>
+          this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
+        focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
+        threadHasPendingOrRunningPanel: (threadId) => this.threadHasPendingOrRunningPanel(threadId),
+        openTurnDiff: (state) => this.openTurnDiff(state),
+        openSideChat: (sourceThreadId, sourceThreadTitle) => this.panels.openSideChat(sourceThreadId, sourceThreadTitle),
+        notifyPanelActivityChanged: () => {
+          this.refreshThreadsViewLiveState();
+        },
       },
-      options,
-    );
-    this.assertCurrentAppServerContext(context);
-    return result;
+      onThreadCatalogEvent: (event) => {
+        this.applyThreadCatalogSurfaceEvent(event);
+      },
+      openNewPanel: () => this.panels.openNewPanel(),
+      openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
+      openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
+      openPanelActivities: () => this.openPanelActivities(),
+    });
   }
+}
 
-  private assertCurrentAppServerContext(context: AppServerQueryContextIdentity): void {
-    let current = false;
-    try {
-      current = appServerQueryContextIdentityMatches(this.appServerResourceStore.contextIdentity(), context);
-    } catch {
-      // A reset resource store has no current app-server context.
+interface StableObserver<T> {
+  readonly listener: ObservedResultListener<readonly T[]>;
+  readonly options: { emitCurrent?: boolean } | undefined;
+  unsubscribe: (() => void) | null;
+}
+
+export class SwappableSettingsDynamicData implements SettingsDynamicDataAccess {
+  private current: SettingsDynamicDataAccess | null = null;
+  private readonly modelObservers = new Set<StableObserver<ModelMetadata>>();
+  private readonly archivedThreadObservers = new Set<StableObserver<Thread>>();
+
+  replace(next: SettingsDynamicDataAccess | null): void {
+    for (const observer of [...this.modelObservers, ...this.archivedThreadObservers]) {
+      observer.unsubscribe?.();
+      observer.unsubscribe = null;
     }
-    if (!current) throw new StaleAppServerResourceContextError();
-  }
-
-  private runWithContextClient<T>(
-    context: AppServerQueryContextIdentity,
-    operation: (client: AppServerClient) => Promise<T>,
-    options: AppServerClientAccessOptions,
-  ): Promise<T> {
-    if (options.serverRequests?.kind === "reject") {
-      return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
+    this.current = next;
+    if (!next) return;
+    for (const observer of this.modelObservers) {
+      observer.unsubscribe = next.observeModelsResult(observer.listener, observer.options);
     }
-    const chatSurface = this.connectedClientSurface(context);
-    return chatSurface
-      ? chatSurface.runWithAppServerClient(operation)
-      : withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
-  }
-
-  private connectedClientSurface(context: AppServerQueryContextIdentity): ChatPanelClientSurface | null {
-    for (const view of this.panels.panelViews()) {
-      const workspaceSurface: ChatWorkspacePanelSurface = view.surface;
-      if (!workspaceSurface.openPanelSnapshot().connected) continue;
-      const clientSurface: ChatPanelClientSurface = view.surface;
-      if (!clientSurface.canServeAppServerContext(context)) continue;
-      return clientSurface;
+    for (const observer of this.archivedThreadObservers) {
+      observer.unsubscribe = next.observeArchivedThreadsResult(observer.listener, observer.options);
     }
-    return null;
   }
 
-  private configuredAppServerContext(): AppServerQueryContext {
-    return {
-      codexPath: this.options.settingsRef.settings.codexPath,
-      vaultPath: this.options.settingsRef.vaultPath,
+  modelsSnapshot(): readonly ModelMetadata[] | null {
+    return this.delegate().modelsSnapshot();
+  }
+
+  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void {
+    const observer: StableObserver<ModelMetadata> = { listener, options, unsubscribe: null };
+    this.modelObservers.add(observer);
+    observer.unsubscribe = this.delegate().observeModelsResult(listener, options);
+    return () => {
+      observer.unsubscribe?.();
+      this.modelObservers.delete(observer);
     };
+  }
+
+  fetchModels(): Promise<readonly ModelMetadata[]> {
+    return this.delegate().fetchModels();
+  }
+
+  refreshModels(): Promise<readonly ModelMetadata[]> {
+    return this.delegate().refreshModels();
+  }
+
+  archivedThreadsSnapshot(): readonly Thread[] | null {
+    return this.delegate().archivedThreadsSnapshot();
+  }
+
+  observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
+    const observer: StableObserver<Thread> = { listener, options, unsubscribe: null };
+    this.archivedThreadObservers.add(observer);
+    observer.unsubscribe = this.delegate().observeArchivedThreadsResult(listener, options);
+    return () => {
+      observer.unsubscribe?.();
+      this.archivedThreadObservers.delete(observer);
+    };
+  }
+
+  refreshArchivedThreads(): Promise<readonly Thread[]> {
+    return this.delegate().refreshArchivedThreads();
+  }
+
+  refreshHooks(): ReturnType<SettingsDynamicDataAccess["refreshHooks"]> {
+    return this.delegate().refreshHooks();
+  }
+
+  trustHook(hook: Parameters<SettingsDynamicDataAccess["trustHook"]>[0]): ReturnType<SettingsDynamicDataAccess["trustHook"]> {
+    return this.delegate().trustHook(hook);
+  }
+
+  setHookEnabled(
+    hook: Parameters<SettingsDynamicDataAccess["setHookEnabled"]>[0],
+    enabled: boolean,
+  ): ReturnType<SettingsDynamicDataAccess["setHookEnabled"]> {
+    return this.delegate().setHookEnabled(hook, enabled);
+  }
+
+  restoreArchivedThread(threadId: string): Promise<Thread> {
+    return this.delegate().restoreArchivedThread(threadId);
+  }
+
+  deleteArchivedThread(threadId: string): Promise<void> {
+    return this.delegate().deleteArchivedThread(threadId);
+  }
+
+  private delegate(): SettingsDynamicDataAccess {
+    if (!this.current) throw new Error("Codex execution runtime is not initialized.");
+    return this.current;
   }
 }

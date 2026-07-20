@@ -10,7 +10,6 @@ import { createKeyedOperationQueue } from "../shared/runtime/keyed-operation-que
 import { type SettingsDynamicDataAccess, type SettingsHookCatalog, StaleSettingsDynamicDataContextError } from "./dynamic-data";
 
 interface SettingsAppServerQueries {
-  contextKey(): string;
   modelsSnapshot(): readonly ModelMetadata[] | null;
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
@@ -33,13 +32,7 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
       serverRequests: { kind: "reject", message: "Codex Panel settings does not handle server requests." },
     });
   const runArchivedThreadMutation = <T>(threadId: string, operation: () => Promise<T>): Promise<T> => {
-    const contextKey = options.appServerQueries.contextKey();
-    return archivedThreadMutations.run(archivedThreadMutationKey(contextKey, threadId), () =>
-      mapStaleContextError(async () => {
-        if (options.appServerQueries.contextKey() !== contextKey) throw new StaleSettingsDynamicDataContextError();
-        return operation();
-      }),
-    );
+    return archivedThreadMutations.run(threadId, () => mapStaleContextError(operation));
   };
   const loadHooks = (client: AppServerClient): Promise<SettingsHookCatalog> => loadSettingsHookCatalog(client, options.vaultPath);
   const mutateHook = (hook: HookItem, mutation: (client: AppServerClient, hook: HookItem) => Promise<void>): Promise<SettingsHookCatalog> =>
@@ -82,10 +75,6 @@ async function loadSettingsHookCatalog(client: AppServerClient, vaultPath: strin
     ...catalog,
     status: `Loaded ${String(hookCount)} hook${hookCount === 1 ? "" : "s"}.`,
   };
-}
-
-function archivedThreadMutationKey(contextKey: string, threadId: string): string {
-  return `${contextKey}\u0000${threadId}`;
 }
 
 async function mapStaleContextError<T>(operation: () => Promise<T>): Promise<T> {

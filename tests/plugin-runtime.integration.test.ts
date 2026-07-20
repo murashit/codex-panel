@@ -6,6 +6,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
 import type { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
+import { SwappableSettingsDynamicData } from "../src/plugin-runtime";
 import { deferred } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
 import {
@@ -111,26 +112,20 @@ describe("CodexPanelPlugin runtime integration", () => {
   });
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
-    const connectedLeaf = leaf();
-    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
-    const connectedView = connectedLeaf.view as CodexChatView;
-    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(true);
     let resolveFirst!: (threads: Thread[]) => void;
-    const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient");
-    const plugin = await pluginWithLeaves([connectedLeaf]);
+    const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-a");
-    runWithAppServerClient.mockImplementation((operation) =>
-      operation(
-        threadListClient(() =>
-          plugin.settings.codexPath === "codex-a"
-            ? new Promise<Thread[]>((resolve) => {
-                resolveFirst = resolve;
-              })
-            : Promise.resolve([thread("second")]),
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
+        operation(
+          threadListClient(() =>
+            plugin.settings.codexPath === "codex-a"
+              ? new Promise<Thread[]>((resolve) => {
+                  resolveFirst = resolve;
+                })
+              : Promise.resolve([thread("second")]),
+          ),
         ),
-      ),
     );
 
     const first = threadCatalog(plugin).refreshActive();
@@ -140,7 +135,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const second = threadCatalog(plugin).refreshActive();
     await flushMicrotasks();
 
-    expect(runWithAppServerClient).toHaveBeenCalledTimes(2);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
     await expect(second).resolves.toEqual([thread("second")]);
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("second")]);
 
@@ -151,41 +146,33 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(threadCatalog(plugin).activeSnapshot()).toBeNull();
   });
 
-  it("does not reuse a connected panel whose app-server context does not match the shared query", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
-    const connectedLeaf = leaf();
-    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
-    const connectedView = connectedLeaf.view as CodexChatView;
-    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(false);
-    const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient").mockResolvedValue([thread("wrong-context")]);
+  it("runs shared queries through a runtime-owned short-lived client", async () => {
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
         operation(threadListClient(() => Promise.resolve([thread("matching-context")]))),
     );
-    const plugin = await pluginWithLeaves([connectedLeaf]);
+    const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-b");
 
     await expect(threadCatalog(plugin).refreshActive()).resolves.toEqual([thread("matching-context")]);
 
-    expect(runWithAppServerClient).not.toHaveBeenCalled();
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith("codex-b", "/vault", expect.any(Function), {});
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith(
+      "codex-b",
+      "/vault",
+      expect.any(Function),
+      {},
+      expect.objectContaining({ created: expect.any(Function), disposed: expect.any(Function) }),
+    );
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("matching-context")]);
   });
 
   it("uses a short-lived client when the operation declares an unhandled server-request policy", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
-    const connectedLeaf = leaf();
-    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
-    const connectedView = connectedLeaf.view as CodexChatView;
-    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient").mockResolvedValue("chat-result");
     const shortLivedClient = { request: vi.fn().mockResolvedValue({}) };
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _vaultPath: string, operation: (client: typeof shortLivedClient) => Promise<unknown>) =>
         operation(shortLivedClient),
     );
-    const plugin = await pluginWithLeaves([connectedLeaf]);
+    const plugin = await pluginWithLeaves([]);
     plugin.settings.codexPath = "codex";
 
     const result = await plugin.runtime.withClient((client) => client.request("config/read", { cwd: "/vault", includeLayers: true }), {
@@ -193,30 +180,16 @@ describe("CodexPanelPlugin runtime integration", () => {
     });
 
     expect(result).toEqual({});
-    expect(runWithAppServerClient).not.toHaveBeenCalled();
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith("codex", "/vault", expect.any(Function), {
-      serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
-    });
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith(
+      "codex",
+      "/vault",
+      expect.any(Function),
+      {
+        serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
+      },
+      expect.objectContaining({ created: expect.any(Function), disposed: expect.any(Function) }),
+    );
     expect(shortLivedClient.request).toHaveBeenCalledWith("config/read", { cwd: "/vault", includeLayers: true });
-  });
-
-  it("rejects a connected-panel result when the app-server context changes during the operation", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
-    const connectedLeaf = leaf();
-    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
-    const connectedView = connectedLeaf.view as CodexChatView;
-    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ connected: true }));
-    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(true);
-    const result = deferred<string>();
-    vi.spyOn(connectedView.surface, "runWithAppServerClient").mockReturnValue(result.promise);
-    const plugin = await pluginWithLeaves([connectedLeaf]);
-    await publishCodexPath(plugin, "codex-a");
-
-    const operation = plugin.runtime.withClient(() => Promise.resolve("unused"));
-    await publishCodexPath(plugin, "codex-b");
-    result.resolve("stale-result");
-
-    await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
   });
 
   it("rejects a short-lived result when the app-server context changes during the operation", async () => {
@@ -232,6 +205,23 @@ describe("CodexPanelPlugin runtime integration", () => {
     result.resolve("stale-result");
 
     await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
+  });
+
+  it("rejects an old A result after switching from A to B and back to A", async () => {
+    const result = deferred<string>();
+    withShortLivedAppServerClientMock.mockReturnValue(result.promise);
+    const plugin = await pluginWithLeaves([]);
+    await publishCodexPath(plugin, "codex-a");
+
+    const operation = plugin.runtime.withClient(() => Promise.resolve("unused"), {
+      serverRequests: { kind: "reject", message: "test" },
+    });
+    await publishCodexPath(plugin, "codex-b");
+    await publishCodexPath(plugin, "codex-a");
+    result.resolve("stale-a");
+
+    await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
+    expect(plugin.runtime.chatHost().appServerContext).toEqual({ codexPath: "codex-a", vaultPath: "/vault" });
   });
 
   it("does not start a short-lived operation when its app-server context changes while connecting", async () => {
@@ -256,9 +246,9 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(shortLivedClient.request).not.toHaveBeenCalled();
   });
 
-  it("publishes a persisted context and its new resource lease atomically", async () => {
+  it("publishes a persisted context and its replacement runtime atomically", async () => {
     const plugin = await pluginWithLeaves([]);
-    const firstLease = plugin.runtime.appServerContextLease();
+    const firstContext = plugin.runtime.chatHost().appServerContext;
     const save = deferred<void>();
     const saveSettings = vi.spyOn(plugin, "saveSettings").mockReturnValue(save.promise);
 
@@ -266,33 +256,146 @@ describe("CodexPanelPlugin runtime integration", () => {
     await Promise.resolve();
 
     expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ codexPath: "codex-next" }));
-    expect(plugin.settings.codexPath).toBe(firstLease.context.codexPath);
-    expect(plugin.runtime.appServerContextLease()).toBe(firstLease);
+    expect(plugin.settings.codexPath).toBe(firstContext.codexPath);
+    expect(plugin.runtime.chatHost().appServerContext).toBe(firstContext);
 
     save.resolve(undefined);
     await publication;
 
     expect(plugin.settings.codexPath).toBe("codex-next");
-    expect(plugin.runtime.appServerContextLease()).toEqual({
-      context: { codexPath: "codex-next", vaultPath: "/vault" },
-      generation: firstLease.generation + 1,
-    });
+    expect(plugin.runtime.chatHost().appServerContext).toEqual({ codexPath: "codex-next", vaultPath: "/vault" });
+    expect(plugin.runtime.chatHost().appServerContext).not.toBe(firstContext);
   });
 
-  it("coordinates context replacement with every open Threads view", async () => {
-    const { CodexThreadsView } = await import("../src/features/threads-view/view.obsidian");
-    const prepareAppServerContextChange = vi.fn();
-    const refreshSettings = vi.fn();
-    const threadsView = Object.assign(Object.create(CodexThreadsView.prototype), {
-      prepareAppServerContextChange,
-      refreshSettings,
-    }) as InstanceType<typeof CodexThreadsView>;
-    const threadsLeaf = leaf();
-    threadsLeaf.view = threadsView;
-    const plugin = await pluginWithLeaves([], { threadsLeaves: [threadsLeaf] });
+  it("detaches and reattaches every open Chat view to the new execution runtime", async () => {
+    const attachRuntime = vi.fn();
+    const activateRuntime = vi.fn();
+    const detachRuntime = vi.fn();
+    const plugin = await pluginWithLeaves([]);
+    plugin.runtime.attachChatView({ attachRuntime, activateRuntime, detachRuntime });
+    attachRuntime.mockClear();
+    activateRuntime.mockClear();
+
     await publishCodexPath(plugin, "codex-next");
-    expect(prepareAppServerContextChange).toHaveBeenCalledOnce();
-    expect(refreshSettings).toHaveBeenCalledOnce();
+
+    expect(detachRuntime).toHaveBeenCalledOnce();
+    expect(attachRuntime).toHaveBeenCalledOnce();
+    expect(activateRuntime).toHaveBeenCalledOnce();
+    expect(attachRuntime.mock.calls[0]?.[0].settingsRef.settings.codexPath()).toBe("codex-next");
+    expect(attachRuntime.mock.calls[0]?.[0].settingsRef.vaultPath).toBe("/vault");
+  });
+
+  it("detaches and reattaches every open Threads view to the new execution runtime", async () => {
+    const attachRuntime = vi.fn();
+    const activateRuntime = vi.fn();
+    const detachRuntime = vi.fn();
+    const plugin = await pluginWithLeaves([]);
+    plugin.runtime.attachThreadsView({ attachRuntime, activateRuntime, detachRuntime });
+    attachRuntime.mockClear();
+    activateRuntime.mockClear();
+
+    await publishCodexPath(plugin, "codex-next");
+
+    expect(detachRuntime).toHaveBeenCalledOnce();
+    expect(attachRuntime).toHaveBeenCalledOnce();
+    expect(activateRuntime).toHaveBeenCalledOnce();
+    expect(attachRuntime.mock.calls[0]?.[0].vaultPath).toBe("/vault");
+    expect(attachRuntime.mock.calls[0]?.[0].settings.codexPath()).toBe("codex-next");
+  });
+
+  it("constructs every replacement session before activating any of them", async () => {
+    let chatAttached = false;
+    let threadsAttached = false;
+    let verifyBatchActivation = false;
+    const chat = {
+      attachRuntime: vi.fn(() => {
+        chatAttached = true;
+      }),
+      activateRuntime: vi.fn(() => {
+        if (!verifyBatchActivation) return;
+        expect(chatAttached).toBe(true);
+        expect(threadsAttached).toBe(true);
+      }),
+      detachRuntime: vi.fn(() => {
+        chatAttached = false;
+      }),
+    };
+    const threads = {
+      attachRuntime: vi.fn(() => {
+        threadsAttached = true;
+      }),
+      activateRuntime: vi.fn(() => {
+        if (!verifyBatchActivation) return;
+        expect(chatAttached).toBe(true);
+        expect(threadsAttached).toBe(true);
+      }),
+      detachRuntime: vi.fn(() => {
+        threadsAttached = false;
+      }),
+    };
+    const plugin = await pluginWithLeaves([]);
+    plugin.runtime.attachChatView(chat);
+    plugin.runtime.attachThreadsView(threads);
+    verifyBatchActivation = true;
+
+    await publishCodexPath(plugin, "codex-next");
+
+    expect(chat.activateRuntime).toHaveBeenCalledTimes(2);
+    expect(threads.activateRuntime).toHaveBeenCalledTimes(2);
+  });
+
+  it("finishes runtime replacement when one old view fails to detach", async () => {
+    const broken = {
+      attachRuntime: vi.fn(),
+      activateRuntime: vi.fn(),
+      detachRuntime: vi.fn(() => {
+        throw new Error("detach failed");
+      }),
+    };
+    const healthy = {
+      attachRuntime: vi.fn(),
+      activateRuntime: vi.fn(),
+      detachRuntime: vi.fn(),
+    };
+    const plugin = await pluginWithLeaves([]);
+    plugin.runtime.attachChatView(broken);
+    plugin.runtime.attachChatView(healthy);
+    healthy.attachRuntime.mockClear();
+
+    await publishCodexPath(plugin, "codex-next");
+
+    expect(broken.detachRuntime).toHaveBeenCalledOnce();
+    expect(healthy.detachRuntime).toHaveBeenCalledOnce();
+    expect(healthy.attachRuntime).toHaveBeenCalledOnce();
+    expect(plugin.runtime.chatHost().appServerContext.codexPath).toBe("codex-next");
+  });
+
+  it("keeps activating healthy views when one replacement attachment fails", async () => {
+    let failNextAttach = false;
+    const broken = {
+      attachRuntime: vi.fn(() => {
+        if (failNextAttach) throw new Error("attach failed");
+      }),
+      activateRuntime: vi.fn(),
+      detachRuntime: vi.fn(),
+    };
+    const healthy = {
+      attachRuntime: vi.fn(),
+      activateRuntime: vi.fn(),
+      detachRuntime: vi.fn(),
+    };
+    const plugin = await pluginWithLeaves([]);
+    plugin.runtime.attachChatView(broken);
+    plugin.runtime.attachChatView(healthy);
+    failNextAttach = true;
+    healthy.activateRuntime.mockClear();
+
+    await publishCodexPath(plugin, "codex-next");
+
+    expect(broken.detachRuntime).toHaveBeenCalledTimes(2);
+    expect(broken.activateRuntime).toHaveBeenCalledOnce();
+    expect(healthy.activateRuntime).toHaveBeenCalledOnce();
+    expect(plugin.runtime.chatHost().appServerContext.codexPath).toBe("codex-next");
   });
 
   it("cancels selection rewrites before publishing a new app-server context", async () => {
@@ -303,5 +406,31 @@ describe("CodexPanelPlugin runtime integration", () => {
     await publishCodexPath(plugin, "codex-next");
 
     expect(closeAll).toHaveBeenCalledOnce();
+  });
+});
+
+describe("SwappableSettingsDynamicData", () => {
+  it("moves existing observers to the replacement runtime", () => {
+    const firstUnsubscribe = vi.fn();
+    const secondUnsubscribe = vi.fn();
+    const first = {
+      observeModelsResult: vi.fn(() => firstUnsubscribe),
+      observeArchivedThreadsResult: vi.fn(() => vi.fn()),
+    };
+    const second = {
+      observeModelsResult: vi.fn(() => secondUnsubscribe),
+      observeArchivedThreadsResult: vi.fn(() => vi.fn()),
+    };
+    const dynamicData = new SwappableSettingsDynamicData();
+    const listener = vi.fn();
+    dynamicData.replace(first as never);
+    const unsubscribe = dynamicData.observeModelsResult(listener, { emitCurrent: false });
+
+    dynamicData.replace(second as never);
+
+    expect(firstUnsubscribe).toHaveBeenCalledOnce();
+    expect(second.observeModelsResult).toHaveBeenCalledWith(listener, { emitCurrent: false });
+    unsubscribe();
+    expect(secondUnsubscribe).toHaveBeenCalledOnce();
   });
 });

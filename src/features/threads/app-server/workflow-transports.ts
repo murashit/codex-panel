@@ -1,4 +1,5 @@
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
+import type { EphemeralStructuredTurnRunner } from "../../../app-server/services/ephemeral-structured-turn";
 import { generateThreadTitleWithCodex } from "../../../app-server/services/thread-title-generation";
 import {
   archiveThread,
@@ -24,10 +25,11 @@ export function createThreadOperationsTransport(clientAccess: AppServerClientAcc
 
 export function createThreadTitleTransport(options: {
   clientAccess: AppServerClientAccess;
-  codexPath(): string;
+  codexPath: string;
   vaultPath: string;
   threadNamingModel(): string | null;
   threadNamingEffort(): ReasoningEffort | null;
+  runner: EphemeralStructuredTurnRunner;
 }): ThreadTitleTransport {
   return {
     persistedContext: (threadId) =>
@@ -40,14 +42,14 @@ export function createThreadTitleTransport(options: {
       ),
     generateTitle: (context, signal) =>
       generateThreadTitleWithCodex(
-        options.codexPath(),
+        options.codexPath,
         options.vaultPath,
         context,
         {
           threadNamingModel: options.threadNamingModel(),
           threadNamingEffort: options.threadNamingEffort(),
         },
-        { signal },
+        { runner: options.runner, signal },
       ),
   };
 }

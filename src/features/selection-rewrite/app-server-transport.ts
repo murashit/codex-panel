@@ -17,7 +17,7 @@ const SELECTION_REWRITE_OUTPUT_SCHEMA: StructuredTurnOutputSchema = {
 };
 
 export interface AppServerSelectionRewriteTransportOptions {
-  codexPath(): string;
+  codexPath: string;
   cwd: string;
   runner?: EphemeralStructuredTurnRunner;
 }
@@ -32,7 +32,7 @@ async function runAppServerSelectionRewrite(options: AppServerSelectionRewriteTr
   let preview = "";
   const lastAgentText = await runEphemeralStructuredTurnForLastAgentText(
     {
-      codexPath: options.codexPath(),
+      codexPath: options.codexPath,
       cwd: options.cwd,
       serviceName: SELECTION_REWRITE_SERVICE_NAME,
       developerInstructions: SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS,

@@ -46,6 +46,20 @@ describe("CodexPanelPlugin lifecycle", () => {
     expect(panelLeaf.loadIfDeferred).not.toHaveBeenCalled();
   });
 
+  it("disposes execution-runtime views on unload", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const view = {
+      attachRuntime: vi.fn(),
+      activateRuntime: vi.fn(),
+      detachRuntime: vi.fn(),
+    };
+    plugin.runtime.attachChatView(view);
+
+    plugin.onunload();
+
+    expect(view.detachRuntime).toHaveBeenCalledOnce();
+  });
+
   it("hydrates a restored panel when Obsidian activates its leaf", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const panelLeaf = leaf();

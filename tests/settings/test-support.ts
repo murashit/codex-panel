@@ -8,6 +8,7 @@ import { StaleAppServerResourceContextError } from "../../src/app-server/query/r
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import type { ThreadCatalogEvent } from "../../src/features/threads/catalog/thread-catalog";
+import { SwappableSettingsDynamicData } from "../../src/plugin-runtime";
 import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
@@ -183,7 +184,6 @@ export function expectRequestTimes(client: SettingsRequestClient, method: string
 
 export interface SettingsTabHostOptions {
   saveSettings?: (settings: CodexPanelSettings) => Promise<void>;
-  prepareAppServerContextChange?: () => void;
   sendShortcut?: "enter" | "mod-enter";
   modelsSnapshot?: ModelMetadata[];
   fetchModels?: () => Promise<readonly ModelMetadata[]>;
@@ -243,22 +243,25 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       return result;
     },
   };
+  const swappableDynamicData = options.dynamicData ? null : new SwappableSettingsDynamicData();
+  const dynamicData: SettingsDynamicDataAccess = options.dynamicData ?? (swappableDynamicData as SwappableSettingsDynamicData);
+  const createDynamicData = () =>
+    createSettingsAppServerDynamicData({
+      vaultPath: "/vault",
+      clientAccess,
+      appServerQueries,
+      threadCatalog,
+    });
+  swappableDynamicData?.replace(createDynamicData());
   return {
     settings,
-    dynamicData:
-      options.dynamicData ??
-      createSettingsAppServerDynamicData({
-        vaultPath: "/vault",
-        clientAccess,
-        appServerQueries,
-        threadCatalog,
-      }),
+    dynamicData,
     publishSettings: async (nextSettings) => {
       const previousSettings = { ...settings };
       await (options.saveSettings ?? vi.fn().mockResolvedValue(undefined))(nextSettings);
       const appServerContextReplaced = previousSettings.codexPath !== nextSettings.codexPath;
-      if (appServerContextReplaced) options.prepareAppServerContextChange?.();
       Object.assign(settings, nextSettings);
+      if (appServerContextReplaced) swappableDynamicData?.replace(createDynamicData());
       if (appServerContextReplaced || previousSettings.showToolbar !== nextSettings.showToolbar) options.refreshOpenViews?.();
       return { appServerContextReplaced };
     },

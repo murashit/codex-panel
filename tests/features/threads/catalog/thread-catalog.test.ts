@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerQueryContextIdentity } from "../../../../src/app-server/query/keys";
 import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../../src/app-server/query/observed-result";
 import { applyThreadListMutation, type ThreadListMutation } from "../../../../src/app-server/query/thread-list-mutation";
 import type { Thread } from "../../../../src/domain/threads/model";
@@ -63,17 +62,6 @@ describe("ThreadCatalog", () => {
     expect(catalog.archivedSnapshot()).toEqual([]);
   });
 
-  it("ignores connection events from an earlier resource lease", () => {
-    const store = catalogStore();
-    const catalog = createThreadCatalog({ store });
-    const staleContext = { codexPath: "codex", vaultPath: "/vault", generation: 0 };
-
-    catalog.applyConnectionEvent(staleContext, { type: "thread-upserted", thread: thread("stale") });
-
-    expect(store.appliedMutations).toEqual([]);
-    expect(catalog.activeSnapshot()).toBeNull();
-  });
-
   it("delegates reads, pagination, and observation without a second projection store", async () => {
     const store = catalogStore({ active: [thread("active")], archived: [thread("archived", true)] });
     const catalog = createThreadCatalog({ store });
@@ -113,11 +101,6 @@ function catalogStore(options: CatalogStoreOptions = {}) {
   const activeObservers = new Set<ObservedPaginatedResultListener<readonly Thread[]>>();
   const archivedObservers = new Set<ObservedResultListener<readonly Thread[]>>();
   const appliedMutations: ThreadListMutation[] = [];
-  const currentContext: AppServerQueryContextIdentity = {
-    codexPath: "codex",
-    vaultPath: "/vault",
-    generation: 1,
-  };
   const applyMutations = (mutations: readonly ThreadListMutation[]): void => {
     appliedMutations.push(...mutations);
     for (const mutation of mutations) {
@@ -130,8 +113,6 @@ function catalogStore(options: CatalogStoreOptions = {}) {
   };
   return {
     appliedMutations,
-    contextKey: () => contextKey(currentContext),
-    contextKeyFor: contextKey,
     activeThreadsSnapshot: () => active,
     recentActiveThreadsSnapshot: () => active,
     archivedThreadsSnapshot: () => archived,
@@ -158,10 +139,6 @@ function catalogStore(options: CatalogStoreOptions = {}) {
       return () => archivedObservers.delete(observer);
     },
   };
-}
-
-function contextKey(context: AppServerQueryContextIdentity): string {
-  return `${String(context.generation)}:${context.codexPath}:${context.vaultPath}`;
 }
 
 function thread(id: string, archived = false, overrides: Partial<Thread> = {}): Thread {

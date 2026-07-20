@@ -2,7 +2,7 @@ import { onlineManager } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
 import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
-import type { AppServerQueryContext, AppServerQueryContextIdentity } from "../../src/app-server/query/keys";
+import type { AppServerQueryContext } from "../../src/app-server/query/keys";
 import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
 import type { Thread } from "../../src/domain/threads/model";
@@ -771,18 +771,17 @@ describe("AppServerQueryCache", () => {
   });
 });
 
-function cacheContext(overrides: Partial<AppServerQueryContextIdentity> = {}): AppServerQueryContextIdentity {
+function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServerQueryContext {
   return {
     codexPath: "codex",
     vaultPath: "/vault",
-    generation: 1,
     ...overrides,
   };
 }
 
 function cacheWithThreads(
-  fetchThreads: (context: AppServerQueryContextIdentity, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
-  context: AppServerQueryContextIdentity = cacheContext(),
+  fetchThreads: (context: AppServerQueryContext, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
+  context: AppServerQueryContext = cacheContext(),
 ): AppServerQueryCache {
   return new AppServerQueryCache(context, {
     clientRunner: {
@@ -803,7 +802,7 @@ function cacheWithThreads(
 
 function cacheWithRequestHandlers(
   handlers: Record<string, (params: unknown) => Promise<unknown>>,
-  context: AppServerQueryContextIdentity = cacheContext(),
+  context: AppServerQueryContext = cacheContext(),
 ): AppServerQueryCache {
   const requestClient = {
     request: async (method: string, params: unknown) => {

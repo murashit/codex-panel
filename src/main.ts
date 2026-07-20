@@ -2,7 +2,6 @@ import { Notice, Plugin } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { CodexChatView } from "./features/chat/host/view.obsidian";
-import { createAppServerSelectionRewriteTransport } from "./features/selection-rewrite/app-server-transport";
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command.obsidian";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
@@ -27,9 +26,9 @@ export default class CodexPanelPlugin extends Plugin {
     await this.loadSettings();
     this.runtime.initialize();
 
-    this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this.runtime.chatHost()));
+    this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this.runtime));
     this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexTurnDiffView(leaf));
-    this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this.runtime.threadsHost()));
+    this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this.runtime));
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
         this.runtime.activeWorkspaceLeafChanged(leaf);
@@ -72,15 +71,7 @@ export default class CodexPanelPlugin extends Plugin {
       callback: () => void this.runtime.startNewChat().catch(reportCommandError),
     });
 
-    this.runtime.setSelectionRewriteController(
-      registerSelectionRewriteCommand(
-        this,
-        createAppServerSelectionRewriteTransport({
-          codexPath: () => this.runtime.appServerContextLease().context.codexPath,
-          cwd: this.runtime.appServerContextLease().context.vaultPath,
-        }),
-      ),
-    );
+    this.runtime.setSelectionRewriteController(registerSelectionRewriteCommand(this, this.runtime.selectionRewriteTransport()));
 
     this.addSettingTab(new CodexPanelSettingTab(this.app, this, this.runtime.settingTabHost()));
 
@@ -89,6 +80,7 @@ export default class CodexPanelPlugin extends Plugin {
 
   override onunload(): void {
     this.runtime.cancelWorkspacePanelReconcile();
+    this.runtime.reset();
     disposeTextareaHeightMirrors();
   }
 

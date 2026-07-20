@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
+import type { ChatPanelSession } from "../../../../src/features/chat/host/session";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
@@ -50,6 +51,30 @@ describe("CodexChatView workspace restoration", () => {
     expect(requestMethods(client)).not.toContain("thread/resume");
     expect(requestMethods(client)).not.toContain("thread/resume");
     expect(requestMethods(client)).not.toContain("thread/turns/list");
+  });
+
+  it("keeps workspace state readable while detached from an execution runtime", async () => {
+    const view = await chatView();
+    await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
+    view.detachRuntime();
+
+    expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
+    expect(view.getDisplayText()).toBe("Restored thread");
+    expect(view.isRuntimeAttached()).toBe(false);
+    expect(() => view.surface).toThrow("not attached");
+  });
+
+  it("closes the session even when runtime snapshot capture fails", async () => {
+    const view = await chatView();
+    const session = view.surface;
+    const close = vi.spyOn(session, "close").mockResolvedValue(undefined);
+    vi.spyOn(session as ChatPanelSession, "runtimeSnapshot").mockImplementation(() => {
+      throw new Error("snapshot failed");
+    });
+
+    expect(() => view.detachRuntime()).toThrow("snapshot failed");
+    expect(close).toHaveBeenCalledOnce();
+    expect(view.isRuntimeAttached()).toBe(false);
   });
 
   it("formats the panel title from listed thread metadata", async () => {

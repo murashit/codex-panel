@@ -455,6 +455,27 @@ describe("WorkspacePanelCoordinator", () => {
     expect(replacementOpen).not.toHaveBeenCalled();
   });
 
+  it("does not continue an intent started by a replaced execution runtime", async () => {
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const targetLeaf = leaf();
+    const view = chatView(CodexChatView, targetLeaf);
+    targetLeaf.view = view;
+    const open = vi.spyOn(view.surface, "openThread").mockResolvedValue(undefined);
+    const plugin = await pluginWithLeaves([targetLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(targetLeaf);
+    const reveal = deferred<void>();
+    (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mockReturnValue(reveal.promise);
+    const coordinator = panels(plugin);
+
+    const opening = coordinator.openThreadInCurrentView("thread");
+    await vi.waitFor(() => expect(plugin.app.workspace.revealLeaf).toHaveBeenCalledWith(targetLeaf));
+    coordinator.invalidateRuntimeIntents();
+    reveal.resolve(undefined);
+    await opening;
+
+    expect(open).not.toHaveBeenCalled();
+  });
+
   it("rejects a deferred restored target that materializes as a different panel", async () => {
     const restoredLeaf = leaf({ state: { threadId: "restored-thread" } });
     const plugin = await pluginWithLeaves([restoredLeaf]);

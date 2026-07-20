@@ -448,110 +448,6 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).not.toContain("Older save failed.");
   });
 
-  it("clears old rows and suppresses a delayed rename across an app-server context replacement", async () => {
-    let codexPath = "codex-a";
-    const saved = deferred<object>();
-    const renameThreadRequest = vi.fn(() => saved.promise);
-    const oldClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread-a", preview: "Old thread" })] }),
-      "thread/name/set": renameThreadRequest,
-    });
-    connectionMock.state.client = oldClient;
-    const applyThreadCatalogEvent = vi.fn();
-    const host = threadsHost({
-      settings: {
-        archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
-        codexPath: () => codexPath,
-        threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
-        threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
-        archiveExportSettings: () => ({
-          archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
-          archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
-          archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
-        }),
-      },
-      threadCatalog: { apply: applyThreadCatalogEvent },
-    });
-    const view = await threadsView(host);
-    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Old thread"));
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    if (!input) throw new Error("Missing rename input");
-    changeInputValue(input, "Renamed old thread");
-    input.dispatchEvent(new FocusEvent("blur"));
-    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
-
-    view.prepareAppServerContextChange();
-    expect(view.containerEl.textContent).not.toContain("Old thread");
-    codexPath = "codex-b";
-    connectionMock.state.client = clientFixture({ "thread/list": vi.fn().mockResolvedValue({ data: [] }) });
-    view.refreshSettings();
-    saved.resolve({});
-
-    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("No threads"));
-    expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
-    expect(view.containerEl.textContent).not.toContain("Old thread");
-  });
-
-  it("does not report a delayed rename rejection after an app-server context replacement", async () => {
-    let codexPath = "codex-a";
-    const saved = deferred<object>();
-    const renameThreadRequest = vi.fn(() => saved.promise);
-    connectionMock.state.client = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread-a", preview: "Old thread" })] }),
-      "thread/name/set": renameThreadRequest,
-    });
-    const host = threadsHost({ settings: contextSettings(() => codexPath) });
-    const view = await threadsView(host);
-    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Old thread"));
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    if (!input) throw new Error("Missing rename input");
-    changeInputValue(input, "Renamed old thread");
-    input.dispatchEvent(new FocusEvent("blur"));
-    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
-
-    view.prepareAppServerContextChange();
-    codexPath = "codex-b";
-    connectionMock.state.client = clientFixture({ "thread/list": vi.fn().mockResolvedValue({ data: [] }) });
-    view.refreshSettings();
-    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("No threads"));
-    saved.reject(new Error("Old rename failed."));
-    for (let index = 0; index < 10; index += 1) await Promise.resolve();
-
-    expect(view.containerEl.textContent).toContain("No threads");
-    expect(view.containerEl.textContent).not.toContain("Old rename failed.");
-  });
-
-  it("does not report a delayed archive rejection after an app-server context replacement", async () => {
-    let codexPath = "codex-a";
-    const archived = deferred<object>();
-    const archiveThreadRequest = vi.fn(() => archived.promise);
-    connectionMock.state.client = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread-a", preview: "Old thread" })] }),
-      "thread/archive": archiveThreadRequest,
-    });
-    const host = threadsHost({
-      settings: contextSettings(() => codexPath),
-    });
-    const view = await threadsView(host);
-    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Old thread"));
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
-    await waitForAsyncWork(() => expect(archiveThreadRequest).toHaveBeenCalledOnce());
-
-    view.prepareAppServerContextChange();
-    codexPath = "codex-b";
-    connectionMock.state.client = clientFixture({ "thread/list": vi.fn().mockResolvedValue({ data: [] }) });
-    view.refreshSettings();
-    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("No threads"));
-    archived.reject(new Error("Old archive failed."));
-    for (let index = 0; index < 10; index += 1) await Promise.resolve();
-
-    expect(view.containerEl.textContent).toContain("No threads");
-    expect(view.containerEl.textContent).not.toContain("Old archive failed.");
-  });
-
   it("auto-names a thread rename draft from completed history", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [
@@ -703,6 +599,15 @@ describe("CodexThreadsView", () => {
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Manual title");
     });
   });
+
+  it("ignores refresh requests while detached from an execution runtime", async () => {
+    const view = await threadsView();
+    view.detachRuntime();
+
+    await expect(view.refresh()).resolves.toBeUndefined();
+    expect(() => view.refreshLiveState()).not.toThrow();
+    expect(() => view.refreshSettings()).not.toThrow();
+  });
 });
 
 type ThreadRequestHandler = ReturnType<typeof vi.fn<(params: Record<string, unknown>) => unknown>>;
@@ -754,15 +659,15 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       }),
     },
     vaultPath: "/vault",
-    appServerContextLease: () => ({ context: { codexPath: "codex", vaultPath: "/vault" }, generation: 1 }),
     threadNameMutations: createThreadNameMutationCoordinator(),
     threadOperationsTransport: createThreadOperationsTransport(clientAccess),
     threadTitleTransport: createThreadTitleTransport({
       clientAccess,
-      codexPath: () => "codex",
+      codexPath: "codex",
       vaultPath: "/vault",
       threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
       threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
+      runner: vi.fn(() => Promise.reject(new Error("Unexpected structured turn."))),
     }),
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
@@ -834,20 +739,6 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function contextSettings(codexPath: () => string) {
-  return {
-    archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
-    codexPath,
-    threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
-    threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
-    archiveExportSettings: () => ({
-      archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
-      archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
-      archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
-    }),
-  };
-}
-
 async function threadsView(host = threadsHost()) {
   const { CodexThreadsView } = await import("../../../src/features/threads-view/view.obsidian");
   const containerEl = document.createElement("div");
@@ -860,7 +751,15 @@ async function threadsView(host = threadsHost()) {
       },
       containerEl,
     } as never,
-    host,
+    {
+      attachThreadsView: (runtimeView) => {
+        runtimeView.attachRuntime(host);
+        runtimeView.activateRuntime();
+      },
+      detachThreadsView: (runtimeView) => {
+        runtimeView.detachRuntime();
+      },
+    },
   );
   await view.onOpen();
   return view;

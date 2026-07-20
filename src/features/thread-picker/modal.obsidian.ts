@@ -11,6 +11,10 @@ export interface ThreadPickerHost {
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
 
+export interface ThreadPickerController {
+  close(): void;
+}
+
 interface ThreadSuggestion {
   thread: Thread;
   title: string;
@@ -20,19 +24,31 @@ type ThreadOpenMode = "current" | "available";
 
 const THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS = { capture: true } as const;
 
-export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
-  try {
-    const recentSnapshot = host.threadCatalog.recentActiveSnapshot();
-    const loadedThreads = recentSnapshot ?? (await host.threadCatalog.loadActive());
-    const recentThreads = host.threadCatalog.recentActiveSnapshot() ?? loadedThreads;
-    if (recentThreads.length === 0 && !host.threadCatalog.hasMoreActive()) {
-      new Notice("No Codex threads found.");
-      return;
+export function openThreadPicker(host: ThreadPickerHost): ThreadPickerController {
+  const state: { closed: boolean; modal: ThreadPickerModal | null } = { closed: false, modal: null };
+  void (async () => {
+    try {
+      const recentSnapshot = host.threadCatalog.recentActiveSnapshot();
+      const loadedThreads = recentSnapshot ?? (await host.threadCatalog.loadActive());
+      if (state.closed) return;
+      const recentThreads = host.threadCatalog.recentActiveSnapshot() ?? loadedThreads;
+      if (recentThreads.length === 0 && !host.threadCatalog.hasMoreActive()) {
+        new Notice("No Codex threads found.");
+        return;
+      }
+      state.modal = new ThreadPickerModal(host, recentThreads);
+      state.modal.open();
+    } catch (error) {
+      if (!state.closed) new Notice(error instanceof Error ? error.message : String(error));
     }
-    new ThreadPickerModal(host, recentThreads).open();
-  } catch (error) {
-    new Notice(error instanceof Error ? error.message : String(error));
-  }
+  })();
+  return {
+    close: () => {
+      state.closed = true;
+      state.modal?.close();
+      state.modal = null;
+    },
+  };
 }
 
 function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {

@@ -104,7 +104,15 @@ export function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf
       },
       containerEl,
     } as never,
-    chatHostFixture(),
+    {
+      attachChatView: (runtimeView) => {
+        runtimeView.attachRuntime(chatHostFixture());
+        runtimeView.activateRuntime();
+      },
+      detachChatView: (runtimeView) => {
+        runtimeView.detachRuntime();
+      },
+    },
   );
   const workspace = view.app.workspace as unknown as {
     getActiveViewOfType?: ReturnType<typeof vi.fn>;
@@ -117,7 +125,15 @@ export function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf
 function chatHostFixture(): CodexChatHost {
   const settings: CodexPanelSettings = { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" };
   return {
+    appServerClientAccess: {
+      withClient: vi.fn(() => Promise.reject(new Error("Unexpected app-server client request."))),
+    },
+    appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
     threadNameMutations: createThreadNameMutationCoordinator(),
+    threadTitleTransport: {
+      persistedContext: vi.fn().mockResolvedValue(null),
+      generateTitle: vi.fn().mockResolvedValue(null),
+    },
     threadGoalOperations: createThreadGoalOperationCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationQueue(),
     settingsRef: {
@@ -134,7 +150,6 @@ function chatHostFixture(): CodexChatHost {
       openSideChat: vi.fn(),
     },
     appServerQueries: {
-      contextLease: () => ({ context: { codexPath: settings.codexPath, vaultPath: "/vault" }, generation: 1 }),
       appServerMetadataSnapshot: vi.fn(() => null),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve()),
       refreshSkills: vi.fn(() => Promise.resolve()),
@@ -147,7 +162,6 @@ function chatHostFixture(): CodexChatHost {
     },
     threadCatalog: {
       apply: vi.fn(),
-      applyConnectionEvent: vi.fn(),
       loadActive: vi.fn(() => Promise.resolve([])),
       refreshActive: vi.fn(() => Promise.resolve([])),
       activeSnapshot: vi.fn(() => null),
