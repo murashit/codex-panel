@@ -3,8 +3,8 @@ import type { App } from "obsidian";
 import type { AppServerClient } from "./app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
+import { AppServerQueryCache, StaleAppServerResourceContextError } from "./app-server/query/cache";
 import type { AppServerQueryContext } from "./app-server/query/keys";
-import { AppServerResourceStore, StaleAppServerResourceContextError } from "./app-server/query/resource-store";
 import {
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnRunner,
@@ -45,7 +45,7 @@ export interface ExecutionRuntimeViews {
 
 export class CodexExecutionRuntime implements AppServerClientAccess {
   readonly context: Readonly<AppServerQueryContext>;
-  readonly resourceStore: AppServerResourceStore;
+  readonly appServerQueries: AppServerQueryCache;
   readonly threadCatalog: ThreadCatalog;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
   private readonly threadNameMutations = createThreadNameMutationCoordinator();
@@ -61,14 +61,9 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
 
   constructor(private readonly options: CodexExecutionRuntimeOptions) {
     this.context = Object.freeze({ ...options.context });
-    this.resourceStore = new AppServerResourceStore({
-      context: this.context,
-      clientRunner: {
-        runWithClient: (operation, clientOptions) => this.runWithAppServerClient(operation, clientOptions),
-      },
-    });
+    this.appServerQueries = new AppServerQueryCache(this.context, { clientAccess: this });
     this.threadCatalog = createThreadCatalog({
-      store: this.resourceStore,
+      store: this.appServerQueries,
       onEventApplied: (event) => {
         options.onThreadCatalogEvent(event);
       },
@@ -76,7 +71,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.settingsDynamicData = createSettingsAppServerDynamicData({
       vaultPath: this.context.vaultPath,
       clientAccess: this,
-      appServerQueries: this.resourceStore,
+      appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
     });
   }
@@ -88,7 +83,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       appServerContext: this.context,
       settings: this.chatSettings(),
       workspace: this.options.workspace,
-      appServerQueries: this.resourceStore,
+      appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
       threadNameMutations: this.threadNameMutations,
       threadTitleTransport: this.threadTitleTransport(),
@@ -260,7 +255,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       });
     this.shortLivedClients.clear();
     this.tryCleanup(() => {
-      this.resourceStore.dispose();
+      this.appServerQueries.dispose();
     });
     return views;
   }

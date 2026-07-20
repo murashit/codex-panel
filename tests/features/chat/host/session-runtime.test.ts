@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { StaleAppServerResourceContextError } from "../../../../src/app-server/query/resource-store";
+import { StaleAppServerResourceContextError } from "../../../../src/app-server/query/cache";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";

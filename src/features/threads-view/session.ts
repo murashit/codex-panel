@@ -1,8 +1,8 @@
 import { Notice } from "obsidian";
 
+import { isStaleAppServerResourceContextError } from "../../app-server/query/cache";
 import type { ObservedPaginatedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
-import { isStaleAppServerResourceContextError } from "../../app-server/query/resource-store";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";

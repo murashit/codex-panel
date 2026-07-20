@@ -4,7 +4,7 @@ import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
-import { StaleAppServerResourceContextError } from "../../src/app-server/query/resource-store";
+import { StaleAppServerResourceContextError } from "../../src/app-server/query/cache";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import type { ThreadCatalogEvent } from "../../src/features/threads/catalog/thread-catalog";

@@ -3,7 +3,7 @@ export interface AppServerQueryContext {
   readonly vaultPath: string;
 }
 
-type AppServerQueryScope = readonly ["app-server", string, string];
+type AppServerQueryScope = readonly ["app-server"];
 export type AppServerActiveThreadsQueryKey = readonly [...AppServerQueryScope, "threads", "active"];
 export type AppServerActiveThreadSearchInventoryQueryKey = readonly [...AppServerQueryScope, "threads", "active-search-inventory"];
 export type AppServerArchivedThreadsQueryKey = readonly [...AppServerQueryScope, "threads", "archived"];
@@ -13,38 +13,36 @@ export type AppServerSkillsQueryKey = readonly [...AppServerQueryScope, "skills"
 export type AppServerPermissionProfilesQueryKey = readonly [...AppServerQueryScope, "permission-profiles"];
 export type AppServerRateLimitsQueryKey = readonly [...AppServerQueryScope, "rate-limits"];
 
-function appServerQueryScope(context: AppServerQueryContext): AppServerQueryScope {
-  return ["app-server", context.codexPath, context.vaultPath];
+const APP_SERVER_QUERY_SCOPE: AppServerQueryScope = ["app-server"];
+
+export function activeThreadsQueryKey(): AppServerActiveThreadsQueryKey {
+  return [...APP_SERVER_QUERY_SCOPE, "threads", "active"];
 }
 
-export function activeThreadsQueryKey(context: AppServerQueryContext): AppServerActiveThreadsQueryKey {
-  return [...appServerQueryScope(context), "threads", "active"];
+export function activeThreadSearchInventoryQueryKey(): AppServerActiveThreadSearchInventoryQueryKey {
+  return [...APP_SERVER_QUERY_SCOPE, "threads", "active-search-inventory"];
 }
 
-export function activeThreadSearchInventoryQueryKey(context: AppServerQueryContext): AppServerActiveThreadSearchInventoryQueryKey {
-  return [...appServerQueryScope(context), "threads", "active-search-inventory"];
+export function archivedThreadsQueryKey(): AppServerArchivedThreadsQueryKey {
+  return [...APP_SERVER_QUERY_SCOPE, "threads", "archived"];
 }
 
-export function archivedThreadsQueryKey(context: AppServerQueryContext): AppServerArchivedThreadsQueryKey {
-  return [...appServerQueryScope(context), "threads", "archived"];
+export function appServerModelsQueryKey(): AppServerModelsQueryKey {
+  return [...APP_SERVER_QUERY_SCOPE, "models"];
 }
 
-export function appServerModelsQueryKey(context: AppServerQueryContext): AppServerModelsQueryKey {
-  return [...appServerQueryScope(context), "models"];
+export function appServerRuntimeConfigQueryKey(): AppServerRuntimeConfigQueryKey {
+  return [...APP_SERVER_QUERY_SCOPE, "runtime-config"];
 }
 
-export function appServerRuntimeConfigQueryKey(context: AppServerQueryContext): AppServerRuntimeConfigQueryKey {
-  return [...appServerQueryScope(context), "runtime-config"];
+export function appServerSkillsQueryKey(): AppServerSkillsQueryKey {
+  return [...APP_SERVER_QUERY_SCOPE, "skills"];
 }
 
-export function appServerSkillsQueryKey(context: AppServerQueryContext): AppServerSkillsQueryKey {
-  return [...appServerQueryScope(context), "skills"];
+export function appServerPermissionProfilesQueryKey(): AppServerPermissionProfilesQueryKey {
+  return [...APP_SERVER_QUERY_SCOPE, "permission-profiles"];
 }
 
-export function appServerPermissionProfilesQueryKey(context: AppServerQueryContext): AppServerPermissionProfilesQueryKey {
-  return [...appServerQueryScope(context), "permission-profiles"];
-}
-
-export function appServerRateLimitsQueryKey(context: AppServerQueryContext): AppServerRateLimitsQueryKey {
-  return [...appServerQueryScope(context), "rate-limits"];
+export function appServerRateLimitsQueryKey(): AppServerRateLimitsQueryKey {
+  return [...APP_SERVER_QUERY_SCOPE, "rate-limits"];
 }

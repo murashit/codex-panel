@@ -1,13 +1,95 @@
-import { onlineManager } from "@tanstack/query-core";
+import { onlineManager, QueryClient } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
+import type { AppServerClientAccess } from "../../src/app-server/connection/client-access";
 import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
-import { AppServerQueryCache } from "../../src/app-server/query/cache";
+import { AppServerQueryCache, StaleAppServerResourceContextError } from "../../src/app-server/query/cache";
 import type { AppServerQueryContext } from "../../src/app-server/query/keys";
 import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
 import type { Thread } from "../../src/domain/threads/model";
 
 describe("AppServerQueryCache", () => {
+  it("uses its required runtime-owned client access", async () => {
+    const withClient = vi.fn(async (operation) =>
+      operation({
+        request: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      } as never),
+    );
+    const cache = createCache({ withClient });
+
+    await expect(cache.fetchActiveThreads()).resolves.toEqual([]);
+
+    expect(withClient).toHaveBeenCalledOnce();
+  });
+
+  it("keeps executable and vault context out of runtime-local query keys", async () => {
+    const queryClient = new QueryClient();
+    const context = { codexPath: "/opt/codex", vaultPath: "/vault-a" };
+    const request = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
+    const cache = new AppServerQueryCache(context, {
+      client: queryClient,
+      clientAccess: { withClient: async (operation) => operation({ request } as never) },
+    });
+
+    context.codexPath = "/changed";
+    context.vaultPath = "/vault-b";
+    await cache.fetchActiveThreads();
+
+    expect(
+      queryClient
+        .getQueryCache()
+        .getAll()
+        .map((query) => query.queryKey),
+    ).toEqual([["app-server", "threads", "active"]]);
+    expect(request).toHaveBeenCalledWith("thread/list", {
+      cwd: "/vault-a",
+      archived: false,
+      sortKey: "recency_at",
+      sortDirection: "desc",
+    });
+  });
+
+  it("rejects new work after disposal", () => {
+    const cache = createCache({
+      withClient: vi.fn(() => Promise.resolve([])) as AppServerClientAccess["withClient"],
+    });
+
+    cache.dispose();
+    cache.dispose();
+
+    expect(() => cache.fetchModels()).toThrow(StaleAppServerResourceContextError);
+  });
+
+  it("classifies late completion after disposal as a stale resource context", async () => {
+    const pending = deferred<readonly []>();
+    const cache = createCache({
+      withClient: vi.fn(() => pending.promise) as AppServerClientAccess["withClient"],
+    });
+
+    const fetch = cache.fetchModels();
+    cache.dispose();
+    pending.resolve([]);
+
+    await expect(fetch).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
+  });
+
+  it("tears down observers without notifying them after disposal", async () => {
+    const pending = deferred<readonly []>();
+    const cache = createCache({
+      withClient: vi.fn(() => pending.promise) as AppServerClientAccess["withClient"],
+    });
+    const listener = vi.fn();
+    cache.observeModelsResult(listener, { emitCurrent: false });
+
+    const fetch = cache.fetchModels();
+    listener.mockClear();
+    cache.dispose();
+    pending.resolve([]);
+    await expect(fetch).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
   it("stores successful empty thread list snapshots as shared cache truth", async () => {
     const fetchThreads = vi.fn().mockResolvedValue([]);
     const cache = cacheWithThreads(fetchThreads);
@@ -429,7 +511,7 @@ describe("AppServerQueryCache", () => {
     cache.dispose();
 
     expect(cache.modelsSnapshot()).toBeNull();
-    await expect(cache.fetchModels()).rejects.toThrow("query cache was disposed");
+    expect(() => cache.fetchModels()).toThrow(StaleAppServerResourceContextError);
     expect(listModels).toHaveBeenCalledOnce();
   });
 
@@ -775,8 +857,8 @@ function cacheWithThreads(
 ): AppServerQueryCache {
   const runtimeContext = { ...context };
   return new AppServerQueryCache(context, {
-    clientRunner: {
-      runWithClient: async (operation) => {
+    clientAccess: {
+      withClient: async (operation) => {
         return operation({
           request: async (method: string, params: { archived?: boolean }) => {
             if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
@@ -803,10 +885,14 @@ function cacheWithRequestHandlers(
     },
   };
   return new AppServerQueryCache(context, {
-    clientRunner: {
-      runWithClient: async (operation) => operation(requestClient as never),
+    clientAccess: {
+      withClient: async (operation) => operation(requestClient as never),
     },
   });
+}
+
+function createCache(clientAccess: AppServerClientAccess): AppServerQueryCache {
+  return new AppServerQueryCache(cacheContext(), { clientAccess });
 }
 
 function permissionProfile(id: string): RuntimePermissionProfileSummary {

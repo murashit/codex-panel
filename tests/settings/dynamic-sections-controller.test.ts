@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
+import { StaleAppServerResourceContextError } from "../../src/app-server/query/cache";
 import type { ObservedResult } from "../../src/app-server/query/observed-result";
-import { StaleAppServerResourceContextError } from "../../src/app-server/query/resource-store";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import { SettingsDynamicSectionsController } from "../../src/settings/dynamic-sections-controller";

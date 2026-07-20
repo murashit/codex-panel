@@ -2,7 +2,7 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
-import { isStaleAppServerResourceContextError } from "../../../../app-server/query/resource-store";
+import { isStaleAppServerResourceContextError } from "../../../../app-server/query/cache";
 import type { SharedServerMetadataResource } from "../../../../domain/server/metadata";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionActions, createChatConnectionActions } from "../../application/connection/connection-actions";

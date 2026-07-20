@@ -1,6 +1,6 @@
 import { codexPanelAppServerInitializeParams } from "../../../app-server/connection/client-profile";
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import { isStaleAppServerResourceContextError } from "../../../app-server/query/resource-store";
+import { isStaleAppServerResourceContextError } from "../../../app-server/query/cache";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../app-server/session-gateway";
 import { createReconnectPanelAction } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
