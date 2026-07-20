@@ -65,7 +65,6 @@ function panelThreadWithPatch(state: ChatState, patch: NonNullable<ChatStateFixt
     thread: {
       id,
       title: patch.title === undefined ? (current?.title ?? null) : patch.title,
-      cwd: patch.cwd === undefined ? (current?.cwd ?? null) : patch.cwd,
       goal: patch.goal === undefined ? (current?.goal ?? null) : patch.goal,
       tokenUsage: patch.tokenUsage === undefined ? (current?.tokenUsage ?? null) : patch.tokenUsage,
       lifetime: patch.lifetime === undefined ? (current?.lifetime ?? null) : patch.lifetime,

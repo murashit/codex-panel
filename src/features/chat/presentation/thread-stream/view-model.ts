@@ -25,7 +25,7 @@ export interface ThreadStreamPresentationBlockInput {
   items: readonly ThreadStreamItem[];
   stableItems?: readonly ThreadStreamItem[] | undefined;
   activeItems?: readonly ThreadStreamItem[] | undefined;
-  workspaceRoot?: string | null | undefined;
+  workspaceRoot: string;
   turnDiffs?: ReadonlyMap<string, string> | undefined;
   textActionTargetsByItemId?: ReadonlyMap<string, ThreadStreamTextActionTargets> | undefined;
   pendingRequests?: PendingRequestThreadStreamBlockInput | null | undefined;

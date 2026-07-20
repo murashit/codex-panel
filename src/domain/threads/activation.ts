@@ -5,7 +5,6 @@ import type { Thread } from "./model";
 
 export interface ThreadActivationSnapshot extends RuntimePermissionState, RuntimePermissionKnownState {
   thread: Thread;
-  cwd: string;
   model: string | null;
   serviceTier: ServiceTier | null;
   approvalsReviewer: ApprovalsReviewer | null;

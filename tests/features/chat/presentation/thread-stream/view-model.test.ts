@@ -11,6 +11,7 @@ describe("thread stream presentation blocks", () => {
       historyCursor: "cursor",
       loadingHistory: false,
       items: [],
+      workspaceRoot: "/vault",
     });
 
     expect(blocks.map((block) => block.kind)).toEqual(["historyBar", "empty"]);
@@ -23,6 +24,7 @@ describe("thread stream presentation blocks", () => {
       historyCursor: null,
       loadingHistory: false,
       items: [userDialogue("u1", "turn"), taskProgressItem("task", "turn"), assistantDialogue("a1", "turn")],
+      workspaceRoot: "/vault",
     });
 
     expect(blocks.map((block) => block.kind)).toEqual(["text", "text", "status"]);
@@ -36,6 +38,7 @@ describe("thread stream presentation blocks", () => {
       historyCursor: null,
       loadingHistory: false,
       items: [userDialogue("u1", "turn"), agentItem("agent", "turn")],
+      workspaceRoot: "/vault",
     });
 
     expect(blocks.map((block) => block.kind)).toEqual(["text", "detail", "liveAgentSummary"]);
@@ -49,6 +52,7 @@ describe("thread stream presentation blocks", () => {
       historyCursor: null,
       loadingHistory: false,
       items: [userDialogue("u1", "turn"), agentItem("agent", "turn"), taskProgressItem("task", "turn")],
+      workspaceRoot: "/vault",
       pendingRequests: { signature: "request:1", snapshot: emptyPendingRequestSnapshot() },
     });
 
@@ -61,6 +65,7 @@ describe("thread stream presentation blocks", () => {
       activeTurnId: null,
       historyCursor: null,
       loadingHistory: false,
+      workspaceRoot: "/vault",
       items: [
         {
           id: "unknown",

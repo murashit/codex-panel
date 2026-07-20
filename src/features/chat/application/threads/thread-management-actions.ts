@@ -218,7 +218,6 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
       host,
       resumedThreadActionFromActiveRuntime({
         thread: snapshot.thread,
-        cwd: snapshot.cwd,
         runtime: activeThreadRuntimeState(threadManagementState(host).runtime),
         listedThreads: threadManagementState(host).threadList.listedThreads,
         expectedPanelTargetRevision: scope.panelTarget.revision,

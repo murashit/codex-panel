@@ -1023,7 +1023,6 @@ describe("thread stream rendering and action menu", () => {
     expect(openTurnDiff).toHaveBeenCalledWith({
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["src/main.ts"],
       diff: "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new",
     });

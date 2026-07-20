@@ -337,9 +337,6 @@ function threadStartedPlan(
             event: { type: "thread-upserted", thread },
           },
         ];
-  if (activeThreadId(state) === notification.params.thread.id) {
-    return { actions: [...trackAction, { type: "active-thread/cwd-set", cwd: notification.params.thread.cwd }], effects };
-  }
   return { actions: trackAction, effects };
 }
 

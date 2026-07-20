@@ -1327,10 +1327,9 @@ describe("ChatInboundHandler", () => {
       );
     });
 
-    it("records unrelated thread-started notifications without replacing the active cwd", () => {
+    it("records unrelated thread-started notifications", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
       const applyThreadCatalogEvent = vi.fn();
       const handler = handlerForState(state, { applyThreadCatalogEvent });
 
@@ -1339,7 +1338,6 @@ describe("ChatInboundHandler", () => {
         params: { thread: appServerThread("thread-other", "/workspace/other") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
         {
           type: "thread-upserted",
@@ -1349,7 +1347,7 @@ describe("ChatInboundHandler", () => {
       );
     });
 
-    it("records cwd from active thread-started notifications", () => {
+    it("records active thread-started notifications without projecting protocol cwd", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       const applyThreadCatalogEvent = vi.fn();
@@ -1360,7 +1358,7 @@ describe("ChatInboundHandler", () => {
         params: { thread: appServerThread("thread-active", "/workspace/active") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
+      expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
         {
           type: "thread-upserted",
@@ -1793,7 +1791,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
+      expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
       expect(handler.currentState().runtime.active.model).toBe("gpt-5.5");
       expect(handler.currentState().runtime.active.serviceTier).toBe("fast");
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("auto_review");
@@ -1806,7 +1804,6 @@ describe("ChatInboundHandler", () => {
     it("ignores settings notifications for inactive threads", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
       state = chatStateWith(state, { runtime: { active: { model: "gpt-active" } } });
       state = chatStateWith(state, { runtime: { active: { serviceTier: "flex" } } });
       state = chatStateWith(state, { runtime: { active: { approvalsReviewer: "user" } } });
@@ -1840,7 +1837,6 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
       expect(handler.currentState().runtime.active.model).toBe("gpt-active");
       expect(handler.currentState().runtime.active.serviceTier).toBe("flex");
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("user");

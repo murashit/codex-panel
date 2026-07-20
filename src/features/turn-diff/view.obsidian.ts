@@ -32,7 +32,6 @@ export class CodexTurnDiffView extends ItemView {
       ? {
           threadId: state.threadId,
           turnId: state.turnId,
-          cwd: state.cwd,
           files: [...state.files],
         }
       : null;

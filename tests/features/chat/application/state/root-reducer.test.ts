@@ -462,7 +462,6 @@ describe("chatReducer", () => {
     });
     const awaitingResume = state.panelThread;
 
-    state = chatReducer(state, { type: "active-thread/cwd-set", cwd: "/stale" });
     const usage = {
       total: { totalTokens: 1, inputTokens: 1, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0 },
       last: { totalTokens: 1, inputTokens: 1, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0 },
@@ -526,7 +525,6 @@ describe("chatReducer", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: thread("resumed-thread"),
-      cwd: "/vault",
       model: "gpt-5.1",
       reasoningEffort: "high",
       serviceTier: "fast",
@@ -558,7 +556,6 @@ describe("chatReducer", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: thread("started-thread"),
-      cwd: "/vault",
       model: "gpt-5",
       reasoningEffort: "medium",
       serviceTier: "fast",
@@ -605,7 +602,6 @@ describe("chatReducer", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: thread("resumed-thread"),
-      cwd: "/vault",
       model: null,
       reasoningEffort: null,
       serviceTier: null,
@@ -794,7 +790,6 @@ describe("chatReducer", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: thread("thread"),
-      cwd: "/vault",
       model: "gpt-5.1",
       reasoningEffort: "high",
       serviceTier: null,
@@ -850,7 +845,6 @@ describe("chatReducer", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: thread("thread-a"),
-      cwd: "/vault",
       model: null,
       reasoningEffort: null,
       serviceTier: null,
@@ -869,7 +863,6 @@ describe("chatReducer", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: thread("thread-b"),
-      cwd: "/vault",
       model: null,
       reasoningEffort: null,
       serviceTier: null,
@@ -1056,7 +1049,6 @@ function resumedThreadAction(threadId: string) {
     sandboxPolicy: null,
     activePermissionProfile: null,
     thread: thread(threadId),
-    cwd: "/vault",
     model: null,
     reasoningEffort: null,
     serviceTier: null,

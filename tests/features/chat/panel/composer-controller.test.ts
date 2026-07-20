@@ -66,7 +66,6 @@ function resumeComposerThread(stateStore: ChatStateStore, threadId: string): voi
       updatedAt: 1,
       provenance: { kind: "interactive" },
     },
-    cwd: "/vault",
     model: null,
     reasoningEffort: null,
     serviceTier: null,

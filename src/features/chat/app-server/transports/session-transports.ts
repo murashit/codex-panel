@@ -173,7 +173,6 @@ function createChatThreadMutationTransport(host: ChatAppServerTransportHost): Th
         const snapshot = await rollbackThread(client, threadId);
         return {
           thread: snapshot.thread,
-          cwd: snapshot.cwd,
           items: threadStreamItemsFromTurns(snapshot.turns),
         };
       }),

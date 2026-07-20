@@ -168,7 +168,6 @@ function EditedFiles({ view, context }: { view: EditedFilesTextView; context: Te
                     context.openTurnDiff?.({
                       threadId: context.activeThreadId ?? "",
                       turnId: turnDiff.turnId,
-                      cwd: context.workspaceRoot ?? null,
                       files: [...editedFiles],
                       diff: turnDiff.diff,
                     });

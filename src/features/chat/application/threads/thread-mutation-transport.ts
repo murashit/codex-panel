@@ -4,7 +4,6 @@ import type { EffectOutcome } from "../effect-outcome";
 
 export interface ThreadRollbackSnapshot {
   thread: Thread;
-  cwd: string;
   items: ThreadStreamItem[];
 }
 

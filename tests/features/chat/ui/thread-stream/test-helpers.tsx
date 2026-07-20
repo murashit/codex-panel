@@ -75,6 +75,7 @@ type TestThreadStreamContext = Omit<
     items: readonly ThreadStreamItem[];
     stableItems?: readonly ThreadStreamItem[];
     activeItems?: readonly ThreadStreamItem[];
+    workspaceRoot?: string;
     turnDiffs?: ReadonlyMap<string, string>;
     textActionTargetsByItemId?: ReadonlyMap<string, ThreadStreamTextActionTargets>;
   };
@@ -90,6 +91,7 @@ type NormalizedTestThreadStreamContext = ThreadStreamContext &
     historyCursor: string | null;
     loadingHistory: boolean;
     loadOlderTurns: () => void;
+    workspaceRoot: string;
     turnLifecycle: ThreadStreamTurnLifecycleState;
   };
 
@@ -124,6 +126,7 @@ function normalizeThreadStreamContext(context: TestThreadStreamContext): Normali
     historyCursor: context.historyCursor ?? null,
     loadingHistory: context.loadingHistory ?? false,
     loadOlderTurns: context.loadOlderTurns ?? vi.fn(),
+    workspaceRoot: context.workspaceRoot ?? "/vault",
     disclosures: context.disclosures ?? emptyDisclosures(),
     forkMenuItemId: context.forkMenuItemId ?? null,
     renderObsidianMarkdown,

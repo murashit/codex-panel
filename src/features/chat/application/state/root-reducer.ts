@@ -120,7 +120,6 @@ interface ChatThreadListState {
 export interface ChatActiveThreadState {
   readonly id: string;
   readonly title?: string | null;
-  readonly cwd: string | null;
   readonly goal: ThreadGoal | null;
   readonly tokenUsage: ThreadTokenUsage | null;
   readonly lifetime: ActiveThreadLifetime | null;
@@ -181,9 +180,7 @@ type ConnectionAction =
 
 type ThreadListAction = ThreadListAppliedAction;
 
-type ActiveThreadAction =
-  | { type: "active-thread/cwd-set"; cwd: string | null }
-  | { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
+type ActiveThreadAction = { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
 
 type RuntimeAction =
   | { type: "runtime/model-requested"; model: string }
@@ -463,7 +460,6 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       thread: {
         id: action.thread.id,
         title: (action.thread.name ?? action.thread.preview) || null,
-        cwd: action.cwd,
         goal: null,
         tokenUsage: null,
         lifetime: action.lifetime ?? { kind: "persistent" },
@@ -501,13 +497,8 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
 }
 
 function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: ActiveThreadSettingsAppliedAction): ChatState {
-  const activeThread = activeThreadState(state);
-  if (!activeThread) return state;
+  if (!activeThreadState(state)) return state;
   return patchChatState(state, {
-    panelThread: {
-      kind: "active",
-      thread: { ...activeThread, cwd: action.cwd },
-    },
     runtime: {
       ...state.runtime,
       active: {
@@ -787,8 +778,6 @@ function reduceThreadListSlice(state: ChatThreadListState, action: ChatSliceActi
 function reducePanelThreadSlice(state: ChatPanelThreadState, action: ChatSliceAction): ChatPanelThreadState {
   if (state.kind !== "active") return state;
   switch (action.type) {
-    case "active-thread/cwd-set":
-      return patchObject(state, { thread: patchObject(state.thread, { cwd: action.cwd }) });
     case "active-thread/token-usage-set":
       return patchObject(state, { thread: patchObject(state.thread, { tokenUsage: action.tokenUsage }) });
     default:
@@ -908,7 +897,6 @@ function createActiveThreadState(id: string): ChatActiveThreadState {
   return {
     id,
     title: null,
-    cwd: null,
     goal: null,
     tokenUsage: null,
     lifetime: null,

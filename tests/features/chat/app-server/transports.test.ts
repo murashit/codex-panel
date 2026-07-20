@@ -54,7 +54,7 @@ describe("chat app-server transports", () => {
     });
     expect(snapshot).toMatchObject({
       kind: "completed-current",
-      value: { thread: { id: "thread" }, cwd: "/vault" },
+      value: { thread: { id: "thread" } },
     });
   });
 
@@ -286,7 +286,6 @@ describe("chat app-server transports", () => {
       kind: "completed-current",
       value: {
         thread: { id: "thread" },
-        cwd: "/vault",
         items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
       },
     });
@@ -367,7 +366,7 @@ describe("chat app-server transports", () => {
     expect(snapshot).toMatchObject({
       kind: "completed-current",
       value: {
-        activation: { thread: { id: "thread" }, cwd: "/vault" },
+        activation: { thread: { id: "thread" } },
         rolloutPath: "/tmp/rollout.jsonl",
         initialHistoryPage: {
           nextCursor: "older",

@@ -189,13 +189,11 @@ export async function readReferencedThreadTurnTranscriptSummaries(
 
 export interface ThreadRollbackSnapshot {
   thread: Thread;
-  cwd: string;
   turns: readonly HistoricalTurn[];
 }
 
 interface ThreadRollbackResult {
   readonly thread: ThreadRecord & {
-    readonly cwd: string;
     readonly turns: readonly HistoricalTurn[];
   };
 }
@@ -203,7 +201,6 @@ interface ThreadRollbackResult {
 function threadRollbackSnapshotFromAppServerResponse(response: ThreadRollbackResult): ThreadRollbackSnapshot {
   return {
     thread: threadFromThreadRecord(response.thread),
-    cwd: response.thread.cwd,
     turns: response.thread.turns,
   };
 }
@@ -248,13 +245,12 @@ export class EphemeralThreadCleanupRequiredError extends Error {
 export async function forkEphemeralThread(
   client: AppServerRequestClient,
   sourceThreadId: string,
-  cwd: string,
+  vaultPath: string,
 ): Promise<EphemeralThreadForkSnapshot> {
-  const source = await client.request("thread/read", { threadId: sourceThreadId, includeTurns: false });
-  const config = await client.request("config/read", { cwd: source.thread.cwd });
+  const config = await client.request("config/read", { cwd: vaultPath });
   const response = await client.request("thread/fork", {
     threadId: sourceThreadId,
-    cwd,
+    cwd: vaultPath,
     ephemeral: true,
     sandbox: "read-only",
     approvalPolicy: "never",
@@ -313,7 +309,6 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
   });
   return {
     thread: threadFromThreadRecord(response.thread),
-    cwd: response.cwd,
     approvalPolicyKnown: "approvalPolicy" in response,
     sandboxPolicyKnown: "sandbox" in response || "sandboxPolicy" in response,
     permissionProfileKnown: "activePermissionProfile" in response,

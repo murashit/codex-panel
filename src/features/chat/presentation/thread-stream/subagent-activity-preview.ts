@@ -5,7 +5,7 @@ import { detailView } from "./detail-view";
 
 const SUBAGENT_ACTIVITY_PREVIEW_LIMIT = 96;
 
-export function subagentActivityPreview(item: ThreadStreamItem | null, workspaceRoot?: string | null): string | null {
+export function subagentActivityPreview(item: ThreadStreamItem | null, workspaceRoot: string): string | null {
   if (!item) return null;
   switch (item.kind) {
     case "dialogue":
@@ -28,7 +28,7 @@ export function subagentActivityPreview(item: ThreadStreamItem | null, workspace
   }
 }
 
-function detailSummary(item: ThreadStreamItem, workspaceRoot?: string | null): string {
+function detailSummary(item: ThreadStreamItem, workspaceRoot: string): string {
   const view = detailView(item, workspaceRoot);
   if (view.summary !== "details") return view.summary;
   if ("output" in item && typeof item.output === "string" && item.output.trim().length > 0) return item.output;

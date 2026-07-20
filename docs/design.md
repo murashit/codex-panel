@@ -26,6 +26,8 @@ Runtime controls should express visible user intent for the active thread rather
 
 An app-server context is the pair of Codex executable and Vault root. Replacing it must invalidate context-bound connections and work before publishing the new context, keep events attributed to their source context, and discard old runtime metadata. Preserve last-known-good state only across transient failures within the same context.
 
+Vault root is the Panel-owned workspace root for that context. Panel operations always use it as the thread working directory and do not project mutable protocol thread cwd values into panel state.
+
 ## Code Boundaries
 
 Raw app-server protocol belongs at the app-server boundary. Boundary code should adapt protocol payloads into panel-owned domain models or small projections before those values reach features, workspace coordination, settings, or UI.

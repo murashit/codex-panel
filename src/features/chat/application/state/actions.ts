@@ -25,7 +25,6 @@ interface ResumedThreadActionParams {
 
 interface ResumedThreadFromActiveRuntimeParams {
   thread: Thread;
-  cwd: string;
   runtime: Pick<
     ActiveThreadRuntimeState,
     | "model"
@@ -48,7 +47,6 @@ interface ResumedThreadFromActiveRuntimeParams {
 export interface ActiveThreadResumedAction extends RuntimePermissionState, RuntimePermissionKnownState {
   type: "active-thread/resumed";
   thread: Thread;
-  cwd: string;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
   serviceTier: ServiceTier | null;
@@ -67,7 +65,6 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState, Runti
 
 export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionState, RuntimePermissionKnownState {
   type: "active-thread/settings-applied";
-  cwd: string;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
   collaborationMode: CollaborationModeSelection;
@@ -76,7 +73,6 @@ export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionStat
 }
 
 export interface ActiveThreadSettingsAppliedActionSettings extends RuntimePermissionState {
-  cwd: string;
   model: string | null;
   effort: string | null;
   collaborationMode: { mode: CollaborationModeSelection };
@@ -144,7 +140,6 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
   return resumedThreadAction({
     response: {
       thread: params.thread,
-      cwd: params.cwd,
       approvalPolicyKnown: params.runtime.approvalPolicyKnown,
       sandboxPolicyKnown: params.runtime.sandboxPolicyKnown,
       permissionProfileKnown: params.runtime.permissionProfileKnown,
@@ -169,7 +164,6 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
   return {
     type: "active-thread/resumed",
     thread: response.thread,
-    cwd: response.cwd,
     model: response.model,
     reasoningEffort: response.reasoningEffort,
     serviceTier: response.serviceTier,
@@ -213,7 +207,6 @@ export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettings
   const permissions = runtimePermissionStateOrDefault(settings);
   return {
     type: "active-thread/settings-applied",
-    cwd: settings.cwd,
     model: settings.model,
     reasoningEffort: normalizeReasoningEffort(settings.effort),
     collaborationMode: settings.collaborationMode.mode,

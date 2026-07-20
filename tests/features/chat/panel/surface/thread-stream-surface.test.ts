@@ -71,7 +71,6 @@ describe("thread stream surface", () => {
         name: "Thread",
         provenance: { kind: "interactive" },
       },
-      cwd: "/repo",
       model: null,
       reasoningEffort: null,
       serviceTier: null,
@@ -89,7 +88,6 @@ describe("thread stream surface", () => {
     );
 
     expect(projection.context.activeThreadId).toBe("thread-1");
-    expect(projection.context.workspaceRoot).toBe("/repo");
     expect(projection.blocks).toEqual([{ kind: "empty", key: "empty" }]);
     expect(projection.context.disclosures.textDetails.size).toBe(0);
     expect(projection.context.forkMenuItemId).toBeNull();

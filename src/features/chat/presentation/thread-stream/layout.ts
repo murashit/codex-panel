@@ -50,7 +50,7 @@ export type ThreadStreamLayoutBlock =
 export function threadStreamLayoutBlocks(
   items: readonly ThreadStreamItem[],
   activeTurnId: string | null,
-  workspaceRoot?: string | null,
+  workspaceRoot: string,
   turnDiffs?: ReadonlyMap<string, string>,
 ): ThreadStreamLayoutBlock[] {
   const visibleItems = threadStreamSemanticClassifications(items).filter(shouldShowPresentationItem);
@@ -174,7 +174,7 @@ function annotationsForTurnOutcome(
   };
 }
 
-function editedFilesForTurns(items: readonly ThreadStreamSemanticClassification[], workspaceRoot?: string | null): Map<string, string[]> {
+function editedFilesForTurns(items: readonly ThreadStreamSemanticClassification[], workspaceRoot: string): Map<string, string[]> {
   const byTurn = new Map<string, Set<string>>();
   for (const classification of items) {
     const { item } = classification;
@@ -189,7 +189,7 @@ function editedFilesForTurns(items: readonly ThreadStreamSemanticClassification[
   return new Map([...byTurn].map(([turnId, files]) => [turnId, [...files].sort((a, b) => a.localeCompare(b))]));
 }
 
-function editedFilesForItem(item: ThreadStreamItem, workspaceRoot?: string | null): string[] {
+function editedFilesForItem(item: ThreadStreamItem, workspaceRoot: string): string[] {
   if (item.kind !== "fileChange") return [];
   return item.changes.flatMap((change) =>
     change.path && change.path !== "(unknown)" ? [pathRelativeToRoot(change.path, workspaceRoot)] : [],

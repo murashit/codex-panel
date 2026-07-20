@@ -45,13 +45,11 @@ export interface TextItemActionContext extends TextItemDetailStateContext {
 
 export interface TextItemMetadataContext extends TextItemDetailStateContext {
   activeThreadId: string | null;
-  workspaceRoot?: string | null;
   openTurnDiff?: (state: TurnDiffViewState) => void;
 }
 
 interface ThreadStreamRenderContext {
   activeThreadId: string | null;
-  workspaceRoot?: string | null;
   loadOlderTurns: () => void;
   openThreadInNewView?: (threadId: string) => void;
   pendingRequests?: PendingRequestBlockContext;

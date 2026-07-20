@@ -94,7 +94,7 @@ describe("chat panel surface projections", () => {
   });
 
   it("projects the latest direct subagent activity into the live agent summary", () => {
-    let state = chatStateFixture({ activeThread: { id: "parent", cwd: "/vault" } });
+    let state = chatStateFixture({ activeThread: { id: "parent" } });
     state = chatReducer(state, {
       type: "turn/started",
       threadId: "parent",

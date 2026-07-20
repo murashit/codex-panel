@@ -15,7 +15,6 @@ export interface CollaborationMode {
 }
 
 export interface RuntimeSettingsPatch {
-  cwd?: string | null;
   approvalPolicy?: RuntimeApprovalPolicy | null;
   approvalsReviewer?: ApprovalsReviewer | null;
   permissions?: string | null;

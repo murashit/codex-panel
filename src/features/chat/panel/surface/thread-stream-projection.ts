@@ -90,7 +90,6 @@ function threadStreamContextFromProjection(
   const pendingRequests = projection.pendingRequests;
   return {
     activeThreadId: projection.activeThreadId,
-    workspaceRoot: projection.workspaceRoot,
     disclosures: projection.disclosures,
     onDisclosureToggle: context.setDisclosureOpen,
     forkMenuItemId: projection.forkMenuItemId,
@@ -151,7 +150,7 @@ function threadStreamStateProjection(
     userDialogueExpanded: model.disclosureUserDialogueExpanded,
     approvalDetails: model.disclosureApprovalDetails,
   };
-  const workspaceRoot = model.activeThreadCwd ?? context.vaultPath;
+  const workspaceRoot = context.vaultPath;
   const subagentActivities = new Map<string, ActiveSubagentActivity>();
   for (const [threadId, activity] of model.subagentActivity.byThreadId) {
     const preview = subagentActivityPreview(activity.latestItem, workspaceRoot);

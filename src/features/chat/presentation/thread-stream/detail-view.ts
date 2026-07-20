@@ -36,11 +36,11 @@ export interface DetailView {
   state: ExecutionState;
 }
 
-export function detailView(item: ThreadStreamItem, workspaceRoot?: string | null): DetailView {
+export function detailView(item: ThreadStreamItem, workspaceRoot: string): DetailView {
   return codexDetailView(item, workspaceRoot) ?? genericDetailView(item, workspaceRoot);
 }
 
-function codexDetailView(item: ThreadStreamItem, workspaceRoot?: string | null): DetailView | null {
+function codexDetailView(item: ThreadStreamItem, workspaceRoot: string): DetailView | null {
   switch (item.kind) {
     case "command":
       return commandDetailView(item);
@@ -107,7 +107,7 @@ function commandDetailView(item: CommandThreadStreamItem): DetailView {
   );
 }
 
-function fileChangeDetailView(item: FileChangeThreadStreamItem, workspaceRoot?: string | null): DetailView {
+function fileChangeDetailView(item: FileChangeThreadStreamItem, workspaceRoot: string): DetailView {
   const displayChanges = item.changes.map((change) => ({
     ...change,
     displayPath: change.path && change.path !== "(unknown)" ? pathRelativeToRoot(change.path, workspaceRoot) : change.path,
@@ -159,7 +159,7 @@ function agentDetailView(item: AgentThreadStreamItem): DetailView {
   );
 }
 
-function genericToolDetailView(item: ToolCallThreadStreamItem | HookThreadStreamItem, workspaceRoot?: string | null): DetailView {
+function genericToolDetailView(item: ToolCallThreadStreamItem | HookThreadStreamItem, workspaceRoot: string): DetailView {
   return detailViewBase(
     item,
     "codex-panel__detail-item",
@@ -188,7 +188,7 @@ function approvalDetailView(item: ApprovalResultThreadStreamItem): DetailView {
   );
 }
 
-function genericDetailView(item: ThreadStreamItem, workspaceRoot?: string | null): DetailView {
+function genericDetailView(item: ThreadStreamItem, workspaceRoot: string): DetailView {
   return detailViewBase(
     item,
     "codex-panel__detail-item",
@@ -273,7 +273,7 @@ function genericToolDetails(item: ToolCallThreadStreamItem | HookThreadStreamIte
   return [...diagnosticDetails(item), ...webSearchDetails(item), ...imageGenerationDetails(item)];
 }
 
-function genericDetailSections(item: ThreadStreamItem, workspaceRoot?: string | null): DetailSection[] {
+function genericDetailSections(item: ThreadStreamItem, workspaceRoot: string): DetailSection[] {
   const rows = [
     ...metaRow("kind", item.kind),
     ...metaRow("status", stringField(item, "status")),
@@ -331,7 +331,7 @@ function metaRow(key: string, value: string | null | undefined): { key: string; 
   return value ? [{ key, value }] : [];
 }
 
-function primaryTargetSummary(target: ThreadStreamPrimaryTarget | undefined, workspaceRoot?: string | null): string | null {
+function primaryTargetSummary(target: ThreadStreamPrimaryTarget | undefined, workspaceRoot: string): string | null {
   if (!target) return null;
   if (target.kind === "path") return pathRelativeToRoot(target.path, workspaceRoot);
   return target.value;
@@ -397,7 +397,7 @@ function commandQualifier(item: CommandThreadStreamItem): string | null {
   return statusQualifier(item.status, failedStatusLabel(item.status));
 }
 
-function genericDetailSummary(item: ThreadStreamItem, workspaceRoot?: string | null): string {
+function genericDetailSummary(item: ThreadStreamItem, workspaceRoot: string): string {
   const target = primaryTargetSummary(primaryTargetField(item), workspaceRoot);
   return compactSummary(null, target ?? textField(item) ?? outputField(item) ?? stringField(item, "status") ?? item.kind);
 }
@@ -411,7 +411,7 @@ function primaryTargetField(item: ThreadStreamItem): ThreadStreamPrimaryTarget |
   return item.primaryTarget;
 }
 
-function genericToolSummary(item: ToolCallThreadStreamItem | HookThreadStreamItem, workspaceRoot?: string | null): string {
+function genericToolSummary(item: ToolCallThreadStreamItem | HookThreadStreamItem, workspaceRoot: string): string {
   const target = primaryTargetSummary(item.primaryTarget, workspaceRoot);
   if (!target) return item.text ?? "details";
   return compactSummary(toolOperationLabel(item.operation), target, statusQualifier(item.status, item.failureReason));

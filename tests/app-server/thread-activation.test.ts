@@ -6,13 +6,14 @@ import type { ThreadResumeResponse } from "../../src/generated/app-server/v2/Thr
 
 describe("app-server thread activation", () => {
   it("maps app-server activation responses into panel-owned snapshots", () => {
-    expect(threadActivationSnapshotFromAppServerResponse(responseFixture(threadFixture("thread", "Resumed")))).toMatchObject({
+    const snapshot = threadActivationSnapshotFromAppServerResponse(responseFixture(threadFixture("thread", "Resumed")));
+
+    expect(snapshot).toMatchObject({
       thread: {
         id: "thread",
         name: "Resumed",
         archived: false,
       },
-      cwd: "/vault",
       model: "gpt-5.5",
       serviceTier: "fast",
       approvalsReviewer: "user",
@@ -21,6 +22,7 @@ describe("app-server thread activation", () => {
       sandboxPolicy: { type: "readOnly", networkAccess: false },
       activePermissionProfile: null,
     });
+    expect(snapshot).not.toHaveProperty("cwd");
   });
 });
 

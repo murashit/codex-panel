@@ -39,7 +39,6 @@ function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagen
           }
         : { kind: "interactive" },
     } as never,
-    cwd: "/vault",
     model: null,
     reasoningEffort: null,
     serviceTier: null,

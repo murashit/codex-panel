@@ -212,7 +212,6 @@ describe("ChatConnectionActions", () => {
         updatedAt: 1,
         provenance: { kind: "interactive" },
       },
-      cwd: "/vault",
       model: null,
       reasoningEffort: null,
       serviceTier: null,

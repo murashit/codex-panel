@@ -42,7 +42,6 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items
     sandboxPolicy: null,
     activePermissionProfile: null,
     thread: thread("thread"),
-    cwd: "/vault",
     model: null,
     reasoningEffort: null,
     serviceTier: null,

@@ -5,43 +5,52 @@ import { subagentActivityPreview } from "../../../../../src/features/chat/presen
 describe("subagent activity preview", () => {
   it("shows streamed reasoning without its transport label", () => {
     expect(
-      subagentActivityPreview({
-        id: "reasoning",
-        kind: "reasoning",
-        role: "tool",
-        text: "reasoning: Inspecting notification routing",
-      }),
+      subagentActivityPreview(
+        {
+          id: "reasoning",
+          kind: "reasoning",
+          role: "tool",
+          text: "reasoning: Inspecting notification routing",
+        },
+        "/vault",
+      ),
     ).toBe("Inspecting notification routing");
   });
 
   it("prefers the active task step", () => {
     expect(
-      subagentActivityPreview({
-        id: "tasks",
-        kind: "taskProgress",
-        role: "tool",
-        explanation: "Implementation plan",
-        steps: [
-          { step: "Read code", status: "completed" },
-          { step: "Patch notification routing", status: "inProgress" },
-        ],
-        status: "inProgress",
-      }),
+      subagentActivityPreview(
+        {
+          id: "tasks",
+          kind: "taskProgress",
+          role: "tool",
+          explanation: "Implementation plan",
+          steps: [
+            { step: "Read code", status: "completed" },
+            { step: "Patch notification routing", status: "inProgress" },
+          ],
+          status: "inProgress",
+        },
+        "/vault",
+      ),
     ).toBe("Patch notification routing");
   });
 
   it("reuses the compact command target summary", () => {
     expect(
-      subagentActivityPreview({
-        id: "command",
-        kind: "command",
-        role: "tool",
-        commandAction: "search",
-        commandTarget: { kind: "search", query: "inactive", path: "/vault/src" },
-        command: 'rg "inactive" src',
-        cwd: "/vault",
-        status: "inProgress",
-      }),
+      subagentActivityPreview(
+        {
+          id: "command",
+          kind: "command",
+          role: "tool",
+          commandAction: "search",
+          commandTarget: { kind: "search", query: "inactive", path: "/vault/src" },
+          command: 'rg "inactive" src',
+          cwd: "/vault",
+          status: "inProgress",
+        },
+        "/vault",
+      ),
     ).toBe("inactive in src");
   });
 
@@ -62,7 +71,7 @@ describe("subagent activity preview", () => {
       text: "Do the work",
     };
 
-    expect(subagentActivityPreview(assistant)).toBe("Tests are passing.");
-    expect(subagentActivityPreview(user)).toBeNull();
+    expect(subagentActivityPreview(assistant, "/vault")).toBe("Tests are passing.");
+    expect(subagentActivityPreview(user, "/vault")).toBeNull();
   });
 });

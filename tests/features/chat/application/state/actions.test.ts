@@ -11,7 +11,6 @@ describe("chat thread resume helpers", () => {
 
     const action = resumedThreadActionFromActiveRuntime({
       thread: resumed,
-      cwd: "/vault",
       runtime: {
         model: "gpt-5.5",
         reasoningEffort: "high",
@@ -41,7 +40,6 @@ describe("chat thread resume helpers", () => {
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
       thread: resumed,
-      cwd: "/vault",
       model: "gpt-5.5",
       reasoningEffort: "high",
       serviceTier: "fast",
@@ -116,7 +114,6 @@ function responseFixture(thread: Thread): ThreadActivationSnapshot {
     thread,
     model: "gpt-5.5",
     serviceTier: "fast",
-    cwd: "/vault",
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,

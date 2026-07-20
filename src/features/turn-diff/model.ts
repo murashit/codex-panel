@@ -1,7 +1,6 @@
 export interface TurnDiffViewState {
   threadId: string;
   turnId: string;
-  cwd: string | null;
   files: string[];
   diff: string;
 }
@@ -12,7 +11,6 @@ export function persistedTurnDiffViewState(state: TurnDiffViewState): PersistedT
   return {
     threadId: state.threadId,
     turnId: state.turnId,
-    cwd: state.cwd,
     files: [...state.files],
   };
 }
@@ -23,7 +21,6 @@ export function isPersistedTurnDiffViewState(value: unknown): value is Persisted
   return (
     typeof record.threadId === "string" &&
     typeof record.turnId === "string" &&
-    (typeof record.cwd === "string" || record.cwd === null) &&
     Array.isArray(record.files) &&
     record.files.every((file) => typeof file === "string")
   );

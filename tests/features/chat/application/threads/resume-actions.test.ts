@@ -18,7 +18,6 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
   return {
     activation: {
       thread: panelThread(threadId),
-      cwd: "/vault",
       model: "gpt-test",
       serviceTier: null,
       approvalPolicyKnown: true,
@@ -158,7 +157,6 @@ describe("ResumeActions", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: panelThread("active"),
-      cwd: "/vault",
       model: null,
       reasoningEffort: null,
       serviceTier: null,
@@ -206,7 +204,6 @@ describe("ResumeActions", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: second.activation.thread,
-      cwd: "/vault",
       model: null,
       reasoningEffort: null,
       serviceTier: null,

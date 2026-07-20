@@ -38,7 +38,6 @@ export interface ChatPanelGoalModel {
 export interface ChatPanelThreadStreamModel {
   readonly threads: ChatState["threadList"]["listedThreads"];
   readonly activeThreadId: string | null;
-  readonly activeThreadCwd: ChatActiveThreadState["cwd"];
   readonly forkAllowed: boolean;
   readonly rollbackAllowed: boolean;
   readonly planImplementationAllowed: boolean;
@@ -118,7 +117,6 @@ export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadSt
   return {
     threads: state.threadList.listedThreads,
     activeThreadId: activeThread?.id ?? null,
-    activeThreadCwd: activeThread?.cwd ?? null,
     forkAllowed: activePanelOperationDecision(state, "fork").kind === "allowed",
     rollbackAllowed: activePanelOperationDecision(state, "rollback").kind === "allowed",
     planImplementationAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",

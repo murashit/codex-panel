@@ -284,7 +284,6 @@ function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
 function activationFixture(thread: Thread, overrides: Partial<ThreadActivationSnapshot> = {}): ThreadActivationSnapshot {
   return {
     thread,
-    cwd: "/vault",
     model: "gpt-5",
     serviceTier: null,
     approvalsReviewer: null,

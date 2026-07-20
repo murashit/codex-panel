@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { threadStreamLayoutBlocks } from "../../../../../src/features/chat/presentation/thread-stream/layout";
 
+const DEFAULT_WORKSPACE_ROOT = "/vault";
+
 function commandItem(id: string, text: string, turnId: string): ThreadStreamItem {
   return {
     id,
@@ -58,7 +60,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, null);
+    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
     expect(blocks.map((block) => block.type)).toEqual(["item", "activityGroup", "item"]);
     expect(blocks[1]).toMatchObject({ summary: "Work details" });
   });
@@ -90,7 +92,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, null);
+    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "turn-t1-activity", "a1"]);
     expect(blocks[1]).toMatchObject({
@@ -124,7 +126,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, null);
+    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "a1"]);
   });
 
@@ -162,7 +164,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, null);
+    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
     expect(blocks.map((block) => block.type)).toEqual(["item", "activityGroup", "item"]);
     expect(blocks[1]).toMatchObject({
       summary: "Work details",
@@ -187,7 +189,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, null);
+    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["s1", "s2", "turn-t1-activity", "a1"]);
   });
@@ -209,7 +211,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, null);
+    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "u2", "turn-t1-activity", "a1"]);
     expect(blocks[2]).toMatchObject({
@@ -244,7 +246,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, null);
+    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
     const activityGroup = blocks.find((block) => block.type === "activityGroup");
 
     expect(activityGroup).toMatchObject({
@@ -270,7 +272,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    expect(threadStreamLayoutBlocks(items, "t1").map((block) => block.type)).toEqual(["item", "item"]);
+    expect(threadStreamLayoutBlocks(items, "t1", DEFAULT_WORKSPACE_ROOT).map((block) => block.type)).toEqual(["item", "item"]);
   });
 
   it("keeps active task progress chronological in the display model", () => {
@@ -297,7 +299,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, "t1");
+    const blocks = threadStreamLayoutBlocks(items, "t1", DEFAULT_WORKSPACE_ROOT);
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "plan-progress-t1", "a1"]);
   });
@@ -341,7 +343,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const blocks = threadStreamLayoutBlocks(items, null);
+    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
     expect(blocks[1]).toMatchObject({
       summary: "Work details",
       items: [{ item: { id: "plan-progress-t1" } }, { item: { id: "agent-1" } }],
@@ -372,7 +374,9 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const assistantBlock = threadStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
+    const assistantBlock = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT).find(
+      (block) => block.type === "item" && block.item.role === "assistant",
+    );
     expect(assistantBlock).toMatchObject({ annotations: { editedFiles: ["src/main.ts", "styles.css"] } });
   });
 
@@ -390,11 +394,13 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const withoutDiff = threadStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
+    const withoutDiff = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT).find(
+      (block) => block.type === "item" && block.item.role === "assistant",
+    );
     expect(withoutDiff).toMatchObject({ annotations: { editedFiles: ["src/main.ts"] } });
     expect(withoutDiff?.type === "item" ? withoutDiff.annotations : null).not.toHaveProperty("turnDiff");
 
-    const withDiff = threadStreamLayoutBlocks(items, null, null, new Map([["t1", "@@\n-old\n+new"]])).find(
+    const withDiff = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT, new Map([["t1", "@@\n-old\n+new"]])).find(
       (block) => block.type === "item" && block.item.role === "assistant",
     );
     expect(withDiff).toMatchObject({ annotations: { editedFiles: ["src/main.ts"], turnDiff: { diff: "@@\n-old\n+new" } } });
@@ -415,7 +421,9 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const assistantBlock = threadStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
+    const assistantBlock = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT).find(
+      (block) => block.type === "item" && block.item.role === "assistant",
+    );
     expect(assistantBlock).toMatchObject({
       annotations: { autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
     });
@@ -436,7 +444,9 @@ describe("display block grouping keeps thread stream details subordinate to conv
       },
     ];
 
-    const assistantBlock = threadStreamLayoutBlocks(items, "t1").find((block) => block.type === "item" && block.item.id === "a1");
+    const assistantBlock = threadStreamLayoutBlocks(items, "t1", DEFAULT_WORKSPACE_ROOT).find(
+      (block) => block.type === "item" && block.item.id === "a1",
+    );
     expect(assistantBlock?.type === "item" ? assistantBlock.annotations : null).toBeUndefined();
   });
 });

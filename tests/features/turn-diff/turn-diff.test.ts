@@ -24,7 +24,6 @@ describe("turn diff view decisions", () => {
       {
         threadId: "019e061e-0046-7653-a362-86de9a47cb5c",
         turnId: "019e061f-0046-7653-a362-86de9a47cb5c",
-        cwd: "/vault/project",
         files: ["src/main.ts"],
         diff: "diff --git a/src/main.ts b/src/main.ts\n--- a/src/main.ts\n+++ b/src/main.ts\n@@\n-old\n+new\n context",
       },
@@ -57,7 +56,6 @@ describe("turn diff view decisions", () => {
     renderTurnDiffView(parent, {
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["Note.md"],
       diff: "diff --git a/Note.md b/Note.md\n@@\n-The quick brown fox\n+The quick red fox",
     });
@@ -74,7 +72,6 @@ describe("turn diff view decisions", () => {
     renderTurnDiffView(parent, {
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["Note.md"],
       diff: "diff --git a/Note.md b/Note.md\n@@\n-吾輩は猫である\n+吾輩は犬である",
     });
@@ -91,7 +88,6 @@ describe("turn diff view decisions", () => {
     renderTurnDiffView(parent, {
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["Note.md"],
       diff: [
         "diff --git a/Note.md b/Note.md",
@@ -121,7 +117,6 @@ describe("turn diff view decisions", () => {
     renderTurnDiffView(parent, {
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["Note.md"],
       diff: `diff --git a/Note.md b/Note.md\n@@\n-${oldText}\n+${newText}`,
     });
@@ -135,7 +130,6 @@ describe("turn diff view decisions", () => {
     const persisted = persistedTurnDiffViewState({
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["src/main.ts"],
       diff: "@@\n-old\n+new",
     });
@@ -143,7 +137,6 @@ describe("turn diff view decisions", () => {
     expect(persisted).toEqual({
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["src/main.ts"],
     });
     expect(persisted).not.toHaveProperty("diff");
@@ -151,13 +144,13 @@ describe("turn diff view decisions", () => {
 
   it.each([
     {
-      name: "a complete state with a vault path",
-      value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts"] },
+      name: "a complete current state",
+      value: { threadId: "thread", turnId: "turn", files: ["src/main.ts"] },
       valid: true,
     },
     {
-      name: "a complete state without a working directory",
-      value: { threadId: "thread", turnId: "turn", cwd: null, files: [] },
+      name: "a legacy state with a working directory",
+      value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: [] },
       valid: true,
     },
     { name: "null", value: null, valid: false },
@@ -176,11 +169,6 @@ describe("turn diff view decisions", () => {
       value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts", 42] },
       valid: false,
     },
-    {
-      name: "an undefined working directory",
-      value: { threadId: "thread", turnId: "turn", files: [] },
-      valid: false,
-    },
   ])("classifies $name as persisted state: $valid", ({ value, valid }) => {
     expect(isPersistedTurnDiffViewState(value)).toBe(valid);
   });
@@ -188,7 +176,7 @@ describe("turn diff view decisions", () => {
   it("renders restored turn diff metadata without unavailable diff text", () => {
     const parent = document.createElement("div");
 
-    renderTurnDiffView(parent, null, {}, { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts"] });
+    renderTurnDiffView(parent, null, {}, { threadId: "thread", turnId: "turn", files: ["src/main.ts"] });
 
     expect(parent.querySelector(".codex-panel-turn-diff__meta")?.textContent).toContain("thread / turn");
     expect(parent.textContent).toContain("Turn diff is no longer available.");
@@ -202,7 +190,6 @@ describe("turn diff view decisions", () => {
     view.setDiffPayload({
       threadId: "live-thread",
       turnId: "live-turn",
-      cwd: "/vault/project",
       files: ["src/live.ts"],
       diff: "@@\n-old\n+new",
     });
@@ -211,7 +198,7 @@ describe("turn diff view decisions", () => {
       {
         threadId: "restored-thread",
         turnId: "restored-turn",
-        cwd: null,
+        cwd: "/legacy/vault",
         files: ["src/restored.ts"],
       },
       {} as never,
@@ -220,7 +207,6 @@ describe("turn diff view decisions", () => {
     expect(view.getState()).toEqual({
       threadId: "restored-thread",
       turnId: "restored-turn",
-      cwd: null,
       files: ["src/restored.ts"],
     });
     expect(view.contentEl.textContent).toContain("Turn diff is no longer available.");
@@ -236,7 +222,6 @@ describe("turn diff view decisions", () => {
       {
         threadId: "thread",
         turnId: "turn",
-        cwd: "/vault/project",
         files: ["src/main.ts", 42],
       },
       {} as never,
@@ -257,7 +242,6 @@ describe("turn diff view decisions", () => {
     view.setDiffPayload({
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["src/main.ts"],
       diff: "@@\n-old\n+new",
     });
@@ -276,7 +260,6 @@ describe("turn diff view decisions", () => {
     view.setDiffPayload({
       threadId: "thread",
       turnId: "turn",
-      cwd: "/vault/project",
       files: ["src/main.ts"],
       diff: "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new",
     });

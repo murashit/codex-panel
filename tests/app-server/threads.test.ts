@@ -50,7 +50,6 @@ describe("app-server thread response adapters", () => {
   it("forks read-only ephemeral side-chat threads behind a model-visible boundary", async () => {
     const client = {
       request: vi.fn((method: string) => {
-        if (method === "thread/read") return Promise.resolve({ thread: { cwd: "/source-project" } });
         if (method === "config/read") return Promise.resolve({ config: { developer_instructions: "Existing policy." } });
         if (method === "thread/inject_items") return Promise.resolve({});
         return Promise.resolve({
@@ -70,7 +69,7 @@ describe("app-server thread response adapters", () => {
     const result = await forkEphemeralThread(client, "source", "/vault");
 
     expect(client.request).toHaveBeenNthCalledWith(
-      3,
+      2,
       "thread/fork",
       expect.objectContaining({
         threadId: "source",
@@ -82,9 +81,8 @@ describe("app-server thread response adapters", () => {
         developerInstructions: expect.stringContaining("Existing policy."),
       }),
     );
-    expect(client.request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "source", includeTurns: false });
-    expect(client.request).toHaveBeenNthCalledWith(2, "config/read", { cwd: "/source-project" });
-    expect(client.request).toHaveBeenNthCalledWith(4, "thread/inject_items", {
+    expect(client.request).toHaveBeenNthCalledWith(1, "config/read", { cwd: "/vault" });
+    expect(client.request).toHaveBeenNthCalledWith(3, "thread/inject_items", {
       threadId: "side",
       items: [
         {
@@ -94,7 +92,7 @@ describe("app-server thread response adapters", () => {
         },
       ],
     });
-    expect(result).toMatchObject({ sourceThreadId: "source", activation: { thread: { id: "side" }, cwd: "/vault" } });
+    expect(result).toMatchObject({ sourceThreadId: "source", activation: { thread: { id: "side" } } });
   });
 
   it("unsubscribes ephemeral threads instead of deleting them", async () => {
@@ -108,7 +106,6 @@ describe("app-server thread response adapters", () => {
   it("unsubscribes a fork when boundary injection fails", async () => {
     const injectionError = new Error("inject failed");
     const request = vi.fn((method: string) => {
-      if (method === "thread/read") return Promise.resolve({ thread: { cwd: "/source-project" } });
       if (method === "config/read") return Promise.resolve({ config: { developer_instructions: null } });
       if (method === "thread/fork") {
         return Promise.resolve({
@@ -137,7 +134,6 @@ describe("app-server thread response adapters", () => {
     const injectionError = new Error("inject failed");
     const cleanupError = new Error("unsubscribe failed");
     const request = vi.fn((method: string) => {
-      if (method === "thread/read") return Promise.resolve({ thread: { cwd: "/source-project" } });
       if (method === "config/read") return Promise.resolve({ config: { developer_instructions: null } });
       if (method === "thread/fork") {
         return Promise.resolve({

@@ -776,7 +776,6 @@ function threadSettings(
   approvalsReviewer: Omit<ActiveThreadSettingsAppliedAction, "type">["approvalsReviewer"] = "user",
 ): Omit<ActiveThreadSettingsAppliedAction, "type"> {
   return {
-    cwd: "/vault",
     model: "gpt-5.5",
     reasoningEffort: "high",
     collaborationMode: "default",
@@ -809,7 +808,6 @@ function resumeThread(store: ReturnType<typeof createChatStateStore>, threadId: 
       updatedAt: 1,
       provenance: { kind: "interactive" },
     },
-    cwd: "/vault",
     model: null,
     reasoningEffort: null,
     serviceTier: null,

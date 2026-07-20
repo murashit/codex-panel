@@ -45,7 +45,6 @@ function resumeThread(
     sandboxPolicy: null,
     activePermissionProfile: null,
     thread: { id: threadId, cliVersion: "test" } as never,
-    cwd: "/vault",
     model: null,
     reasoningEffort: null,
     serviceTier: null,
