@@ -34,7 +34,6 @@ interface SettingsDynamicSectionsSnapshot {
 export class SettingsDynamicSectionsController {
   private readonly lifetime = new OwnerLifetime();
   private dynamicSectionsAutoLoadStarted = false;
-  private modelsOperationToken = 0;
   private archivedThreadsOperationToken = 0;
   private hookMutationOperation: object | null = null;
 
@@ -69,7 +68,6 @@ export class SettingsDynamicSectionsController {
   replaceDynamicData(next: SettingsDynamicDataAccess): void {
     if (next === this.dynamicData) return;
     this.unsubscribe();
-    this.modelsOperationToken += 1;
     this.archivedThreadsOperationToken += 1;
     this.hookMutationOperation = null;
     this.dynamicData = next;
@@ -131,7 +129,6 @@ export class SettingsDynamicSectionsController {
     if (this.archivedThreadsLifecycle.kind === "loading") {
       this.archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
     }
-    this.modelsOperationToken += 1;
     this.archivedThreadsOperationToken += 1;
     this.unsubscribe();
   }
@@ -166,10 +163,9 @@ export class SettingsDynamicSectionsController {
 
   async refreshDynamicSections(options: { forceModels?: boolean } = {}): Promise<void> {
     const lifetime = this.lifetime.signal();
-    if (!this.lifetime.isCurrent(lifetime)) return;
+    if (!this.lifetime.isCurrent(lifetime) || this.isLoading()) return;
     const dynamicData = this.dynamicData;
     this.dynamicSectionsAutoLoadStarted = true;
-    const modelsOperationToken = this.nextModelsOperationToken();
     const archivedThreadsOperationToken = this.nextArchivedThreadsOperationToken();
     this.modelsLifecycle = settingsDynamicSectionLoading("Loading models...");
     this.archivedThreadsLifecycle = settingsDynamicSectionLoading("Loading archived threads...");
@@ -185,9 +181,7 @@ export class SettingsDynamicSectionsController {
       ] as const);
       if (!this.lifetime.isCurrent(lifetime) || !this.dynamicDataIsCurrent(dynamicData)) return;
 
-      if (this.isStaleModelsOperation(modelsOperationToken)) {
-        // A newer models operation owns this section.
-      } else if (modelsResult.status === "fulfilled") {
+      if (modelsResult.status === "fulfilled") {
         this.models = [...modelsResult.value];
         this.modelsLifecycle = settingsDynamicSectionLoaded(
           `Loaded ${String(modelsResult.value.length)} model${modelsResult.value.length === 1 ? "" : "s"}.`,
@@ -221,9 +215,7 @@ export class SettingsDynamicSectionsController {
       if (!this.lifetime.isCurrent(lifetime) || !this.dynamicDataIsCurrent(dynamicData)) return;
       failedCount = 3;
       const message = errorMessage(error);
-      if (!this.isStaleModelsOperation(modelsOperationToken)) {
-        this.modelsLifecycle = settingsDynamicSectionFailed(`Could not load models: ${message}`);
-      }
+      this.modelsLifecycle = settingsDynamicSectionFailed(`Could not load models: ${message}`);
       this.hooksLifecycle = settingsDynamicSectionFailed(`Could not load hooks: ${message}`);
       if (!this.isStaleArchivedThreadsOperation(archivedThreadsOperationToken)) {
         this.archivedThreadsLifecycle = settingsDynamicSectionFailed(`Could not load archived threads: ${message}`);
@@ -382,18 +374,9 @@ export class SettingsDynamicSectionsController {
     }
   }
 
-  private nextModelsOperationToken(): number {
-    this.modelsOperationToken += 1;
-    return this.modelsOperationToken;
-  }
-
   private nextArchivedThreadsOperationToken(): number {
     this.archivedThreadsOperationToken += 1;
     return this.archivedThreadsOperationToken;
-  }
-
-  private isStaleModelsOperation(operationToken: number): boolean {
-    return operationToken !== this.modelsOperationToken;
   }
 
   private isStaleArchivedThreadsOperation(operationToken: number): boolean {
