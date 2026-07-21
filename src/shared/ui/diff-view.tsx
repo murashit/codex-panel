@@ -1,7 +1,9 @@
+import { diffArrays } from "diff";
 import type { ComponentChild as UiNode } from "preact";
 
 const MAX_INLINE_DIFF_CHARS = 4000;
 const MAX_INLINE_DIFF_TOKENS = 500;
+const MAX_INLINE_DIFF_EDIT_LENGTH = MAX_INLINE_DIFF_TOKENS;
 
 export interface DiffDisplayLine {
   text: string;
@@ -229,29 +231,18 @@ function inlineDiff(removedText: string, addedText: string): InlineDiff | null {
   const addedTokens = segmentWords(addedText);
   if (removedTokens.length + addedTokens.length > MAX_INLINE_DIFF_TOKENS) return null;
 
-  const lengths = lcsLengths(removedTokens, addedTokens);
+  const changes = diffArrays(removedTokens, addedTokens, {
+    maxEditLength: MAX_INLINE_DIFF_EDIT_LENGTH,
+  });
+  if (!changes) return null;
+
   const removed: InlineDiffPart[] = [];
   const added: InlineDiffPart[] = [];
-  let removedIndex = 0;
-  let addedIndex = 0;
-
-  while (removedIndex < removedTokens.length || addedIndex < addedTokens.length) {
-    const removedToken = removedTokens[removedIndex];
-    const addedToken = addedTokens[addedIndex];
-    if (removedToken !== undefined && addedToken !== undefined && removedToken === addedToken) {
-      removed.push({ text: removedToken, changed: false });
-      added.push({ text: addedToken, changed: false });
-      removedIndex += 1;
-      addedIndex += 1;
-    } else if (
-      addedToken !== undefined &&
-      (removedToken === undefined || (lengths[removedIndex]?.[addedIndex + 1] ?? 0) >= (lengths[removedIndex + 1]?.[addedIndex] ?? 0))
-    ) {
-      added.push({ text: addedToken, changed: true });
-      addedIndex += 1;
-    } else if (removedToken !== undefined) {
-      removed.push({ text: removedToken, changed: true });
-      removedIndex += 1;
+  for (const change of changes) {
+    const changed = change.added || change.removed;
+    for (const text of change.value) {
+      if (!change.added) removed.push({ text, changed });
+      if (!change.removed) added.push({ text, changed });
     }
   }
 
@@ -261,21 +252,6 @@ function inlineDiff(removedText: string, addedText: string): InlineDiff | null {
 function segmentWords(text: string): string[] {
   const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
   return Array.from(segmenter.segment(text), (segment) => segment.segment);
-}
-
-function lcsLengths(left: string[], right: string[]): number[][] {
-  const rows = Array.from({ length: left.length + 1 }, () => Array.from({ length: right.length + 1 }, () => 0));
-  for (let leftIndex = left.length - 1; leftIndex >= 0; leftIndex -= 1) {
-    for (let rightIndex = right.length - 1; rightIndex >= 0; rightIndex -= 1) {
-      const row = rows[leftIndex];
-      if (!row) continue;
-      row[rightIndex] =
-        left[leftIndex] === right[rightIndex]
-          ? (rows[leftIndex + 1]?.[rightIndex + 1] ?? 0) + 1
-          : Math.max(rows[leftIndex + 1]?.[rightIndex] ?? 0, rows[leftIndex]?.[rightIndex + 1] ?? 0);
-    }
-  }
-  return rows;
 }
 
 function mergeInlineParts(parts: InlineDiffPart[]): InlineDiffPart[] {

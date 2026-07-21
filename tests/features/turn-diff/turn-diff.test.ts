@@ -82,6 +82,20 @@ describe("turn diff view decisions", () => {
     expect(parent.querySelector(".codex-panel-diff__word--added")?.textContent).toBe("犬");
   });
 
+  it("preserves whitespace changes from Intl.Segmenter tokenization", () => {
+    const parent = document.createElement("div");
+
+    renderTurnDiffView(parent, {
+      threadId: "thread",
+      turnId: "turn",
+      files: ["Note.md"],
+      diff: "diff --git a/Note.md b/Note.md\n@@\n-alpha beta\n+alpha  beta",
+    });
+
+    expect(parent.querySelector(".codex-panel-diff__word--removed")?.textContent).toBe(" ");
+    expect(parent.querySelector(".codex-panel-diff__word--added")?.textContent).toBe("  ");
+  });
+
   it("pairs changed words by line inside multi-line replacement blocks", () => {
     const parent = document.createElement("div");
 

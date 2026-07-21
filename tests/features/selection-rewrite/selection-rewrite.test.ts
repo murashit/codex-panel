@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
 import { createAppServerSelectionRewriteTransport } from "../../../src/features/selection-rewrite/app-server-transport";
-import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
+import { buildSelectionDiffLines } from "../../../src/features/selection-rewrite/diff";
 import { canApplySelectionRewrite, type SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
@@ -90,24 +90,17 @@ describe("selection rewrite prompt", () => {
 });
 
 describe("selection rewrite diff", () => {
-  it("renders replacements in a selection-scoped unified diff", () => {
-    const diff = buildSelectionUnifiedDiff("Note.md", "alpha\nbeta", "alpha\ngamma");
-
-    expect(diff).toContain("diff --git a/Note.md b/Note.md");
-    expect(diff).toContain("@@ -1,2 +1,2 @@");
-    expect(diff).toContain(" alpha");
-    expect(diff).toContain("-beta");
-    expect(diff).toContain("+gamma");
+  it("builds selection-scoped display lines", () => {
+    expect(buildSelectionDiffLines("alpha\nbeta", "alpha\ngamma")).toEqual([" alpha", "-beta", "+gamma"]);
   });
 
   it("orders full replacement blocks as removals before additions", () => {
-    const diff = buildSelectionUnifiedDiff(
-      "Note.md",
+    const diff = buildSelectionDiffLines(
       "これはdiffのテストです。\n今日は元気です。\nとても元気です。",
       "これはdiffのてすとです。\nきょうはげんきです。\nとてもげんきです。",
     );
 
-    expect(diff).toContain(
+    expect(diff.join("\n")).toContain(
       [
         "-これはdiffのテストです。",
         "-今日は元気です。",
@@ -119,7 +112,18 @@ describe("selection rewrite diff", () => {
     );
   });
 
-  it("bounds large selection diffs to a linear prefix and suffix comparison", () => {
+  it("keeps accurate context for large selections with a small edit distance", () => {
+    const commonBefore = Array.from({ length: 160 }, (_unused, index) => `common before ${String(index)}`);
+    const commonAfter = Array.from({ length: 160 }, (_unused, index) => `common after ${String(index)}`);
+    const originalText = ["same start", ...commonBefore, "old line", "shared middle", ...commonAfter, "same end"].join("\n");
+    const replacementText = ["same start", ...commonBefore, "new line", "shared middle", ...commonAfter, "same end"].join("\n");
+
+    const diff = buildSelectionDiffLines(originalText, replacementText).join("\n");
+
+    expect(diff).toContain("\n-old line\n+new line\n shared middle\n");
+  });
+
+  it("bounds high-edit-distance selection diffs with a linear prefix and suffix fallback", () => {
     const originalText = [
       "same start",
       ...Array.from({ length: 160 }, (_unused, index) => `old before ${String(index)}`),
@@ -135,23 +139,23 @@ describe("selection rewrite diff", () => {
       "same end",
     ].join("\n");
 
-    const diff = buildSelectionUnifiedDiff("Note.md", originalText, replacementText);
+    const diff = buildSelectionDiffLines(originalText, replacementText).join("\n");
 
-    expect(diff).toContain("\n same start\n");
+    expect(diff.startsWith(" same start\n")).toBe(true);
     expect(diff).toContain("\n-old before 0\n");
     expect(diff).toContain("\n-shared middle\n");
     expect(diff).toContain("\n+shared middle\n");
-    expect(diff).toContain("\n same end");
+    expect(diff.endsWith("\n same end")).toBe(true);
     expect(diff).not.toContain("\n shared middle\n");
   });
 
   it("renders additions and deletions", () => {
-    expect(buildSelectionUnifiedDiff("Note.md", "", "added")).toContain("+added");
-    expect(buildSelectionUnifiedDiff("Note.md", "removed", "")).toContain("-removed");
+    expect(buildSelectionDiffLines("", "added")).toContain("+added");
+    expect(buildSelectionDiffLines("removed", "")).toContain("-removed");
   });
 
   it("renders unchanged text as context", () => {
-    expect(buildSelectionUnifiedDiff("Note.md", "same", "same")).toContain(" same");
+    expect(buildSelectionDiffLines("same", "same")).toContain(" same");
   });
 });
 

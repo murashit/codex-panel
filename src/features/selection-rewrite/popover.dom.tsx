@@ -6,8 +6,8 @@ import { renderUiRoot, unmountUiRoot } from "../../shared/dom/preact-root.dom";
 import { syncTextareaHeight } from "../../shared/dom/textarea-autogrow.measure";
 import { textareaCursorAtVisualBoundary } from "../../shared/dom/textarea-caret.measure";
 import { IconButton } from "../../shared/obsidian/components.obsidian";
-import { DiffLineList, unifiedDiffDisplayLines } from "../../shared/ui/diff-view";
-import { buildSelectionUnifiedDiff } from "./diff";
+import { DiffLineList } from "../../shared/ui/diff-view";
+import { buildSelectionDiffLines } from "./diff";
 import {
   canApplySelectionRewrite,
   type SelectionRewriteInstructionHistoryDirection,
@@ -201,7 +201,7 @@ export class SelectionRewritePopover {
           elements.applyButton = element;
         }}
         debugText={state.debugText}
-        diff={replacement === null ? null : buildSelectionUnifiedDiff(state.filePath, state.originalText, replacement)}
+        diffLines={replacement === null ? null : buildSelectionDiffLines(state.originalText, replacement)}
         generating={state.status === "generating"}
         hasInstruction={this.session.hasInstruction}
         hasReplacement={replacement !== null}
@@ -306,7 +306,7 @@ function selectionRewriteInstructionCursorOnLogicalBoundary(
 interface SelectionRewritePopoverViewProps {
   applyButtonRef: (element: HTMLButtonElement | null) => void;
   debugText: string | null;
-  diff: string | null;
+  diffLines: readonly string[] | null;
   generating: boolean;
   hasInstruction: boolean;
   hasReplacement: boolean;
@@ -324,7 +324,7 @@ interface SelectionRewritePopoverViewProps {
 function SelectionRewritePopoverView({
   applyButtonRef,
   debugText,
-  diff,
+  diffLines,
   generating,
   hasInstruction,
   hasReplacement,
@@ -365,7 +365,7 @@ function SelectionRewritePopoverView({
       <SelectionRewriteStatus status={status} />
       <pre className={`codex-panel-selection-rewrite__stream-preview${streamPreview ? "" : " is-hidden"}`}>{streamPreview}</pre>
       <div className={`codex-panel-selection-rewrite__result${hasReplacement ? "" : " is-hidden"}`}>
-        <div className="codex-panel-selection-rewrite__diff">{diff ? <SelectionRewriteDiff diff={diff} /> : null}</div>
+        <div className="codex-panel-selection-rewrite__diff">{diffLines ? <SelectionRewriteDiff lines={diffLines} /> : null}</div>
         <div className="codex-panel-selection-rewrite__result-actions">
           <IconButton
             buttonRef={applyButtonRef}
@@ -407,11 +407,6 @@ function SelectionRewriteStatus({ status }: { status: SelectionRewriteSessionSta
   );
 }
 
-function SelectionRewriteDiff({ diff }: { diff: string }): UiNode {
-  return (
-    <DiffLineList
-      lines={unifiedDiffDisplayLines(diff).filter((line) => line.kind !== "file" && !line.text.startsWith("@@"))}
-      className="codex-panel-selection-rewrite__diff-body"
-    />
-  );
+function SelectionRewriteDiff({ lines }: { lines: readonly string[] }): UiNode {
+  return <DiffLineList lines={lines.map((text) => ({ text }))} className="codex-panel-selection-rewrite__diff-body" />;
 }
