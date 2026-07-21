@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type ArchiveExportSettings, archivedThreadMarkdown } from "../../../src/domain/threads/archive-markdown";
+import { type ArchiveMarkdownOptions, archivedThreadMarkdown } from "../../../src/domain/threads/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
 import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";
 
@@ -300,13 +300,9 @@ describe("thread archive export", () => {
 function exportedMarkdown(
   source: Thread & { transcriptEntries: ThreadTranscriptEntry[] },
   now: Date,
-  settings: Partial<ArchiveExportSettings> = {},
+  settings: ArchiveMarkdownOptions = {},
 ): string {
-  return archivedThreadMarkdown(source, now, {
-    archiveExportFolderTemplate: "Exports",
-    archiveExportFilenameTemplate: "{{title}}",
-    ...settings,
-  });
+  return archivedThreadMarkdown(source, now, settings);
 }
 
 function thread(

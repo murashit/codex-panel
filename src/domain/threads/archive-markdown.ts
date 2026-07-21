@@ -3,7 +3,6 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { toMarkdown } from "mdast-util-to-markdown";
 import { visit } from "unist-util-visit";
 
-import { yamlFrontmatterInlineList, yamlFrontmatterString } from "../markdown/frontmatter";
 import { parseFileHref } from "../vault/file-hrefs";
 import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, vaultRelativePath } from "../vault/paths";
 import type { Thread } from "./model";
@@ -16,9 +15,7 @@ interface MarkdownSourceReplacement {
   value: string;
 }
 
-export interface ArchiveExportSettings {
-  archiveExportFolderTemplate: string;
-  archiveExportFilenameTemplate: string;
+export interface ArchiveMarkdownOptions {
   archiveExportTags?: string;
   vaultPath?: string;
   vaultConfigDir?: string;
@@ -28,13 +25,9 @@ export interface ArchiveThreadInput extends Thread {
   transcriptEntries: readonly ThreadTranscriptEntry[];
 }
 
-export function archivedThreadMarkdown(
-  thread: ArchiveThreadInput,
-  exportedAt = new Date(),
-  settings?: Partial<ArchiveExportSettings>,
-): string {
+export function archivedThreadMarkdown(thread: ArchiveThreadInput, exportedAt = new Date(), settings: ArchiveMarkdownOptions = {}): string {
   const title = threadArchiveTitle(thread);
-  const tags = normalizedArchiveTags(settings?.archiveExportTags ?? "");
+  const tags = normalizedArchiveTags(settings.archiveExportTags ?? "");
   const frontmatter = [
     "---",
     `title: ${yamlFrontmatterString(title)}`,
@@ -44,7 +37,7 @@ export function archivedThreadMarkdown(
     "---",
   ].join("\n");
   const body = `${trimTrailingBlankLines([`# ${title}`, "", ...transcriptMarkdownLines(thread.transcriptEntries)]).join("\n")}\n`;
-  const normalizedBody = settings?.vaultPath ? normalizeExportedMarkdownLinks(body, settings.vaultPath, settings.vaultConfigDir) : body;
+  const normalizedBody = settings.vaultPath ? normalizeExportedMarkdownLinks(body, settings.vaultPath, settings.vaultConfigDir) : body;
   return `${frontmatter}\n\n${normalizedBody}`;
 }
 
@@ -197,4 +190,12 @@ function trimTrailingBlankLines(lines: string[]): string[] {
   const result = [...lines];
   while (result[result.length - 1] === "") result.pop();
   return result;
+}
+
+function yamlFrontmatterString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function yamlFrontmatterInlineList(values: readonly string[]): string {
+  return `[${values.map(yamlFrontmatterString).join(", ")}]`;
 }

@@ -1,7 +1,7 @@
 import { Component, ItemView, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
-import { createObsidianArchiveExportDestination } from "../threads/obsidian/archive-export-destination.obsidian";
+import { createObsidianVaultMarkdownDestination } from "../../shared/obsidian/vault-write-destination.obsidian";
 import { type ThreadsViewHost, ThreadsViewSession } from "./session";
 
 export interface ThreadsRuntimeView {
@@ -38,7 +38,7 @@ export class CodexThreadsView extends ItemView {
       registerPointerDown: (handler) => {
         owner.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
       },
-      archiveDestination: () => createObsidianArchiveExportDestination(this.app.vault),
+      archiveDestination: () => createObsidianVaultMarkdownDestination(this.app.vault),
       vaultConfigDir: () => this.app.vault.configDir,
       viewWindow: () => this.containerEl.doc.defaultView,
     });

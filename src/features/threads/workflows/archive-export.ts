@@ -1,4 +1,4 @@
-import { type ArchiveExportSettings, type ArchiveThreadInput, archivedThreadMarkdown } from "../../../domain/threads/archive-markdown";
+import { type ArchiveMarkdownOptions, type ArchiveThreadInput, archivedThreadMarkdown } from "../../../domain/threads/archive-markdown";
 import { shortThreadId } from "../../../domain/threads/id";
 import { threadArchiveTitle } from "../../../domain/threads/title";
 import {
@@ -17,6 +17,11 @@ import {
 
 export interface ArchiveExportResult {
   path: string;
+}
+
+export interface ArchiveExportSettings extends ArchiveMarkdownOptions {
+  archiveExportFolderTemplate: string;
+  archiveExportFilenameTemplate: string;
 }
 
 export type ArchiveExportDestination = VaultMarkdownDestination;

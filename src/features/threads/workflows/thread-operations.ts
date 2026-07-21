@@ -1,8 +1,7 @@
-import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../domain/threads/title";
 import type { ThreadCatalogEventSink } from "../catalog/thread-catalog";
-import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "./archive-export";
+import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ThreadOperationsTransport } from "./ports";
 import type { ThreadNameMutationCoordinator } from "./thread-name-mutation-coordinator";
 

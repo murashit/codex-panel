@@ -2,14 +2,13 @@ import { Notice } from "obsidian";
 
 import type { ObservedPaginatedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
-import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
 import { DeferredTask } from "../../shared/runtime/deferred-task";
 import { isStaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
-import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
+import type { ArchiveExportDestination, ArchiveExportSettings } from "../threads/workflows/archive-export";
 import type { ThreadOperationsTransport, ThreadTitleTransport } from "../threads/workflows/ports";
 import type { ThreadNameMutationCoordinator } from "../threads/workflows/thread-name-mutation-coordinator";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";

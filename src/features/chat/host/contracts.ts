@@ -6,10 +6,9 @@ import type { ObservedResultListener } from "../../../app-server/query/observed-
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../domain/server/metadata";
-import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
-import type { ArchiveExportDestination } from "../../threads/workflows/archive-export";
+import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
 import type { ThreadTitleTransport } from "../../threads/workflows/ports";
 import type { ThreadNameMutationCoordinator } from "../../threads/workflows/thread-name-mutation-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
