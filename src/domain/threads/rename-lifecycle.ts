@@ -1,7 +1,7 @@
 export type ThreadRenameLifecycleState =
   | { kind: "idle" }
   | { kind: "editing"; draft: string }
-  | { kind: "generating"; draft: string; originalDraft: string; generationToken: number };
+  | { kind: "generating"; draft: string; generationToken: number };
 
 export type ThreadRenameActiveState = Exclude<ThreadRenameLifecycleState, { kind: "idle" }>;
 type ThreadRenameGeneratingState = Extract<ThreadRenameLifecycleState, { kind: "generating" }>;
@@ -27,7 +27,7 @@ export function transitionThreadRenameLifecycleState(
     case "started":
       return { kind: "editing", draft: event.draft };
     case "draft-updated":
-      return state.kind === "idle" ? state : { ...state, draft: event.draft };
+      return state.kind === "editing" ? { ...state, draft: event.draft } : state;
     case "cancelled":
       return state.kind === "idle" ? state : initialThreadRenameLifecycleState();
     case "generation-started":
@@ -35,11 +35,10 @@ export function transitionThreadRenameLifecycleState(
       return {
         kind: "generating",
         draft: state.draft,
-        originalDraft: state.draft,
         generationToken: event.generationToken,
       };
     case "generation-succeeded":
-      if (!threadRenameGenerationStillActive(state, event.generationToken) || state.draft !== state.originalDraft) return state;
+      if (!threadRenameGenerationStillActive(state, event.generationToken)) return state;
       return { ...state, draft: event.draft };
     case "generation-finished":
       if (!threadRenameGenerationStillActive(state, event.generationToken)) return state;

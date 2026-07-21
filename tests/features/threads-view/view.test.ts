@@ -487,7 +487,7 @@ describe("CodexThreadsView", () => {
     });
   });
 
-  it("ignores duplicate auto-name starts while a thread rename is already generating", async () => {
+  it("replaces the auto-name action with cancellation while generating", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [
         turnFixture([
@@ -512,12 +512,12 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const autoName = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
-    autoName?.click();
-    autoName?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     await waitForAsyncWork(() => {
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')).toBeNull();
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')).not.toBeNull();
     });
 
     generatedTitle.resolve("Generated title");
@@ -559,7 +559,7 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).not.toContain("Late title");
   });
 
-  it("keeps a manually edited rename draft when threads view auto-name finishes later", async () => {
+  it("cancels auto-name without applying a late generated title", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [
         turnFixture([
@@ -581,6 +581,7 @@ describe("CodexThreadsView", () => {
       "thread/turns/list": threadTurnsList,
     });
     const view = await threadsView();
+    document.body.append(view.containerEl);
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
@@ -592,12 +593,21 @@ describe("CodexThreadsView", () => {
     const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
     expect(input).not.toBeNull();
     if (!input) return;
-    changeInputValue(input, "Manual title");
+    expect(input.disabled).toBe(true);
+    const generationSignal = namingMock.generateThreadTitleWithCodex.mock.calls[0]?.[4]?.signal as AbortSignal | undefined;
+    expect(generationSignal?.aborted).toBe(false);
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')?.click();
+    const editableInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    expect(generationSignal?.aborted).toBe(true);
+    expect(editableInput?.disabled).toBe(false);
+    expect(editableInput?.value).toBe("Thread preview");
+    expect(document.activeElement).toBe(editableInput);
     generatedTitle.resolve("Generated title");
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
 
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Manual title");
-    });
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Thread preview");
+    expect(view.containerEl.textContent).not.toContain("Generated title");
+    view.containerEl.remove();
   });
 
   it("ignores refresh requests while detached from an execution runtime", async () => {

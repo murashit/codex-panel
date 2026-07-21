@@ -318,8 +318,10 @@ describe("Toolbar decisions", () => {
     parent.remove();
   });
 
-  it("renders auto-name loading without disabling the rename draft field", () => {
+  it("disables the rename draft and exposes auto-name cancellation while loading", () => {
     const parent = document.createElement("div");
+    document.body.append(parent);
+    const cancelAutoName = vi.fn();
 
     mountToolbar(
       parent,
@@ -337,13 +339,37 @@ describe("Toolbar decisions", () => {
           },
         ],
       }),
-      toolbarActions(),
+      toolbarActions({ cancelAutoName }),
     );
 
-    expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")?.disabled).toBe(false);
+    expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")?.disabled).toBe(true);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
+    const cancelAutoNameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
+    expect(cancelAutoNameButton.disabled).toBe(false);
+    cancelAutoNameButton.click();
+    expect(cancelAutoName).toHaveBeenCalledWith("editing");
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
+
+    mountToolbar(
+      parent,
+      toolbarModel({
+        historyOpen: true,
+        openPanel: "history",
+        threads: [
+          {
+            title: "Editing",
+            threadId: "editing",
+            selected: false,
+            disabled: false,
+            canArchive: true,
+            rename: { draft: "Draft title", generating: false },
+          },
+        ],
+      }),
+      toolbarActions(),
+    );
+    expect(document.activeElement).toBe(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input"));
+    parent.remove();
   });
 
   it("renders toolbar archive confirmation with the default action on the right", () => {
@@ -475,6 +501,7 @@ interface ToolbarActionOverrides {
   updateRenameDraft?: (threadId: string, value: string) => void;
   saveRenameThread?: (threadId: string, value: string) => void;
   cancelRenameThread?: (threadId: string) => void;
+  cancelAutoName?: (threadId: string) => void;
   autoNameThread?: (threadId: string) => void;
 }
 
@@ -508,6 +535,7 @@ function toolbarActions(overrides: ToolbarActionOverrides = {}): ToolbarActions 
         updateDraft: overrides.updateRenameDraft ?? vi.fn(),
         save: overrides.saveRenameThread ?? vi.fn(),
         cancel: overrides.cancelRenameThread ?? vi.fn(),
+        cancelAutoName: overrides.cancelAutoName ?? vi.fn(),
         autoName: overrides.autoNameThread ?? vi.fn(),
       },
     },

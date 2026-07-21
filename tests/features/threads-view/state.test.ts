@@ -18,7 +18,6 @@ describe("threads view rename state", () => {
     expect(generated).toEqual({
       kind: "generating",
       draft: "Generated title",
-      originalDraft: "Original draft",
       generationToken: 1,
     });
     expect(transitionThreadsRenameState(generated, { type: "generation-finished", generationToken: generating.generationToken })).toEqual({

@@ -7,7 +7,7 @@ import {
 } from "../../../src/domain/threads/rename-lifecycle";
 
 describe("thread rename lifecycle", () => {
-  it("keeps late generation callbacks scoped to the active unchanged generation", () => {
+  it("blocks draft updates and keeps callbacks scoped to the active generation", () => {
     const generating = generatingRenameState("Original draft", 1);
 
     const staleGenerated = transitionThreadRenameLifecycleState(generating, {
@@ -17,20 +17,22 @@ describe("thread rename lifecycle", () => {
     });
     expect(staleGenerated).toBe(generating);
 
-    const manuallyEdited = transitionThreadRenameLifecycleState(generating, { type: "draft-updated", draft: "Manual draft" });
-    const generatedAfterManualEdit = transitionThreadRenameLifecycleState(manuallyEdited, {
+    const draftUpdate = transitionThreadRenameLifecycleState(generating, { type: "draft-updated", draft: "Manual draft" });
+    expect(draftUpdate).toBe(generating);
+
+    const generated = transitionThreadRenameLifecycleState(draftUpdate, {
       type: "generation-succeeded",
       generationToken: generating.generationToken,
       draft: "Generated title",
     });
-    expect(generatedAfterManualEdit).toBe(manuallyEdited);
+    expect(generated).toEqual({ ...generating, draft: "Generated title" });
 
     expect(
-      transitionThreadRenameLifecycleState(manuallyEdited, {
+      transitionThreadRenameLifecycleState(generated, {
         type: "generation-finished",
         generationToken: generating.generationToken,
       }),
-    ).toEqual({ kind: "editing", draft: "Manual draft" });
+    ).toEqual({ kind: "editing", draft: "Generated title" });
   });
 
   it("does not create an editor from a stray draft update", () => {

@@ -60,6 +60,7 @@ function threadsViewActions() {
     updateRename: vi.fn(),
     saveRename: vi.fn(),
     cancelRename: vi.fn(),
+    cancelAutoName: vi.fn(),
     autoNameThread: vi.fn(),
     startArchive: vi.fn(),
     archiveThread: vi.fn(),
@@ -220,15 +221,19 @@ describe("threads view renderer decisions", () => {
 
   it("renders threads view rename auto-name loading state", () => {
     const parent = document.createElement("div");
+    const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
       rename: { active: true, draft: "Old name", generating: true },
     });
 
-    renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, threadsViewActions());
+    renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
 
-    expect(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(false);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(true);
+    const cancelAutoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
+    expect(cancelAutoName.disabled).toBe(false);
+    cancelAutoName.click();
+    expect(actions.cancelAutoName).toHaveBeenCalledWith("thread");
   });
 
   it("disables history expansion during any shared thread fetch", () => {

@@ -25,6 +25,7 @@ export interface ThreadsViewShellActions {
   updateRename: (threadId: string, value: string) => void;
   saveRename: (threadId: string, value: string) => void;
   cancelRename: (threadId: string) => void;
+  cancelAutoName: (threadId: string) => void;
   autoNameThread: (threadId: string) => void;
   startArchive: (threadId: string) => void;
   archiveThread: (threadId: string, saveMarkdown: boolean) => void;
@@ -214,8 +215,8 @@ function threadArchiveDisabled(row: ThreadsRowModel): boolean {
 function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   useLayoutEffect(() => {
-    focusThreadsRenameInput(inputRef.current);
-  }, [row.rename.draft]);
+    if (!row.rename.generating) focusThreadsRenameInput(inputRef.current);
+  }, [row.rename.draft, row.rename.generating]);
 
   return (
     <>
@@ -226,6 +227,7 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
             className="codex-panel-ui__nav-inline-input codex-panel-threads__rename-input"
             type="text"
             value={row.rename.draft}
+            disabled={row.rename.generating}
             onInput={(event) => {
               actions.updateRename(row.threadId, event.currentTarget.value);
             }}
@@ -248,17 +250,17 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
       </div>
       <div className="codex-panel-threads__actions codex-panel-threads__rename-actions">
         <ThreadsRowButton
-          icon={row.rename.generating ? "loader" : "sparkles"}
-          label="Auto-name thread"
+          icon={row.rename.generating ? "x" : "sparkles"}
+          label={row.rename.generating ? "Cancel auto-name" : "Auto-name thread"}
           className="codex-panel-threads__row-button"
-          disabled={row.rename.generating}
           onPointerDown={(event) => {
             event.preventDefault();
             event.stopPropagation();
           }}
           onClick={(event) => {
             event.stopPropagation();
-            actions.autoNameThread(row.threadId);
+            if (row.rename.generating) actions.cancelAutoName(row.threadId);
+            else actions.autoNameThread(row.threadId);
           }}
         />
       </div>

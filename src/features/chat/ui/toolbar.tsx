@@ -87,6 +87,7 @@ interface ToolbarThreadActions {
     updateDraft: (threadId: string, value: string) => void;
     save: (threadId: string, value: string) => void;
     cancel: (threadId: string) => void;
+    cancelAutoName: (threadId: string) => void;
     autoName: (threadId: string) => void;
   };
 }
@@ -485,8 +486,8 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
   const generating = thread.rename?.generating ?? false;
   const draft = thread.rename?.draft ?? thread.title;
   useLayoutEffect(() => {
-    focusToolbarRenameInput(inputRef.current);
-  }, [draft]);
+    if (!generating) focusToolbarRenameInput(inputRef.current);
+  }, [draft, generating]);
 
   return (
     <>
@@ -501,6 +502,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
               className="codex-panel-ui__nav-inline-input codex-panel__thread-rename-input"
               type="text"
               value={draft}
+              disabled={generating}
               onInput={(event) => {
                 actions.rename.updateDraft(thread.threadId, event.currentTarget.value);
               }}
@@ -523,17 +525,17 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
         )}
       />
       <ToolbarRowActionButton
-        icon={generating ? "loader" : "sparkles"}
-        label="Auto-name thread"
+        icon={generating ? "x" : "sparkles"}
+        label={generating ? "Cancel auto-name" : "Auto-name thread"}
         className="codex-panel__thread-action"
-        disabled={generating}
         onPointerDown={(event) => {
           event.preventDefault();
           event.stopPropagation();
         }}
         onClick={(event) => {
           event.stopPropagation();
-          actions.rename.autoName(thread.threadId);
+          if (generating) actions.rename.cancelAutoName(thread.threadId);
+          else actions.rename.autoName(thread.threadId);
         }}
       />
     </>

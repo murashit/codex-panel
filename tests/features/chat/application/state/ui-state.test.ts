@@ -73,7 +73,7 @@ describe("chat UI state", () => {
       type: "ui/rename-generation-succeeded",
       threadId: "thread",
       generationToken: 1,
-      draft: "Late title",
+      draft: "Generated title",
     });
     state = reduceUiSlice(state, {
       type: "ui/rename-generation-finished",
@@ -81,7 +81,7 @@ describe("chat UI state", () => {
       generationToken: 1,
     });
 
-    expect(state.rename).toEqual({ kind: "editing", threadId: "thread", draft: "Manual draft" });
+    expect(state.rename).toEqual({ kind: "editing", threadId: "thread", draft: "Generated title" });
   });
 
   it("clears goal expansion only when the displayed goal identity changes", () => {

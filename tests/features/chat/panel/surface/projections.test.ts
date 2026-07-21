@@ -772,6 +772,7 @@ function toolbarActionsFixture(overrides: ToolbarActionOverrides = {}): ToolbarA
         updateDraft: () => undefined,
         save: () => undefined,
         cancel: () => undefined,
+        cancelAutoName: () => undefined,
         autoName: () => undefined,
       },
     },

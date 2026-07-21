@@ -195,6 +195,9 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
         cancel: (threadId) => {
           deps.rename.cancel(threadId);
         },
+        cancelAutoName: (threadId) => {
+          deps.rename.cancelAutoName(threadId);
+        },
         autoName: (threadId) => {
           void deps.rename.autoNameDraft(threadId);
         },

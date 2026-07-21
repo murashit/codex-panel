@@ -15,7 +15,7 @@ export interface ThreadTitleServiceHost {
 
 export interface ThreadTitleService {
   invalidate(): void;
-  generateTitle(threadId: string): Promise<string>;
+  generateTitle(threadId: string, signal?: AbortSignal): Promise<string>;
   resolveContext(threadId: string): Promise<ThreadTitleContext | null>;
   completedTurnContext(turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null): ThreadTitleContext | null;
   generate(context: ThreadTitleContext): Promise<string | null>;
@@ -29,10 +29,42 @@ export function createThreadTitleService(host: ThreadTitleServiceHost): ThreadTi
       controller.abort();
       controller = new AbortController();
     },
-    generateTitle: (threadId) => generateTitle(host, threadId, controller.signal),
+    generateTitle: async (threadId, signal) => {
+      const operation = linkedAbortSignal(controller.signal, signal);
+      try {
+        return await generateTitle(host, threadId, operation.signal);
+      } finally {
+        operation.dispose();
+      }
+    },
     resolveContext: (threadId) => resolveThreadTitleContext(host, threadId),
     completedTurnContext: (turnId, completedTurnTranscriptSummary) => completedTurnContext(host, turnId, completedTurnTranscriptSummary),
     generate: (context) => generateTitleFromContext(host, context, controller.signal),
+  };
+}
+
+function linkedAbortSignal(
+  ownerSignal: AbortSignal,
+  operationSignal: AbortSignal | undefined,
+): {
+  signal: AbortSignal;
+  dispose(): void;
+} {
+  if (!operationSignal) return { signal: ownerSignal, dispose: () => undefined };
+
+  const controller = new AbortController();
+  const abort = (): void => {
+    controller.abort();
+  };
+  ownerSignal.addEventListener("abort", abort, { once: true });
+  operationSignal.addEventListener("abort", abort, { once: true });
+  if (ownerSignal.aborted || operationSignal.aborted) abort();
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      ownerSignal.removeEventListener("abort", abort);
+      operationSignal.removeEventListener("abort", abort);
+    },
   };
 }
 

@@ -309,7 +309,6 @@ function chatRenameActiveStateWithoutThreadId(state: Exclude<ChatRenameUiState, 
       return {
         kind: "generating",
         draft: state.draft,
-        originalDraft: state.originalDraft,
         generationToken: state.generationToken,
       };
   }

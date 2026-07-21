@@ -8,7 +8,7 @@ describe("thread row core projection", () => {
     const row = threadRowCoreProjection({
       thread: thread({ name: "  Saved   name  ", preview: "Preview" }),
       selected: true,
-      renameState: { kind: "generating", draft: "Draft", originalDraft: "Saved name", generationToken: 1 },
+      renameState: { kind: "generating", draft: "Draft", generationToken: 1 },
       archiveConfirmActive: true,
       defaultArchiveSaveMarkdown: true,
     });

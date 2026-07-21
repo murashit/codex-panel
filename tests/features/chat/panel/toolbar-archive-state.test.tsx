@@ -143,6 +143,7 @@ function shellParts(
             updateDraft: vi.fn(),
             save: vi.fn(),
             cancel: vi.fn(),
+            cancelAutoName: vi.fn(),
             autoName: vi.fn(),
           },
         },
