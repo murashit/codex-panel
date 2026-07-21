@@ -1,15 +1,19 @@
+import type { Link, Nodes } from "mdast";
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { toMarkdown } from "mdast-util-to-markdown";
+import { visit } from "unist-util-visit";
+
 import { yamlFrontmatterInlineList, yamlFrontmatterString } from "../markdown/frontmatter";
-import { isExternalFileHref, parseFileHref } from "../vault/file-hrefs";
+import { parseFileHref } from "../vault/file-hrefs";
 import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, vaultRelativePath } from "../vault/paths";
 import type { Thread } from "./model";
 import { threadArchiveTitle } from "./title";
 import type { ThreadTranscriptEntry } from "./transcript";
 
-interface ParsedMarkdownLink {
-  raw: string;
-  label: string;
-  href: string;
+interface MarkdownSourceReplacement {
+  start: number;
   end: number;
+  value: string;
 }
 
 export interface ArchiveExportSettings {
@@ -31,49 +35,28 @@ export function archivedThreadMarkdown(
 ): string {
   const title = threadArchiveTitle(thread);
   const tags = normalizedArchiveTags(settings?.archiveExportTags ?? "");
-  const lines = [
+  const frontmatter = [
     "---",
     `title: ${yamlFrontmatterString(title)}`,
     `thread_id: ${yamlFrontmatterString(thread.id)}`,
     `created: ${yamlFrontmatterString(formatDate(exportedAt))}`,
     ...frontmatterTagsLines(tags),
     "---",
-    "",
-    `# ${title}`,
-    "",
-    ...transcriptMarkdownLines(thread.transcriptEntries),
-  ];
-  const markdown = `${trimTrailingBlankLines(lines).join("\n")}\n`;
-  return settings?.vaultPath ? normalizeExportedMarkdownLinks(markdown, settings.vaultPath, settings.vaultConfigDir) : markdown;
+  ].join("\n");
+  const body = `${trimTrailingBlankLines([`# ${title}`, "", ...transcriptMarkdownLines(thread.transcriptEntries)]).join("\n")}\n`;
+  const normalizedBody = settings?.vaultPath ? normalizeExportedMarkdownLinks(body, settings.vaultPath, settings.vaultConfigDir) : body;
+  return `${frontmatter}\n\n${normalizedBody}`;
 }
 
 function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string, vaultConfigDir: string | null | undefined): string {
-  const lines = markdown.split("\n");
-  let inFence = false;
-  return lines
-    .map((line) => {
-      if (line.trimStart().startsWith("```")) {
-        inFence = !inFence;
-        return line;
-      }
-      return inFence ? line : normalizeExportedMarkdownLinksInLine(line, vaultPath, vaultConfigDir);
-    })
-    .join("\n");
-}
-
-function normalizeExportedMarkdownLinksInLine(line: string, vaultPath: string, vaultConfigDir: string | null | undefined): string {
-  let output = "";
-  let index = 0;
-  while (index < line.length) {
-    const parsed = parseMarkdownLinkAt(line, index);
-    if (!parsed || isInsideInlineCode(line, index)) {
-      output += line[index] ?? "";
-      index += 1;
-      continue;
-    }
-
-    output += normalizedExportedMarkdownLink(parsed, vaultPath, vaultConfigDir);
-    index = parsed.end;
+  const replacements: MarkdownSourceReplacement[] = [];
+  visit(fromMarkdown(markdown), "link", (link) => {
+    const replacement = normalizedExportedMarkdownLink(link, vaultPath, vaultConfigDir);
+    if (replacement) replacements.push(replacement);
+  });
+  let output = markdown;
+  for (const replacement of replacements.sort((left, right) => right.start - left.start)) {
+    output = `${output.slice(0, replacement.start)}${replacement.value}${output.slice(replacement.end)}`;
   }
   return output;
 }
@@ -163,65 +146,43 @@ function stripMatchingQuotes(value: string): string {
   return (first === `"` || first === `'`) && first === last ? value.slice(1, -1) : value;
 }
 
-function unwrappedMarkdownHref(value: string): string {
-  if (value.startsWith("<") && value.endsWith(">")) return value.slice(1, -1);
-  return value;
-}
+function normalizedExportedMarkdownLink(
+  link: Link,
+  vaultPath: string,
+  vaultConfigDir: string | null | undefined,
+): MarkdownSourceReplacement | null {
+  const start = link.position?.start.offset;
+  const end = link.position?.end.offset;
+  if (start === undefined || end === undefined || !link.url) return null;
 
-function parseMarkdownLinkAt(line: string, start: number): ParsedMarkdownLink | null {
-  if (line[start] !== "[" || line[start - 1] === "!") return null;
+  const parsed = parseFileHref(link.url);
+  if (!parsed) return null;
+  const vaultRelative = vaultRelativePath(vaultPath, parsed.path);
+  if (vaultRelative && !archiveExportShouldKeepAbsolute(vaultRelative, vaultConfigDir)) {
+    return {
+      start,
+      end,
+      value: markdownNodeSource({ ...link, url: `${vaultRelative}${parsed.subpath}` }),
+    };
+  }
 
-  const labelEnd = line.indexOf("]", start + 1);
-  if (labelEnd === -1 || line[labelEnd + 1] !== "(") return null;
-
-  const hrefStart = labelEnd + 2;
-  const hrefEnd = line[hrefStart] === "<" ? line.indexOf(">)", hrefStart + 1) : line.indexOf(")", hrefStart);
-  if (hrefEnd === -1) return null;
-
-  const end = line[hrefStart] === "<" ? hrefEnd + 2 : hrefEnd + 1;
+  if (!isFilesystemAbsolutePath(normalizeFilePath(parsed.path))) return null;
   return {
-    raw: line.slice(start, end),
-    label: line.slice(start + 1, labelEnd),
-    href: line.slice(hrefStart, hrefEnd + (line[hrefStart] === "<" ? 1 : 0)),
+    start,
     end,
+    value: markdownNodeSource({
+      type: "paragraph",
+      children: [...link.children, { type: "text", value: " (" }, { type: "inlineCode", value: link.url }, { type: "text", value: ")" }],
+    }),
   };
 }
 
-function normalizedExportedMarkdownLink(link: ParsedMarkdownLink, vaultPath: string, vaultConfigDir: string | null | undefined): string {
-  const href = unwrappedMarkdownHref(link.href.trim());
-  if (!href || isExternalFileHref(href)) return link.raw;
-
-  const parsed = parseFileHref(href);
-  if (!parsed) return link.raw;
-  const vaultRelative = vaultRelativePath(vaultPath, parsed.path);
-  if (vaultRelative && !archiveExportShouldKeepAbsolute(vaultRelative, vaultConfigDir)) {
-    return `[${link.label}](${markdownHref(`${vaultRelative}${parsed.subpath}`)})`;
-  }
-
-  return isFilesystemAbsolutePath(normalizeFilePath(parsed.path)) ? `${link.label} (${markdownCodeSpan(href)})` : link.raw;
+function markdownNodeSource(node: Nodes): string {
+  return toMarkdown(node, { unsafe: [{ character: "|", inConstruct: ["label", "phrasing"] }] }).trimEnd();
 }
 
 function archiveExportShouldKeepAbsolute(vaultRelativePath: string, vaultConfigDir: string | null | undefined): boolean {
   return typeof vaultConfigDir === "string" && vaultConfigDir.length > 0 && isVaultConfigPath(vaultRelativePath, vaultConfigDir);
-}
-
-function markdownHref(value: string): string {
-  return /[\s()]/.test(value) ? `<${value}>` : value;
-}
-
-function markdownCodeSpan(value: string): string {
-  let fenceLength = 1;
-  for (const match of value.matchAll(/`+/g)) fenceLength = Math.max(fenceLength, match[0].length + 1);
-  const fence = "`".repeat(fenceLength);
-  return fenceLength === 1 ? `${fence}${value}${fence}` : `${fence} ${value} ${fence}`;
-}
-
-function isInsideInlineCode(line: string, offset: number): boolean {
-  let inCode = false;
-  for (let index = 0; index < offset; index += 1) {
-    if (line[index] === "`") inCode = !inCode;
-  }
-  return inCode;
 }
 
 function formatDate(date: Date): string {

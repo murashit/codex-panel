@@ -46,6 +46,7 @@
     "@commitlint/config-conventional": "^21.2.0",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^26.1.1",
     "@vitest/coverage-v8": "^4.1.10",
     "concurrently": "^10.0.3",
@@ -65,8 +66,11 @@
   "dependencies": {
     "@tanstack/query-core": "^5.101.2",
     "defuddle": "^0.19.1",
+    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-to-markdown": "^2.1.2",
     "micromark": "^4.0.2",
     "obsidian-daily-notes-interface": "^0.9.5",
-    "preact": "^10.29.7"
+    "preact": "^10.29.7",
+    "unist-util-visit": "^5.1.0"
   }
 }

@@ -187,6 +187,8 @@ describe("thread archive export", () => {
             [
               "[Vault note](</Users/showhey/Vault/topics/My Note.md>)",
               "[Vault note with parens](</Users/showhey/Vault/topics/My (Note).md>)",
+              "[Vault note with bare parens](/Users/showhey/Vault/topics/My_(Note).md)",
+              '[**Titled vault note**](/Users/showhey/Vault/topics/Titled.md "Reference")',
               "[Vault source line](/Users/showhey/Vault/src/main.ts:12:4#L12)",
               "[Vault config](/Users/showhey/Vault/vault-config/plugins/codex-panel/main.js)",
               "[External file](/Users/showhey/Repos/project/README.md)",
@@ -195,9 +197,13 @@ describe("thread archive export", () => {
               "[Website](https://example.com/docs)",
               "![Image](/Users/showhey/Repos/project/image.png)",
               "`[Code link](/Users/showhey/Repos/project/README.md)`",
+              "``[Double-fenced code link](/Users/showhey/Repos/project/README.md)``",
               "```",
               "[Code block link](/Users/showhey/Repos/project/README.md)",
               "```",
+              "~~~",
+              "[Tilde code block link](/Users/showhey/Repos/project/README.md)",
+              "~~~",
             ].join("\n"),
             1,
           ),
@@ -211,17 +217,23 @@ describe("thread archive export", () => {
       [
         "[Vault note](<topics/My Note.md>)",
         "[Vault note with parens](<topics/My (Note).md>)",
+        "[Vault note with bare parens](topics/My_\\(Note\\).md)",
+        '[**Titled vault note**](topics/Titled.md "Reference")',
         "[Vault source line](src/main.ts#L12)",
         "Vault config (`/Users/showhey/Vault/vault-config/plugins/codex-panel/main.js`)",
         "External file (`/Users/showhey/Repos/project/README.md`)",
-        "External file with backticks (``` /Users/showhey/Repos/project/a\\`b``c.md ```)",
+        "External file with backticks (```/Users/showhey/Repos/project/a`b``c.md```)",
         "[Relative](topics/Other.md)",
         "[Website](https://example.com/docs)",
         "![Image](/Users/showhey/Repos/project/image.png)",
         "`[Code link](/Users/showhey/Repos/project/README.md)`",
+        "``[Double-fenced code link](/Users/showhey/Repos/project/README.md)``",
         "```",
         "[Code block link](/Users/showhey/Repos/project/README.md)",
         "```",
+        "~~~",
+        "[Tilde code block link](/Users/showhey/Repos/project/README.md)",
+        "~~~",
       ].join("\n"),
     );
   });
@@ -243,6 +255,45 @@ describe("thread archive export", () => {
 
     expect(output).toContain("[Vault](topics/Alpha.md)");
     expect(output).toContain("External (`/Users/showhey/Repos/project/README.md`)");
+  });
+
+  it("preserves Obsidian syntax outside normalized links", () => {
+    const obsidianSyntax = [
+      "[[Wiki note]]",
+      "![[image.png]]",
+      "> [!note] Callout",
+      "> body",
+      "#tag/path",
+      "==highlight==",
+      "%% comment %%",
+      "- [x] task",
+    ].join("\n");
+    const output = exportedMarkdown(
+      thread({ transcriptEntries: [transcriptEntry("assistant", `${obsidianSyntax}\n[Vault](/Users/showhey/Vault/Note.md)`, 1)] }),
+      new Date(2026, 4, 18),
+      { vaultPath: "/Users/showhey/Vault" },
+    );
+
+    expect(output).toContain(obsidianSyntax);
+    expect(output).toContain("[Vault](Note.md)");
+  });
+
+  it("preserves escaped pipes in table link labels", () => {
+    const output = exportedMarkdown(
+      thread({
+        transcriptEntries: [
+          transcriptEntry(
+            "assistant",
+            "| Vault | External |\n| --- | --- |\n| [A\\|B](/Users/showhey/Vault/Note.md) | [C\\|D](/Outside/Note.md) |",
+            1,
+          ),
+        ],
+      }),
+      new Date(2026, 4, 18),
+      { vaultPath: "/Users/showhey/Vault" },
+    );
+
+    expect(output).toContain("| [A\\|B](Note.md) | C\\|D (`/Outside/Note.md`) |");
   });
 });
 
