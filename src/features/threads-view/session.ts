@@ -44,12 +44,7 @@ export interface ThreadsViewSessionEnvironment {
   viewWindow(): Window | null;
 }
 
-type ThreadsViewStatus =
-  | { kind: "idle" }
-  | { kind: "loading"; message: string }
-  | { kind: "empty"; message: string }
-  | { kind: "log"; message: string }
-  | { kind: "error"; message: string };
+type ThreadsViewStatus = { kind: "idle" } | { kind: "loading"; message: string } | { kind: "error"; message: string };
 
 interface ThreadsViewOperationLease {
   readonly lifetime: AbortSignal;
@@ -148,6 +143,8 @@ export class ThreadsViewSession {
       if (!this.currentThreadsSnapshot()) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
         this.render();
+      } else {
+        this.noticeError(error);
       }
     }
   }
@@ -159,8 +156,7 @@ export class ThreadsViewSession {
       await this.host.threadCatalog.loadMoreActive();
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime) || isStaleExecutionRuntimeError(error)) return;
-      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
-      this.render();
+      this.noticeError(error);
     }
   }
 
@@ -177,13 +173,10 @@ export class ThreadsViewSession {
     this.observedFetchingNextPage = result.isFetchingNextPage;
     const observedThreads = result.value;
     if (observedThreads) {
+      const hadThreadsSnapshot = this.currentThreadsSnapshot() !== null;
       this.threads = observedThreads;
       this.threadsLoaded = true;
-      this.status = result.error
-        ? { kind: "error", message: result.error.message }
-        : observedThreads.length === 0
-          ? { kind: "empty", message: "No threads" }
-          : { kind: "idle" };
+      this.status = result.error && !hadThreadsSnapshot ? { kind: "error", message: result.error.message } : { kind: "idle" };
       this.render();
       return;
     }
@@ -213,7 +206,7 @@ export class ThreadsViewSession {
     renderThreadsViewShell(
       this.environment.root,
       {
-        status: this.status.kind === "idle" ? null : this.status.message,
+        status: this.status.kind === "idle" ? null : this.status,
         loading: this.observedFetchingNextPage,
         fetching: this.observedFetching,
         hasMore: this.host.threadCatalog.hasMoreActive(),
@@ -339,7 +332,7 @@ export class ThreadsViewSession {
     } catch (error) {
       if (!this.operationViewIsCurrent(lease)) return;
       if (this.renameStates.get(threadId) === generatingState) {
-        this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
+        this.noticeError(error);
       }
     } finally {
       const operation = this.renameGenerationControllers.get(threadId);
@@ -378,8 +371,7 @@ export class ThreadsViewSession {
       this.renameStates.delete(threadId);
     } catch (error) {
       if (!this.operationViewIsCurrent(lease)) return;
-      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
-      this.render();
+      this.noticeError(error);
     }
   }
 
@@ -393,6 +385,10 @@ export class ThreadsViewSession {
 
   private operationViewIsCurrent(lease: ThreadsViewOperationLease): boolean {
     return this.lifetime.isCurrent(lease.lifetime);
+  }
+
+  private noticeError(error: unknown): void {
+    new Notice(error instanceof Error ? error.message : String(error));
   }
 
   private finishAutoNameThread(threadId: string, generationToken: number): void {

@@ -9,6 +9,7 @@ import { createThreadOperationsTransport, createThreadTitleTransport } from "../
 import { createThreadNameMutationCoordinator } from "../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
+import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
@@ -80,6 +81,7 @@ installObsidianDomShims();
 describe("CodexThreadsView", () => {
   beforeEach(() => {
     vi.useRealTimers();
+    notices.length = 0;
     connectionMock.reset();
     namingMock.generateThreadTitleWithCodex.mockReset();
   });
@@ -129,7 +131,26 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
 
-    expect(view.containerEl.textContent).toContain("Codex app-server stopped.");
+    const status = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__status");
+    expect(status?.textContent).toContain("Codex app-server stopped.");
+    expect(status?.classList.contains("codex-panel-ui__nav-item")).toBe(false);
+    expect(view.containerEl.querySelector(".codex-panel-threads__empty")).toBeNull();
+  });
+
+  it("keeps existing threads and notifies when an explicit refresh fails", async () => {
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [threadFixture({ id: "thread", preview: "Cached thread" })] })
+      .mockRejectedValueOnce(new Error("Refresh failed."));
+    connectionMock.state.client = clientFixture({ "thread/list": listThreads });
+    const view = await threadsView();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Cached thread"));
+
+    await view.refresh();
+
+    expect(view.containerEl.textContent).toContain("Cached thread");
+    expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
+    expect(notices).toContain("Refresh failed.");
   });
 
   it("uses the shared query observer as the authoritative list projection", async () => {
@@ -236,6 +257,27 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector(".codex-panel-threads__load-more")).toBeNull();
   });
 
+  it("keeps existing threads and notifies when loading another page fails", async () => {
+    const first = threadFromRecord(threadFixture({ id: "first", preview: "First page" }));
+    const loadMoreActive = vi.fn().mockRejectedValue(new Error("Load more failed."));
+    const view = await threadsView(
+      threadsHost({
+        threadCatalog: {
+          activeSnapshot: vi.fn(() => [first]),
+          loadActive: vi.fn().mockResolvedValue([first]),
+          hasMoreActive: vi.fn(() => true),
+          loadMoreActive,
+        },
+      }),
+    );
+
+    view.containerEl.querySelector<HTMLButtonElement>(".codex-panel-threads__load-more")?.click();
+    await waitForAsyncWork(() => expect(notices).toContain("Load more failed."));
+
+    expect(view.containerEl.textContent).toContain("First page");
+    expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
+  });
+
   it("refreshes thread lists through the plugin coordinator", async () => {
     const threads = [{ id: "thread", preview: "Thread preview", name: null, archived: false, createdAt: 1, updatedAt: 1 }];
     const refresh = vi.fn().mockResolvedValue(threads);
@@ -299,6 +341,34 @@ describe("CodexThreadsView", () => {
 
     expect(view.containerEl.textContent).toContain("No threads");
     expect(view.containerEl.textContent).not.toContain("boom");
+  });
+
+  it("keeps observed refresh failures out of an existing thread list", async () => {
+    let observedThreads!: (result: ObservedPaginatedResult<readonly Thread[]>) => void;
+    const existing = threadFromRecord(threadFixture({ id: "existing", preview: "Existing thread" }));
+    const view = await threadsView(
+      threadsHost({
+        threadCatalog: {
+          loadActive: vi.fn(
+            () =>
+              new Promise(() => {
+                // Drive the shared query state directly.
+              }),
+          ),
+          observeActive: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
+            observedThreads = listener;
+            return () => undefined;
+          }),
+        },
+      }),
+    );
+
+    observedThreads(queryResult([existing]));
+    observedThreads(queryResult([existing], new Error("Background refresh failed.")));
+
+    expect(view.containerEl.textContent).toContain("Existing thread");
+    expect(view.containerEl.textContent).not.toContain("Background refresh failed.");
+    expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
   });
 
   it("publishes an archive catalog event without closing panel leaves", async () => {
@@ -446,6 +516,42 @@ describe("CodexThreadsView", () => {
 
     expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("New draft");
     expect(view.containerEl.textContent).not.toContain("Older save failed.");
+    expect(notices).not.toContain("Older save failed.");
+  });
+
+  it("notifies a current rename failure without adding list status", async () => {
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/name/set": vi.fn().mockRejectedValue(new Error("Rename failed.")),
+    });
+    const view = await threadsView();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
+
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    if (!input) throw new Error("Missing rename input");
+    changeInputValue(input, "New name");
+    input.dispatchEvent(new FocusEvent("blur"));
+    await waitForAsyncWork(() => expect(notices).toContain("Rename failed."));
+
+    expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("New name");
+  });
+
+  it("notifies an archive failure without adding list status", async () => {
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/archive": vi.fn().mockRejectedValue(new Error("Archive failed.")),
+    });
+    const view = await threadsView();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
+
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
+    await waitForAsyncWork(() => expect(notices).toContain("Archive failed."));
+
+    expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
+    expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).not.toBeNull();
   });
 
   it("auto-names a thread rename draft from completed history", async () => {

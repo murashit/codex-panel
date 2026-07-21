@@ -527,6 +527,22 @@ describe("Toolbar decisions", () => {
     expect(parent.textContent).toContain("Loading threads…");
     expect(parent.textContent).not.toContain("No threads");
   });
+
+  it("renders thread list failures as non-navigation status", () => {
+    const parent = document.createElement("div");
+
+    mountToolbar(
+      parent,
+      toolbarModel({ historyOpen: true, openPanel: "history", threads: [], threadListError: "Could not load threads." }),
+      toolbarActions(),
+    );
+
+    const status = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-list-status"));
+    expect(status.textContent).toBe("Could not load threads.");
+    expect(status.getAttribute("role")).toBe("status");
+    expect(status.classList.contains("codex-panel-ui__nav-item")).toBe(false);
+    expect(parent.querySelector(".codex-panel__thread--error")).toBeNull();
+  });
 });
 
 function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewModel {

@@ -13,6 +13,15 @@
   line-height: var(--line-height-tight);
 }
 
+.codex-panel-threads__status {
+  padding: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
+  overflow-wrap: anywhere;
+}
+
+.codex-panel-threads__status--error {
+  color: var(--codex-panel-color-danger);
+}
+
 .codex-panel-threads__empty {
   box-sizing: border-box;
   min-height: var(--codex-panel-size-nav-item);

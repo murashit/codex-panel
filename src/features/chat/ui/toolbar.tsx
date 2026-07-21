@@ -368,7 +368,11 @@ function ThreadList({
       {threads.map((thread) => (
         <ThreadListRow key={thread.threadId} thread={thread} actions={actions} />
       ))}
-      {error ? <ToolbarPanelItem label={error} className="codex-panel__thread codex-panel__thread--error" interactive={false} /> : null}
+      {error ? (
+        <div className="codex-panel__thread-list-status codex-panel__thread-list-status--error" role="status">
+          {error}
+        </div>
+      ) : null}
       {hasMore ? (
         <ToolbarPanelItem
           label={loadingMore ? "Loading more threads…" : "Load more threads"}

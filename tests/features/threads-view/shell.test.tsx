@@ -68,6 +68,31 @@ function threadsViewActions() {
 }
 
 describe("threads view renderer decisions", () => {
+  it("renders an initial load failure as status instead of a navigation row or empty state", () => {
+    const parent = document.createElement("div");
+
+    renderThreadsViewShell(
+      parent,
+      { status: { kind: "error", message: "Could not load threads." }, loading: false, rows: [] },
+      threadsViewActions(),
+    );
+
+    const status = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__status"));
+    expect(status.textContent).toBe("Could not load threads.");
+    expect(status.getAttribute("role")).toBe("status");
+    expect(status.classList.contains("codex-panel-ui__nav-item")).toBe(false);
+    expect(parent.querySelector(".codex-panel-threads__empty")).toBeNull();
+  });
+
+  it("reserves the empty state for a successfully loaded empty list", () => {
+    const parent = document.createElement("div");
+
+    renderThreadsViewShell(parent, { status: null, loading: false, rows: [] }, threadsViewActions());
+
+    expect(parent.querySelector(".codex-panel-threads__empty")?.textContent).toBe("No threads");
+    expect(parent.querySelector(".codex-panel-threads__status")).toBeNull();
+  });
+
   it("prioritizes open panel live state per thread", () => {
     expect(
       threadRows(
@@ -112,7 +137,7 @@ describe("threads view renderer decisions", () => {
       new Map(),
     );
 
-    renderThreadsViewShell(parent, { status: "2 threads", loading: false, rows }, actions);
+    renderThreadsViewShell(parent, { status: null, loading: false, rows }, actions);
 
     const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--pending"));
     expect(main.textContent).toContain("Open thread");
@@ -136,7 +161,7 @@ describe("threads view renderer decisions", () => {
       archiveConfirm: { active: true, defaultSaveMarkdown: false },
     });
 
-    renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
+    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
 
     const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__archive-confirm"));
     const archiveButtons = [
@@ -158,7 +183,7 @@ describe("threads view renderer decisions", () => {
     const actions = threadsViewActions();
     const row = rowFixture();
 
-    renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
+    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
     parent.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
 
     expect(actions.startArchive).toHaveBeenCalledWith("thread");
@@ -174,7 +199,7 @@ describe("threads view renderer decisions", () => {
       rename: { active: true, draft: "Old name", generating: false, autoNameDisabled: false },
     });
 
-    renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
+    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
 
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
     expect(document.activeElement).toBe(input);
@@ -185,7 +210,7 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(
       parent,
       {
-        status: "1 thread",
+        status: null,
         loading: false,
         rows: [{ ...row, rename: { active: true, draft: "New name", generating: false, autoNameDisabled: false } }],
       },
@@ -215,7 +240,7 @@ describe("threads view renderer decisions", () => {
       rename: { active: true, draft: "Old name", generating: false, autoNameDisabled: false },
     });
 
-    renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
+    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
 
     expect(parent.querySelector<HTMLElement>(".codex-panel-threads__rename-form")).toBeTruthy();
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
@@ -231,7 +256,7 @@ describe("threads view renderer decisions", () => {
       rename: { active: true, draft: "Old name", generating: true, autoNameDisabled: false },
     });
 
-    renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
+    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
 
     expect(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(true);
     const cancelAutoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));

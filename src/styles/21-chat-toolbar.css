@@ -295,6 +295,18 @@
   overflow-y: visible;
 }
 
+.codex-panel__thread-list-status {
+  padding: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
+  color: var(--codex-panel-text-muted);
+  font-size: var(--codex-panel-toolbar-text-size);
+  line-height: var(--codex-panel-toolbar-line-height);
+  overflow-wrap: anywhere;
+}
+
+.codex-panel__thread-list-status--error {
+  color: var(--codex-panel-color-danger);
+}
+
 .codex-panel__thread-row {
   grid-template-columns: minmax(0, 1fr) 0 0;
   gap: 0;

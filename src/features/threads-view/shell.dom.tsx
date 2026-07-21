@@ -9,7 +9,7 @@ type ButtonProps = ButtonHTMLAttributes & {
 };
 
 export interface ThreadsViewShellModel {
-  status: string | null;
+  status: { kind: "loading" | "error"; message: string } | null;
   loading: boolean;
   fetching?: boolean;
   hasMore?: boolean;
@@ -66,10 +66,22 @@ function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; ac
       </div>
       <div className="codex-panel-threads__list">
         {model.rows.length === 0 ? (
-          <div className="codex-panel-threads__empty">{model.status ?? (model.loading ? "Loading threads..." : "No threads")}</div>
+          model.status ? (
+            <div
+              className={
+                model.status.kind === "error"
+                  ? "codex-panel-threads__status codex-panel-threads__status--error"
+                  : "codex-panel-threads__status"
+              }
+              role="status"
+            >
+              {model.status.message}
+            </div>
+          ) : (
+            <div className="codex-panel-threads__empty">No threads</div>
+          )
         ) : (
           <>
-            {model.status ? <div className="codex-panel-threads__status">{model.status}</div> : null}
             {model.rows.map((row) => (
               <ThreadRow key={row.threadId} row={row} actions={actions} />
             ))}
