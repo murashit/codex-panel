@@ -8,6 +8,7 @@ import {
   type SkillReference,
   type VaultFileReference,
 } from "../../../../domain/chat/input";
+import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../../../domain/markdown/code-ranges";
 import {
   type ActiveNoteContextReference,
   type ComposerContextReferences,
@@ -43,10 +44,11 @@ interface PreparedComposerInputOptions {
   referenceActiveNoteOnSend: boolean;
 }
 
-function parsedWikiLinks(text: string): ParsedWikiLink[] {
+function parsedWikiLinks(text: string, codeRanges: readonly MarkdownCodeRange[]): ParsedWikiLink[] {
   const links: ParsedWikiLink[] = [];
   const seen = new Set<string>();
   for (const match of text.matchAll(WIKILINK_PATTERN)) {
+    if (markdownCodeRangeContainsOffset(codeRanges, match.index)) continue;
     const rawValue = match[1];
     if (rawValue === undefined) continue;
     const raw = rawValue.trim();
@@ -67,14 +69,15 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   contextReferences: ComposerContextReferences,
   options: PreparedComposerInputOptions,
 ): PreparedComposerInput {
-  const contextReplacement = textWithContextReferences(text, contextReferences);
+  const codeRanges = markdownReferenceCodeRanges(text);
+  const contextReplacement = textWithContextReferences(text, contextReferences, codeRanges);
   const resolvedText = contextReplacement.text;
   const fileReferences: VaultFileReference[] = [];
   const wikilinkReferences: ObsidianReference[] = [];
   const seenPaths = new Set<string>();
   const activeNoteSnapshots = contextReferences.activeNoteSnapshots ?? [];
 
-  for (const link of parsedWikiLinks(resolvedText)) {
+  for (const link of parsedWikiLinks(resolvedText, codeRanges)) {
     const fileReference = activeNoteFileReferenceForLink(link, activeNoteSnapshots) ?? resolveFileReference(link.target);
     if (!fileReference || seenPaths.has(fileReference.path)) continue;
     seenPaths.add(fileReference.path);
@@ -94,7 +97,7 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   const skillByName = firstEnabledSkillByName(skills);
   const resolvedSkills: SkillReference[] = [];
   const seenSkillPaths = new Set<string>();
-  for (const reference of parsedSkillReferences(resolvedText)) {
+  for (const reference of parsedSkillReferences(resolvedText, codeRanges)) {
     const skill = skillByName.get(reference.toLowerCase());
     if (!skill || seenSkillPaths.has(skill.path)) continue;
     seenSkillPaths.add(skill.path);
@@ -120,19 +123,24 @@ function activeNoteFileReferenceForLink(link: ParsedWikiLink, snapshots: readonl
 function textWithContextReferences(
   text: string,
   contextReferences: ComposerContextReferences,
+  codeRanges: readonly MarkdownCodeRange[],
 ): { text: string; selections: SelectionContextReference[] } {
   return {
     text,
-    selections: selectionsReferencedByText(text, contextReferences.selectionSnapshots ?? []),
+    selections: selectionsReferencedByText(text, contextReferences.selectionSnapshots ?? [], codeRanges),
   };
 }
 
-function selectionsReferencedByText(text: string, snapshots: readonly SelectionContextReference[]): SelectionContextReference[] {
+function selectionsReferencedByText(
+  text: string,
+  snapshots: readonly SelectionContextReference[],
+  codeRanges: readonly MarkdownCodeRange[],
+): SelectionContextReference[] {
   const selections: SelectionContextReference[] = [];
   const seen = new Set<string>();
   for (const snapshot of snapshots) {
     const marker = selectionContextReferenceMarker(snapshot);
-    if (!text.includes(marker) || seen.has(marker)) continue;
+    if (!includesOutsideMarkdownCode(text, marker, codeRanges) || seen.has(marker)) continue;
     seen.add(marker);
     selections.push(snapshot);
   }
@@ -200,10 +208,12 @@ function excerptLines(references: readonly (ObsidianReference & { excerpt: strin
   });
 }
 
-function parsedSkillReferences(text: string): string[] {
+function parsedSkillReferences(text: string, codeRanges: readonly MarkdownCodeRange[]): string[] {
   const references: string[] = [];
   const seen = new Set<string>();
   for (const match of text.matchAll(SKILL_REFERENCE_PATTERN)) {
+    const prefix = match[1] ?? "";
+    if (markdownCodeRangeContainsOffset(codeRanges, match.index + prefix.length)) continue;
     const name = match[2];
     if (name === undefined) continue;
     const key = name.toLowerCase();
@@ -212,6 +222,19 @@ function parsedSkillReferences(text: string): string[] {
     references.push(name);
   }
   return references;
+}
+
+function markdownReferenceCodeRanges(text: string): MarkdownCodeRange[] {
+  return text.includes("[[") || text.includes("$") ? markdownCodeRanges(text) : [];
+}
+
+function includesOutsideMarkdownCode(text: string, value: string, codeRanges: readonly MarkdownCodeRange[]): boolean {
+  let index = text.indexOf(value);
+  while (index >= 0) {
+    if (!markdownCodeRangeContainsOffset(codeRanges, index)) return true;
+    index = text.indexOf(value, index + value.length);
+  }
+  return false;
 }
 
 function parseWikiLink(raw: string): ParsedWikiLink | null {

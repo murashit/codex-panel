@@ -170,6 +170,79 @@ describe("wikilink context", () => {
     ]);
   });
 
+  it("does not resolve wikilinks or skills written as Markdown code", () => {
+    const text = [
+      "Use [[Visible]] and $Visible.",
+      "",
+      "`[[Inline]] $Inline`",
+      "",
+      "```text",
+      "[[Fenced]] $Fenced",
+      "```",
+      "",
+      "    [[Indented]] $Indented",
+    ].join("\n");
+    const skills = ["Visible", "Inline", "Fenced", "Indented"].map(
+      (name) =>
+        ({
+          name,
+          description: name,
+          path: `/skills/${name.toLowerCase()}/SKILL.md`,
+          scope: "repo",
+          enabled: true,
+        }) as never,
+    );
+
+    const input = userInputWithWikiLinkReferencesAndSkills(text, (target) => ({ name: target, path: `${target}.md` }), skills);
+
+    expect(input).toEqual([
+      { type: "text", text },
+      { type: "fileReference", name: "Visible", path: "Visible.md" },
+      { type: "skill", name: "Visible", path: "/skills/visible/SKILL.md" },
+      wikilinkContext("- [[Visible]] -> Visible.md"),
+    ]);
+  });
+
+  it("does not attach selection snapshots referenced only inside Markdown code", () => {
+    const text = "```text\n[[Alpha]] (L42:C5-L47:C1)\n```";
+    const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
+      text,
+      () => null,
+      [],
+      {
+        activeNote: null,
+        selection: null,
+        selectionSnapshots: [
+          {
+            name: "Alpha",
+            path: "notes/Alpha.md",
+            linktext: "Alpha",
+            range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+            text: "selected text",
+          },
+        ],
+      },
+      { referenceActiveNoteOnSend: false },
+    );
+
+    expect(prepared.input).toEqual([{ type: "text", text }]);
+  });
+
+  it("keeps raw Obsidian wikilinks intact when CommonMark would split their contents", () => {
+    const text = "Read [[A *strange* note]].";
+    const input = userInputWithWikiLinkReferencesAndSkills(
+      text,
+      (target) => (target === "A *strange* note" ? { name: target, path: "notes/Strange.md" } : null),
+      [],
+    );
+
+    expect(input).toEqual([
+      { type: "text", text },
+      { type: "fileReference", name: "A *strange* note", path: "notes/Strange.md" },
+      wikilinkContext("- [[A *strange* note]] -> notes/Strange.md"),
+    ]);
+  });
+
   it("leaves bare context references as raw text", () => {
     const text = "整理して @active and @selection";
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(

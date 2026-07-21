@@ -278,7 +278,19 @@ describe("turn item conversion preserves app-server semantics", () => {
       content: [
         {
           type: "text",
-          text: "Use `$obsidian-codex-panel-maintain`.\n\n```\n$obsidian-codex-panel-maintain\n```\n\nThen $obsidian-codex-panel-maintain.",
+          text: [
+            "Use `$obsidian-codex-panel-maintain`.",
+            "",
+            "```text",
+            "$obsidian-codex-panel-maintain",
+            "```not-a-closing-fence",
+            "$obsidian-codex-panel-maintain",
+            "```",
+            "",
+            "    $obsidian-codex-panel-maintain",
+            "",
+            "Then $obsidian-codex-panel-maintain.",
+          ].join("\n"),
           text_elements: [],
         },
         { type: "skill", name: "obsidian-codex-panel-maintain", path: "/skills/obsidian-codex-panel-maintain/SKILL.md" },
@@ -286,7 +298,19 @@ describe("turn item conversion preserves app-server semantics", () => {
     };
 
     expect(threadStreamItemFromTurnItem(item)).toMatchObject({
-      text: "Use `$obsidian-codex-panel-maintain`.\n\n```\n$obsidian-codex-panel-maintain\n```\n\nThen `$obsidian-codex-panel-maintain`.",
+      text: [
+        "Use `$obsidian-codex-panel-maintain`.",
+        "",
+        "```text",
+        "$obsidian-codex-panel-maintain",
+        "```not-a-closing-fence",
+        "$obsidian-codex-panel-maintain",
+        "```",
+        "",
+        "    $obsidian-codex-panel-maintain",
+        "",
+        "Then `$obsidian-codex-panel-maintain`.",
+      ].join("\n"),
     });
   });
 
