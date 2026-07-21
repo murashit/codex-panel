@@ -48,6 +48,8 @@ export interface UserMessageContextProjection {
   manifest: TurnContextManifest | null;
 }
 
+type UserMessageContentItem = { type: "text"; text: string } | { type: string };
+
 export function turnContextManifestText(manifest: TurnContextManifest): string {
   return `${TURN_CONTEXT_MANIFEST_PREFIX}${TURN_CONTEXT_MANIFEST_NOTICE}${JSON.stringify(manifest)}`;
 }
@@ -110,24 +112,33 @@ function turnContextManifestFromText(text: string): TurnContextManifest | null {
 }
 
 export function userMessageContextProjection(
-  content: readonly ({ type: "text"; text: string } | { type: string })[],
+  content: readonly UserMessageContentItem[],
   clientId: string | null,
 ): UserMessageContextProjection {
   let manifest: TurnContextManifest | null = null;
   const visibleText: string[] = [];
+  const lastTextIndex = lastTextItemIndex(content);
   for (const [index, item] of content.entries()) {
     if (item.type !== "text" || !("text" in item) || typeof item.text !== "string") continue;
-    const parsed =
-      index > 0 && index === content.length - 1 && item.text.startsWith(`\n${TURN_CONTEXT_MANIFEST_PREFIX}`)
-        ? turnContextManifestFromText(item.text)
-        : null;
+    const manifestPrefix = `\n${TURN_CONTEXT_MANIFEST_PREFIX}`;
+    const manifestStart = index === lastTextIndex ? item.text.lastIndexOf(manifestPrefix) : -1;
+    const isStandaloneManifest = manifestStart === 0 && index > 0 && index === content.length - 1;
+    const parsed = manifestStart > 0 || isStandaloneManifest ? turnContextManifestFromText(item.text.slice(manifestStart)) : null;
     if (parsed && manifestMatchesClientId(parsed, clientId)) {
       manifest = parsed;
+      if (manifestStart > 0) visibleText.push(item.text.slice(0, manifestStart));
       continue;
     }
     visibleText.push(item.text);
   }
   return { text: visibleText.join("\n"), manifest };
+}
+
+function lastTextItemIndex(content: readonly UserMessageContentItem[]): number {
+  for (let index = content.length - 1; index >= 0; index -= 1) {
+    if (content[index]?.type === "text") return index;
+  }
+  return -1;
 }
 
 export function turnContextSubmissionId(value: string): string {

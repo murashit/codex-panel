@@ -118,6 +118,33 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it("restores v2 metadata when resume merges text before a non-text input", () => {
+    const clientId = "local-user-1-seed-1-1";
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "Read [[Alpha]]." },
+        { type: "fileReference", name: "Alpha", path: "thoughts/Alpha.md" },
+        { type: "localImage", path: "/tmp/chart.png" },
+      ],
+      clientId,
+    );
+    const normalizedText = prepared.input.flatMap((item) => (item.type === "text" ? [item.text] : [])).join("");
+    const nonTextInput = prepared.input.filter((item) => item.type !== "text");
+
+    expect(
+      threadStreamItemFromTurnItem({
+        type: "userMessage",
+        id: "u1",
+        clientId,
+        content: [{ type: "text", text: normalizedText, text_elements: [] }, ...nonTextInput],
+      }),
+    ).toMatchObject({
+      text: "Read [[Alpha]].\n[local image] /tmp/chart.png",
+      copyText: "Read [[Alpha]].\n[local image] /tmp/chart.png",
+      referencedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
+    });
+  });
+
   it("accepts a persisted attachment descriptor after an unpersisted reference context", () => {
     const clientId = "local-user-1-seed-1-1";
     const prepared = appServerTurnInputFromCodexInput(

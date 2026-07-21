@@ -205,6 +205,24 @@ describe("turn context manifest trust matching", () => {
     });
   });
 
+  it("hides a trusted manifest appended to visible text by resume normalization", () => {
+    expect(
+      userMessageContextProjection([{ type: "text", text: `visible request\n${turnContextManifestText(validManifest())}` }], SUBMISSION_ID),
+    ).toEqual({
+      text: "visible request",
+      manifest: validManifest(),
+    });
+  });
+
+  it("keeps an appended manifest-like suffix visible when its client ID is not trusted", () => {
+    const text = `visible request\n${turnContextManifestText(validManifest())}`;
+
+    expect(userMessageContextProjection([{ type: "text", text }], "foreign-client")).toEqual({
+      text,
+      manifest: null,
+    });
+  });
+
   it.each([
     ["submission mismatch", { submissionId: "local-user-2-seed-2-2" }],
     ["context mismatch", { contexts: [{ ...validManifest().contexts[0], id: `${SUBMISSION_ID}.99x` }] }],
