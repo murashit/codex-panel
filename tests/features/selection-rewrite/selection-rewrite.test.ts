@@ -7,11 +7,10 @@ import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/serv
 import { createAppServerSelectionRewriteTransport } from "../../../src/features/selection-rewrite/app-server-transport";
 import { buildSelectionDiffLines } from "../../../src/features/selection-rewrite/diff";
 import { canApplySelectionRewrite, type SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
-import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
-import type { SelectionRewriteTransportRequest } from "../../../src/features/selection-rewrite/transport";
+import { SelectionRewriteOutputError, type SelectionRewriteTransportRequest } from "../../../src/features/selection-rewrite/transport";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
@@ -29,25 +28,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-describe("selection selection rewrite output", () => {
-  it("parses valid selection rewrite JSON", () => {
-    expect(selectionRewriteOutputParseResultFromText('{"replacementText":"rewritten"}').output).toEqual({ replacementText: "rewritten" });
-  });
-
-  it("rejects invalid selection rewrite JSON", () => {
-    expect(selectionRewriteOutputParseResultFromText("replacementText: rewritten").output).toBeNull();
-    expect(selectionRewriteOutputParseResultFromText('{"replacementText":42}').output).toBeNull();
-    expect(selectionRewriteOutputParseResultFromText('{"text":"rewritten"}').output).toBeNull();
-  });
-
-  it("keeps raw model text when selection rewrite output parsing fails", () => {
-    expect(selectionRewriteOutputParseResultFromText("replacementText: final")).toEqual({
-      output: null,
-      rawText: "replacementText: final",
-    });
-  });
 });
 
 describe("selection rewrite prompt", () => {
@@ -243,10 +223,14 @@ describe("selection rewrite app-server transport", () => {
     );
   });
 
-  it("reports invalid structured output with the raw assistant text", async () => {
-    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([agentMessage("answer", "invalid raw output")]));
+  it.each([
+    "invalid raw output",
+    '{"replacementText":42}',
+    '{"text":"rewritten"}',
+  ])("reports invalid structured output with the raw assistant text: %s", async (rawText) => {
+    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([agentMessage("answer", rawText)]));
 
-    await expect(runSelectionRewrite(runOptions(runner))).rejects.toMatchObject({ rawText: "invalid raw output" });
+    await expect(runSelectionRewrite(runOptions(runner))).rejects.toMatchObject({ rawText });
   });
 });
 

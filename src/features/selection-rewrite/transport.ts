@@ -1,7 +1,20 @@
 import type { SelectionRewriteRuntimeSettings } from "./model";
-import type { SelectionRewriteOutput } from "./output";
 
 export type SelectionRewriteActivity = "reasoning" | "writing";
+
+export interface SelectionRewriteOutput {
+  replacementText: string;
+}
+
+export class SelectionRewriteOutputError extends Error {
+  constructor(
+    message: string,
+    readonly rawText: string | null,
+  ) {
+    super(message);
+    this.name = "SelectionRewriteOutputError";
+  }
+}
 
 export interface SelectionRewriteTransportRequest {
   prompt: string;

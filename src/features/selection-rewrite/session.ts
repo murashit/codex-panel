@@ -1,7 +1,6 @@
 import type { SelectionRewriteInstructionHistoryDirection, SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
-import { SelectionRewriteOutputError } from "./output";
 import { buildSelectionRewritePrompt } from "./prompt";
-import type { SelectionRewriteActivity, SelectionRewriteTransport } from "./transport";
+import { type SelectionRewriteActivity, SelectionRewriteOutputError, type SelectionRewriteTransport } from "./transport";
 
 const MAX_SELECTION_REWRITE_INSTRUCTION_HISTORY = 20;
 

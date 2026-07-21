@@ -3,9 +3,13 @@ import {
   runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
-import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText } from "./output";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
-import type { SelectionRewriteTransport, SelectionRewriteTransportRequest } from "./transport";
+import {
+  type SelectionRewriteOutput,
+  SelectionRewriteOutputError,
+  type SelectionRewriteTransport,
+  type SelectionRewriteTransportRequest,
+} from "./transport";
 
 const SELECTION_REWRITE_TIMEOUT_MS = 120_000;
 
@@ -60,7 +64,19 @@ async function runAppServerSelectionRewrite(options: AppServerSelectionRewriteTr
     },
     options.runner,
   );
-  const { output, rawText } = selectionRewriteOutputParseResultFromText(lastAgentText);
-  if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
+  const output = selectionRewriteOutputFromText(lastAgentText);
+  if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", lastAgentText);
   return output;
+}
+
+function selectionRewriteOutputFromText(text: string | null): SelectionRewriteOutput | null {
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text.trim()) as unknown;
+    if (!parsed || typeof parsed !== "object") return null;
+    const replacementText = (parsed as { replacementText?: unknown }).replacementText;
+    return typeof replacementText === "string" ? { replacementText } : null;
+  } catch {
+    return null;
+  }
 }
