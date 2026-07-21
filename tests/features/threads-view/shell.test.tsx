@@ -44,7 +44,7 @@ function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
     title,
     live: null,
     selected: false,
-    rename: { active: false, draft: title, generating: false, autoNameDisabled: true },
+    rename: { active: false, draft: title, generating: false, saving: false, autoNameDisabled: true },
     archiveConfirm: { active: false, defaultSaveMarkdown: false },
     ...overrides,
   };
@@ -196,7 +196,7 @@ describe("threads view renderer decisions", () => {
     const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
-      rename: { active: true, draft: "Old name", generating: false, autoNameDisabled: false },
+      rename: { active: true, draft: "Old name", generating: false, saving: false, autoNameDisabled: false },
     });
 
     renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
@@ -212,7 +212,7 @@ describe("threads view renderer decisions", () => {
       {
         status: null,
         loading: false,
-        rows: [{ ...row, rename: { active: true, draft: "New name", generating: false, autoNameDisabled: false } }],
+        rows: [{ ...row, rename: { active: true, draft: "New name", generating: false, saving: false, autoNameDisabled: false } }],
       },
       actions,
     );
@@ -237,7 +237,7 @@ describe("threads view renderer decisions", () => {
     const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
-      rename: { active: true, draft: "Old name", generating: false, autoNameDisabled: false },
+      rename: { active: true, draft: "Old name", generating: false, saving: false, autoNameDisabled: false },
     });
 
     renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
@@ -253,7 +253,7 @@ describe("threads view renderer decisions", () => {
     const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
-      rename: { active: true, draft: "Old name", generating: true, autoNameDisabled: false },
+      rename: { active: true, draft: "Old name", generating: true, saving: false, autoNameDisabled: false },
     });
 
     renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
@@ -263,6 +263,28 @@ describe("threads view renderer decisions", () => {
     expect(cancelAutoName.disabled).toBe(false);
     cancelAutoName.click();
     expect(actions.cancelAutoName).toHaveBeenCalledWith("thread");
+  });
+
+  it("locks threads view rename controls while saving", () => {
+    const parent = document.createElement("div");
+    const actions = threadsViewActions();
+    const row = rowFixture({
+      title: "Old name",
+      rename: { active: true, draft: "Old name", generating: false, saving: true, autoNameDisabled: false },
+    });
+
+    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
+
+    const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
+    expect(input.disabled).toBe(true);
+    input.dispatchEvent(new FocusEvent("blur"));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const autoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
+    expect(autoName.disabled).toBe(true);
+    autoName.click();
+    expect(actions.saveRename).not.toHaveBeenCalled();
+    expect(actions.cancelRename).not.toHaveBeenCalled();
+    expect(actions.autoNameThread).not.toHaveBeenCalled();
   });
 
   it("disables history expansion during any shared thread fetch", () => {

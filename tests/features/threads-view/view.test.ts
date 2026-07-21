@@ -445,7 +445,7 @@ describe("CodexThreadsView", () => {
     });
   });
 
-  it("does not clear a newer rename edit when an older save finishes", async () => {
+  it("keeps the rename editor locked until a save finishes", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);
     connectionMock.state.client = clientFixture({
@@ -471,10 +471,8 @@ describe("CodexThreadsView", () => {
 
     firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const secondInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    expect(secondInput).not.toBeNull();
-    if (!secondInput) return;
-    changeInputValue(secondInput, "New draft");
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(true);
+    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
 
     saved.resolve({});
 
@@ -484,11 +482,11 @@ describe("CodexThreadsView", () => {
         threadId: "thread",
         name: "Saved title",
       });
-      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("New draft");
+      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).toBeNull();
     });
   });
 
-  it("does not report an older save failure over a newer rename edit", async () => {
+  it("restores the same editor when a locked rename save fails", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);
     connectionMock.state.client = clientFixture({
@@ -507,16 +505,14 @@ describe("CodexThreadsView", () => {
 
     firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const secondInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    if (!secondInput) throw new Error("Missing newer rename input");
-    changeInputValue(secondInput, "New draft");
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(true);
 
-    saved.reject(new Error("Older save failed."));
+    saved.reject(new Error("Rename failed."));
     for (let index = 0; index < 10; index += 1) await Promise.resolve();
 
-    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("New draft");
-    expect(view.containerEl.textContent).not.toContain("Older save failed.");
-    expect(notices).not.toContain("Older save failed.");
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Saved title");
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(false);
+    expect(notices).toContain("Rename failed.");
   });
 
   it("notifies a current rename failure without adding list status", async () => {

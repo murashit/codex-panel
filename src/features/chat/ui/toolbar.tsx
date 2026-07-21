@@ -12,14 +12,14 @@ export interface ToolbarThreadRow {
   title: string;
   threadId: string;
   selected: boolean;
-  disabled: boolean;
-  openDisabled?: boolean;
+  renameDisabled: boolean;
   archiveDisabled: boolean;
   canArchive: boolean;
   archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
   rename: {
     draft: string;
     generating: boolean;
+    saving: boolean;
     autoNameDisabled: boolean;
   } | null;
 }
@@ -411,7 +411,6 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
             label={thread.title}
             selected={thread.selected}
             selectionStyle="row"
-            disabled={thread.openDisabled ?? thread.disabled}
             className="codex-panel__thread"
             onClick={() => {
               actions.resume(thread.threadId);
@@ -422,7 +421,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
               icon="pencil"
               label="Rename thread"
               className="codex-panel__thread-action"
-              disabled={thread.disabled}
+              disabled={thread.renameDisabled}
               onClick={(event) => {
                 event.stopPropagation();
                 actions.rename.start(thread.threadId);
@@ -490,10 +489,12 @@ function ArchiveModeButton({
 function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const generating = thread.rename?.generating ?? false;
+  const saving = thread.rename?.saving ?? false;
+  const renameBusy = generating || saving;
   const draft = thread.rename?.draft ?? thread.title;
   useLayoutEffect(() => {
-    if (!generating) focusToolbarRenameInput(inputRef.current);
-  }, [draft, generating]);
+    if (!renameBusy) focusToolbarRenameInput(inputRef.current);
+  }, [draft, renameBusy]);
 
   return (
     <>
@@ -508,23 +509,23 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
               className="codex-panel-ui__nav-inline-input codex-panel__thread-rename-input"
               type="text"
               value={draft}
-              disabled={generating}
+              disabled={renameBusy}
               onInput={(event) => {
                 actions.rename.updateDraft(thread.threadId, event.currentTarget.value);
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  if (!event.isComposing && !generating) actions.rename.save(thread.threadId, event.currentTarget.value);
+                  if (!event.isComposing && !renameBusy) actions.rename.save(thread.threadId, event.currentTarget.value);
                   return;
                 }
                 if (event.key === "Escape") {
                   event.preventDefault();
-                  actions.rename.cancel(thread.threadId);
+                  if (!renameBusy) actions.rename.cancel(thread.threadId);
                 }
               }}
               onBlur={(event) => {
-                if (!generating) actions.rename.save(thread.threadId, event.currentTarget.value);
+                if (!renameBusy) actions.rename.save(thread.threadId, event.currentTarget.value);
               }}
             />
           </div>
@@ -534,7 +535,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
         icon={generating ? "x" : "sparkles"}
         label={generating ? "Cancel auto-name" : "Auto-name thread"}
         className="codex-panel__thread-action"
-        disabled={!generating && (thread.rename?.autoNameDisabled ?? true)}
+        disabled={saving || (!generating && (thread.rename?.autoNameDisabled ?? true))}
         onPointerDown={(event) => {
           event.preventDefault();
           event.stopPropagation();

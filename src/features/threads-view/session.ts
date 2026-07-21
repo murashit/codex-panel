@@ -68,6 +68,7 @@ export class ThreadsViewSession {
   private readonly renameContextPreparations = new Map<string, ThreadTitleContextPreparation>();
   private readonly renameGenerationControllers = new Map<string, { generationToken: number; controller: AbortController }>();
   private nextRenameGenerationToken = 1;
+  private nextRenameSaveToken = 1;
   private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
 
@@ -261,6 +262,8 @@ export class ThreadsViewSession {
   }
 
   private startRename(threadId: string, value: string): void {
+    const current = this.renameStates.get(threadId);
+    if (current?.kind === "saving") return;
     this.archiveConfirmThreadId = null;
     this.transitionRenameState(threadId, { type: "started", draft: value });
     this.render();
@@ -273,6 +276,7 @@ export class ThreadsViewSession {
   }
 
   private cancelRename(threadId: string): void {
+    if (this.renameStates.get(threadId)?.kind === "saving") return;
     this.abortAutoName(threadId);
     this.renameContextPreparations.delete(threadId);
     this.transitionRenameState(threadId, { type: "cancelled" });
@@ -288,24 +292,30 @@ export class ThreadsViewSession {
 
   private async saveRename(threadId: string, value: string): Promise<void> {
     const lease = this.captureOperationLease();
-    const editingState = this.renameStates.get(threadId);
-    if (!editingState || editingState.kind === "generating") return;
+    const previousState = this.renameStates.get(threadId);
+    if (previousState?.kind !== "editing") return;
+    const saveToken = this.nextRenameSaveToken;
+    const savingState = this.transitionRenameState(threadId, { type: "save-started", saveToken });
+    if (savingState === previousState || savingState?.kind !== "saving") return;
+    this.nextRenameSaveToken += 1;
+    this.render();
     try {
-      const result = await this.operations.renameThread(threadId, value, {
-        shouldStart: () => this.operationContextIsCurrent(lease),
-        shouldPublish: () => this.operationContextIsCurrent(lease),
+      await this.operations.renameThread(threadId, value, {
+        shouldStart: () => this.operationContextIsCurrent(lease) && this.renameSaveStillActive(threadId, saveToken),
+        shouldPublish: () => this.operationContextIsCurrent(lease) && this.renameSaveStillActive(threadId, saveToken),
       });
-      if (!this.operationViewIsCurrent(lease) || !this.renameEditStillCurrent(threadId, editingState.draft)) return;
-      if (!result) {
-        this.cancelRename(threadId);
-        return;
+      if (!this.operationViewIsCurrent(lease)) return;
+      const currentState = this.renameStates.get(threadId);
+      const nextState = this.transitionRenameState(threadId, { type: "save-succeeded", saveToken });
+      if (nextState !== currentState) {
+        if (!nextState) this.renameContextPreparations.delete(threadId);
+        this.render();
       }
-      this.renameStates.delete(threadId);
-      this.renameContextPreparations.delete(threadId);
-      this.render();
     } catch (error) {
-      if (!this.operationViewIsCurrent(lease) || !this.renameEditStillCurrent(threadId, editingState.draft)) return;
+      if (!this.operationViewIsCurrent(lease) || !this.renameSaveStillActive(threadId, saveToken)) return;
       this.noticeError(error);
+      this.transitionRenameState(threadId, { type: "save-failed", saveToken });
+      this.render();
     }
   }
 
@@ -409,7 +419,7 @@ export class ThreadsViewSession {
     if (!this.lifetime.isActive() || this.renameContextPreparations.get(threadId) !== preparation) return;
     this.renameContextPreparations.delete(threadId);
     const state = this.renameStates.get(threadId);
-    if (state?.kind !== "editing") return;
+    if (state?.kind !== "editing" && state?.kind !== "saving") return;
     this.transitionRenameState(threadId, { type: "auto-name-context-resolved", context });
     this.render();
   }
@@ -429,9 +439,9 @@ export class ThreadsViewSession {
     return nextState;
   }
 
-  private renameEditStillCurrent(threadId: string, draft: string): boolean {
+  private renameSaveStillActive(threadId: string, saveToken: number): boolean {
     const current = this.renameStates.get(threadId);
-    return current?.kind === "editing" && current.draft === draft;
+    return current?.kind === "saving" && current.saveToken === saveToken;
   }
 
   private viewWindow(): Window {

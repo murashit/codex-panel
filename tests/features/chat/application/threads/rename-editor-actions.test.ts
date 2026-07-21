@@ -149,11 +149,11 @@ describe("ThreadRenameEditorActions", () => {
     expect(actions.editState("thread")).toBeNull();
   });
 
-  it("does not save after cancellation while connection is pending", async () => {
+  it("blocks cancellation while a rename save is pending", async () => {
     const connection = deferred<undefined>();
     const renameThreadRequest = vi.fn().mockResolvedValue({});
     const client = fakeClient({ renameThreadRequest });
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       ensureConnected: vi.fn(() => connection.promise),
       currentClient: () => client,
     });
@@ -161,10 +161,12 @@ describe("ThreadRenameEditorActions", () => {
     actions.start("thread");
     const save = actions.save("thread", "Saved title");
     actions.cancel("thread");
+    expect(actions.editState("thread")).toEqual({ draft: "Thread preview", generating: false });
+    expect(stateStore.getState().ui.rename.kind).toBe("saving");
     connection.resolve(undefined);
     await save;
 
-    expect(renameThreadRequest).not.toHaveBeenCalled();
+    expect(renameThreadRequest).toHaveBeenCalledOnce();
     expect(actions.editState("thread")).toBeNull();
   });
 
@@ -205,7 +207,7 @@ describe("ThreadRenameEditorActions", () => {
     const readyContext = { userRequest: "Name this thread.", assistantResponse: "Done." };
     const resolveThreadTitleContext = vi.fn().mockReturnValue(context.promise);
     const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       currentClient: () => fakeClient({ renameThreadRequest: vi.fn(() => saved.promise) }),
       resolveThreadTitleContext,
       generateThreadTitle,
@@ -219,6 +221,8 @@ describe("ThreadRenameEditorActions", () => {
     await flushPromises();
     actions.updateDraft("thread", "Changed while saving");
     context.resolve(readyContext);
+    await flushPromises();
+    expect(stateStore.getState().ui.rename.kind).toBe("saving");
     saved.reject(new Error("Rename failed."));
     await saving;
     await flushPromises();
@@ -251,7 +255,7 @@ describe("ThreadRenameEditorActions", () => {
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("does not clear a newer inline rename when an older save finishes", async () => {
+  it("blocks starting another inline rename while a save is pending", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);
     const { actions, stateStore, notifyThreadRenamed } = actionsFixture({
@@ -259,19 +263,21 @@ describe("ThreadRenameEditorActions", () => {
     });
 
     actions.start("thread");
+    actions.updateDraft("thread", "Saved title");
     const save = actions.save("thread", " Saved   title ");
     await flushPromises();
 
     actions.cancel("thread");
     actions.start("thread");
     actions.updateDraft("thread", "New draft");
+    expect(actions.editState("thread")).toEqual({ draft: "Saved title", generating: false });
     saved.resolve({});
     await save;
 
     expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Saved title" });
     expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Saved title");
     expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
-    expect(actions.editState("thread")).toEqual({ draft: "New draft", generating: false });
+    expect(actions.editState("thread")).toBeNull();
   });
 
   it("ignores draft updates while auto-name generation is active", async () => {

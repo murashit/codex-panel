@@ -81,6 +81,38 @@ describe("chat panel surface projections", () => {
     unmountUiRoot(parent);
   });
 
+  it("disables other rename actions while a rename save is pending", () => {
+    let state = chatStateFixture({
+      activeThread: { id: "thread" },
+      threadList: { listedThreads: [threadFixture("thread", "Thread"), threadFixture("other", "Other")] },
+    });
+    state = chatStateWith(state, {
+      ui: {
+        toolbarPanel: "history",
+        rename: {
+          kind: "saving",
+          threadId: "thread",
+          draft: "Thread",
+          autoName: { kind: "unavailable" },
+          saveToken: 1,
+        },
+      },
+    });
+    const parent = renderWithShellModels(state, (models) =>
+      h(ChatPanelToolbar, {
+        model: models.toolbar,
+        stateStore: createChatStateStore(state),
+        surface: toolbarSurfaceFixture(),
+        actions: toolbarActionsFixture(),
+      }),
+    );
+
+    const renameButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Rename thread"]')];
+    expect(renameButtons).toHaveLength(1);
+    expect(renameButtons[0]?.disabled).toBe(true);
+    unmountUiRoot(parent);
+  });
+
   it("disables subagent chat actions except starting a new chat", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {

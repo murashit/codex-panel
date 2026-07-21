@@ -206,13 +206,17 @@ function toolbarThreadRows(input: {
       title: core.title,
       threadId: core.threadId,
       selected: core.selected,
-      disabled: false,
-      openDisabled: false,
+      renameDisabled: input.renameState.kind === "saving",
       archiveDisabled: input.turnBusy,
       canArchive: true,
       archiveConfirm: core.archiveConfirm,
       rename: core.rename.active
-        ? { draft: core.rename.draft, generating: core.rename.generating, autoNameDisabled: core.rename.autoNameDisabled }
+        ? {
+            draft: core.rename.draft,
+            generating: core.rename.generating,
+            saving: core.rename.saving,
+            autoNameDisabled: core.rename.autoNameDisabled,
+          }
         : null,
     };
   });

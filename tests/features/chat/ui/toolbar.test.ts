@@ -256,15 +256,23 @@ describe("Toolbar decisions", () => {
         historyOpen: true,
         openPanel: "history",
         threads: [
-          { title: "Thread", threadId: "thread", selected: true, disabled: false, archiveDisabled: false, canArchive: true, rename: null },
+          {
+            title: "Thread",
+            threadId: "thread",
+            selected: true,
+            renameDisabled: false,
+            archiveDisabled: false,
+            canArchive: true,
+            rename: null,
+          },
           {
             title: "Editing",
             threadId: "editing",
             selected: false,
-            disabled: false,
+            renameDisabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "Draft title", generating: false, autoNameDisabled: false },
+            rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: false },
           },
         ],
       }),
@@ -291,15 +299,23 @@ describe("Toolbar decisions", () => {
         historyOpen: true,
         openPanel: "history",
         threads: [
-          { title: "Thread", threadId: "thread", selected: true, disabled: false, archiveDisabled: false, canArchive: true, rename: null },
+          {
+            title: "Thread",
+            threadId: "thread",
+            selected: true,
+            renameDisabled: false,
+            archiveDisabled: false,
+            canArchive: true,
+            rename: null,
+          },
           {
             title: "Editing",
             threadId: "editing",
             selected: false,
-            disabled: false,
+            renameDisabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "New title", generating: false, autoNameDisabled: false },
+            rename: { draft: "New title", generating: false, saving: false, autoNameDisabled: false },
           },
         ],
       }),
@@ -335,10 +351,10 @@ describe("Toolbar decisions", () => {
             title: "Editing",
             threadId: "editing",
             selected: false,
-            disabled: false,
+            renameDisabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "Draft title", generating: true, autoNameDisabled: false },
+            rename: { draft: "Draft title", generating: true, saving: false, autoNameDisabled: false },
           },
         ],
       }),
@@ -363,10 +379,10 @@ describe("Toolbar decisions", () => {
             title: "Editing",
             threadId: "editing",
             selected: false,
-            disabled: false,
+            renameDisabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "Draft title", generating: false, autoNameDisabled: false },
+            rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: false },
           },
         ],
       }),
@@ -374,6 +390,44 @@ describe("Toolbar decisions", () => {
     );
     expect(document.activeElement).toBe(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input"));
     parent.remove();
+  });
+
+  it("locks rename controls while saving", () => {
+    const parent = document.createElement("div");
+    const saveRenameThread = vi.fn();
+    const cancelRenameThread = vi.fn();
+    const autoNameThread = vi.fn();
+
+    mountToolbar(
+      parent,
+      toolbarModel({
+        historyOpen: true,
+        openPanel: "history",
+        threads: [
+          {
+            title: "Editing",
+            threadId: "editing",
+            selected: false,
+            renameDisabled: true,
+            archiveDisabled: false,
+            canArchive: true,
+            rename: { draft: "Draft title", generating: false, saving: true, autoNameDisabled: false },
+          },
+        ],
+      }),
+      toolbarActions({ saveRenameThread, cancelRenameThread, autoNameThread }),
+    );
+
+    const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input"));
+    expect(input.disabled).toBe(true);
+    input.dispatchEvent(new FocusEvent("blur"));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const autoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
+    expect(autoName.disabled).toBe(true);
+    autoName.click();
+    expect(saveRenameThread).not.toHaveBeenCalled();
+    expect(cancelRenameThread).not.toHaveBeenCalled();
+    expect(autoNameThread).not.toHaveBeenCalled();
   });
 
   it("disables auto-name while title context is unavailable", () => {
@@ -390,10 +444,10 @@ describe("Toolbar decisions", () => {
             title: "Editing",
             threadId: "editing",
             selected: false,
-            disabled: false,
+            renameDisabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "Draft title", generating: false, autoNameDisabled: true },
+            rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: true },
           },
         ],
       }),
@@ -421,7 +475,7 @@ describe("Toolbar decisions", () => {
             title: "Thread",
             threadId: "thread",
             selected: true,
-            disabled: false,
+            renameDisabled: false,
             archiveDisabled: false,
             canArchive: true,
             archiveConfirm: { active: true, defaultSaveMarkdown: true },
@@ -461,7 +515,7 @@ describe("Toolbar decisions", () => {
             title: "Thread",
             threadId: "thread",
             selected: true,
-            disabled: false,
+            renameDisabled: false,
             archiveDisabled: true,
             canArchive: true,
             archiveConfirm: { active: true, defaultSaveMarkdown: true },
@@ -558,7 +612,15 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     debugDetails: () => "{}",
     openPanel: null,
     threads: [
-      { title: "Thread", threadId: "thread", selected: true, disabled: false, archiveDisabled: false, canArchive: true, rename: null },
+      {
+        title: "Thread",
+        threadId: "thread",
+        selected: true,
+        renameDisabled: false,
+        archiveDisabled: false,
+        canArchive: true,
+        rename: null,
+      },
     ],
     connectLabel: "Reconnect",
     permissionsAndApprovals: [{ title: "Permissions", rows: [{ label: "Thread", value: "(none)" }] }],

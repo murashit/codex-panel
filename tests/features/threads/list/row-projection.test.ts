@@ -32,6 +32,7 @@ describe("thread row core projection", () => {
       active: false,
       draft: "Preview title",
       generating: false,
+      saving: false,
       autoNameDisabled: true,
     });
     expect(threadRowCoreProjection({ thread: thread({ name: null, preview: "" }), selected: false }).rename.draft).toBe("");

@@ -226,9 +226,10 @@ function threadArchiveDisabled(row: ThreadsRowModel): boolean {
 
 function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const renameBusy = row.rename.generating || row.rename.saving;
   useLayoutEffect(() => {
-    if (!row.rename.generating) focusThreadsRenameInput(inputRef.current);
-  }, [row.rename.draft, row.rename.generating]);
+    if (!renameBusy) focusThreadsRenameInput(inputRef.current);
+  }, [row.rename.draft, renameBusy]);
 
   return (
     <>
@@ -239,23 +240,23 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
             className="codex-panel-ui__nav-inline-input codex-panel-threads__rename-input"
             type="text"
             value={row.rename.draft}
-            disabled={row.rename.generating}
+            disabled={renameBusy}
             onInput={(event) => {
               actions.updateRename(row.threadId, event.currentTarget.value);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                if (!event.isComposing && !row.rename.generating) actions.saveRename(row.threadId, event.currentTarget.value);
+                if (!event.isComposing && !renameBusy) actions.saveRename(row.threadId, event.currentTarget.value);
                 return;
               }
               if (event.key === "Escape") {
                 event.preventDefault();
-                actions.cancelRename(row.threadId);
+                if (!renameBusy) actions.cancelRename(row.threadId);
               }
             }}
             onBlur={(event) => {
-              if (!row.rename.generating) actions.saveRename(row.threadId, event.currentTarget.value);
+              if (!renameBusy) actions.saveRename(row.threadId, event.currentTarget.value);
             }}
           />
         </div>
@@ -265,7 +266,7 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
           icon={row.rename.generating ? "x" : "sparkles"}
           label={row.rename.generating ? "Cancel auto-name" : "Auto-name thread"}
           className="codex-panel-threads__row-button"
-          disabled={!row.rename.generating && row.rename.autoNameDisabled}
+          disabled={row.rename.saving || (!row.rename.generating && row.rename.autoNameDisabled)}
           onPointerDown={(event) => {
             event.preventDefault();
             event.stopPropagation();

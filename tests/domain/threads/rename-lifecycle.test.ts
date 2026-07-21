@@ -40,6 +40,25 @@ describe("thread rename lifecycle", () => {
 
     expect(transitionThreadRenameLifecycleState(idle, { type: "draft-updated", draft: "Stray" })).toBe(idle);
   });
+
+  it("serializes saving until the matching operation finishes", () => {
+    const editing = expectRenameState(
+      transitionThreadRenameLifecycleState(initialThreadRenameLifecycleState(), { type: "started", draft: "Draft" }),
+    );
+    const saving = transitionThreadRenameLifecycleState(editing, { type: "save-started", saveToken: 1 });
+    if (saving.kind !== "saving") throw new Error("Expected saving rename state.");
+
+    expect(transitionThreadRenameLifecycleState(saving, { type: "draft-updated", draft: "Changed" })).toBe(saving);
+    expect(transitionThreadRenameLifecycleState(saving, { type: "cancelled" })).toBe(saving);
+    expect(transitionThreadRenameLifecycleState(saving, { type: "started", draft: "Replacement" })).toBe(saving);
+    expect(transitionThreadRenameLifecycleState(saving, { type: "save-succeeded", saveToken: 2 })).toBe(saving);
+
+    const failed = transitionThreadRenameLifecycleState(saving, { type: "save-failed", saveToken: 1 });
+    expect(failed).toEqual({ kind: "editing", draft: "Draft", autoName: { kind: "checking" } });
+
+    const savingAgain = transitionThreadRenameLifecycleState(failed, { type: "save-started", saveToken: 2 });
+    expect(transitionThreadRenameLifecycleState(savingAgain, { type: "save-succeeded", saveToken: 2 })).toEqual({ kind: "idle" });
+  });
 });
 
 type ThreadRenameGeneratingState = Extract<ThreadRenameLifecycleState, { kind: "generating" }>;
