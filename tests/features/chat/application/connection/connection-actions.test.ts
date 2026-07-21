@@ -123,6 +123,32 @@ describe("ChatConnectionActions", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
+  it("publishes initialization readiness before shared resources finish hydrating", async () => {
+    const { actions, host, refreshAppServerMetadata, stateStore } = createActionsHarness();
+    const metadata = deferred<void>();
+    refreshAppServerMetadata.mockReturnValueOnce(metadata.promise);
+
+    await actions.ensureInitialized();
+
+    expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
+    expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
+    expect(host.refreshSharedThreads).not.toHaveBeenCalled();
+    expect(host.scheduleDeferredDiagnostics).not.toHaveBeenCalled();
+
+    let connected = false;
+    const fullyConnected = actions.ensureConnected().then(() => {
+      connected = true;
+    });
+    await Promise.resolve();
+    expect(connected).toBe(false);
+
+    metadata.resolve(undefined);
+    await fullyConnected;
+
+    expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
+    expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
+  });
+
   it("keeps the initialized connection usable when metadata hydration fails", async () => {
     const { actions, host, refreshAppServerMetadata, stateStore } = createActionsHarness();
     refreshAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));

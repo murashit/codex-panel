@@ -53,6 +53,7 @@ function handleChatConnectionExit(host: ChatConnectionExitHost): void {
 }
 
 export interface ChatConnectionActions {
+  ensureInitialized(): Promise<void>;
   ensureConnected(): Promise<void>;
   invalidate(): void;
   handleExit(): void;
@@ -63,29 +64,40 @@ export interface ChatConnectionActions {
 
 export function createChatConnectionActions(host: ChatConnectionActionsHost): ChatConnectionActions {
   let generation = 0;
-  let activeConnection: { generation: number; promise: Promise<void> } | null = null;
+  let activeConnection: { generation: number; initialization: Promise<void>; hydration: Promise<void> } | null = null;
   const invalidate = (): void => {
     generation += 1;
     activeConnection = null;
   };
   const isStale = (candidateGeneration: number): boolean => candidateGeneration !== generation;
+  const startConnection = (): NonNullable<typeof activeConnection> => {
+    const connectionGeneration = generation;
+    const connectionIsStale = (): boolean => isStale(connectionGeneration);
+    const initialization = initializeConnection(host, connectionIsStale);
+    const hydration = initialization.then(async () => {
+      if (connectionIsStale() || !host.connection.isConnected()) return;
+      await hydrateConnectedResources(host, connectionIsStale);
+    });
+    const active = { generation: connectionGeneration, initialization, hydration };
+    activeConnection = active;
+    const clear = (): void => {
+      if (activeConnection === active) activeConnection = null;
+    };
+    void hydration.then(clear, clear);
+    return active;
+  };
   const actions: ChatConnectionActions = {
+    ensureInitialized: async () => {
+      if (!host.canConnect()) return;
+      if (activeConnection) return activeConnection.initialization;
+      if (host.connection.isConnected()) return;
+      await startConnection().initialization;
+    },
     ensureConnected: async () => {
       if (!host.canConnect()) return;
-      if (activeConnection) return activeConnection.promise;
+      if (activeConnection) return activeConnection.hydration;
       if (host.connection.isConnected()) return;
-
-      const connectionGeneration = generation;
-      const promise = initializeConnection(host, () => isStale(connectionGeneration));
-      const active = { generation: connectionGeneration, promise };
-      activeConnection = active;
-      try {
-        await promise;
-      } finally {
-        if (activeConnection === active) {
-          activeConnection = null;
-        }
-      }
+      await startConnection().hydration;
     },
     invalidate,
     handleExit: () => {
@@ -150,8 +162,6 @@ async function initializeConnection(host: ChatConnectionActionsHost, isStale: ()
     host.notifyConnectionFailed();
     return;
   }
-
-  await hydrateConnectedResources(host, isStale);
 }
 
 async function hydrateConnectedResources(host: ChatConnectionActionsHost, isStale: () => boolean): Promise<void> {

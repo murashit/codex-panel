@@ -39,7 +39,7 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(client, "thread/list", 1);
   });
 
-  it("keeps connect calls joined while metadata is still loading", async () => {
+  it("resumes while metadata is still loading without reconnecting", async () => {
     const config = deferred<unknown>();
     const client = connectedClient({
       "config/read": vi.fn(() => config.promise),
@@ -47,25 +47,31 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMockState().client = client;
     const view = await chatView();
 
-    const firstConnect = view.surface.connect();
+    const opening = view.surface.openThread("thread-1");
     await waitForAsyncWork(() => {
       expectRequestTimes(client, "config/read", 1);
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
     });
-
-    let secondResolved = false;
-    const secondConnect = view.surface.connect().then(() => {
-      secondResolved = true;
+    await opening;
+    let connected = false;
+    const fullyConnected = view.surface.connect().then(() => {
+      connected = true;
     });
     await Promise.resolve();
 
     expect(connectionMockState().connected).toBe(true);
-    expect(secondResolved).toBe(false);
+    expect(connectionMockState().connectCalls).toBe(1);
+    expect(connected).toBe(false);
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    expectRequestTimes(client, "thread/list", 0);
 
     config.resolve({});
-    await Promise.all([firstConnect, secondConnect]);
+    await fullyConnected;
+    await waitForAsyncWork(() => {
+      expectRequestTimes(client, "thread/list", 1);
+    });
 
     expectRequestTimes(client, "config/read", 1);
-    expectRequestTimes(client, "thread/list", 1);
   });
 
   it("loads app-server metadata after connecting", async () => {
@@ -209,7 +215,9 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     const connecting = view.surface.connect();
-    await Promise.resolve();
+    await waitForAsyncWork(() => {
+      expectRequestTimes(client, "config/read", 1);
+    });
     await view.onClose();
     resolveConfig({});
     await connecting;

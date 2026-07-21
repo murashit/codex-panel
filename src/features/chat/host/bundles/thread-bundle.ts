@@ -79,6 +79,7 @@ interface ChatPanelThreadLifecycleInput {
   appServer: ChatAppServerGateway;
   localItemIds: LocalIdSource;
   ensureConnected: () => Promise<void>;
+  ensureInitialized: () => Promise<void>;
   status: ChatPanelThreadStatus;
   threadStart: ThreadStartActions;
   foundation: ChatPanelThreadFoundation;
@@ -191,9 +192,19 @@ export function createThreadLifecycleBundle(
   host: ChatPanelThreadHost,
   input: ChatPanelThreadLifecycleInput,
 ): ChatPanelThreadLifecycleBundle {
-  const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, notifyActiveThreadIdentityChanged } = input;
+  const {
+    appServer,
+    localItemIds,
+    ensureConnected,
+    ensureInitialized,
+    status,
+    threadStart,
+    foundation,
+    notifyActiveThreadIdentityChanged,
+  } = input;
   const lifecycle = createSessionThreadLifecycle(host, {
     appServer,
+    ensureInitialized,
     status,
     goalSync: foundation.goalSync,
     autoTitleCoordinator: foundation.autoTitleCoordinator,
@@ -298,6 +309,7 @@ function createSessionThreadLifecycle(
   host: ChatPanelThreadHost,
   input: {
     appServer: ChatAppServerGateway;
+    ensureInitialized: () => Promise<void>;
     status: ChatPanelThreadStatus;
     goalSync: ChatPanelGoalSyncActions;
     autoTitleCoordinator: AutoTitleCoordinator;
@@ -306,7 +318,16 @@ function createSessionThreadLifecycle(
     notifyActiveThreadIdentityChanged: () => void;
   },
 ): ChatPanelThreadLifecycle {
-  const { appServer, status, goalSync, autoTitleCoordinator, history, invalidateThreadWork, notifyActiveThreadIdentityChanged } = input;
+  const {
+    appServer,
+    ensureInitialized,
+    status,
+    goalSync,
+    autoTitleCoordinator,
+    history,
+    invalidateThreadWork,
+    notifyActiveThreadIdentityChanged,
+  } = input;
   const restoration = new RestorationController({
     stateStore: host.stateStore,
   });
@@ -315,7 +336,13 @@ function createSessionThreadLifecycle(
   };
   const resume = createResumeActions({
     stateStore: host.stateStore,
-    resumeTransport: appServer.threadResume,
+    resumeTransport: {
+      ensureConnected: async () => {
+        await ensureInitialized();
+        return appServer.connectionAvailable();
+      },
+      resumeThread: (threadId) => appServer.threadResume.resumeThread(threadId),
+    },
     resumeWork: host.resumeWork,
     history,
     closing: host.getClosing,

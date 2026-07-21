@@ -187,6 +187,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     appServer,
     localItemIds,
     ensureConnected,
+    ensureInitialized: () => connectionActions.ensureInitialized(),
     status,
     threadStart,
     foundation: threadFoundation,
