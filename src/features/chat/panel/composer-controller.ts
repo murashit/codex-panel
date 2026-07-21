@@ -113,6 +113,7 @@ export class ChatComposerController {
       busy: model.turnBusy,
       canInterrupt: this.options.canInterrupt(model),
       submissionDisabled: model.submissionBlockedByPanelPolicy || model.webSubmissionPending,
+      runtimeControlsDisabled: model.runtimeSettingsDisabled,
       sendDisabled: model.attachmentSavePending,
       webSubmissionCancellable: model.webSubmissionCancellable,
       normalPlaceholder: projection.placeholder,

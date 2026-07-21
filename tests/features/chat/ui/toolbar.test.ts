@@ -256,12 +256,13 @@ describe("Toolbar decisions", () => {
         historyOpen: true,
         openPanel: "history",
         threads: [
-          { title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null },
+          { title: "Thread", threadId: "thread", selected: true, disabled: false, archiveDisabled: false, canArchive: true, rename: null },
           {
             title: "Editing",
             threadId: "editing",
             selected: false,
             disabled: false,
+            archiveDisabled: false,
             canArchive: true,
             rename: { draft: "Draft title", generating: false },
           },
@@ -290,12 +291,13 @@ describe("Toolbar decisions", () => {
         historyOpen: true,
         openPanel: "history",
         threads: [
-          { title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null },
+          { title: "Thread", threadId: "thread", selected: true, disabled: false, archiveDisabled: false, canArchive: true, rename: null },
           {
             title: "Editing",
             threadId: "editing",
             selected: false,
             disabled: false,
+            archiveDisabled: false,
             canArchive: true,
             rename: { draft: "New title", generating: false },
           },
@@ -334,6 +336,7 @@ describe("Toolbar decisions", () => {
             threadId: "editing",
             selected: false,
             disabled: false,
+            archiveDisabled: false,
             canArchive: true,
             rename: { draft: "Draft title", generating: true },
           },
@@ -361,6 +364,7 @@ describe("Toolbar decisions", () => {
             threadId: "editing",
             selected: false,
             disabled: false,
+            archiveDisabled: false,
             canArchive: true,
             rename: { draft: "Draft title", generating: false },
           },
@@ -388,6 +392,7 @@ describe("Toolbar decisions", () => {
             threadId: "thread",
             selected: true,
             disabled: false,
+            archiveDisabled: false,
             canArchive: true,
             archiveConfirm: { active: true, defaultSaveMarkdown: true },
             rename: null,
@@ -411,6 +416,39 @@ describe("Toolbar decisions", () => {
     archiveButtons[1]?.click();
     expect(archiveThread).toHaveBeenCalledWith("thread", true);
     expect(startArchiveThread).not.toHaveBeenCalled();
+  });
+
+  it("keeps archive confirmation disabled when the thread becomes busy", () => {
+    const parent = document.createElement("div");
+    const archiveThread = vi.fn();
+    mountToolbar(
+      parent,
+      toolbarModel({
+        historyOpen: true,
+        openPanel: "history",
+        threads: [
+          {
+            title: "Thread",
+            threadId: "thread",
+            selected: true,
+            disabled: false,
+            archiveDisabled: true,
+            canArchive: true,
+            archiveConfirm: { active: true, defaultSaveMarkdown: true },
+            rename: null,
+          },
+        ],
+      }),
+      toolbarActions({ archiveThread }),
+    );
+
+    const archiveButtons = [
+      ...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__archive-alternate, .codex-panel__archive-default"),
+    ];
+    expect(archiveButtons).toHaveLength(2);
+    expect(archiveButtons.every((button) => button.disabled)).toBe(true);
+    for (const button of archiveButtons) button.click();
+    expect(archiveThread).not.toHaveBeenCalled();
   });
 
   it("renders shared history expansion as a nav-list item", () => {
@@ -473,7 +511,9 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     rateLimit: null,
     debugDetails: () => "{}",
     openPanel: null,
-    threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
+    threads: [
+      { title: "Thread", threadId: "thread", selected: true, disabled: false, archiveDisabled: false, canArchive: true, rename: null },
+    ],
     connectLabel: "Reconnect",
     permissionsAndApprovals: [{ title: "Permissions", rows: [{ label: "Thread", value: "(none)" }] }],
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],

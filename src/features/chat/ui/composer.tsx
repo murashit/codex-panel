@@ -88,6 +88,7 @@ export interface ComposerShellProps {
   busy: boolean;
   canInterrupt: boolean;
   submissionDisabled: boolean;
+  runtimeControlsDisabled: boolean;
   sendDisabled: boolean;
   webSubmissionCancellable: boolean;
   normalPlaceholder: string;
@@ -106,6 +107,7 @@ export function ComposerShell({
   busy,
   canInterrupt,
   submissionDisabled,
+  runtimeControlsDisabled,
   sendDisabled,
   webSubmissionCancellable,
   normalPlaceholder,
@@ -191,7 +193,7 @@ export function ComposerShell({
             callbacks.onDragOver?.(event);
           }}
         />
-        <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} disabled={composerLocked} />
+        <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} disabled={composerLocked || runtimeControlsDisabled} />
       </div>
       <ComposerSuggestions
         containerRef={suggestionsRef}

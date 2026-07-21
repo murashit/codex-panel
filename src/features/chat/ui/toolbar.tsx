@@ -14,6 +14,7 @@ export interface ToolbarThreadRow {
   selected: boolean;
   disabled: boolean;
   openDisabled?: boolean;
+  archiveDisabled: boolean;
   canArchive: boolean;
   archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
   rename: {
@@ -438,7 +439,7 @@ function ArchiveControls({ thread, actions }: { thread: ToolbarThreadRow; action
         icon="archive"
         label="Archive thread"
         className="codex-panel__thread-action"
-        disabled={thread.disabled}
+        disabled={thread.archiveDisabled}
         onClick={(event) => {
           event.stopPropagation();
           actions.archive.start(thread.threadId);
@@ -472,7 +473,7 @@ function ArchiveModeButton({
       icon={saveMarkdown ? "save" : "trash"}
       label={label}
       className={`codex-panel__thread-action ${primary ? "codex-panel__archive-default" : "codex-panel__archive-alternate"}`}
-      disabled={thread.disabled}
+      disabled={thread.archiveDisabled}
       onClick={(event) => {
         event.stopPropagation();
         actions.archive.confirm(thread.threadId, saveMarkdown);

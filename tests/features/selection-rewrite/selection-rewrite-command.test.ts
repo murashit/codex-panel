@@ -33,7 +33,9 @@ vi.mock("../../../src/features/selection-rewrite/popover.dom", () => {
 describe("selection rewrite command", () => {
   it("captures the unsaved editor buffer and clones the target range", () => {
     popoverMock.reset();
-    const addedCommand = { current: null as null | { editorCallback: (editor: unknown, view: unknown) => void } };
+    const addedCommand = {
+      current: null as null | { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean },
+    };
     const cleanup = { current: null as null | (() => void) };
     const plugin = {
       settings: {
@@ -46,7 +48,7 @@ describe("selection rewrite command", () => {
       register: vi.fn((callback: () => void) => {
         cleanup.current = callback;
       }),
-      addCommand: vi.fn((command: { editorCallback: (editor: unknown, view: unknown) => void }) => {
+      addCommand: vi.fn((command: { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean }) => {
         addedCommand.current = command;
       }),
     };
@@ -64,7 +66,9 @@ describe("selection rewrite command", () => {
     const transport: SelectionRewriteTransport = { generate: vi.fn() };
     const controller = registerSelectionRewriteCommand(plugin as never, transport);
     expect(addedCommand.current).not.toBeNull();
-    addedCommand.current?.editorCallback(editor, view);
+    expect(addedCommand.current?.editorCheckCallback(true, editor, view)).toBe(true);
+    expect(popoverMock.instances).toHaveLength(0);
+    expect(addedCommand.current?.editorCheckCallback(false, editor, view)).toBe(true);
     from.line = 99;
     to.ch = 99;
 
@@ -86,5 +90,28 @@ describe("selection rewrite command", () => {
 
     cleanup.current?.();
     expect(popoverMock.instances[0]?.close).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the command unavailable without a non-empty markdown selection", () => {
+    popoverMock.reset();
+    const addedCommand = {
+      current: null as null | { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean },
+    };
+    const plugin = {
+      settings: { sendShortcut: "enter" },
+      register: vi.fn(),
+      addCommand: vi.fn((command: { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean }) => {
+        addedCommand.current = command;
+      }),
+    };
+    registerSelectionRewriteCommand(plugin as never, { generate: vi.fn() });
+    const editor = { getSelection: vi.fn(() => "   ") };
+    const markdownView = new MarkdownView({} as never);
+    markdownView.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });
+
+    expect(addedCommand.current?.editorCheckCallback(true, editor, markdownView)).toBe(false);
+    editor.getSelection.mockReturnValue("Rewrite me");
+    expect(addedCommand.current?.editorCheckCallback(true, editor, {})).toBe(false);
+    expect(popoverMock.instances).toHaveLength(0);
   });
 });

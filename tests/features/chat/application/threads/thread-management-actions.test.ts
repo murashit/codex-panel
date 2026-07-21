@@ -273,6 +273,16 @@ describe("thread management actions", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
+  it("rejects archiving a thread that is active in another panel", async () => {
+    const host = hostMock({ items: [] });
+    vi.mocked(host.threadHasPendingOrRunningPanel).mockReturnValue(true);
+
+    await threadManagementActions(host).archiveThread("source");
+
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the thread before archiving it.");
+  });
+
   it("reports archive operation failures", async () => {
     const host = hostMock({
       items: [],

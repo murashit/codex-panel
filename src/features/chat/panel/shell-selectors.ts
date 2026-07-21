@@ -71,6 +71,7 @@ export interface ChatPanelComposerModel {
   readonly activeThreadTokenUsage: ChatActiveThreadState["tokenUsage"];
   readonly activeThreadSubagent: boolean;
   readonly submissionBlockedByPanelPolicy: boolean;
+  readonly runtimeSettingsDisabled: boolean;
   readonly webSubmissionPending: boolean;
   readonly webSubmissionCancellable: boolean;
   readonly turnBusy: boolean;
@@ -91,7 +92,7 @@ export function selectChatPanelToolbar(state: ChatState): ChatPanelToolbarModel 
     activeThreadId: activeThread?.id ?? null,
     activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
     sideChatStartDisabled: activePanelOperationDecision(state, "start-side-chat").kind !== "allowed",
-    compactDisabled: activePanelOperationDecision(state, "compact").kind !== "allowed",
+    compactDisabled: !activeThread || activePanelOperationDecision(state, "compact").kind !== "allowed",
     goalMutationDisabled: activePanelOperationDecision(state, "goal-mutation").kind === "blocked",
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
     turnBusy: chatTurnBusy(state),
@@ -155,6 +156,7 @@ export function selectChatPanelComposer(state: ChatState): ChatPanelComposerMode
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
     activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
     submissionBlockedByPanelPolicy: activePanelOperationDecision(state, "submit").kind === "blocked",
+    runtimeSettingsDisabled: activePanelOperationDecision(state, "thread-settings").kind !== "allowed",
     webSubmissionPending: state.pendingSubmission !== null,
     webSubmissionCancellable: state.pendingSubmission?.phase === "cancellable",
     turnBusy: chatTurnBusy(state),

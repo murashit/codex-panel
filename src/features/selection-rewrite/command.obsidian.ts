@@ -27,22 +27,17 @@ export function registerSelectionRewriteCommand(
   plugin.addCommand({
     id: "rewrite-selection",
     name: "Rewrite selection",
-    editorCallback: (editor, view) => {
-      if (!(view instanceof MarkdownView) || !view.file) {
-        new Notice("Select text in an active markdown note first.");
-        return;
-      }
-
+    editorCheckCallback: (checking, editor, view) => {
+      if (!(view instanceof MarkdownView) || !view.file) return false;
       const originalText = editor.getSelection();
-      if (!originalText.trim()) {
-        new Notice("Select text to rewrite first.");
-        return;
-      }
+      if (!originalText.trim()) return false;
+      if (checking) return true;
+
       const viewDocument = view.containerEl.doc;
       const viewWindow = viewDocument.defaultView;
       if (!viewWindow) {
         new Notice("Could not open rewrite popover for this note.");
-        return;
+        return false;
       }
 
       const rewriteState: SelectionRewriteState = {
@@ -75,6 +70,7 @@ export function registerSelectionRewriteCommand(
       });
       popover.open();
       activePopovers.add(popover);
+      return true;
     },
   });
 

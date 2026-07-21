@@ -35,6 +35,52 @@ import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 installObsidianDomShims();
 
 describe("chat panel surface projections", () => {
+  it("disables compact context without an active thread", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { ui: { toolbarPanel: "chat-actions" } });
+    const compactContext = vi.fn();
+    const actions = toolbarActionsFixture();
+    actions.chat.compactContext = compactContext;
+    const parent = renderWithShellModels(state, (models) =>
+      h(ChatPanelToolbar, { model: models.toolbar, stateStore: createChatStateStore(state), surface: toolbarSurfaceFixture(), actions }),
+    );
+
+    const compact = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")].find(
+      (item) => item.textContent === "Compact context",
+    );
+    expect(compact?.classList.contains("is-disabled")).toBe(true);
+    compact?.click();
+    expect(compactContext).not.toHaveBeenCalled();
+    unmountUiRoot(parent);
+  });
+
+  it("disables archive but keeps rename available while the active thread is busy", () => {
+    let state = chatStateFixture({
+      activeThread: { id: "thread" },
+      threadList: { listedThreads: [threadFixture("thread", "Thread"), threadFixture("other", "Other")] },
+    });
+    state = chatStateWith(state, {
+      turn: { lifecycle: { kind: "running", turnId: "turn" } },
+      ui: { toolbarPanel: "history" },
+    });
+    const parent = renderWithShellModels(state, (models) =>
+      h(ChatPanelToolbar, {
+        model: models.toolbar,
+        stateStore: createChatStateStore(state),
+        surface: toolbarSurfaceFixture(),
+        actions: toolbarActionsFixture(),
+      }),
+    );
+
+    const archiveButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Archive thread"]')];
+    const renameButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Rename thread"]')];
+    expect(archiveButtons).toHaveLength(2);
+    expect(archiveButtons.every((button) => button.disabled)).toBe(true);
+    expect(renameButtons).toHaveLength(2);
+    expect(renameButtons.every((button) => !button.disabled)).toBe(true);
+    unmountUiRoot(parent);
+  });
+
   it("disables subagent chat actions except starting a new chat", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {
@@ -207,6 +253,9 @@ describe("chat panel surface projections", () => {
       ["Compact context", false],
       ["Set goal...", true],
     ]);
+    const composer = selectChatPanelComposer(state);
+    expect(composer.submissionBlockedByPanelPolicy).toBe(false);
+    expect(composer.runtimeSettingsDisabled).toBe(true);
     unmountUiRoot(parent);
   });
 

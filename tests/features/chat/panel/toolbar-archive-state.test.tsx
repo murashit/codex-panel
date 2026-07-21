@@ -162,6 +162,7 @@ function shellParts(
           busy: false,
           canInterrupt: false,
           submissionDisabled: false,
+          runtimeControlsDisabled: false,
           sendDisabled: false,
           webSubmissionCancellable: false,
           normalPlaceholder: "Ask Codex...",

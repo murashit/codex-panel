@@ -27,6 +27,7 @@ function mountComposerShell(
   webSubmissionPending = false,
   webSubmissionCancellable = webSubmissionPending,
   sendDisabled = false,
+  runtimeControlsDisabled = false,
 ): { composer: HTMLTextAreaElement } {
   const elements: { composer: HTMLTextAreaElement | null } = { composer: null };
   renderUiRoot(
@@ -37,6 +38,7 @@ function mountComposerShell(
       busy,
       canInterrupt,
       submissionDisabled: webSubmissionPending,
+      runtimeControlsDisabled,
       sendDisabled,
       webSubmissionCancellable,
       normalPlaceholder,
@@ -136,6 +138,47 @@ describe("ComposerShell decisions", () => {
     expect(modeIcons.map((icon) => icon.classList.contains("is-active"))).toEqual([true, false, true]);
     expect(modeIcons.map((icon) => icon.getAttribute("aria-hidden"))).toEqual(["true", "true", "true"]);
     expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
+  });
+
+  it("disables runtime controls without disabling side-chat composition", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    mountComposerShell(
+      parent,
+      "view",
+      "Continue the side chat",
+      false,
+      false,
+      "Ask in side chat...",
+      [],
+      0,
+      callbacks,
+      {
+        fatal: null,
+        context: { cells: [], percent: "0%" },
+        statusSummary: "Context 0%, plan off, auto-review off, fast off, model gpt-5.5, reasoning effort high",
+        model: "gpt-5.5",
+        effort: "high",
+        planActive: false,
+        autoReviewActive: false,
+        fastActive: false,
+        modelChoices: [{ label: "gpt-5.5", onClick: vi.fn() }],
+        effortChoices: [{ label: "high", onClick: vi.fn() }],
+      },
+      false,
+      false,
+      false,
+      true,
+    );
+
+    expect(parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input")?.readOnly).toBe(false);
+    expect(parent.querySelector<HTMLButtonElement>(".codex-panel__send")?.disabled).toBe(false);
+    const runtimeTriggers = [...parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-trigger")];
+    expect(runtimeTriggers.length).toBeGreaterThan(0);
+    expect(runtimeTriggers.every((trigger) => trigger.classList.contains("is-disabled"))).toBe(true);
+    runtimeTriggers[0]?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(callbacks.onTogglePlan).not.toHaveBeenCalled();
+    expect(parent.querySelector(".codex-panel__composer-meta-popover")).toBeNull();
   });
 
   it("toggles composer runtime controls and opens separate lightweight pickers", async () => {
@@ -403,6 +446,7 @@ describe("ComposerShell decisions", () => {
           busy: false,
           canInterrupt: false,
           submissionDisabled: false,
+          runtimeControlsDisabled: false,
           sendDisabled: false,
           webSubmissionCancellable: false,
           normalPlaceholder: "Ask Codex...",
@@ -443,6 +487,7 @@ describe("ComposerShell decisions", () => {
           busy: false,
           canInterrupt: false,
           submissionDisabled: false,
+          runtimeControlsDisabled: false,
           sendDisabled: false,
           webSubmissionCancellable: false,
           normalPlaceholder: "Ask Codex...",
