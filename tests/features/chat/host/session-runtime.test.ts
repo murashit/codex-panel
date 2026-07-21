@@ -10,7 +10,6 @@ import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/co
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
 import { ChatPanelSessionRuntime } from "../../../../src/features/chat/host/session-runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
-import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { StaleExecutionRuntimeError } from "../../../../src/shared/runtime/execution-runtime-lifetime";
 import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
@@ -269,7 +268,7 @@ describe("ChatPanelSessionRuntime actions", () => {
         },
         appServerQueries,
         threadCatalog,
-        threadNameMutations: createThreadNameMutationCoordinator(),
+        threadNameMutations: createKeyedOperationQueue(),
         threadGoalOperations: createThreadGoalOperationCoordinator(),
         runtimeSettingsCommitQueue: createKeyedOperationQueue(),
       },

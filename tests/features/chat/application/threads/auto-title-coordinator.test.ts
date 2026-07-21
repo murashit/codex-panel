@@ -12,10 +12,10 @@ import {
 } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 import { threadTitleContextFromThreadStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
 import { createThreadOperationsTransport } from "../../../../../src/features/threads/app-server/workflow-transports";
-import { createThreadNameMutationCoordinator } from "../../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { createThreadOperations } from "../../../../../src/features/threads/workflows/thread-operations";
 import { createThreadTitleService } from "../../../../../src/features/threads/workflows/thread-title-service";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
+import { createKeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
 import { deferred } from "../../../../support/async";
 
 describe("AutoTitleCoordinator", () => {
@@ -193,7 +193,7 @@ function coordinatorFixture(
     transport: createThreadOperationsTransport({
       withClient: async (operation) => operation(currentClient()),
     }),
-    nameMutations: createThreadNameMutationCoordinator(),
+    nameMutations: createKeyedOperationQueue(),
     archiveExport: {
       settings: () => DEFAULT_SETTINGS,
       enabled: () => false,

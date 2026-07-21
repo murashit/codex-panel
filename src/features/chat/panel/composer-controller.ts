@@ -14,14 +14,13 @@ import {
   selectionContextReferenceMarker,
 } from "../application/composer/context-references";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
-import type { NoteCandidateProvider } from "../application/composer/note-context";
+import type { NoteCandidate, NoteCandidateProvider } from "../application/composer/note-context";
 import { activePanelOperationForSlashCommandSuggestion } from "../application/composer/slash-commands";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
   type ComposerSuggestion,
   composerSuggestionNavigationDirection,
-  type NoteCandidate,
   nextComposerSuggestionIndex,
 } from "../application/composer/suggestions";
 import { type ThreadCommandTarget, threadCommandTargetForDraft } from "../application/composer/thread-title-argument";

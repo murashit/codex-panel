@@ -8,7 +8,6 @@ import type { Thread } from "../../src/domain/threads/model";
 import { createThreadGoalOperationCoordinator } from "../../src/features/chat/application/threads/goal-actions";
 import type { CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
-import { createThreadNameMutationCoordinator } from "../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import type CodexPanelPlugin from "../../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
 import { createKeyedOperationQueue } from "../../src/shared/runtime/keyed-operation-queue";
@@ -129,7 +128,7 @@ function chatHostFixture(): CodexChatHost {
       withClient: vi.fn(() => Promise.reject(new Error("Unexpected app-server client request."))),
     },
     appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
-    threadNameMutations: createThreadNameMutationCoordinator(),
+    threadNameMutations: createKeyedOperationQueue(),
     threadTitleTransport: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),

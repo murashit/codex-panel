@@ -12,7 +12,6 @@ import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadCatalogEvent } from "../../../../src/features/threads/catalog/thread-catalog";
-import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import { notices } from "../../../mocks/obsidian";
@@ -558,7 +557,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       activeThreads = threads;
       emitActiveThreads();
     },
-    threadNameMutations: overrides.threadNameMutations ?? createThreadNameMutationCoordinator(),
+    threadNameMutations: overrides.threadNameMutations ?? createKeyedOperationQueue(),
     threadTitleTransport: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),

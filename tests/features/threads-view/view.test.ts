@@ -6,9 +6,9 @@ import type { ObservedPaginatedResult } from "../../../src/app-server/query/obse
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
 import type { Thread } from "../../../src/domain/threads/model";
 import { createThreadOperationsTransport, createThreadTitleTransport } from "../../../src/features/threads/app-server/workflow-transports";
-import { createThreadNameMutationCoordinator } from "../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
+import { createKeyedOperationQueue } from "../../../src/shared/runtime/keyed-operation-queue";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -844,7 +844,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       }),
     },
     vaultPath: "/vault",
-    threadNameMutations: createThreadNameMutationCoordinator(),
+    threadNameMutations: createKeyedOperationQueue(),
     threadOperationsTransport: createThreadOperationsTransport(clientAccess),
     threadTitleTransport: createThreadTitleTransport({
       clientAccess,

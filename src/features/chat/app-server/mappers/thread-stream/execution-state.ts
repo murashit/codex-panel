@@ -1,5 +1,4 @@
-import { RUNNING_EXECUTION_STATE, type ThreadStreamExecutionState } from "../../../domain/thread-stream/execution-state";
-import type { ExecutionState } from "../../../domain/thread-stream/items";
+import { type ExecutionState, RUNNING_EXECUTION_STATE, type ThreadStreamExecutionState } from "../../../domain/thread-stream/items";
 
 export { RUNNING_EXECUTION_STATE };
 

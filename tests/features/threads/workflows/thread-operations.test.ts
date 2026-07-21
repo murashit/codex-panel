@@ -5,13 +5,13 @@ import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadOperationsTransport } from "../../../../src/features/threads/app-server/workflow-transports";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
-import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import {
   type ArchiveThreadResult,
   createThreadOperations,
   type ThreadOperationsHost,
 } from "../../../../src/features/threads/workflows/thread-operations";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import { deferred } from "../../../support/async";
 import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 
@@ -228,7 +228,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
         return result;
       },
     }),
-    nameMutations: createThreadNameMutationCoordinator(),
+    nameMutations: createKeyedOperationQueue(),
     archiveExport: {
       settings: archiveExportSettings,
       enabled: () => false,

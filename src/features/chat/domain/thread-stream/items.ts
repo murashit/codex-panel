@@ -19,6 +19,8 @@ export type ThreadStreamItemKind =
   | "reviewResult";
 type ThreadStreamRole = "user" | "assistant" | "system" | "tool";
 export type ExecutionState = "running" | "completed" | "failed" | null;
+export type ThreadStreamExecutionState = Exclude<ExecutionState, null>;
+export const RUNNING_EXECUTION_STATE: ThreadStreamExecutionState = "running";
 type DialogueState = "streaming" | "completed";
 
 interface ThreadStreamBase {

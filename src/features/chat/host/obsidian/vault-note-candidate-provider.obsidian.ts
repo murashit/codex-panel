@@ -2,8 +2,7 @@ import type { App, EventRef } from "obsidian";
 import { stripHeadingForLink, TFile } from "obsidian";
 
 import type { VaultFileReference } from "../../../../domain/chat/input";
-import type { NoteCandidateProvider } from "../../application/composer/note-context";
-import type { NoteCandidate } from "../../application/composer/suggestions";
+import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
 import { configuredDailyNoteReferences } from "./vault-daily-note-references.obsidian";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 

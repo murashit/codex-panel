@@ -1,7 +1,7 @@
 import { type App, moment, normalizePath, TFile } from "obsidian";
 import { appHasDailyNotesPluginLoaded, getDailyNoteSettings, type IPeriodicNoteSettings } from "obsidian-daily-notes-interface";
 
-import type { DailyNoteReferenceCandidate } from "../../application/composer/daily-note-references";
+import type { DailyNoteReferenceCandidate } from "../../application/composer/note-context";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
 const RELATIVE_DAILY_NOTES = [

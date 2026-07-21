@@ -1,5 +1,4 @@
-import { RUNNING_EXECUTION_STATE } from "../execution-state";
-import type { ThreadStreamItem, ThreadStreamItemKind } from "../items";
+import { RUNNING_EXECUTION_STATE, type ThreadStreamItem, type ThreadStreamItemKind } from "../items";
 
 export const STREAMED_COMMAND_RUNNING_TEXT = "Command running";
 export const STREAMED_MCP_PROGRESS_LABEL = "mcp progress";

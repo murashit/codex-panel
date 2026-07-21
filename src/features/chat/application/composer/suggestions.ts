@@ -19,7 +19,7 @@ import {
   type SelectionContextReference,
   selectionContextReferenceMarker,
 } from "./context-references";
-import type { DailyNoteReferenceCandidate } from "./daily-note-references";
+import type { DailyNoteReferenceCandidate, NoteCandidate, NoteHeadingCandidate } from "./note-context";
 import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
 import {
   partialThreadTitleQuery,
@@ -49,22 +49,6 @@ export interface ComposerSuggestionOptions {
   dailyNoteReferences?: readonly DailyNoteReferenceCandidate[] | (() => readonly DailyNoteReferenceCandidate[]);
   permissionProfiles?: readonly RuntimePermissionProfileSummary[];
   tagCandidates?: readonly string[] | (() => readonly string[]);
-}
-
-export interface NoteCandidate {
-  basename: string;
-  displayName: string;
-  path: string;
-  mtime: number;
-  linktext: string;
-  headings: NoteHeadingCandidate[];
-  recentIndex: number | null;
-}
-
-interface NoteHeadingCandidate {
-  heading: string;
-  linkHeading: string;
-  level: number;
 }
 
 interface NoteCandidateMatch {

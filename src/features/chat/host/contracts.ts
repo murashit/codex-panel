@@ -10,7 +10,6 @@ import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operatio
 import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
 import type { ThreadTitleTransport } from "../../threads/workflows/ports";
-import type { ThreadNameMutationCoordinator } from "../../threads/workflows/thread-name-mutation-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ThreadGoalOperationCoordinator } from "../application/threads/goal-actions";
 
@@ -21,7 +20,7 @@ export interface CodexChatHost {
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
-  readonly threadNameMutations: ThreadNameMutationCoordinator;
+  readonly threadNameMutations: KeyedOperationQueue<string>;
   readonly threadTitleTransport: ThreadTitleTransport;
   readonly threadGoalOperations: ThreadGoalOperationCoordinator;
   readonly runtimeSettingsCommitQueue: KeyedOperationQueue<string>;

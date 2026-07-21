@@ -17,7 +17,6 @@ import type { SelectionRewriteTransport } from "./features/selection-rewrite/tra
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
 import { createThreadOperationsTransport, createThreadTitleTransport } from "./features/threads/app-server/workflow-transports";
 import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
-import { createThreadNameMutationCoordinator } from "./features/threads/workflows/thread-name-mutation-coordinator";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
@@ -49,7 +48,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly appServerQueries: AppServerQueryCache;
   private readonly threadCatalog: ThreadCatalog;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
-  private readonly threadNameMutations = createThreadNameMutationCoordinator();
+  private readonly threadNameMutations = createKeyedOperationQueue<string>();
   private readonly threadGoalOperations = createThreadGoalOperationCoordinator();
   private readonly runtimeSettingsCommitQueue = createKeyedOperationQueue<string>();
   private readonly shortLivedClients = new Set<AppServerClient>();
