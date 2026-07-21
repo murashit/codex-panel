@@ -109,6 +109,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),
       forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
       implementPlan: (itemId) => void turn.turnActions.planImplementation.implement(itemId),
+      openThreadInAvailableView: (threadId) => void environment.plugin.workspace.openThreadInAvailableView(threadId),
       openThreadInNewView: (threadId) => void environment.plugin.workspace.openThreadInNewView(threadId),
       openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
     },

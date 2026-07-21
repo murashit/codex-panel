@@ -31,6 +31,7 @@ export interface ChatThreadStreamActions {
   rollbackThread: (threadId: string) => void;
   forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
   implementPlan: (itemId: string) => void;
+  openThreadInAvailableView: (threadId: string) => void;
   openThreadInNewView: (threadId: string) => void;
   openTurnDiff: (state: TurnDiffViewState) => void;
 }

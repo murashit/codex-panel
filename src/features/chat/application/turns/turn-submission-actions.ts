@@ -1,5 +1,4 @@
 import { type CodexInput, codexTextInput } from "../../../../domain/chat/input";
-import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
@@ -59,7 +58,6 @@ export interface TurnSubmissionRequest {
   text: string;
   inputSnapshot?: ComposerInputSnapshot;
   codexInputOverride?: CodexInput;
-  referencedThread?: ReferencedThreadMetadata;
   preserveComposerContextOnFailure?: boolean;
   pendingSubmissionId?: string;
   failureDraft?: string;
@@ -85,7 +83,7 @@ async function sendTurnText(
   localItemIds: LocalIdSource,
   request: TurnSubmissionRequest,
 ): Promise<boolean> {
-  const { text, inputSnapshot, codexInputOverride, referencedThread } = request;
+  const { text, inputSnapshot, codexInputOverride } = request;
   let panelTarget = capturePanelTargetLease(host.stateStore.getState());
   const prepared = codexInputOverride
     ? { text, input: codexInputOverride }
@@ -115,7 +113,7 @@ async function sendTurnText(
         if (pendingRequestIsCurrent(host, request)) host.addSystemMessage(plan.message);
         return false;
       case "steer":
-        return await steerCurrentTurn(host, localItemIds, plan, text, prepared, request, referencedThread);
+        return await steerCurrentTurn(host, localItemIds, plan, text, prepared, request);
       case "start-thread-then-turn":
         if (!commitPendingRequest(host, request)) return false;
         {
@@ -163,7 +161,6 @@ async function sendTurnText(
       ...(request.pendingSubmissionId ? { clientId: clientUserMessageId } : {}),
       text: prepared.text,
       codexInput: prepared.input,
-      referencedThread,
     });
     host.stateStore.dispatch({
       type: "turn/optimistic-started",
@@ -267,7 +264,6 @@ async function steerCurrentTurn(
   text: string,
   prepared: { text: string; input: CodexInput },
   request: TurnSubmissionRequest,
-  referencedThread?: ReferencedThreadMetadata,
 ): Promise<boolean> {
   if (!pendingRequestIsCurrent(host, request)) return false;
   if (!commitPendingRequest(host, request)) return false;
@@ -297,7 +293,6 @@ async function steerCurrentTurn(
       ...(request.pendingSubmissionId ? { clientId: localSteerId, interaction: "steer" as const } : {}),
       text: prepared.text,
       turnId: plan.turnId,
-      referencedThread,
       codexInput: prepared.input,
     });
     host.stateStore.dispatch(

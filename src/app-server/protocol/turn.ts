@@ -1,4 +1,3 @@
-import { fileReferencesFromManifest, referencedThreadFromManifest, userMessageContextProjection } from "../../domain/chat/context-manifest";
 import type { VaultFileReference } from "../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
 import {
@@ -10,6 +9,11 @@ import {
 import type { ThreadItem as GeneratedThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn as GeneratedTurn } from "../../generated/app-server/v2/Turn";
 import { legacyPanelUserMessageProjection } from "./legacy-panel-user-message";
+import {
+  fileReferencesFromLegacyManifest,
+  legacyTurnContextProjection,
+  referencedThreadFromLegacyManifest,
+} from "./legacy-turn-context-manifest";
 
 export type TurnItem = GeneratedThreadItem;
 export type TurnRecord = GeneratedTurn;
@@ -53,11 +57,17 @@ export interface TurnUserItemProjection {
   text: string;
   referencedThread: ReferencedThreadMetadata | null;
   fileReferences: VaultFileReference[];
-  manifest: ReturnType<typeof userMessageContextProjection>["manifest"];
+  contexts: TurnUserContextMetadata[];
+}
+
+interface TurnUserContextMetadata {
+  kind: "web" | "obsidian";
+  truncated: boolean;
+  inlineExcerpts?: number;
 }
 
 export function turnUserItemProjection(item: Extract<TurnItem, { type: "userMessage" }>): TurnUserItemProjection {
-  const projected = userMessageContextProjection(item.content, item.clientId);
+  const projected = legacyTurnContextProjection(item.content, item.clientId);
   if (!projected.manifest) {
     const legacy = legacyPanelUserMessageProjection({
       content: item.content,
@@ -68,16 +78,16 @@ export function turnUserItemProjection(item: Extract<TurnItem, { type: "userMess
       text: [legacy.text, supplementalText].filter(Boolean).join("\n"),
       referencedThread: legacy.referencedThread,
       fileReferences: legacy.fileReferences,
-      manifest: null,
+      contexts: [],
     };
   }
   const supplementalText = nonTextUserInputText(item.content, projected.text);
   const text = [projected.text, supplementalText].filter(Boolean).join("\n");
   return {
     text,
-    referencedThread: referencedThreadFromManifest(projected.manifest),
-    fileReferences: fileReferencesFromManifest(projected.manifest),
-    manifest: projected.manifest,
+    referencedThread: referencedThreadFromLegacyManifest(projected.manifest),
+    fileReferences: fileReferencesFromLegacyManifest(projected.manifest),
+    contexts: legacyContextMetadata(projected.manifest.contexts),
   };
 }
 
@@ -96,10 +106,7 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
   if (item.type === "userMessage") {
     const projection = turnUserItemProjection(item);
     const text = projection.text.trim();
-    const contexts =
-      projection.manifest?.contexts
-        .filter((context) => context.kind === "web" || context.kind === "obsidian")
-        .map((context) => ({ kind: context.kind as "web" | "obsidian", truncated: context.truncated })) ?? [];
+    const contexts = projection.contexts.map((context) => ({ kind: context.kind, truncated: context.truncated }));
     return text
       ? [
           {
@@ -121,6 +128,21 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
     return text ? [{ kind: "plan", text, timestamp: turn.completedAt ?? turn.startedAt }] : [];
   }
   return [];
+}
+
+function legacyContextMetadata(
+  contexts: readonly { kind: "referencedThread" | "web" | "obsidian"; truncated: boolean; inlineExcerpts?: number }[],
+): TurnUserContextMetadata[] {
+  return contexts.flatMap((context) => {
+    if (context.kind === "referencedThread") return [];
+    return [
+      {
+        kind: context.kind,
+        truncated: context.truncated,
+        ...(context.inlineExcerpts === undefined ? {} : { inlineExcerpts: context.inlineExcerpts }),
+      },
+    ];
+  });
 }
 
 function nonTextUserInputText(

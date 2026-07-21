@@ -4,7 +4,6 @@ import type { AppServerClient, ClientResponseByMethod } from "../../../../src/ap
 import * as shortLivedClient from "../../../../src/app-server/connection/short-lived-client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
-import { userMessageContextProjection } from "../../../../src/domain/chat/context-manifest";
 import type { CodexInput } from "../../../../src/domain/chat/input";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
@@ -135,28 +134,7 @@ describe("chat app-server transports", () => {
       cwd: "/vault",
       clientUserMessageId: "local-user-1-seed-1-1",
     });
-    expect(params?.input[0]).toEqual({ type: "text", text, text_elements: [] });
-    expect(params?.input).toHaveLength(2);
-    const descriptor = params?.input.at(-1);
-    expect(
-      descriptor?.type === "text"
-        ? userMessageContextProjection(
-            [
-              { type: "text", text },
-              { type: "text", text: descriptor.text },
-            ],
-            "local-user-1-seed-1-1",
-          ).manifest
-        : null,
-    ).toEqual({
-      version: 2,
-      submissionId: "local-user-1-seed-1-1",
-      contexts: [],
-      fileReferences: [
-        { name: "Alpha", path: "notes/Alpha.md" },
-        { name: "<active>", path: "notes/Alpha.md" },
-      ],
-    });
+    expect(params?.input).toEqual([{ type: "text", text, text_elements: [] }]);
     expect(params?.additionalContext).toEqual({
       "codex_panel.local-user-1-seed-1-1.00.codex_panel_obsidian_context.part_01_of_01": {
         kind: "untrusted",
@@ -218,7 +196,7 @@ describe("chat app-server transports", () => {
       turnId: "turn",
       input: [
         { type: "text", text: "follow up" },
-        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "page", attachment: { kind: "web" } },
+        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "page" },
       ],
       clientUserMessageId: "local-steer",
     });
@@ -230,7 +208,7 @@ describe("chat app-server transports", () => {
         value: "Codex Panel context part 1/1.\nSource: codex_panel_web_context\n\npage",
       },
     });
-    expect(params?.input.at(-1)).toMatchObject({ type: "text", text: expect.stringContaining("[Codex Panel context v2]") });
+    expect(params?.input).toEqual([{ type: "text", text: "follow up", text_elements: [] }]);
   });
 
   it("compacts threads through a connected app-server client", async () => {

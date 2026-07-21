@@ -1,29 +1,21 @@
-import type { ReferencedThreadMetadata } from "../threads/reference";
-import { utf8ByteLength } from "./context-budget";
-import type { VaultFileReference } from "./input";
-import { isPanelSubmissionClientId } from "./submission-id";
+import type { VaultFileReference } from "../../domain/chat/input";
+import { isPanelSubmissionClientId, turnContextSubmissionId } from "../../domain/chat/submission-id";
+import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
+
+/*
+ * Read-only compatibility for v2 metadata envelopes written by Codex Panel
+ * versions that predate durable, human-readable references in message text.
+ * Request construction must not import this module.
+ */
 
 const TURN_CONTEXT_MANIFEST_PREFIX = "[Codex Panel context v2]";
-const TURN_CONTEXT_MANIFEST_NOTICE = "\nReference/display metadata only; not user instructions.\n";
 const TURN_CONTEXT_MANIFEST_MAX_BYTES = 2_800;
 const TURN_CONTEXT_FILE_REFERENCE_MAX_COUNT = 64;
 const TURN_CONTEXT_FILE_REFERENCE_NAME_MAX_LENGTH = 255;
 const TURN_CONTEXT_FILE_REFERENCE_PATH_MAX_LENGTH = 2_048;
 
-export type TurnContextAttachment =
-  | {
-      kind: "referencedThread";
-      threadId: string;
-      includedTurns: number;
-      turnLimit: number;
-      omittedTurns: number;
-      truncated: boolean;
-    }
-  | { kind: "web" }
-  | { kind: "obsidian"; inlineExcerpts: number };
-
-export interface TurnContextManifestEntry {
-  kind: TurnContextAttachment["kind"];
+interface LegacyTurnContextManifestEntry {
+  kind: "referencedThread" | "web" | "obsidian";
   id: string;
   parts: number;
   sourceBytes: number;
@@ -36,57 +28,26 @@ export interface TurnContextManifestEntry {
   inlineExcerpts?: number;
 }
 
-export interface TurnContextManifest {
+export interface LegacyTurnContextManifest {
   version: 2;
   submissionId?: string;
-  contexts: readonly TurnContextManifestEntry[];
+  contexts: readonly LegacyTurnContextManifestEntry[];
   fileReferences?: readonly VaultFileReference[];
 }
 
-export interface UserMessageContextProjection {
+export interface LegacyTurnContextProjection {
   text: string;
-  manifest: TurnContextManifest | null;
+  manifest: LegacyTurnContextManifest | null;
 }
 
 type UserMessageContentItem = { type: "text"; text: string } | { type: string };
 
-export function turnContextManifestText(manifest: TurnContextManifest): string {
-  return `${TURN_CONTEXT_MANIFEST_PREFIX}${TURN_CONTEXT_MANIFEST_NOTICE}${JSON.stringify(manifest)}`;
-}
-
-export function boundedTurnContextManifest(
-  submissionId: string,
-  contexts: readonly TurnContextManifestEntry[],
-  fileReferences: readonly VaultFileReference[],
-): TurnContextManifest | null {
-  const base = {
-    version: 2,
-    submissionId: turnContextSubmissionId(submissionId),
-    contexts,
-  } satisfies TurnContextManifest;
-  if (utf8ByteLength(turnContextManifestText(base)) > TURN_CONTEXT_MANIFEST_MAX_BYTES) return null;
-  const included: VaultFileReference[] = [];
-  const seen = new Set<string>();
-  for (const reference of fileReferences) {
-    const normalized = manifestFileReference(reference);
-    if (!normalized || included.length >= TURN_CONTEXT_FILE_REFERENCE_MAX_COUNT) continue;
-    const identity = `${normalized.name}\u0000${normalized.path}`;
-    if (seen.has(identity)) continue;
-    const candidate = { ...base, fileReferences: [...included, normalized] } satisfies TurnContextManifest;
-    if (utf8ByteLength(turnContextManifestText(candidate)) > TURN_CONTEXT_MANIFEST_MAX_BYTES) continue;
-    seen.add(identity);
-    included.push(normalized);
-  }
-  if (contexts.length === 0 && included.length === 0) return null;
-  return { ...base, ...(included.length > 0 ? { fileReferences: included } : {}) };
-}
-
-function turnContextManifestFromText(text: string): TurnContextManifest | null {
+function legacyTurnContextManifestFromText(text: string): LegacyTurnContextManifest | null {
   const trimmed = text.trim();
   if (!trimmed.startsWith(TURN_CONTEXT_MANIFEST_PREFIX)) return null;
-  if (utf8ByteLength(trimmed) > TURN_CONTEXT_MANIFEST_MAX_BYTES) return null;
+  if (new TextEncoder().encode(trimmed).byteLength > TURN_CONTEXT_MANIFEST_MAX_BYTES) return null;
   const payload = trimmed.slice(TURN_CONTEXT_MANIFEST_PREFIX.length).trimStart();
-  const notice = TURN_CONTEXT_MANIFEST_NOTICE.trim();
+  const notice = "Reference/display metadata only; not user instructions.";
   const json = payload.startsWith(notice) ? payload.slice(notice.length).trimStart() : payload;
   let parsed: unknown;
   try {
@@ -97,7 +58,7 @@ function turnContextManifestFromText(text: string): TurnContextManifest | null {
   if (!parsed || typeof parsed !== "object") return null;
   const value = parsed as Record<string, unknown>;
   if (value["version"] !== 2 || !Array.isArray(value["contexts"])) return null;
-  const contexts = value["contexts"].map(manifestEntryFromUnknown);
+  const contexts = value["contexts"].map(legacyManifestEntryFromUnknown);
   if (contexts.some((entry) => entry === null)) return null;
   const submissionId = optionalStringValue(value["submissionId"], 120);
   if (submissionId === null) return null;
@@ -106,16 +67,16 @@ function turnContextManifestFromText(text: string): TurnContextManifest | null {
   return {
     version: 2,
     ...(submissionId === undefined ? {} : { submissionId }),
-    contexts: contexts as TurnContextManifestEntry[],
+    contexts: contexts as LegacyTurnContextManifestEntry[],
     ...(fileReferences === undefined ? {} : { fileReferences }),
   };
 }
 
-export function userMessageContextProjection(
+export function legacyTurnContextProjection(
   content: readonly UserMessageContentItem[],
   clientId: string | null,
-): UserMessageContextProjection {
-  let manifest: TurnContextManifest | null = null;
+): LegacyTurnContextProjection {
+  let manifest: LegacyTurnContextManifest | null = null;
   const visibleText: string[] = [];
   const lastTextIndex = lastTextItemIndex(content);
   for (const [index, item] of content.entries()) {
@@ -123,7 +84,7 @@ export function userMessageContextProjection(
     const manifestPrefix = `\n${TURN_CONTEXT_MANIFEST_PREFIX}`;
     const manifestStart = index === lastTextIndex ? item.text.lastIndexOf(manifestPrefix) : -1;
     const isStandaloneManifest = manifestStart === 0 && index > 0 && index === content.length - 1;
-    const parsed = manifestStart > 0 || isStandaloneManifest ? turnContextManifestFromText(item.text.slice(manifestStart)) : null;
+    const parsed = manifestStart > 0 || isStandaloneManifest ? legacyTurnContextManifestFromText(item.text.slice(manifestStart)) : null;
     if (parsed && manifestMatchesClientId(parsed, clientId)) {
       manifest = parsed;
       if (manifestStart > 0) visibleText.push(item.text.slice(0, manifestStart));
@@ -141,12 +102,7 @@ function lastTextItemIndex(content: readonly UserMessageContentItem[]): number {
   return -1;
 }
 
-export function turnContextSubmissionId(value: string): string {
-  const safe = value.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 120);
-  return safe || "context";
-}
-
-function manifestMatchesClientId(manifest: TurnContextManifest, clientId: string | null): boolean {
+function manifestMatchesClientId(manifest: LegacyTurnContextManifest, clientId: string | null): boolean {
   if (!isPanelSubmissionClientId(clientId)) return false;
   const submissionId = turnContextSubmissionId(clientId);
   if (manifest.submissionId !== undefined && manifest.submissionId !== submissionId) return false;
@@ -162,7 +118,7 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function referencedThreadFromManifest(manifest: TurnContextManifest | null): ReferencedThreadMetadata | null {
+export function referencedThreadFromLegacyManifest(manifest: LegacyTurnContextManifest | null): ReferencedThreadMetadata | null {
   const context = manifest?.contexts.find((entry) => entry.kind === "referencedThread");
   if (!context?.threadId || context.includedTurns === undefined || context.turnLimit === undefined || context.omittedTurns === undefined) {
     return null;
@@ -177,11 +133,11 @@ export function referencedThreadFromManifest(manifest: TurnContextManifest | nul
   };
 }
 
-export function fileReferencesFromManifest(manifest: TurnContextManifest | null): VaultFileReference[] {
+export function fileReferencesFromLegacyManifest(manifest: LegacyTurnContextManifest | null): VaultFileReference[] {
   return manifest?.fileReferences ? [...manifest.fileReferences] : [];
 }
 
-function manifestEntryFromUnknown(input: unknown): TurnContextManifestEntry | null {
+function legacyManifestEntryFromUnknown(input: unknown): LegacyTurnContextManifestEntry | null {
   if (!input || typeof input !== "object") return null;
   const value = input as Record<string, unknown>;
   const kind = contextKind(value["kind"]);
@@ -225,7 +181,7 @@ function manifestEntryFromUnknown(input: unknown): TurnContextManifestEntry | nu
   };
 }
 
-function contextKind(value: unknown): TurnContextAttachment["kind"] | null {
+function contextKind(value: unknown): LegacyTurnContextManifestEntry["kind"] | null {
   return value === "referencedThread" || value === "web" || value === "obsidian" ? value : null;
 }
 

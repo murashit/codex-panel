@@ -7,7 +7,7 @@ import {
 import { jsonPreview } from "../../../../../domain/display/json-preview";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
-import { contextAttachmentsFromManifest } from "../../../domain/thread-stream/format/context-attachments";
+import { contextAttachmentsFromHistoryContexts } from "../../../domain/thread-stream/format/context-attachments";
 import { threadStreamFileReferences } from "../../../domain/thread-stream/format/file-references";
 import { normalizeProposedPlanMarkdown } from "../../../domain/thread-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/thread-stream/format/user-message-text";
@@ -134,7 +134,7 @@ function userThreadStreamItem(item: UserMessageItem, turnId?: string): ThreadStr
   const text = projection.text;
   const referencedThread = projection.referencedThread;
   const referencedFiles = threadStreamFileReferences(projection.fileReferences);
-  const contextAttachments = contextAttachmentsFromManifest(projection.manifest, text);
+  const contextAttachments = contextAttachmentsFromHistoryContexts(projection.contexts, text);
   if (referencedThread) {
     return {
       ...turnItemSourceFields(item, turnId),

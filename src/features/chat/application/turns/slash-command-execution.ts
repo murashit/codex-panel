@@ -4,7 +4,6 @@ import type { CodexInput } from "../../../../domain/chat/input";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
-import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import { resolveThreadSearchQuery } from "../../../../domain/threads/search";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import { modelOverrideMessage, permissionProfileOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
@@ -79,14 +78,12 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
 export interface SlashCommandExecutionResult {
   sendText?: string;
   sendInput?: CodexInput;
-  referencedThread?: ReferencedThreadMetadata;
   composerDraft?: string;
 }
 
 export interface ThreadReferenceInput {
   text: string;
   input: CodexInput;
-  referencedThread: ReferencedThreadMetadata;
 }
 
 export interface WebUrlInput {
@@ -150,7 +147,7 @@ export async function executeSlashCommand(
       }
       const reference = await context.referThread(thread.thread, parsed.message, context.inputSnapshot);
       if (!reference) return;
-      return { sendText: reference.text, sendInput: reference.input, referencedThread: reference.referencedThread };
+      return { sendText: reference.text, sendInput: reference.input };
     }
     case "web": {
       const parsed = parseWebCommandArgs(args);

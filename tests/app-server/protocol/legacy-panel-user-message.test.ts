@@ -7,12 +7,12 @@ import {
   transcriptEntriesFromTurnRecords,
   turnUserItemProjection,
 } from "../../../src/app-server/protocol/turn";
-import { turnContextManifestText } from "../../../src/domain/chat/context-manifest";
 import { archivedThreadMarkdown } from "../../../src/domain/threads/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
 import { threadDisplayTitle } from "../../../src/domain/threads/title";
 import type { TurnTranscriptSummary } from "../../../src/domain/threads/transcript";
 import { threadStreamItemFromTurnItem } from "../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
+import { legacyTurnContextManifestText } from "../../support/legacy-turn-context-manifest";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
@@ -153,7 +153,7 @@ describe("legacy Codex Panel user-message compatibility", () => {
       [{ userText: "元の依頼", assistantText: "元の回答" }],
       "この続きです",
     );
-    const manifest = turnContextManifestText({
+    const manifest = legacyTurnContextManifestText({
       version: 2,
       submissionId: clientId,
       contexts: [
@@ -184,7 +184,7 @@ describe("legacy Codex Panel user-message compatibility", () => {
       text: envelope,
       referencedThread: null,
       fileReferences: [{ name: "Current", path: "notes/Current.md" }],
-      manifest: expect.objectContaining({ version: 2 }),
+      contexts: [{ kind: "web", truncated: false }],
     });
   });
 

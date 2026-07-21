@@ -297,7 +297,6 @@ describe("wikilink context", () => {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
-        attachment: { kind: "obsidian", inlineExcerpts: 1 },
         value:
           "Obsidian references for the current user input:\n- [[Beta]] -> notes/Beta.md\n- [[Gamma]] (L2:C1-L2:C6) -> notes/Gamma.md (inline excerpt below)\n- <active> -> notes/Alpha.md\n\nInline excerpts:\n[[Gamma]] (L2:C1-L2:C6):\nselected gamma",
       },
@@ -335,7 +334,6 @@ describe("wikilink context", () => {
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
-      attachment: { kind: "obsidian", inlineExcerpts: 1 },
       value:
         "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ncompleted selection",
     });

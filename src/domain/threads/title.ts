@@ -5,6 +5,7 @@ const MAX_ARCHIVED_THREAD_DISPLAY_TITLE_LENGTH = 96;
 const MAX_THREAD_COMMAND_DISPLAY_TITLE_LENGTH = 96;
 const UNTITLED_THREAD_TITLE = "Untitled thread";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const GRAPHEME_SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 export function threadMeaningfulTitle(thread: Thread): string | null {
   for (const value of [thread.name, thread.preview]) {
@@ -52,6 +53,10 @@ function normalizeThreadTitleText(value: string | null | undefined): string {
 }
 
 function truncateThreadDisplayTitle(title: string, maxLength: number): string {
-  if (title.length <= maxLength) return title;
-  return `${title.slice(0, maxLength - 3).trimEnd()}...`;
+  const graphemes = Array.from(GRAPHEME_SEGMENTER.segment(title), ({ segment }) => segment);
+  if (graphemes.length <= maxLength) return title;
+  return `${graphemes
+    .slice(0, maxLength - 3)
+    .join("")
+    .trimEnd()}...`;
 }

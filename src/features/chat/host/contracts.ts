@@ -40,6 +40,7 @@ export interface ChatPanelSettingsAccess {
 
 export interface WorkspacePanels {
   openThreadInNewView(threadId: string): Promise<void>;
+  openThreadInAvailableView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
   focusThreadInOpenView(threadId: string): Promise<boolean>;
   threadHasPendingOrRunningPanel(threadId: string): boolean;

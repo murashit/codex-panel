@@ -249,6 +249,7 @@ const testThreadStreamContext: ChatThreadStreamSurfaceContext = {
     rollbackThread: vi.fn(),
     forkThreadFromTurn: vi.fn(),
     implementPlan: vi.fn(),
+    openThreadInAvailableView: vi.fn(),
     openThreadInNewView: vi.fn(),
     openTurnDiff: vi.fn(),
   },

@@ -171,13 +171,11 @@ function referenceKey(marker: string, path: string): string {
 
 function obsidianContextAdditionalContext(references: readonly ObsidianReference[]): RequestAdditionalContext[] {
   if (references.length === 0) return [];
-  const inlineExcerpts = references.filter((reference) => reference.excerpt !== undefined).length;
   return [
     {
       key: OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY,
       kind: "untrusted",
       value: obsidianContextValue(references),
-      ...(inlineExcerpts > 0 ? { attachment: { kind: "obsidian" as const, inlineExcerpts } } : {}),
     },
   ];
 }

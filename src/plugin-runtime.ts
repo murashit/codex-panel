@@ -240,6 +240,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       settings: () => this.options.settingsRef.settings,
       workspace: {
         openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
+        openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
         openThreadFromPanel: (threadId, originViewId, originSwitchable) =>
           this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),

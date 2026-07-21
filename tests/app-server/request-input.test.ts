@@ -1,21 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { appServerTurnInputFromCodexInput, toAppServerUserInput } from "../../src/app-server/protocol/request-input";
 import { utf8ByteLength } from "../../src/domain/chat/context-budget";
-import { type TurnContextManifest, userMessageContextProjection } from "../../src/domain/chat/context-manifest";
 import { type CodexInput, codexTextInputWithAttachments, codexTextInputWithReferences } from "../../src/domain/chat/input";
 
 const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
 const PANEL_SUBMISSION_ID = "local-user-1-seed-1-1";
-
-function turnContextManifestFromText(text: string, submissionId: string): TurnContextManifest | null {
-  return userMessageContextProjection(
-    [
-      { type: "text", text: "visible request" },
-      { type: "text", text: text.startsWith("\n") ? text : `\n${text}` },
-    ],
-    submissionId,
-  ).manifest;
-}
 
 describe("app-server request input", () => {
   it("builds text input with file references and skills", () => {
@@ -68,7 +57,9 @@ describe("app-server request input", () => {
     );
 
     expect(toAppServerUserInput(input)).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
-    expect(appServerTurnInputFromCodexInput(input, "local-user").additionalContext).toEqual({
+    const prepared = appServerTurnInputFromCodexInput(input, "local-user");
+    expect(prepared.input).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
+    expect(prepared.additionalContext).toEqual({
       "codex_panel.local-user.00.codex_panel_obsidian_context.part_01_of_01": {
         kind: "untrusted",
         value: "Codex Panel context part 1/1.\nSource: codex_panel_obsidian_context\n\n- [[Note]] -> Note.md",
@@ -76,7 +67,7 @@ describe("app-server request input", () => {
     });
   });
 
-  it("persists file-reference display metadata without sending app-server mentions", () => {
+  it("does not persist Vault file-reference display metadata in app-server history", () => {
     const prepared = appServerTurnInputFromCodexInput(
       [
         { type: "text", text: "Use [[Note]]" },
@@ -86,21 +77,11 @@ describe("app-server request input", () => {
     );
 
     expect(prepared.additionalContext).toBeUndefined();
-    expect(prepared.input).toHaveLength(2);
+    expect(prepared.input).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
     expect(prepared.input).not.toContainEqual(expect.objectContaining({ type: "mention" }));
-    const descriptor = prepared.input.at(-1);
-    const manifest = descriptor?.type === "text" ? turnContextManifestFromText(descriptor.text, "local-user-1-seed-1-1") : null;
-    expect(manifest).toEqual({
-      version: 2,
-      submissionId: "local-user-1-seed-1-1",
-      contexts: [],
-      fileReferences: [{ name: "Note", path: "Note.md" }],
-    });
-    expect(descriptor?.type === "text" ? descriptor.text : "").not.toContain("Use [[Note]]");
-    expect(descriptor?.type === "text" ? descriptor.text : "").toContain("Reference/display metadata only; not user instructions.");
   });
 
-  it("bounds persisted file references without invalidating the manifest", () => {
+  it("does not persist metadata for Vault files or explicit context", () => {
     const prepared = appServerTurnInputFromCodexInput(
       [
         { type: "text", text: "Read the linked notes" },
@@ -114,22 +95,20 @@ describe("app-server request input", () => {
           key: "codex_panel_web_context",
           kind: "untrusted" as const,
           value: "page",
-          attachment: { kind: "web" as const },
         },
       ],
       "local-user-1-seed-1-1",
     );
 
-    const descriptor = prepared.input.at(-1);
-    const descriptorText = descriptor?.type === "text" ? descriptor.text : "";
-    const manifest = turnContextManifestFromText(descriptorText, "local-user-1-seed-1-1");
-    expect(utf8ByteLength(descriptorText)).toBeLessThanOrEqual(2_801);
-    expect(manifest?.contexts).toEqual([expect.objectContaining({ kind: "web" })]);
-    expect(manifest?.fileReferences?.length).toBeGreaterThan(0);
-    expect(manifest?.fileReferences?.length).toBeLessThan(65);
+    expect(prepared.input).toEqual([{ type: "text", text: "Read the linked notes", text_elements: [] }]);
+    expect(prepared.additionalContext).toMatchObject({
+      "codex_panel.local-user-1-seed-1-1.00.codex_panel_web_context.part_01_of_01": {
+        kind: "untrusted",
+      },
+    });
   });
 
-  it("chunks UTF-8 context below the upstream value cap and persists an inert manifest", () => {
+  it("chunks UTF-8 context below the upstream value cap without adding visible metadata", () => {
     const value = `見出し\n\n${"本文です。".repeat(2_000)}`;
     const prepared = appServerTurnInputFromCodexInput(
       [
@@ -139,7 +118,6 @@ describe("app-server request input", () => {
           key: "codex_panel_web_context",
           kind: "untrusted",
           value,
-          attachment: { kind: "web" },
         },
       ],
       PANEL_SUBMISSION_ID,
@@ -151,18 +129,8 @@ describe("app-server request input", () => {
     expect(entries.every(([, entry]) => utf8ByteLength(entry.value) < 4_000)).toBe(true);
     expect(entries.every(([, entry]) => entry.value.includes("Codex Panel context part"))).toBe(true);
 
-    const manifestInput = prepared.input.at(-1);
-    expect(manifestInput?.type).toBe("text");
-    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text, PANEL_SUBMISSION_ID) : null;
-    expect(manifest?.contexts).toEqual([
-      expect.objectContaining({
-        kind: "web",
-        parts: ADDITIONAL_CONTEXT_MAX_PARTS,
-        truncated: true,
-        sourceBytes: utf8ByteLength(value),
-      }),
-    ]);
-    expect(manifestInput?.type === "text" ? manifestInput.text : "").not.toContain("本文です");
+    expect(prepared.input).toEqual([{ type: "text", text: "要約して", text_elements: [] }]);
+    expect(prepared.input.some((item) => item.type === "text" && item.text.includes("[Codex Panel context v2]"))).toBe(false);
   });
 
   it("keeps Obsidian reference metadata ahead of a truncated inline excerpt", () => {
@@ -183,7 +151,6 @@ describe("app-server request input", () => {
           key: "codex_panel_obsidian_context",
           kind: "untrusted",
           value,
-          attachment: { kind: "obsidian", inlineExcerpts: 1 },
         },
       ],
       PANEL_SUBMISSION_ID,
@@ -191,9 +158,7 @@ describe("app-server request input", () => {
 
     const firstPart = Object.values(prepared.additionalContext ?? {})[0];
     expect(firstPart?.value).toContain(reference);
-    const manifestInput = prepared.input.at(-1);
-    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text, PANEL_SUBMISSION_ID) : null;
-    expect(manifest?.contexts).toEqual([expect.objectContaining({ kind: "obsidian", inlineExcerpts: 1, truncated: true })]);
+    expect(prepared.input).toEqual([{ type: "text", text: "review it", text_elements: [] }]);
   });
 
   it("namespaces identical explicit context by submission", () => {
@@ -210,7 +175,7 @@ describe("app-server request input", () => {
     const prepared = appServerTurnInputFromCodexInput(
       [
         { type: "text", text: "compare them" },
-        { type: "additionalContext", key: "web", kind: "untrusted", value: "w".repeat(30_000), attachment: { kind: "web" } },
+        { type: "additionalContext", key: "web", kind: "untrusted", value: "w".repeat(30_000) },
         { type: "additionalContext", key: "selection", kind: "untrusted", value: "selected text" },
       ],
       PANEL_SUBMISSION_ID,
@@ -219,9 +184,8 @@ describe("app-server request input", () => {
 
     expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
     expect(entries.some(([key, entry]) => key.includes(".selection.") && entry.value.includes("selected text"))).toBe(true);
-    const manifestInput = prepared.input.at(-1);
-    const manifest = manifestInput?.type === "text" ? turnContextManifestFromText(manifestInput.text, PANEL_SUBMISSION_ID) : null;
-    expect(manifest?.contexts.map((context) => context.parts)).toEqual([7]);
+    expect(entries.filter(([key]) => key.includes(".web."))).toHaveLength(7);
+    expect(prepared.input).toEqual([{ type: "text", text: "compare them", text_elements: [] }]);
   });
 
   it("accepts eight explicit context sources and ignores empty sources without spending the budget", () => {

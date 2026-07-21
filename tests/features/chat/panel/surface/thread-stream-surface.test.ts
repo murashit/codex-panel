@@ -263,6 +263,27 @@ describe("thread stream surface", () => {
     cleanup();
   });
 
+  it("opens rendered Codex thread links in an available Panel", async () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+    const renderMarkdown = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
+      staging.createEl("a", { text: "Other", attr: { href: "codex://threads/thread-1" } });
+      return Promise.resolve();
+    });
+    const { context, openThreadInAvailableView } = threadStreamSurface();
+
+    context.renderObsidianMarkdown(parent, "[Other](codex://threads/thread-1)");
+    await Promise.resolve();
+    await Promise.resolve();
+    const link = parent.querySelector<HTMLAnchorElement>("a");
+    link?.click();
+
+    expect(link?.classList.contains("codex-panel__thread-link")).toBe(true);
+    expect(openThreadInAvailableView).toHaveBeenCalledWith("thread-1");
+    renderMarkdown.mockRestore();
+    parent.remove();
+  });
+
   it("uses Obsidian global search when rendered tags are clicked", async () => {
     const openGlobalSearch = vi.fn();
     const context = markdownLinkContext();
@@ -492,6 +513,7 @@ function testThreadStreamSurfaceContext(options: {
       rollbackThread: vi.fn(),
       forkThreadFromTurn: vi.fn(),
       implementPlan: vi.fn(),
+      openThreadInAvailableView: vi.fn(),
       openThreadInNewView: vi.fn(),
       openTurnDiff: vi.fn(),
     },
@@ -542,6 +564,7 @@ async function renderedInternalLink(
     app: context.app as never,
     owner: {} as never,
     vaultPath: context.vaultPath,
+    openThread: vi.fn(),
   });
 
   markdownRenderer.renderObsidianMarkdown(parent, "[[Link]]");
@@ -573,6 +596,7 @@ async function renderedTag(
     app: context.app as never,
     owner: {} as never,
     vaultPath: context.vaultPath,
+    openThread: vi.fn(),
   });
 
   markdownRenderer.renderObsidianMarkdown(parent, "#tag");
@@ -593,6 +617,7 @@ async function renderedTag(
 interface TestThreadStreamSurface {
   context: ChatThreadStreamSurfaceContext;
   scrollPortBinding: ChatThreadStreamScrollBinding;
+  openThreadInAvailableView: ReturnType<typeof vi.fn<(threadId: string) => void>>;
   stateStore: ChatStateStore;
 }
 
@@ -605,6 +630,7 @@ function threadStreamSurface(
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   const scrollPortBinding = createChatThreadStreamScrollBinding();
   const stateStore = testStoreForState(state);
+  const openThreadInAvailableView = vi.fn<(threadId: string) => void>();
   const context = createChatThreadStreamSurfaceContext({
     panelId: "test-panel",
     app: {
@@ -625,6 +651,7 @@ function threadStreamSurface(
       rollbackThread: vi.fn(),
       forkThreadFromTurn: vi.fn(),
       implementPlan: vi.fn(),
+      openThreadInAvailableView,
       openThreadInNewView: vi.fn(),
       openTurnDiff: vi.fn(),
     },
@@ -640,7 +667,7 @@ function threadStreamSurface(
       consumePendingAutoFocus: () => false,
     },
   });
-  return { context, scrollPortBinding, stateStore };
+  return { context, openThreadInAvailableView, scrollPortBinding, stateStore };
 }
 
 function testStoreForState(state: ChatState): ChatStateStore {

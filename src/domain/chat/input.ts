@@ -14,7 +14,6 @@ export interface RequestAdditionalContext {
   key: string;
   value: string;
   kind: "untrusted" | "application";
-  attachment?: TurnContextAttachment;
 }
 
 export type CodexInputItem =
@@ -28,7 +27,6 @@ export type CodexInputItem =
       key: string;
       value: string;
       kind: RequestAdditionalContext["kind"];
-      attachment?: TurnContextAttachment;
     };
 
 export type CodexInput = CodexInputItem[];
@@ -53,7 +51,6 @@ export function codexTextInputWithReferences(
       key: context.key,
       value: context.value,
       kind: context.kind,
-      ...(context.attachment ? { attachment: context.attachment } : {}),
     })),
   ];
 }
@@ -61,5 +58,3 @@ export function codexTextInputWithReferences(
 export function codexTextInputWithAttachments(text: string, input: readonly CodexInputItem[]): CodexInput {
   return [...codexTextInput(text), ...input.filter((item) => item.type !== "text")];
 }
-
-import type { TurnContextAttachment } from "./context-manifest";

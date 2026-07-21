@@ -1,12 +1,6 @@
-import { splitUtf8Context, utf8ByteLength } from "../../domain/chat/context-budget";
-import {
-  boundedTurnContextManifest,
-  type TurnContextManifest,
-  type TurnContextManifestEntry,
-  turnContextManifestText,
-  turnContextSubmissionId,
-} from "../../domain/chat/context-manifest";
-import type { CodexInputItem, VaultFileReference } from "../../domain/chat/input";
+import { splitUtf8Context } from "../../domain/chat/context-budget";
+import type { CodexInputItem } from "../../domain/chat/input";
+import { turnContextSubmissionId } from "../../domain/chat/submission-id";
 
 type AppServerUserInputImageDetail = "auto" | "low" | "high" | "original";
 
@@ -29,20 +23,12 @@ export interface AppServerTurnInput {
 const ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES = 2_800;
 const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
 
-export function toAppServerUserInput(input: readonly CodexInputItem[], manifest: TurnContextManifest | null = null): AppServerUserInput[] {
-  const userInput = input.flatMap((item) => appServerUserInputItemFromCodexInputItem(item));
-  if (manifest) {
-    userInput.push({ type: "text", text: `\n${turnContextManifestText(manifest)}`, text_elements: [] });
-  }
-  return userInput;
+export function toAppServerUserInput(input: readonly CodexInputItem[]): AppServerUserInput[] {
+  return input.flatMap((item) => appServerUserInputItemFromCodexInputItem(item));
 }
 
 export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[], submissionId: string): AppServerTurnInput {
   const additionalContext: Record<string, AppServerAdditionalContextEntry> = {};
-  const manifest: TurnContextManifestEntry[] = [];
-  const fileReferences = input.flatMap((item): VaultFileReference[] =>
-    item.type === "fileReference" && item.name && item.path ? [{ name: item.name, path: item.path }] : [],
-  );
   const contexts = input.filter(
     (item): item is Extract<CodexInputItem, { type: "additionalContext" }> =>
       item.type === "additionalContext" && Boolean(item.key) && Boolean(item.value),
@@ -53,7 +39,6 @@ export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[
   const partAllocations = allocatedPartCounts(contexts);
   for (const [contextIndex, item] of contexts.entries()) {
     const id = `${turnContextSubmissionId(submissionId)}.${String(contextIndex).padStart(2, "0")}`;
-    const sourceBytes = utf8ByteLength(item.value);
     const split = splitUtf8Context(item.value, ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES, partAllocations[contextIndex] ?? 1);
     const partCount = split.parts.length;
     split.parts.forEach((part, partIndex) => {
@@ -73,13 +58,9 @@ export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[
         ].join("\n"),
       };
     });
-    if (item.attachment || split.includedBytes < sourceBytes) {
-      manifest.push(manifestEntry(item, id, partCount, sourceBytes, split.includedBytes));
-    }
   }
-  const persistedManifest = boundedTurnContextManifest(submissionId, manifest, fileReferences);
   return {
-    input: toAppServerUserInput(input, persistedManifest),
+    input: toAppServerUserInput(input),
     ...(Object.keys(additionalContext).length > 0 ? { additionalContext } : {}),
   };
 }
@@ -113,36 +94,6 @@ function appServerUserInputItemFromCodexInputItem(item: CodexInputItem): AppServ
     case "additionalContext":
       return [];
   }
-}
-
-function manifestEntry(
-  item: Extract<CodexInputItem, { type: "additionalContext" }>,
-  id: string,
-  parts: number,
-  sourceBytes: number,
-  includedBytes: number,
-): TurnContextManifestEntry {
-  const common = {
-    kind: item.attachment?.kind ?? "obsidian",
-    id,
-    parts,
-    sourceBytes,
-    includedBytes,
-    truncated: includedBytes < sourceBytes,
-  } as const;
-  if (item.attachment?.kind === "obsidian") {
-    return { ...common, kind: "obsidian", inlineExcerpts: item.attachment.inlineExcerpts };
-  }
-  if (item.attachment?.kind !== "referencedThread") return common;
-  return {
-    ...common,
-    kind: "referencedThread",
-    threadId: item.attachment.threadId,
-    includedTurns: item.attachment.includedTurns,
-    turnLimit: item.attachment.turnLimit,
-    omittedTurns: item.attachment.omittedTurns,
-    truncated: common.truncated || item.attachment.truncated,
-  };
 }
 
 function safeKeyPart(value: string): string {

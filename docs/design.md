@@ -14,7 +14,9 @@ The panel may provide a narrow management surface when direct configuration of C
 
 The panel may acquire prompt context through an explicit user action. `/web` fetches the requested page through Obsidian and attaches the extracted content as untrusted turn context; it is not a search surface or agent network policy.
 
-Panel-acquired context remains reference material rather than current user authorization. Send its bounded payload as untrusted app-server context, while persisting only a tightly bounded, context-body-free metadata descriptor needed to reconstruct panel display and archive metadata. Treat that fixed-schema envelope as inert reference metadata rather than user instructions. Apply physical byte and part limits at the app-server boundary; keep source-specific selection and truncation policy with the context producer.
+Panel-acquired context remains reference material rather than current user authorization. Send its bounded payload as untrusted app-server context without adding Panel-owned metadata envelopes to Codex history. Apply physical byte and part limits at the app-server boundary; keep source-specific selection and truncation policy with the context producer. Keep read-only compatibility for envelopes written by older Panel versions isolated at history projection boundaries.
+
+Vault file references are prompt handoff data, not durable thread metadata. Keep their display state local; ordinary wikilinks remain represented by the user-authored message text. Thread references persist as ordinary, human-readable `codex://threads/` Markdown links, while their bounded transcript payload remains ephemeral turn context.
 
 Panel settings should store only panel-specific preferences. Do not mirror Codex configuration in Obsidian settings just to display or inspect it.
 

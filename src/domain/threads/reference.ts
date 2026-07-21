@@ -1,6 +1,5 @@
 import { truncateUtf8, utf8ByteLength } from "../chat/context-budget";
 import type { Thread } from "./model";
-import { threadDisplayTitle } from "./title";
 import type { TurnTranscriptSummary } from "./transcript";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
@@ -14,27 +13,12 @@ export interface ReferencedThreadMetadata {
   truncated?: boolean;
 }
 
-export interface ReferencedThreadContextBundle {
-  value: string;
-  referencedThread: ReferencedThreadMetadata;
-}
-
 const REFERENCED_THREAD_CONTEXT_MAX_BYTES = 18_000;
 
-function referencedThreadMetadata(thread: Thread, count: number): ReferencedThreadMetadata {
-  return {
-    threadId: thread.id,
-    title: threadDisplayTitle(thread),
-    includedTurns: count,
-    turnLimit: REFERENCED_THREAD_TURN_LIMIT,
-  };
-}
-
-export function referencedThreadContextBundle(thread: Thread, turns: readonly TurnTranscriptSummary[]): ReferencedThreadContextBundle {
+export function referencedThreadContext(thread: Thread, turns: readonly TurnTranscriptSummary[]): string {
   const rendered = turns.map((turn, index) => renderedReferenceTurn(turn, index + 1));
   const included: string[] = [];
   let bytes = 0;
-  let truncatedTurn = false;
   for (let index = rendered.length - 1; index >= 0; index -= 1) {
     const value = rendered[index];
     if (value === undefined) continue;
@@ -43,7 +27,6 @@ export function referencedThreadContextBundle(thread: Thread, turns: readonly Tu
       if (included.length === 0) {
         const turn = turns[index];
         if (turn) included.unshift(truncatedReferenceTurn(turn, index + 1, REFERENCED_THREAD_CONTEXT_MAX_BYTES));
-        truncatedTurn = true;
       }
       break;
     }
@@ -51,22 +34,14 @@ export function referencedThreadContextBundle(thread: Thread, turns: readonly Tu
     bytes += nextBytes;
   }
   const omittedTurns = turns.length - included.length;
-  const reference = {
-    ...referencedThreadMetadata(thread, included.length),
-    omittedTurns,
-    truncated: omittedTurns > 0 || truncatedTurn,
-  };
-  return {
-    value: [
-      "Referenced thread context for the current user input:",
-      `Thread: ${thread.id}`,
-      `Included turns: ${String(reference.includedTurns)}`,
-      `Omitted turns: ${String(omittedTurns)}`,
-      "",
-      ...included,
-    ].join("\n"),
-    referencedThread: reference,
-  };
+  return [
+    "Referenced thread context for the current user input:",
+    `Thread: ${thread.id}`,
+    `Included turns: ${String(included.length)}`,
+    `Omitted turns: ${String(omittedTurns)}`,
+    "",
+    ...included,
+  ].join("\n");
 }
 
 function renderedReferenceTurn(turn: TurnTranscriptSummary, index: number): string {

@@ -1,9 +1,10 @@
 import type { AppServerRequestClient } from "../../../app-server/services/request-client";
 import { readReferencedThreadTurnTranscriptSummaries } from "../../../app-server/services/threads";
 import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/chat/input";
+import { threadReferenceMarkdown } from "../../../domain/threads/deep-link";
 import { shortThreadId } from "../../../domain/threads/id";
 import type { Thread } from "../../../domain/threads/model";
-import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadContextBundle } from "../../../domain/threads/reference";
+import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadContext } from "../../../domain/threads/reference";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { ThreadReferenceInput } from "../application/turns/slash-command-execution";
 
@@ -40,28 +41,20 @@ async function referencedThreadInput(
       return null;
     }
     const messageInput = host.prepareInput(message, snapshot);
-    const reference = referencedThreadContextBundle(thread, turns);
+    const reference = referencedThreadContext(thread, turns);
+    const visibleText = `${threadReferenceMarkdown(thread)}\n\n${messageInput.text}`;
     host.setStatus(`Referencing ${shortThreadId(thread.id)} (${String(turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`);
     return {
-      text: messageInput.text,
-      input: codexTextInputWithAttachments(messageInput.text, [
+      text: visibleText,
+      input: codexTextInputWithAttachments(visibleText, [
         {
           type: "additionalContext",
           key: "codex_panel_referenced_thread",
           kind: "untrusted",
-          value: reference.value,
-          attachment: {
-            kind: "referencedThread",
-            threadId: reference.referencedThread.threadId,
-            includedTurns: reference.referencedThread.includedTurns,
-            turnLimit: reference.referencedThread.turnLimit,
-            omittedTurns: reference.referencedThread.omittedTurns ?? 0,
-            truncated: reference.referencedThread.truncated ?? false,
-          },
+          value: reference,
         },
         ...messageInput.input,
       ]),
-      referencedThread: reference.referencedThread,
     };
   } catch (error) {
     if (host.currentClient() !== client) return null;

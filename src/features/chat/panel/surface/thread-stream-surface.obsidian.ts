@@ -21,6 +21,7 @@ export function createChatThreadStreamSurfaceContext(options: ChatThreadStreamSu
     app: options.app,
     owner: options.owner,
     vaultPath: options.vaultPath,
+    openThread: options.actions.openThreadInAvailableView,
   });
   const dispatch = (action: ChatAction): void => {
     options.stateStore.dispatch(action);

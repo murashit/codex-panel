@@ -139,6 +139,7 @@ function chatHostFixture(): CodexChatHost {
     settings: chatPanelSettingsAccess(settings),
     workspace: {
       openThreadInNewView: vi.fn(),
+      openThreadInAvailableView: vi.fn(),
       openThreadFromPanel: vi.fn(),
       focusThreadInOpenView: vi.fn(),
       threadHasPendingOrRunningPanel: vi.fn(() => false),

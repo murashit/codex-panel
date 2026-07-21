@@ -462,6 +462,7 @@ describe("thread stream rendering and action menu", () => {
       app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
       owner: {} as never,
       vaultPath: "/vault",
+      openThread: vi.fn(),
     });
     const baseContext = {
       renderMarkdown: (element: HTMLElement, text: string) => {
@@ -571,6 +572,7 @@ describe("thread stream rendering and action menu", () => {
       app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
       owner: {} as never,
       vaultPath: "/vault",
+      openThread: vi.fn(),
     });
 
     renderThreadStreamBlocksInAct(
@@ -620,6 +622,7 @@ describe("thread stream rendering and action menu", () => {
       app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
       owner: {} as never,
       vaultPath: "/vault",
+      openThread: vi.fn(),
     });
 
     markdownRenderer.renderObsidianMarkdown(parent, "old");

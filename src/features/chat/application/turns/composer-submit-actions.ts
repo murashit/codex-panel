@@ -133,7 +133,6 @@ async function sendMessage(
         text: result.sendText,
         inputSnapshot,
         ...(result.sendInput !== undefined ? { codexInputOverride: result.sendInput } : {}),
-        ...(result.referencedThread !== undefined ? { referencedThread: result.referencedThread } : {}),
         ...(result.sendInput !== undefined ? { preserveComposerContextOnFailure: true } : {}),
         ...(pendingWeb ? { pendingSubmissionId: pendingWeb.id, failureDraft: originalDraft } : {}),
       });

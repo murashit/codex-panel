@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import { appServerTurnInputFromCodexInput } from "../../../../src/app-server/protocol/request-input";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadOperationsTransport } from "../../../../src/features/threads/app-server/workflow-transports";
@@ -14,6 +13,7 @@ import {
 } from "../../../../src/features/threads/workflows/thread-operations";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
+import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 
 describe("ThreadOperations", () => {
   it("renames a thread and notifies shared surfaces after success", async () => {
@@ -81,26 +81,24 @@ describe("ThreadOperations", () => {
   it("resolves persisted reference titles before archive export", async () => {
     const client = clientMock();
     const clientId = "local-user-1-seed-1-1";
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "continue" },
+    const manifest = legacyTurnContextManifestText({
+      version: 2,
+      submissionId: clientId,
+      contexts: [
         {
-          type: "additionalContext",
-          key: "codex_panel_referenced_thread",
-          kind: "untrusted",
-          value: "context",
-          attachment: {
-            kind: "referencedThread",
-            threadId: "thread-reference",
-            includedTurns: 1,
-            turnLimit: 20,
-            omittedTurns: 0,
-            truncated: false,
-          },
+          kind: "referencedThread",
+          id: `${clientId}.00`,
+          parts: 1,
+          sourceBytes: 7,
+          includedBytes: 7,
+          threadId: "thread-reference",
+          includedTurns: 1,
+          turnLimit: 20,
+          omittedTurns: 0,
+          truncated: false,
         },
       ],
-      clientId,
-    );
+    });
     client.request.mockImplementation((method: string, params: { threadId: string; name?: string }) => {
       if (method === "thread/read") {
         return Promise.resolve({
@@ -115,7 +113,17 @@ describe("ThreadOperations", () => {
                 startedAt: 1,
                 completedAt: 2,
                 durationMs: 1,
-                items: [{ type: "userMessage", id: "user", clientId, content: prepared.input }],
+                items: [
+                  {
+                    type: "userMessage",
+                    id: "user",
+                    clientId,
+                    content: [
+                      { type: "text", text: "continue", text_elements: [] },
+                      { type: "text", text: `\n${manifest}`, text_elements: [] },
+                    ],
+                  },
+                ],
               },
             ],
           },

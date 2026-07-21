@@ -1,6 +1,7 @@
 import { micromark } from "micromark";
 import { type App, type Component, MarkdownRenderer, Notice } from "obsidian";
 
+import { codexThreadIdFromHref } from "../../../../domain/threads/deep-link";
 import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../domain/vault/file-hrefs";
 import { vaultFileLinkTarget } from "../../../../shared/obsidian/vault-file-links.obsidian";
 import { notifyThreadStreamContentRendered } from "./content-rendered-event.dom";
@@ -9,6 +10,7 @@ interface ThreadStreamMarkdownRendererOptions {
   app: App;
   owner: Component;
   vaultPath: string;
+  openThread: (threadId: string) => void;
 }
 
 interface StreamMarkdownRenderContext {
@@ -47,6 +49,7 @@ export class ThreadStreamMarkdownRenderer {
         parent.replaceChildren(...Array.from(staging.childNodes));
         bindRenderedWikiLinks(parent, sourcePath, this.options);
         bindRenderedMarkdownFileLinks(parent, sourcePath, this.options);
+        bindCodexThreadLinks(parent, this.options);
         bindRenderedTags(parent, this.options);
         notifyThreadStreamContentRendered(parent);
       })
@@ -70,6 +73,10 @@ export function renderStreamMarkdown(parent: HTMLElement, text: string, context:
 interface RenderedMarkdownLinkContext {
   app: App;
   vaultPath: string;
+}
+
+interface CodexThreadLinkContext {
+  openThread: (threadId: string) => void;
 }
 
 function bindRenderedWikiLinks(parent: HTMLElement, sourcePath: string, context: RenderedMarkdownLinkContext): void {
@@ -111,6 +118,18 @@ function bindRenderedTags(parent: HTMLElement, context: RenderedMarkdownLinkCont
       const tag = renderedTagName(link);
       if (!tag) return;
       openTagSearch(context.app, tag);
+    };
+  });
+}
+
+function bindCodexThreadLinks(parent: HTMLElement, context: CodexThreadLinkContext): void {
+  parent.querySelectorAll<HTMLAnchorElement>('a[href^="codex://threads/"]').forEach((link) => {
+    const threadId = codexThreadIdFromHref(link.getAttribute("href") ?? "");
+    if (!threadId) return;
+    link.addClass("codex-panel__thread-link");
+    link.onclick = (event) => {
+      event.preventDefault();
+      context.openThread(threadId);
     };
   });
 }

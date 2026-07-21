@@ -146,6 +146,16 @@ describe("thread archive export", () => {
     expect(output).toContain("> Context: Obsidian context");
   });
 
+  it("keeps ordinary Codex thread links unchanged", () => {
+    const link = "[Other thread](codex://threads/019abcde-0000-7000-8000-000000000001)";
+    const output = exportedMarkdown(
+      thread({ transcriptEntries: [transcriptEntry("user", `${link}\n\n続きです`, 1)] }),
+      new Date(2026, 4, 18),
+    );
+
+    expect(output).toContain(link);
+  });
+
   it("writes optional frontmatter tags from fixed comma-separated settings", () => {
     const output = exportedMarkdown(thread({ name: "Tagged thread" }), new Date(2026, 4, 18), {
       archiveExportTags: '#codex, "archive", codex, {{title}}',

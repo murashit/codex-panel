@@ -15,7 +15,6 @@ interface LocalUserDialogueParams {
   text: string;
   copyText?: string;
   turnId?: string;
-  referencedThread?: ThreadStreamDialogueItem["referencedThread"];
   referencedFiles?: readonly ThreadStreamFileReference[];
   contextAttachments?: ThreadStreamDialogueItem["contextAttachments"];
 }
@@ -64,7 +63,6 @@ function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDia
     provenance: localUserDialogueProvenance(params.clientId ?? params.id, params.interaction),
     ...(params.clientId ? { clientId: params.clientId } : {}),
     ...(params.turnId ? { turnId: params.turnId } : {}),
-    ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     ...(referencedFiles.length > 0 ? { referencedFiles: [...referencedFiles] } : {}),
     ...(contextAttachments.length > 0 ? { contextAttachments: [...contextAttachments] } : {}),
   };
@@ -87,7 +85,6 @@ export function localUserDialogueItemFromInput(params: LocalUserDialogueFromInpu
     text: userMessageDisplayText(params.text, params.codexInput),
     copyText: params.text,
     ...(params.turnId ? { turnId: params.turnId } : {}),
-    ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     referencedFiles: fileReferencesFromInput([...params.codexInput]),
     contextAttachments: contextAttachmentsFromInput(params.codexInput),
   });

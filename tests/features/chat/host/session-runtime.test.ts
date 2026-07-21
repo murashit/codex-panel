@@ -258,6 +258,7 @@ describe("ChatPanelSessionRuntime actions", () => {
         settings: overrides.plugin?.settings ?? chatPanelSettingsAccess(settingsSource),
         workspace: {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
+          openThreadInAvailableView: overrides.plugin?.workspace?.openThreadInAvailableView ?? vi.fn().mockResolvedValue(undefined),
           threadHasPendingOrRunningPanel: vi.fn(() => false),
           focusThreadInOpenView: vi.fn().mockResolvedValue(false),
           openTurnDiff: vi.fn().mockResolvedValue(undefined),

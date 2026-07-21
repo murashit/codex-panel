@@ -48,7 +48,7 @@ If Obsidian cannot find `codex`, set **Settings -> Codex Panel -> Codex executab
 
 A panel is an independent working surface with its own active thread and draft. Open multiple panels when different tasks should stay visible and separate. Regular Codex threads remain available after a panel closes; return to them from **Codex Panel: Open thread...**, panel history, or the Threads view.
 
-For a one-off question alongside the current thread, use `/btw` to open a temporary side chat. To carry context between regular threads without merging their histories, use `/refer <thread> <message>`.
+For a one-off question alongside the current thread, use `/btw` to open a temporary side chat. To carry context between regular threads without merging their histories, use `/refer <thread> <message>`. The submitted message keeps a normal link to the referenced thread; clicking it opens the thread in an available Codex Panel, creating one when needed.
 
 ### Bring in the right context
 

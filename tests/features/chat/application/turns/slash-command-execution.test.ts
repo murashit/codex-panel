@@ -22,7 +22,6 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     referThread: vi.fn().mockResolvedValue({
       text: "referenced",
       input: [{ type: "text", text: "referenced" }],
-      referencedThread: { threadId: "thread-2", title: "Referenced", includedTurns: 1, turnLimit: 20 },
     }),
     readWebUrl: vi.fn().mockResolvedValue({
       text: "https://example.com/article 要約して",
@@ -196,18 +195,17 @@ describe("slash commands", () => {
   it("returns referenced input for /refer", async () => {
     const target = thread({ id: "thread-alpha", name: "Alpha" });
     const input = [{ type: "text" as const, text: "context\n質問です" }];
-    const referencedThread = { threadId: "thread-alpha", title: "Alpha", includedTurns: 2, turnLimit: 20 };
     const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     const ctx = context({
       inputSnapshot,
       listedThreads: [thread({ id: "thread-current", name: "Current" }), target],
-      referThread: vi.fn().mockResolvedValue({ text: "質問です", input, referencedThread }),
+      referThread: vi.fn().mockResolvedValue({ text: "質問です", input }),
     });
 
     const result = await executeSlashCommand("refer", '"Alpha" 質問です', ctx);
 
     expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です", inputSnapshot);
-    expect(result).toEqual({ sendText: "質問です", sendInput: input, referencedThread });
+    expect(result).toEqual({ sendText: "質問です", sendInput: input });
   });
 
   it("rejects /refer when no composer input snapshot is available", async () => {
@@ -246,20 +244,19 @@ describe("slash commands", () => {
   it("does not let the active thread shadow a non-active /refer match", async () => {
     const target = thread({ id: "alpha-thread", name: "Alpha other thread" });
     const input = [{ type: "text" as const, text: "質問です" }];
-    const referencedThread = { threadId: "alpha-thread", title: "Other thread", includedTurns: 1, turnLimit: 20 };
     const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     const ctx = context({
       activeThreadId: "thread-current",
       inputSnapshot,
       listedThreads: [thread({ id: "thread-current", name: "Alpha plan" }), target],
-      referThread: vi.fn().mockResolvedValue({ text: "質問です", input, referencedThread }),
+      referThread: vi.fn().mockResolvedValue({ text: "質問です", input }),
     });
 
     const result = await executeSlashCommand("refer", "alpha 質問です", ctx);
 
     expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です", inputSnapshot);
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
-    expect(result).toEqual({ sendText: "質問です", sendInput: input, referencedThread });
+    expect(result).toEqual({ sendText: "質問です", sendInput: input });
   });
 
   it("returns fetched web context input for /web", async () => {

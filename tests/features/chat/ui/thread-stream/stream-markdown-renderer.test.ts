@@ -98,6 +98,16 @@ describe("renderStreamMarkdown", () => {
     expect(event.defaultPrevented).toBe(true);
     expect(notices).toEqual([]);
   });
+
+  it("keeps custom-protocol links inert while streaming", () => {
+    const context = streamMarkdownContext();
+    const parent = document.createElement("div");
+
+    renderStreamMarkdown(parent, "[Other](codex://threads/thread-1)", context);
+    const link = parent.querySelector<HTMLAnchorElement>("a");
+
+    expect(link?.getAttribute("href")).toBe("");
+  });
 });
 
 function streamMarkdownContext(options: { openLinkText?: ReturnType<typeof vi.fn>; vaultPath?: string; vaultFiles?: string[] } = {}) {

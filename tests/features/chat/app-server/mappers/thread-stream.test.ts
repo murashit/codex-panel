@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { appServerTurnInputFromCodexInput } from "../../../../../src/app-server/protocol/request-input";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/thread-stream/execution-state";
 import { hookRunThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/hook-run-items";
@@ -14,6 +13,7 @@ import {
   threadStreamItemsFromTurns,
 } from "../../../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { legacyTurnContextManifestText } from "../../../../support/legacy-turn-context-manifest";
 
 describe("turn item conversion preserves app-server semantics", () => {
   it("sorts app-server turns oldest first before converting messages", () => {
@@ -49,33 +49,34 @@ describe("turn item conversion preserves app-server semantics", () => {
 
   it("restores v2 context metadata without exposing its descriptor", () => {
     const clientId = "local-user-1-seed-1-1";
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "この続きです" },
+    const manifest = legacyTurnContextManifestText({
+      version: 2,
+      submissionId: clientId,
+      contexts: [
         {
-          type: "additionalContext",
-          key: "codex_panel_referenced_thread",
-          kind: "untrusted",
-          value: "old request\nold response",
-          attachment: {
-            kind: "referencedThread",
-            threadId: "thread-reference",
-            includedTurns: 2,
-            turnLimit: 20,
-            omittedTurns: 3,
-            truncated: true,
-          },
+          kind: "referencedThread",
+          id: `${clientId}.00`,
+          parts: 1,
+          sourceBytes: 24,
+          includedBytes: 24,
+          threadId: "thread-reference",
+          includedTurns: 2,
+          turnLimit: 20,
+          omittedTurns: 3,
+          truncated: true,
         },
       ],
-      clientId,
-    );
+    });
 
     expect(
       threadStreamItemFromTurnItem({
         type: "userMessage",
         id: "u1",
         clientId,
-        content: prepared.input,
+        content: [
+          { type: "text", text: "この続きです", text_elements: [] },
+          { type: "text", text: `\n${manifest}`, text_elements: [] },
+        ],
       }),
     ).toMatchObject({
       text: "この続きです",
@@ -90,23 +91,27 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("restores v2 file references from app-server history after a thread resume", () => {
+  it("continues to restore file references from existing v2 app-server history", () => {
     const clientId = "local-user-1-seed-1-1";
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "Read [[Alpha]] and the current note." },
-        { type: "fileReference", name: "Alpha", path: "thoughts/Alpha.md" },
-        { type: "fileReference", name: "<active>", path: "Daily/Today.md" },
+    const manifest = legacyTurnContextManifestText({
+      version: 2,
+      submissionId: clientId,
+      contexts: [],
+      fileReferences: [
+        { name: "Alpha", path: "thoughts/Alpha.md" },
+        { name: "<active>", path: "Daily/Today.md" },
       ],
-      clientId,
-    );
+    });
 
     expect(
       threadStreamItemFromTurnItem({
         type: "userMessage",
         id: "u1",
         clientId,
-        content: prepared.input,
+        content: [
+          { type: "text", text: "Read [[Alpha]] and the current note.", text_elements: [] },
+          { type: "text", text: `\n${manifest}`, text_elements: [] },
+        ],
       }),
     ).toMatchObject({
       text: "Read [[Alpha]] and the current note.",
@@ -120,59 +125,64 @@ describe("turn item conversion preserves app-server semantics", () => {
 
   it("restores v2 metadata when resume merges text before a non-text input", () => {
     const clientId = "local-user-1-seed-1-1";
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "Read [[Alpha]]." },
-        { type: "fileReference", name: "Alpha", path: "thoughts/Alpha.md" },
-        { type: "localImage", path: "/tmp/chart.png" },
+    const manifest = legacyTurnContextManifestText({
+      version: 2,
+      submissionId: clientId,
+      contexts: [
+        {
+          kind: "web",
+          id: `${clientId}.00`,
+          parts: 1,
+          sourceBytes: 4,
+          includedBytes: 4,
+          truncated: false,
+        },
       ],
-      clientId,
-    );
-    const normalizedText = prepared.input.flatMap((item) => (item.type === "text" ? [item.text] : [])).join("");
-    const nonTextInput = prepared.input.filter((item) => item.type !== "text");
+    });
 
     expect(
       threadStreamItemFromTurnItem({
         type: "userMessage",
         id: "u1",
         clientId,
-        content: [{ type: "text", text: normalizedText, text_elements: [] }, ...nonTextInput],
+        content: [
+          { type: "text", text: `Read [[Alpha]].\n${manifest}`, text_elements: [] },
+          { type: "localImage", path: "/tmp/chart.png" },
+        ],
       }),
     ).toMatchObject({
       text: "Read [[Alpha]].\n[local image] /tmp/chart.png",
       copyText: "Read [[Alpha]].\n[local image] /tmp/chart.png",
-      referencedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
+      contextAttachments: [{ label: "Web page" }],
     });
   });
 
   it("accepts a persisted attachment descriptor after an unpersisted reference context", () => {
     const clientId = "local-user-1-seed-1-1";
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "https://example.com/ compare with [[Note]]" },
+    const manifest = legacyTurnContextManifestText({
+      version: 2,
+      submissionId: clientId,
+      contexts: [
         {
-          type: "additionalContext",
-          key: "codex_panel_obsidian_context",
-          kind: "untrusted",
-          value: "- [[Note]] -> Note.md",
-        },
-        {
-          type: "additionalContext",
-          key: "codex_panel_web_context",
-          kind: "untrusted",
-          value: "Source: https://example.com/\n\npage",
-          attachment: { kind: "web" },
+          kind: "web",
+          id: `${clientId}.00`,
+          parts: 1,
+          sourceBytes: 34,
+          includedBytes: 34,
+          truncated: false,
         },
       ],
-      clientId,
-    );
+    });
 
     expect(
       threadStreamItemFromTurnItem({
         type: "userMessage",
         id: "u1",
         clientId,
-        content: prepared.input,
+        content: [
+          { type: "text", text: "https://example.com/ compare with [[Note]]", text_elements: [] },
+          { type: "text", text: `\n${manifest}`, text_elements: [] },
+        ],
       }),
     ).toMatchObject({
       text: "https://example.com/ compare with [[Note]]",
@@ -211,26 +221,31 @@ describe("turn item conversion preserves app-server semantics", () => {
 
   it("surfaces a truncated Obsidian excerpt from the persisted manifest", () => {
     const clientId = "local-user-1-seed-1-1";
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "review the selection" },
+    const manifest = legacyTurnContextManifestText({
+      version: 2,
+      submissionId: clientId,
+      contexts: [
         {
-          type: "additionalContext",
-          key: "codex_panel_obsidian_context",
-          kind: "untrusted",
-          value: "x".repeat(30_000),
-          attachment: { kind: "obsidian", inlineExcerpts: 1 },
+          kind: "obsidian",
+          id: `${clientId}.00`,
+          parts: 8,
+          sourceBytes: 30_000,
+          includedBytes: 20_000,
+          truncated: true,
+          inlineExcerpts: 1,
         },
       ],
-      clientId,
-    );
+    });
 
     expect(
       threadStreamItemFromTurnItem({
         type: "userMessage",
         id: "u1",
         clientId,
-        content: prepared.input,
+        content: [
+          { type: "text", text: "review the selection", text_elements: [] },
+          { type: "text", text: `\n${manifest}`, text_elements: [] },
+        ],
       }),
     ).toMatchObject({
       text: "review the selection",

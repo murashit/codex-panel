@@ -408,6 +408,7 @@ export interface ChatHostFixtureOverrides {
   settings?: Partial<CodexPanelSettings>;
   vaultPath?: string;
   openThreadInNewView?: CodexChatHost["workspace"]["openThreadInNewView"];
+  openThreadInAvailableView?: CodexChatHost["workspace"]["openThreadInAvailableView"];
   openThreadFromPanel?: CodexChatHost["workspace"]["openThreadFromPanel"];
   focusThreadInOpenView?: CodexChatHost["workspace"]["focusThreadInOpenView"];
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
@@ -567,6 +568,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     settings: chatPanelSettingsAccess(settings),
     workspace: {
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
+      openThreadInAvailableView: overrides.openThreadInAvailableView ?? vi.fn(),
       openThreadFromPanel: overrides.openThreadFromPanel ?? vi.fn(),
       focusThreadInOpenView: overrides.focusThreadInOpenView ?? vi.fn().mockResolvedValue(false),
       threadHasPendingOrRunningPanel: vi.fn(() => false),

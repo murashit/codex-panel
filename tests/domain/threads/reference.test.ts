@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
-import { referencedThreadContextBundle } from "../../../src/domain/threads/reference";
+import { referencedThreadContext } from "../../../src/domain/threads/reference";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
@@ -23,26 +23,22 @@ describe("thread reference context", () => {
       { userText: `middle-${"b".repeat(10_000)}`, assistantText: "middle answer" },
       { userText: "new request", assistantText: "new answer" },
     ];
-    const bundle = referencedThreadContextBundle(thread(), turns);
+    const context = referencedThreadContext(thread(), turns);
 
-    expect(bundle.value).toContain("new request");
-    expect(bundle.value).toContain("middle-");
-    expect(bundle.value).not.toContain("old-");
-    expect(bundle.referencedThread).toMatchObject({
-      includedTurns: 2,
-      omittedTurns: 1,
-      truncated: true,
-    });
+    expect(context).toContain("new request");
+    expect(context).toContain("middle-");
+    expect(context).not.toContain("old-");
+    expect(context).toContain("Included turns: 2");
+    expect(context).toContain("Omitted turns: 1");
   });
 
   it("keeps both fields when the newest turn itself exceeds the budget", () => {
-    const bundle = referencedThreadContextBundle(thread(), [
+    const context = referencedThreadContext(thread(), [
       { userText: `large-user-${"u".repeat(30_000)}`, assistantText: `final-answer-${"a".repeat(2_000)}` },
     ]);
 
-    expect(bundle.value).toContain("large-user-");
-    expect(bundle.value).toContain("final-answer-");
-    expect(bundle.value).toContain("[Turn fields truncated]");
-    expect(bundle.referencedThread).toMatchObject({ includedTurns: 1, omittedTurns: 0, truncated: true });
+    expect(context).toContain("large-user-");
+    expect(context).toContain("final-answer-");
+    expect(context).toContain("[Turn fields truncated]");
   });
 });

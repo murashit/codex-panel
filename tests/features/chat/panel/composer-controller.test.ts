@@ -1261,7 +1261,6 @@ describe("ChatComposerController", () => {
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
-      attachment: { kind: "obsidian", inlineExcerpts: 1 },
       value:
         "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
     });
@@ -1271,7 +1270,6 @@ describe("ChatComposerController", () => {
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
-      attachment: { kind: "obsidian", inlineExcerpts: 1 },
       value:
         "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
     });

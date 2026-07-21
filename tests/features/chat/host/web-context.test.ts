@@ -68,7 +68,6 @@ describe("web context reader", () => {
           key: "codex_panel_web_context",
           kind: "untrusted",
           value: "Web page context for the current user input:\nSource: https://example.com/article\nTitle: Example\n\nReadable article",
-          attachment: { kind: "web" },
         },
         { type: "fileReference", name: "Alpha", path: "Notes/Alpha.md" },
         { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selection" },

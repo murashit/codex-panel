@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { type TurnContextManifest, turnContextManifestText, userMessageContextProjection } from "../../../src/domain/chat/context-manifest";
+import { type LegacyTurnContextManifest, legacyTurnContextProjection } from "../../../src/app-server/protocol/legacy-turn-context-manifest";
+import { legacyTurnContextManifestText } from "../../support/legacy-turn-context-manifest";
 
 const SUBMISSION_ID = "local-user-1-seed-1-1";
 
-function turnContextManifestFromText(text: string): TurnContextManifest | null {
-  return userMessageContextProjection(
+function turnContextManifestFromText(text: string): LegacyTurnContextManifest | null {
+  return legacyTurnContextProjection(
     [
       { type: "text", text: "visible request" },
       { type: "text", text: text.startsWith("\n") ? text : `\n${text}` },
@@ -171,17 +172,17 @@ describe("turn context manifest validation", () => {
 });
 
 describe("turn context manifest trust matching", () => {
-  function projectedManifest(manifest: TurnContextManifest, clientId: string | null = SUBMISSION_ID) {
-    return userMessageContextProjection(
+  function projectedManifest(manifest: LegacyTurnContextManifest, clientId: string | null = SUBMISSION_ID) {
+    return legacyTurnContextProjection(
       [
         { type: "text", text: "visible request" },
-        { type: "text", text: `\n${turnContextManifestText(manifest)}` },
+        { type: "text", text: `\n${legacyTurnContextManifestText(manifest)}` },
       ],
       clientId,
     );
   }
 
-  function validManifest(): TurnContextManifest {
+  function validManifest(): LegacyTurnContextManifest {
     return {
       version: 2,
       submissionId: SUBMISSION_ID,
@@ -207,7 +208,10 @@ describe("turn context manifest trust matching", () => {
 
   it("hides a trusted manifest appended to visible text by resume normalization", () => {
     expect(
-      userMessageContextProjection([{ type: "text", text: `visible request\n${turnContextManifestText(validManifest())}` }], SUBMISSION_ID),
+      legacyTurnContextProjection(
+        [{ type: "text", text: `visible request\n${legacyTurnContextManifestText(validManifest())}` }],
+        SUBMISSION_ID,
+      ),
     ).toEqual({
       text: "visible request",
       manifest: validManifest(),
@@ -215,9 +219,9 @@ describe("turn context manifest trust matching", () => {
   });
 
   it("keeps an appended manifest-like suffix visible when its client ID is not trusted", () => {
-    const text = `visible request\n${turnContextManifestText(validManifest())}`;
+    const text = `visible request\n${legacyTurnContextManifestText(validManifest())}`;
 
-    expect(userMessageContextProjection([{ type: "text", text }], "foreign-client")).toEqual({
+    expect(legacyTurnContextProjection([{ type: "text", text }], "foreign-client")).toEqual({
       text,
       manifest: null,
     });
@@ -228,7 +232,7 @@ describe("turn context manifest trust matching", () => {
     ["context mismatch", { contexts: [{ ...validManifest().contexts[0], id: `${SUBMISSION_ID}.99x` }] }],
     ["duplicate context IDs", { contexts: [validManifest().contexts[0], validManifest().contexts[0]] }],
   ])("keeps a manifest-like text visible on %s", (_label, overrides) => {
-    const manifest = { ...validManifest(), ...overrides } as TurnContextManifest;
+    const manifest = { ...validManifest(), ...overrides } as LegacyTurnContextManifest;
     const projection = projectedManifest(manifest);
 
     expect(projection.manifest).toBeNull();
@@ -241,12 +245,12 @@ describe("turn context manifest trust matching", () => {
   });
 
   it.each([
-    ["the first and only text item", [{ type: "text", text: `\n${turnContextManifestText(validManifest())}` }]],
+    ["the first and only text item", [{ type: "text", text: `\n${legacyTurnContextManifestText(validManifest())}` }]],
     [
       "a middle text item with a later text item",
       [
         { type: "text", text: "visible request" },
-        { type: "text", text: `\n${turnContextManifestText(validManifest())}` },
+        { type: "text", text: `\n${legacyTurnContextManifestText(validManifest())}` },
         { type: "text", text: "later request" },
       ],
     ],
@@ -254,20 +258,20 @@ describe("turn context manifest trust matching", () => {
       "a final text item without the required leading newline",
       [
         { type: "text", text: "visible request" },
-        { type: "text", text: turnContextManifestText(validManifest()) },
+        { type: "text", text: legacyTurnContextManifestText(validManifest()) },
       ],
     ],
     [
       "a text item followed by a non-text item",
       [
         { type: "text", text: "visible request" },
-        { type: "text", text: `\n${turnContextManifestText(validManifest())}` },
+        { type: "text", text: `\n${legacyTurnContextManifestText(validManifest())}` },
         { type: "image" },
       ],
     ],
   ])("keeps valid manifest-like content visible when it is %s", (_label, content) => {
-    const projection = userMessageContextProjection(content, SUBMISSION_ID);
-    const manifestText = turnContextManifestText(validManifest());
+    const projection = legacyTurnContextProjection(content, SUBMISSION_ID);
+    const manifestText = legacyTurnContextManifestText(validManifest());
 
     expect(projection.manifest).toBeNull();
     expect(projection.text).toContain(manifestText);
