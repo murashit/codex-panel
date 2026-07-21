@@ -6,7 +6,11 @@ import { type ThreadsViewPanelActivity, threadRows, transitionThreadsRenameState
 describe("threads view rename state", () => {
   it("keeps auto-name results scoped to the active unchanged generation", () => {
     const editing = transitionThreadsRenameState(undefined, { type: "started", draft: "Original draft" });
-    const generating = transitionThreadsRenameState(editing, { type: "generation-started", generationToken: 1 });
+    const ready = transitionThreadsRenameState(editing, {
+      type: "auto-name-context-resolved",
+      context: { userRequest: "Request", assistantResponse: "Response" },
+    });
+    const generating = transitionThreadsRenameState(ready, { type: "generation-started", generationToken: 1 });
     if (generating?.kind !== "generating") throw new Error("Expected generating state");
 
     const generated = transitionThreadsRenameState(generating, {
@@ -18,11 +22,13 @@ describe("threads view rename state", () => {
     expect(generated).toEqual({
       kind: "generating",
       draft: "Generated title",
+      autoName: { kind: "ready", context: { userRequest: "Request", assistantResponse: "Response" } },
       generationToken: 1,
     });
     expect(transitionThreadsRenameState(generated, { type: "generation-finished", generationToken: generating.generationToken })).toEqual({
       kind: "editing",
       draft: "Generated title",
+      autoName: { kind: "ready", context: { userRequest: "Request", assistantResponse: "Response" } },
     });
     expect(transitionThreadsRenameState(generated, { type: "cancelled" })).toBeUndefined();
     expect(transitionThreadsRenameState(undefined, { type: "draft-updated", draft: "Stray" })).toBeUndefined();

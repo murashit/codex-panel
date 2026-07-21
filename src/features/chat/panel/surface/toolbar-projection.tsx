@@ -211,7 +211,9 @@ function toolbarThreadRows(input: {
       archiveDisabled: input.turnBusy,
       canArchive: true,
       archiveConfirm: core.archiveConfirm,
-      rename: core.rename.active ? { draft: core.rename.draft, generating: core.rename.generating } : null,
+      rename: core.rename.active
+        ? { draft: core.rename.draft, generating: core.rename.generating, autoNameDisabled: core.rename.autoNameDisabled }
+        : null,
     };
   });
 }

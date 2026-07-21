@@ -32,7 +32,7 @@ describe("thread rename lifecycle", () => {
         type: "generation-finished",
         generationToken: generating.generationToken,
       }),
-    ).toEqual({ kind: "editing", draft: "Generated title" });
+    ).toEqual({ kind: "editing", draft: "Generated title", autoName: generating.autoName });
   });
 
   it("does not create an editor from a stray draft update", () => {
@@ -46,7 +46,11 @@ type ThreadRenameGeneratingState = Extract<ThreadRenameLifecycleState, { kind: "
 
 function generatingRenameState(draft: string, generationToken: number): ThreadRenameGeneratingState {
   const editing = expectRenameState(transitionThreadRenameLifecycleState(initialThreadRenameLifecycleState(), { type: "started", draft }));
-  const generating = transitionThreadRenameLifecycleState(editing, { type: "generation-started", generationToken });
+  const ready = transitionThreadRenameLifecycleState(editing, {
+    type: "auto-name-context-resolved",
+    context: { userRequest: "Request", assistantResponse: "Response" },
+  });
+  const generating = transitionThreadRenameLifecycleState(ready, { type: "generation-started", generationToken });
   if (generating.kind !== "generating") throw new Error("Expected generating rename state.");
   return generating;
 }

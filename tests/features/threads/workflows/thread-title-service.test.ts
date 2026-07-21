@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE, type ThreadTitleContext } from "../../../../src/domain/threads/title-generation-model";
+import type { ThreadTitleContext } from "../../../../src/domain/threads/title-generation-model";
 import {
   createThreadTitleService,
   type ThreadTitleService,
@@ -8,7 +8,7 @@ import {
 } from "../../../../src/features/threads/workflows/thread-title-service";
 
 describe("ThreadTitleService", () => {
-  it("generates a title from visible context without saving it", async () => {
+  it("resolves visible context once and generates from the prepared context", async () => {
     const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
     const withClient = vi.fn().mockRejectedValue(new Error("should not read persisted context"));
     const service = titleService({
@@ -20,16 +20,19 @@ describe("ThreadTitleService", () => {
       },
     });
 
-    await expect(service.generateTitle("thread")).resolves.toBe("Generated title");
+    const context = await service.resolveContext("thread");
+    expect(context).toEqual(titleContext("visible request", "visible response"));
+    if (!context) throw new Error("Expected visible title context.");
+    await expect(service.generate(context)).resolves.toBe("Generated title");
 
     expect(withClient).not.toHaveBeenCalled();
     expect(generateThreadTitle).toHaveBeenCalledWith(titleContext("visible request", "visible response"), expect.any(AbortSignal));
   });
 
-  it("throws the existing unavailable-context error when no context can be resolved", async () => {
+  it("reports unavailable context without turning it into a generation error", async () => {
     const service = titleService();
 
-    await expect(service.generateTitle("thread")).rejects.toThrow(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
+    await expect(service.resolveContext("thread")).resolves.toBeNull();
   });
 
   it("prefers visible completed-turn context over completed summaries", () => {
@@ -71,13 +74,14 @@ describe("ThreadTitleService", () => {
       },
     });
 
-    const staleTitle = service.generateTitle("thread");
+    const context = titleContext("request", "response");
+    const staleTitle = service.generate(context);
     await Promise.resolve();
     const staleSignal = generateTitle.mock.calls[0]?.[1];
     service.invalidate();
 
     expect(staleSignal?.aborted).toBe(true);
-    await expect(service.generateTitle("thread")).resolves.toBe("Fresh title");
+    await expect(service.generate(context)).resolves.toBe("Fresh title");
     resolveOldTitle("Stale title");
     await expect(staleTitle).rejects.toThrow("Thread title generation cancelled.");
   });

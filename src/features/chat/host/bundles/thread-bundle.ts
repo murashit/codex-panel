@@ -227,7 +227,8 @@ export function createThreadLifecycleBundle(
     ensureConnected,
     addSystemMessage: status.addSystemMessage,
     renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
-    generateThreadTitle: (threadId, signal) => foundation.titleService.generateTitle(threadId, signal),
+    resolveThreadTitleContext: (threadId) => foundation.titleService.resolveContext(threadId),
+    generateThreadTitle: (context, signal) => foundation.titleService.generate(context, signal),
   });
   const { identity, restoration, resume } = lifecycle;
 

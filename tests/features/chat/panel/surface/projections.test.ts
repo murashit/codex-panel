@@ -290,7 +290,9 @@ describe("chat panel surface projections", () => {
     state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
     state = chatStateWith(state, { ui: { toolbarPanel: "history" } });
     state = chatStateWith(state, { ui: { archiveConfirmThreadId: "thread-2" } });
-    state = chatStateWith(state, { ui: { rename: { kind: "editing", threadId: "thread-1", draft: "Active" } } });
+    state = chatStateWith(state, {
+      ui: { rename: { kind: "editing", threadId: "thread-1", draft: "Active", autoName: { kind: "unavailable" } } },
+    });
     state = chatStateWith(state, {
       connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" }) },
     });

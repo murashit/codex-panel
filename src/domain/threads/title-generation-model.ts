@@ -6,9 +6,6 @@ const DEFAULT_CONTEXT_PAGE_LIMIT = 20;
 const DEFAULT_CONTEXT_MAX_PAGES = 5;
 
 export const THREAD_TITLE_MAX_CHARS = 40;
-export const THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE =
-  "Auto-name needs completed history or visible resumed history with both user and assistant text.";
-
 export interface ThreadTitleContext {
   userRequest: string;
   assistantResponse: string;

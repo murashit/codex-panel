@@ -16,7 +16,8 @@ export interface ThreadRenameEditorActionsHost {
   ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
   renameThread(threadId: string, value: string): Promise<boolean>;
-  generateThreadTitle(threadId: string, signal?: AbortSignal): Promise<string>;
+  resolveThreadTitleContext(threadId: string): Promise<ThreadTitleContext | null>;
+  generateThreadTitle(context: ThreadTitleContext, signal?: AbortSignal): Promise<string | null>;
 }
 
 export interface ThreadRenameEditorActions {
@@ -34,11 +35,13 @@ export interface ThreadRenameEditorActions {
 export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsHost): ThreadRenameEditorActions {
   let nextRenameGenerationToken = 1;
   let activeGeneration: { threadId: string; generationToken: number; controller: AbortController } | null = null;
+  let activeContextPreparation: { threadId: string } | null = null;
 
   const action = {
     invalidate(): void {
       activeGeneration?.controller.abort();
       activeGeneration = null;
+      activeContextPreparation = null;
       dispatch(host, { type: "ui/rename-cleared" });
     },
 
@@ -60,6 +63,7 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
       if (!thread) return;
       abortActiveGeneration();
       dispatch(host, { type: "ui/rename-started", threadId, draft: threadRenameDraftTitle(thread) });
+      void prepareAutoName(threadId);
     },
 
     updateDraft(threadId: string, value: string): void {
@@ -68,6 +72,7 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
 
     cancel(threadId: string): void {
       abortGeneration(threadId);
+      if (activeContextPreparation?.threadId === threadId) activeContextPreparation = null;
       dispatch(host, { type: "ui/rename-cancelled", threadId });
     },
 
@@ -85,18 +90,18 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
 
       try {
         await host.ensureConnected();
-        if (renameState(host) !== editingState) return;
+        if (!renameEditStillCurrent(host, threadId, editingState.draft)) return;
 
         const result = await host.renameThread(threadId, value);
         if (!result) {
-          if (renameState(host) === editingState) action.cancel(threadId);
+          if (renameEditStillCurrent(host, threadId, editingState.draft)) action.cancel(threadId);
           return;
         }
-        if (renameState(host) === editingState) {
+        if (renameEditStillCurrent(host, threadId, editingState.draft)) {
           dispatch(host, { type: "ui/rename-cleared" });
         }
       } catch (error) {
-        if (renameState(host) !== editingState) return;
+        if (!renameEditStillCurrent(host, threadId, editingState.draft)) return;
         host.addSystemMessage(error instanceof Error ? error.message : String(error));
       }
     },
@@ -105,24 +110,21 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
       const current = renameState(host);
       if (current.kind !== "editing" || current.threadId !== threadId) return;
 
-      const editingState = current;
-
-      await host.ensureConnected();
-      if (renameState(host) !== editingState) return;
-
       dispatch(host, {
         type: "ui/rename-generation-started",
         threadId,
         generationToken: nextRenameGenerationToken,
       });
       const generationToken = nextRenameGenerationToken;
-      if (!renameGenerationStillActive(renameState(host), threadId, generationToken)) return;
+      const generating = renameState(host);
+      if (!renameGenerationStillActive(generating, threadId, generationToken)) return;
       nextRenameGenerationToken += 1;
       const controller = new AbortController();
       activeGeneration = { threadId, generationToken, controller };
 
       try {
-        const title = await host.generateThreadTitle(threadId, controller.signal);
+        const title = await host.generateThreadTitle(generating.autoName.context, controller.signal);
+        if (!title) throw new Error("Codex did not return a usable thread title.");
         dispatch(host, { type: "ui/rename-generation-succeeded", threadId, generationToken, draft: title });
       } catch (error) {
         if (renameGenerationStillActive(renameState(host), threadId, generationToken)) {
@@ -151,6 +153,24 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
   function clearGeneration(generationToken: number): void {
     if (activeGeneration?.generationToken === generationToken) activeGeneration = null;
   }
+
+  async function prepareAutoName(threadId: string): Promise<void> {
+    const preparation = { threadId };
+    activeContextPreparation = preparation;
+    let context: ThreadTitleContext | null = null;
+    try {
+      await host.ensureConnected();
+      if (activeContextPreparation !== preparation) return;
+      context = await host.resolveThreadTitleContext(threadId);
+    } catch {
+      // Auto-name availability is reflected by the disabled action.
+    }
+    if (activeContextPreparation !== preparation) return;
+    activeContextPreparation = null;
+    const current = renameState(host);
+    if (current.kind !== "editing" || current.threadId !== threadId) return;
+    dispatch(host, { type: "ui/rename-auto-name-context-resolved", threadId, context });
+  }
 }
 
 export function activeThreadRenameTitleContext(state: ChatState, threadId: string): ThreadTitleContext | null {
@@ -159,6 +179,11 @@ export function activeThreadRenameTitleContext(state: ChatState, threadId: strin
 
 function renameState(host: ThreadRenameEditorActionsHost): ChatRenameUiState {
   return host.stateStore.getState().ui.rename;
+}
+
+function renameEditStillCurrent(host: ThreadRenameEditorActionsHost, threadId: string, draft: string): boolean {
+  const current = renameState(host);
+  return current.kind === "editing" && current.threadId === threadId && current.draft === draft;
 }
 
 function dispatch(host: ThreadRenameEditorActionsHost, action: ChatAction): void {

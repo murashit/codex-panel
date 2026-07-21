@@ -472,6 +472,9 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
+    });
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     await waitForAsyncWork(() => {
@@ -482,8 +485,72 @@ describe("CodexThreadsView", () => {
         sortDirection: "asc",
         itemsView: "full",
       });
+      expect(threadTurnsList).toHaveBeenCalledOnce();
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
+    });
+  });
+
+  it("disables auto-name without publishing an error when completed history is unavailable", async () => {
+    const threadTurnsList = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/turns/list": threadTurnsList,
+    });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    await waitForAsyncWork(() => {
+      expect(threadTurnsList).toHaveBeenCalledOnce();
+    });
+
+    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
+    expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
+    expect(view.containerEl.textContent).not.toContain("completed history");
+    expect(namingMock.generateThreadTitleWithCodex).not.toHaveBeenCalled();
+  });
+
+  it("keeps loading auto-name history while a rename save is in flight", async () => {
+    const history = deferred<unknown>();
+    const saved = deferred<object>();
+    const completedHistory = {
+      data: [
+        turnFixture([
+          { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "Name this", text_elements: [] }] },
+          { type: "agentMessage", id: "a1", text: "Done.", phase: "final_answer", memoryCitation: null },
+        ]),
+      ],
+      nextCursor: null,
+    };
+    const threadTurnsList = vi.fn().mockReturnValue(history.promise);
+    namingMock.generateThreadTitleWithCodex.mockResolvedValue("Generated title");
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/name/set": vi.fn(() => saved.promise),
+      "thread/turns/list": threadTurnsList,
+    });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    await waitForAsyncWork(() => expect(threadTurnsList).toHaveBeenCalledOnce());
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    if (!input) throw new Error("Missing rename input");
+    input.dispatchEvent(new FocusEvent("blur"));
+    changeInputValue(input, "Changed while saving");
+    history.resolve(completedHistory);
+    saved.reject(new Error("Rename failed."));
+
+    await waitForAsyncWork(() => {
+      expect(threadTurnsList).toHaveBeenCalledOnce();
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
+    });
+    const autoName = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
+    autoName?.click();
+    await waitForAsyncWork(() => {
+      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Generated title");
     });
   });
 
@@ -512,6 +579,9 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
+    });
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     await waitForAsyncWork(() => {
@@ -545,6 +615,9 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
+    });
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     await waitForAsyncWork(() => {
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
@@ -585,6 +658,9 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
+    });
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     await waitForAsyncWork(() => {
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();

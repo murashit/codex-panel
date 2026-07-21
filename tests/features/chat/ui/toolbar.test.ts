@@ -264,7 +264,7 @@ describe("Toolbar decisions", () => {
             disabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "Draft title", generating: false },
+            rename: { draft: "Draft title", generating: false, autoNameDisabled: false },
           },
         ],
       }),
@@ -299,7 +299,7 @@ describe("Toolbar decisions", () => {
             disabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "New title", generating: false },
+            rename: { draft: "New title", generating: false, autoNameDisabled: false },
           },
         ],
       }),
@@ -338,7 +338,7 @@ describe("Toolbar decisions", () => {
             disabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "Draft title", generating: true },
+            rename: { draft: "Draft title", generating: true, autoNameDisabled: false },
           },
         ],
       }),
@@ -366,7 +366,7 @@ describe("Toolbar decisions", () => {
             disabled: false,
             archiveDisabled: false,
             canArchive: true,
-            rename: { draft: "Draft title", generating: false },
+            rename: { draft: "Draft title", generating: false, autoNameDisabled: false },
           },
         ],
       }),
@@ -374,6 +374,36 @@ describe("Toolbar decisions", () => {
     );
     expect(document.activeElement).toBe(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input"));
     parent.remove();
+  });
+
+  it("disables auto-name while title context is unavailable", () => {
+    const parent = document.createElement("div");
+    const autoNameThread = vi.fn();
+
+    mountToolbar(
+      parent,
+      toolbarModel({
+        historyOpen: true,
+        openPanel: "history",
+        threads: [
+          {
+            title: "Editing",
+            threadId: "editing",
+            selected: false,
+            disabled: false,
+            archiveDisabled: false,
+            canArchive: true,
+            rename: { draft: "Draft title", generating: false, autoNameDisabled: true },
+          },
+        ],
+      }),
+      toolbarActions({ autoNameThread }),
+    );
+
+    const autoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
+    expect(autoName.disabled).toBe(true);
+    autoName.click();
+    expect(autoNameThread).not.toHaveBeenCalled();
   });
 
   it("renders toolbar archive confirmation with the default action on the right", () => {

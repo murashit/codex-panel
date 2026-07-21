@@ -44,7 +44,7 @@ function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
     title,
     live: null,
     selected: false,
-    rename: { active: false, draft: title, generating: false },
+    rename: { active: false, draft: title, generating: false, autoNameDisabled: true },
     archiveConfirm: { active: false, defaultSaveMarkdown: false },
     ...overrides,
   };
@@ -171,7 +171,7 @@ describe("threads view renderer decisions", () => {
     const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
-      rename: { active: true, draft: "Old name", generating: false },
+      rename: { active: true, draft: "Old name", generating: false, autoNameDisabled: false },
     });
 
     renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
@@ -184,7 +184,11 @@ describe("threads view renderer decisions", () => {
 
     renderThreadsViewShell(
       parent,
-      { status: "1 thread", loading: false, rows: [{ ...row, rename: { active: true, draft: "New name", generating: false } }] },
+      {
+        status: "1 thread",
+        loading: false,
+        rows: [{ ...row, rename: { active: true, draft: "New name", generating: false, autoNameDisabled: false } }],
+      },
       actions,
     );
     const renamedInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
@@ -208,7 +212,7 @@ describe("threads view renderer decisions", () => {
     const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
-      rename: { active: true, draft: "Old name", generating: false },
+      rename: { active: true, draft: "Old name", generating: false, autoNameDisabled: false },
     });
 
     renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
@@ -224,7 +228,7 @@ describe("threads view renderer decisions", () => {
     const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
-      rename: { active: true, draft: "Old name", generating: true },
+      rename: { active: true, draft: "Old name", generating: true, autoNameDisabled: false },
     });
 
     renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);

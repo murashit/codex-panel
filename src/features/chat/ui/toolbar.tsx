@@ -20,6 +20,7 @@ export interface ToolbarThreadRow {
   rename: {
     draft: string;
     generating: boolean;
+    autoNameDisabled: boolean;
   } | null;
 }
 
@@ -529,6 +530,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
         icon={generating ? "x" : "sparkles"}
         label={generating ? "Cancel auto-name" : "Auto-name thread"}
         className="codex-panel__thread-action"
+        disabled={!generating && (thread.rename?.autoNameDisabled ?? true)}
         onPointerDown={(event) => {
           event.preventDefault();
           event.stopPropagation();

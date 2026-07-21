@@ -253,6 +253,7 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
           icon={row.rename.generating ? "x" : "sparkles"}
           label={row.rename.generating ? "Cancel auto-name" : "Auto-name thread"}
           className="codex-panel-threads__row-button"
+          disabled={!row.rename.generating && row.rename.autoNameDisabled}
           onPointerDown={(event) => {
             event.preventDefault();
             event.stopPropagation();

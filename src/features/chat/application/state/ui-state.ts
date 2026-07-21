@@ -7,6 +7,7 @@ import {
   threadRenameGenerationStillActive,
   transitionThreadRenameLifecycleState,
 } from "../../../../domain/threads/rename-lifecycle";
+import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import type { DisclosureSetAction } from "./actions";
 import { patchObject } from "./patch";
 
@@ -19,6 +20,7 @@ type ChatRenameUiAction = Extract<
     type:
       | "ui/rename-started"
       | "ui/rename-draft-updated"
+      | "ui/rename-auto-name-context-resolved"
       | "ui/rename-cancelled"
       | "ui/rename-generation-started"
       | "ui/rename-generation-succeeded"
@@ -71,6 +73,7 @@ export type UiAction =
   | { type: "ui/archive-confirm-set"; threadId: string | null }
   | { type: "ui/rename-started"; threadId: string; draft: string }
   | { type: "ui/rename-draft-updated"; threadId: string; draft: string }
+  | { type: "ui/rename-auto-name-context-resolved"; threadId: string; context: ThreadTitleContext | null }
   | { type: "ui/rename-cancelled"; threadId: string }
   | { type: "ui/rename-generation-started"; threadId: string; generationToken: number }
   | { type: "ui/rename-generation-succeeded"; threadId: string; generationToken: number; draft: string }
@@ -99,6 +102,7 @@ export function isUiAction(action: { type: string }): action is UiAction {
     case "ui/archive-confirm-set":
     case "ui/rename-started":
     case "ui/rename-draft-updated":
+    case "ui/rename-auto-name-context-resolved":
     case "ui/rename-cancelled":
     case "ui/rename-generation-started":
     case "ui/rename-generation-succeeded":
@@ -123,6 +127,7 @@ export function reduceUiSlice(state: ChatUiState, action: UiAction): ChatUiState
       return patchObject(state, { archiveConfirmThreadId: action.threadId });
     case "ui/rename-started":
     case "ui/rename-draft-updated":
+    case "ui/rename-auto-name-context-resolved":
     case "ui/rename-cancelled":
     case "ui/rename-generation-started":
     case "ui/rename-generation-succeeded":
@@ -253,9 +258,14 @@ function goalEditorDraftUpdated(state: ChatGoalEditorUiState, objective: string)
 function transitionChatRenameUiState(state: ChatRenameUiState, action: ChatRenameUiAction): ChatRenameUiState {
   switch (action.type) {
     case "ui/rename-started":
-      return { kind: "editing", threadId: action.threadId, draft: action.draft };
+      return { kind: "editing", threadId: action.threadId, draft: action.draft, autoName: { kind: "checking" } };
     case "ui/rename-draft-updated":
       return transitionScopedChatRenameUiState(state, action.threadId, { type: "draft-updated", draft: action.draft });
+    case "ui/rename-auto-name-context-resolved":
+      return transitionScopedChatRenameUiState(state, action.threadId, {
+        type: "auto-name-context-resolved",
+        context: action.context,
+      });
     case "ui/rename-cancelled":
       return transitionScopedChatRenameUiState(state, action.threadId, { type: "cancelled" });
     case "ui/rename-generation-started":
@@ -304,11 +314,12 @@ function chatRenameLifecycleStateWithoutThreadId(state: ChatRenameUiState): Thre
 function chatRenameActiveStateWithoutThreadId(state: Exclude<ChatRenameUiState, { kind: "idle" }>): ThreadRenameActiveState {
   switch (state.kind) {
     case "editing":
-      return { kind: "editing", draft: state.draft };
+      return { kind: "editing", draft: state.draft, autoName: state.autoName };
     case "generating":
       return {
         kind: "generating",
         draft: state.draft,
+        autoName: state.autoName,
         generationToken: state.generationToken,
       };
   }

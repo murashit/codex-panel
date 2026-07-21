@@ -1,7 +1,11 @@
+import type { ThreadTitleContext } from "./title-generation-model";
+
+type ThreadRenameAutoNameState = { kind: "checking" } | { kind: "unavailable" } | { kind: "ready"; context: ThreadTitleContext };
+
 export type ThreadRenameLifecycleState =
   | { kind: "idle" }
-  | { kind: "editing"; draft: string }
-  | { kind: "generating"; draft: string; generationToken: number };
+  | { kind: "editing"; draft: string; autoName: ThreadRenameAutoNameState }
+  | { kind: "generating"; draft: string; autoName: Extract<ThreadRenameAutoNameState, { kind: "ready" }>; generationToken: number };
 
 export type ThreadRenameActiveState = Exclude<ThreadRenameLifecycleState, { kind: "idle" }>;
 type ThreadRenameGeneratingState = Extract<ThreadRenameLifecycleState, { kind: "generating" }>;
@@ -9,6 +13,7 @@ type ThreadRenameGeneratingState = Extract<ThreadRenameLifecycleState, { kind: "
 export type ThreadRenameLifecycleEvent =
   | { type: "started"; draft: string }
   | { type: "draft-updated"; draft: string }
+  | { type: "auto-name-context-resolved"; context: ThreadTitleContext | null }
   | { type: "cancelled" }
   | { type: "generation-started"; generationToken: number }
   | { type: "generation-succeeded"; generationToken: number; draft: string }
@@ -25,16 +30,23 @@ export function transitionThreadRenameLifecycleState(
 ): ThreadRenameLifecycleState {
   switch (event.type) {
     case "started":
-      return { kind: "editing", draft: event.draft };
+      return { kind: "editing", draft: event.draft, autoName: { kind: "checking" } };
     case "draft-updated":
       return state.kind === "editing" ? { ...state, draft: event.draft } : state;
+    case "auto-name-context-resolved":
+      if (state.kind !== "editing") return state;
+      return {
+        ...state,
+        autoName: event.context ? { kind: "ready", context: event.context } : { kind: "unavailable" },
+      };
     case "cancelled":
       return state.kind === "idle" ? state : initialThreadRenameLifecycleState();
     case "generation-started":
-      if (state.kind !== "editing") return state;
+      if (state.kind !== "editing" || state.autoName.kind !== "ready") return state;
       return {
         kind: "generating",
         draft: state.draft,
+        autoName: state.autoName,
         generationToken: event.generationToken,
       };
     case "generation-succeeded":
@@ -42,7 +54,7 @@ export function transitionThreadRenameLifecycleState(
       return { ...state, draft: event.draft };
     case "generation-finished":
       if (!threadRenameGenerationStillActive(state, event.generationToken)) return state;
-      return { kind: "editing", draft: state.draft };
+      return { kind: "editing", draft: state.draft, autoName: state.autoName };
     case "cleared":
       return state.kind === "idle" ? state : initialThreadRenameLifecycleState();
     default:

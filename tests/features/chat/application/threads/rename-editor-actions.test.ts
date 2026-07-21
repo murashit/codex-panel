@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import { normalizeExplicitThreadName, type Thread } from "../../../../../src/domain/threads/model";
+import type { ThreadTitleContext } from "../../../../../src/domain/threads/title-generation-model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   createThreadRenameEditorActions,
@@ -39,14 +40,41 @@ describe("ThreadRenameEditorActions", () => {
     expect(actions.editState("thread")).toBeNull();
   });
 
-  it("applies generated rename drafts and clears the generating state", async () => {
+  it("keeps auto-name disabled when no title context is available", async () => {
+    const resolvedContext = deferred<null>();
     const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
-    const { actions } = actionsFixture({ generateThreadTitle });
+    const addSystemMessage = vi.fn();
+    const { actions, stateStore } = actionsFixture({
+      resolveThreadTitleContext: vi.fn(() => resolvedContext.promise),
+      generateThreadTitle,
+      addSystemMessage,
+    });
 
     actions.start("thread");
+    expect(stateStore.getState().ui.rename).toMatchObject({ autoName: { kind: "checking" } });
+    await actions.autoNameDraft("thread");
+    expect(generateThreadTitle).not.toHaveBeenCalled();
+
+    resolvedContext.resolve(null);
+    await flushPromises();
+
+    expect(stateStore.getState().ui.rename).toMatchObject({ autoName: { kind: "unavailable" } });
+    expect(addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("applies generated rename drafts and clears the generating state", async () => {
+    const context = { userRequest: "Please name this.", assistantResponse: "Done." };
+    const resolveThreadTitleContext = vi.fn().mockResolvedValue(context);
+    const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
+    const { actions } = actionsFixture({ resolveThreadTitleContext, generateThreadTitle });
+
+    actions.start("thread");
+    await flushPromises();
     await actions.autoNameDraft("thread");
 
     expect(generateThreadTitle).toHaveBeenCalledOnce();
+    expect(generateThreadTitle).toHaveBeenCalledWith(context, expect.any(AbortSignal));
+    expect(resolveThreadTitleContext).toHaveBeenCalledOnce();
     expect(actions.editState("thread")).toEqual({ draft: "Generated title", generating: false });
   });
 
@@ -61,6 +89,7 @@ describe("ThreadRenameEditorActions", () => {
     });
 
     actions.start("thread");
+    await flushPromises();
     const autoName = actions.autoNameDraft("thread");
     await Promise.resolve();
     expect(generationSignal?.aborted).toBe(false);
@@ -89,6 +118,7 @@ describe("ThreadRenameEditorActions", () => {
     });
 
     actions.start("thread");
+    await flushPromises();
     const autoName = actions.autoNameDraft("thread");
     await Promise.resolve();
     actions.start("other");
@@ -109,6 +139,7 @@ describe("ThreadRenameEditorActions", () => {
     });
 
     actions.start("thread");
+    await flushPromises();
     const autoName = actions.autoNameDraft("thread");
     actions.cancel("thread");
     connection.resolve(undefined);
@@ -168,6 +199,36 @@ describe("ThreadRenameEditorActions", () => {
     expect(addSystemMessage).toHaveBeenCalledWith("Rename failed.");
   });
 
+  it("keeps preparing auto-name while a rename save is in flight", async () => {
+    const context = deferred<ThreadTitleContext | null>();
+    const saved = deferred<void>();
+    const readyContext = { userRequest: "Name this thread.", assistantResponse: "Done." };
+    const resolveThreadTitleContext = vi.fn().mockReturnValue(context.promise);
+    const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
+    const { actions } = actionsFixture({
+      currentClient: () => fakeClient({ renameThreadRequest: vi.fn(() => saved.promise) }),
+      resolveThreadTitleContext,
+      generateThreadTitle,
+    });
+
+    actions.start("thread");
+    await flushPromises();
+    expect(resolveThreadTitleContext).toHaveBeenCalledOnce();
+
+    const saving = actions.save("thread", "Unsaved draft");
+    await flushPromises();
+    actions.updateDraft("thread", "Changed while saving");
+    context.resolve(readyContext);
+    saved.reject(new Error("Rename failed."));
+    await saving;
+    await flushPromises();
+    expect(resolveThreadTitleContext).toHaveBeenCalledOnce();
+
+    await actions.autoNameDraft("thread");
+    expect(generateThreadTitle).toHaveBeenCalledWith(readyContext, expect.any(AbortSignal));
+    expect(actions.editState("thread")).toEqual({ draft: "Generated title", generating: false });
+  });
+
   it("does not report a delayed save failure after the edit is invalidated", async () => {
     const saved = deferred<object>();
     const addSystemMessage = vi.fn();
@@ -220,6 +281,7 @@ describe("ThreadRenameEditorActions", () => {
     });
 
     actions.start("thread");
+    await flushPromises();
     const autoName = actions.autoNameDraft("thread");
     await flushPromises();
 
@@ -240,10 +302,12 @@ describe("ThreadRenameEditorActions", () => {
     const { actions } = actionsFixture({ generateThreadTitle });
 
     actions.start("thread");
+    await flushPromises();
     const firstAutoName = actions.autoNameDraft("thread");
     await flushPromises();
     actions.cancel("thread");
     actions.start("thread");
+    await flushPromises();
     const secondAutoName = actions.autoNameDraft("thread");
     await flushPromises();
 
@@ -265,11 +329,13 @@ describe("ThreadRenameEditorActions", () => {
     const { actions } = actionsFixture({ generateThreadTitle, addSystemMessage });
 
     actions.start("thread");
+    await flushPromises();
     const staleAutoName = actions.autoNameDraft("thread");
     await flushPromises();
     actions.invalidate();
 
     actions.start("thread");
+    await flushPromises();
     await actions.autoNameDraft("thread");
     oldTitle.resolve("Stale title");
     await staleAutoName;
@@ -283,6 +349,7 @@ function actionsFixture(
   overrides: Partial<Pick<ThreadRenameEditorActionsHost, "ensureConnected" | "addSystemMessage">> & {
     currentClient?: () => AppServerClient;
     generateThreadTitle?: ThreadRenameEditorActionsHost["generateThreadTitle"];
+    resolveThreadTitleContext?: ThreadRenameEditorActionsHost["resolveThreadTitleContext"];
   } = {},
 ): ThreadRenameEditorActionsHost & {
   actions: ThreadRenameEditorActions;
@@ -307,6 +374,8 @@ function actionsFixture(
       notifyThreadRenamed(threadId, name);
       return true;
     },
+    resolveThreadTitleContext:
+      overrides.resolveThreadTitleContext ?? vi.fn().mockResolvedValue({ userRequest: "Please name this.", assistantResponse: "Done." }),
     generateThreadTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
   } satisfies ThreadRenameEditorActionsHost;
   return { ...host, notifyThreadRenamed, actions: createThreadRenameEditorActions(host) };

@@ -1,8 +1,4 @@
-import {
-  THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE,
-  type ThreadTitleContext,
-  threadTitleContextFromTurnTranscriptSummary,
-} from "../../../domain/threads/title-generation-model";
+import { type ThreadTitleContext, threadTitleContextFromTurnTranscriptSummary } from "../../../domain/threads/title-generation-model";
 import type { TurnTranscriptSummary } from "../../../domain/threads/transcript";
 import type { ThreadTitleTransport } from "./ports";
 
@@ -15,10 +11,9 @@ export interface ThreadTitleServiceHost {
 
 export interface ThreadTitleService {
   invalidate(): void;
-  generateTitle(threadId: string, signal?: AbortSignal): Promise<string>;
   resolveContext(threadId: string): Promise<ThreadTitleContext | null>;
   completedTurnContext(turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null): ThreadTitleContext | null;
-  generate(context: ThreadTitleContext): Promise<string | null>;
+  generate(context: ThreadTitleContext, signal?: AbortSignal): Promise<string | null>;
 }
 
 export function createThreadTitleService(host: ThreadTitleServiceHost): ThreadTitleService {
@@ -29,17 +24,16 @@ export function createThreadTitleService(host: ThreadTitleServiceHost): ThreadTi
       controller.abort();
       controller = new AbortController();
     },
-    generateTitle: async (threadId, signal) => {
+    generate: async (context, signal) => {
       const operation = linkedAbortSignal(controller.signal, signal);
       try {
-        return await generateTitle(host, threadId, operation.signal);
+        return await generateTitleFromContext(host, context, operation.signal);
       } finally {
         operation.dispose();
       }
     },
     resolveContext: (threadId) => resolveThreadTitleContext(host, threadId),
     completedTurnContext: (turnId, completedTurnTranscriptSummary) => completedTurnContext(host, turnId, completedTurnTranscriptSummary),
-    generate: (context) => generateTitleFromContext(host, context, controller.signal),
   };
 }
 
@@ -66,16 +60,6 @@ function linkedAbortSignal(
       operationSignal.removeEventListener("abort", abort);
     },
   };
-}
-
-async function generateTitle(host: ThreadTitleServiceHost, threadId: string, signal: AbortSignal): Promise<string> {
-  const context = await resolveThreadTitleContext(host, threadId);
-  throwIfTitleGenerationCancelled(signal);
-  if (!context) throw new Error(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
-
-  const title = await generateTitleFromContext(host, context, signal);
-  if (!title) throw new Error("Codex did not return a usable thread title.");
-  return title;
 }
 
 async function resolveThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {

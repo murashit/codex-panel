@@ -6,6 +6,7 @@ interface ThreadRowCoreRenameProjection {
   readonly active: boolean;
   readonly draft: string;
   readonly generating: boolean;
+  readonly autoNameDisabled: boolean;
 }
 
 interface ThreadRowCoreArchiveConfirmProjection {
@@ -37,6 +38,7 @@ export function threadRowCoreProjection(input: {
       active: rename !== undefined,
       draft: rename?.draft ?? threadRenameDraftTitle(input.thread),
       generating: rename?.kind === "generating",
+      autoNameDisabled: rename?.autoName.kind !== "ready",
     },
     archiveConfirm: {
       active: input.archiveConfirmActive ?? false,
