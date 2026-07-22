@@ -7,7 +7,7 @@ import type { ThreadActivationSnapshot } from "../../domain/threads/activation";
 import type { ArchiveThreadInput } from "../../domain/threads/archive-markdown";
 import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
 import type { Thread } from "../../domain/threads/model";
-import { REFERENCED_THREAD_TURN_LIMIT } from "../../domain/threads/reference";
+import { REFERENCED_THREAD_TURN_LIMIT, type ReferencedThreadTranscriptPage } from "../../domain/threads/reference";
 import type { TurnTranscriptSummary } from "../../domain/threads/transcript";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
@@ -16,8 +16,8 @@ import { type ThreadRecord, threadFromThreadRecord, threadsFromThreadRecords } f
 import { appServerThreadGoalUpdate, appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
 import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
 import {
-  chronologicalTurnTranscriptSummariesFromTurnRecords,
   completedTurnTranscriptSummariesFromTurnRecords,
+  referencedThreadTurnsFromNewestFirstTurnRecords,
   transcriptEntriesFromTurnRecords,
 } from "../protocol/turn";
 import type { AppServerRequestClient } from "./request-client";
@@ -177,13 +177,16 @@ export async function readCompletedTurnTranscriptSummariesPage(
   };
 }
 
-export async function readReferencedThreadTurnTranscriptSummaries(
+export async function readReferencedThreadTranscriptPage(
   client: AppServerRequestClient,
   threadId: string,
   limit = REFERENCED_THREAD_TURN_LIMIT,
-): Promise<TurnTranscriptSummary[]> {
+): Promise<ReferencedThreadTranscriptPage> {
   const response = await listThreadTurns(client, threadId, null, limit);
-  return chronologicalTurnTranscriptSummariesFromTurnRecords(response.data);
+  return {
+    turns: referencedThreadTurnsFromNewestFirstTurnRecords(response.data),
+    earlierTurnsAvailable: response.nextCursor !== null,
+  };
 }
 
 type ThreadForkPosition =

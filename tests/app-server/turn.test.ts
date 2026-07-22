@@ -5,6 +5,7 @@ import {
   completedTurnTranscriptSummariesFromTurnRecords,
   completedTurnTranscriptSummaryFromTurnRecord,
   lastAgentMessageTextFromTurnRecord,
+  referencedThreadTurnsFromNewestFirstTurnRecords,
   type TurnItem,
   type TurnRecord,
   transcriptEntriesFromTurnRecords,
@@ -79,6 +80,16 @@ describe("app-server turn records", () => {
       { kind: "user", text: "先の依頼", timestamp: 10 },
       { kind: "assistant", text: "後の回答", timestamp: 25 },
     ]);
+  });
+
+  it("reverses the app-server newest-first page without reordering equal timestamps", () => {
+    expect(
+      referencedThreadTurnsFromNewestFirstTurnRecords([
+        turn([userMessage("new", "newest")], { id: "new", startedAt: null }),
+        turn([userMessage("middle", "middle")], { id: "middle", startedAt: null }),
+        turn([userMessage("old", "oldest")], { id: "old", startedAt: null }),
+      ]).map((turn) => turn.messages[0]?.text),
+    ).toEqual(["oldest", "middle", "newest"]);
   });
 
   it("keeps local image attachments out of user transcript text when text is present", () => {

@@ -20,11 +20,13 @@ describe("thread reference resolver", () => {
           durationMs: null,
           items: [
             { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "元の依頼", text_elements: [] }] },
-            { type: "agentMessage", id: "a1", text: "回答", phase: "final_answer", memoryCitation: null },
+            { type: "agentMessage", id: "a1", text: "途中回答", phase: "commentary", memoryCitation: null },
+            { type: "userMessage", id: "u2", clientId: null, content: [{ type: "text", text: "追加条件", text_elements: [] }] },
+            { type: "agentMessage", id: "a2", text: "回答", phase: "final_answer", memoryCitation: null },
           ],
         },
       ],
-      nextCursor: null,
+      nextCursor: "older-turns",
     });
     const client = { request } as unknown as AppServerClient;
     const setStatus = vi.fn();
@@ -67,6 +69,12 @@ describe("thread reference resolver", () => {
       type: "additionalContext",
       kind: "untrusted",
       value: expect.stringContaining("Referenced thread context for the current user input:"),
+    });
+    expect(result?.input[1]).toMatchObject({
+      value: expect.stringContaining("User follow-up:\n追加条件"),
+    });
+    expect(result?.input[1]).toMatchObject({
+      value: expect.stringContaining("Earlier turns not fetched: yes"),
     });
     expect(result?.text).toBe("[Other](codex://threads/019abcde-0000-7000-8000-000000000001)\n\nsummarize");
     expect(prepareInput).toHaveBeenCalledWith("summarize", inputSnapshot);

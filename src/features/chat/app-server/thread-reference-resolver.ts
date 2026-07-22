@@ -1,5 +1,5 @@
 import type { AppServerRequestClient } from "../../../app-server/services/request-client";
-import { readReferencedThreadTurnTranscriptSummaries } from "../../../app-server/services/threads";
+import { readReferencedThreadTranscriptPage } from "../../../app-server/services/threads";
 import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/chat/input";
 import { threadReferenceMarkdown } from "../../../domain/threads/deep-link";
 import { shortThreadId } from "../../../domain/threads/id";
@@ -34,16 +34,18 @@ async function referencedThreadInput(
   const client = host.currentClient();
   if (!client) return null;
   try {
-    const turns = await readReferencedThreadTurnTranscriptSummaries(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
+    const transcript = await readReferencedThreadTranscriptPage(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
     if (host.currentClient() !== client) return null;
-    if (turns.length === 0) {
+    if (transcript.turns.length === 0) {
       host.addSystemMessage("Referenced thread has no readable turns.");
       return null;
     }
     const messageInput = host.prepareInput(message, snapshot);
-    const reference = referencedThreadContext(thread, turns);
+    const reference = referencedThreadContext(thread, transcript);
     const visibleText = `${threadReferenceMarkdown(thread)}\n\n${messageInput.text}`;
-    host.setStatus(`Referencing ${shortThreadId(thread.id)} (${String(turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`);
+    host.setStatus(
+      `Referencing ${shortThreadId(thread.id)} (${String(transcript.turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`,
+    );
     return {
       text: visibleText,
       input: codexTextInputWithAttachments(visibleText, [

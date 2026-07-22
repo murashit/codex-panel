@@ -1,6 +1,5 @@
 import { truncateUtf8, utf8ByteLength } from "../chat/context-budget";
 import type { Thread } from "./model";
-import type { TurnTranscriptSummary } from "./transcript";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
 
@@ -14,8 +13,29 @@ export interface ReferencedThreadMetadata {
 }
 
 const REFERENCED_THREAD_CONTEXT_MAX_BYTES = 18_000;
+const REFERENCED_TURN_MESSAGE_LIMIT = 128;
 
-export function referencedThreadContext(thread: Thread, turns: readonly TurnTranscriptSummary[]): string {
+interface ReferencedThreadMessage {
+  kind: "user" | "assistant" | "plan";
+  text: string;
+}
+
+interface LabeledReferencedThreadMessage {
+  label: string;
+  text: string;
+}
+
+export interface ReferencedThreadTurn {
+  messages: readonly ReferencedThreadMessage[];
+}
+
+export interface ReferencedThreadTranscriptPage {
+  turns: readonly ReferencedThreadTurn[];
+  earlierTurnsAvailable: boolean;
+}
+
+export function referencedThreadContext(thread: Thread, transcript: ReferencedThreadTranscriptPage): string {
+  const { turns } = transcript;
   const rendered = turns.map((turn, index) => renderedReferenceTurn(turn, index + 1));
   const included: string[] = [];
   let bytes = 0;
@@ -37,42 +57,51 @@ export function referencedThreadContext(thread: Thread, turns: readonly TurnTran
   return [
     "Referenced thread context for the current user input:",
     `Thread: ${thread.id}`,
-    `Included turns: ${String(included.length)}`,
-    `Omitted turns: ${String(omittedTurns)}`,
+    `Included recent turns: ${String(included.length)}`,
+    `Omitted fetched turns due to size: ${String(omittedTurns)}`,
+    `Earlier turns not fetched: ${transcript.earlierTurnsAvailable ? "yes" : "no"}`,
     "",
     ...included,
   ].join("\n");
 }
 
-function renderedReferenceTurn(turn: TurnTranscriptSummary, index: number): string {
-  const lines = [`Turn ${String(index)}:`];
-  if (turn.userText) lines.push(`User:\n${turn.userText}`);
-  if (turn.assistantText) lines.push(`Codex:\n${turn.assistantText}`);
+function renderedReferenceTurn(turn: ReferencedThreadTurn, index: number): string {
+  const lines = [`Included turn ${String(index)}:`];
+  for (const message of labeledReferenceMessages(turn)) lines.push(`${message.label}:\n${message.text}`);
   return `${lines.join("\n")}\n\n`;
 }
 
-function truncatedReferenceTurn(turn: TurnTranscriptSummary, index: number, maxBytes: number): string {
-  const user = turn.userText ?? "";
-  const assistant = turn.assistantText ?? "";
-  const prefix = `Turn ${String(index)}:\n`;
-  const userLabel = user ? "User:\n" : "";
-  const assistantLabel = assistant ? "Codex:\n" : "";
-  const separator = user && assistant ? "\n" : "";
-  const suffix = "\n[Turn fields truncated]\n\n";
-  const fixedBytes = utf8ByteLength(`${prefix}${userLabel}${separator}${assistantLabel}${suffix}`);
-  const available = Math.max(maxBytes - fixedBytes, 0);
-  const userBytes = utf8ByteLength(user);
-  const assistantBytes = utf8ByteLength(assistant);
-  let assistantBudget = assistant ? Math.min(assistantBytes, Math.floor(available / 2)) : 0;
-  let userBudget = user ? Math.min(userBytes, available - assistantBudget) : 0;
-  const remaining = available - userBudget - assistantBudget;
-  assistantBudget += Math.min(Math.max(assistantBytes - assistantBudget, 0), remaining);
-  userBudget += Math.min(Math.max(userBytes - userBudget, 0), available - userBudget - assistantBudget);
-  return [
-    prefix,
-    user ? `${userLabel}${truncateUtf8(user, userBudget)}` : "",
-    separator,
-    assistant ? `${assistantLabel}${truncateUtf8(assistant, assistantBudget)}` : "",
-    suffix,
-  ].join("");
+function labeledReferenceMessages(turn: ReferencedThreadTurn): LabeledReferencedThreadMessage[] {
+  const messages: LabeledReferencedThreadMessage[] = [];
+  let userMessageIndex = 0;
+  for (const message of turn.messages) {
+    if (message.kind === "user") userMessageIndex += 1;
+    messages.push({ label: referenceMessageLabel(message, userMessageIndex), text: message.text });
+  }
+  return messages;
+}
+
+function referenceMessageLabel(message: ReferencedThreadMessage, userMessageIndex: number): string {
+  if (message.kind === "user") return userMessageIndex === 1 ? "User" : "User follow-up";
+  return message.kind === "plan" ? "Codex plan" : "Codex";
+}
+
+function truncatedReferenceTurn(turn: ReferencedThreadTurn, index: number, maxBytes: number): string {
+  const prefix = `Included turn ${String(index)}:\n`;
+  const suffix = "[Turn dialogue truncated]\n\n";
+  const labeled = labeledReferenceMessages(turn);
+  const bounded = boundedReferenceMessages(labeled);
+  const omitted = labeled.length - bounded.length;
+  const omissionNotice = omitted > 0 ? `[${String(omitted)} dialogue messages omitted from the middle]\n` : "";
+  const fixed = [prefix, omissionNotice, suffix, ...bounded.map((message) => `${message.label}:\n\n`)].join("");
+  const textBudget = Math.max(maxBytes - utf8ByteLength(fixed), 0);
+  const perMessageBudget = bounded.length > 0 ? Math.floor(textBudget / bounded.length) : 0;
+  const messages = bounded.map((message) => `${message.label}:\n${truncateUtf8(message.text, perMessageBudget)}\n`);
+  return `${prefix}${messages[0] ?? ""}${omissionNotice}${messages.slice(1).join("")}${suffix}`;
+}
+
+function boundedReferenceMessages(messages: readonly LabeledReferencedThreadMessage[]): LabeledReferencedThreadMessage[] {
+  if (messages.length <= REFERENCED_TURN_MESSAGE_LIMIT) return [...messages];
+  const first = messages[0];
+  return first ? [first, ...messages.slice(-(REFERENCED_TURN_MESSAGE_LIMIT - 1))] : [];
 }

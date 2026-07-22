@@ -1,5 +1,5 @@
 import type { VaultFileReference } from "../../domain/chat/input";
-import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
+import type { ReferencedThreadMetadata, ReferencedThreadTurn } from "../../domain/threads/reference";
 import {
   nonEmptyTurnTranscriptSummaries,
   type ThreadTranscriptEntry,
@@ -24,6 +24,13 @@ function transcriptEntriesFromTurnRecord(turn: TurnRecord): ThreadTranscriptEntr
 
 export function transcriptEntriesFromTurnRecords(turns: readonly TurnRecord[]): ThreadTranscriptEntry[] {
   return turns.flatMap(transcriptEntriesFromTurnRecord);
+}
+
+export function referencedThreadTurnsFromNewestFirstTurnRecords(turns: readonly TurnRecord[]): ReferencedThreadTurn[] {
+  return [...turns].reverse().flatMap((turn) => {
+    const messages = transcriptEntriesFromTurnRecord(turn).map(({ kind, text }) => ({ kind, text }));
+    return messages.length > 0 ? [{ messages }] : [];
+  });
 }
 
 function turnTranscriptSummaryFromTurnRecord(turn: TurnRecord): TurnTranscriptSummary {
