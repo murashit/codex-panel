@@ -6,7 +6,7 @@ import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/pro
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
-import type { ThreadCatalogEvent } from "../../src/features/threads/catalog/thread-catalog";
+import type { ThreadOperationEvent } from "../../src/features/threads/workflows/thread-operation-event";
 import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
@@ -194,7 +194,7 @@ export interface SettingsTabHostOptions {
   archivedSnapshot?: Thread[] | null;
   refreshArchived?: () => Promise<readonly Thread[]>;
   observeArchived?: SettingsDynamicDataAccess["observeArchivedThreadsResult"];
-  applyThreadCatalogEvent?: (event: ThreadCatalogEvent) => void;
+  applyThreadCatalogEvent?: (event: ThreadOperationEvent) => void;
   dynamicData?: SettingsDynamicDataAccess;
   settings?: Partial<{
     threadNamingModel: string | null;
@@ -222,11 +222,11 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),
   };
   const threadCatalog = {
-    archivedSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
-    refreshArchived: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
-    observeArchived: options.observeArchived ?? vi.fn(() => () => undefined),
-    apply: options.applyThreadCatalogEvent ?? vi.fn(),
+    archivedThreadsSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
+    refreshArchivedThreads: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
+    observeArchivedThreadsResult: options.observeArchived ?? vi.fn(() => () => undefined),
   };
+  const threadEvents = { apply: options.applyThreadCatalogEvent ?? vi.fn() };
   const clientAccess = {
     withClient: async <T>(operation: (client: AppServerClient) => Promise<T>, clientOptions?: AppServerClientAccessOptions): Promise<T> => {
       const contextKey = appServerQueries.contextKey();
@@ -249,6 +249,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       clientAccess,
       appServerQueries,
       threadCatalog,
+      threadEvents,
     });
   let dynamicData = options.dynamicData ?? createDynamicData();
   const host: CodexPanelSettingTabHost = {

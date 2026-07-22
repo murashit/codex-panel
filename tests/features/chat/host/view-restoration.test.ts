@@ -180,7 +180,7 @@ describe("CodexChatView workspace restoration", () => {
     const cachedThread = threadFixture("thread-cached");
     const view = await chatView({
       host: chatHost({
-        activeSnapshot: vi.fn(() => [cachedThread] as never[]),
+        activeThreadsSnapshot: vi.fn(() => [cachedThread] as never[]),
         appServerMetadataSnapshot: vi.fn(
           () =>
             ({

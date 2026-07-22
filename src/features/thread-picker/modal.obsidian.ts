@@ -34,11 +34,11 @@ export function openThreadPicker(host: ThreadPickerHost, onClosed: () => void): 
   };
   const loadAndOpen = async (): Promise<void> => {
     try {
-      const recentSnapshot = host.threadCatalog.recentActiveSnapshot();
-      const loadedThreads = recentSnapshot ?? (await host.threadCatalog.loadActive());
+      const recentSnapshot = host.threadCatalog.recentActiveThreadsSnapshot();
+      const loadedThreads = recentSnapshot ?? (await host.threadCatalog.fetchActiveThreads());
       if (state.closed) return;
-      const recentThreads = host.threadCatalog.recentActiveSnapshot() ?? loadedThreads;
-      if (recentThreads.length === 0 && !host.threadCatalog.hasMoreActive()) {
+      const recentThreads = host.threadCatalog.recentActiveThreadsSnapshot() ?? loadedThreads;
+      if (recentThreads.length === 0 && !host.threadCatalog.hasMoreActiveThreads()) {
         new Notice("No Codex threads found.");
         finish();
         return;
@@ -152,7 +152,7 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
 
   private async loadCompleteThreadList(): Promise<readonly Thread[]> {
     if (this.completeThreads) return this.completeThreads;
-    const pending = this.completeThreadsPromise ?? this.host.threadCatalog.searchActive();
+    const pending = this.completeThreadsPromise ?? this.host.threadCatalog.fetchActiveThreadSearchInventory();
     this.completeThreadsPromise = pending;
     try {
       this.completeThreads = Object.freeze([...(await pending)]);

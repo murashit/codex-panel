@@ -11,7 +11,7 @@ import type { SharedServerMetadata, SharedServerMetadataResource } from "../../.
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
-import type { ThreadCatalogEvent } from "../../../../src/features/threads/catalog/thread-catalog";
+import type { ThreadOperationEvent } from "../../../../src/features/threads/workflows/thread-operation-event";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import { notices } from "../../../mocks/obsidian";
@@ -412,9 +412,9 @@ export interface ChatHostFixtureOverrides {
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   notifyPanelActivityChanged?: CodexChatHost["workspace"]["notifyPanelActivityChanged"];
   openSideChat?: CodexChatHost["workspace"]["openSideChat"];
-  applyThreadCatalogEvent?: CodexChatHost["threadCatalog"]["apply"];
-  refreshActive?: CodexChatHost["threadCatalog"]["refreshActive"];
-  activeSnapshot?: CodexChatHost["threadCatalog"]["activeSnapshot"];
+  applyThreadOperationEvent?: CodexChatHost["threadOperationCoordinator"]["apply"];
+  refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
+  activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
   appServerMetadataSnapshot?: CodexChatHost["appServerQueries"]["appServerMetadataSnapshot"];
   modelsSnapshot?: CodexChatHost["appServerQueries"]["modelsSnapshot"];
   fetchModels?: CodexChatHost["appServerQueries"]["fetchModels"];
@@ -426,7 +426,7 @@ export interface ChatHostFixtureOverrides {
 }
 
 export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
-  let activeThreads = overrides.activeSnapshot?.() ?? null;
+  let activeThreads = overrides.activeThreadsSnapshot?.() ?? null;
   let metadata = overrides.appServerMetadataSnapshot?.() ?? null;
   let models = overrides.modelsSnapshot?.() ?? null;
   const activeThreadResultListeners = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
@@ -523,7 +523,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
     emitActiveThreads();
   };
-  const applyThreadCatalogEvent = (event: ThreadCatalogEvent): void => {
+  const applyThreadOperationEvent = (event: ThreadOperationEvent): void => {
     switch (event.type) {
       case "thread-archived":
       case "thread-deleted":
@@ -620,11 +620,10 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       },
     },
     threadCatalog: {
-      apply: overrides.applyThreadCatalogEvent ?? applyThreadCatalogEvent,
-      hasMoreActive: vi.fn(() => false),
-      loadMoreActive: vi.fn(async () => activeThreads ?? []),
-      refreshActive:
-        overrides.refreshActive ??
+      hasMoreActiveThreads: vi.fn(() => false),
+      loadMoreActiveThreads: vi.fn(async () => activeThreads ?? []),
+      refreshActiveThreads:
+        overrides.refreshActiveThreads ??
         (vi.fn(async () => {
           const client = connectionMock.state.client;
           if (!client) return activeThreads ?? [];
@@ -638,8 +637,8 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
           activeThreads = response.data.map(threadFromRecord);
           for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
           return activeThreads;
-        }) as CodexChatHost["threadCatalog"]["refreshActive"]),
-      loadActive: vi.fn(async () => {
+        }) as CodexChatHost["threadCatalog"]["refreshActiveThreads"]),
+      fetchActiveThreads: vi.fn(async () => {
         const client = connectionMock.state.client;
         if (!client) return activeThreads ?? [];
         const request = client["request"] as (method: string, params: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
@@ -653,13 +652,27 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
         for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
         return activeThreads;
       }),
-      activeSnapshot: overrides.activeSnapshot ?? vi.fn(() => activeThreads),
-      recentActiveSnapshot: overrides.activeSnapshot ?? vi.fn(() => activeThreads),
-      observeActive: (listener, options = {}) => {
+      activeThreadsSnapshot: overrides.activeThreadsSnapshot ?? vi.fn(() => activeThreads),
+      recentActiveThreadsSnapshot: vi.fn(() => activeThreads),
+      observeActiveThreadsResult: (listener, options = {}) => {
         activeThreadResultListeners.add(listener);
         if ((options.emitCurrent ?? true) && activeThreads) listener(paginatedQueryResult(activeThreads));
-        return () => {
-          activeThreadResultListeners.delete(listener);
+        return () => activeThreadResultListeners.delete(listener);
+      },
+    },
+    threadOperationCoordinator: {
+      apply: overrides.applyThreadOperationEvent ?? applyThreadOperationEvent,
+      beginForkPublication: (sourceThreadId) => {
+        let replacement: Thread | null = null;
+        return {
+          record: (thread) => {
+            replacement = thread;
+          },
+          finish: (options = {}) => {
+            if (!replacement) return;
+            applyThreadOperationEvent({ type: "thread-upserted", thread: replacement, forkedFromThreadId: sourceThreadId });
+            if (options.sourceArchived ?? false) applyThreadOperationEvent({ type: "thread-archived", threadId: sourceThreadId });
+          },
         };
       },
     },

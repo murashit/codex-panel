@@ -127,7 +127,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
       vaultConfigDir: environment.obsidian.app.vault.configDir,
     },
     archiveDestination: environment.obsidian.archiveDestination,
-    catalog: environment.plugin.threadCatalog,
+    operationEvents: environment.plugin.threadOperationCoordinator,
     referenceThreads: () => stateStore.getState().threadList.listedThreads,
     notice: (text) => {
       new Notice(text);
@@ -281,9 +281,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
       });
       return { adopted };
     },
-    recordThread: (thread) => {
-      environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
-    },
+    beginThreadForkPublication: (sourceThreadId) => environment.plugin.threadOperationCoordinator.beginForkPublication(sourceThreadId),
     threadHasPendingOrRunningPanel: (threadId) => environment.plugin.workspace.threadHasPendingOrRunningPanel(threadId),
   };
   const actions = createThreadManagementActions(threadManagementHost);
@@ -355,7 +353,7 @@ function createSessionThreadLifecycle(
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged,
     recordResumedThread: (thread) => {
-      host.environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
+      host.environment.plugin.threadOperationCoordinator.apply({ type: "thread-upserted", thread });
     },
     addSystemMessage: status.addSystemMessage,
     syncThreadGoal: (threadId) => goalSync.syncThreadGoal(threadId),

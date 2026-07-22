@@ -8,9 +8,10 @@ import { DeferredTask } from "../../shared/runtime/deferred-task";
 import { isStaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
 import type { KeyedOperationQueue } from "../../shared/runtime/keyed-operation-queue";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
-import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
+import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../threads/workflows/archive-export";
 import type { ThreadOperationsTransport, ThreadTitleTransport } from "../threads/workflows/ports";
+import type { ThreadOperationEventSink } from "../threads/workflows/thread-operation-event";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
@@ -19,6 +20,7 @@ export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
   readonly threadCatalog: ThreadsViewThreadCatalog;
+  readonly threadEvents: ThreadOperationEventSink;
   readonly threadNameMutations: KeyedOperationQueue<string>;
   readonly threadOperationsTransport: ThreadOperationsTransport;
   readonly threadTitleTransport: ThreadTitleTransport;
@@ -27,7 +29,7 @@ export interface ThreadsViewHost {
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
 }
 
-type ThreadsViewThreadCatalog = ThreadCatalogPaginatedActiveReader & ThreadCatalogEventSink;
+type ThreadsViewThreadCatalog = ThreadCatalogPaginatedActiveReader;
 
 export interface ThreadsViewSettingsAccess {
   archiveExportEnabled(): boolean;
@@ -83,7 +85,7 @@ export class ThreadsViewSession {
         vaultConfigDir: this.environment.vaultConfigDir(),
       },
       archiveDestination: () => this.environment.archiveDestination(),
-      catalog: this.host.threadCatalog,
+      operationEvents: this.host.threadEvents,
       referenceThreads: () => this.threads,
       notice: (message) => {
         new Notice(message);
@@ -99,12 +101,12 @@ export class ThreadsViewSession {
     this.environment.registerPointerDown((event) => {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
-    const activeThreadsSnapshot = this.host.threadCatalog.activeSnapshot();
+    const activeThreadsSnapshot = this.host.threadCatalog.activeThreadsSnapshot();
     if (activeThreadsSnapshot) {
       this.threads = activeThreadsSnapshot;
       this.threadsLoaded = true;
     }
-    this.unsubscribeThreads = this.host.threadCatalog.observeActive((result) => {
+    this.unsubscribeThreads = this.host.threadCatalog.observeActiveThreadsResult((result) => {
       this.receiveObservedThreadsResult(result);
     });
     this.render();
@@ -126,11 +128,11 @@ export class ThreadsViewSession {
   }
 
   async refresh(): Promise<void> {
-    await this.requestThreads(() => this.host.threadCatalog.refreshActive());
+    await this.requestThreads(() => this.host.threadCatalog.refreshActiveThreads());
   }
 
   private async load(): Promise<void> {
-    await this.requestThreads(() => this.host.threadCatalog.loadActive());
+    await this.requestThreads(() => this.host.threadCatalog.fetchActiveThreads());
   }
 
   private async requestThreads(request: () => Promise<readonly Thread[]>): Promise<void> {
@@ -151,9 +153,9 @@ export class ThreadsViewSession {
 
   async loadMore(): Promise<void> {
     const lifetime = this.lifetime.signal();
-    if (!this.lifetime.isCurrent(lifetime) || !this.host.threadCatalog.hasMoreActive() || this.observedFetching) return;
+    if (!this.lifetime.isCurrent(lifetime) || !this.host.threadCatalog.hasMoreActiveThreads() || this.observedFetching) return;
     try {
-      await this.host.threadCatalog.loadMoreActive();
+      await this.host.threadCatalog.loadMoreActiveThreads();
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime) || isStaleExecutionRuntimeError(error)) return;
       this.noticeError(error);
@@ -209,7 +211,7 @@ export class ThreadsViewSession {
         status: this.status.kind === "idle" ? null : this.status,
         loading: this.observedFetchingNextPage,
         fetching: this.observedFetching,
-        hasMore: this.host.threadCatalog.hasMoreActive(),
+        hasMore: this.host.threadCatalog.hasMoreActiveThreads(),
         rows: threadRows(
           this.threads,
           this.host.openPanelActivities(),

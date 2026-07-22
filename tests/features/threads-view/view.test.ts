@@ -159,9 +159,9 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          loadActive: vi.fn().mockResolvedValue([returned]),
-          refreshActive: vi.fn().mockResolvedValue([returned]),
-          observeActive: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
+          fetchActiveThreads: vi.fn().mockResolvedValue([returned]),
+          refreshActiveThreads: vi.fn().mockResolvedValue([returned]),
+          observeActiveThreadsResult: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
             observer = listener;
             return () => undefined;
           }),
@@ -238,9 +238,9 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          refreshActive: vi.fn(async () => [first]),
-          hasMoreActive: vi.fn(() => hasMore),
-          loadMoreActive,
+          refreshActiveThreads: vi.fn(async () => [first]),
+          hasMoreActiveThreads: vi.fn(() => hasMore),
+          loadMoreActiveThreads: loadMoreActive,
         },
       }),
     );
@@ -263,10 +263,10 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          activeSnapshot: vi.fn(() => [first]),
-          loadActive: vi.fn().mockResolvedValue([first]),
-          hasMoreActive: vi.fn(() => true),
-          loadMoreActive,
+          activeThreadsSnapshot: vi.fn(() => [first]),
+          fetchActiveThreads: vi.fn().mockResolvedValue([first]),
+          hasMoreActiveThreads: vi.fn(() => true),
+          loadMoreActiveThreads: loadMoreActive,
         },
       }),
     );
@@ -286,7 +286,7 @@ describe("CodexThreadsView", () => {
     });
     const host = threadsHost({
       threadCatalog: {
-        refreshActive: refresh,
+        refreshActiveThreads: refresh,
       },
     });
     const view = await threadsView(host);
@@ -309,7 +309,7 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          activeSnapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
+          activeThreadsSnapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
         },
       }),
     );
@@ -322,13 +322,13 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          refreshActive: vi.fn(
+          refreshActiveThreads: vi.fn(
             () =>
               new Promise(() => {
                 // Keep the initial refresh pending; this test drives observed query results directly.
               }),
           ),
-          observeActive: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
+          observeActiveThreadsResult: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
             observedThreads = listener;
             return () => undefined;
           }),
@@ -349,13 +349,13 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          loadActive: vi.fn(
+          fetchActiveThreads: vi.fn(
             () =>
               new Promise(() => {
                 // Drive the shared query state directly.
               }),
           ),
-          observeActive: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
+          observeActiveThreadsResult: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
             observedThreads = listener;
             return () => undefined;
           }),
@@ -377,9 +377,9 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": archiveThread,
     });
-    const applyThreadCatalogEvent = vi.fn();
+    const applyThreadOperationEvent = vi.fn();
     const host = threadsHost({
-      threadCatalog: { apply: applyThreadCatalogEvent },
+      threadEvents: { apply: applyThreadOperationEvent },
     });
     const view = await threadsView(host);
 
@@ -389,7 +389,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" });
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
         type: "thread-archived",
         threadId: "thread",
       });
@@ -421,9 +421,9 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
-    const applyThreadCatalogEvent = vi.fn();
+    const applyThreadOperationEvent = vi.fn();
     const host = threadsHost({
-      threadCatalog: { apply: applyThreadCatalogEvent },
+      threadEvents: { apply: applyThreadOperationEvent },
     });
     const view = await threadsView(host);
 
@@ -437,7 +437,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed thread" });
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
         type: "thread-renamed",
         threadId: "thread",
         name: "Renamed thread",
@@ -452,9 +452,9 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
-    const applyThreadCatalogEvent = vi.fn();
+    const applyThreadOperationEvent = vi.fn();
     const host = threadsHost({
-      threadCatalog: { apply: applyThreadCatalogEvent },
+      threadEvents: { apply: applyThreadOperationEvent },
     });
     const view = await threadsView(host);
 
@@ -477,7 +477,7 @@ describe("CodexThreadsView", () => {
     saved.resolve({});
 
     await waitForAsyncWork(() => {
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
         type: "thread-renamed",
         threadId: "thread",
         name: "Saved title",
@@ -822,7 +822,11 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     "threadCatalog" in overrides && overrides["threadCatalog"] !== null && typeof overrides["threadCatalog"] === "object"
       ? (overrides["threadCatalog"] as Partial<ThreadsViewHost["threadCatalog"]>)
       : {};
-  const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog"));
+  const threadEventOverrides =
+    "threadEvents" in overrides && overrides["threadEvents"] !== null && typeof overrides["threadEvents"] === "object"
+      ? (overrides["threadEvents"] as Partial<ThreadsViewHost["threadEvents"]>)
+      : {};
+  const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadEvents"));
   const activeObservers = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
   const emitActive = (threads: readonly Thread[]): void => {
     for (const observer of activeObservers) observer(queryResult(threads));
@@ -846,6 +850,9 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     vaultPath: "/vault",
     threadNameMutations: createKeyedOperationQueue(),
     threadOperationsTransport: createThreadOperationsTransport(clientAccess),
+    threadEvents: {
+      apply: threadEventOverrides.apply ?? vi.fn(),
+    },
     threadTitleTransport: createThreadTitleTransport({
       clientAccess,
       codexPath: "codex",
@@ -858,18 +865,19 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     openPanelActivities: vi.fn(() => []),
     threadCatalog: {
-      apply: vi.fn(),
-      hasMoreActive:
-        typeof threadCatalogOverrides["hasMoreActive"] === "function" ? threadCatalogOverrides["hasMoreActive"] : vi.fn(() => false),
+      hasMoreActiveThreads:
+        typeof threadCatalogOverrides["hasMoreActiveThreads"] === "function"
+          ? threadCatalogOverrides["hasMoreActiveThreads"]
+          : vi.fn(() => false),
       ...threadCatalogOverrides,
-      loadMoreActive: vi.fn(async () => {
-        const load = threadCatalogOverrides["loadMoreActive"];
+      loadMoreActiveThreads: vi.fn(async () => {
+        const load = threadCatalogOverrides["loadMoreActiveThreads"];
         const threads = typeof load === "function" ? await load() : [];
         emitActive(threads);
         return threads;
       }),
-      loadActive: vi.fn(async () => {
-        const load = threadCatalogOverrides["loadActive"];
+      fetchActiveThreads: vi.fn(async () => {
+        const load = threadCatalogOverrides["fetchActiveThreads"];
         if (typeof load === "function") {
           const threads = await load();
           emitActive(threads);
@@ -886,8 +894,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         emitActive(threads);
         return threads;
       }),
-      refreshActive: vi.fn(async () => {
-        const refresh = threadCatalogOverrides["refreshActive"];
+      refreshActiveThreads: vi.fn(async () => {
+        const refresh = threadCatalogOverrides["refreshActiveThreads"];
         if (typeof refresh === "function") {
           const threads = await refresh();
           emitActive(threads);
@@ -906,15 +914,17 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         emitActive(threads);
         return threads;
       }),
-      activeSnapshot:
-        typeof threadCatalogOverrides["activeSnapshot"] === "function" ? threadCatalogOverrides["activeSnapshot"] : vi.fn(() => null),
-      recentActiveSnapshot:
-        typeof threadCatalogOverrides["recentActiveSnapshot"] === "function"
-          ? threadCatalogOverrides["recentActiveSnapshot"]
+      activeThreadsSnapshot:
+        typeof threadCatalogOverrides["activeThreadsSnapshot"] === "function"
+          ? threadCatalogOverrides["activeThreadsSnapshot"]
           : vi.fn(() => null),
-      observeActive:
-        typeof threadCatalogOverrides["observeActive"] === "function"
-          ? threadCatalogOverrides["observeActive"]
+      recentActiveThreadsSnapshot:
+        typeof threadCatalogOverrides["recentActiveThreadsSnapshot"] === "function"
+          ? threadCatalogOverrides["recentActiveThreadsSnapshot"]
+          : vi.fn(() => null),
+      observeActiveThreadsResult:
+        typeof threadCatalogOverrides["observeActiveThreadsResult"] === "function"
+          ? threadCatalogOverrides["observeActiveThreadsResult"]
           : vi.fn((observer: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
               activeObservers.add(observer);
               return () => activeObservers.delete(observer);

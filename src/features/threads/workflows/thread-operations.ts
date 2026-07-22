@@ -1,9 +1,9 @@
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../domain/threads/title";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
-import type { ThreadCatalogEventSink } from "../catalog/thread-catalog";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ThreadOperationsTransport } from "./ports";
+import type { ThreadOperationEventSink } from "./thread-operation-event";
 
 export interface ThreadOperationsHost {
   transport: ThreadOperationsTransport;
@@ -15,7 +15,7 @@ export interface ThreadOperationsHost {
     vaultConfigDir: string;
   };
   archiveDestination(): ArchiveExportDestination;
-  catalog: ThreadCatalogEventSink;
+  operationEvents: ThreadOperationEventSink;
   referenceThreads(): readonly Thread[];
   notice(message: string): void;
 }
@@ -58,7 +58,7 @@ async function renameThread(
     if (!(options.shouldStart?.() ?? true)) return false;
     await host.transport.renameThread(threadId, name);
     if (options.shouldPublish?.() ?? true) {
-      host.catalog.apply({ type: "thread-renamed", threadId, name });
+      host.operationEvents.apply({ type: "thread-renamed", threadId, name });
     }
     return true;
   });
@@ -101,6 +101,6 @@ async function archiveThread(
   if (exportedPath) {
     host.notice(`Saved archived thread to ${exportedPath}.`);
   }
-  host.catalog.apply({ type: "thread-archived", threadId });
+  host.operationEvents.apply({ type: "thread-archived", threadId });
   return { exportedPath };
 }

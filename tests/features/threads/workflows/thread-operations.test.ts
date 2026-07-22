@@ -236,7 +236,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
       vaultConfigDir: "vault-config",
     },
     archiveDestination: archiveDestinationFactory,
-    catalog,
+    operationEvents: catalog,
     referenceThreads: () => options.referenceThreads ?? [],
     notice,
   };

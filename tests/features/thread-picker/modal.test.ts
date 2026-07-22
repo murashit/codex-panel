@@ -56,7 +56,7 @@ describe("threadPickerSuggestions", () => {
   it("uses the native searching empty state until the complete inventory resolves", async () => {
     const pending = deferred<readonly Thread[]>();
     const host = threadPickerHost([thread({ id: "recent" })]);
-    host.threadCatalog.searchActive = () => pending.promise;
+    host.threadCatalog.fetchActiveThreadSearchInventory = () => pending.promise;
     const modal = await openedThreadPicker(host);
 
     const suggestions = modal.getSuggestions("needle");
@@ -71,7 +71,7 @@ describe("threadPickerSuggestions", () => {
   it("clears the searching empty state when the query is cleared", async () => {
     const pending = deferred<readonly Thread[]>();
     const host = threadPickerHost([thread({ id: "recent" })]);
-    host.threadCatalog.searchActive = () => pending.promise;
+    host.threadCatalog.fetchActiveThreadSearchInventory = () => pending.promise;
     const modal = await openedThreadPicker(host);
 
     const suggestions = modal.getSuggestions("needle");
@@ -142,7 +142,7 @@ describe("thread picker lifecycle", () => {
 
   it("finishes when the initial inventory fails to load", async () => {
     const host = threadPickerHost([], [], [], false);
-    host.threadCatalog.loadActive = async () => {
+    host.threadCatalog.fetchActiveThreads = async () => {
       throw new Error("inventory unavailable");
     };
     const onClosed = vi.fn();
@@ -156,7 +156,7 @@ describe("thread picker lifecycle", () => {
   it("does not open after being replaced during the initial inventory load", async () => {
     const pending = deferred<readonly Thread[]>();
     const host = threadPickerHost([], [], [], false);
-    host.threadCatalog.loadActive = () => pending.promise;
+    host.threadCatalog.fetchActiveThreads = () => pending.promise;
     const open = vi.spyOn(SuggestModal.prototype, "open");
     const onClosed = vi.fn();
 
@@ -245,20 +245,20 @@ function threadPickerHost(
     completeHistoryLoads: 0,
     sharedRefreshes: 0,
     threadCatalog: {
-      activeSnapshot: () => (hasSharedSnapshot ? firstPage : null),
-      recentActiveSnapshot: () => (hasSharedSnapshot ? firstPage : null),
-      loadActive: async () => loadedThreads,
-      searchActive: async () => {
+      activeThreadsSnapshot: () => (hasSharedSnapshot ? firstPage : null),
+      recentActiveThreadsSnapshot: () => (hasSharedSnapshot ? firstPage : null),
+      fetchActiveThreads: async () => loadedThreads,
+      fetchActiveThreadSearchInventory: async () => {
         host.completeHistoryLoads += 1;
         return completeHistory;
       },
-      refreshActive: async () => {
+      refreshActiveThreads: async () => {
         host.sharedRefreshes += 1;
         return loadedThreads;
       },
-      hasMoreActive: () => false,
-      loadMoreActive: async () => loadedThreads,
-      observeActive: () => () => undefined,
+      hasMoreActiveThreads: () => false,
+      loadMoreActiveThreads: async () => loadedThreads,
+      observeActiveThreadsResult: () => () => undefined,
     },
     openThreadInCurrentView: async (threadId) => {
       openedCurrent.push(threadId);

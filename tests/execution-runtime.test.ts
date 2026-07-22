@@ -145,7 +145,7 @@ function executionRuntime(): CodexExecutionRuntime {
     context: { codexPath: "codex", vaultPath: "/vault" },
     settings: () => ({ ...DEFAULT_SETTINGS }),
     workspace: {} as never,
-    onThreadCatalogEvent: vi.fn(),
+    onThreadLifecycleEvents: vi.fn(),
     openNewPanel: vi.fn(),
     openThreadInCurrentView: vi.fn(),
     openThreadInAvailableView: vi.fn(),

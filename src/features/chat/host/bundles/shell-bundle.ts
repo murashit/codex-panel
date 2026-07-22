@@ -68,7 +68,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     toolbarPanel: toolbarPanelActions,
     rename,
     navigation,
-    loadMoreThreads: () => environment.plugin.threadCatalog.loadMoreActive(),
+    loadMoreThreads: () => environment.plugin.threadCatalog.loadMoreActiveThreads(),
     openSideChat: () => {
       const state = stateStore.getState();
       if (activePanelOperationDecision(state, "start-side-chat").kind !== "allowed") return;

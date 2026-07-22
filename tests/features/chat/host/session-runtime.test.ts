@@ -58,7 +58,7 @@ describe("ChatPanelSessionRuntime actions", () => {
       environment: {
         plugin: {
           threadCatalog: {
-            refreshActive: refresh,
+            refreshActiveThreads: refresh,
           },
         },
       },
@@ -133,7 +133,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     const { runtime, stateStore, deferredTasks, threadStreamScrollBinding } = sessionRuntimeFixture({
       environment: {
         plugin: {
-          threadCatalog: { observeActive: vi.fn(() => unsubscribeThreads) },
+          threadCatalog: { observeActiveThreadsResult: vi.fn(() => unsubscribeThreads) },
           appServerQueries: {
             observeAppServerMetadataResources: vi.fn(() => unsubscribeMetadata),
           },
@@ -196,6 +196,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     plugin?: {
       workspace?: Partial<ChatPanelEnvironment["plugin"]["workspace"]>;
       threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
+      threadOperationCoordinator?: Partial<ChatPanelEnvironment["plugin"]["threadOperationCoordinator"]>;
       appServerQueries?: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]>;
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
@@ -268,6 +269,11 @@ describe("ChatPanelSessionRuntime actions", () => {
         },
         appServerQueries,
         threadCatalog,
+        threadOperationCoordinator: {
+          apply: overrides.plugin?.threadOperationCoordinator?.apply ?? vi.fn(),
+          beginForkPublication:
+            overrides.plugin?.threadOperationCoordinator?.beginForkPublication ?? vi.fn(() => ({ record: vi.fn(), finish: vi.fn() })),
+        },
         threadNameMutations: createKeyedOperationQueue(),
         threadGoalOperations: createThreadGoalOperationCoordinator(),
         runtimeSettingsCommitQueue: createKeyedOperationQueue(),
@@ -285,14 +291,13 @@ describe("ChatPanelSessionRuntime actions", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]> = {},
   ): ChatPanelEnvironment["plugin"]["threadCatalog"] {
     return {
-      hasMoreActive: vi.fn(() => false),
-      loadMoreActive: vi.fn().mockResolvedValue([]),
-      loadActive: vi.fn().mockResolvedValue([]),
-      refreshActive: vi.fn().mockResolvedValue([]),
-      activeSnapshot: vi.fn(() => null),
-      recentActiveSnapshot: vi.fn(() => null),
-      observeActive: vi.fn(() => () => undefined),
-      apply: vi.fn(),
+      hasMoreActiveThreads: vi.fn(() => false),
+      loadMoreActiveThreads: vi.fn().mockResolvedValue([]),
+      fetchActiveThreads: vi.fn().mockResolvedValue([]),
+      refreshActiveThreads: vi.fn().mockResolvedValue([]),
+      activeThreadsSnapshot: vi.fn(() => null),
+      recentActiveThreadsSnapshot: vi.fn(() => null),
+      observeActiveThreadsResult: vi.fn(() => () => undefined),
       ...overrides,
     };
   }

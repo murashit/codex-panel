@@ -6,9 +6,9 @@ import type { ChatStateStore } from "../../application/state/store";
 type ThreadObserver = (result: ObservedPaginatedResult<readonly Thread[]>) => void;
 
 interface SharedStateThreadCatalog {
-  activeSnapshot(): readonly Thread[] | null;
-  hasMoreActive(): boolean;
-  observeActive(observer: ThreadObserver, options?: { emitCurrent?: boolean }): () => void;
+  activeThreadsSnapshot(): readonly Thread[] | null;
+  hasMoreActiveThreads(): boolean;
+  observeActiveThreadsResult(observer: ThreadObserver, options?: { emitCurrent?: boolean }): () => void;
 }
 
 interface SharedStateAppServerQueries {
@@ -56,12 +56,12 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
     }
   };
   const applyCached = (): void => {
-    const threads = threadCatalog.activeSnapshot();
+    const threads = threadCatalog.activeThreadsSnapshot();
     if (threads) {
       stateStore.dispatch({
         type: "thread-list/applied",
         threads,
-        hasMore: threadCatalog.hasMoreActive(),
+        hasMore: threadCatalog.hasMoreActiveThreads(),
         isFetching: false,
         isFetchingNextPage: false,
         error: null,
@@ -75,7 +75,7 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
       unsubscribe();
       applyCached();
       unsubscribers.push(
-        threadCatalog.observeActive(receiveThreadResult, { emitCurrent: false }),
+        threadCatalog.observeActiveThreadsResult(receiveThreadResult, { emitCurrent: false }),
         appServerQueries.observeAppServerMetadataResources(applyAppServerMetadataResource),
       );
     },

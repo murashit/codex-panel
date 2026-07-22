@@ -56,6 +56,8 @@ Chat-visible state should have one authoritative owner. Components should consum
 
 TanStack Query is the single panel-side owner of cached app-server resources. Features may project authoritative event results into that state, but should not introduce parallel cache or synchronization mechanisms. Partial read models are reconciled at explicit lifecycle boundaries rather than kept globally and continuously consistent.
 
+Thread-list updates have three explicit stages. `ThreadOperationCoordinator` orders lifecycle facts across multi-step operations such as fork without knowing list mutation details. The pure read-model projector converts each committed fact sequence into one mutation batch, and the shared app-server query owner applies that batch while structurally providing narrow `ThreadCatalog` read ports to consumers. Ordinary app-server notifications and completed local operations use the same path, while RPC sequencing and fork-specific buffering remain outside both the projector and query owner.
+
 Reads with different completeness requirements have separate lifecycles. Complete operation-local reads must not replace bounded shared history, and transient activity should come from its owning live state rather than forcing history refreshes.
 
 Imperative UI bridges are allowed only where the host platform requires them. They should remain narrow boundary adapters, not a second UI composition system inside Preact-owned surfaces.

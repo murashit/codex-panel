@@ -16,7 +16,13 @@ import { createAppServerSelectionRewriteTransport } from "./features/selection-r
 import type { SelectionRewriteTransport } from "./features/selection-rewrite/transport";
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
 import { createThreadOperationsTransport, createThreadTitleTransport } from "./features/threads/app-server/workflow-transports";
-import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
+import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
+import {
+  createThreadOperationCoordinator,
+  type ThreadOperationCoordinator,
+} from "./features/threads/workflows/thread-operation-coordinator";
+import type { ThreadLifecycleEvent } from "./features/threads/workflows/thread-operation-event";
+import { projectThreadListChanges } from "./features/threads/workflows/thread-read-model-projection";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
@@ -31,7 +37,7 @@ export interface CodexExecutionRuntimeOptions {
   context: AppServerExecutionContext;
   settings: () => CodexPanelSettings;
   workspace: WorkspacePanels;
-  onThreadCatalogEvent(event: ThreadCatalogEvent): void;
+  onThreadLifecycleEvents(events: readonly ThreadLifecycleEvent[]): void;
   openNewPanel(): Promise<unknown>;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
@@ -47,6 +53,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly context: Readonly<AppServerExecutionContext>;
   private readonly appServerQueries: AppServerQueryCache;
   private readonly threadCatalog: ThreadCatalog;
+  private readonly threadOperationCoordinator: ThreadOperationCoordinator;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
   private readonly threadNameMutations = createKeyedOperationQueue<string>();
   private readonly threadGoalOperations = createThreadGoalOperationCoordinator();
@@ -62,17 +69,17 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   constructor(private readonly options: CodexExecutionRuntimeOptions) {
     this.context = Object.freeze({ ...options.context });
     this.appServerQueries = new AppServerQueryCache(this.context, this);
-    this.threadCatalog = createThreadCatalog({
-      store: this.appServerQueries,
-      onEventApplied: (event) => {
-        options.onThreadCatalogEvent(event);
-      },
+    this.threadCatalog = this.appServerQueries;
+    this.threadOperationCoordinator = createThreadOperationCoordinator((events) => {
+      this.threadCatalog.applyThreadListMutations(projectThreadListChanges(this.threadCatalog, events));
+      options.onThreadLifecycleEvents(events);
     });
     this.settingsDynamicData = createSettingsAppServerDynamicData({
       vaultPath: this.context.vaultPath,
       clientAccess: this,
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
+      threadEvents: this.threadOperationCoordinator,
     });
   }
 
@@ -85,6 +92,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       workspace: this.options.workspace,
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
+      threadOperationCoordinator: this.threadOperationCoordinator,
       threadNameMutations: this.threadNameMutations,
       threadTitleTransport: this.threadTitleTransport(),
       threadGoalOperations: this.threadGoalOperations,
@@ -98,6 +106,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       settings: this.threadsSettings(),
       vaultPath: this.context.vaultPath,
       threadCatalog: this.threadCatalog,
+      threadEvents: this.threadOperationCoordinator,
       threadNameMutations: this.threadNameMutations,
       threadOperationsTransport: createThreadOperationsTransport(this),
       threadTitleTransport: this.threadTitleTransport(),

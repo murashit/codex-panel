@@ -135,7 +135,7 @@ export function createConnectionBundle(
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
   });
   const refreshSharedThreads = async (): Promise<void> => {
-    await environment.plugin.threadCatalog.refreshActive();
+    await environment.plugin.threadCatalog.refreshActiveThreads();
   };
   const inboundHandler = createChatInboundHandler(
     stateStore,
@@ -153,8 +153,8 @@ export function createConnectionBundle(
       maybeNameThread: (threadId, turnId, completedTurnTranscriptSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
       },
-      applyThreadCatalogEvent: (event) => {
-        environment.plugin.threadCatalog.apply(event);
+      applyThreadOperationEvent: (event) => {
+        environment.plugin.threadOperationCoordinator.apply(event);
       },
       respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
       rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),

@@ -7,9 +7,10 @@ import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../domain/server/metadata";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
-import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
+import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
 import type { ThreadTitleTransport } from "../../threads/workflows/ports";
+import type { ThreadOperationCoordinator } from "../../threads/workflows/thread-operation-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ThreadGoalOperationCoordinator } from "../application/threads/goal-actions";
 
@@ -20,6 +21,7 @@ export interface CodexChatHost {
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
+  readonly threadOperationCoordinator: ThreadOperationCoordinator;
   readonly threadNameMutations: KeyedOperationQueue<string>;
   readonly threadTitleTransport: ThreadTitleTransport;
   readonly threadGoalOperations: ThreadGoalOperationCoordinator;
@@ -47,7 +49,7 @@ export interface WorkspacePanels {
   openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void>;
 }
 
-type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader & ThreadCatalogEventSink;
+type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
 
 interface ChatAppServerQueries {
   appServerMetadataSnapshot(): SharedServerMetadata | null;

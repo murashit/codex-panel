@@ -23,8 +23,13 @@ export interface ThreadManagementActionsHost {
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<void>;
   openThreadInCurrentPanel: (threadId: string, onAdopted: () => void) => Promise<{ adopted: boolean }>;
-  recordThread: (thread: Thread) => void;
+  beginThreadForkPublication: (sourceThreadId: string) => ThreadForkPublication;
   threadHasPendingOrRunningPanel: (threadId: string) => boolean;
+}
+
+interface ThreadForkPublication {
+  record(thread: Thread): void;
+  finish(options?: { sourceArchived?: boolean }): void;
 }
 
 interface ThreadManagementOperations {
@@ -131,18 +136,21 @@ async function forkThreadFromTurn(
     host.addSystemMessage("Could not find the selected turn to fork.");
     return;
   }
+  let publication: ThreadForkPublication | null = null;
+  let publicationFinished = false;
 
   try {
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
     if (!(await host.threadTransport.ensureConnected())) return;
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
+    publication = host.beginThreadForkPublication(threadId);
     const effect = turnId
       ? await host.threadTransport.forkThread(threadId, { position: { kind: "through-turn", turnId } })
       : await host.threadTransport.forkThread(threadId);
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
-    host.recordThread(forkedThread);
+    publication.record(forkedThread);
     if (!effectCompletedInCurrentContext(effect)) return;
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     if (sourceName) {
@@ -171,9 +179,11 @@ async function forkThreadFromTurn(
         }
         return;
       }
-      await archiveReplacedSource(host, threadId, forkedThreadId, {
+      const sourceArchived = await archiveReplacedSource(host, threadId, forkedThreadId, {
         failureMessage: "Forked the thread, but could not archive the previous version",
       });
+      publication.finish({ sourceArchived });
+      publicationFinished = true;
       return;
     }
     try {
@@ -186,6 +196,8 @@ async function forkThreadFromTurn(
   } catch (error) {
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
+  } finally {
+    if (!publicationFinished) publication?.finish();
   }
 }
 
@@ -226,11 +238,14 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
         ? { sandboxPolicy: runtime.sandboxPolicy }
         : {}),
   };
+  let publication: ThreadForkPublication | null = null;
+  let publicationFinished = false;
 
   try {
     host.setStatus(STATUS_ROLLBACK_STARTING);
     if (!(await host.threadTransport.ensureConnected())) return;
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
+    publication = host.beginThreadForkPublication(threadId);
     const effect = await host.threadTransport.forkThread(threadId, {
       position: { kind: "before-turn", turnId: candidate.turnId },
       deferGoalContinuation: true,
@@ -238,7 +253,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     });
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
-    if (effectCompletedInCurrentContext(effect)) host.recordThread(forkedThread);
+    if (effectCompletedInCurrentContext(effect)) publication.record(forkedThread);
     else return;
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     const adoption = await host.openThreadInCurrentPanel(forkedThread.id, () => {
@@ -255,14 +270,18 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
       host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
       host.setStatus(STATUS_ROLLBACK_COMPLETE);
     }
-    await archiveReplacedSource(host, threadId, forkedThread.id, {
+    const sourceArchived = await archiveReplacedSource(host, threadId, forkedThread.id, {
       saveMarkdown: false,
       failureMessage: "Rolled back the latest turn, but could not archive the previous version",
     });
+    publication.finish({ sourceArchived });
+    publicationFinished = true;
   } catch (error) {
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     host.setStatus(STATUS_ROLLBACK_FAILED);
+  } finally {
+    if (!publicationFinished) publication?.finish();
   }
 }
 
@@ -271,15 +290,16 @@ async function archiveReplacedSource(
   sourceThreadId: string,
   replacementThreadId: string,
   options: { readonly saveMarkdown?: boolean; readonly failureMessage: string },
-): Promise<void> {
+): Promise<boolean> {
   try {
     const archiveOptions = options.saveMarkdown === undefined ? {} : { saveMarkdown: options.saveMarkdown };
-    if (await host.operations.archiveThread(sourceThreadId, archiveOptions)) return;
+    if (await host.operations.archiveThread(sourceThreadId, archiveOptions)) return true;
     reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, "archive was not completed");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, message);
   }
+  return false;
 }
 
 function reportReplacementArchiveFailure(

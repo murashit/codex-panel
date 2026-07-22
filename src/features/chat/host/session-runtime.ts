@@ -177,7 +177,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     threadStartTransport: appServer.threadStart,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     recordStartedThread: (thread) => {
-      environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
+      environment.plugin.threadOperationCoordinator.apply({ type: "thread-upserted", thread });
     },
     syncThreadGoal: (threadId) => {
       void threadFoundation.goalSync.syncThreadGoal(threadId);

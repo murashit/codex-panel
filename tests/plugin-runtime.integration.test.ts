@@ -34,6 +34,10 @@ function threadCatalog(plugin: CodexPanelPlugin) {
   return currentChatHost(plugin).threadCatalog;
 }
 
+function threadOperationCoordinator(plugin: CodexPanelPlugin) {
+  return currentChatHost(plugin).threadOperationCoordinator;
+}
+
 const capturedChatHosts = new WeakMap<CodexPanelPlugin, { current: CodexChatHost | null }>();
 
 function currentChatHost(plugin: CodexPanelPlugin): CodexChatHost {
@@ -75,7 +79,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
 
-    threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+    threadOperationCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(firstArchived).toHaveBeenCalledWith("thread-1");
     expect(secondArchived).toHaveBeenCalledWith("thread-1");
@@ -99,7 +103,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
-    threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+    threadOperationCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(matchingArchived).toHaveBeenCalledWith("thread-1");
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
@@ -126,7 +130,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
 
-    threadCatalog(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
+    threadOperationCoordinator(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
 
     expect(firstRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
     expect(secondRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
@@ -151,22 +155,22 @@ describe("CodexPanelPlugin runtime integration", () => {
         ),
     );
 
-    const first = threadCatalog(plugin).refreshActive();
+    const first = threadCatalog(plugin).refreshActiveThreads();
     const staleFirst = expect(first).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
     await flushMicrotasks();
     await publishCodexPath(plugin, "codex-b");
-    const second = threadCatalog(plugin).refreshActive();
+    const second = threadCatalog(plugin).refreshActiveThreads();
     await flushMicrotasks();
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
     await expect(second).resolves.toEqual([thread("second")]);
-    expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("second")]);
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
 
     resolveFirst([thread("first")]);
     await staleFirst;
-    expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("second")]);
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
     await publishCodexPath(plugin, "codex-a");
-    expect(threadCatalog(plugin).activeSnapshot()).toBeNull();
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toBeNull();
   });
 
   it("runs shared queries through a runtime-owned short-lived client", async () => {
@@ -177,7 +181,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-b");
 
-    await expect(threadCatalog(plugin).refreshActive()).resolves.toEqual([thread("matching-context")]);
+    await expect(threadCatalog(plugin).refreshActiveThreads()).resolves.toEqual([thread("matching-context")]);
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith(
       "codex-b",
@@ -186,7 +190,7 @@ describe("CodexPanelPlugin runtime integration", () => {
       {},
       expect.objectContaining({ created: expect.any(Function), disposed: expect.any(Function) }),
     );
-    expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("matching-context")]);
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("matching-context")]);
   });
 
   it("uses a short-lived client when the operation declares an unhandled server-request policy", async () => {

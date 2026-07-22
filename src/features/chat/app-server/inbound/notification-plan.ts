@@ -2,7 +2,7 @@ import type { ServerNotification } from "../../../../app-server/connection/rpc-m
 import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
-import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
+import type { ThreadOperationEvent } from "../../../threads/workflows/thread-operation-event";
 import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
@@ -22,7 +22,7 @@ export type ChatNotificationEffect =
     }
   | { type: "refresh-server-diagnostics"; forceResourceProbes?: boolean }
   | { type: "apply-app-server-resource-event"; event: AppServerResourceEvent }
-  | { type: "apply-thread-catalog-event"; event: ThreadCatalogEvent };
+  | { type: "apply-thread-operation-event"; event: ThreadOperationEvent };
 
 type TurnRuntimeCompletedTurnTranscriptSummary = TurnRuntimeOutcome["completedTurnTranscriptSummary"];
 
@@ -291,17 +291,23 @@ function planThreadLifecycle(
     case "thread/started":
       return threadStartedPlan(state, notification);
     case "thread/archived":
-      return effectPlan({ type: "apply-thread-catalog-event", event: { type: "thread-archived", threadId: notification.params.threadId } });
+      return effectPlan({
+        type: "apply-thread-operation-event",
+        event: { type: "thread-archived", threadId: notification.params.threadId },
+      });
     case "thread/deleted":
-      return effectPlan({ type: "apply-thread-catalog-event", event: { type: "thread-deleted", threadId: notification.params.threadId } });
+      return effectPlan({
+        type: "apply-thread-operation-event",
+        event: { type: "thread-deleted", threadId: notification.params.threadId },
+      });
     case "thread/unarchived":
       return effectPlan({
-        type: "apply-thread-catalog-event",
+        type: "apply-thread-operation-event",
         event: { type: "thread-unarchived", threadId: notification.params.threadId },
       });
     case "thread/name/updated":
       return effectPlan({
-        type: "apply-thread-catalog-event",
+        type: "apply-thread-operation-event",
         event: {
           type: "thread-renamed",
           threadId: notification.params.threadId,
@@ -333,8 +339,12 @@ function threadStartedPlan(
       ? []
       : [
           {
-            type: "apply-thread-catalog-event",
-            event: { type: "thread-upserted", thread },
+            type: "apply-thread-operation-event",
+            event: {
+              type: "thread-upserted",
+              thread,
+              forkedFromThreadId: notification.params.thread.forkedFromId,
+            },
           },
         ];
   return { actions: trackAction, effects };

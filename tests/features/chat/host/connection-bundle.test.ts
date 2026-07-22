@@ -79,7 +79,7 @@ function connectionBundleFixture(overrides: { readServerDiagnostics?: ReturnType
           refreshRateLimits: vi.fn().mockResolvedValue(undefined),
         },
         threadCatalog: {
-          refreshActive: vi.fn().mockResolvedValue(undefined),
+          refreshActiveThreads: vi.fn().mockResolvedValue(undefined),
           apply: vi.fn(),
         },
         appServerContext: { codexPath: "codex", vaultPath: "/vault" },

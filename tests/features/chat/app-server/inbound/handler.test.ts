@@ -17,7 +17,7 @@ import {
 } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
-import type { ThreadCatalogEvent } from "../../../../../src/features/threads/catalog/thread-catalog";
+import type { ThreadOperationEvent as ThreadCatalogEvent } from "../../../../../src/features/threads/workflows/thread-operation-event";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -28,18 +28,24 @@ type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
   currentState(): ChatState;
 };
 
-function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboundHandlerActions> = {}): TestChatInboundHandler {
+function handlerForState(
+  state = chatStateFixture(),
+  actions: Partial<ChatInboundHandlerActions> & {
+    applyThreadCatalogEvent?: ChatInboundHandlerActions["applyThreadOperationEvent"];
+  } = {},
+): TestChatInboundHandler {
   const store = testStoreForState(state);
+  const { applyThreadCatalogEvent, ...inboundActions } = actions;
   const handler = createChatInboundHandler(
     store,
     {
       refreshServerDiagnostics: vi.fn(),
       applyAppServerResourceEvent: vi.fn(),
       maybeNameThread: vi.fn(),
-      applyThreadCatalogEvent: vi.fn(),
+      applyThreadOperationEvent: applyThreadCatalogEvent ?? vi.fn(),
       respondToServerRequest: vi.fn(() => true),
       rejectServerRequest: vi.fn(() => true),
-      ...actions,
+      ...inboundActions,
     },
     createLocalIdSource({ nowMs: () => 1, seed: "test" }),
   );
@@ -1324,6 +1330,23 @@ describe("ChatInboundHandler", () => {
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
         type: "thread-upserted",
         thread: expect.objectContaining({ id: "thread-other" }),
+        forkedFromThreadId: null,
+      });
+    });
+
+    it("preserves fork ancestry for atomic catalog publication", () => {
+      const applyThreadCatalogEvent = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
+
+      handler.handleNotification({
+        method: "thread/started",
+        params: { thread: { ...appServerThread("thread-forked", "/workspace"), forkedFromId: "thread-source" } },
+      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
+
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-upserted",
+        thread: expect.objectContaining({ id: "thread-forked" }),
+        forkedFromThreadId: "thread-source",
       });
     });
 
@@ -1342,6 +1365,7 @@ describe("ChatInboundHandler", () => {
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
         type: "thread-upserted",
         thread: expect.objectContaining({ id: "thread-active" }),
+        forkedFromThreadId: null,
       });
     });
 

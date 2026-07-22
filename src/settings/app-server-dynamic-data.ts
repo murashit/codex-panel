@@ -4,7 +4,8 @@ import type { ObservedResultListener } from "../app-server/query/observed-result
 import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
 import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
-import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../features/threads/catalog/thread-catalog";
+import type { ThreadCatalogArchivedReader } from "../features/threads/catalog/thread-catalog";
+import type { ThreadOperationEventSink } from "../features/threads/workflows/thread-operation-event";
 import { createKeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
 
@@ -15,13 +16,12 @@ interface SettingsAppServerQueries {
   refreshModels(): Promise<readonly ModelMetadata[]>;
 }
 
-type SettingsArchivedThreadCatalog = ThreadCatalogArchivedReader & ThreadCatalogEventSink;
-
 export interface SettingsAppServerDynamicDataOptions {
   vaultPath: string;
   clientAccess: AppServerClientAccess;
   appServerQueries: SettingsAppServerQueries;
-  threadCatalog: SettingsArchivedThreadCatalog;
+  threadCatalog: ThreadCatalogArchivedReader;
+  threadEvents: ThreadOperationEventSink;
 }
 
 export function createSettingsAppServerDynamicData(options: SettingsAppServerDynamicDataOptions): SettingsDynamicDataAccess {
@@ -45,22 +45,23 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
     observeModelsResult: (listener, observeOptions) => options.appServerQueries.observeModelsResult(listener, observeOptions),
     fetchModels: () => options.appServerQueries.fetchModels(),
     refreshModels: () => options.appServerQueries.refreshModels(),
-    archivedThreadsSnapshot: () => options.threadCatalog.archivedSnapshot(),
-    observeArchivedThreadsResult: (listener, observeOptions) => options.threadCatalog.observeArchived(listener, observeOptions),
-    refreshArchivedThreads: () => options.threadCatalog.refreshArchived(),
+    archivedThreadsSnapshot: () => options.threadCatalog.archivedThreadsSnapshot(),
+    observeArchivedThreadsResult: (listener, observeOptions) =>
+      options.threadCatalog.observeArchivedThreadsResult(listener, observeOptions),
+    refreshArchivedThreads: () => options.threadCatalog.refreshArchivedThreads(),
     refreshHooks: () => withSettingsConnection(loadHooks),
     trustHook: (hook) => mutateHook(hook, trustHookItem),
     setHookEnabled: (hook, enabled) => mutateHook(hook, (client, item) => setHookItemEnabled(client, item, enabled)),
     restoreArchivedThread: (threadId) =>
       runArchivedThreadMutation(threadId, async () => {
         const thread = await withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
-        options.threadCatalog.apply({ type: "thread-restored", thread });
+        options.threadEvents.apply({ type: "thread-restored", thread });
         return thread;
       }),
     deleteArchivedThread: (threadId) =>
       runArchivedThreadMutation(threadId, async () => {
         await withSettingsConnection((client) => deleteThread(client, threadId));
-        options.threadCatalog.apply({ type: "thread-deleted", threadId });
+        options.threadEvents.apply({ type: "thread-deleted", threadId });
       }),
   };
 }
