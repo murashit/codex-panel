@@ -241,6 +241,24 @@ describe("chat app-server transports", () => {
     });
   });
 
+  it("forks through a selected turn with an inclusive marker", async () => {
+    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    }).threadMutation;
+
+    await transport.forkThread("source", { position: { kind: "through-turn", turnId: "turn-2" } });
+
+    expect(request).toHaveBeenCalledWith("thread/fork", {
+      threadId: "source",
+      cwd: "/vault",
+      excludeTurns: true,
+      lastTurnId: "turn-2",
+    });
+  });
+
   it("drops stale fork transport responses after the current client changes", async () => {
     const fork = deferred<{ thread: ThreadRecord }>();
     const firstClient = { request: vi.fn().mockReturnValue(fork.promise) } as unknown as AppServerClient;
@@ -261,23 +279,88 @@ describe("chat app-server transports", () => {
     });
   });
 
-  it("projects rollback turns into thread stream items", async () => {
-    const request = vi.fn().mockResolvedValue({ thread: threadRecord("thread", [turn([userMessage("u1", "prompt")])]) });
+  it("forks before a marker turn while deferring goal continuation", async () => {
+    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
     const client = { request } as unknown as AppServerClient;
     const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadMutation;
 
-    const snapshot = await transport.rollbackThread("thread");
+    const outcome = await transport.forkThread("source", {
+      position: { kind: "before-turn", turnId: "turn-3" },
+      deferGoalContinuation: true,
+    });
 
-    expect(request).toHaveBeenCalledWith("thread/rollback", { threadId: "thread", numTurns: 1 });
-    expect(snapshot).toMatchObject({
+    expect(request).toHaveBeenCalledWith("thread/fork", {
+      threadId: "source",
+      cwd: "/vault",
+      excludeTurns: true,
+      beforeTurnId: "turn-3",
+      deferGoalContinuation: true,
+    });
+    expect(outcome).toMatchObject({
       kind: "completed-current",
-      value: {
-        thread: { id: "thread" },
-        items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
+      value: { id: "forked" },
+    });
+  });
+
+  it("applies active runtime overrides to a rollback fork", async () => {
+    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    }).threadMutation;
+
+    await transport.forkThread("source", {
+      position: { kind: "before-turn", turnId: "turn-3" },
+      deferGoalContinuation: true,
+      runtime: {
+        model: "gpt-5.6",
+        reasoningEffort: "high",
+        serviceTier: "priority",
+        approvalPolicy: "never",
+        approvalsReviewer: "auto_review",
+        permissions: ":workspace",
       },
+    });
+
+    expect(request).toHaveBeenCalledWith("thread/fork", {
+      threadId: "source",
+      cwd: "/vault",
+      excludeTurns: true,
+      beforeTurnId: "turn-3",
+      deferGoalContinuation: true,
+      model: "gpt-5.6",
+      serviceTier: "priority",
+      approvalPolicy: "never",
+      approvalsReviewer: "auto_review",
+      permissions: ":workspace",
+      config: { model_reasoning_effort: "high" },
+    });
+  });
+
+  it("preserves explicit default reasoning and service tier values on a rollback fork", async () => {
+    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    }).threadMutation;
+
+    await transport.forkThread("source", {
+      position: { kind: "before-turn", turnId: "turn-3" },
+      runtime: { reasoningEffort: null, serviceTier: null },
+    });
+
+    expect(request).toHaveBeenCalledWith("thread/fork", {
+      threadId: "source",
+      cwd: "/vault",
+      excludeTurns: true,
+      beforeTurnId: "turn-3",
+      serviceTier: null,
+      config: { model_reasoning_effort: null },
     });
   });
 

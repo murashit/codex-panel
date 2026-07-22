@@ -6,7 +6,6 @@ import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../doma
 import type { ThreadActivationSnapshot } from "../../domain/threads/activation";
 import type { ArchiveThreadInput } from "../../domain/threads/archive-markdown";
 import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
-import type { HistoricalTurn } from "../../domain/threads/history";
 import type { Thread } from "../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT } from "../../domain/threads/reference";
 import type { TurnTranscriptSummary } from "../../domain/threads/transcript";
@@ -187,42 +186,59 @@ export async function readReferencedThreadTurnTranscriptSummaries(
   return chronologicalTurnTranscriptSummariesFromTurnRecords(response.data);
 }
 
-export interface ThreadRollbackSnapshot {
-  thread: Thread;
-  turns: readonly HistoricalTurn[];
-}
+type ThreadForkPosition =
+  | { readonly kind: "through-turn"; readonly turnId: string }
+  | { readonly kind: "before-turn"; readonly turnId: string };
 
-interface ThreadRollbackResult {
-  readonly thread: ThreadRecord & {
-    readonly turns: readonly HistoricalTurn[];
+interface AppServerForkThreadOptions {
+  readonly position?: ThreadForkPosition;
+  readonly deferGoalContinuation?: boolean;
+  readonly runtime?: {
+    readonly model?: string;
+    readonly reasoningEffort?: string | null;
+    readonly serviceTier?: ServiceTier | null;
+    readonly approvalPolicy?: RuntimePermissionState["approvalPolicy"];
+    readonly approvalsReviewer?: ApprovalsReviewer;
+    readonly permissions?: string;
+    readonly sandboxPolicy?: RuntimePermissionState["sandboxPolicy"];
   };
-}
-
-function threadRollbackSnapshotFromAppServerResponse(response: ThreadRollbackResult): ThreadRollbackSnapshot {
-  return {
-    thread: threadFromThreadRecord(response.thread),
-    turns: response.thread.turns,
-  };
-}
-
-export async function rollbackThread(client: AppServerRequestClient, threadId: string, numTurns?: number): Promise<ThreadRollbackSnapshot> {
-  const response = await client.request("thread/rollback", { threadId, numTurns: numTurns ?? 1 });
-  return threadRollbackSnapshotFromAppServerResponse(response);
 }
 
 export async function forkThread(
   client: AppServerRequestClient,
   threadId: string,
   cwd: string,
-  lastTurnId: string | null = null,
+  options: AppServerForkThreadOptions = {},
 ): Promise<Thread> {
+  const position = options.position;
+  const runtime = options.runtime;
+  const permissions = runtime?.permissions;
+  const sandbox = permissions === undefined ? appServerSandboxMode(runtime?.sandboxPolicy) : undefined;
   const response = await client.request("thread/fork", {
     threadId,
     cwd,
     excludeTurns: true,
-    ...(lastTurnId ? { lastTurnId } : {}),
+    ...(position?.kind === "through-turn" ? { lastTurnId: position.turnId } : {}),
+    ...(position?.kind === "before-turn" ? { beforeTurnId: position.turnId } : {}),
+    ...(options.deferGoalContinuation ? { deferGoalContinuation: true } : {}),
+    ...(runtime?.model !== undefined ? { model: runtime.model } : {}),
+    ...(runtime?.serviceTier !== undefined ? { serviceTier: runtime.serviceTier } : {}),
+    ...(runtime?.approvalPolicy !== undefined && runtime.approvalPolicy !== null ? { approvalPolicy: runtime.approvalPolicy } : {}),
+    ...(runtime?.approvalsReviewer !== undefined ? { approvalsReviewer: runtime.approvalsReviewer } : {}),
+    ...(permissions !== undefined ? { permissions } : {}),
+    ...(sandbox !== undefined ? { sandbox } : {}),
+    ...(runtime?.reasoningEffort !== undefined ? { config: { model_reasoning_effort: runtime.reasoningEffort } } : {}),
   });
   return threadFromThreadRecord(response.thread);
+}
+
+function appServerSandboxMode(
+  policy: RuntimePermissionState["sandboxPolicy"] | undefined,
+): "read-only" | "workspace-write" | "danger-full-access" | undefined {
+  if (!policy || policy.type === "externalSandbox") return undefined;
+  if (policy.type === "dangerFullAccess") return "danger-full-access";
+  if (policy.type === "readOnly") return "read-only";
+  return "workspace-write";
 }
 
 export interface EphemeralThreadForkSnapshot {

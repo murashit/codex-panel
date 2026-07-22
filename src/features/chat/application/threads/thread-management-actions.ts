@@ -2,9 +2,8 @@ import { inheritedForkThreadName, type Thread } from "../../../../domain/threads
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import { effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
-import { resumedThreadActionFromActiveRuntime } from "../state/actions";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
+import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatTurnBusy } from "../turns/turn-state";
@@ -23,8 +22,7 @@ export interface ThreadManagementActionsHost {
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<void>;
-  openThreadInCurrentPanel: (threadId: string) => Promise<void>;
-  notifyActiveThreadIdentityChanged: () => void;
+  openThreadInCurrentPanel: (threadId: string, onAdopted: () => void) => Promise<{ adopted: boolean }>;
   recordThread: (thread: Thread) => void;
   threadHasPendingOrRunningPanel: (threadId: string) => boolean;
 }
@@ -138,7 +136,9 @@ async function forkThreadFromTurn(
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
     if (!(await host.threadTransport.ensureConnected())) return;
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
-    const effect = turnId ? await host.threadTransport.forkThread(threadId, turnId) : await host.threadTransport.forkThread(threadId);
+    const effect = turnId
+      ? await host.threadTransport.forkThread(threadId, { position: { kind: "through-turn", turnId } })
+      : await host.threadTransport.forkThread(threadId);
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
@@ -156,15 +156,24 @@ async function forkThreadFromTurn(
       if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     }
     if (archiveSource) {
-      if (!(await archiveThreadFromPanel(host, threadId))) return;
-      if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
+      let adoption: { adopted: boolean };
       try {
-        await host.openThreadInCurrentPanel(forkedThreadId);
+        adoption = await host.openThreadInCurrentPanel(forkedThreadId, () => undefined);
       } catch (error) {
         if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
         const message = error instanceof Error ? error.message : String(error);
-        host.addSystemMessage(`Archived thread ${threadId}, but could not open forked thread ${forkedThreadId}: ${message}`);
+        host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel: ${message}`);
+        return;
       }
+      if (!adoption.adopted) {
+        if (threadManagementScopeStillTargetsOriginalPanel(host, scope)) {
+          host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel.`);
+        }
+        return;
+      }
+      await archiveReplacedSource(host, threadId, forkedThreadId, {
+        failureMessage: "Forked the thread, but could not archive the previous version",
+      });
       return;
     }
     try {
@@ -204,41 +213,83 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     host.addSystemMessage("No completed turn to roll back.");
     return;
   }
+  const runtime = activeThreadRuntimeState(threadManagementState(host).runtime);
+  const runtimeOverrides = {
+    ...(runtime.model ? { model: runtime.model } : {}),
+    reasoningEffort: runtime.reasoningEffort,
+    ...(runtime.serviceTierKnown ? { serviceTier: runtime.serviceTier } : {}),
+    ...(runtime.approvalPolicyKnown && runtime.approvalPolicy ? { approvalPolicy: runtime.approvalPolicy } : {}),
+    ...(runtime.approvalsReviewer ? { approvalsReviewer: runtime.approvalsReviewer } : {}),
+    ...(runtime.permissionProfileKnown && runtime.activePermissionProfile
+      ? { permissions: runtime.activePermissionProfile.id }
+      : runtime.sandboxPolicyKnown && runtime.sandboxPolicy
+        ? { sandboxPolicy: runtime.sandboxPolicy }
+        : {}),
+  };
 
   try {
     host.setStatus(STATUS_ROLLBACK_STARTING);
     if (!(await host.threadTransport.ensureConnected())) return;
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
-    const effect = await host.threadTransport.rollbackThread(threadId);
-    if (!effectCompleted(effect)) return;
-    if (!effectCompletedInCurrentContext(effect)) return;
-    const snapshot = effect.value;
-    if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
-    threadManagementDispatch(
-      host,
-      resumedThreadActionFromActiveRuntime({
-        thread: snapshot.thread,
-        runtime: activeThreadRuntimeState(threadManagementState(host).runtime),
-        listedThreads: threadManagementState(host).threadList.listedThreads,
-        expectedPanelTargetRevision: scope.panelTarget.revision,
-      }),
-    );
-    threadManagementDispatch(host, {
-      type: "thread-stream/items-replaced",
-      items: snapshot.items,
-      historyCursor: null,
-      loadingHistory: false,
+    const effect = await host.threadTransport.forkThread(threadId, {
+      position: { kind: "before-turn", turnId: candidate.turnId },
+      deferGoalContinuation: true,
+      runtime: runtimeOverrides,
     });
-    host.setComposerText(candidate.text);
-    host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
-    host.setStatus(STATUS_ROLLBACK_COMPLETE);
-    host.notifyActiveThreadIdentityChanged();
-    host.recordThread(snapshot.thread);
+    if (!effectCompleted(effect)) return;
+    const forkedThread = effect.value;
+    if (effectCompletedInCurrentContext(effect)) host.recordThread(forkedThread);
+    else return;
+    if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
+    const adoption = await host.openThreadInCurrentPanel(forkedThread.id, () => {
+      host.setComposerText(candidate.text);
+    });
+    if (!adoption.adopted) {
+      if (threadManagementScopeStillTargetsPanel(host, scope)) {
+        host.addSystemMessage("The rolled-back version was created but could not be opened in this panel. Open it from thread history.");
+        host.setStatus(STATUS_ROLLBACK_FAILED);
+      }
+      return;
+    }
+    if (activeThreadId(threadManagementState(host)) === forkedThread.id) {
+      host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
+      host.setStatus(STATUS_ROLLBACK_COMPLETE);
+    }
+    await archiveReplacedSource(host, threadId, forkedThread.id, {
+      saveMarkdown: false,
+      failureMessage: "Rolled back the latest turn, but could not archive the previous version",
+    });
   } catch (error) {
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     host.setStatus(STATUS_ROLLBACK_FAILED);
   }
+}
+
+async function archiveReplacedSource(
+  host: ThreadManagementActionsHost,
+  sourceThreadId: string,
+  replacementThreadId: string,
+  options: { readonly saveMarkdown?: boolean; readonly failureMessage: string },
+): Promise<void> {
+  try {
+    const archiveOptions = options.saveMarkdown === undefined ? {} : { saveMarkdown: options.saveMarkdown };
+    if (await host.operations.archiveThread(sourceThreadId, archiveOptions)) return;
+    reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, "archive was not completed");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, message);
+  }
+}
+
+function reportReplacementArchiveFailure(
+  host: ThreadManagementActionsHost,
+  replacementThreadId: string,
+  failureMessage: string,
+  detail: string,
+): void {
+  if (activeThreadId(threadManagementState(host)) !== replacementThreadId) return;
+  host.addSystemMessage(`${failureMessage}: ${detail}`);
 }
 
 function activePanelOperationBlocked(host: ThreadManagementActionsHost, threadId: string, operation: ActivePanelOperation): boolean {
@@ -252,10 +303,6 @@ function activePanelOperationBlocked(host: ThreadManagementActionsHost, threadId
 
 function threadManagementState(host: ThreadManagementActionsHost): ChatState {
   return host.stateStore.getState();
-}
-
-function threadManagementDispatch(host: ThreadManagementActionsHost, action: ChatAction): void {
-  host.stateStore.dispatch(action);
 }
 
 function captureThreadManagementPanelScope(host: ThreadManagementActionsHost, targetThreadId: string): ThreadManagementPanelScope {

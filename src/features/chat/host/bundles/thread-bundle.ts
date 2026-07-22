@@ -253,7 +253,7 @@ export function createThreadLifecycleBundle(
 }
 
 export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatPanelThreadActionInput): ChatPanelThreadActionBundle {
-  const { appServer, status, composerController, foundation, lifecycle, notifyActiveThreadIdentityChanged } = input;
+  const { appServer, status, composerController, foundation, lifecycle } = input;
   const { environment, stateStore } = host;
   const threadManagementHost: ThreadManagementActionsHost = {
     stateStore,
@@ -271,10 +271,16 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
       composerController.setDraft(text, { focus: true });
     },
     openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
-    openThreadInCurrentPanel: async (threadId) => {
-      await lifecycle.resume.resumeThread(threadId);
+    openThreadInCurrentPanel: async (threadId, onAdopted) => {
+      let adopted = false;
+      await lifecycle.resume.resumeThread(threadId, undefined, {
+        onAdopted: () => {
+          adopted = true;
+          onAdopted();
+        },
+      });
+      return { adopted };
     },
-    notifyActiveThreadIdentityChanged,
     recordThread: (thread) => {
       environment.plugin.threadCatalog.apply({ type: "thread-upserted", thread });
     },

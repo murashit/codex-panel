@@ -10,7 +10,6 @@ import {
   readThreadGoal,
   recordThreadGoalUserMessage,
   resumeThread,
-  rollbackThread,
   setThreadGoal,
   startThread,
   threadActivationSnapshotFromAppServerResponse,
@@ -30,7 +29,7 @@ import type {
   ThreadResumeSnapshot,
   ThreadResumeTransport,
 } from "../../application/threads/thread-loading-transport";
-import type { ThreadMutationTransport, ThreadRollbackSnapshot } from "../../application/threads/thread-mutation-transport";
+import type { ThreadMutationTransport } from "../../application/threads/thread-mutation-transport";
 import type { ThreadStartTransport } from "../../application/threads/thread-start-transport";
 import type { ThreadSubscriptionTransport } from "../../application/threads/thread-subscription-transport";
 import type { ChatTurnTransport } from "../../application/turns/turn-transport";
@@ -166,16 +165,8 @@ function createChatThreadMutationTransport(host: ChatAppServerTransportHost): Th
       runCurrentChatAppServerEffect(host, async (client) => {
         await compactThread(client, threadId);
       }),
-    forkThread: (threadId, lastTurnId = null) =>
-      runCurrentChatAppServerEffect(host, (client) => forkThread(client, threadId, host.vaultPath, lastTurnId)),
-    rollbackThread: (threadId) =>
-      runCurrentChatAppServerEffect(host, async (client): Promise<ThreadRollbackSnapshot> => {
-        const snapshot = await rollbackThread(client, threadId);
-        return {
-          thread: snapshot.thread,
-          items: threadStreamItemsFromTurns(snapshot.turns),
-        };
-      }),
+    forkThread: (threadId, options) =>
+      runCurrentChatAppServerEffect(host, (client) => forkThread(client, threadId, host.vaultPath, options)),
   };
 }
 

@@ -9,20 +9,16 @@ import {
   type ThreadManagementActions,
   type ThreadManagementActionsHost,
 } from "../../../../../src/features/chat/application/threads/thread-management-actions";
-import type {
-  ThreadMutationTransport,
-  ThreadRollbackSnapshot,
-} from "../../../../../src/features/chat/application/threads/thread-mutation-transport";
+import type { ThreadMutationTransport } from "../../../../../src/features/chat/application/threads/thread-mutation-transport";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
-import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
+import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 interface ThreadMutationTransportMock {
   ensureConnected: Mock<ThreadMutationTransport["ensureConnected"]>;
   compactThread: Mock<ThreadMutationTransport["compactThread"]>;
   forkThread: Mock<ThreadMutationTransport["forkThread"]>;
-  rollbackThread: Mock<ThreadMutationTransport["rollbackThread"]>;
 }
 
 interface ThreadOperationsMock {
@@ -33,7 +29,6 @@ interface ThreadOperationsMock {
 type ThreadManagementActionsHostMock = Omit<
   ThreadManagementActionsHost,
   | "addSystemMessage"
-  | "notifyActiveThreadIdentityChanged"
   | "openThreadInCurrentPanel"
   | "openThreadInNewView"
   | "operations"
@@ -49,7 +44,6 @@ type ThreadManagementActionsHostMock = Omit<
   setComposerText: Mock<ThreadManagementActionsHost["setComposerText"]>;
   openThreadInNewView: Mock<ThreadManagementActionsHost["openThreadInNewView"]>;
   openThreadInCurrentPanel: Mock<ThreadManagementActionsHost["openThreadInCurrentPanel"]>;
-  notifyActiveThreadIdentityChanged: Mock<ThreadManagementActionsHost["notifyActiveThreadIdentityChanged"]>;
   recordThread: Mock<ThreadManagementActionsHost["recordThread"]>;
 };
 
@@ -125,7 +119,7 @@ describe("thread management actions", () => {
     {
       name: "rollback",
       invoke: (actions: ThreadManagementActions) => actions.rollbackThread("agent-thread"),
-      transport: "rollbackThread" as const,
+      transport: "forkThread" as const,
       message: "Agent threads cannot be rolled back.",
     },
   ])("rejects $name mutations for subagent threads", async ({ invoke, transport, message }) => {
@@ -167,7 +161,7 @@ describe("thread management actions", () => {
     {
       name: "rollback",
       invoke: (actions: ThreadManagementActions) => actions.rollbackThread("source"),
-      operation: "rollbackThread" as const,
+      operation: "forkThread" as const,
       message: "Interrupt the current turn before rolling back.",
     },
   ])("rejects $name while a turn is busy", async ({ invoke, operation, message }) => {
@@ -304,7 +298,9 @@ describe("thread management actions", () => {
 
     await controller.forkThreadFromTurn("source", "turn-1", false);
 
-    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", "turn-1");
+    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", {
+      position: { kind: "through-turn", turnId: "turn-1" },
+    });
     expect(host.recordThread).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "forked",
@@ -315,19 +311,21 @@ describe("thread management actions", () => {
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
 
-  it("archives the source before replacing the panel during fork and archive", async () => {
+  it("replaces the panel before archiving the source during fork and archive", async () => {
     const host = hostMock({ items: turnItems() });
     const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
-    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", "turn-3");
+    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", {
+      position: { kind: "through-turn", turnId: "turn-3" },
+    });
     expect(host.operations.archiveThread).toHaveBeenCalledWith("source", {});
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
-    expect(callOrder(host.operations.archiveThread)).toBeLessThan(callOrder(host.openThreadInCurrentPanel));
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
+    expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.operations.archiveThread));
   });
 
-  it("keeps the source panel when fork and archive fails to archive", async () => {
+  it("keeps the replacement panel when source archiving fails", async () => {
     const host = hostMock({
       items: turnItems(),
       operations: {
@@ -339,11 +337,12 @@ describe("thread management actions", () => {
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
     expect(host.operations.archiveThread).toHaveBeenCalledWith("source", {});
-    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).toHaveBeenCalledWith("archive failed");
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
+    expect(activeThreadId(host.stateStore.getState())).toBe("forked");
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Forked the thread, but could not archive the previous version: archive failed");
   });
 
-  it("keeps the source panel when fork and archive is declined by thread operations", async () => {
+  it("reports when source archiving is not completed after replacement", async () => {
     const host = hostMock({
       items: turnItems(),
       operations: {
@@ -355,19 +354,21 @@ describe("thread management actions", () => {
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
     expect(host.operations.archiveThread).toHaveBeenCalledWith("source", {});
-    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).not.toHaveBeenCalledWith("archive failed");
+    expect(activeThreadId(host.stateStore.getState())).toBe("forked");
+    expect(host.addSystemMessage).toHaveBeenCalledWith(
+      "Forked the thread, but could not archive the previous version: archive was not completed",
+    );
   });
 
-  it("reports when fork and archive succeeds but the fork cannot replace the source panel", async () => {
+  it("keeps the source when a fork cannot replace the current panel", async () => {
     const host = hostMock({ items: turnItems() });
     host.openThreadInCurrentPanel.mockRejectedValue(new Error("resume failed"));
     const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
-    expect(host.operations.archiveThread).toHaveBeenCalledWith("source", {});
-    expect(host.addSystemMessage).toHaveBeenCalledWith("Archived thread source, but could not open forked thread forked: resume failed");
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Forked thread forked, but could not open it in the current panel: resume failed");
   });
 
   it("does not archive or replace the panel from stale fork responses", async () => {
@@ -455,7 +456,7 @@ describe("thread management actions", () => {
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
 
-  it("does not replace a newer panel after fork source archiving completes", async () => {
+  it("does not overwrite a newer panel while committed source cleanup completes", async () => {
     const archive = deferred<boolean>();
     const host = hostMock({
       items: turnItems(),
@@ -482,7 +483,7 @@ describe("thread management actions", () => {
     archive.resolve(true);
     await pendingFork;
 
-    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
   });
 
@@ -545,7 +546,7 @@ describe("thread management actions", () => {
     expect(host.operations.renameThread).toHaveBeenCalledWith("thread", "   ");
   });
 
-  it("applies rollback response items before refreshing shared thread state", async () => {
+  it("forks before the latest turn, adopts it, restores the prompt, and archives the source", async () => {
     const host = hostMock({ items: turnItems() });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
@@ -571,13 +572,119 @@ describe("thread management actions", () => {
 
     await controller.rollbackThread("source");
 
-    expect(host.threadTransport.rollbackThread).toHaveBeenCalledWith("source");
-    expect(chatStateThreadStreamItems(host.stateStore.getState()).slice(0, 2)).toMatchObject([
-      { kind: "dialogue", role: "user", text: "kept prompt", turnId: "kept-turn" },
-      { kind: "dialogue", role: "assistant", text: "kept answer", turnId: "kept-turn" },
-    ]);
+    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", {
+      position: { kind: "before-turn", turnId: "turn-3" },
+      deferGoalContinuation: true,
+      runtime: { reasoningEffort: null, serviceTier: null },
+    });
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
+    expect(host.setComposerText).toHaveBeenCalledWith("three");
+    expect(host.operations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: false });
+    expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.operations.archiveThread));
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
-    expect(host.recordThread).toHaveBeenCalledWith(rollbackSnapshot().thread);
+    expect(host.recordThread).toHaveBeenCalledWith(panelThread("forked"));
+    expect(activeThreadId(host.stateStore.getState())).toBe("forked");
+  });
+
+  it("uses the first turn itself as the marker when rolling back a one-turn thread", async () => {
+    const host = hostMock({ items: turnItems().slice(0, 2), activeThread: { id: "source" } });
+
+    await threadManagementActions(host).rollbackThread("source");
+
+    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", {
+      position: { kind: "before-turn", turnId: "turn-1" },
+      deferGoalContinuation: true,
+      runtime: { reasoningEffort: null },
+    });
+    expect(host.setComposerText).toHaveBeenCalledWith("one");
+    expect(host.operations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: false });
+  });
+
+  it("preserves the active thread runtime when creating a rollback fork", async () => {
+    const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: "never",
+      sandboxPolicy: null,
+      activePermissionProfile: { id: ":workspace", extends: null },
+      thread: panelThread("source"),
+      model: "gpt-5.6",
+      reasoningEffort: "high",
+      serviceTier: "priority",
+      approvalsReviewer: "auto_review",
+    });
+    host.stateStore.dispatch({
+      type: "thread-stream/items-replaced",
+      items: turnItems(),
+      historyCursor: null,
+      loadingHistory: false,
+    });
+
+    await threadManagementActions(host).rollbackThread("source");
+
+    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", {
+      position: { kind: "before-turn", turnId: "turn-3" },
+      deferGoalContinuation: true,
+      runtime: {
+        model: "gpt-5.6",
+        reasoningEffort: "high",
+        serviceTier: "priority",
+        approvalPolicy: "never",
+        approvalsReviewer: "auto_review",
+        permissions: ":workspace",
+      },
+    });
+  });
+
+  it("keeps the source when the rollback fork is not adopted", async () => {
+    const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
+    host.openThreadInCurrentPanel.mockResolvedValue({ adopted: false });
+
+    await threadManagementActions(host).rollbackThread("source");
+
+    expect(host.recordThread).toHaveBeenCalledWith(panelThread("forked"));
+    expect(activeThreadId(host.stateStore.getState())).toBe("source");
+    expect(host.setComposerText).not.toHaveBeenCalled();
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith(
+      "The rolled-back version was created but could not be opened in this panel. Open it from thread history.",
+    );
+  });
+
+  it("commits rollback cleanup from the adoption result", async () => {
+    const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
+    host.openThreadInCurrentPanel.mockImplementation(async (threadId, onAdopted) => {
+      adoptThread(host, threadId);
+      onAdopted();
+      return { adopted: true };
+    });
+
+    await threadManagementActions(host).rollbackThread("source");
+
+    expect(host.setComposerText).toHaveBeenCalledWith("three");
+    expect(host.operations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: false });
+    expect(activeThreadId(host.stateStore.getState())).toBe("forked");
+  });
+
+  it("keeps the adopted rollback when archiving its source fails", async () => {
+    const host = hostMock({
+      items: turnItems(),
+      activeThread: { id: "source" },
+      operations: {
+        archiveThread: vi.fn<ThreadManagementActionsHost["operations"]["archiveThread"]>().mockRejectedValue(new Error("archive failed")),
+      },
+    });
+
+    await threadManagementActions(host).rollbackThread("source");
+
+    expect(activeThreadId(host.stateStore.getState())).toBe("forked");
+    expect(host.setComposerText).toHaveBeenCalledWith("three");
+    expect(host.addSystemMessage).toHaveBeenCalledWith(
+      "Rolled back the latest turn, but could not archive the previous version: archive failed",
+    );
   });
 
   it("does not roll back an ephemeral side chat", async () => {
@@ -592,14 +699,14 @@ describe("thread management actions", () => {
 
     await controller.rollbackThread("side-thread");
 
-    expect(host.threadTransport.rollbackThread).not.toHaveBeenCalled();
+    expect(host.threadTransport.forkThread).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be rolled back.");
   });
 
-  it("ignores stale rollback responses after the panel switches threads", async () => {
-    const rollback = deferred<EffectOutcome<ThreadRollbackSnapshot>>();
+  it("does not adopt or archive a rollback fork after the panel switches threads", async () => {
+    const rollback = deferred<EffectOutcome<Thread>>();
     const host = hostMock({ items: turnItems() });
-    host.threadTransport.rollbackThread.mockReturnValue(rollback.promise);
+    host.threadTransport.forkThread.mockReturnValue(rollback.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -624,7 +731,11 @@ describe("thread management actions", () => {
 
     const pendingRollback = controller.rollbackThread("source");
     await waitForAsyncWork(() => {
-      expect(host.threadTransport.rollbackThread).toHaveBeenCalledWith("source");
+      expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", {
+        position: { kind: "before-turn", turnId: "turn-3" },
+        deferGoalContinuation: true,
+        runtime: { reasoningEffort: null, serviceTier: null },
+      });
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
@@ -640,19 +751,19 @@ describe("thread management actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    rollback.resolve(completedCurrent(rollbackSnapshot()));
+    rollback.resolve(completedCurrent(panelThread("forked")));
     await pendingRollback;
 
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
     expect(host.setComposerText).not.toHaveBeenCalled();
-    expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
-    expect(host.recordThread).not.toHaveBeenCalled();
+    expect(host.recordThread).toHaveBeenCalledWith(panelThread("forked"));
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
   });
 
-  it("ignores rollback responses after a new turn starts in the same thread", async () => {
-    const rollback = deferred<EffectOutcome<ThreadRollbackSnapshot>>();
+  it("does not adopt or archive a rollback fork after a new turn starts in the source", async () => {
+    const rollback = deferred<EffectOutcome<Thread>>();
     const host = hostMock({ items: turnItems() });
-    host.threadTransport.rollbackThread.mockReturnValue(rollback.promise);
+    host.threadTransport.forkThread.mockReturnValue(rollback.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -671,24 +782,25 @@ describe("thread management actions", () => {
     const controller = threadManagementActions(host);
 
     const pendingRollback = controller.rollbackThread("source");
-    await waitForAsyncWork(() => expect(host.threadTransport.rollbackThread).toHaveBeenCalledOnce());
+    await waitForAsyncWork(() => expect(host.threadTransport.forkThread).toHaveBeenCalledOnce());
     host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "new-turn" });
-    rollback.resolve(completedCurrent(rollbackSnapshot()));
+    rollback.resolve(completedCurrent(panelThread("forked")));
     await pendingRollback;
 
     expect(host.stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
     expect(host.setComposerText).not.toHaveBeenCalled();
-    expect(host.recordThread).not.toHaveBeenCalled();
+    expect(host.recordThread).toHaveBeenCalledWith(panelThread("forked"));
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
   });
 
-  it("does not publish rollback facts from a stale app-server context", async () => {
+  it("does not publish or adopt a rollback fork from a stale app-server context", async () => {
     const host = hostMock({
       items: turnItems(),
       activeThread: { id: "source" },
       threadTransport: {
-        rollbackThread: vi
-          .fn<ThreadMutationTransport["rollbackThread"]>()
-          .mockResolvedValue({ kind: "completed-stale", value: rollbackSnapshot() }),
+        forkThread: vi
+          .fn<ThreadMutationTransport["forkThread"]>()
+          .mockResolvedValue({ kind: "completed-stale", value: panelThread("forked") }),
       },
     });
     const controller = threadManagementActions(host);
@@ -697,14 +809,14 @@ describe("thread management actions", () => {
 
     expect(host.recordThread).not.toHaveBeenCalled();
     expect(host.setComposerText).not.toHaveBeenCalled();
-    expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
   });
 
-  it("ignores rollback when the transport has no result", async () => {
+  it("keeps the source when marker fork has no result", async () => {
     const host = hostMock({
       items: turnItems(),
       threadTransport: {
-        rollbackThread: vi.fn<ThreadMutationTransport["rollbackThread"]>().mockResolvedValue({ kind: "not-started" }),
+        forkThread: vi.fn<ThreadMutationTransport["forkThread"]>().mockResolvedValue({ kind: "not-started" }),
       },
     });
     host.stateStore.dispatch({
@@ -732,8 +844,8 @@ describe("thread management actions", () => {
     await controller.rollbackThread("source");
 
     expect(host.setComposerText).not.toHaveBeenCalled();
-    expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
     expect(host.recordThread).not.toHaveBeenCalled();
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
   });
 });
 
@@ -772,21 +884,6 @@ function turnItems(): ThreadStreamItem[] {
   ];
 }
 
-function rollbackItems(): ThreadStreamItem[] {
-  return [
-    { id: "kept-user", kind: "dialogue", dialogueKind: "user", role: "user", text: "kept prompt", turnId: "kept-turn" },
-    {
-      id: "kept-agent",
-      kind: "dialogue",
-      role: "assistant",
-      text: "kept answer",
-      turnId: "kept-turn",
-      dialogueKind: "assistantResponse",
-      dialogueState: "completed",
-    },
-  ];
-}
-
 function threadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
   return createThreadManagementActions(host);
 }
@@ -809,7 +906,6 @@ function hostMock({
     ensureConnected: vi.fn<ThreadMutationTransport["ensureConnected"]>().mockResolvedValue(true),
     compactThread: vi.fn<ThreadMutationTransport["compactThread"]>().mockResolvedValue(completedCurrent(undefined)),
     forkThread: vi.fn<ThreadMutationTransport["forkThread"]>().mockResolvedValue(completedCurrent(panelThread("forked"))),
-    rollbackThread: vi.fn<ThreadMutationTransport["rollbackThread"]>().mockResolvedValue(completedCurrent(rollbackSnapshot())),
     ...transportOverrides,
   };
   const operations: ThreadOperationsMock = {
@@ -825,19 +921,33 @@ function hostMock({
     setStatus: vi.fn<ThreadManagementActionsHost["setStatus"]>(),
     setComposerText: vi.fn<ThreadManagementActionsHost["setComposerText"]>(),
     openThreadInNewView: vi.fn<ThreadManagementActionsHost["openThreadInNewView"]>().mockResolvedValue(undefined),
-    openThreadInCurrentPanel: vi.fn<ThreadManagementActionsHost["openThreadInCurrentPanel"]>().mockResolvedValue(undefined),
-    notifyActiveThreadIdentityChanged: vi.fn<ThreadManagementActionsHost["notifyActiveThreadIdentityChanged"]>(),
+    openThreadInCurrentPanel: vi
+      .fn<ThreadManagementActionsHost["openThreadInCurrentPanel"]>()
+      .mockImplementation(async (threadId, onAdopted) => {
+        adoptThread({ stateStore }, threadId);
+        onAdopted();
+        return { adopted: true };
+      }),
     recordThread: vi.fn<ThreadManagementActionsHost["recordThread"]>(),
     threadHasPendingOrRunningPanel: vi.fn(() => false),
   };
 }
 
-function rollbackSnapshot(overrides: Partial<ThreadRollbackSnapshot> = {}): ThreadRollbackSnapshot {
-  return {
-    thread: panelThread("source", { name: "Rolled Back Thread" }),
-    items: rollbackItems(),
-    ...overrides,
-  };
+function adoptThread(host: Pick<ThreadManagementActionsHost, "stateStore">, threadId: string): void {
+  host.stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: panelThread(threadId),
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
 }
 
 function panelThread(id: string, overrides: Partial<Thread> = {}): Thread {

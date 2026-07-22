@@ -187,7 +187,6 @@ function baseClientHandlers(): RequestHandlers {
     "thread/turns/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     "turn/start": vi.fn().mockResolvedValue({ turn: { id: "turn-1" } }),
     "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
-    "thread/rollback": vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
     "thread/name/set": vi.fn().mockResolvedValue({}),
     "thread/goal/get": vi.fn().mockResolvedValue({ goal: null }),
     "thread/goal/set": vi.fn().mockResolvedValue({ goal: goalFixture("thread-1") }),
