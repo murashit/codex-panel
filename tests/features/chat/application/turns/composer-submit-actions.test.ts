@@ -520,6 +520,31 @@ describe("submitComposer", () => {
     expect(showLatest).not.toHaveBeenCalled();
     expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
   });
+
+  it("interrupts a running turn even when the thread rejects direct input", async () => {
+    const { host, interruptTurn, sendTurnText, stateStore } = createHost("unsent draft");
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: { ...thread("thread"), canAcceptDirectInput: false },
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+
+    await submitComposer(host);
+
+    expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
+    expect(sendTurnText).not.toHaveBeenCalled();
+    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
+  });
 });
 
 function resumeActiveThread(stateStore: ReturnType<typeof createChatStateStore>, id: string): void {

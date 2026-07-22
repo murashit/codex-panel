@@ -6,6 +6,11 @@ export interface Thread {
   readonly createdAt: number;
   readonly updatedAt: number;
   readonly recencyAt?: number | null;
+  /**
+   * Whether the loaded app-server thread accepts direct turn input.
+   * `null` means the capability is unavailable, so panel mode policy decides.
+   */
+  readonly canAcceptDirectInput?: boolean | null;
   readonly provenance: ThreadProvenance;
 }
 

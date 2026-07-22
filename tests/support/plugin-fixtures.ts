@@ -191,6 +191,7 @@ export function thread(id: string): Thread {
     updatedAt: 1,
     name: null,
     archived: false,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
   };
 }

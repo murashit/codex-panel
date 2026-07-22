@@ -71,9 +71,12 @@ export function chatPanelComposerProjection(
     availableModels: model.availableModels,
   });
   return {
-    placeholder: model.activeThreadSubagent
-      ? "Agent thread is read-only."
-      : composerPlaceholder(activeComposerThreadName(model), model.sideChatActive, model.sideChatSourceTitle),
+    placeholder:
+      model.canAcceptDirectInput === false
+        ? "This thread cannot accept messages."
+        : model.activeThreadSubagent && model.canAcceptDirectInput === null
+          ? "Agent thread is read-only."
+          : composerPlaceholder(activeComposerThreadName(model), model.sideChatActive, model.sideChatSourceTitle),
     meta: {
       ...composerMetaViewModel(model, snapshot),
       ...runtimeComposerChoices({

@@ -107,6 +107,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     updatedAt: 1,
     name: null,
     archived: false,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
     ...overrides,
   };

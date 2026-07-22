@@ -733,6 +733,28 @@ describe("chat panel surface projections", () => {
       },
     });
     expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState).placeholder).toBe("Ask in side chat...");
+    activeState = chatStateWith(activeState, { activeThread: { canAcceptDirectInput: false } });
+    expect(selectChatPanelComposer(activeState).submissionBlockedByPanelPolicy).toBe(true);
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState).placeholder).toBe(
+      "This thread cannot accept messages.",
+    );
+    const writableSubagentState = chatStateWith(chatStateFixture(), {
+      activeThread: {
+        id: "child",
+        canAcceptDirectInput: true,
+        provenance: {
+          kind: "subagent",
+          subagentKind: "thread-spawn",
+          parentThreadId: "parent",
+          sessionId: "session",
+          depth: 1,
+          agentNickname: "Scout",
+          agentRole: "explorer",
+        },
+      },
+    });
+    expect(selectChatPanelComposer(writableSubagentState).submissionBlockedByPanelPolicy).toBe(false);
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), writableSubagentState).placeholder).toBe("Ask Codex...");
     expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture()).placeholder).toBe("Ask Codex...");
   });
 
@@ -902,6 +924,7 @@ function threadFixture(id: string, name: string | null): Thread {
     updatedAt: 1,
     name,
     archived: false,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
   };
 }

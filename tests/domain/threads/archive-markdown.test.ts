@@ -315,6 +315,7 @@ function thread(
     updatedAt: 1,
     name: null,
     archived: false,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
     transcriptEntries: [],
     ...overrides,

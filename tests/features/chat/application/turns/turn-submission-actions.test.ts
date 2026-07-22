@@ -28,6 +28,7 @@ function thread(id: string): Thread {
     updatedAt: 0,
     name: null,
     archived: false,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
   };
 }
@@ -82,9 +83,10 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, prese
   });
 }
 
-function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore>) {
+function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore>, canAcceptDirectInput: boolean | null = null) {
   const child: Thread = {
     ...thread("child"),
+    canAcceptDirectInput,
     provenance: {
       kind: "subagent",
       subagentKind: "thread-spawn",
@@ -191,6 +193,41 @@ describe("TurnSubmissionActions", () => {
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Messages are unavailable in agent threads. Start a new chat to continue.");
+  });
+
+  it("submits to a subagent when the loaded server capability allows direct input", async () => {
+    const { host, startTurn, stateStore } = createHost();
+    resumeSubagentThread(stateStore, true);
+    const actions = createTurnSubmissionActions(host);
+
+    await expect(actions.sendTurnText({ text: "hello" })).resolves.toBe(true);
+
+    expect(startTurn).toHaveBeenCalledWith(expect.objectContaining({ threadId: "child", input: textInput("hello") }));
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not start a turn when the loaded thread rejects direct input", async () => {
+    const { host, startTurn, stateStore } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: { ...thread("thread"), canAcceptDirectInput: false },
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    await expect(actions.sendTurnText({ text: "hello" })).resolves.toBe(false);
+
+    expect(startTurn).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("This thread cannot accept messages.");
   });
 
   it("starts a side-chat turn when no pending runtime setting needs transport", async () => {

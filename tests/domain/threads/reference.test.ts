@@ -11,6 +11,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     updatedAt: 1,
     name: "参照元",
     archived: false,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
     ...overrides,
   };

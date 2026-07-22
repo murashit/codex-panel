@@ -28,6 +28,7 @@ function mountComposerShell(
   webSubmissionCancellable = webSubmissionPending,
   sendDisabled = false,
   runtimeControlsDisabled = false,
+  directInputDisabled = false,
 ): { composer: HTMLTextAreaElement } {
   const elements: { composer: HTMLTextAreaElement | null } = { composer: null };
   renderUiRoot(
@@ -38,6 +39,7 @@ function mountComposerShell(
       busy,
       canInterrupt,
       submissionDisabled: webSubmissionPending,
+      directInputDisabled,
       runtimeControlsDisabled,
       sendDisabled,
       webSubmissionCancellable,
@@ -446,6 +448,7 @@ describe("ComposerShell decisions", () => {
           busy: false,
           canInterrupt: false,
           submissionDisabled: false,
+          directInputDisabled: false,
           runtimeControlsDisabled: false,
           sendDisabled: false,
           webSubmissionCancellable: false,
@@ -487,6 +490,7 @@ describe("ComposerShell decisions", () => {
           busy: false,
           canInterrupt: false,
           submissionDisabled: false,
+          directInputDisabled: false,
           runtimeControlsDisabled: false,
           sendDisabled: false,
           webSubmissionCancellable: false,
@@ -601,6 +605,34 @@ describe("ComposerShell decisions", () => {
     sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
     expect(sendButton?.disabled).toBe(true);
+  });
+
+  it("keeps interrupt available while direct input is disabled", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const { composer } = mountComposerShell(
+      parent,
+      "view",
+      "unsent draft",
+      true,
+      true,
+      "This thread cannot accept messages.",
+      [],
+      0,
+      callbacks,
+      undefined,
+      false,
+      false,
+      false,
+      false,
+      true,
+    );
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+
+    expect(composer.readOnly).toBe(true);
+    expect(composer.getAttribute("placeholder")).toBe("This thread cannot accept messages.");
+    expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
+    expect(sendButton?.disabled).toBe(false);
   });
 
   it("renders an enabled cancel control while a web import locks composer input", () => {

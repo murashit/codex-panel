@@ -70,6 +70,7 @@ export interface ChatPanelComposerModel {
   readonly activeThreadId: string | null;
   readonly activeThreadTokenUsage: ChatActiveThreadState["tokenUsage"];
   readonly activeThreadSubagent: boolean;
+  readonly canAcceptDirectInput: ChatActiveThreadState["canAcceptDirectInput"];
   readonly submissionBlockedByPanelPolicy: boolean;
   readonly runtimeSettingsDisabled: boolean;
   readonly webSubmissionPending: boolean;
@@ -155,6 +156,7 @@ export function selectChatPanelComposer(state: ChatState): ChatPanelComposerMode
     activeThreadId,
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
     activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
+    canAcceptDirectInput: activeThread?.canAcceptDirectInput ?? null,
     submissionBlockedByPanelPolicy: activePanelOperationDecision(state, "submit").kind === "blocked",
     runtimeSettingsDisabled: activePanelOperationDecision(state, "thread-settings").kind !== "allowed",
     webSubmissionPending: state.pendingSubmission !== null,

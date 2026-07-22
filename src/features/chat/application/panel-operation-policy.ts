@@ -30,6 +30,7 @@ type ActivePanelThreadFacts =
   | {
       readonly phase: "active";
       readonly lifetime: "persistent" | "ephemeral";
+      readonly canAcceptDirectInput: boolean | null;
       readonly provenance: "interactive" | "subagent" | null;
     };
 
@@ -48,6 +49,13 @@ function activePanelOperationDecisionForFacts(
     return operation === "goal-mutation" ? { kind: "resume-required" } : ALLOWED;
   }
   if (facts.phase === "empty") return ALLOWED;
+
+  if (operation === "submit") {
+    if (facts.canAcceptDirectInput !== null) return facts.canAcceptDirectInput ? ALLOWED : directInputBlocked();
+    if (facts.provenance === "subagent") return agentThreadBlocked(operation);
+    if (facts.lifetime === "ephemeral") return sideChatDecision(operation);
+    return ALLOWED;
+  }
 
   // Keep the stricter interpretation if a malformed or future state contains
   // both mode facts. This makes mode restrictions monotonically safe.
@@ -68,8 +76,13 @@ function activePanelThreadFacts(state: ChatState): ActivePanelThreadFacts {
   return {
     phase: "active",
     lifetime: panelThread.thread.lifetime?.kind ?? "persistent",
+    canAcceptDirectInput: panelThread.thread.canAcceptDirectInput,
     provenance: panelThread.thread.provenance?.kind ?? null,
   };
+}
+
+function directInputBlocked(): ActivePanelOperationDecision {
+  return { kind: "blocked", message: "This thread cannot accept messages." };
 }
 
 function agentThreadBlocked(operation: ActivePanelOperation): ActivePanelOperationDecision {

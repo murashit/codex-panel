@@ -77,12 +77,12 @@ export async function submitComposer(host: ComposerSubmitActionsHost): Promise<v
   const state = submissionStateSnapshot(chatState);
   if (host.stateStore.getState().pendingSubmission) return;
   const operationDecision = activePanelOperationDecision(chatState, "submit");
-  if (operationDecision.kind === "blocked") {
-    host.status.addSystemMessage(operationDecision.message);
+  if (state.busy && state.activeThreadId && state.activeTurnId && (draft.length === 0 || operationDecision.kind === "blocked")) {
+    await interruptTurn(host, panelTarget);
     return;
   }
-  if (state.busy && state.activeThreadId && state.activeTurnId && draft.length === 0) {
-    await interruptTurn(host, panelTarget);
+  if (operationDecision.kind === "blocked") {
+    host.status.addSystemMessage(operationDecision.message);
     return;
   }
   await sendMessage(host, draft, originalDraft, panelTarget);

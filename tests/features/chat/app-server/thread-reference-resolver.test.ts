@@ -45,6 +45,7 @@ describe("thread reference resolver", () => {
         createdAt: 1,
         updatedAt: 1,
         archived: false,
+        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
       "summarize",

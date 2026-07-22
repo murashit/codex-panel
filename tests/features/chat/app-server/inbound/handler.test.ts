@@ -2148,6 +2148,7 @@ function panelThread(id: string): PanelThread {
     updatedAt: 0,
     name: null,
     archived: false,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
   };
 }

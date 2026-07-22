@@ -278,6 +278,7 @@ function shellParts(
             busy: false,
             canInterrupt: false,
             submissionDisabled: false,
+            directInputDisabled: false,
             runtimeControlsDisabled: false,
             sendDisabled: false,
             webSubmissionCancellable: false,

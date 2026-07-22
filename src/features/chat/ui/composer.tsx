@@ -88,6 +88,7 @@ export interface ComposerShellProps {
   busy: boolean;
   canInterrupt: boolean;
   submissionDisabled: boolean;
+  directInputDisabled: boolean;
   runtimeControlsDisabled: boolean;
   sendDisabled: boolean;
   webSubmissionCancellable: boolean;
@@ -107,6 +108,7 @@ export function ComposerShell({
   busy,
   canInterrupt,
   submissionDisabled,
+  directInputDisabled,
   runtimeControlsDisabled,
   sendDisabled,
   webSubmissionCancellable,
@@ -154,8 +156,16 @@ export function ComposerShell({
     if (pendingSelection.value === draft) restoreComposerSelection(composerRef.current, pendingSelection);
     onPendingSelectionApplied?.();
   }, [draft, pendingSelection, onPendingSelectionApplied]);
-  const sendMode = composerSendMode(busy, canInterrupt, draft, submissionDisabled, sendDisabled, webSubmissionCancellable);
-  const composerLocked = submissionDisabled;
+  const sendMode = composerSendMode(
+    busy,
+    canInterrupt,
+    draft,
+    submissionDisabled,
+    directInputDisabled,
+    sendDisabled,
+    webSubmissionCancellable,
+  );
+  const composerLocked = submissionDisabled || directInputDisabled;
   const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
   const selectedSuggestionId = suggestions.length > 0 ? composerSuggestionOptionId(viewId, normalizedSelectedSuggestionIndex) : undefined;
 
@@ -165,7 +175,7 @@ export function ComposerShell({
         <textarea
           ref={composerRef}
           className="codex-panel-ui__text-input codex-panel__composer-input"
-          placeholder={sendMode.canInterrupt ? "Steer the current turn..." : normalPlaceholder}
+          placeholder={sendMode.canInterrupt && !composerLocked ? "Steer the current turn..." : normalPlaceholder}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={suggestions.length > 0 ? "true" : "false"}
@@ -482,6 +492,7 @@ function composerSendMode(
   canInterrupt: boolean,
   draft: string,
   submissionDisabled: boolean,
+  directInputDisabled: boolean,
   sendDisabled: boolean,
   webSubmissionCancellable: boolean,
 ): ComposerSendMode {
@@ -495,13 +506,13 @@ function composerSendMode(
     };
   }
   const hasDraft = Boolean(draft.trim());
-  const canSteer = canInterrupt && hasDraft;
-  const interruptMode = canInterrupt && !hasDraft;
+  const interruptMode = canInterrupt && (!hasDraft || directInputDisabled);
+  const canSteer = canInterrupt && hasDraft && !directInputDisabled;
   return {
     icon: interruptMode ? "square" : canSteer ? "corner-down-right" : "send",
     label: interruptMode ? "Interrupt" : canSteer ? "Steer" : "Send",
     className: interruptMode ? "is-interrupt" : canSteer ? "is-steer" : "",
-    disabled: submissionDisabled || (sendDisabled && !interruptMode) || (busy && !canInterrupt),
+    disabled: submissionDisabled || (directInputDisabled && !interruptMode) || (sendDisabled && !interruptMode) || (busy && !canInterrupt),
     canInterrupt,
   };
 }

@@ -8,6 +8,7 @@ type ActivePanelThreadFacts =
   | {
       readonly phase: "active";
       readonly lifetime: "persistent" | "ephemeral";
+      readonly canAcceptDirectInput: boolean | null;
       readonly provenance: "interactive" | "subagent" | null;
     };
 
@@ -26,22 +27,43 @@ const operations: readonly ActivePanelOperation[] = [
 
 describe("activePanelOperationDecisionForFacts", () => {
   it("allows every mode-derived operation in an interactive persistent panel", () => {
-    expectDecisionKinds({ phase: "active", lifetime: "persistent", provenance: "interactive" }, allAllowed());
+    expectDecisionKinds({ phase: "active", lifetime: "persistent", canAcceptDirectInput: null, provenance: "interactive" }, allAllowed());
   });
 
   it("keeps side-chat submission and compaction available while blocking persistent-thread mutations", () => {
     expectDecisionKinds(
-      { phase: "active", lifetime: "ephemeral", provenance: "interactive" },
+      { phase: "active", lifetime: "ephemeral", canAcceptDirectInput: null, provenance: "interactive" },
       decisions({ submit: "allowed", compact: "allowed" }),
     );
   });
 
-  it("keeps subagent panels read-only", () => {
-    expectDecisionKinds({ phase: "active", lifetime: "persistent", provenance: "subagent" }, decisions({ "goal-read": "allowed" }));
+  it("keeps subagent panels read-only when the server capability is unavailable", () => {
+    expectDecisionKinds(
+      { phase: "active", lifetime: "persistent", canAcceptDirectInput: null, provenance: "subagent" },
+      decisions({ "goal-read": "allowed" }),
+    );
+  });
+
+  it("uses the server capability for subagent submission while preserving other subagent restrictions", () => {
+    expectDecisionKinds(
+      { phase: "active", lifetime: "persistent", canAcceptDirectInput: true, provenance: "subagent" },
+      decisions({ submit: "allowed", "goal-read": "allowed" }),
+    );
+    expectDecisionKinds(
+      { phase: "active", lifetime: "persistent", canAcceptDirectInput: false, provenance: "subagent" },
+      decisions({ "goal-read": "allowed" }),
+    );
   });
 
   it("keeps the stricter subagent restrictions when mode facts conflict", () => {
-    expectDecisionKinds({ phase: "active", lifetime: "ephemeral", provenance: "subagent" }, decisions({}));
+    expectDecisionKinds({ phase: "active", lifetime: "ephemeral", canAcceptDirectInput: null, provenance: "subagent" }, decisions({}));
+  });
+
+  it("blocks only submission when the loaded thread rejects direct input", () => {
+    expectDecisionKinds(
+      { phase: "active", lifetime: "persistent", canAcceptDirectInput: false, provenance: "interactive" },
+      allAllowedExcept("submit"),
+    );
   });
 
   it("requires restoration before a persistent goal mutation", () => {
@@ -71,6 +93,10 @@ function decisions(allowed: Partial<Record<ActivePanelOperation, "allowed">>): R
     ActivePanelOperation,
     "allowed" | "blocked"
   >;
+}
+
+function allAllowedExcept(blocked: ActivePanelOperation): Record<ActivePanelOperation, "allowed" | "blocked"> {
+  return decisions(Object.fromEntries(operations.filter((operation) => operation !== blocked).map((operation) => [operation, "allowed"])));
 }
 
 function expectDecisionKinds(facts: ActivePanelThreadFacts, expected: Record<ActivePanelOperation, "allowed" | "blocked">): void {
@@ -114,6 +140,7 @@ function stateFromFacts(facts: ActivePanelThreadFacts): ChatState {
           facts.lifetime === "persistent"
             ? { kind: "persistent" }
             : { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: null },
+        canAcceptDirectInput: facts.canAcceptDirectInput,
         provenance,
       },
     },

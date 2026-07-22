@@ -362,7 +362,8 @@ describe("ChatComposerController", () => {
     composer(parent).setSelectionRange(1, 1);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(props.submissionDisabled).toBe(true);
+    expect(props.submissionDisabled).toBe(false);
+    expect(props.directInputDisabled).toBe(true);
     expect(stateStore.getState().composer.suggestions).toEqual([]);
   });
 

@@ -930,6 +930,7 @@ function thread(id: string, archived = false): Thread {
     archived,
     createdAt: 1,
     updatedAt: 1,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" as const },
   };
 }

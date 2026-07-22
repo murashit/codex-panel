@@ -123,6 +123,7 @@ export interface ChatActiveThreadState {
   readonly goal: ThreadGoal | null;
   readonly tokenUsage: ThreadTokenUsage | null;
   readonly lifetime: ActiveThreadLifetime | null;
+  readonly canAcceptDirectInput: boolean | null;
   readonly provenance: Thread["provenance"] | null;
 }
 
@@ -463,6 +464,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
         goal: null,
         tokenUsage: null,
         lifetime: action.lifetime ?? { kind: "persistent" },
+        canAcceptDirectInput: action.thread.canAcceptDirectInput ?? null,
         provenance: action.thread.provenance,
       },
     },
@@ -900,6 +902,7 @@ function createActiveThreadState(id: string): ChatActiveThreadState {
     goal: null,
     tokenUsage: null,
     lifetime: null,
+    canAcceptDirectInput: null,
     provenance: null,
   };
 }

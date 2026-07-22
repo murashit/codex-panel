@@ -72,7 +72,7 @@ Foreground reveal and focus are the narrow workspace-wide exception: the latest 
 
 Do not use explanatory copy as the default remedy for an unclear or incoherent interface. Before adding instructions, warnings, status text, validation messages, confirmations, or diagnostics, determine why the interface does not communicate the necessary behavior through its structure and state. Prefer improving information hierarchy, labels, defaults, available choices, affordances, validation timing, progress indication, and feedback. Add text only when irreducible information remains and it materially helps the user decide, act, or recover; do not expose implementation concepts merely because they explain the current behavior.
 
-Subagent threads opened from agent activity remain persistent and restorable but stay outside ordinary thread history. Treat their panels as read-only conversation surfaces while preserving their parent and agent provenance for future specialized behavior.
+Subagent threads opened from agent activity remain persistent and restorable but stay outside ordinary thread history. Use the app-server direct-input capability when available, falling back to read-only subagent panels for older servers, while preserving parent and agent provenance for other specialized behavior.
 
 Mode-derived restrictions for the active panel thread must remain consistent across actions and UI. Keep connection state, turn busy state, and operations targeting another listed thread in their owning workflows.
 

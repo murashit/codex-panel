@@ -46,6 +46,19 @@ describe("app-server thread response adapters", () => {
     });
   });
 
+  it("preserves direct-input capability from app-server threads", () => {
+    const thread = threadFromAppServerRecord({
+      id: "thread",
+      preview: "",
+      name: null,
+      createdAt: 1,
+      updatedAt: 2,
+      canAcceptDirectInput: false,
+    });
+
+    expect(thread.canAcceptDirectInput).toBe(false);
+  });
+
   it("forks read-only ephemeral side-chat threads behind a model-visible boundary", async () => {
     const client = {
       request: vi.fn((method: string) => {
@@ -215,6 +228,7 @@ describe("app-server thread response adapters", () => {
         archived: true,
         createdAt: 10,
         updatedAt: 20,
+        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
     ]);
@@ -242,6 +256,7 @@ describe("app-server thread response adapters", () => {
         createdAt: 10,
         updatedAt: 20,
         recencyAt: 30,
+        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
     ]);
@@ -263,6 +278,7 @@ describe("app-server thread response adapters", () => {
         createdAt: 10,
         updatedAt: 20,
         recencyAt: null,
+        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
     ]);
@@ -291,6 +307,7 @@ describe("app-server thread response adapters", () => {
         archived: false,
         createdAt: 10,
         updatedAt: 20,
+        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
       {
@@ -300,6 +317,7 @@ describe("app-server thread response adapters", () => {
         archived: false,
         createdAt: 30,
         updatedAt: 40,
+        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
     ]);

@@ -68,6 +68,7 @@ function panelThreadWithPatch(state: ChatState, patch: NonNullable<ChatStateFixt
       goal: patch.goal === undefined ? (current?.goal ?? null) : patch.goal,
       tokenUsage: patch.tokenUsage === undefined ? (current?.tokenUsage ?? null) : patch.tokenUsage,
       lifetime: patch.lifetime === undefined ? (current?.lifetime ?? null) : patch.lifetime,
+      canAcceptDirectInput: patch.canAcceptDirectInput === undefined ? (current?.canAcceptDirectInput ?? null) : patch.canAcceptDirectInput,
       provenance: patch.provenance === undefined ? (current?.provenance ?? null) : patch.provenance,
     },
   };

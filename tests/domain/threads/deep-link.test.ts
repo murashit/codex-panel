@@ -42,6 +42,7 @@ function thread(overrides: Partial<Thread>): Thread {
     createdAt: 1,
     updatedAt: 1,
     archived: false,
+    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
     ...overrides,
   };

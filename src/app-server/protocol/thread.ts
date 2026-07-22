@@ -21,6 +21,7 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
     archived: options.archived ?? false,
     createdAt: finiteTimestamp(thread.createdAt),
     updatedAt: finiteTimestamp(thread.updatedAt),
+    canAcceptDirectInput: typeof thread.canAcceptDirectInput === "boolean" ? thread.canAcceptDirectInput : null,
     provenance: threadProvenance(thread),
     ...(hasRecencyAt ? { recencyAt: typeof recencyAt === "number" && Number.isFinite(recencyAt) ? recencyAt : null } : {}),
   };
