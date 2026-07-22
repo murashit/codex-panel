@@ -1,6 +1,6 @@
-import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../app-server/query/observed-result";
-import type { ThreadListMutation } from "../../../app-server/query/thread-list-mutation";
+import type { ThreadCatalogChange } from "../../../domain/threads/catalog-read-model";
 import type { Thread } from "../../../domain/threads/model";
+import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../shared/runtime/observed-result";
 
 type ActiveThreadListObserver = ObservedPaginatedResultListener<readonly Thread[]>;
 type ArchivedThreadListObserver = ObservedResultListener<readonly Thread[]>;
@@ -26,7 +26,7 @@ export interface ThreadCatalogArchivedReader {
 }
 
 interface ThreadCatalogWriter {
-  applyThreadListMutations(changes: readonly ThreadListMutation[]): void;
+  applyThreadCatalogChanges(changes: readonly ThreadCatalogChange[]): void;
 }
 
 export interface ThreadCatalog

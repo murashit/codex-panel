@@ -4,7 +4,6 @@ import { afterEach, beforeAll, beforeEach, expect, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
-import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/app-server/query/observed-result";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../../src/domain/server/metadata";
@@ -14,6 +13,7 @@ import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../..
 import type { ThreadOperationEvent } from "../../../../src/features/threads/workflows/thread-operation-event";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
+import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/shared/runtime/observed-result";
 import { notices } from "../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../support/dom";
 import { runtimeConfigFixture } from "../../../support/runtime-config";

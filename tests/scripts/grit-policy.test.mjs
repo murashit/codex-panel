@@ -66,6 +66,12 @@ const policyCases = [
     "export type Value = string;",
   ),
   policyCase(
+    "no-external-app-server-query-imports.grit",
+    "src/settings/escape.ts",
+    'import type { QueryResult } from "../app-server/query/result";',
+    'import type { ObservedResult } from "../shared/runtime/observed-result";',
+  ),
+  policyCase(
     "no-app-server-protocol-boundary-imports.grit",
     "src/settings/escape.ts",
     'import type { Catalog } from "../app-server/protocol/catalog";',
@@ -110,8 +116,8 @@ const policyCases = [
   policyCase(
     "no-thread-workflow-app-server-imports.grit",
     "src/features/threads/workflows/escape.ts",
-    'import type { Client } from "../../../app-server/connection/client";',
-    'import type { Transport } from "./ports";',
+    'import type { QueryCache } from "../../../app-server/query/cache";',
+    'import type { ThreadCatalogChange } from "../../../domain/threads/catalog-read-model";',
   ),
   policyCase(
     "no-chat-application-outer-layer-imports.grit",

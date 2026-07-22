@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
 import { listModelMetadata } from "../../../../app-server/services/catalog";
+import { readRateLimitMetadataProbe } from "../../../../app-server/services/metadata-probes";
 import type { AppServerRequestClient } from "../../../../app-server/services/request-client";
 import { readToolInventory } from "../../../../app-server/services/tool-inventory";
 import type { DiagnosticProbeId, DiagnosticProbeResult } from "../../../../domain/server/diagnostics";

@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import type { ThreadListMutation } from "../../../../src/app-server/query/thread-list-mutation";
+import type { ThreadCatalogChange } from "../../../../src/domain/threads/catalog-read-model";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { projectThreadListChanges } from "../../../../src/features/threads/workflows/thread-read-model-projection";
+import { projectThreadCatalogChanges } from "../../../../src/features/threads/workflows/thread-read-model-projection";
 
 describe("ThreadReadModelProjection", () => {
   it("projects an ordered operation event batch without mutating its snapshots", () => {
     const active = [thread("source"), thread("other")];
     const archived: Thread[] = [];
 
-    const changes = projectThreadListChanges(
+    const changes = projectThreadCatalogChanges(
       {
         activeThreadsSnapshot: () => active,
         archivedThreadsSnapshot: () => archived,
@@ -27,19 +27,19 @@ describe("ThreadReadModelProjection", () => {
       { kind: "upsert", list: "archived", thread: thread("child", true) },
       { kind: "remove", list: "active", threadId: "source" },
       { kind: "upsert", list: "archived", thread: thread("source", true) },
-    ] satisfies ThreadListMutation[]);
+    ] satisfies ThreadCatalogChange[]);
     expect(active).toEqual([thread("source"), thread("other")]);
     expect(archived).toEqual([]);
   });
 
-  it("falls back to refresh when an event needs a record absent from the snapshot", () => {
+  it("requests revalidation when an event needs a record absent from the snapshot", () => {
     expect(
-      projectThreadListChanges({ activeThreadsSnapshot: () => null, archivedThreadsSnapshot: () => null }, [
+      projectThreadCatalogChanges({ activeThreadsSnapshot: () => null, archivedThreadsSnapshot: () => null }, [
         { type: "thread-archived", threadId: "unknown" },
       ]),
     ).toEqual([
       { kind: "remove", list: "active", threadId: "unknown" },
-      { kind: "refresh", list: "archived" },
+      { kind: "revalidate", list: "archived" },
     ]);
   });
 });

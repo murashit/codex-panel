@@ -2,11 +2,11 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
-import type { ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../domain/server/metadata";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
+import type { ObservedResultListener } from "../../../shared/runtime/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
 import type { ThreadTitleTransport } from "../../threads/workflows/ports";

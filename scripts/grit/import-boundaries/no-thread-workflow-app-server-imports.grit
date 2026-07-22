@@ -8,8 +8,6 @@ private pattern js_module_reference() {
 }
 
 js_module_reference() as $stmt where {
-  $stmt <: contains `$source` where {
-    $source <: r"^[\"'](?:(?:\.\./)+app-server/(?:connection|services)|src/app-server/(?:connection|services))(?:/.*)?[\"']$"
-  },
-  register_diagnostic(span=$stmt, message="Thread workflows must depend on feature-owned ports instead of app-server clients or services.", severity="error")
+  $stmt <: contains `$source` where { $source <: r"^[\"'](?:(?:\.\./)+app-server|src/app-server)(?:/.*)?[\"']$" },
+  register_diagnostic(span=$stmt, message="Thread workflows must depend on domain models and feature-owned ports instead of app-server modules.", severity="error")
 }

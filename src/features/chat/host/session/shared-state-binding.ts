@@ -1,6 +1,6 @@
-import type { ObservedPaginatedResult } from "../../../../app-server/query/observed-result";
 import type { SharedServerMetadataResource } from "../../../../domain/server/metadata";
 import type { Thread } from "../../../../domain/threads/model";
+import type { ObservedPaginatedResult } from "../../../../shared/runtime/observed-result";
 import type { ChatStateStore } from "../../application/state/store";
 
 type ThreadObserver = (result: ObservedPaginatedResult<readonly Thread[]>) => void;

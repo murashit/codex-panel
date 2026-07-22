@@ -1,8 +1,8 @@
-import type { ObservedResult } from "../app-server/query/observed-result";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
+import type { ObservedResult } from "../shared/runtime/observed-result";
 import { OwnerLifetime } from "../shared/runtime/owner-lifetime";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
 import type { SettingsDynamicSectionsHost } from "./host";

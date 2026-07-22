@@ -1,12 +1,12 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerClientAccess } from "../app-server/connection/client-access";
-import type { ObservedResultListener } from "../app-server/query/observed-result";
 import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
 import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { ThreadCatalogArchivedReader } from "../features/threads/catalog/thread-catalog";
 import type { ThreadOperationEventSink } from "../features/threads/workflows/thread-operation-event";
 import { createKeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
+import type { ObservedResultListener } from "../shared/runtime/observed-result";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
 
 interface SettingsAppServerQueries {

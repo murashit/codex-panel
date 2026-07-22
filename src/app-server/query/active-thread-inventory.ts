@@ -1,7 +1,7 @@
 import type { InfiniteData } from "@tanstack/query-core";
+import type { ThreadCatalogChange } from "../../domain/threads/catalog-read-model";
 import { type Thread, threadRecencyAt } from "../../domain/threads/model";
 import type { ThreadPage } from "../services/threads";
-import type { ThreadListMutation } from "./thread-list-mutation";
 
 export type ActiveThreadCursor = string | null;
 export type ActiveThreadData = InfiniteData<ThreadPage, ActiveThreadCursor>;
@@ -22,28 +22,28 @@ export function activeThreadDataHasMore(data: ActiveThreadData | undefined): boo
   return data?.pages.at(-1)?.nextCursor != null;
 }
 
-export function applyActiveThreadMutation(data: ActiveThreadData | undefined, mutation: ThreadListMutation): ActiveThreadData | undefined {
-  if (!data || mutation.list !== "active" || mutation.kind === "refresh") return data;
+export function applyActiveThreadMutation(data: ActiveThreadData | undefined, change: ThreadCatalogChange): ActiveThreadData | undefined {
+  if (!data || change.list !== "active" || change.kind === "revalidate") return data;
   const pages = data.pages.map((page) => ({ ...page, threads: [...page.threads] }));
 
-  switch (mutation.kind) {
+  switch (change.kind) {
     case "upsert": {
-      const existing = pages.some((page) => page.threads.some((thread) => thread.id === mutation.thread.id));
+      const existing = pages.some((page) => page.threads.some((thread) => thread.id === change.thread.id));
       if (existing) {
         for (const page of pages) {
-          page.threads = page.threads.map((thread) => (thread.id === mutation.thread.id ? mutation.thread : thread));
+          page.threads = page.threads.map((thread) => (thread.id === change.thread.id ? change.thread : thread));
         }
       } else if (pages[0]) {
-        pages[0].threads = [mutation.thread, ...pages[0].threads];
+        pages[0].threads = [change.thread, ...pages[0].threads];
       }
       break;
     }
     case "remove":
-      for (const page of pages) page.threads = page.threads.filter((thread) => thread.id !== mutation.threadId);
+      for (const page of pages) page.threads = page.threads.filter((thread) => thread.id !== change.threadId);
       break;
     case "update":
       for (const page of pages) {
-        page.threads = page.threads.map((thread) => (thread.id === mutation.threadId ? { ...thread, ...mutation.changes } : thread));
+        page.threads = page.threads.map((thread) => (thread.id === change.threadId ? { ...thread, ...change.changes } : thread));
       }
       break;
   }

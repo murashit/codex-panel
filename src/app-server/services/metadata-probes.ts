@@ -3,9 +3,9 @@ import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
 import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../domain/server/diagnostics";
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
-import { listPermissionProfiles, listSkillCatalog } from "../services/catalog";
-import type { AppServerRequestClient } from "../services/request-client";
-import { readAccountRateLimits } from "../services/runtime-metadata";
+import { listPermissionProfiles, listSkillCatalog } from "./catalog";
+import type { AppServerRequestClient } from "./request-client";
+import { readAccountRateLimits } from "./runtime-metadata";
 
 interface MetadataProbeResult<T, K extends keyof Diagnostics["probes"]> {
   value: T;

@@ -22,7 +22,7 @@ import {
   type ThreadOperationCoordinator,
 } from "./features/threads/workflows/thread-operation-coordinator";
 import type { ThreadLifecycleEvent } from "./features/threads/workflows/thread-operation-event";
-import { projectThreadListChanges } from "./features/threads/workflows/thread-read-model-projection";
+import { projectThreadCatalogChanges } from "./features/threads/workflows/thread-read-model-projection";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
@@ -71,7 +71,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.appServerQueries = new AppServerQueryCache(this.context, this);
     this.threadCatalog = this.appServerQueries;
     this.threadOperationCoordinator = createThreadOperationCoordinator((events) => {
-      this.threadCatalog.applyThreadListMutations(projectThreadListChanges(this.threadCatalog, events));
+      this.threadCatalog.applyThreadCatalogChanges(projectThreadCatalogChanges(this.threadCatalog, events));
       options.onThreadLifecycleEvents(events);
     });
     this.settingsDynamicData = createSettingsAppServerDynamicData({

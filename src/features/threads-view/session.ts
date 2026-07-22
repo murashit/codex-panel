@@ -1,12 +1,11 @@
 import { Notice } from "obsidian";
-
-import type { ObservedPaginatedResult } from "../../app-server/query/observed-result";
-import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
 import type { Thread } from "../../domain/threads/model";
 import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
 import { DeferredTask } from "../../shared/runtime/deferred-task";
 import { isStaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
 import type { KeyedOperationQueue } from "../../shared/runtime/keyed-operation-queue";
+import type { ObservedPaginatedResult } from "../../shared/runtime/observed-result";
+import { observedInitialError, observedInitialLoading } from "../../shared/runtime/observed-result";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../threads/workflows/archive-export";

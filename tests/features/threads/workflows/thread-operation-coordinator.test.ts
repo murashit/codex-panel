@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { applyThreadListMutation, type ThreadListMutation } from "../../../../src/app-server/query/thread-list-mutation";
+import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../../../src/domain/threads/catalog-read-model";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadOperationCoordinator } from "../../../../src/features/threads/workflows/thread-operation-coordinator";
 import type { ThreadLifecycleEvent } from "../../../../src/features/threads/workflows/thread-operation-event";
-import { projectThreadListChanges } from "../../../../src/features/threads/workflows/thread-read-model-projection";
+import { projectThreadCatalogChanges } from "../../../../src/features/threads/workflows/thread-read-model-projection";
 
 describe("ThreadOperationCoordinator", () => {
   it("commits ordinary facts directly and a completed fork as one ordered fact batch", () => {
@@ -130,11 +130,11 @@ describe("ThreadOperationCoordinator", () => {
     coordinator.apply({ type: "thread-renamed", threadId: "forked", name: "Forked title" });
     coordinator.apply({ type: "thread-archived", threadId: "source" });
 
-    expect(store.appliedMutationBatches).toEqual([]);
+    expect(store.appliedChangeBatches).toEqual([]);
 
     publication.finish({ sourceArchived: true });
 
-    expect(store.appliedMutationBatches).toHaveLength(1);
+    expect(store.appliedChangeBatches).toHaveLength(1);
     expect(store.activeThreadsSnapshot()).toEqual([{ ...thread("forked"), preview: "resumed", name: "Forked title" }, thread("other")]);
     expect(store.archivedThreadsSnapshot()).toEqual([thread("source", true)]);
     expect(onEventApplied).toHaveBeenCalledOnce();
@@ -154,7 +154,7 @@ describe("ThreadOperationCoordinator", () => {
     publication.record(thread("forked"));
     publication.finish();
 
-    expect(store.appliedMutationBatches).toHaveLength(1);
+    expect(store.appliedChangeBatches).toHaveLength(1);
     expect(store.activeThreadsSnapshot()).toEqual([thread("forked"), thread("source")]);
   });
 
@@ -168,7 +168,7 @@ describe("ThreadOperationCoordinator", () => {
     coordinator.apply({ type: "thread-unarchived", threadId: "source" });
     publication.finish({ sourceArchived: true });
 
-    expect(store.appliedMutationBatches).toHaveLength(1);
+    expect(store.appliedChangeBatches).toHaveLength(1);
     expect(store.activeThreadsSnapshot()).toEqual([thread("forked"), thread("source")]);
     expect(store.archivedThreadsSnapshot()).toEqual([]);
   });
@@ -184,7 +184,7 @@ describe("ThreadOperationCoordinator", () => {
     coordinator.apply({ type: "thread-restored", thread: restoredSource });
     publication.finish({ sourceArchived: true });
 
-    expect(store.appliedMutationBatches).toHaveLength(1);
+    expect(store.appliedChangeBatches).toHaveLength(1);
     expect(store.activeThreadsSnapshot()).toEqual([thread("forked"), { ...restoredSource, archived: false }]);
     expect(store.archivedThreadsSnapshot()).toEqual([]);
   });
@@ -199,7 +199,7 @@ describe("ThreadOperationCoordinator", () => {
     coordinator.apply({ type: "thread-archived", threadId: "source" });
     publication.finish({ sourceArchived: true });
 
-    expect(store.appliedMutationBatches).toHaveLength(1);
+    expect(store.appliedChangeBatches).toHaveLength(1);
     expect(store.activeThreadsSnapshot()).toEqual([]);
     expect(store.archivedThreadsSnapshot()).toEqual([thread("source", true), thread("forked", true)]);
   });
@@ -221,9 +221,9 @@ describe("ThreadOperationCoordinator", () => {
 
     coordinator.apply({ type: "thread-archived", threadId: "unknown" });
 
-    expect(store.appliedMutations).toEqual([
+    expect(store.appliedChanges).toEqual([
       { kind: "remove", list: "active", threadId: "unknown" },
-      { kind: "refresh", list: "archived" },
+      { kind: "revalidate", list: "archived" },
     ]);
   });
 
@@ -261,7 +261,7 @@ function operationCoordinatorForStore(
   onEventsApplied?: (events: readonly ThreadLifecycleEvent[]) => void,
 ) {
   return createThreadOperationCoordinator((events) => {
-    store.applyThreadListMutations(projectThreadListChanges(store, events));
+    store.applyThreadCatalogChanges(projectThreadCatalogChanges(store, events));
     onEventsApplied?.(events);
   });
 }
@@ -274,25 +274,25 @@ interface CatalogStoreOptions {
 function catalogStore(options: CatalogStoreOptions = {}) {
   let active = options.active ?? null;
   let archived = options.archived ?? null;
-  const appliedMutations: ThreadListMutation[] = [];
-  const appliedMutationBatches: ThreadListMutation[][] = [];
-  const applyMutations = (mutations: readonly ThreadListMutation[]): void => {
-    appliedMutationBatches.push([...mutations]);
-    appliedMutations.push(...mutations);
-    for (const mutation of mutations) {
-      if (mutation.list === "active") {
-        active = applyThreadListMutation(active, mutation);
+  const appliedChanges: ThreadCatalogChange[] = [];
+  const appliedChangeBatches: ThreadCatalogChange[][] = [];
+  const applyChanges = (changes: readonly ThreadCatalogChange[]): void => {
+    appliedChangeBatches.push([...changes]);
+    appliedChanges.push(...changes);
+    for (const change of changes) {
+      if (change.list === "active") {
+        active = applyThreadCatalogChange(active, change);
       } else {
-        archived = applyThreadListMutation(archived, mutation);
+        archived = applyThreadCatalogChange(archived, change);
       }
     }
   };
   return {
-    appliedMutations,
-    appliedMutationBatches,
+    appliedChanges,
+    appliedChangeBatches,
     activeThreadsSnapshot: () => active,
     archivedThreadsSnapshot: () => archived,
-    applyThreadListMutations: applyMutations,
+    applyThreadCatalogChanges: applyChanges,
   };
 }
 

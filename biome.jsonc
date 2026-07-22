@@ -65,6 +65,10 @@
       ]
     },
     {
+      "path": "./scripts/grit/import-boundaries/no-external-app-server-query-imports.grit",
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/query/**", "!**/src/execution-runtime.ts"]
+    },
+    {
       "path": "./scripts/grit/import-boundaries/no-app-server-protocol-boundary-imports.grit",
       "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/**", "!**/src/features/chat/app-server/mappers/thread-stream/turn-items.ts"]
     },

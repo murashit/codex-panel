@@ -185,7 +185,7 @@ describe("AppServerQueryCache", () => {
     await cache.refreshActiveThreads();
     await cache.loadMoreActiveThreads();
 
-    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "older", changes: { recencyAt: 30 } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "older", changes: { recencyAt: 30 } }]);
 
     expect(cache.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["older", "recent"]);
     expect(cache.recentActiveThreadsSnapshot()?.map((item) => item.id)).toEqual(["older"]);
@@ -201,10 +201,10 @@ describe("AppServerQueryCache", () => {
     await cache.refreshActiveThreads();
     await cache.loadMoreActiveThreads();
 
-    cache.applyThreadListMutations([{ kind: "upsert", list: "active", thread: { ...thread("new"), recencyAt: 30 } }]);
+    cache.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: { ...thread("new"), recencyAt: 30 } }]);
     expect(cache.recentActiveThreadsSnapshot()?.map((item) => item.id)).toEqual(["new"]);
 
-    cache.applyThreadListMutations([
+    cache.applyThreadCatalogChanges([
       { kind: "remove", list: "active", threadId: "new" },
       { kind: "remove", list: "active", threadId: "first" },
     ]);
@@ -264,7 +264,7 @@ describe("AppServerQueryCache", () => {
 
     const loadMore = cache.loadMoreActiveThreads();
     await flushMicrotasks();
-    cache.applyThreadListMutations([{ kind: "remove", list: "active", threadId: "deleted-on-page-2" }]);
+    cache.applyThreadCatalogChanges([{ kind: "remove", list: "active", threadId: "deleted-on-page-2" }]);
     oldPage.resolve({ data: [thread("deleted-on-page-2")], nextCursor: null });
 
     await expect(loadMore).resolves.toEqual([thread("first")]);
@@ -280,7 +280,7 @@ describe("AppServerQueryCache", () => {
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
     await cache.refreshActiveThreads();
 
-    cache.applyThreadListMutations([{ kind: "upsert", list: "active", thread: thread("new-first") }]);
+    cache.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: thread("new-first") }]);
     expect(cache.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["new-first", "old-first", "old-second"]);
     expect(listThreads).toHaveBeenCalledOnce();
 
@@ -297,7 +297,7 @@ describe("AppServerQueryCache", () => {
       .mockResolvedValueOnce({ data: [thread("old-second")], nextCursor: null });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
     await cache.refreshActiveThreads();
-    cache.applyThreadListMutations([{ kind: "upsert", list: "active", thread: thread("event-thread") }]);
+    cache.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: thread("event-thread") }]);
 
     await expect(cache.loadMoreActiveThreads()).resolves.toEqual([thread("event-thread"), thread("old-first"), thread("old-second")]);
 
@@ -319,7 +319,7 @@ describe("AppServerQueryCache", () => {
     await cache.refreshActiveThreads();
     await cache.loadMoreActiveThreads();
 
-    cache.applyThreadListMutations([
+    cache.applyThreadCatalogChanges([
       { kind: "upsert", list: "active", thread: { ...thread("second"), name: "Updated without re-ranking" } },
     ]);
 
@@ -339,7 +339,7 @@ describe("AppServerQueryCache", () => {
 
     const refresh = cache.refreshActiveThreads();
     await flushMicrotasks();
-    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } }]);
 
     expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
     staleRead.resolve({ data: [{ ...thread("target"), name: "stale" }], nextCursor: null });
@@ -359,7 +359,7 @@ describe("AppServerQueryCache", () => {
 
     const initial = cache.refreshActiveThreads();
     await flushMicrotasks();
-    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } }]);
     staleRead.resolve({ data: [{ ...thread("target"), name: "stale" }], nextCursor: null });
 
     await expect(initial).resolves.toEqual([{ ...thread("target"), name: "authoritative" }]);
@@ -379,9 +379,9 @@ describe("AppServerQueryCache", () => {
 
     const initial = cache.refreshActiveThreads();
     await flushMicrotasks();
-    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "first-event", changes: { name: "first" } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "first-event", changes: { name: "first" } }]);
     await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
-    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "second-event", changes: { name: "second" } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "second-event", changes: { name: "second" } }]);
 
     await expect(initial).resolves.toEqual([thread("authoritative")]);
     expect(listThreads).toHaveBeenCalledTimes(3);
@@ -401,7 +401,7 @@ describe("AppServerQueryCache", () => {
 
     const refresh = cache.refreshArchivedThreads();
     await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
-    cache.applyThreadListMutations([{ kind: "update", list: "archived", threadId: "cached", changes: { name: "from-event" } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "archived", threadId: "cached", changes: { name: "from-event" } }]);
 
     await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(3));
     await expect(refresh).resolves.toEqual([thread("authoritative", true)]);
@@ -452,9 +452,9 @@ describe("AppServerQueryCache", () => {
 
     const inventory = cache.fetchActiveThreadSearchInventory();
     await flushMicrotasks();
-    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "first-event", changes: { name: "first" } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "first-event", changes: { name: "first" } }]);
     await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
-    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "second-event", changes: { name: "second" } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "second-event", changes: { name: "second" } }]);
 
     await expect(inventory).resolves.toEqual([thread("authoritative")]);
     expect(listThreads).toHaveBeenCalledTimes(3);
@@ -474,7 +474,7 @@ describe("AppServerQueryCache", () => {
 
     const inventory = cache.fetchActiveThreadSearchInventory();
     await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
-    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "event", changes: { name: "changed" } }]);
+    cache.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "event", changes: { name: "changed" } }]);
 
     await expect(inventory).resolves.toEqual([thread("authoritative")]);
     expect(listThreads).toHaveBeenCalledTimes(3);

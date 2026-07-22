@@ -1,0 +1,13 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsImportCallExpression()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where { $source <: r"^[\"'](?:(?:\./|(?:\.\./)+)app-server/query|src/app-server/query)(?:/.*)?[\"']$" },
+  register_diagnostic(span=$stmt, message="App-server query modules are internal implementations composed only by the execution runtime.", severity="error")
+}

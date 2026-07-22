@@ -19,13 +19,21 @@ import {
   diagnosticsWithProbe,
 } from "../../domain/server/diagnostics";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../domain/server/metadata";
+import { applyThreadCatalogChange, type ThreadCatalogChange, type ThreadCatalogList } from "../../domain/threads/catalog-read-model";
 import type { Thread } from "../../domain/threads/model";
 import { StaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
+import type {
+  ObservedPaginatedResult,
+  ObservedPaginatedResultListener,
+  ObservedResult,
+  ObservedResultListener,
+} from "../../shared/runtime/observed-result";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "../connection/client-access";
 import type { AppServerExecutionContext } from "../connection/execution-context";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listModelMetadata } from "../services/catalog";
+import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "../services/metadata-probes";
 import { readEffectiveConfig } from "../services/runtime-metadata";
 import { listThreads, readThreadPage, type ThreadPage } from "../services/threads";
 import {
@@ -36,10 +44,7 @@ import {
   applyActiveThreadMutation,
   recentActiveThreadsFromData,
 } from "./active-thread-inventory";
-import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
-import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResult, ObservedResultListener } from "./observed-result";
 import { cloneModelMetadata, cloneSharedServerMetadata, cloneSharedServerMetadataResource, cloneThreads } from "./snapshots";
-import { applyThreadListMutation, type ThreadListKind, type ThreadListMutation } from "./thread-list-mutation";
 
 const MODELS_STALE_TIME_MS = 60_000;
 const ACTIVE_THREADS_QUERY_KEY = ["threads", "active"] as const;
@@ -211,43 +216,43 @@ export class AppServerQueryCache {
     });
   }
 
-  applyThreadListMutations(mutations: readonly ThreadListMutation[]): void {
+  applyThreadCatalogChanges(changes: readonly ThreadCatalogChange[]): void {
     this.assertUsable();
-    if (mutations.length === 0) return;
-    const activeMutations = mutations.filter((mutation) => mutation.list === "active");
-    if (activeMutations.length > 0) {
+    if (changes.length === 0) return;
+    const activeChanges = changes.filter((change) => change.list === "active");
+    if (activeChanges.length > 0) {
       const key = ACTIVE_THREADS_QUERY_KEY;
       const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
       const fetchIsNextPage = this.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward";
       void this.client.cancelQueries({ queryKey: key, exact: true });
       const before = this.client.getQueryData<ActiveThreadData>(key);
-      const after = activeMutations.reduce<ActiveThreadData | undefined>(applyActiveThreadMutation, before);
+      const after = activeChanges.reduce<ActiveThreadData | undefined>(applyActiveThreadMutation, before);
       if (after !== before) this.client.setQueryData(key, after);
       void this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
       const searchKey = ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY;
       void this.client.cancelQueries({ queryKey: searchKey, exact: true });
       void this.client.invalidateQueries({ queryKey: searchKey, refetchType: "none" });
 
-      const refreshRequested = activeMutations.some((mutation) => mutation.kind === "refresh");
-      if ((wasFetching && !fetchIsNextPage) || (refreshRequested && before)) {
+      const revalidationRequested = activeChanges.some((change) => change.kind === "revalidate");
+      if ((wasFetching && !fetchIsNextPage) || (revalidationRequested && before)) {
         void this.fetchActiveThreads({ force: true }).catch(() => {
           // Query observers retain refresh failures while the event projection remains last-known-good state.
         });
       }
     }
 
-    const archivedMutations = mutations.filter((mutation) => mutation.list === "archived");
-    if (archivedMutations.length > 0) {
+    const archivedChanges = changes.filter((change) => change.list === "archived");
+    if (archivedChanges.length > 0) {
       const key = ARCHIVED_THREADS_QUERY_KEY;
       const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
       void this.client.cancelQueries({ queryKey: key, exact: true });
       const before = this.archivedThreadsSnapshot();
-      const after = archivedMutations.reduce<readonly Thread[] | null>(applyThreadListMutation, before);
+      const after = archivedChanges.reduce<readonly Thread[] | null>(applyThreadCatalogChange, before);
       if (after !== before && after) this.client.setQueryData(key, cloneThreads(after));
       void this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
 
-      const refreshRequested = archivedMutations.some((mutation) => mutation.kind === "refresh");
-      if (wasFetching || (refreshRequested && before)) {
+      const revalidationRequested = archivedChanges.some((change) => change.kind === "revalidate");
+      if (wasFetching || (revalidationRequested && before)) {
         void this.fetchArchivedThreads({ force: true }).catch(() => {
           // Query observers retain refresh failures while the event projection remains last-known-good state.
         });
@@ -255,7 +260,7 @@ export class AppServerQueryCache {
     }
   }
 
-  private threadListSnapshot(kind: ThreadListKind): readonly Thread[] | null {
+  private threadListSnapshot(kind: ThreadCatalogList): readonly Thread[] | null {
     if (kind === "active") return this.activeThreadsSnapshot();
     const threads = this.client.getQueryData<readonly Thread[]>(ARCHIVED_THREADS_QUERY_KEY);
     return threads ? cloneThreads(threads) : null;

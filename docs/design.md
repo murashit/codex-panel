@@ -36,7 +36,7 @@ Vault root is the Panel-owned workspace root for that context. Panel operations 
 
 Raw app-server protocol belongs at the app-server boundary. Boundary code should adapt protocol payloads into panel-owned domain models or small projections before those values reach features, workspace coordination, settings, or UI.
 
-Application workflows should depend on feature-owned contracts rather than app-server clients, RPC details, connection checks, vault-path wiring, or raw protocol projections.
+Application workflows should depend on panel-owned domain or shared contracts and feature-owned ports rather than app-server implementations, RPC details, connection checks, vault-path wiring, or raw protocol projections.
 
 Turn stream conversion is the main exception: raw app-server stream payloads may be consumed at the conversion boundary because the event set is broad and changes with Codex. The converter should still reduce them into panel-owned display and diagnostic models before they reach chat state or UI.
 
