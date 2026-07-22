@@ -108,7 +108,7 @@ describe("app-server request input", () => {
     });
   });
 
-  it("chunks UTF-8 context below the upstream value cap without adding visible metadata", () => {
+  it("chunks UTF-8 context within the Panel byte cap without adding visible metadata", () => {
     const value = `見出し\n\n${"本文です。".repeat(2_000)}`;
     const prepared = appServerTurnInputFromCodexInput(
       [
@@ -128,6 +128,7 @@ describe("app-server request input", () => {
     expect(entries.map(([key]) => key)).toEqual([...entries.map(([key]) => key)].sort());
     expect(entries.every(([, entry]) => utf8ByteLength(entry.value) < 4_000)).toBe(true);
     expect(entries.every(([, entry]) => entry.value.includes("Codex Panel context part"))).toBe(true);
+    expect(entries.at(-1)?.[1].value).toContain("[Context truncated by Codex Panel: remaining content omitted.]");
 
     expect(prepared.input).toEqual([{ type: "text", text: "要約して", text_elements: [] }]);
     expect(prepared.input.some((item) => item.type === "text" && item.text.includes("[Codex Panel context v2]"))).toBe(false);
@@ -185,7 +186,22 @@ describe("app-server request input", () => {
     expect(entries).toHaveLength(ADDITIONAL_CONTEXT_MAX_PARTS);
     expect(entries.some(([key, entry]) => key.includes(".selection.") && entry.value.includes("selected text"))).toBe(true);
     expect(entries.filter(([key]) => key.includes(".web."))).toHaveLength(7);
+    expect(entries.filter(([key]) => key.includes(".web.")).at(-1)?.[1].value).toContain(
+      "[Context truncated by Codex Panel: remaining content omitted.]",
+    );
     expect(prepared.input).toEqual([{ type: "text", text: "compare them", text_elements: [] }]);
+  });
+
+  it("does not add a truncation notice when the complete context fits", () => {
+    const prepared = appServerTurnInputFromCodexInput(
+      [
+        { type: "text", text: "read it" },
+        { type: "additionalContext", key: "selection", kind: "untrusted", value: "selected text" },
+      ],
+      PANEL_SUBMISSION_ID,
+    );
+
+    expect(Object.values(prepared.additionalContext ?? {})[0]?.value).not.toContain("Context truncated by Codex Panel");
   });
 
   it("accepts eight explicit context sources and ignores empty sources without spending the budget", () => {

@@ -1,4 +1,4 @@
-import { splitUtf8Context } from "../../domain/chat/context-budget";
+import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../domain/chat/context-budget";
 import type { CodexInputItem } from "../../domain/chat/input";
 import { turnContextSubmissionId } from "../../domain/chat/submission-id";
 
@@ -22,6 +22,7 @@ export interface AppServerTurnInput {
 
 const ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES = 2_800;
 const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
+const ADDITIONAL_CONTEXT_TRUNCATION_NOTICE = "\n\n[Context truncated by Codex Panel: remaining content omitted.]";
 
 export function toAppServerUserInput(input: readonly CodexInputItem[]): AppServerUserInput[] {
   return input.flatMap((item) => appServerUserInputItemFromCodexInputItem(item));
@@ -39,9 +40,9 @@ export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[
   const partAllocations = allocatedPartCounts(contexts);
   for (const [contextIndex, item] of contexts.entries()) {
     const id = `${turnContextSubmissionId(submissionId)}.${String(contextIndex).padStart(2, "0")}`;
-    const split = splitUtf8Context(item.value, ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES, partAllocations[contextIndex] ?? 1);
-    const partCount = split.parts.length;
-    split.parts.forEach((part, partIndex) => {
+    const parts = boundedContextParts(item.value, partAllocations[contextIndex] ?? 1);
+    const partCount = parts.length;
+    parts.forEach((part, partIndex) => {
       const key = [
         "codex_panel",
         id,
@@ -63,6 +64,18 @@ export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[
     input: toAppServerUserInput(input),
     ...(Object.keys(additionalContext).length > 0 ? { additionalContext } : {}),
   };
+}
+
+function boundedContextParts(value: string, maxParts: number): string[] {
+  const split = splitUtf8Context(value, ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES, maxParts);
+  if (split.includedBytes >= utf8ByteLength(value) || split.parts.length === 0) return split.parts;
+
+  const parts = [...split.parts];
+  const lastIndex = parts.length - 1;
+  const lastPart = parts[lastIndex] ?? "";
+  const contentBudget = ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES - utf8ByteLength(ADDITIONAL_CONTEXT_TRUNCATION_NOTICE);
+  parts[lastIndex] = `${truncateUtf8(lastPart, contentBudget)}${ADDITIONAL_CONTEXT_TRUNCATION_NOTICE}`;
+  return parts;
 }
 
 function allocatedPartCounts(contexts: readonly Extract<CodexInputItem, { type: "additionalContext" }>[]): number[] {
