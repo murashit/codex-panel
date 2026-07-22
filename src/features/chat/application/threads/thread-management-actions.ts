@@ -22,10 +22,17 @@ export interface ThreadManagementActionsHost {
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<void>;
-  openThreadInCurrentPanel: (threadId: string, onAdopted: () => void) => Promise<{ adopted: boolean }>;
+  openThreadInCurrentPanel: (threadId: string, onAdopted: () => void) => Promise<CurrentPanelAdoption>;
   beginThreadForkPublication: (sourceThreadId: string) => ThreadForkPublication;
   threadHasPendingOrRunningPanel: (threadId: string) => boolean;
 }
+
+type CurrentPanelAdoption =
+  | { readonly adopted: false }
+  | {
+      readonly adopted: true;
+      readonly activityPublication: { publish(commit: () => void): void };
+    };
 
 interface ThreadForkPublication {
   record(thread: Thread): void;
@@ -138,6 +145,7 @@ async function forkThreadFromTurn(
   }
   let publication: ThreadForkPublication | null = null;
   let publicationFinished = false;
+  let activityPublication: { publish(commit: () => void): void } | null = null;
 
   try {
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
@@ -164,7 +172,7 @@ async function forkThreadFromTurn(
       if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     }
     if (archiveSource) {
-      let adoption: { adopted: boolean };
+      let adoption: CurrentPanelAdoption;
       try {
         adoption = await host.openThreadInCurrentPanel(forkedThreadId, () => undefined);
       } catch (error) {
@@ -179,13 +187,17 @@ async function forkThreadFromTurn(
         }
         return;
       }
+      activityPublication = adoption.activityPublication;
       const sourceArchived = await archiveReplacedSource(host, threadId, forkedThreadId, {
         failureMessage: "Forked the thread, but could not archive the previous version",
       });
-      publication.finish({ sourceArchived });
+      activityPublication.publish(() => publication?.finish({ sourceArchived }));
+      activityPublication = null;
       publicationFinished = true;
       return;
     }
+    publication.finish();
+    publicationFinished = true;
     try {
       await host.openThreadInNewView(forkedThreadId);
     } catch (error) {
@@ -197,7 +209,10 @@ async function forkThreadFromTurn(
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   } finally {
-    if (!publicationFinished) publication?.finish();
+    if (!publicationFinished) {
+      if (activityPublication) activityPublication.publish(() => publication?.finish());
+      else publication?.finish();
+    }
   }
 }
 
@@ -240,6 +255,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
   };
   let publication: ThreadForkPublication | null = null;
   let publicationFinished = false;
+  let activityPublication: { publish(commit: () => void): void } | null = null;
 
   try {
     host.setStatus(STATUS_ROLLBACK_STARTING);
@@ -266,6 +282,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
       }
       return;
     }
+    activityPublication = adoption.activityPublication;
     if (activeThreadId(threadManagementState(host)) === forkedThread.id) {
       host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
       host.setStatus(STATUS_ROLLBACK_COMPLETE);
@@ -274,14 +291,18 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
       saveMarkdown: false,
       failureMessage: "Rolled back the latest turn, but could not archive the previous version",
     });
-    publication.finish({ sourceArchived });
+    activityPublication.publish(() => publication?.finish({ sourceArchived }));
+    activityPublication = null;
     publicationFinished = true;
   } catch (error) {
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     host.setStatus(STATUS_ROLLBACK_FAILED);
   } finally {
-    if (!publicationFinished) publication?.finish();
+    if (!publicationFinished) {
+      if (activityPublication) activityPublication.publish(() => publication?.finish());
+      else publication?.finish();
+    }
   }
 }
 

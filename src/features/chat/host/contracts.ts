@@ -116,6 +116,11 @@ export interface ChatWorkspacePanelSnapshot {
   threadId: string | null;
   turnBusy: boolean;
   pending: boolean;
+  publishedActivity: {
+    threadId: string | null;
+    turnBusy: boolean;
+    pending: boolean;
+  };
   hasComposerDraft: boolean;
   connected: boolean;
 }

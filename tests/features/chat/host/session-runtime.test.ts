@@ -187,6 +187,7 @@ describe("ChatPanelSessionRuntime actions", () => {
       resumeWork,
       threadStreamScrollBinding,
       getClosing: () => false,
+      beginPanelActivityPublication: () => ({ publish: (commit) => commit() }),
     });
     return { runtime, stateStore, resumeWork, deferredTasks, threadStreamScrollBinding };
   }

@@ -48,6 +48,9 @@ type ThreadManagementActionsHostMock = Omit<
     record: Mock<ReturnType<ThreadManagementActionsHost["beginThreadForkPublication"]>["record"]>;
     finish: Mock<ReturnType<ThreadManagementActionsHost["beginThreadForkPublication"]>["finish"]>;
   };
+  activityPublication: {
+    publish: Mock<(commit: () => void) => void>;
+  };
   beginThreadForkPublication: Mock<ThreadManagementActionsHost["beginThreadForkPublication"]>;
 };
 
@@ -312,7 +315,7 @@ describe("thread management actions", () => {
     );
     expect(host.openThreadInNewView).toHaveBeenCalledWith("forked");
     expect(host.forkPublication.finish).toHaveBeenCalledWith();
-    expect(callOrder(host.openThreadInNewView)).toBeLessThan(callOrder(host.forkPublication.finish));
+    expect(callOrder(host.forkPublication.finish)).toBeLessThan(callOrder(host.openThreadInNewView));
     expect(host.operations.archiveThread).not.toHaveBeenCalled();
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
@@ -331,6 +334,8 @@ describe("thread management actions", () => {
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.operations.archiveThread));
     expect(host.forkPublication.finish).toHaveBeenCalledWith({ sourceArchived: true });
     expect(callOrder(host.operations.archiveThread)).toBeLessThan(callOrder(host.forkPublication.finish));
+    expect(callOrder(host.operations.archiveThread)).toBeLessThan(callOrder(host.activityPublication.publish));
+    expect(callOrder(host.activityPublication.publish)).toBeLessThan(callOrder(host.forkPublication.finish));
   });
 
   it("keeps the replacement panel when source archiving fails", async () => {
@@ -595,6 +600,8 @@ describe("thread management actions", () => {
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
     expect(host.forkPublication.record).toHaveBeenCalledWith(panelThread("forked"));
     expect(host.forkPublication.finish).toHaveBeenCalledWith({ sourceArchived: true });
+    expect(callOrder(host.operations.archiveThread)).toBeLessThan(callOrder(host.activityPublication.publish));
+    expect(callOrder(host.activityPublication.publish)).toBeLessThan(callOrder(host.forkPublication.finish));
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
   });
 
@@ -671,7 +678,7 @@ describe("thread management actions", () => {
     host.openThreadInCurrentPanel.mockImplementation(async (threadId, onAdopted) => {
       adoptThread(host, threadId);
       onAdopted();
-      return { adopted: true };
+      return { adopted: true, activityPublication: host.activityPublication };
     });
 
     await threadManagementActions(host).rollbackThread("source");
@@ -929,6 +936,7 @@ function hostMock({
     record: vi.fn(),
     finish: vi.fn(),
   };
+  const activityPublication = { publish: vi.fn((commit: () => void) => commit()) };
   return {
     stateStore,
     threadTransport,
@@ -942,9 +950,10 @@ function hostMock({
       .mockImplementation(async (threadId, onAdopted) => {
         adoptThread({ stateStore }, threadId);
         onAdopted();
-        return { adopted: true };
+        return { adopted: true, activityPublication };
       }),
     forkPublication,
+    activityPublication,
     beginThreadForkPublication: vi.fn<ThreadManagementActionsHost["beginThreadForkPublication"]>().mockReturnValue(forkPublication),
     threadHasPendingOrRunningPanel: vi.fn(() => false),
   };

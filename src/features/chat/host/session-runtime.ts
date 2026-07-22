@@ -72,6 +72,7 @@ interface ChatPanelSessionRuntimeHost {
   resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
+  beginPanelActivityPublication(replacementThreadId: string): { publish(commit: () => void): void };
 }
 
 export class ChatPanelSessionRuntime {

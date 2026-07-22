@@ -200,12 +200,18 @@ export function thread(id: string): Thread {
 }
 
 export function panelSnapshot(overrides: PanelSnapshotFixtureOverrides = {}): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
-  const { pendingApprovals, pendingUserInputs, pendingMcpElicitations, ...snapshotOverrides } = overrides;
+  const { pendingApprovals, pendingUserInputs, pendingMcpElicitations, publishedActivity, ...snapshotOverrides } = overrides;
+  const pending = (pendingApprovals ?? 0) + (pendingUserInputs ?? 0) + (pendingMcpElicitations ?? 0) > 0;
   return {
     viewId: "view",
     threadId: "thread",
     turnBusy: false,
-    pending: (pendingApprovals ?? 0) + (pendingUserInputs ?? 0) + (pendingMcpElicitations ?? 0) > 0,
+    pending,
+    publishedActivity: publishedActivity ?? {
+      threadId: snapshotOverrides.threadId ?? "thread",
+      turnBusy: snapshotOverrides.turnBusy ?? false,
+      pending: snapshotOverrides.pending ?? pending,
+    },
     hasComposerDraft: false,
     connected: true,
     ...snapshotOverrides,

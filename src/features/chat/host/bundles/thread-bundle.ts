@@ -57,6 +57,7 @@ interface ChatPanelThreadHost {
     showLatest(): void;
   };
   getClosing: () => boolean;
+  beginPanelActivityPublication(replacementThreadId: string): { publish(commit: () => void): void };
 }
 
 interface ChatPanelThreadFoundationInput {
@@ -272,14 +273,22 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     },
     openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
     openThreadInCurrentPanel: async (threadId, onAdopted) => {
-      let adopted = false;
-      await lifecycle.resume.resumeThread(threadId, undefined, {
-        onAdopted: () => {
-          adopted = true;
-          onAdopted();
-        },
-      });
-      return { adopted };
+      const activityPublication = host.beginPanelActivityPublication(threadId);
+      const adoption = { completed: false };
+      try {
+        await lifecycle.resume.resumeThread(threadId, undefined, {
+          onAdopted: () => {
+            adoption.completed = true;
+            onAdopted();
+          },
+        });
+        if (adoption.completed) return { adopted: true, activityPublication };
+        activityPublication.publish(() => undefined);
+        return { adopted: false };
+      } catch (error) {
+        activityPublication.publish(() => undefined);
+        throw error;
+      }
     },
     beginThreadForkPublication: (sourceThreadId) => environment.plugin.threadOperationCoordinator.beginForkPublication(sourceThreadId),
     threadHasPendingOrRunningPanel: (threadId) => environment.plugin.workspace.threadHasPendingOrRunningPanel(threadId),
