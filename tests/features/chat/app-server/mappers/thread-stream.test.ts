@@ -881,6 +881,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       id: "search-1",
       query: "fallback query",
       action: { type: "search", query: "codex app-server", queries: ["obsidian codex panel"] },
+      results: null,
     };
 
     expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({
@@ -901,6 +902,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       id: "search-empty",
       query: "",
       action: null,
+      results: null,
     };
 
     expect(threadStreamItemFromTurnItem(item, "t1")).toEqual({

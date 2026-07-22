@@ -105,6 +105,9 @@ const IGNORED_SERVER_NOTIFICATION_METHODS = [
   "thread/status/changed",
   "thread/closed",
   "rawResponseItem/completed",
+  "rawResponse/completed",
+  "thread/environment/connected",
+  "thread/environment/disconnected",
   "command/exec/outputDelta",
   "process/outputDelta",
   "process/exited",
@@ -157,6 +160,7 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
   "item/autoApprovalReview/completed": threadTurnNotificationScope,
   "item/completed": threadTurnNotificationScope,
   "rawResponseItem/completed": threadTurnNotificationScope,
+  "rawResponse/completed": threadTurnNotificationScope,
   "item/agentMessage/delta": threadTurnNotificationScope,
   "item/plan/delta": threadTurnNotificationScope,
   "command/exec/outputDelta": unscopedNotificationScope,
@@ -200,6 +204,8 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
   "windows/worldWritableWarning": unscopedNotificationScope,
   "windowsSandbox/setupCompleted": unscopedNotificationScope,
   "account/login/completed": unscopedNotificationScope,
+  "thread/environment/connected": threadOnlyNotificationScope,
+  "thread/environment/disconnected": threadOnlyNotificationScope,
 };
 
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {

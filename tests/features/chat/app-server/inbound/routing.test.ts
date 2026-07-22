@@ -279,6 +279,7 @@ describe("chat inbound routing", () => {
 
   it.each([
     { name: "raw response item completed", notification: rawResponseItemCompletedNotification },
+    { name: "raw response completed", notification: rawResponseCompletedNotification },
     { name: "turn moderation metadata", notification: turnModerationMetadataNotification },
     { name: "terminal interaction", notification: terminalInteractionNotification },
     { name: "model verification", notification: modelVerificationNotification },
@@ -291,6 +292,8 @@ describe("chat inbound routing", () => {
   it.each([
     { name: "thread status changed", notification: threadStatusChangedNotification },
     { name: "thread closed", notification: threadClosedNotification },
+    { name: "environment connected", notification: environmentConnectedNotification },
+    { name: "environment disconnected", notification: environmentDisconnectedNotification },
   ])("still scopes ignored thread lifecycle notification $name", ({ notification }) => {
     expectNotificationRouteKind(notification("thread-active"), "ignored");
     expectNotificationRouteKind(notification("thread-other"), "inactive");
@@ -738,6 +741,24 @@ function rawResponseItemCompletedNotification(
   };
 }
 
+function rawResponseCompletedNotification(
+  threadId: string,
+  turnId: string,
+): Extract<ServerNotification, { method: "rawResponse/completed" }> {
+  return {
+    method: "rawResponse/completed",
+    params: { threadId, turnId, responseId: "response", usage: null },
+  };
+}
+
+function environmentConnectedNotification(threadId: string): Extract<ServerNotification, { method: "thread/environment/connected" }> {
+  return { method: "thread/environment/connected", params: { threadId, environmentId: "environment" } };
+}
+
+function environmentDisconnectedNotification(threadId: string): Extract<ServerNotification, { method: "thread/environment/disconnected" }> {
+  return { method: "thread/environment/disconnected", params: { threadId, environmentId: "environment" } };
+}
+
 function threadSnapshot(id: string): Extract<ServerNotification, { method: "thread/started" }>["params"]["thread"] {
   return {
     id,
@@ -757,6 +778,7 @@ function threadSnapshot(id: string): Extract<ServerNotification, { method: "thre
     cwd: "/vault",
     cliVersion: "0.0.0",
     source: "unknown",
+    canAcceptDirectInput: null,
     threadSource: null,
     agentNickname: null,
     agentRole: null,

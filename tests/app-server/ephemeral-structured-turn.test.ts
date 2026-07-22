@@ -472,6 +472,7 @@ function thread(id: string): AppServerThread {
     cwd: "/vault",
     cliVersion: "0.0.0",
     source: "unknown",
+    canAcceptDirectInput: null,
     threadSource: null,
     agentNickname: null,
     agentRole: null,

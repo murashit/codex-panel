@@ -42,6 +42,8 @@ function responseFixture(thread: AppServerThread): ThreadResumeResponse {
     reasoningEffort: "high",
     multiAgentMode: "explicitRequestOnly",
     initialTurnsPage: null,
+    turnsBackwardsCursor: null,
+    itemsBackwardsCursor: null,
   };
 }
 
@@ -64,6 +66,7 @@ function threadFixture(id: string, name: string): AppServerThread {
     cwd: "/vault",
     cliVersion: "0.0.0",
     source: "unknown",
+    canAcceptDirectInput: null,
     threadSource: null,
     agentNickname: null,
     agentRole: null,

@@ -728,6 +728,8 @@ function threadResumeResponse(threadId: string, overrides: Partial<AppServerThre
     reasoningEffort: null,
     multiAgentMode: "explicitRequestOnly",
     initialTurnsPage: null,
+    turnsBackwardsCursor: null,
+    itemsBackwardsCursor: null,
     ...overrides,
   };
 }

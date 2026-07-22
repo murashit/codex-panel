@@ -275,6 +275,7 @@ function hookFixture(overrides: Partial<HookMetadata> = {}): HookMetadata {
     command: "node hook.js",
     timeoutSec: 10n,
     statusMessage: null,
+    additionalContextLimit: null,
     sourcePath: "/vault/.codex/hooks.json",
     source: "project",
     pluginId: null,
