@@ -4,60 +4,28 @@ import { isStaleExecutionRuntimeError } from "../../../shared/runtime/execution-
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../app-server/session-gateway";
 import { createReconnectPanelAction } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
+import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
-import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
+import type { ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
-import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
-import { createEphemeralThreadLifecycle, type EphemeralThreadLifecycle } from "../application/threads/ephemeral-thread-lifecycle";
-import {
-  createPersistentNavigationLifecycle,
-  type PersistentNavigationLifecycle,
-} from "../application/threads/persistent-navigation-lifecycle";
-import type { RestorationController } from "../application/threads/restoration-controller";
-import type { ResumeActions } from "../application/threads/resume-actions";
+import { createEphemeralThreadLifecycle } from "../application/threads/ephemeral-thread-lifecycle";
+import { createPersistentNavigationLifecycle } from "../application/threads/persistent-navigation-lifecycle";
 import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { createThreadStartActions } from "../application/threads/thread-start-actions";
+import { collaborationModeIntentValue } from "../domain/runtime/intent";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import { createStructuredSystemItem, createSystemItem } from "../domain/thread-stream/factories/system-items";
 import type { ThreadStreamNoticeSection } from "../domain/thread-stream/items";
-import type { ChatComposerController } from "../panel/composer-controller";
+import { createChatPanelRuntimeProjection } from "../panel/runtime-status-projection";
 import type { ChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
 import { createChatComposerController } from "./bundles/composer-bundle";
-import { type ChatPanelConnectionBundle, createConnectionBundle } from "./bundles/connection-bundle";
-import { createRuntimeBundle } from "./bundles/runtime-bundle";
-import { type ChatPanelShellBundle, createShellBundle } from "./bundles/shell-bundle";
+import { createConnectionBundle } from "./bundles/connection-bundle";
+import { createShellBundle } from "./bundles/shell-bundle";
 import { createThreadActionBundle, createThreadFoundation, createThreadLifecycleBundle } from "./bundles/thread-bundle";
 import { createTurnBundle } from "./bundles/turn-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
 import type { ChatViewDeferredTasks } from "./session/deferred-work";
-import { type ChatPanelSharedStateBinding, createChatPanelSharedStateBinding } from "./session/shared-state-binding";
-
-interface ChatPanelSessionRuntimeParts {
-  connection: {
-    manager: ConnectionManager;
-    actions: ChatPanelConnectionBundle["connection"]["actions"];
-  };
-  thread: {
-    resume: ResumeActions;
-    restoration: RestorationController;
-    identity: ActiveThreadIdentitySync;
-    ephemeral: EphemeralThreadLifecycle;
-    navigation: PersistentNavigationLifecycle;
-  };
-  composer: {
-    controller: ChatComposerController;
-  };
-  shell: ChatPanelShellBundle;
-  actions: {
-    invalidateThreadWork(): void;
-    reconnect(): Promise<void>;
-    refreshSharedThreads(): Promise<void>;
-    startNewThread(options?: { focus?: boolean }): Promise<void>;
-  };
-  runtime: {
-    sharedState: ChatPanelSharedStateBinding;
-  };
-  disposeOwnedResources: () => void;
-}
+import { createChatPanelSharedStateBinding } from "./session/shared-state-binding";
 
 interface ChatPanelSessionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -75,45 +43,12 @@ interface ChatPanelSessionRuntimeHost {
   beginPanelActivityPublication(replacementThreadId: string): { publish(commit: () => void): void };
 }
 
-export class ChatPanelSessionRuntime {
-  readonly connection: ChatPanelSessionRuntimeParts["connection"];
-  readonly thread: ChatPanelSessionRuntimeParts["thread"];
-  readonly composer: ChatPanelSessionRuntimeParts["composer"];
-  readonly shell: ChatPanelSessionRuntimeParts["shell"];
-  readonly actions: ChatPanelSessionRuntimeParts["actions"];
-  readonly runtime: ChatPanelSessionRuntimeParts["runtime"];
-  private readonly disposeOwnedResources: ChatPanelSessionRuntimeParts["disposeOwnedResources"];
-
-  constructor(private readonly host: ChatPanelSessionRuntimeHost) {
-    const parts = composeChatPanelSessionRuntime(host);
-    this.connection = parts.connection;
-    this.thread = parts.thread;
-    this.composer = parts.composer;
-    this.shell = parts.shell;
-    this.actions = parts.actions;
-    this.runtime = parts.runtime;
-    this.disposeOwnedResources = parts.disposeOwnedResources;
-  }
-
-  async dispose(unmount: () => void): Promise<void> {
-    this.connection.manager.disconnect();
-    this.connection.actions.invalidate();
-    this.actions.invalidateThreadWork();
-    this.host.deferredTasks.clearAll();
-    this.runtime.sharedState.unsubscribe();
-    this.disposeOwnedResources();
-    this.host.threadStreamScrollBinding.dispose();
-    unmount();
-    await this.thread.ephemeral.dispose();
-  }
-}
-
-function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): ChatPanelSessionRuntimeParts {
+export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
   const { environment, stateStore } = host;
   const localItemIds = createLocalIdSource();
-  const connection = createConnectionManager(environment);
-  const currentClient = () => connection.currentClient();
   const resourceContext = environment.plugin.appServerContext;
+  const connection = new ConnectionManager(resourceContext.codexPath, resourceContext.vaultPath, codexPanelAppServerInitializeParams());
+  const currentClient = () => connection.currentClient();
   const currentAppServer = createChatCurrentAppServerGateway({
     fallbackClientAccess: environment.plugin.appServerClientAccess,
     vaultPath: resourceContext.vaultPath,
@@ -168,10 +103,27 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
       return currentClient();
     },
   });
-  const runtime = createRuntimeBundle(host, {
-    connection,
-    appServer,
-    status,
+  const runtimeSettings = createChatRuntimeSettingsActions(
+    {
+      stateStore,
+      runtimeTransport: appServer.runtimeSettings,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      collaborationModeLabel: () => {
+        const runtime = stateStore.getState().runtime;
+        return formatCollaborationModeLabel(
+          collaborationModeIntentValue(runtime.pending.collaborationMode, runtime.active.collaborationMode),
+        );
+      },
+      addSystemMessage: status.addSystemMessage,
+    },
+    environment.plugin.runtimeSettingsCommitQueue,
+  );
+  const runtimeProjection = createChatPanelRuntimeProjection({
+    state: () => stateStore.getState(),
+    connected: () => connection.isConnected(),
+    configuredCommand: () => environment.plugin.appServerContext.codexPath,
+    vaultPath: () => environment.plugin.appServerContext.vaultPath,
+    nowMs: () => Date.now(),
   });
   const threadStart = createThreadStartActions({
     stateStore,
@@ -195,7 +147,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     notifyActiveThreadIdentityChanged,
   });
   const composerController = createChatComposerController(host, {
-    runtimeSettings: runtime.settings,
+    runtimeSettings,
   });
   const ephemeral = createEphemeralThreadLifecycle({
     stateStore,
@@ -255,12 +207,12 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     threadActions: threadActions.actions,
     navigation: threadActions.navigation,
     composerController,
-    runtimeSettings: runtime.settings,
+    runtimeSettings,
     threadStart,
     goals: threadLifecycle.goals,
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
     reconnect,
-    runtimeProjection: runtime.projection,
+    runtimeProjection,
     refreshDiagnostics: () => connectionActions.refreshDiagnostics(),
     notifyActiveThreadIdentityChanged,
   });
@@ -294,6 +246,16 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     refreshTabHeader,
   });
 
+  const actions = {
+    invalidateThreadWork: () => {
+      invalidateThreadWork();
+      threadLifecycle.restoration.invalidate();
+    },
+    reconnect,
+    refreshSharedThreads,
+    startNewThread: (options?: { focus?: boolean }) => threadActions.navigation.startNewThread(options),
+  };
+
   return {
     connection: {
       manager: connection,
@@ -310,47 +272,41 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
       controller: composerController,
     },
     shell,
-    actions: {
-      invalidateThreadWork: () => {
-        invalidateThreadWork();
-        threadLifecycle.restoration.invalidate();
-      },
-      reconnect,
-      refreshSharedThreads,
-      startNewThread: (options) => threadActions.navigation.startNewThread(options),
-    },
+    actions,
     runtime: {
       sharedState,
     },
-    disposeOwnedResources: () => {
+    dispose: async (unmount: () => void): Promise<void> => {
+      connection.disconnect();
+      connectionActions.invalidate();
+      actions.invalidateThreadWork();
+      host.deferredTasks.clearAll();
+      sharedState.unsubscribe();
       connectionBundle.invalidateConnectionScope();
       composerController.dispose();
+      host.threadStreamScrollBinding.dispose();
+      unmount();
+      await ephemeral.dispose();
     },
-  };
-}
-
-function createConnectionManager(environment: ChatPanelEnvironment): ConnectionManager {
-  const context = environment.plugin.appServerContext;
-  return new ConnectionManager(context.codexPath, context.vaultPath, codexPanelAppServerInitializeParams());
+  } as const;
 }
 
 function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {
   return {
     set: (statusText, phase) => {
-      dispatch(stateStore, { type: "connection/status-set", statusText, ...(phase ? { phase } : {}) });
+      stateStore.dispatch({ type: "connection/status-set", statusText, ...(phase ? { phase } : {}) });
     },
     addSystemMessage: (text) => {
-      dispatch(stateStore, { type: "thread-stream/system-item-added", item: createSystemItem(localItemIds.next("system"), text) });
+      stateStore.dispatch({
+        type: "thread-stream/system-item-added",
+        item: createSystemItem(localItemIds.next("system"), text),
+      });
     },
     addStructuredSystemMessage: (text, details) => {
-      dispatch(stateStore, {
+      stateStore.dispatch({
         type: "thread-stream/system-item-added",
         item: createStructuredSystemItem(localItemIds.next("system"), text, details),
       });
     },
   };
-}
-
-function dispatch(stateStore: ChatStateStore, action: ChatAction): void {
-  stateStore.dispatch(action);
 }

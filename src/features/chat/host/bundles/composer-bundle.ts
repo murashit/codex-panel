@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
+import type { ChatRuntimeSettingsActions } from "../../application/runtime/settings-actions";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import type { ChatStateStore } from "../../application/state/store";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
@@ -11,7 +12,6 @@ import type { ChatPanelEnvironment } from "../contracts";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
 import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
 import { VaultNoteCandidateProvider } from "../obsidian/vault-note-candidate-provider.obsidian";
-import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 
 interface ChatPanelComposerHost {
   environment: ChatPanelEnvironment;
@@ -22,7 +22,7 @@ interface ChatPanelComposerHost {
 export function createChatComposerController(
   host: ChatPanelComposerHost,
   input: {
-    runtimeSettings: ChatPanelRuntimeSettingsActions;
+    runtimeSettings: ChatRuntimeSettingsActions;
   },
 ): ChatComposerController {
   const { environment, stateStore } = host;

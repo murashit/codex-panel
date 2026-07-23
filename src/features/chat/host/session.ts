@@ -8,12 +8,12 @@ import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom"
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatWorkspacePanelSnapshot } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
-import { ChatPanelSessionRuntime } from "./session-runtime";
+import { createChatPanelSessionRuntime } from "./session-runtime";
 import { parseChatPanelViewState } from "./view-state";
 
 export class ChatPanelSession implements ChatPanelHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();
-  private readonly runtime: ChatPanelSessionRuntime;
+  private readonly runtime: ReturnType<typeof createChatPanelSessionRuntime>;
 
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly resumeWork = new ChatResumeWorkTracker();
@@ -349,8 +349,8 @@ export class ChatPanelSession implements ChatPanelHandle {
     });
   }
 
-  private createSessionRuntime(): ChatPanelSessionRuntime {
-    return new ChatPanelSessionRuntime({
+  private createSessionRuntime(): ReturnType<typeof createChatPanelSessionRuntime> {
+    return createChatPanelSessionRuntime({
       environment: this.environment,
       stateStore: this.stateStore,
       deferredTasks: this.deferredTasks,

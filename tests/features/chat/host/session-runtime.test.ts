@@ -8,7 +8,7 @@ import { createThreadGoalOperationCoordinator } from "../../../../src/features/c
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
 import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/contracts";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
-import { ChatPanelSessionRuntime } from "../../../../src/features/chat/host/session-runtime";
+import { createChatPanelSessionRuntime } from "../../../../src/features/chat/host/session-runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { StaleExecutionRuntimeError } from "../../../../src/shared/runtime/execution-runtime-lifetime";
@@ -20,7 +20,7 @@ import { composerModelFromChatState } from "../support/shell-selectors";
 
 installObsidianDomShims();
 
-describe("ChatPanelSessionRuntime actions", () => {
+describe("chat panel session runtime actions", () => {
   let panelRoot: HTMLElement;
 
   beforeEach(() => {
@@ -152,10 +152,29 @@ describe("ChatPanelSessionRuntime actions", () => {
     composer.focus();
     expect(runtime.composer.controller.hasFocus()).toBe(true);
     const disconnect = vi.spyOn(runtime.connection.manager, "disconnect");
+    const invalidateConnection = vi.spyOn(runtime.connection.actions, "invalidate");
+    const invalidateThreadWork = vi.spyOn(runtime.actions, "invalidateThreadWork");
+    const clearDeferredTasks = vi.spyOn(deferredTasks, "clearAll");
+    const unsubscribeSharedState = vi.spyOn(runtime.runtime.sharedState, "unsubscribe");
+    const disposeComposer = vi.spyOn(runtime.composer.controller, "dispose");
+    const disposeScrollBinding = vi.spyOn(threadStreamScrollBinding, "dispose");
+    const disposeEphemeralThread = vi.spyOn(runtime.thread.ephemeral, "dispose");
     const unmount = vi.fn();
 
     await runtime.dispose(unmount);
 
+    const disposalOrder = [
+      disconnect,
+      invalidateConnection,
+      invalidateThreadWork,
+      clearDeferredTasks,
+      unsubscribeSharedState,
+      disposeComposer,
+      disposeScrollBinding,
+      unmount,
+      disposeEphemeralThread,
+    ].map((operation) => operation.mock.invocationCallOrder[0] ?? 0);
+    expect(disposalOrder).toEqual([...disposalOrder].sort((left, right) => left - right));
     expect([unsubscribeThreads, unsubscribeMetadata].every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
     expect(runtime.composer.controller.hasFocus()).toBe(false);
     threadStreamScrollBinding.showLatest();
@@ -169,7 +188,7 @@ describe("ChatPanelSessionRuntime actions", () => {
   });
 
   function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment } = {}): {
-    runtime: ChatPanelSessionRuntime;
+    runtime: ReturnType<typeof createChatPanelSessionRuntime>;
     stateStore: ChatStateStore;
     resumeWork: ChatResumeWorkTracker;
     deferredTasks: ReturnType<typeof createChatViewDeferredTasks>;
@@ -180,7 +199,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     const deferredTasks = createChatViewDeferredTasks(() => window);
     const threadStreamScrollBinding = createChatThreadStreamScrollBinding();
     const environment = chatPanelEnvironmentFixture(options.environment);
-    const runtime = new ChatPanelSessionRuntime({
+    const runtime = createChatPanelSessionRuntime({
       environment,
       stateStore,
       deferredTasks,

@@ -2,6 +2,7 @@ import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
+import type { ChatRuntimeSettingsActions } from "../../application/runtime/settings-actions";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ThreadStartActions } from "../../application/threads/thread-start-actions";
@@ -11,7 +12,6 @@ import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createWebContextReader } from "../obsidian/web-context.obsidian";
-import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 import type {
   ChatPanelGoalActions,
   ChatPanelThreadActions,
@@ -47,7 +47,7 @@ interface ChatPanelTurnInput {
   threadActions: ChatPanelThreadActions;
   navigation: ChatPanelThreadNavigationActions;
   composerController: ChatComposerController;
-  runtimeSettings: ChatPanelRuntimeSettingsActions;
+  runtimeSettings: ChatRuntimeSettingsActions;
   threadStart: ThreadStartActions;
   goals: ChatPanelGoalActions;
   autoTitleCoordinator: AutoTitleCoordinator;
