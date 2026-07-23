@@ -18,7 +18,7 @@ vi.mock("obsidian", async (importOriginal) => {
   };
 });
 
-const { createWebContextReader } = await import("../../../../src/features/chat/host/obsidian/web-context.obsidian");
+const { readWebUrl } = await import("../../../../src/features/chat/host/obsidian/web-context.obsidian");
 
 describe("web context parser integration", () => {
   it("extracts article HTML with the Defuddle core bundle before Markdown conversion", async () => {
@@ -41,10 +41,15 @@ describe("web context parser integration", () => {
     });
     mocks.htmlToMarkdown.mockReturnValue("## Parser contract heading\n\nReadable article");
 
-    const result = await createWebContextReader({
-      prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-      viewWindow: () => window,
-    }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot);
+    const result = await readWebUrl(
+      {
+        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+        viewWindow: () => window,
+      },
+      "https://example.com/article",
+      "",
+      {} as ComposerInputSnapshot,
+    );
 
     const extractedHtml = mocks.htmlToMarkdown.mock.calls[0]?.[0] as string;
     expect(extractedHtml).toContain("This readable paragraph exercises the real Defuddle core browser bundle.");

@@ -1,7 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { listModelMetadata } from "../../../../app-server/services/catalog";
 import { readRateLimitMetadataProbe } from "../../../../app-server/services/metadata-probes";
-import type { AppServerRequestClient } from "../../../../app-server/services/request-client";
 import { readToolInventory } from "../../../../app-server/services/tool-inventory";
 import type { DiagnosticProbeId, DiagnosticProbeResult } from "../../../../domain/server/diagnostics";
 import { diagnosticProbeError, diagnosticProbeOk } from "../../../../domain/server/diagnostics";
@@ -15,21 +14,7 @@ interface ChatAppServerMetadataTransportHost extends CurrentChatAppServerClientH
   vaultPath: string;
 }
 
-export interface ChatMetadataTransports {
-  readonly serverDiagnostics: ServerDiagnosticsTransport;
-}
-
-interface DiagnosticProbeSnapshot {
-  probe: DiagnosticProbeResult;
-}
-
-export function createChatMetadataTransports(host: ChatAppServerMetadataTransportHost): ChatMetadataTransports {
-  return {
-    serverDiagnostics: createChatServerDiagnosticsTransport(host),
-  };
-}
-
-function createChatServerDiagnosticsTransport(host: ChatAppServerMetadataTransportHost): ServerDiagnosticsTransport {
+export function createChatServerDiagnosticsTransport(host: ChatAppServerMetadataTransportHost): ServerDiagnosticsTransport {
   return {
     readServerDiagnostics: async (request): Promise<ServerDiagnosticsSnapshot | null> => {
       const client = host.currentClient();
@@ -40,7 +25,7 @@ function createChatServerDiagnosticsTransport(host: ChatAppServerMetadataTranspo
         ...(request.cachedSkills !== undefined ? { cachedSkills: request.cachedSkills } : {}),
         ...(request.cachedSkillsProbe !== undefined ? { cachedSkillsProbe: request.cachedSkillsProbe } : {}),
       });
-      const probes: Promise<DiagnosticProbeSnapshot>[] = [];
+      const probes: Promise<DiagnosticProbeResult>[] = [];
       if (request.forceResourceProbes && !request.appServerMetadataSnapshot) {
         probes.push(
           probeDiagnostic(
@@ -48,36 +33,29 @@ function createChatServerDiagnosticsTransport(host: ChatAppServerMetadataTranspo
             () => listModelMetadata(client),
             (models) => `${String(models.length)} models`,
           ),
-          readRateLimitDiagnosticProbe(client),
+          readRateLimitMetadataProbe(client).then((result) => result.probe),
         );
       }
 
       const [resourceProbes, toolInventoryResult] = await Promise.all([Promise.all(probes), toolInventory]);
       if (host.currentClient() !== client) return null;
       return {
-        resourceProbes: resourceProbes.map((result) => result.probe),
+        resourceProbes,
         toolInventory: toolInventoryResult,
       };
     },
   };
 }
 
-async function readRateLimitDiagnosticProbe(client: AppServerRequestClient): Promise<DiagnosticProbeSnapshot> {
-  const result = await readRateLimitMetadataProbe(client);
-  return { probe: result.probe };
-}
-
 async function probeDiagnostic<T>(
   id: DiagnosticProbeId,
   request: () => Promise<T>,
   summarize: (response: T) => string | null,
-): Promise<DiagnosticProbeSnapshot> {
+): Promise<DiagnosticProbeResult> {
   try {
     const response = await request();
-    return {
-      probe: diagnosticProbeOk(id, summarize(response), Date.now()),
-    };
+    return diagnosticProbeOk(id, summarize(response), Date.now());
   } catch (error) {
-    return { probe: diagnosticProbeError(id, error, Date.now()) };
+    return diagnosticProbeError(id, error, Date.now());
   }
 }

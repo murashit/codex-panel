@@ -39,7 +39,7 @@ describe("thread reference resolver", () => {
       setStatus,
     });
 
-    const result = await resolver.referThread(
+    const result = await resolver(
       {
         id: "019abcde-0000-7000-8000-000000000001",
         preview: "",

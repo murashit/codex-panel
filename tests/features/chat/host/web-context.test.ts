@@ -25,7 +25,7 @@ vi.mock("defuddle", () => ({
   }),
 }));
 
-const { createWebContextReader } = await import("../../../../src/features/chat/host/obsidian/web-context.obsidian");
+const { readWebUrl } = await import("../../../../src/features/chat/host/obsidian/web-context.obsidian");
 
 describe("web context reader", () => {
   beforeEach(() => {
@@ -51,10 +51,15 @@ describe("web context reader", () => {
       input: messageInput,
     }));
 
-    const result = await createWebContextReader({
-      prepareInput,
-      viewWindow: fakeDomWindow,
-    }).readUrl("https://example.com/article", "  Summarize [[Alpha]] [[Files/Sketch.png]]  ", inputSnapshot);
+    const result = await readWebUrl(
+      {
+        prepareInput,
+        viewWindow: fakeDomWindow,
+      },
+      "https://example.com/article",
+      "  Summarize [[Alpha]] [[Files/Sketch.png]]  ",
+      inputSnapshot,
+    );
 
     expect(mocks.requestUrl).toHaveBeenCalledWith({ url: "https://example.com/article", method: "GET", throw: false });
     expect(mocks.htmlToMarkdown).toHaveBeenCalledWith("<article>Readable article</article>");
@@ -81,10 +86,15 @@ describe("web context reader", () => {
     mocks.requestUrl.mockResolvedValue({ status, text: "Error" });
 
     await expect(
-      createWebContextReader({
-        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: fakeDomWindow,
-      }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot),
+      readWebUrl(
+        {
+          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          viewWindow: fakeDomWindow,
+        },
+        "https://example.com/article",
+        "",
+        {} as ComposerInputSnapshot,
+      ),
     ).rejects.toThrow(`Web request failed for https://example.com/article (HTTP ${status}).`);
 
     expect(mocks.defuddleParse).not.toHaveBeenCalled();
@@ -94,19 +104,29 @@ describe("web context reader", () => {
     mocks.htmlToMarkdown.mockReturnValue("  \n");
 
     await expect(
-      createWebContextReader({
-        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: fakeDomWindow,
-      }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot),
+      readWebUrl(
+        {
+          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          viewWindow: fakeDomWindow,
+        },
+        "https://example.com/article",
+        "",
+        {} as ComposerInputSnapshot,
+      ),
     ).rejects.toThrow("No readable web content found for https://example.com/article");
   });
 
   it("rejects non-HTTP URLs before fetching", async () => {
     await expect(
-      createWebContextReader({
-        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: fakeDomWindow,
-      }).readUrl("file:///tmp/article.html", "", {} as ComposerInputSnapshot),
+      readWebUrl(
+        {
+          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          viewWindow: fakeDomWindow,
+        },
+        "file:///tmp/article.html",
+        "",
+        {} as ComposerInputSnapshot,
+      ),
     ).rejects.toThrow("Unsupported web URL: file:///tmp/article.html");
 
     expect(mocks.requestUrl).not.toHaveBeenCalled();
@@ -114,10 +134,15 @@ describe("web context reader", () => {
 
   it("rejects URLs containing credentials before fetching", async () => {
     await expect(
-      createWebContextReader({
-        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: fakeDomWindow,
-      }).readUrl("https://user:secret@example.com/article", "", {} as ComposerInputSnapshot),
+      readWebUrl(
+        {
+          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          viewWindow: fakeDomWindow,
+        },
+        "https://user:secret@example.com/article",
+        "",
+        {} as ComposerInputSnapshot,
+      ),
     ).rejects.toThrow("Unsupported web URL: https://user:secret@example.com/article");
 
     expect(mocks.requestUrl).not.toHaveBeenCalled();
@@ -127,11 +152,16 @@ describe("web context reader", () => {
     const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
 
     await expect(
-      createWebContextReader({
-        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: fakeDomWindow,
-        isCurrent,
-      }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot),
+      readWebUrl(
+        {
+          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          viewWindow: fakeDomWindow,
+          isCurrent,
+        },
+        "https://example.com/article",
+        "",
+        {} as ComposerInputSnapshot,
+      ),
     ).rejects.toThrow("Web import cancelled.");
 
     expect(mocks.defuddleParse).not.toHaveBeenCalled();
@@ -143,11 +173,7 @@ describe("web context reader", () => {
     const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(true).mockReturnValue(false);
 
     await expect(
-      createWebContextReader({ prepareInput, viewWindow: fakeDomWindow, isCurrent }).readUrl(
-        "https://example.com/article",
-        "",
-        {} as ComposerInputSnapshot,
-      ),
+      readWebUrl({ prepareInput, viewWindow: fakeDomWindow, isCurrent }, "https://example.com/article", "", {} as ComposerInputSnapshot),
     ).rejects.toThrow("Web import cancelled.");
 
     expect(mocks.htmlToMarkdown).toHaveBeenCalledOnce();
@@ -159,11 +185,16 @@ describe("web context reader", () => {
     try {
       const response = deferred<never>();
       mocks.requestUrl.mockReturnValue(response.promise);
-      const reading = createWebContextReader({
-        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: fakeDomWindow,
-        requestTimeoutMs: 10,
-      }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot);
+      const reading = readWebUrl(
+        {
+          prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+          viewWindow: fakeDomWindow,
+          requestTimeoutMs: 10,
+        },
+        "https://example.com/article",
+        "",
+        {} as ComposerInputSnapshot,
+      );
       const rejected = expect(reading).rejects.toThrow("Web request timed out for https://example.com/article.");
 
       await vi.advanceTimersByTimeAsync(10);

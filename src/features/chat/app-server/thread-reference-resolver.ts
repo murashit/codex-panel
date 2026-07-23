@@ -15,14 +15,14 @@ interface ThreadReferenceResolverHost {
   setStatus(status: string): void;
 }
 
-export interface ThreadReferenceResolver {
-  referThread(thread: Thread, message: string, snapshot: ComposerInputSnapshot): Promise<ThreadReferenceInput | null>;
-}
+export type ThreadReferenceResolver = (
+  thread: Thread,
+  message: string,
+  snapshot: ComposerInputSnapshot,
+) => Promise<ThreadReferenceInput | null>;
 
 export function createThreadReferenceResolver(host: ThreadReferenceResolverHost): ThreadReferenceResolver {
-  return {
-    referThread: (thread, message, snapshot) => referencedThreadInput(host, thread, message, snapshot),
-  };
+  return (thread, message, snapshot) => referencedThreadInput(host, thread, message, snapshot);
 }
 
 async function referencedThreadInput(

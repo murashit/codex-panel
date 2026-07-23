@@ -2,8 +2,9 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "../../../app-server/connection/client-access";
 import type { CodexInput } from "../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
+import type { ServerDiagnosticsTransport } from "../application/connection/metadata-transport";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
-import { type ChatMetadataTransports, createChatMetadataTransports } from "./transports/metadata-transports";
+import { createChatServerDiagnosticsTransport } from "./transports/metadata-transports";
 import {
   type ChatConnectedSessionTransports,
   type ChatCurrentSessionTransports,
@@ -29,8 +30,9 @@ interface ChatThreadReferenceResolverOptions {
   setStatus(status: string): void;
 }
 
-export interface ChatCurrentAppServerGateway extends ChatCurrentSessionTransports, ChatMetadataTransports {
+export interface ChatCurrentAppServerGateway extends ChatCurrentSessionTransports {
   clientAccess: AppServerClientAccess;
+  serverDiagnostics: ServerDiagnosticsTransport;
   connectionAvailable(): boolean;
   readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string | null>;
   threadReferences(options: ChatThreadReferenceResolverOptions): ThreadReferenceResolver;
@@ -42,19 +44,13 @@ export function createChatCurrentAppServerGateway(host: ChatCurrentAppServerGate
   return {
     clientAccess: createCurrentClientAccess(host),
     ...createChatCurrentSessionTransports(host),
-    ...createChatMetadataTransports(host),
+    serverDiagnostics: createChatServerDiagnosticsTransport(host),
     connectionAvailable: () => host.currentClient() !== null,
     readFileBase64: (path, options) => readCurrentClientFileBase64(host, path, options),
     threadReferences: (options) =>
       createThreadReferenceResolver({
         currentClient: () => host.currentClient(),
-        prepareInput: (text, snapshot) => options.prepareInput(text, snapshot),
-        addSystemMessage: (text) => {
-          options.addSystemMessage(text);
-        },
-        setStatus: (status) => {
-          options.setStatus(status);
-        },
+        ...options,
       }),
   };
 }

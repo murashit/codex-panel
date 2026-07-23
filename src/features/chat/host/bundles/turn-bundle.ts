@@ -11,7 +11,7 @@ import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items
 import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
 import type { ChatPanelEnvironment } from "../contracts";
-import { createWebContextReader } from "../obsidian/web-context.obsidian";
+import { readWebUrl } from "../obsidian/web-context.obsidian";
 import type {
   ChatPanelGoalActions,
   ChatPanelThreadActions,
@@ -84,7 +84,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       composerController.focusComposer();
     },
   });
-  const threadReferenceResolver = appServer.threadReferences({
+  const referThread = appServer.threadReferences({
     prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
@@ -95,13 +95,18 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       localItemIds,
       connectionAvailable: () => appServer.connectionAvailable(),
       turnTransport: appServer.turn,
-      referThread: (thread, message, snapshot) => threadReferenceResolver.referThread(thread, message, snapshot),
+      referThread,
       readWebUrl: (url, message, snapshot, isCurrent) =>
-        createWebContextReader({
-          prepareInput: (text, inputSnapshot) => composerController.preparedInput(text, inputSnapshot),
-          viewWindow: host.environment.view.viewWindow,
-          ...(isCurrent ? { isCurrent } : {}),
-        }).readUrl(url, message, snapshot),
+        readWebUrl(
+          {
+            prepareInput: (text, inputSnapshot) => composerController.preparedInput(text, inputSnapshot),
+            viewWindow: host.environment.view.viewWindow,
+            ...(isCurrent ? { isCurrent } : {}),
+          },
+          url,
+          message,
+          snapshot,
+        ),
       status,
       runtime: {
         connectionDiagnosticDetails: runtimeProjection.connectionDiagnosticDetails,

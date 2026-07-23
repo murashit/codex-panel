@@ -31,10 +31,39 @@ describe("createTurnBundle", () => {
     expect(fixture.refreshDiagnostics).toHaveBeenCalledOnce();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
   });
+
+  it("passes the callable thread reference port through the bundle", async () => {
+    const stateStore = createChatStateStore();
+    const thread = {
+      id: "thread-1",
+      preview: "Other",
+      name: "Other",
+      createdAt: 1,
+      updatedAt: 1,
+      archived: false,
+      canAcceptDirectInput: null,
+      provenance: { kind: "interactive" as const },
+    };
+    stateStore.dispatch({ type: "thread-list/applied", threads: [thread] });
+    const referThread = vi.fn().mockResolvedValue(null);
+    const fixture = turnBundleFixture({
+      stateStore,
+      draft: "/refer Other summarize",
+      referThread,
+    });
+
+    await fixture.bundle.turnActions.composerSubmit.submit();
+
+    expect(referThread).toHaveBeenCalledWith(thread, "summarize", { sourcePath: "snapshot.md" });
+  });
 });
 
-function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatStateStore> } = {}) {
+function turnBundleFixture(
+  options: { stateStore?: ReturnType<typeof createChatStateStore>; draft?: string; referThread?: ReturnType<typeof vi.fn> } = {},
+) {
   const stateStore = options.stateStore ?? createChatStateStore();
+  const draft = options.draft ?? "/tools";
+  const referThread = options.referThread ?? vi.fn();
   const status = {
     set: vi.fn(),
     addSystemMessage: vi.fn(),
@@ -60,7 +89,7 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
       localItemIds: { next: vi.fn(() => "local-id") },
       appServer: {
         connectionAvailable: vi.fn(() => true),
-        threadReferences: vi.fn(() => ({ referThread: vi.fn() })),
+        threadReferences: vi.fn(() => referThread),
         turn: { ensureConnected: vi.fn().mockResolvedValue(true) },
       },
       status,
@@ -76,10 +105,10 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
       },
       composerController: {
         get draft() {
-          return "/tools";
+          return draft;
         },
         get trimmedDraft() {
-          return "/tools";
+          return draft;
         },
         setDraft: vi.fn(),
         preparedInput: vi.fn(),

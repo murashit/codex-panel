@@ -21,14 +21,7 @@ interface WebContextReaderOptions {
 
 type DomParserWindow = Window & { DOMParser: typeof DOMParser };
 
-export function createWebContextReader(options: WebContextReaderOptions) {
-  return {
-    readUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot): Promise<WebUrlInput> =>
-      readUrlToInput(options, url, message, inputSnapshot),
-  };
-}
-
-async function readUrlToInput(
+export async function readWebUrl(
   options: WebContextReaderOptions,
   url: string,
   message: string,

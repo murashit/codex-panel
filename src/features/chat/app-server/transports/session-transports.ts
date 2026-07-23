@@ -54,32 +54,18 @@ interface AppServerThreadTurnsPage {
   readonly nextCursor: string | null;
 }
 
-export interface ChatCurrentSessionTransports {
-  readonly runtimeSettings: RuntimeSettingsTransport;
-  readonly threadStart: ThreadStartTransport;
-  readonly threadHistory: ThreadHistoryTransport;
-  readonly threadGoalRead: ThreadGoalReadTransport;
-}
-
-export interface ChatConnectedSessionTransports {
-  readonly turn: ChatTurnTransport;
-  readonly threadResume: ThreadResumeTransport;
-  readonly threadMutation: ThreadMutationTransport;
-  readonly threadEphemeral: EphemeralThreadTransport;
-  readonly threadSubscription: ThreadSubscriptionTransport;
-  readonly threadGoal: ThreadGoalTransport;
-}
-
-export function createChatCurrentSessionTransports(host: ChatCurrentAppServerTransportHost): ChatCurrentSessionTransports {
+export function createChatCurrentSessionTransports(host: ChatCurrentAppServerTransportHost) {
   return {
     runtimeSettings: createChatRuntimeSettingsTransport(host),
     threadStart: createChatThreadStartTransport(host),
     threadHistory: createChatThreadHistoryTransport(host),
     threadGoalRead: createChatThreadGoalReadTransport(host),
-  };
+  } as const;
 }
 
-export function createChatConnectedSessionTransports(host: ChatAppServerTransportHost): ChatConnectedSessionTransports {
+export type ChatCurrentSessionTransports = ReturnType<typeof createChatCurrentSessionTransports>;
+
+export function createChatConnectedSessionTransports(host: ChatAppServerTransportHost) {
   return {
     turn: createChatTurnTransport(host),
     threadResume: createChatThreadResumeTransport(host),
@@ -87,8 +73,10 @@ export function createChatConnectedSessionTransports(host: ChatAppServerTranspor
     threadEphemeral: createChatEphemeralThreadTransport(host),
     threadSubscription: createChatThreadSubscriptionTransport(host),
     threadGoal: createChatThreadGoalTransport(host),
-  };
+  } as const;
 }
+
+export type ChatConnectedSessionTransports = ReturnType<typeof createChatConnectedSessionTransports>;
 
 function createChatThreadStartTransport(host: ChatCurrentAppServerTransportHost): ThreadStartTransport {
   return {
