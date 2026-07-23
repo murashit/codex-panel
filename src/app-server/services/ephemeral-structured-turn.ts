@@ -1,4 +1,3 @@
-import { listenAbortSignal } from "../../shared/runtime/abort-signal";
 import { AppServerClient, type AppServerClientHandlers } from "../connection/client";
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import { codexPanelAppServerInitializeParams } from "../connection/client-profile";
@@ -312,9 +311,9 @@ function rejectOnAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined, 
     const onAbort = (): void => {
       reject(abortError());
     };
-    const disposeAbortListener = listenAbortSignal(signal, onAbort);
+    signal.addEventListener("abort", onAbort, { once: true });
     promise.then(resolve, reject).finally(() => {
-      disposeAbortListener();
+      signal.removeEventListener("abort", onAbort);
     });
   });
 }
