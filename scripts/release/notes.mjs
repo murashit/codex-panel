@@ -60,7 +60,7 @@ export function generateReleaseNotes(tag, cwd = process.cwd()) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const previousTag = process.argv[2];
   if (!previousTag) {
-    console.error("usage: npm run release:notes -- X.Y.Z");
+    console.error("usage: npm run release:notes -- <previous-tag>");
     process.exit(1);
   }
 

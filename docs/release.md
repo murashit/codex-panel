@@ -6,11 +6,21 @@ Release work is Jujutsu-first in a colocated Git repository; Git is still used t
 
 Plugin versions are for Obsidian distribution, not a library API compatibility contract. Use patch releases for workflow-preserving changes, minor releases for visible capabilities or raised runtime baselines, and major releases for disruptive workflow, settings, storage, or support-policy changes.
 
-Create a release by preparing the next version, reviewing and editing the generated release notes, committing the release changes, then running the preflight before pushing the matching tag:
+Analyze the release before choosing its version or changing version files:
+
+```sh
+npm run release:notes -- <previous-tag>
+jj log -r '<previous-tag>..main'
+jj diff --from <previous-tag> --to main
+```
+
+`release:notes` produces a non-mutating candidate draft from selected Conventional Commits; it is neither exhaustive nor authoritative. Compare the full range with the previous release, confirm the actual user-facing changes, and scan omitted commits for changes that affect versioning or release notes. Choose the version using the policy above, group related commits by behavior, and draft concise public-facing notes.
+
+After choosing the version, prepare it, replace the generated draft with the reviewed notes, commit the release changes, and run the preflight before pushing the matching tag:
 
 ```sh
 npm run release:prepare -- X.Y.Z
-# Review and edit .github/release-notes/X.Y.Z.md.
+# Replace .github/release-notes/X.Y.Z.md with the reviewed release notes.
 jj status
 jj commit -m "chore(release): X.Y.Z"
 jj bookmark move main --to @-
@@ -20,10 +30,8 @@ jj git push --remote origin --bookmark main
 git push origin X.Y.Z
 ```
 
-`release:prepare` updates version files and drafts `## Changes` from selected Conventional Commits since the previous version. Use those commits to locate candidate changes, then compare the resulting user-visible behavior with the previous release before choosing the version. Review the draft against the full diff for complete, user-facing notes; consolidate and reorder entries as needed, and replace an empty placeholder.
+`release:prepare` updates version files and writes a replaceable `## Changes` draft from the same Conventional Commit candidates. It validates only that the requested version is the next patch, minor, or major version; it does not decide which increment is appropriate.
 
 Run `release:preflight` after the release commit is on `main`; it validates the commit range and release readiness.
-
-Release notes should normally include only user-facing changes. Internal implementation changes, validation details, and release procedure notes should be omitted when minor; when they are important enough to mention, group them into at most one concise bullet.
 
 The release notes file must contain a single `## Changes` section. The tag-triggered workflow validates and publishes the install assets. If it fails before creating the GitHub Release, fix the commit, move the local tag with `jj tag set --allow-move -r main X.Y.Z`, then update the remote tag with `git push --force origin X.Y.Z`.
