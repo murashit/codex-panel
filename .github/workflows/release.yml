@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -53,6 +55,21 @@ jobs:
 
       - name: Run checks and build
         run: npm run check
+
+      - name: Generate main.js artifact attestation
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
+        with:
+          subject-path: main.js
+
+      - name: Generate manifest.json artifact attestation
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
+        with:
+          subject-path: manifest.json
+
+      - name: Generate styles.css artifact attestation
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
+        with:
+          subject-path: styles.css
 
       - name: Create GitHub release
         env:
