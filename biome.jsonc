@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.4/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -134,10 +134,10 @@
       "includes": ["**/src/features/chat/ui/**/*.{ts,tsx}"]
     },
 
-    // Chat state and runtime ownership.
+    // Direct ambient effects in state, fact, and projection modules.
     {
-      "path": "./scripts/grit/runtime/no-state-module-side-effects.grit",
-      "includes": ["**/src/features/chat/application/state/**/*.ts"]
+      "path": "./scripts/grit/runtime/no-direct-ambient-effects.grit",
+      "includes": ["**/src/features/chat/application/state/**/*.ts", "**/src/**/*-facts.ts", "**/src/**/*-projection.{ts,tsx}"]
     },
 
     // DOM bridge and Preact root boundaries.

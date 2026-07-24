@@ -48,6 +48,7 @@ or {
   `$target.activeElement` as $stmt,
   `$target.ownerDocument` as $stmt,
   `$target.defaultView` as $stmt,
+  `$target.style.$property = $value` as $stmt,
   `$target.style.$property` as $stmt
 } where {
   not { $stmt <: `$target.addEventListener("abort", $...)` },

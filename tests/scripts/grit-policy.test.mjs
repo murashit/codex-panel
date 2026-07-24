@@ -156,16 +156,80 @@ const policyCases = [
     'import type { View } from "../presentation/thread-stream/view-model";',
   ),
   policyCase(
-    "no-state-module-side-effects.grit",
+    "no-direct-ambient-effects.grit",
     "src/features/chat/application/state/escape.ts",
     "export const now = Date.now();",
     "export const now = 1;",
+    {
+      invalid: [
+        {
+          path: "src/features/threads/workflows/thread-facts.ts",
+          source: "export const generated = Math.random();",
+        },
+        {
+          path: "src/features/threads/workflows/thread-projection.ts",
+          source: "export const scheduled = setTimeout(() => undefined, 0);",
+        },
+        {
+          path: "src/features/chat/application/state/client.ts",
+          source: "export const client = new AppServerClient();",
+        },
+        {
+          path: "src/features/chat/application/state/notice.ts",
+          source: 'export const notice = new Notice("Saved");',
+        },
+        {
+          path: "src/features/chat/application/state/frame.ts",
+          source: "export const frame = requestAnimationFrame(() => undefined);",
+        },
+        {
+          path: "src/features/chat/application/state/document.ts",
+          source: "export const body = document.body;",
+        },
+        {
+          path: "src/features/chat/application/state/storage.ts",
+          source: 'export const value = localStorage.getItem("value");',
+        },
+      ],
+      valid: [
+        {
+          path: "src/features/threads/workflows/thread-facts.ts",
+          source: 'export const fact = { type: "thread-started" };',
+        },
+        {
+          path: "src/features/threads/workflows/thread-projection.ts",
+          source: "export const projected = 1;",
+        },
+      ],
+    },
   ),
   policyCase(
     "no-implicit-dom-bridges.grit",
     "src/features/chat/ui/escape.ts",
     'export const element = document.createElement("div");',
     "export const value = 1;",
+    {
+      invalid: [
+        {
+          path: "src/features/chat/ui/query.ts",
+          source: 'export const child = element.querySelector(".child");',
+        },
+        {
+          path: "src/features/chat/ui/measurement.ts",
+          source: "export const height = element.scrollHeight;",
+        },
+        {
+          path: "src/features/chat/ui/style.ts",
+          source: 'element.style.display = "none";',
+        },
+      ],
+      valid: [
+        {
+          path: "src/features/chat/ui/abort.ts",
+          source: 'signal.addEventListener("abort", handleAbort); signal.removeEventListener("abort", handleAbort);',
+        },
+      ],
+    },
   ),
   policyCase(
     "no-dom-events-imports.grit",
@@ -181,12 +245,26 @@ const policyCases = [
   ),
   policyCase("no-restricted-css-policy.grit", "src/styles/escape.css", ".escape { color: #fff; }", ".safe { color: var(--text-normal); }", {
     invalid: [
+      { path: "src/styles/color-function.css", source: ".panel { color: rgb(1 2 3); }" },
+      { path: "src/styles/token-definition.css", source: ":root { --codex-panel-text-color: #fff; }" },
+      { path: "src/styles/font-size.css", source: ".panel { font-size: 12px; }" },
+      { path: "src/styles/font-weight.css", source: ".panel { font-weight: 600; }" },
+      { path: "src/styles/line-height.css", source: ".panel { line-height: 1.5; }" },
+      { path: "src/styles/layout.css", source: ".panel { gap: 8px; }" },
       { path: "src/styles/has.css", source: ".panel:has(.child) { color: var(--text-normal); }" },
       { path: "src/styles/where.css", source: ".panel:where(.child) { color: var(--text-normal); }" },
       { path: "src/styles/id.css", source: "#panel { color: var(--text-normal); }" },
       { path: "src/styles/universal.css", source: ".panel * { color: var(--text-normal); }" },
+      { path: "src/styles/keyframes.css", source: "@keyframes pulse { from { opacity: 0; } to { opacity: 1; } }" },
     ],
-    valid: [{ path: "src/styles/shallow.css", source: ".panel .child:hover { color: var(--text-normal); }" }],
+    valid: [
+      { path: "src/styles/shallow.css", source: ".panel .child:hover { color: var(--text-normal); }" },
+      {
+        path: "src/styles/tokens.css",
+        source:
+          ":root { --codex-panel-text-color: var(--text-normal); } @keyframes codex-panel-pulse { from { opacity: 0; } to { opacity: 1; } }",
+      },
+    ],
   }),
 ];
 
@@ -254,7 +332,7 @@ async function projectPlugins() {
 
 async function writePluginConfig(workspace, plugin) {
   const config = {
-    $schema: "https://biomejs.dev/schemas/2.5.1/schema.json",
+    $schema: "https://biomejs.dev/schemas/2.5.4/schema.json",
     vcs: { enabled: false },
     plugins: [typeof plugin === "string" ? path.resolve(repoRoot, plugin) : { ...plugin, path: path.resolve(repoRoot, plugin.path) }],
   };

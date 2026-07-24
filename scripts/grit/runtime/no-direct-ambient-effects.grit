@@ -14,5 +14,5 @@ or {
   `localStorage.$property` as $stmt,
   `sessionStorage.$property` as $stmt
 } where {
-  register_diagnostic(span=$stmt, message="Keep this state module deterministic and free of app-server, Obsidian, scheduling, and browser side effects.", severity="error")
+  register_diagnostic(span=$stmt, message="Keep direct ambient time, randomness, resource construction, scheduling, and browser globals out of state, fact, and projection modules.", severity="error")
 }
