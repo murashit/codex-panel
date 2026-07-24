@@ -15,28 +15,28 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("chatReducer", () => {
-  it.each([
-    "connection/scoped-cleared",
-    "connection/context-replaced",
-  ] as const)("restores cancellable web drafts when %s clears their context", (type) => {
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-    if (!pending) throw new Error("Expected pending web submission");
-    const state = chatReducer(chatReducer(chatStateFixture(), { type: "composer/draft-set", draft: "" }), {
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: null,
-        originalDraft: "  /web https://example.com summarize  ",
-        phase: "cancellable",
-      },
-    } as never);
+  it.each(["connection/scoped-cleared", "connection/context-replaced"] as const)(
+    "restores cancellable web drafts when %s clears their context",
+    (type) => {
+      const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+      if (!pending) throw new Error("Expected pending web submission");
+      const state = chatReducer(chatReducer(chatStateFixture(), { type: "composer/draft-set", draft: "" }), {
+        type: "web-submission/pending",
+        submission: {
+          id: pending.id,
+          item: pending,
+          targetThreadId: null,
+          originalDraft: "  /web https://example.com summarize  ",
+          phase: "cancellable",
+        },
+      } as never);
 
-    const cleared = chatReducer(state, { type });
+      const cleared = chatReducer(state, { type });
 
-    expect(cleared.pendingSubmission).toBeNull();
-    expect(cleared.composer.draft).toBe("  /web https://example.com summarize  ");
-  });
+      expect(cleared.pendingSubmission).toBeNull();
+      expect(cleared.composer.draft).toBe("  /web https://example.com summarize  ");
+    },
+  );
 
   it("does not restore committed web drafts when their connection context is replaced", () => {
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");

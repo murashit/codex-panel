@@ -10,15 +10,12 @@ describe("Codex thread deep links", () => {
     expect(codexThreadIdFromHref(codexThreadHref(threadId))).toBe(threadId);
   });
 
-  it.each([
-    "https://example.com",
-    "codex://settings",
-    "codex://threads/",
-    "codex://threads/a/b",
-    "codex://threads/a?view=1",
-  ])("rejects a non-thread or decorated href: %s", (href) => {
-    expect(codexThreadIdFromHref(href)).toBeNull();
-  });
+  it.each(["https://example.com", "codex://settings", "codex://threads/", "codex://threads/a/b", "codex://threads/a?view=1"])(
+    "rejects a non-thread or decorated href: %s",
+    (href) => {
+      expect(codexThreadIdFromHref(href)).toBeNull();
+    },
+  );
 
   it("writes a bounded, escaped title as an ordinary Markdown link", () => {
     const title = `[Plan] ${"long ".repeat(30)}`;

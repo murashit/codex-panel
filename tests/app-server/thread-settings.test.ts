@@ -57,17 +57,12 @@ describe("app-server thread settings", () => {
     expect(appServerRuntimeSettingsPatch({ permissions: ":workspace" })).toEqual({ permissions: ":workspace" });
   });
 
-  it.each([
-    "fast",
-    "standard",
-    "priority",
-    "default",
-    "flex",
-    "auto",
-    "catalog-tier",
-  ])("accepts non-empty service tier id %s from config and app-server reports", (serviceTier) => {
-    expect(parseServiceTier(serviceTier)).toBe(serviceTier);
-  });
+  it.each(["fast", "standard", "priority", "default", "flex", "auto", "catalog-tier"])(
+    "accepts non-empty service tier id %s from config and app-server reports",
+    (serviceTier) => {
+      expect(parseServiceTier(serviceTier)).toBe(serviceTier);
+    },
+  );
 
   it.each(["", null])("ignores absent service tier value %s", (serviceTier) => {
     expect(parseServiceTier(serviceTier)).toBeNull();

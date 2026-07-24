@@ -223,15 +223,14 @@ describe("selection rewrite app-server transport", () => {
     );
   });
 
-  it.each([
-    "invalid raw output",
-    '{"replacementText":42}',
-    '{"text":"rewritten"}',
-  ])("reports invalid structured output with the raw assistant text: %s", async (rawText) => {
-    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([agentMessage("answer", rawText)]));
+  it.each(["invalid raw output", '{"replacementText":42}', '{"text":"rewritten"}'])(
+    "reports invalid structured output with the raw assistant text: %s",
+    async (rawText) => {
+      const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([agentMessage("answer", rawText)]));
 
-    await expect(runSelectionRewrite(runOptions(runner))).rejects.toMatchObject({ rawText });
-  });
+      await expect(runSelectionRewrite(runOptions(runner))).rejects.toMatchObject({ rawText });
+    },
+  );
 });
 
 describe("selection rewrite popover", () => {

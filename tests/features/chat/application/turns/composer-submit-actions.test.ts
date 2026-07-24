@@ -368,29 +368,29 @@ describe("submitComposer", () => {
     expect(stateStore.getState().pendingSubmission).toBeNull();
   });
 
-  it.each([
-    "connection/scoped-cleared",
-    "connection/context-replaced",
-  ] as const)("recovers the web draft and ignores late fetch success after %s", async (type) => {
-    const { host, execute, sendTurnText, setDraft, stateStore } = createHost("  /web https://example.com summarize  ");
-    const fetch = deferred<{ sendText: string }>();
-    execute.mockImplementation(() => fetch.promise);
+  it.each(["connection/scoped-cleared", "connection/context-replaced"] as const)(
+    "recovers the web draft and ignores late fetch success after %s",
+    async (type) => {
+      const { host, execute, sendTurnText, setDraft, stateStore } = createHost("  /web https://example.com summarize  ");
+      const fetch = deferred<{ sendText: string }>();
+      execute.mockImplementation(() => fetch.promise);
 
-    const submitting = submitComposer(host);
-    await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
-    stateStore.dispatch({ type });
+      const submitting = submitComposer(host);
+      await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
+      stateStore.dispatch({ type });
 
-    expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(stateStore.getState().composer.draft).toBe("  /web https://example.com summarize  ");
+      expect(stateStore.getState().pendingSubmission).toBeNull();
+      expect(stateStore.getState().composer.draft).toBe("  /web https://example.com summarize  ");
 
-    fetch.resolve({ sendText: "https://example.com/ summarize" });
-    await submitting;
+      fetch.resolve({ sendText: "https://example.com/ summarize" });
+      await submitting;
 
-    expect(sendTurnText).not.toHaveBeenCalled();
-    expect(setDraft.mock.calls).toEqual([["", { clearSuggestions: true, preserveContext: true }]]);
-    expect(stateStore.getState().composer.draft).toBe("  /web https://example.com summarize  ");
-    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
-  });
+      expect(sendTurnText).not.toHaveBeenCalled();
+      expect(setDraft.mock.calls).toEqual([["", { clearSuggestions: true, preserveContext: true }]]);
+      expect(stateStore.getState().composer.draft).toBe("  /web https://example.com summarize  ");
+      expect(host.status.addSystemMessage).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not execute connection-dependent slash commands when connection fails", async () => {
     const { host, ensureConnected, execute, setDraft } = createHost("/clear");
