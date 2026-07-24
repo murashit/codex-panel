@@ -278,43 +278,27 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
   });
 
-  it("refreshes thread lists through the plugin coordinator", async () => {
-    const threads = [{ id: "thread", preview: "Thread preview", name: null, archived: false, createdAt: 1, updatedAt: 1 }];
-    const refresh = vi.fn().mockResolvedValue(threads);
-    connectionMock.state.client = clientFixture({
-      "thread/list": vi.fn(),
-    });
-    const host = threadsHost({
-      threadCatalog: {
-        refreshActiveThreads: refresh,
-      },
-    });
-    const view = await threadsView(host);
-
-    await view.refresh();
-
-    expect(refresh).toHaveBeenCalledOnce();
-    expect(view.containerEl.textContent).toContain("Thread preview");
-  });
-
   it("renders cached thread lists before refreshing", async () => {
-    connectionMock.state.client = clientFixture({
-      "thread/list": vi.fn(
-        () =>
-          new Promise(() => {
-            // Keep the app-server refresh pending so the cached snapshot remains visible for this assertion.
-          }),
-      ),
-    });
+    const refresh = vi.fn(
+      () =>
+        new Promise<readonly Thread[]>(() => {
+          // Keep the app-server refresh pending so the cached snapshot remains visible for this assertion.
+        }),
+    );
+    const fetch = vi.fn().mockRejectedValue(new Error("Opening the view must force a refresh."));
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
           activeThreadsSnapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
+          fetchActiveThreads: fetch,
+          refreshActiveThreads: refresh,
         },
       }),
     );
 
     expect(view.containerEl.textContent).toContain("Cached thread");
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("keeps successful empty thread lists as last-known-good observed values", async () => {

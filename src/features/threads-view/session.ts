@@ -105,7 +105,7 @@ export class ThreadsViewSession {
       this.receiveObservedThreadsResult(result);
     });
     this.render();
-    void this.load();
+    void this.refresh();
   }
 
   close(): void {
@@ -124,10 +124,6 @@ export class ThreadsViewSession {
 
   async refresh(): Promise<void> {
     await this.requestThreads(() => this.host.threadCatalog.refreshActiveThreads());
-  }
-
-  private async load(): Promise<void> {
-    await this.requestThreads(() => this.host.threadCatalog.fetchActiveThreads());
   }
 
   private async requestThreads(request: () => Promise<readonly Thread[]>): Promise<void> {
