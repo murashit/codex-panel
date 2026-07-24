@@ -25,9 +25,12 @@ jobs:
         id: compatibility
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          FORCED_PUSH: ${{ github.event_name == 'push' && github.event.forced || false }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
-          if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+          if [[ "$FORCED_PUSH" == "true" ]]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
             .github/workflows/check.yml \
             README.md \
             manifest.json \
@@ -75,9 +78,8 @@ jobs:
       - name: Check pushed commit messages
         if: github.event_name == 'push'
         env:
-          BASE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
-        run: npm run commitlint -- --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+        run: npm run commitlint -- --from-last-tag --to "$HEAD_SHA" --verbose
 
       - name: Check release metadata
         run: npm run release:check
