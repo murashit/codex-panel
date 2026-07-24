@@ -27,19 +27,19 @@
     // Cross-cutting source-layer import boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-domain-outer-layer-imports.grit",
-      "includes": ["**/src/domain/**/*.ts", "**/src/features/chat/domain/**/*.ts"]
+      "includes": ["**/src/domain/**/*.{ts,tsx}", "**/src/features/chat/domain/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-lower-level-feature-imports.grit",
-      "includes": ["**/src/app-server/**/*.ts", "**/src/shared/**/*.{ts,tsx}"]
+      "includes": ["**/src/app-server/**/*.{ts,tsx}", "**/src/shared/**/*.{ts,tsx}"]
     },
 
     // App-server and generated protocol boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-app-server-connection-boundary-imports.grit",
       "includes": [
-        "**/src/app-server/protocol/**/*.ts",
-        "**/src/domain/**/*.ts",
+        "**/src/app-server/protocol/**/*.{ts,tsx}",
+        "**/src/domain/**/*.{ts,tsx}",
         "**/src/shared/**/*.{ts,tsx}",
         "**/src/features/selection-rewrite/**/*.{ts,tsx}",
         "!**/src/features/selection-rewrite/app-server-adapter.ts"
@@ -78,25 +78,25 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-workspace-chat-internal-imports.grit",
-      "includes": ["**/src/workspace/**/*.ts"]
+      "includes": ["**/src/workspace/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-thread-workflow-app-server-imports.grit",
-      "includes": ["**/src/features/threads/workflows/**/*.ts"]
+      "includes": ["**/src/features/threads/workflows/**/*.{ts,tsx}"]
     },
 
     // Chat feature layer boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-chat-application-outer-layer-imports.grit",
-      "includes": ["**/src/features/chat/application/**/*.ts"]
+      "includes": ["**/src/features/chat/application/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-app-server-outer-layer-imports.grit",
-      "includes": ["**/src/features/chat/app-server/**/*.ts"]
+      "includes": ["**/src/features/chat/app-server/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-host-rendering-layer-imports.grit",
-      "includes": ["**/src/features/chat/host/**/*.ts"]
+      "includes": ["**/src/features/chat/host/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-panel-runtime-boundary-imports.grit",
@@ -104,7 +104,7 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-presentation-outer-layer-imports.grit",
-      "includes": ["**/src/features/chat/presentation/**/*.ts"]
+      "includes": ["**/src/features/chat/presentation/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-ui-outer-layer-imports.grit",
@@ -114,11 +114,11 @@
     // Direct ambient effects in state, fact, and projection modules.
     {
       "path": "./scripts/grit/runtime/no-direct-ambient-effects.grit",
-      "includes": ["**/src/features/chat/application/state/**/*.ts", "**/src/**/*-facts.ts", "**/src/**/*-projection.{ts,tsx}"]
+      "includes": ["**/src/features/chat/application/state/**/*.{ts,tsx}", "**/src/**/*-facts.{ts,tsx}", "**/src/**/*-projection.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/runtime/no-direct-ambient-time.grit",
-      "includes": ["**/src/features/chat/application/state/**/*.ts", "**/src/**/*-facts.ts"]
+      "includes": ["**/src/features/chat/application/state/**/*.{ts,tsx}", "**/src/**/*-facts.{ts,tsx}"]
     },
 
     // DOM bridge and Preact root boundaries.

@@ -109,7 +109,7 @@ const policyCases = [
   ),
   policyCase(
     "no-chat-host-rendering-layer-imports.grit",
-    "src/features/chat/host/escape.ts",
+    "src/features/chat/host/escape.tsx",
     'import type { View } from "../presentation/thread-stream/view-model";',
     'import type { Store } from "../application/state/store";',
   ),
