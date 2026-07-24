@@ -15,7 +15,7 @@ export type ThreadStartOutcome =
   | { readonly kind: "created-activated"; readonly threadId: string }
   | { readonly kind: "created-not-activated"; readonly threadId: string };
 
-export interface ThreadStartActionsHost {
+export interface ThreadStartCommandHost {
   stateStore: ChatStateStore;
   threadStartPort: ThreadStartPort;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
@@ -23,18 +23,18 @@ export interface ThreadStartActionsHost {
   syncThreadGoal: (threadId: string) => void;
 }
 
-export interface ThreadStartActions {
+export interface ThreadStartCommand {
   startThread: (preview?: string, options?: { syncGoal?: boolean; preservePendingSubmissionId?: string }) => Promise<ThreadStartOutcome>;
 }
 
-export function createThreadStartActions(host: ThreadStartActionsHost): ThreadStartActions {
+export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadStartCommand {
   return {
     startThread: (preview, options) => startThread(host, preview, options),
   };
 }
 
 async function startThread(
-  host: ThreadStartActionsHost,
+  host: ThreadStartCommandHost,
   preview?: string,
   options: { syncGoal?: boolean; preservePendingSubmissionId?: string } = {},
 ): Promise<ThreadStartOutcome> {

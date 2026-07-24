@@ -3,32 +3,32 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { createThreadOperationsAdapter } from "../../../../src/features/threads/app-server/workflow-adapters";
+import { createThreadMutationAdapter } from "../../../../src/features/threads/app-server/workflow-adapters";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
 import {
   type ArchiveThreadResult,
-  createThreadOperations,
-  type ThreadOperationsHost,
-} from "../../../../src/features/threads/workflows/thread-operations";
+  createThreadMutationCommands,
+  type ThreadMutationCommandsHost,
+} from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import { deferred } from "../../../support/async";
 import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 
-describe("ThreadOperations", () => {
+describe("ThreadMutationCommands", () => {
   it("renames a thread and notifies shared surfaces after success", async () => {
-    const { operations, client, catalog } = operationsFixture();
+    const { mutations, client, catalog } = operationsFixture();
 
-    await expect(operations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
+    await expect(mutations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
 
     expect(client?.request).toHaveBeenCalledWith("thread/name/set", { threadId: "thread", name: "Saved title" });
     expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-renamed", threadId: "thread", name: "Saved title" });
   });
 
   it("can skip rename publication when the caller invalidates the save", async () => {
-    const { operations, catalog } = operationsFixture();
+    const { mutations, catalog } = operationsFixture();
 
-    await operations.renameThread("thread", "Generated title", { shouldPublish: () => false });
+    await mutations.renameThread("thread", "Generated title", { shouldPublish: () => false });
 
     expect(catalog.apply).not.toHaveBeenCalled();
   });
@@ -40,12 +40,12 @@ describe("ThreadOperations", () => {
       if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
       return generatedSave.promise;
     });
-    const { operations } = operationsFixture({ client });
+    const { mutations } = operationsFixture({ client });
 
-    const generated = operations.renameThread("thread", "Generated title");
+    const generated = mutations.renameThread("thread", "Generated title");
     await Promise.resolve();
-    const firstManual = operations.renameThread("thread", "First manual title");
-    const latestManual = operations.renameThread("thread", "Latest manual title");
+    const firstManual = mutations.renameThread("thread", "First manual title");
+    const latestManual = mutations.renameThread("thread", "Latest manual title");
     await Promise.resolve();
 
     expect(client.request).toHaveBeenCalledTimes(1);
@@ -58,9 +58,9 @@ describe("ThreadOperations", () => {
   });
 
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
-    const { operations, catalog, notice, client, archiveDestination } = operationsFixture();
+    const { mutations, catalog, notice, client, archiveDestination } = operationsFixture();
 
-    await expect(operations.archiveThread("thread", { saveMarkdown: true })).resolves.toEqual({
+    await expect(mutations.archiveThread("thread", { saveMarkdown: true })).resolves.toEqual({
       exportedPath: "Archive/Archived Thread abcdef12.md",
     });
 
@@ -141,9 +141,9 @@ describe("ThreadOperations", () => {
       updatedAt: 1,
       provenance: { kind: "interactive" },
     };
-    const { operations, archiveDestination } = operationsFixture({ client, referenceThreads: [reference] });
+    const { mutations, archiveDestination } = operationsFixture({ client, referenceThreads: [reference] });
 
-    await operations.archiveThread("thread", { saveMarkdown: true });
+    await mutations.archiveThread("thread", { saveMarkdown: true });
 
     expect(archiveDestination.createMarkdownFile).toHaveBeenCalledWith(
       expect.any(String),
@@ -152,9 +152,9 @@ describe("ThreadOperations", () => {
   });
 
   it("archives without reading transcript history when markdown export is disabled", async () => {
-    const { operations, client, archiveDestinationFactory, archiveExportSettings } = operationsFixture();
+    const { mutations, client, archiveDestinationFactory, archiveExportSettings } = operationsFixture();
 
-    await expect(operations.archiveThread("thread")).resolves.toEqual({ exportedPath: null } satisfies ArchiveThreadResult);
+    await expect(mutations.archiveThread("thread")).resolves.toEqual({ exportedPath: null } satisfies ArchiveThreadResult);
 
     expect(requestMethods(client)).not.toContain("thread/read");
     expect(archiveExportSettings).not.toHaveBeenCalled();
@@ -163,10 +163,10 @@ describe("ThreadOperations", () => {
   });
 
   it("does not notify surfaces when an operation has no current client", async () => {
-    const { operations, catalog } = operationsFixture({ client: null });
+    const { mutations, catalog } = operationsFixture({ client: null });
 
-    await expect(operations.renameThread("thread", "Title")).rejects.toThrow("No current client.");
-    await expect(operations.archiveThread("thread")).rejects.toThrow("No current client.");
+    await expect(mutations.renameThread("thread", "Title")).rejects.toThrow("No current client.");
+    await expect(mutations.archiveThread("thread")).rejects.toThrow("No current client.");
 
     expect(catalog.apply).not.toHaveBeenCalled();
   });
@@ -175,14 +175,14 @@ describe("ThreadOperations", () => {
     const firstClient = clientMock();
     const secondClient = clientMock();
     let currentClient: MockClient | null = firstClient;
-    const { operations, catalog } = operationsFixture({ client: () => currentClient });
+    const { mutations, catalog } = operationsFixture({ client: () => currentClient });
     firstClient.request.mockImplementationOnce(async (method: string) => {
       if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
       currentClient = secondClient;
       return {};
     });
 
-    await expect(operations.renameThread("thread", "Title")).rejects.toThrow("Client changed.");
+    await expect(mutations.renameThread("thread", "Title")).rejects.toThrow("Client changed.");
 
     expect(catalog.apply).not.toHaveBeenCalled();
   });
@@ -191,14 +191,14 @@ describe("ThreadOperations", () => {
     const firstClient = clientMock();
     const secondClient = clientMock();
     let currentClient: MockClient | null = firstClient;
-    const { operations, catalog } = operationsFixture({ client: () => currentClient });
+    const { mutations, catalog } = operationsFixture({ client: () => currentClient });
     firstClient.request.mockImplementationOnce(async (method: string) => {
       if (method !== "thread/archive") throw new Error(`Unexpected app-server request: ${method}`);
       currentClient = secondClient;
       return {};
     });
 
-    await expect(operations.archiveThread("thread")).rejects.toThrow("Client changed.");
+    await expect(mutations.archiveThread("thread")).rejects.toThrow("Client changed.");
 
     expect(catalog.apply).not.toHaveBeenCalled();
   });
@@ -218,8 +218,8 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
     apply: vi.fn(),
   };
   const notice = vi.fn();
-  const host: ThreadOperationsHost = {
-    port: createThreadOperationsAdapter({
+  const host: ThreadMutationCommandsHost = {
+    port: createThreadMutationAdapter({
       withClient: async (operation) => {
         const client = currentClient() as AppServerClient | null;
         if (!client) throw new Error("No current client.");
@@ -241,7 +241,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
     notice,
   };
   return {
-    operations: createThreadOperations(host),
+    mutations: createThreadMutationCommands(host),
     client: currentClient(),
     archiveDestination,
     archiveDestinationFactory,

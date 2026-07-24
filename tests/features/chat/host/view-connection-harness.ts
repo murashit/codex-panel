@@ -8,7 +8,7 @@ import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
+import { createThreadGoalCoordinator } from "../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadFactInput } from "../../../../src/features/threads/workflows/thread-facts";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
@@ -561,7 +561,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
     },
-    threadGoalOperations: createThreadGoalOperationCoordinator(),
+    threadGoalCoordinator: createThreadGoalCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationQueue(),
     settings: chatPanelSettingsAccess(settings),
     workspace: {

@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Thread } from "../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
+import { createThreadGoalCoordinator } from "../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/contracts";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionRuntime } from "../../../../src/features/chat/host/session-runtime";
@@ -41,7 +41,7 @@ describe("chat panel session runtime actions", () => {
     const loadRestoredThread = vi.fn(() => restored.promise);
     const firstRestoration = runtime.thread.restoration.ensureLoaded(loadRestoredThread);
 
-    runtime.actions.invalidateThreadWork();
+    runtime.commands.invalidateThreadWork();
 
     expect(resumeWork.isStale(resume)).toBe(true);
     expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
@@ -64,7 +64,7 @@ describe("chat panel session runtime actions", () => {
       },
     });
 
-    await expect(runtime.actions.refreshSharedThreads()).resolves.toBeUndefined();
+    await expect(runtime.commands.refreshSharedThreads()).resolves.toBeUndefined();
 
     expect(refresh).toHaveBeenCalledOnce();
     expect(stateStore.getState().threadList.listedThreads).toEqual([]);
@@ -93,7 +93,7 @@ describe("chat panel session runtime actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    await runtime.actions.startNewThread();
+    await runtime.commands.startNewThread();
 
     expect(refreshTabHeader).toHaveBeenCalledOnce();
   });
@@ -114,7 +114,7 @@ describe("chat panel session runtime actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    vi.spyOn(runtime.connection.actions, "ensureConnected").mockResolvedValue(undefined);
+    vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockResolvedValue(undefined);
     vi.spyOn(runtime.connection.manager, "isConnected").mockReturnValue(true);
     const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue(true);
 
@@ -152,8 +152,8 @@ describe("chat panel session runtime actions", () => {
     composer.focus();
     expect(runtime.composer.controller.hasFocus()).toBe(true);
     const disconnect = vi.spyOn(runtime.connection.manager, "disconnect");
-    const invalidateConnection = vi.spyOn(runtime.connection.actions, "invalidate");
-    const invalidateThreadWork = vi.spyOn(runtime.actions, "invalidateThreadWork");
+    const invalidateConnection = vi.spyOn(runtime.connection.coordinator, "invalidate");
+    const invalidateThreadWork = vi.spyOn(runtime.commands, "invalidateThreadWork");
     const clearDeferredTasks = vi.spyOn(deferredTasks, "clearAll");
     const unsubscribeSharedState = vi.spyOn(runtime.runtime.sharedState, "unsubscribe");
     const disposeComposer = vi.spyOn(runtime.composer.controller, "dispose");
@@ -295,7 +295,7 @@ describe("chat panel session runtime actions", () => {
             overrides.plugin?.threadFactCoordinator?.beginForkPublication ?? vi.fn(() => ({ record: vi.fn(), finish: vi.fn() })),
         },
         threadNameMutations: createKeyedOperationQueue(),
-        threadGoalOperations: createThreadGoalOperationCoordinator(),
+        threadGoalCoordinator: createThreadGoalCoordinator(),
         runtimeSettingsCommitQueue: createKeyedOperationQueue(),
       },
       view: {

@@ -23,7 +23,7 @@ describe("chat toolbar archive confirmation state", () => {
     const container = document.createElement("div");
     const toolbarActions = createToolbarPanelActions({
       stateStore: store,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
+      threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     store.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread-1", "Thread one")] });
     store.dispatch({ type: "ui/panel-set", panel: "history" });
@@ -57,7 +57,7 @@ describe("chat toolbar archive confirmation state", () => {
     const container = document.createElement("div");
     const toolbarActions = createToolbarPanelActions({
       stateStore: store,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
+      threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     let archiveExportEnabled = true;
     const parts = shellParts(store, toolbarActions, () => archiveExportEnabled);

@@ -39,7 +39,7 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
-    threadActions: {
+    threadCommands: {
       forkThread: vi.fn().mockResolvedValue(undefined),
       rollbackThread: vi.fn().mockResolvedValue(undefined),
       compactThread,

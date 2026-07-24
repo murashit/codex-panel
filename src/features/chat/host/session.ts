@@ -67,7 +67,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   applyViewState(state: unknown): void {
     const restoredState = parseChatPanelViewState(state);
-    this.runtime.actions.invalidateThreadWork();
+    this.runtime.commands.invalidateThreadWork();
     if (restoredState.kind === "thread") {
       this.stateStore.dispatch({
         type: "panel/restored-thread-applied",
@@ -97,7 +97,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   refreshSharedThreads(): Promise<void> {
-    return this.runtime.actions.refreshSharedThreads();
+    return this.runtime.commands.refreshSharedThreads();
   }
 
   openPanelSnapshot(): ChatWorkspacePanelSnapshot {
@@ -191,11 +191,11 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async connect(): Promise<void> {
-    await this.runtime.connection.actions.ensureConnected();
+    await this.runtime.connection.coordinator.ensureConnected();
   }
 
   async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
-    await this.runtime.actions.startNewThread(options);
+    await this.runtime.commands.startNewThread(options);
   }
 
   async openSideChat(
@@ -228,7 +228,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
     this.deferredTasks.scheduleAppServerWarmup(() => {
       if (!shouldWarmup() || this.closing) return;
-      void this.runtime.connection.actions.ensureConnected();
+      void this.runtime.connection.coordinator.ensureConnected();
     });
   }
 

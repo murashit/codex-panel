@@ -14,7 +14,7 @@ describe("createTurnBundle", () => {
     });
     const fixture = turnBundleFixture({ stateStore });
 
-    await fixture.bundle.turnActions.composerSubmit.submit();
+    await fixture.bundle.turnCommands.composerSubmit.submit();
 
     expect(fixture.refreshDiagnostics).not.toHaveBeenCalled();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
@@ -26,7 +26,7 @@ describe("createTurnBundle", () => {
   it("refreshes diagnostics for /tools when tool inventory is not loaded", async () => {
     const fixture = turnBundleFixture();
 
-    await fixture.bundle.turnActions.composerSubmit.submit();
+    await fixture.bundle.turnCommands.composerSubmit.submit();
 
     expect(fixture.refreshDiagnostics).toHaveBeenCalledOnce();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
@@ -52,7 +52,7 @@ describe("createTurnBundle", () => {
       referThread,
     });
 
-    await fixture.bundle.turnActions.composerSubmit.submit();
+    await fixture.bundle.turnCommands.composerSubmit.submit();
 
     expect(referThread).toHaveBeenCalledWith(thread, "summarize", { sourcePath: "snapshot.md" });
   });
@@ -98,7 +98,7 @@ function turnBundleFixture(
         restoration: { ensureLoaded: vi.fn().mockResolvedValue(true) },
         resume: { resumeThread: vi.fn() },
       },
-      threadActions: {},
+      threadCommands: {},
       navigation: {
         startNewThread: vi.fn(),
         selectThread: vi.fn(),

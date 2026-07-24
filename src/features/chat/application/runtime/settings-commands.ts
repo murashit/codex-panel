@@ -24,7 +24,7 @@ interface RuntimeSettingsCommitResult {
 type AutoReviewState = "enabled" | "disabled";
 type FastModeState = "enabled" | "disabled";
 
-export interface RuntimeSettingsActionsHost {
+export interface RuntimeSettingsCommandsHost {
   stateStore: ChatStateStore;
   runtimeSettingsPort: RuntimeSettingsPort;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
@@ -32,7 +32,7 @@ export interface RuntimeSettingsActionsHost {
   addSystemMessage: (text: string) => void;
 }
 
-interface RuntimeSettingsActionsContext extends RuntimeSettingsActionsHost {
+interface RuntimeSettingsCommandsContext extends RuntimeSettingsCommandsHost {
   threadCommits: KeyedOperationQueue<string>;
 }
 
@@ -41,7 +41,7 @@ interface RuntimeSettingsCommandScope {
   readonly panelTargetRevision: number;
 }
 
-export interface ChatRuntimeSettingsActions {
+export interface ChatRuntimeSettingsCommands {
   applyPendingThreadSettings: () => Promise<boolean>;
   requestModel: (model: string) => Promise<boolean>;
   resetModelToConfig: () => Promise<boolean>;
@@ -63,11 +63,11 @@ export interface ChatRuntimeSettingsActions {
   toggleAutoReview: () => Promise<void>;
 }
 
-export function createChatRuntimeSettingsActions(
-  host: RuntimeSettingsActionsHost,
+export function createChatRuntimeSettingsCommands(
+  host: RuntimeSettingsCommandsHost,
   threadCommits: KeyedOperationQueue<string> = createKeyedOperationQueue(),
-): ChatRuntimeSettingsActions {
-  const context: RuntimeSettingsActionsContext = { ...host, threadCommits };
+): ChatRuntimeSettingsCommands {
+  const context: RuntimeSettingsCommandsContext = { ...host, threadCommits };
   return {
     applyPendingThreadSettings: () => applyPendingThreadSettings(context),
     requestModel: (model) => requestModel(context, model),
@@ -94,14 +94,14 @@ export function createChatRuntimeSettingsActions(
 }
 
 async function applyPendingThreadSettings(
-  host: RuntimeSettingsActionsContext,
+  host: RuntimeSettingsCommandsContext,
   fields?: readonly (keyof RuntimeSettingsPatch)[],
 ): Promise<boolean> {
   return (await commitPendingThreadSettings(host, fields)).ok;
 }
 
 async function commitPendingThreadSettings(
-  host: RuntimeSettingsActionsContext,
+  host: RuntimeSettingsCommandsContext,
   fields?: readonly (keyof RuntimeSettingsPatch)[],
 ): Promise<RuntimeSettingsCommitResult> {
   const threadId = activeThreadId(state(host));
@@ -122,7 +122,7 @@ async function commitPendingThreadSettings(
 }
 
 function commitRuntimeSettingsFields(
-  host: RuntimeSettingsActionsContext,
+  host: RuntimeSettingsCommandsContext,
   scope: RuntimeSettingsCommandScope,
   update: RuntimeSettingsPatch,
 ): Promise<boolean> {
@@ -141,7 +141,7 @@ function commitRuntimeSettingsFields(
   });
 }
 
-async function settleRuntimeSettings(host: RuntimeSettingsActionsContext, scope: RuntimeSettingsCommandScope): Promise<boolean> {
+async function settleRuntimeSettings(host: RuntimeSettingsCommandsContext, scope: RuntimeSettingsCommandScope): Promise<boolean> {
   while (runtimeSettingsScopeIsCurrent(host, scope)) {
     const result = await host.threadCommits.run(scope.threadId, async (): Promise<"continue" | "failed" | "settled"> => {
       if (!runtimeSettingsScopeIsCurrent(host, scope)) return "failed";
@@ -160,7 +160,7 @@ async function settleRuntimeSettings(host: RuntimeSettingsActionsContext, scope:
 }
 
 async function updateRuntimeSettings(
-  host: RuntimeSettingsActionsContext,
+  host: RuntimeSettingsCommandsContext,
   scope: RuntimeSettingsCommandScope,
   update: RuntimeSettingsPatch,
 ): Promise<boolean> {
@@ -174,7 +174,7 @@ async function updateRuntimeSettings(
   }
 }
 
-function runtimeSettingsScopeIsCurrent(host: RuntimeSettingsActionsHost, scope: RuntimeSettingsCommandScope): boolean {
+function runtimeSettingsScopeIsCurrent(host: RuntimeSettingsCommandsHost, scope: RuntimeSettingsCommandScope): boolean {
   const currentState = state(host);
   return (
     activeThreadId(currentState) === scope.threadId &&
@@ -185,71 +185,71 @@ function runtimeSettingsScopeIsCurrent(host: RuntimeSettingsActionsHost, scope: 
   );
 }
 
-function commitRuntimeSettingsPatch(host: RuntimeSettingsActionsHost, update: RuntimeSettingsPatch): void {
+function commitRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost, update: RuntimeSettingsPatch): void {
   dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
 }
 
-async function requestModel(host: RuntimeSettingsActionsContext, model: string): Promise<boolean> {
+async function requestModel(host: RuntimeSettingsCommandsContext, model: string): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   dispatch(host, { type: "runtime/model-requested", model });
   return applyPendingThreadSettings(host, ["model"]);
 }
 
-async function resetModelToConfig(host: RuntimeSettingsActionsContext): Promise<boolean> {
+async function resetModelToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   dispatch(host, { type: "runtime/model-reset-to-config" });
   return applyPendingThreadSettings(host, ["model"]);
 }
 
-async function requestModelFromUi(host: RuntimeSettingsActionsContext, model: string): Promise<void> {
+async function requestModelFromUi(host: RuntimeSettingsCommandsContext, model: string): Promise<void> {
   await runRuntimeUiCommand(host, () => requestModel(host, model), modelOverrideMessage(model));
 }
 
-async function requestReasoningEffort(host: RuntimeSettingsActionsContext, effort: ReasoningEffort): Promise<boolean> {
+async function requestReasoningEffort(host: RuntimeSettingsCommandsContext, effort: ReasoningEffort): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   dispatch(host, { type: "runtime/reasoning-effort-requested", effort });
   return applyPendingThreadSettings(host, ["effort"]);
 }
 
-async function resetReasoningEffortToConfig(host: RuntimeSettingsActionsContext): Promise<boolean> {
+async function resetReasoningEffortToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   dispatch(host, { type: "runtime/reasoning-effort-reset-to-config" });
   return applyPendingThreadSettings(host, ["effort"]);
 }
 
-async function requestReasoningEffortFromUi(host: RuntimeSettingsActionsContext, effort: ReasoningEffort): Promise<void> {
+async function requestReasoningEffortFromUi(host: RuntimeSettingsCommandsContext, effort: ReasoningEffort): Promise<void> {
   await runRuntimeUiCommand(host, () => requestReasoningEffort(host, effort), reasoningEffortOverrideMessage(effort));
 }
 
-async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsActionsContext): Promise<void> {
+async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsCommandsContext): Promise<void> {
   await runRuntimeUiCommand(host, () => resetReasoningEffortToConfig(host), reasoningEffortOverrideMessage(null));
 }
 
-async function requestPermissionProfile(host: RuntimeSettingsActionsContext, permissionProfile: string): Promise<boolean> {
+async function requestPermissionProfile(host: RuntimeSettingsCommandsContext, permissionProfile: string): Promise<boolean> {
   if (activePanelOperationBlocked(host, "permission-settings")) return false;
   dispatch(host, { type: "runtime/permission-profile-requested", permissionProfile });
   return applyPendingThreadSettings(host, ["permissions"]);
 }
 
-async function resetPermissionProfileToConfig(host: RuntimeSettingsActionsContext): Promise<boolean> {
+async function resetPermissionProfileToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "permission-settings")) return false;
   dispatch(host, { type: "runtime/permission-profile-reset-to-config" });
   return applyPendingThreadSettings(host, ["permissions"]);
 }
 
-function activePanelOperationBlocked(host: RuntimeSettingsActionsHost, operation: ActivePanelOperation): boolean {
+function activePanelOperationBlocked(host: RuntimeSettingsCommandsHost, operation: ActivePanelOperation): boolean {
   const decision = activePanelOperationDecision(state(host), operation);
   if (decision.kind !== "blocked") return false;
   host.addSystemMessage(decision.message);
   return true;
 }
 
-async function toggleFastMode(host: RuntimeSettingsActionsContext): Promise<void> {
+async function toggleFastMode(host: RuntimeSettingsCommandsContext): Promise<void> {
   const { snapshot, config } = runtimeProjection(host);
   await setFastMode(host, resolveRuntimeControls(snapshot, config).fastMode.active ? "disabled" : "enabled");
 }
 
-async function setFastMode(host: RuntimeSettingsActionsContext, mode: FastModeState): Promise<void> {
+async function setFastMode(host: RuntimeSettingsCommandsContext, mode: FastModeState): Promise<void> {
   if (activePanelOperationBlocked(host, "thread-settings")) return;
   const fastMode: RequestedFastMode = mode;
   await runRuntimeUiCommand(
@@ -262,13 +262,13 @@ async function setFastMode(host: RuntimeSettingsActionsContext, mode: FastModeSt
   );
 }
 
-async function toggleCollaborationMode(host: RuntimeSettingsActionsContext): Promise<void> {
+async function toggleCollaborationMode(host: RuntimeSettingsCommandsContext): Promise<void> {
   const { snapshot, config } = runtimeProjection(host);
   const next = nextCollaborationMode(resolveRuntimeControls(snapshot, config).collaborationMode.effective);
   await setCollaborationMode(host, next);
 }
 
-async function setCollaborationMode(host: RuntimeSettingsActionsContext, collaborationMode: CollaborationModeSelection): Promise<boolean> {
+async function setCollaborationMode(host: RuntimeSettingsCommandsContext, collaborationMode: CollaborationModeSelection): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode });
   const result = await commitPendingThreadSettings(host, ["collaborationMode"]);
@@ -279,18 +279,18 @@ async function setCollaborationMode(host: RuntimeSettingsActionsContext, collabo
   return result.ok;
 }
 
-function requestDefaultCollaborationModeForNextTurn(host: RuntimeSettingsActionsHost): void {
+function requestDefaultCollaborationModeForNextTurn(host: RuntimeSettingsCommandsHost): void {
   if (activePanelOperationBlocked(host, "thread-settings")) return;
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
 }
 
-async function toggleAutoReview(host: RuntimeSettingsActionsContext): Promise<void> {
+async function toggleAutoReview(host: RuntimeSettingsCommandsContext): Promise<void> {
   const { snapshot, config } = runtimeProjection(host);
   const nextState = resolveRuntimeControls(snapshot, config).autoReview.active ? "disabled" : "enabled";
   await setAutoReview(host, nextState);
 }
 
-async function setAutoReview(host: RuntimeSettingsActionsContext, mode: AutoReviewState): Promise<void> {
+async function setAutoReview(host: RuntimeSettingsCommandsContext, mode: AutoReviewState): Promise<void> {
   if (activePanelOperationBlocked(host, "thread-settings")) return;
   await runRuntimeUiCommand(
     host,
@@ -303,7 +303,7 @@ async function setAutoReview(host: RuntimeSettingsActionsContext, mode: AutoRevi
 }
 
 async function runRuntimeUiCommand(
-  host: RuntimeSettingsActionsHost,
+  host: RuntimeSettingsCommandsHost,
   command: () => Promise<boolean>,
   successMessage: string,
 ): Promise<void> {
@@ -312,17 +312,17 @@ async function runRuntimeUiCommand(
   host.addSystemMessage(successMessage);
 }
 
-function closeRuntimePanel(host: RuntimeSettingsActionsHost): void {
+function closeRuntimePanel(host: RuntimeSettingsCommandsHost): void {
   dispatch(host, { type: "ui/panel-set", panel: null });
 }
 
-function pendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): PendingRuntimeSettingsPatch {
+function pendingRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost): PendingRuntimeSettingsPatch {
   const { snapshot, config } = runtimeProjection(host);
   return buildPendingRuntimeSettingsPatch(snapshot, config);
 }
 
 function reportCollaborationModeWarning(
-  host: RuntimeSettingsActionsHost,
+  host: RuntimeSettingsCommandsHost,
   warning: NonNullable<PendingRuntimeSettingsPatch["collaborationModeWarning"]>,
 ): void {
   void warning;
@@ -331,7 +331,7 @@ function reportCollaborationModeWarning(
   );
 }
 
-function currentPendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): RuntimeSettingsPatch {
+function currentPendingRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost): RuntimeSettingsPatch {
   const { snapshot, config } = runtimeProjection(host);
   return buildPendingRuntimeSettingsPatch(snapshot, config).update;
 }
@@ -391,7 +391,7 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
 }
 
-function runtimeProjection(host: RuntimeSettingsActionsHost): {
+function runtimeProjection(host: RuntimeSettingsCommandsHost): {
   snapshot: RuntimeSnapshot;
   config: RuntimeConfigSnapshot;
 } {
@@ -402,10 +402,10 @@ function runtimeProjection(host: RuntimeSettingsActionsHost): {
   };
 }
 
-function state(host: RuntimeSettingsActionsHost): ChatState {
+function state(host: RuntimeSettingsCommandsHost): ChatState {
   return host.stateStore.getState();
 }
 
-function dispatch(host: RuntimeSettingsActionsHost, action: ChatAction): void {
+function dispatch(host: RuntimeSettingsCommandsHost, action: ChatAction): void {
   host.stateStore.dispatch(action);
 }

@@ -4,7 +4,7 @@ import type { ChatStateStore } from "../state/store";
 
 const STATUS_RECONNECTING = "Reconnecting...";
 
-export interface ChatReconnectActionsHost {
+export interface ChatReconnectCommandHost {
   stateStore: ChatStateStore;
   resetConnectionScope: () => void;
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -14,7 +14,7 @@ export interface ChatReconnectActionsHost {
   addSystemMessage: (text: string) => void;
 }
 
-export function createReconnectPanelAction(host: ChatReconnectActionsHost): () => Promise<boolean> {
+export function createReconnectPanelCommand(host: ChatReconnectCommandHost): () => Promise<boolean> {
   let activeReconnect: Promise<boolean> | null = null;
   return async () => {
     if (activeReconnect) return activeReconnect;
@@ -28,7 +28,7 @@ export function createReconnectPanelAction(host: ChatReconnectActionsHost): () =
   };
 }
 
-async function reconnectPanel(host: ChatReconnectActionsHost): Promise<boolean> {
+async function reconnectPanel(host: ChatReconnectCommandHost): Promise<boolean> {
   const currentState = host.stateStore.getState();
   const panelTarget = capturePanelTargetLease(currentState);
   const threadId = activeThreadState(currentState)?.lifetime?.kind === "ephemeral" ? null : panelThreadId(currentState);

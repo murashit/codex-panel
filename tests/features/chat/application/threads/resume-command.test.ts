@@ -5,7 +5,7 @@ import type { Thread as PanelThread } from "../../../../../src/domain/threads/mo
 import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { HistoryController } from "../../../../../src/features/chat/application/threads/history-controller";
-import { createResumeActions, type ResumeActionsHost } from "../../../../../src/features/chat/application/threads/resume-actions";
+import { createResumeCommand, type ResumeCommandHost } from "../../../../../src/features/chat/application/threads/resume-command";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type {
   ThreadHistoryPage,
@@ -35,7 +35,7 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
   };
 }
 
-function createActions(response: ThreadResumeSnapshot | null = activation("thread"), overrides: Partial<ResumeActionsHost> = {}) {
+function createActions(response: ThreadResumeSnapshot | null = activation("thread"), overrides: Partial<ResumeCommandHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   const resumeThread = vi
     .fn<ThreadResumePort["resumeThread"]>()
@@ -43,7 +43,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyLatestPage = vi.fn();
   const invalidateHistory = vi.fn();
-  const host: ResumeActionsHost & { systemItem: (text: string) => ThreadStreamItem } = {
+  const host: ResumeCommandHost & { systemItem: (text: string) => ThreadStreamItem } = {
     stateStore,
     resumeWork: new ChatResumeWorkTracker(),
     history: { loadLatest, applyLatestPage, invalidate: invalidateHistory } as unknown as HistoryController,
@@ -58,7 +58,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     resumePort: overrides.resumePort ?? { ensureConnected: vi.fn().mockResolvedValue(true), resumeThread },
   };
   return {
-    actions: createResumeActions(host),
+    commands: createResumeCommand(host),
     host,
     applyLatestPage,
     invalidateHistory,
@@ -68,11 +68,11 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
   };
 }
 
-describe("ResumeActions", () => {
+describe("ResumeCommand", () => {
   it("resumes the thread and loads its latest history", async () => {
-    const { actions, host, loadLatest, resumeThread, stateStore } = createActions();
+    const { commands, host, loadLatest, resumeThread, stateStore } = createActions();
 
-    await actions.resumeThread("thread");
+    await commands.resumeThread("thread");
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
     expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
@@ -86,9 +86,9 @@ describe("ResumeActions", () => {
   it("hydrates resumed threads from the initial turns page when app-server returns one", async () => {
     const initialHistoryPage = historyPage([message("u1", "hello", "user")], "older");
     const response = activation("thread", { initialHistoryPage });
-    const { actions, applyLatestPage, loadLatest } = createActions(response);
+    const { commands, applyLatestPage, loadLatest } = createActions(response);
 
-    await actions.resumeThread("thread");
+    await commands.resumeThread("thread");
 
     expect(applyLatestPage).toHaveBeenCalledWith("thread", initialHistoryPage);
     expect(loadLatest).not.toHaveBeenCalled();
@@ -97,7 +97,7 @@ describe("ResumeActions", () => {
   it("commits target adoption before waiting for history hydration", async () => {
     const history = deferred<void>();
     const onAdopted = vi.fn();
-    const { actions, loadLatest } = createActions(undefined, {
+    const { commands, loadLatest } = createActions(undefined, {
       history: {
         loadLatest: vi.fn(() => history.promise),
         applyLatestPage: vi.fn(),
@@ -105,7 +105,7 @@ describe("ResumeActions", () => {
       } as unknown as HistoryController,
     });
 
-    const resuming = actions.resumeThread("thread", undefined, { onAdopted });
+    const resuming = commands.resumeThread("thread", undefined, { onAdopted });
     await vi.waitFor(() => expect(onAdopted).toHaveBeenCalledOnce());
 
     expect(loadLatest).not.toHaveBeenCalled();
@@ -114,9 +114,9 @@ describe("ResumeActions", () => {
   });
 
   it("does not change active thread when the resume port has no snapshot", async () => {
-    const { actions, host, loadLatest, resumeThread, stateStore } = createActions(null);
+    const { commands, host, loadLatest, resumeThread, stateStore } = createActions(null);
 
-    await actions.resumeThread("thread");
+    await commands.resumeThread("thread");
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
     expect(activeThreadId(stateStore.getState())).toBeNull();
@@ -131,13 +131,13 @@ describe("ResumeActions", () => {
       value: activation(threadId),
     }));
     const ensureConnected = vi.fn().mockReturnValueOnce(firstConnection.promise).mockResolvedValue(true);
-    const { actions, stateStore } = createActions(undefined, {
+    const { commands, stateStore } = createActions(undefined, {
       resumePort: { ensureConnected, resumeThread },
     });
 
-    const firstResume = actions.resumeThread("first");
+    const firstResume = commands.resumeThread("first");
     await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
-    await expect(actions.resumeThread("second")).resolves.toBe(true);
+    await expect(commands.resumeThread("second")).resolves.toBe(true);
     await firstConnection.resolveAndFlush(true);
     await expect(firstResume).resolves.toBe(false);
 
@@ -147,7 +147,7 @@ describe("ResumeActions", () => {
   });
 
   it("does not switch threads while a different turn is busy", async () => {
-    const { actions, host, resumeThread, stateStore } = createActions();
+    const { commands, host, resumeThread, stateStore } = createActions();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -164,7 +164,7 @@ describe("ResumeActions", () => {
     });
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
-    await actions.resumeThread("other");
+    await commands.resumeThread("other");
 
     expect(resumeThread).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the current turn before switching threads.");
@@ -174,9 +174,9 @@ describe("ResumeActions", () => {
     const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
-    const { actions, loadLatest, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
+    const { commands, loadLatest, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await actions.resumeThread("thread");
+    await commands.resumeThread("thread");
 
     expect(recoverTokenUsageFromRollout).toHaveBeenCalledWith("/tmp/rollout.jsonl");
     expect(loadLatest).toHaveBeenCalledWith("thread");
@@ -192,9 +192,9 @@ describe("ResumeActions", () => {
     const second = activation("other");
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
-    const { actions, stateStore } = createActions(first, { recoverTokenUsageFromRollout });
+    const { commands, stateStore } = createActions(first, { recoverTokenUsageFromRollout });
 
-    await actions.resumeThread("thread");
+    await commands.resumeThread("thread");
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -220,9 +220,9 @@ describe("ResumeActions", () => {
     const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
-    const { actions, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
+    const { commands, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await actions.resumeThread("thread");
+    await commands.resumeThread("thread");
     stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage: tokenUsageFixture(99) });
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
@@ -233,9 +233,9 @@ describe("ResumeActions", () => {
   it("ignores rollout token usage recovery failures", async () => {
     const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recoverTokenUsageFromRollout = vi.fn().mockRejectedValue(new Error("read failed"));
-    const { actions, host, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
+    const { commands, host, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await actions.resumeThread("thread");
+    await commands.resumeThread("thread");
     await Promise.resolve();
 
     expect(activeThreadState(stateStore.getState())?.tokenUsage).toBeNull();

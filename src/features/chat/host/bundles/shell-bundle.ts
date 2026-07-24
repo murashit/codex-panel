@@ -15,7 +15,7 @@ import { createToolbarUiActions, type ToolbarPanelActions } from "../../panel/to
 import { toolbarOutsidePointerHit } from "../../panel/toolbar-hit-test.dom";
 import type { ChatPanelEnvironment } from "../contracts";
 import type { ChatPanelConnectionBundle } from "./connection-bundle";
-import type { ChatPanelGoalActions, ChatPanelThreadActions, ChatPanelThreadNavigationActions } from "./thread-bundle";
+import type { ChatPanelGoalCommands, ChatPanelThreadCommands, ChatPanelThreadNavigationCommands } from "./thread-bundle";
 import type { ChatPanelTurnBundle } from "./turn-bundle";
 
 interface ChatPanelShellBundleHost {
@@ -26,12 +26,12 @@ interface ChatPanelShellBundleHost {
 
 interface ChatPanelShellBundleInput {
   connection: ConnectionManager;
-  connectionActions: ChatPanelConnectionBundle["connection"]["actions"];
-  goals: ChatPanelGoalActions;
+  connectionCoordinator: ChatPanelConnectionBundle["connection"]["coordinator"];
+  goals: ChatPanelGoalCommands;
   rename: ThreadRenameEditorActions;
-  threadActions: ChatPanelThreadActions;
+  threadCommands: ChatPanelThreadCommands;
   toolbarPanelActions: ToolbarPanelActions;
-  navigation: ChatPanelThreadNavigationActions;
+  navigation: ChatPanelThreadNavigationCommands;
   reconnect: () => Promise<void>;
   history: HistoryController;
   pendingRequests: PendingRequestActions;
@@ -47,10 +47,10 @@ export interface ChatPanelShellBundle {
 export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPanelShellBundleInput): ChatPanelShellBundle {
   const {
     connection,
-    connectionActions,
+    connectionCoordinator,
     goals,
     rename,
-    threadActions,
+    threadCommands,
     toolbarPanelActions,
     navigation,
     reconnect,
@@ -61,9 +61,9 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
   } = input;
   const { environment, stateStore } = host;
   const toolbarActions = createToolbarUiActions({
-    connectionActions,
-    reconnectPanel: reconnect,
-    threadActions,
+    connectionCoordinator,
+    reconnectCommand: reconnect,
+    threadCommands,
     goals,
     toolbarPanel: toolbarPanelActions,
     rename,
@@ -106,9 +106,9 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     vaultPath: environment.plugin.appServerContext.vaultPath,
     loadOlderTurns: () => void history.loadOlder(),
     actions: {
-      rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),
-      forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
-      implementPlan: (itemId) => void turn.turnActions.planImplementation.implement(itemId),
+      rollbackThread: (threadId) => void threadCommands.rollbackThread(threadId),
+      forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadCommands.forkThreadFromTurn(threadId, turnId, archiveSource),
+      implementPlan: (itemId) => void turn.turnCommands.planImplementation.implement(itemId),
       openThreadInAvailableView: (threadId) => void environment.plugin.workspace.openThreadInAvailableView(threadId),
       openThreadInNewView: (threadId) => void environment.plugin.workspace.openThreadInNewView(threadId),
       openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
@@ -131,7 +131,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     composer: {
       presenter: composerController,
       actions: {
-        submit: () => void turn.turnActions.composerSubmit.submit(),
+        submit: () => void turn.turnCommands.composerSubmit.submit(),
       },
     },
   };

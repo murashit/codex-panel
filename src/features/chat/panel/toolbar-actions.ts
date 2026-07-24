@@ -1,16 +1,16 @@
 import { copyTextWithNotice } from "../../../shared/obsidian/clipboard.obsidian";
-import type { ChatConnectionActions } from "../application/connection/connection-actions";
+import type { ChatConnectionCoordinator } from "../application/connection/connection-coordinator";
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
-import type { GoalActions } from "../application/threads/goal-actions";
+import type { GoalCommands } from "../application/threads/goal-commands";
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
 import type { ThreadCommands } from "../application/threads/thread-commands";
-import type { ThreadNavigationActions } from "../application/threads/thread-navigation-actions";
+import type { ThreadNavigationCommands } from "../application/threads/thread-navigation-commands";
 import type { ToolbarActions } from "../ui/toolbar";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
-  threadActions: ThreadCommands;
+  threadCommands: ThreadCommands;
 }
 
 export interface ToolbarPanelActions {
@@ -26,13 +26,13 @@ export interface ToolbarPanelActions {
 }
 
 export interface ToolbarUiActionDependencies {
-  connectionActions: ChatConnectionActions;
-  reconnectPanel: () => Promise<void>;
-  threadActions: ThreadCommands;
-  goals: GoalActions;
+  connectionCoordinator: ChatConnectionCoordinator;
+  reconnectCommand: () => Promise<void>;
+  threadCommands: ThreadCommands;
+  goals: GoalCommands;
   toolbarPanel: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;
-  navigation: ThreadNavigationActions;
+  navigation: ThreadNavigationCommands;
   loadMoreThreads?: () => Promise<readonly unknown[]>;
   openSideChat?: () => void;
   canStartSideChat: () => boolean;
@@ -98,7 +98,7 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
 
     async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
       if (archiveConfirmId() === threadId) setArchiveConfirm(null);
-      await host.threadActions.archiveThread(threadId, saveMarkdown);
+      await host.threadCommands.archiveThread(threadId, saveMarkdown);
     },
 
     closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void {
@@ -149,7 +149,7 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
         : {}),
       compactContext: () => {
         if (!deps.canCompact()) return;
-        void deps.threadActions.compactActiveThread();
+        void deps.threadCommands.compactActiveThread();
       },
       setGoal: () => {
         if (!deps.canMutateGoal()) return;
@@ -158,10 +158,10 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
     },
     status: {
       connect: () => {
-        void deps.reconnectPanel();
+        void deps.reconnectCommand();
       },
       refreshStatus: () => {
-        void deps.connectionActions.refreshStatusPanel();
+        void deps.connectionCoordinator.refreshStatusPanel();
       },
       copyDebugDetails: (details) => {
         void copyTextWithNotice(details, "Copied debug details.", "Could not copy debug details.");

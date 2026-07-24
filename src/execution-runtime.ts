@@ -10,12 +10,12 @@ import {
   type EphemeralStructuredTurnRunner,
   runEphemeralStructuredTurn,
 } from "./app-server/services/ephemeral-structured-turn";
-import { createThreadGoalOperationCoordinator } from "./features/chat/application/threads/goal-actions";
+import { createThreadGoalCoordinator } from "./features/chat/application/threads/thread-goal-coordinator";
 import type { ChatPanelSettingsAccess, ChatRuntimeView, CodexChatHost, WorkspacePanels } from "./features/chat/host/contracts";
 import { createAppServerSelectionRewriteAdapter } from "./features/selection-rewrite/app-server-adapter";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
-import { createThreadOperationsAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
+import { createThreadMutationAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
 import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
 import { createThreadFactCoordinator, type ThreadFactCoordinator } from "./features/threads/workflows/thread-fact-coordinator";
 import type { ThreadFact } from "./features/threads/workflows/thread-facts";
@@ -53,7 +53,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly threadFactCoordinator: ThreadFactCoordinator;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
   private readonly threadNameMutations = createKeyedOperationQueue<string>();
-  private readonly threadGoalOperations = createThreadGoalOperationCoordinator();
+  private readonly threadGoalCoordinator = createThreadGoalCoordinator();
   private readonly runtimeSettingsCommitQueue = createKeyedOperationQueue<string>();
   private readonly shortLivedClients = new Set<AppServerClient>();
   private readonly structuredTurnClients = new Set<EphemeralStructuredTurnClient>();
@@ -92,7 +92,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadFactCoordinator: this.threadFactCoordinator,
       threadNameMutations: this.threadNameMutations,
       threadTitlePort: this.threadTitlePort(),
-      threadGoalOperations: this.threadGoalOperations,
+      threadGoalCoordinator: this.threadGoalCoordinator,
       runtimeSettingsCommitQueue: this.runtimeSettingsCommitQueue,
     };
   }
@@ -105,7 +105,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFactCoordinator,
       threadNameMutations: this.threadNameMutations,
-      threadOperationsPort: createThreadOperationsAdapter(this),
+      threadMutationPort: createThreadMutationAdapter(this),
       threadTitlePort: this.threadTitlePort(),
       openNewPanel: () => this.options.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.options.openThreadInAvailableView(threadId),

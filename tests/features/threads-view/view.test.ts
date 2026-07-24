@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
 import type { Thread } from "../../../src/domain/threads/model";
-import { createThreadOperationsAdapter, createThreadTitleAdapter } from "../../../src/features/threads/app-server/workflow-adapters";
+import { createThreadMutationAdapter, createThreadTitleAdapter } from "../../../src/features/threads/app-server/workflow-adapters";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import { createKeyedOperationQueue } from "../../../src/shared/runtime/keyed-operation-queue";
@@ -917,7 +917,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     },
     vaultPath: "/vault",
     threadNameMutations: createKeyedOperationQueue(),
-    threadOperationsPort: createThreadOperationsAdapter(clientAccess),
+    threadMutationPort: createThreadMutationAdapter(clientAccess),
     threadFacts: {
       apply: threadEventOverrides.apply ?? vi.fn(),
     },

@@ -3,11 +3,11 @@ import type { ChatStateStore } from "../state/store";
 import { chatTurnBusy } from "../turns/turn-state";
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
 import type { PersistentNavigationLifecycle } from "./persistent-navigation-lifecycle";
-import type { ResumeThreadOptions } from "./resume-actions";
+import type { ResumeThreadOptions } from "./resume-command";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
 import { canSwitchToThread } from "./thread-switching";
 
-export interface ThreadNavigationActionsHost {
+export interface ThreadNavigationCommandsHost {
   stateStore: ChatStateStore;
   identity: ActiveThreadIdentitySync;
   closeForThreadSelection: () => void;
@@ -20,13 +20,13 @@ export interface ThreadNavigationActionsHost {
   navigation: PersistentNavigationLifecycle;
 }
 
-export interface ThreadNavigationActions {
+export interface ThreadNavigationCommands {
   startNewThread(options?: { focus?: boolean }): Promise<void>;
   selectThread(threadId: string): Promise<void>;
   selectThreadFromToolbar(threadId: string): Promise<void>;
 }
 
-export function createThreadNavigationActions(host: ThreadNavigationActionsHost): ThreadNavigationActions {
+export function createThreadNavigationCommands(host: ThreadNavigationCommandsHost): ThreadNavigationCommands {
   const selectThread = async (threadId: string): Promise<void> => {
     if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
       host.addSystemMessage("Finish or interrupt the current turn before switching threads.");

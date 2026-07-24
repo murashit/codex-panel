@@ -2,181 +2,30 @@ import { describe, expect, it, vi } from "vitest";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import {
-  createGoalActions as createGoalActionsImpl,
-  createThreadGoalOperationCoordinator,
-  createThreadGoalSyncActions,
-} from "../../../../../src/features/chat/application/threads/goal-actions";
+import { createGoalCommands as createGoalCommandsImpl } from "../../../../../src/features/chat/application/threads/goal-commands";
 import type { ThreadGoalPort } from "../../../../../src/features/chat/application/threads/goal-ports";
+import { createThreadGoalCoordinator } from "../../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
-type GoalActionsHost = Parameters<typeof createGoalActionsImpl>[0];
+type GoalCommandsHost = Parameters<typeof createGoalCommandsImpl>[0];
 
-function createGoalActions(
-  host: Omit<GoalActionsHost, "ensureRestoredThreadLoaded"> & Partial<Pick<GoalActionsHost, "ensureRestoredThreadLoaded">>,
-  goalOperations?: Parameters<typeof createGoalActionsImpl>[1],
+function createGoalCommands(
+  host: Omit<GoalCommandsHost, "ensureRestoredThreadLoaded" | "startEditingGoal"> &
+    Partial<Pick<GoalCommandsHost, "ensureRestoredThreadLoaded" | "startEditingGoal">>,
+  goalCoordinator?: Parameters<typeof createGoalCommandsImpl>[1],
 ) {
-  return createGoalActionsImpl(
-    {
-      ensureRestoredThreadLoaded: async () => true,
-      ...host,
-    },
-    goalOperations,
-  );
+  const context = {
+    ...host,
+    ensureRestoredThreadLoaded: host.ensureRestoredThreadLoaded ?? (async () => true),
+    startEditingGoal: host.startEditingGoal ?? vi.fn(),
+  };
+  return createGoalCommandsImpl(context, goalCoordinator ?? createThreadGoalCoordinator());
 }
 
-describe("createGoalActions", () => {
-  it("syncs the active thread goal into chat state", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const currentGoal = goal();
-    const goalPort = goalPortFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
-    const actions = createGoalActions({
-      stateStore,
-      goalPort,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
-    });
-
-    await actions.syncThreadGoal("thread");
-
-    expect(activeThreadState(stateStore.getState())?.goal).toEqual(currentGoal);
-  });
-
-  it("does not publish an old goal read after a shared mutation completes", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Initial" }) } });
-    const stateStore = createChatStateStore(state);
-    const oldRead = deferred<ThreadGoal | null>();
-    const goalPort = goalPortFixture({
-      readThreadGoal: vi.fn(() => oldRead.promise),
-      setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal({ objective: "Latest" }))),
-    });
-    const host = {
-      stateStore,
-      goalPort,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
-    };
-    const goalOperations = createThreadGoalOperationCoordinator();
-    const sync = createThreadGoalSyncActions(host, goalOperations);
-    const actions = createGoalActions(
-      {
-        ...host,
-        startThread: vi.fn().mockResolvedValue({ kind: "created-activated" as const, threadId: "thread" }),
-      },
-      goalOperations,
-    );
-
-    const reading = sync.syncThreadGoal("thread");
-    await vi.waitFor(() => expect(goalPort.readThreadGoal).toHaveBeenCalledOnce());
-    await expect(actions.setObjective("thread", "Latest", null)).resolves.toBe(true);
-    oldRead.resolve(goal({ objective: "Old" }));
-    await reading;
-
-    expect(activeThreadState(stateStore.getState())?.goal?.objective).toBe("Latest");
-  });
-
-  it("does not report an old goal read failure after a shared mutation completes", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Initial" }) } });
-    const stateStore = createChatStateStore(state);
-    const oldRead = deferred<ThreadGoal | null>();
-    const goalPort = goalPortFixture({
-      readThreadGoal: vi.fn(() => oldRead.promise),
-      setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal({ objective: "Latest" }))),
-    });
-    const addSystemMessage = vi.fn();
-    const host = {
-      stateStore,
-      goalPort,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      addSystemMessage,
-      addGoalEvent: vi.fn(),
-    };
-    const goalOperations = createThreadGoalOperationCoordinator();
-    const sync = createThreadGoalSyncActions(host, goalOperations);
-    const actions = createGoalActions(
-      {
-        ...host,
-        startThread: vi.fn().mockResolvedValue({ kind: "created-activated" as const, threadId: "thread" }),
-      },
-      goalOperations,
-    );
-
-    const reading = sync.syncThreadGoal("thread");
-    await vi.waitFor(() => expect(goalPort.readThreadGoal).toHaveBeenCalledOnce());
-    await expect(actions.setObjective("thread", "Latest", null)).resolves.toBe(true);
-    oldRead.reject(new Error("old read failed"));
-    await reading;
-
-    expect(addSystemMessage).not.toHaveBeenCalledWith("Could not load thread goal: old read failed");
-  });
-
-  it("keeps an in-flight goal read valid when a mutation fails", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Initial" }) } });
-    const stateStore = createChatStateStore(state);
-    const read = deferred<ThreadGoal | null>();
-    const goalPort = goalPortFixture({
-      readThreadGoal: vi.fn(() => read.promise),
-      setThreadGoal: vi.fn().mockRejectedValue(new Error("offline")),
-    });
-    const goalOperations = createThreadGoalOperationCoordinator();
-    const host = {
-      stateStore,
-      goalPort,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
-    };
-    const sync = createThreadGoalSyncActions(host, goalOperations);
-    const actions = createGoalActions(
-      {
-        ...host,
-        startThread: vi.fn().mockResolvedValue({ kind: "created-activated" as const, threadId: "thread" }),
-      },
-      goalOperations,
-    );
-
-    const reading = sync.syncThreadGoal("thread");
-    await vi.waitFor(() => expect(goalPort.readThreadGoal).toHaveBeenCalledOnce());
-    await expect(actions.setObjective("thread", "Attempted", null)).resolves.toBe(false);
-    read.resolve(goal({ objective: "Authoritative" }));
-    await reading;
-
-    expect(activeThreadState(stateStore.getState())?.goal?.objective).toBe("Authoritative");
-  });
-
-  it("reports goal sync failures without clearing the active thread", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const addSystemMessage = vi.fn();
-    const goalPort = goalPortFixture({ readThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) });
-    const actions = createGoalActions({
-      stateStore,
-      goalPort,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage,
-      addGoalEvent: vi.fn(),
-    });
-
-    await actions.syncThreadGoal("thread");
-
-    expect(activeThreadId(stateStore.getState())).toBe("thread");
-    expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
-    expect(addSystemMessage).toHaveBeenCalledWith("Could not load thread goal: offline");
-  });
-
+describe("createGoalCommands", () => {
   it("sets objective, status, and clears goals through app-server", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -191,18 +40,23 @@ describe("createGoalActions", () => {
     const { setThreadGoal, clearThreadGoal } = goalPort;
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const actions = createGoalActions({
-      stateStore,
-      goalPort,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage,
-      addGoalEvent,
-    });
+    const goalCoordinator = createThreadGoalCoordinator();
+    const markMutationCommitted = vi.spyOn(goalCoordinator, "markMutationCommitted");
+    const commands = createGoalCommands(
+      {
+        stateStore,
+        goalPort,
+        localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+        startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+        addSystemMessage,
+        addGoalEvent,
+      },
+      goalCoordinator,
+    );
 
-    await actions.setObjective("thread", " Updated ", 250);
-    await actions.setStatus("thread", "paused");
-    await actions.clear("thread");
+    await commands.setObjective("thread", " Updated ", 250);
+    await commands.setStatus("thread", "paused");
+    await commands.clear("thread");
 
     expect(setThreadGoal).toHaveBeenCalledWith("thread", { objective: "Updated", status: "active", tokenBudget: 250 });
     expect(setThreadGoal).toHaveBeenCalledWith("thread", { status: "paused" });
@@ -212,6 +66,37 @@ describe("createGoalActions", () => {
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "paused: Updated", objective: "Updated" }));
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "cleared: Updated", objective: "Updated" }));
     expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
+    expect(markMutationCommitted).toHaveBeenNthCalledWith(1, "thread");
+    expect(markMutationCommitted).toHaveBeenNthCalledWith(2, "thread");
+    expect(markMutationCommitted).toHaveBeenNthCalledWith(3, "thread");
+  });
+
+  it("does not mark stale or failed goal mutations as committed", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal() } });
+    const stateStore = createChatStateStore(state);
+    const goalPort = goalPortFixture({
+      setThreadGoal: vi.fn().mockResolvedValue({ kind: "completed-stale", value: goal({ objective: "Stale" }) }),
+      clearThreadGoal: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+    const goalCoordinator = createThreadGoalCoordinator();
+    const markMutationCommitted = vi.spyOn(goalCoordinator, "markMutationCommitted");
+    const commands = createGoalCommands(
+      {
+        stateStore,
+        goalPort,
+        localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+        startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+        addSystemMessage: vi.fn(),
+        addGoalEvent: vi.fn(),
+      },
+      goalCoordinator,
+    );
+
+    await expect(commands.setObjective("thread", "Stale", null)).resolves.toBe(false);
+    await expect(commands.clear("thread")).resolves.toBe(false);
+
+    expect(markMutationCommitted).not.toHaveBeenCalled();
   });
 
   it("serializes goal mutations for the same thread", async () => {
@@ -226,7 +111,7 @@ describe("createGoalActions", () => {
         .mockReturnValueOnce(firstUpdate.promise)
         .mockResolvedValueOnce(completedCurrent(goal({ objective: "Updated", status: "paused" }))),
     });
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -235,9 +120,9 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    const objectiveUpdate = actions.setObjective("thread", "Updated", null);
+    const objectiveUpdate = commands.setObjective("thread", "Updated", null);
     await vi.waitFor(() => expect(goalPort.setThreadGoal).toHaveBeenCalledOnce());
-    const statusUpdate = actions.setStatus("thread", "paused");
+    const statusUpdate = commands.setStatus("thread", "paused");
     await Promise.resolve();
     expect(goalPort.setThreadGoal).toHaveBeenCalledOnce();
 
@@ -265,7 +150,7 @@ describe("createGoalActions", () => {
         .mockReturnValueOnce(firstUpdate.promise)
         .mockResolvedValueOnce(completedCurrent(goal({ threadId: "thread-a", objective: "Latest", status: "paused" }))),
     });
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -274,11 +159,11 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    const oldUpdate = actions.setObjective("thread-a", "Old", null);
+    const oldUpdate = commands.setObjective("thread-a", "Old", null);
     await vi.waitFor(() => expect(goalPort.setThreadGoal).toHaveBeenCalledOnce());
     resumeInteractiveThread(stateStore, "thread-b");
     resumeInteractiveThread(stateStore, "thread-a");
-    const latestUpdate = actions.setStatus("thread-a", "paused");
+    const latestUpdate = commands.setStatus("thread-a", "paused");
     await Promise.resolve();
     expect(goalPort.setThreadGoal).toHaveBeenCalledOnce();
 
@@ -299,9 +184,9 @@ describe("createGoalActions", () => {
     const secondPort = goalPortFixture({
       setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal({ objective: "Latest" }))),
     });
-    const goalOperations = createThreadGoalOperationCoordinator();
+    const goalCoordinator = createThreadGoalCoordinator();
     const createPanelActions = (stateStore: ChatStateStore, goalPort: ThreadGoalPort) =>
-      createGoalActions(
+      createGoalCommands(
         {
           stateStore,
           goalPort,
@@ -310,14 +195,14 @@ describe("createGoalActions", () => {
           addSystemMessage: vi.fn(),
           addGoalEvent: vi.fn(),
         },
-        goalOperations,
+        goalCoordinator,
       );
-    const firstActions = createPanelActions(firstStore, firstPort);
-    const secondActions = createPanelActions(secondStore, secondPort);
+    const firstCommands = createPanelActions(firstStore, firstPort);
+    const secondCommands = createPanelActions(secondStore, secondPort);
 
-    const firstMutation = firstActions.setObjective("thread", "Old", null);
+    const firstMutation = firstCommands.setObjective("thread", "Old", null);
     await vi.waitFor(() => expect(firstPort.setThreadGoal).toHaveBeenCalledOnce());
-    const secondMutation = secondActions.setObjective("thread", "Latest", null);
+    const secondMutation = secondCommands.setObjective("thread", "Latest", null);
     await Promise.resolve();
     expect(secondPort.setThreadGoal).not.toHaveBeenCalled();
 
@@ -340,7 +225,7 @@ describe("createGoalActions", () => {
     const stateStore = createChatStateStore(state);
     const goalPort = goalPortFixture();
     const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -349,8 +234,8 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    await expect(actions.setObjective("side", "Ship", null)).resolves.toBe(false);
-    await expect(actions.clear("side")).resolves.toBe(false);
+    await expect(commands.setObjective("side", "Ship", null)).resolves.toBe(false);
+    await expect(commands.clear("side")).resolves.toBe(false);
 
     expect(goalPort.setThreadGoal).not.toHaveBeenCalled();
     expect(goalPort.clearThreadGoal).not.toHaveBeenCalled();
@@ -365,7 +250,7 @@ describe("createGoalActions", () => {
     const update = deferred<never>();
     const goalPort = goalPortFixture({ setThreadGoal: vi.fn().mockReturnValue(update.promise) });
     const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -374,7 +259,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    const pending = actions.setStatus("thread", "paused");
+    const pending = commands.setStatus("thread", "paused");
     await vi.waitFor(() => expect(goalPort.setThreadGoal).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
     update.reject(new Error("offline"));
@@ -391,7 +276,7 @@ describe("createGoalActions", () => {
     const clear = deferred<never>();
     const goalPort = goalPortFixture({ clearThreadGoal: vi.fn().mockReturnValue(clear.promise) });
     const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -400,7 +285,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    const pending = actions.clear("thread");
+    const pending = commands.clear("thread");
     await vi.waitFor(() => expect(goalPort.clearThreadGoal).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
     clear.reject(new Error("offline"));
@@ -415,7 +300,7 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const goalPort = goalPortFixture();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -424,7 +309,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    const pending = actions.clear("thread");
+    const pending = commands.clear("thread");
     stateStore.dispatch({ type: "active-thread/cleared" });
 
     await expect(pending).resolves.toBe(false);
@@ -438,7 +323,7 @@ describe("createGoalActions", () => {
     const connection = deferred<boolean>();
     const goalPort = goalPortFixture({ ensureConnected: vi.fn(() => connection.promise) });
     const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -447,7 +332,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    const pending = actions.setObjective("thread", "Finish", null);
+    const pending = commands.setObjective("thread", "Finish", null);
     await vi.waitFor(() => expect(goalPort.ensureConnected).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
     connection.resolve(true);
@@ -464,7 +349,7 @@ describe("createGoalActions", () => {
     const goalPort = goalPortFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal())) });
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -473,7 +358,7 @@ describe("createGoalActions", () => {
       addGoalEvent,
     });
 
-    await actions.setObjective("thread", "Finish", null);
+    await commands.setObjective("thread", "Finish", null);
 
     expect(addSystemMessage).not.toHaveBeenCalledWith("Goal set.");
     expect(addGoalEvent).toHaveBeenCalledWith(
@@ -518,7 +403,7 @@ describe("createGoalActions", () => {
       });
       return { kind: "created-activated" as const, threadId: "thread-new" };
     });
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -527,7 +412,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    await expect(actions.saveObjective(" Plan release ", null)).resolves.toBe(true);
+    await expect(commands.saveObjective(" Plan release ", null)).resolves.toBe(true);
 
     expect(startThread).toHaveBeenCalledWith("Plan release", { syncGoal: false });
     expect(setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Plan release", status: "active", tokenBudget: null });
@@ -538,7 +423,7 @@ describe("createGoalActions", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const goalPort = goalPortFixture();
     const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -547,7 +432,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    await expect(actions.saveObjective("Plan release", null)).resolves.toBe(false);
+    await expect(commands.saveObjective("Plan release", null)).resolves.toBe(false);
 
     expect(goalPort.setThreadGoal).not.toHaveBeenCalled();
     expect(addSystemMessage).toHaveBeenCalledWith(
@@ -560,7 +445,7 @@ describe("createGoalActions", () => {
     const connection = deferred<boolean>();
     const goalPort = goalPortFixture({ ensureConnected: vi.fn(() => connection.promise) });
     const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread-new" });
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -569,7 +454,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    const pending = actions.saveObjective("Plan release", null);
+    const pending = commands.saveObjective("Plan release", null);
     await vi.waitFor(() => expect(goalPort.ensureConnected).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "restored", fallbackTitle: "Restored" });
     connection.resolve(true);
@@ -611,7 +496,7 @@ describe("createGoalActions", () => {
       });
       return true;
     });
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -621,7 +506,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    await expect(actions.saveObjective("Resume work", null)).resolves.toBe(true);
+    await expect(commands.saveObjective("Resume work", null)).resolves.toBe(true);
 
     expect(ensureRestoredThreadLoaded).toHaveBeenCalledOnce();
     expect(startThread).not.toHaveBeenCalled();
@@ -637,7 +522,7 @@ describe("createGoalActions", () => {
     const goalPort = goalPortFixture();
     const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" });
     const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -646,7 +531,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    await expect(actions.saveObjective("   ", null)).resolves.toBe(false);
+    await expect(commands.saveObjective("   ", null)).resolves.toBe(false);
 
     expect(addSystemMessage).toHaveBeenCalledWith("Goal objective cannot be empty.");
     expect(goalPort.ensureConnected).not.toHaveBeenCalled();
@@ -662,7 +547,7 @@ describe("createGoalActions", () => {
       recordThreadGoalUserMessage: vi.fn().mockRejectedValue(new Error("offline")),
     });
     const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -671,7 +556,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    await actions.setObjective("thread", "Finish", null);
+    await commands.setObjective("thread", "Finish", null);
 
     expect(addSystemMessage).toHaveBeenCalledWith("Could not record goal message: offline");
   });
@@ -688,7 +573,7 @@ describe("createGoalActions", () => {
       }),
     });
     const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -697,7 +582,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    await actions.setObjective("thread", "Finish", null);
+    await commands.setObjective("thread", "Finish", null);
 
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
@@ -712,7 +597,7 @@ describe("createGoalActions", () => {
         return completedCurrent(goal());
       }),
     });
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -721,7 +606,7 @@ describe("createGoalActions", () => {
       addGoalEvent: vi.fn(),
     });
 
-    await expect(actions.setObjective("thread", "Finish", null)).resolves.toBe(false);
+    await expect(commands.setObjective("thread", "Finish", null)).resolves.toBe(false);
 
     expect(goalPort.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread", "Finish");
   });
@@ -735,7 +620,7 @@ describe("createGoalActions", () => {
       setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal({ objective: "Updated" }))),
     });
     const addGoalEvent = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -744,7 +629,7 @@ describe("createGoalActions", () => {
       addGoalEvent,
     });
 
-    await actions.setObjective("thread", "Updated", null);
+    await commands.setObjective("thread", "Updated", null);
 
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
     expect(goalPort.recordThreadGoalUserMessage).not.toHaveBeenCalled();
@@ -758,7 +643,7 @@ describe("createGoalActions", () => {
     const goalPort = goalPortFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal())) });
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const actions = createGoalActions({
+    const commands = createGoalCommands({
       stateStore,
       goalPort,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -767,32 +652,10 @@ describe("createGoalActions", () => {
       addGoalEvent,
     });
 
-    await actions.setStatus("thread", "active");
+    await commands.setStatus("thread", "active");
 
     expect(addSystemMessage).not.toHaveBeenCalledWith("Goal resumed.");
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "resumed: Finish", objective: "Finish" }));
-  });
-
-  it("does not report initial goal sync as a user-visible state change", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const currentGoal = goal();
-    const goalPort = goalPortFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
-    const addSystemMessage = vi.fn();
-    const actions = createGoalActions({
-      stateStore,
-      goalPort,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage,
-      addGoalEvent: vi.fn(),
-    });
-
-    await actions.syncThreadGoal("thread");
-
-    expect(activeThreadState(stateStore.getState())?.goal).toEqual(currentGoal);
-    expect(addSystemMessage).not.toHaveBeenCalled();
   });
 });
 

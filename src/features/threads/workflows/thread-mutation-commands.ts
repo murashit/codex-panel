@@ -2,11 +2,11 @@ import { normalizeExplicitThreadName, type Thread } from "../../../domain/thread
 import { threadDisplayTitle } from "../../../domain/threads/title";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
-import type { ThreadOperationsPort } from "./ports";
+import type { ThreadMutationPort } from "./ports";
 import type { ThreadFactSink } from "./thread-facts";
 
-export interface ThreadOperationsHost {
-  port: ThreadOperationsPort;
+export interface ThreadMutationCommandsHost {
+  port: ThreadMutationPort;
   nameMutations: KeyedOperationQueue<string>;
   archiveExport: {
     settings(): ArchiveExportSettings;
@@ -33,12 +33,12 @@ interface RenameThreadOptions {
   shouldPublish?: () => boolean;
 }
 
-export interface ThreadOperations {
+export interface ThreadMutationCommands {
   renameThread(threadId: string, value: string, options?: RenameThreadOptions): Promise<boolean>;
   archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult>;
 }
 
-export function createThreadOperations(host: ThreadOperationsHost): ThreadOperations {
+export function createThreadMutationCommands(host: ThreadMutationCommandsHost): ThreadMutationCommands {
   return {
     renameThread: (threadId, value, options) => renameThread(host, threadId, value, options),
     archiveThread: (threadId, options) => archiveThread(host, threadId, options),
@@ -46,7 +46,7 @@ export function createThreadOperations(host: ThreadOperationsHost): ThreadOperat
 }
 
 async function renameThread(
-  host: ThreadOperationsHost,
+  host: ThreadMutationCommandsHost,
   threadId: string,
   value: string,
   options: RenameThreadOptions = {},
@@ -64,7 +64,7 @@ async function renameThread(
 }
 
 async function archiveThread(
-  host: ThreadOperationsHost,
+  host: ThreadMutationCommandsHost,
   threadId: string,
   options: ArchiveThreadOptions = {},
 ): Promise<ArchiveThreadResult> {

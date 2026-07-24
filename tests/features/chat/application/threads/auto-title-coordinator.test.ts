@@ -11,8 +11,8 @@ import {
   createAutoTitleCoordinator,
 } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 import { threadTitleContextFromThreadStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
-import { createThreadOperationsAdapter } from "../../../../../src/features/threads/app-server/workflow-adapters";
-import { createThreadOperations } from "../../../../../src/features/threads/workflows/thread-operations";
+import { createThreadMutationAdapter } from "../../../../../src/features/threads/app-server/workflow-adapters";
+import { createThreadMutationCommands } from "../../../../../src/features/threads/workflows/thread-mutation-commands";
 import { createThreadTitleService } from "../../../../../src/features/threads/workflows/thread-title-service";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
 import { createKeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
@@ -128,7 +128,7 @@ describe("AutoTitleCoordinator", () => {
       }
       return {};
     });
-    const { coordinator, stateStore, threadOperations } = coordinatorFixture({
+    const { coordinator, stateStore, threadMutations } = coordinatorFixture({
       currentClient: () => fakeClient({ renameThreadRequest }),
       generateThreadTitle: vi.fn().mockResolvedValue("Generated title"),
     });
@@ -138,7 +138,7 @@ describe("AutoTitleCoordinator", () => {
     await flushPromises();
     expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Generated title" });
 
-    const manualRename = threadOperations.renameThread("thread", "Manual title");
+    const manualRename = threadMutations.renameThread("thread", "Manual title");
     await flushPromises();
     savedAutoTitle.resolve(undefined);
     await manualRename;
@@ -183,14 +183,14 @@ function coordinatorFixture(
 ): AutoTitleCoordinatorHost & {
   coordinator: AutoTitleCoordinator;
   notifyThreadRenamed: ReturnType<typeof vi.fn>;
-  threadOperations: ReturnType<typeof createThreadOperations>;
+  threadMutations: ReturnType<typeof createThreadMutationCommands>;
 } {
   const stateStore = createChatStateStore();
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
   const currentClient = overrides.currentClient ?? (() => fakeClient());
   const notifyThreadRenamed = vi.fn();
-  const threadOperations = createThreadOperations({
-    port: createThreadOperationsAdapter({
+  const threadMutations = createThreadMutationCommands({
+    port: createThreadMutationAdapter({
       withClient: async (operation) => operation(currentClient()),
     }),
     nameMutations: createKeyedOperationQueue(),
@@ -236,9 +236,9 @@ function coordinatorFixture(
       titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
     renameGeneratedTitle: (threadId: string, value: string, options: { shouldStart: () => boolean; shouldPublish: () => boolean }) =>
-      threadOperations.renameThread(threadId, value, options),
+      threadMutations.renameThread(threadId, value, options),
   } satisfies AutoTitleCoordinatorHost;
-  return { ...host, notifyThreadRenamed, threadOperations, coordinator: createAutoTitleCoordinator(host) };
+  return { ...host, notifyThreadRenamed, threadMutations, coordinator: createAutoTitleCoordinator(host) };
 }
 
 function fakeClient(options: { renameThreadRequest?: ReturnType<typeof vi.fn> } = {}): AppServerClient {

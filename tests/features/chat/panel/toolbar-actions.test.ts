@@ -13,7 +13,7 @@ describe("createToolbarPanelActions", () => {
     const archiveThread = vi.fn().mockResolvedValue(undefined);
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread } as unknown as ThreadCommands,
+      threadCommands: { archiveThread } as unknown as ThreadCommands,
     });
 
     actions.startArchive("thread");
@@ -29,7 +29,7 @@ describe("createToolbarPanelActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
+      threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     actions.toggleHistory();
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
@@ -46,7 +46,7 @@ describe("createToolbarPanelActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
+      threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     actions.toggleHistory();
     actions.startArchive("thread");
@@ -64,7 +64,7 @@ describe("createToolbarPanelActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
+      threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     actions.toggleHistory();
     actions.startArchive("thread");
@@ -91,9 +91,9 @@ describe("createToolbarPanelActions", () => {
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "restored", fallbackTitle: "Restored" });
     const startEditingCurrent = vi.fn();
     const actions = createToolbarUiActions({
-      connectionActions: {} as never,
-      reconnectPanel: vi.fn(),
-      threadActions: {} as never,
+      connectionCoordinator: {} as never,
+      reconnectCommand: vi.fn(),
+      threadCommands: {} as never,
       goals: { startEditingCurrent } as never,
       toolbarPanel: {} as never,
       rename: {} as never,
@@ -114,9 +114,9 @@ describe("createToolbarPanelActions", () => {
     const compactActiveThread = vi.fn().mockResolvedValue(undefined);
     const startEditingCurrent = vi.fn();
     const actions = createToolbarUiActions({
-      connectionActions: {} as never,
-      reconnectPanel: vi.fn(),
-      threadActions: { compactActiveThread } as never,
+      connectionCoordinator: {} as never,
+      reconnectCommand: vi.fn(),
+      threadCommands: { compactActiveThread } as never,
       goals: { startEditingCurrent } as never,
       toolbarPanel: {} as never,
       rename: {} as never,

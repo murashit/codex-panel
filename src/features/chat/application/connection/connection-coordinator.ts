@@ -7,25 +7,25 @@ const STATUS_CONNECTION_STARTING = "Starting Codex app-server...";
 const STATUS_CONNECTED = "Connected.";
 const STATUS_CONNECTION_FAILED = "Connection failed.";
 
-interface ChatConnectionAdapter {
+interface ChatConnectionPort {
   connect(): Promise<ServerInitialization>;
   isConnected(): boolean;
 }
 
-interface ChatConnectionMetadataActions {
+interface ChatConnectionMetadataEffects {
   refreshAppServerMetadata: () => Promise<unknown>;
 }
 
-interface ChatConnectionDiagnosticsActions {
+interface ChatConnectionDiagnosticsCoordinator {
   refreshServerDiagnostics: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
 }
 
-export interface ChatConnectionActionsHost {
+export interface ChatConnectionCoordinatorHost {
   stateStore: ChatStateStore;
-  connection: ChatConnectionAdapter;
+  connection: ChatConnectionPort;
   canConnect: () => boolean;
-  metadata: ChatConnectionMetadataActions;
-  diagnostics: ChatConnectionDiagnosticsActions;
+  metadataEffects: ChatConnectionMetadataEffects;
+  diagnosticsCoordinator: ChatConnectionDiagnosticsCoordinator;
   invalidateThreadWork: () => void;
   refreshSharedThreads: () => Promise<void>;
   scheduleDeferredDiagnostics: () => void;
@@ -41,7 +41,7 @@ export interface ChatConnectionActionsHost {
 }
 
 type ChatConnectionExitHost = Pick<
-  ChatConnectionActionsHost,
+  ChatConnectionCoordinatorHost,
   "invalidateThreadWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence"
 >;
 
@@ -52,7 +52,7 @@ function handleChatConnectionExit(host: ChatConnectionExitHost): void {
   host.resetThreadTurnPresence(false);
 }
 
-export interface ChatConnectionActions {
+export interface ChatConnectionCoordinator {
   ensureInitialized(): Promise<void>;
   ensureConnected(): Promise<void>;
   invalidate(): void;
@@ -62,7 +62,7 @@ export interface ChatConnectionActions {
   refreshStatusPanel(): Promise<void>;
 }
 
-export function createChatConnectionActions(host: ChatConnectionActionsHost): ChatConnectionActions {
+export function createChatConnectionCoordinator(host: ChatConnectionCoordinatorHost): ChatConnectionCoordinator {
   let generation = 0;
   let activeConnection: { generation: number; initialization: Promise<void>; hydration: Promise<void> } | null = null;
   const invalidate = (): void => {
@@ -86,7 +86,7 @@ export function createChatConnectionActions(host: ChatConnectionActionsHost): Ch
     void hydration.then(clear, clear);
     return active;
   };
-  const actions: ChatConnectionActions = {
+  const coordinator: ChatConnectionCoordinator = {
     ensureInitialized: async () => {
       if (!host.canConnect()) return;
       if (activeConnection) return activeConnection.initialization;
@@ -105,13 +105,13 @@ export function createChatConnectionActions(host: ChatConnectionActionsHost): Ch
       handleChatConnectionExit(host);
     },
     refreshActiveThreads: () => refreshActiveThreads(host),
-    refreshDiagnostics: () => refreshDiagnostics(host, actions),
-    refreshStatusPanel: () => refreshStatusPanel(host, actions),
+    refreshDiagnostics: () => refreshDiagnostics(host, coordinator),
+    refreshStatusPanel: () => refreshStatusPanel(host, coordinator),
   };
-  return actions;
+  return coordinator;
 }
 
-async function refreshActiveThreads(host: ChatConnectionActionsHost): Promise<void> {
+async function refreshActiveThreads(host: ChatConnectionCoordinatorHost): Promise<void> {
   if (!host.connection.isConnected()) return;
   try {
     await host.refreshSharedThreads();
@@ -122,28 +122,31 @@ async function refreshActiveThreads(host: ChatConnectionActionsHost): Promise<vo
   }
 }
 
-async function refreshDiagnostics(host: ChatConnectionActionsHost, actions: Pick<ChatConnectionActions, "ensureConnected">): Promise<void> {
+async function refreshDiagnostics(
+  host: ChatConnectionCoordinatorHost,
+  coordinator: Pick<ChatConnectionCoordinator, "ensureConnected">,
+): Promise<void> {
   host.clearDeferredDiagnostics();
-  await actions.ensureConnected();
+  await coordinator.ensureConnected();
   if (!host.connection.isConnected()) return;
   host.clearDeferredDiagnostics();
-  await host.metadata.refreshAppServerMetadata();
-  await host.diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
+  await host.metadataEffects.refreshAppServerMetadata();
+  await host.diagnosticsCoordinator.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
 }
 
 async function refreshStatusPanel(
-  host: ChatConnectionActionsHost,
-  actions: Pick<ChatConnectionActions, "refreshActiveThreads" | "refreshDiagnostics">,
+  host: ChatConnectionCoordinatorHost,
+  coordinator: Pick<ChatConnectionCoordinator, "refreshActiveThreads" | "refreshDiagnostics">,
 ): Promise<void> {
   try {
-    await actions.refreshDiagnostics();
+    await coordinator.refreshDiagnostics();
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
-  await actions.refreshActiveThreads();
+  await coordinator.refreshActiveThreads();
 }
 
-async function initializeConnection(host: ChatConnectionActionsHost, isStale: () => boolean): Promise<void> {
+async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale: () => boolean): Promise<void> {
   host.setStatus(STATUS_CONNECTION_STARTING, { kind: "connecting" });
   try {
     const initialization = await host.connection.connect();
@@ -164,9 +167,9 @@ async function initializeConnection(host: ChatConnectionActionsHost, isStale: ()
   }
 }
 
-async function hydrateConnectedResources(host: ChatConnectionActionsHost, isStale: () => boolean): Promise<void> {
+async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, isStale: () => boolean): Promise<void> {
   try {
-    await host.metadata.refreshAppServerMetadata();
+    await host.metadataEffects.refreshAppServerMetadata();
   } catch (error) {
     if (isStale() || host.isStaleRuntimeError(error)) return;
     host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);

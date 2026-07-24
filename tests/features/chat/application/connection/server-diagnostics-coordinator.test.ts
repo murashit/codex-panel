@@ -6,155 +6,20 @@ import {
   type DiagnosticProbeResult,
   diagnosticProbeOk,
   diagnosticsWithProbe,
-  diagnosticsWithToolInventory,
   upsertMcpServerDiagnostic,
 } from "../../../../../src/domain/server/diagnostics";
 import type { McpServerStatusSummary } from "../../../../../src/domain/server/mcp-status";
 import type { SharedServerMetadata } from "../../../../../src/domain/server/metadata";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
-import { createServerDiagnosticsActions } from "../../../../../src/features/chat/application/connection/server-diagnostics-actions";
-import { createServerMetadataActions } from "../../../../../src/features/chat/application/connection/server-metadata-actions";
+import { createServerDiagnosticsCoordinator } from "../../../../../src/features/chat/application/connection/server-diagnostics-coordinator";
+import { createServerMetadataEffects } from "../../../../../src/features/chat/application/connection/server-metadata-effects";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/tool-inventory-diagnostic-sections";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
-describe("server metadata actions", () => {
-  it("leaves metadata publication to query observers after a refresh command", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const refreshAppServerMetadata = vi.fn().mockResolvedValue(undefined);
-    const actions = createServerMetadataActions({
-      stateStore,
-      ...metadataCacheHost(),
-      refreshAppServerMetadata,
-      isStaleRuntimeError: () => false,
-    });
-
-    await actions.refreshAppServerMetadata();
-
-    expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
-    expect(stateStore.getState().connection.availableSkills).toEqual([]);
-  });
-
-  it("preserves panel-local tool diagnostics when applying a resource observation", () => {
-    const localDiagnostics = diagnosticsWithToolInventory(
-      upsertMcpServerDiagnostic(createServerDiagnostics(), {
-        name: "github",
-        startupStatus: "ready",
-        authStatus: null,
-        toolCount: null,
-        message: null,
-      }),
-      toolInventory(),
-    );
-    const stateStore = createChatStateStore(chatStateFixture({ connection: { serverDiagnostics: localDiagnostics } }));
-    const actions = createServerMetadataActions({
-      stateStore,
-      ...metadataCacheHost(),
-      isStaleRuntimeError: () => false,
-    });
-
-    actions.applyAppServerMetadataResource({
-      id: "models",
-      value: undefined,
-      probe: diagnosticProbeOk("models", "1 model", 2),
-    });
-
-    expect(stateStore.getState().connection.serverDiagnostics).toMatchObject({
-      probes: { models: { status: "ok", summary: "1 model" } },
-      mcpServers: [{ name: "github", startupStatus: "ready" }],
-      toolInventory: { checkedAt: 1 },
-    });
-  });
-
-  it("keeps MCP startup notifications out of shared metadata", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const cache = { current: serverMetadataFixture() as SharedServerMetadata | null };
-    const actions = createServerMetadataActions({
-      stateStore,
-      ...metadataCacheHost(cache),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
-      isStaleRuntimeError: () => false,
-    });
-
-    await actions.applyAppServerResourceEvent({
-      type: "mcp-startup-status-updated",
-      name: "github",
-      status: "ready",
-      message: null,
-    });
-
-    expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toMatchObject([{ name: "github", startupStatus: "ready" }]);
-    expect(cache.current?.serverDiagnostics.mcpServers).toEqual([]);
-  });
-
-  it("ignores stale shared app-server metadata refreshes without applying state", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const stale = new Error("stale");
-    const actions = createServerMetadataActions({
-      stateStore,
-      ...metadataCacheHost(),
-      refreshAppServerMetadata: vi.fn().mockRejectedValue(stale),
-      isStaleRuntimeError: (error) => error === stale,
-    });
-
-    await expect(actions.refreshAppServerMetadata()).resolves.toBeUndefined();
-
-    expect(stateStore.getState().connection.availableModels).toEqual([]);
-    expect(stateStore.getState().connection.runtimeConfig).toBeNull();
-  });
-
-  it("does not apply stale skill refreshes", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const stale = new Error("stale");
-    const actions = createServerMetadataActions({
-      stateStore,
-      ...metadataCacheHost(),
-      refreshSkills: vi.fn().mockRejectedValue(stale),
-      isStaleRuntimeError: (error) => error === stale,
-    });
-
-    await actions.applyAppServerResourceEvent({ type: "skills-changed" });
-
-    expect(stateStore.getState().connection.availableSkills).toEqual([]);
-  });
-
-  it("requests an authoritative skills refresh without publishing from the command", async () => {
-    let state = chatStateFixture();
-    const previousSkills = [skillFixture("writer")];
-    state = chatStateWith(state, { connection: { availableSkills: previousSkills } });
-    const stateStore = createChatStateStore(state);
-    const refreshSkills = vi.fn().mockResolvedValue(undefined);
-    const actions = createServerMetadataActions({
-      stateStore,
-      ...metadataCacheHost(),
-      refreshSkills,
-    });
-
-    await actions.applyAppServerResourceEvent({ type: "skills-changed" });
-
-    expect(refreshSkills).toHaveBeenCalledOnce();
-    expect(stateStore.getState().connection.availableSkills).toEqual(previousSkills);
-  });
-
-  it("requests a rate-limit refresh without publishing from the command", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const refreshRateLimits = vi.fn().mockResolvedValue(undefined);
-    const actions = createServerMetadataActions({
-      stateStore,
-      ...metadataCacheHost(),
-      refreshRateLimits,
-    });
-
-    await actions.applyAppServerResourceEvent({ type: "rate-limits-updated" });
-
-    expect(refreshRateLimits).toHaveBeenCalledOnce();
-    expect(stateStore.getState().connection.rateLimit).toBeNull();
-  });
-});
-
-describe("server diagnostics actions", () => {
+describe("server diagnostics coordinator", () => {
   it("reuses refreshed app-server metadata for deferred diagnostics", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const refreshedMetadata = serverMetadataFixture({
@@ -166,7 +31,7 @@ describe("server diagnostics actions", () => {
     });
     const cache = { current: null as SharedServerMetadata | null };
     const metadataCache = metadataCacheHost(cache);
-    const metadata = createServerMetadataActions({
+    const metadata = createServerMetadataEffects({
       stateStore,
       ...metadataCache,
       refreshAppServerMetadata: vi.fn().mockImplementation(async () => {
@@ -175,7 +40,7 @@ describe("server diagnostics actions", () => {
       isStaleRuntimeError: () => false,
     });
     const readServerDiagnostics = vi.fn().mockResolvedValue(serverDiagnosticsSnapshot());
-    const diagnostics = createServerDiagnosticsActions({
+    const diagnostics = createServerDiagnosticsCoordinator({
       stateStore,
       diagnosticsPort: { readServerDiagnostics },
       ...metadataCache,
@@ -205,7 +70,7 @@ describe("server diagnostics actions", () => {
       }),
     });
     const readServerDiagnostics = vi.fn().mockResolvedValue(serverDiagnosticsSnapshot());
-    const diagnostics = createServerDiagnosticsActions({
+    const diagnostics = createServerDiagnosticsCoordinator({
       stateStore,
       diagnosticsPort: { readServerDiagnostics },
       ...metadataCache,
@@ -232,7 +97,7 @@ describe("server diagnostics actions", () => {
         resourceProbes: [diagnosticProbeOk("models", "1 models", 1), diagnosticProbeOk("rateLimits", "available", 1)],
       }),
     );
-    const diagnostics = createServerDiagnosticsActions({
+    const diagnostics = createServerDiagnosticsCoordinator({
       stateStore,
       diagnosticsPort: { readServerDiagnostics },
       ...metadataCacheHost(),
@@ -249,7 +114,7 @@ describe("server diagnostics actions", () => {
 
   it("does not apply diagnostic probes when the port returns no snapshot", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const diagnostics = createServerDiagnosticsActions({
+    const diagnostics = createServerDiagnosticsCoordinator({
       stateStore,
       diagnosticsPort: { readServerDiagnostics: vi.fn().mockResolvedValue(null) },
       appServerMetadataSnapshot: () => null,
@@ -265,13 +130,13 @@ describe("server diagnostics actions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     const stateStore = createChatStateStore(state);
     const metadataCache = metadataCacheHost({ current: serverMetadataFixture() });
-    const metadata = createServerMetadataActions({
+    const metadata = createServerMetadataEffects({
       stateStore,
       ...metadataCache,
       refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
       isStaleRuntimeError: () => false,
     });
-    const diagnostics = createServerDiagnosticsActions({
+    const diagnostics = createServerDiagnosticsCoordinator({
       stateStore,
       diagnosticsPort: {
         readServerDiagnostics: vi.fn().mockResolvedValue(
@@ -283,7 +148,7 @@ describe("server diagnostics actions", () => {
       ...metadataCache,
     });
 
-    await metadata.applyAppServerResourceEvent({
+    await metadata.handleAppServerResourceFact({
       type: "mcp-startup-status-updated",
       name: "github",
       status: "ready",
@@ -301,7 +166,7 @@ describe("server diagnostics actions", () => {
   it("drops a diagnostics result when its active thread is no longer current", async () => {
     const pending = deferred<ReturnType<typeof serverDiagnosticsSnapshot>>();
     const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread-1" } }));
-    const diagnostics = createServerDiagnosticsActions({
+    const diagnostics = createServerDiagnosticsCoordinator({
       stateStore,
       diagnosticsPort: { readServerDiagnostics: vi.fn(() => pending.promise) },
       ...metadataCacheHost(),
@@ -319,7 +184,7 @@ describe("server diagnostics actions", () => {
   it("drops a diagnostics result after its connection scope is invalidated", async () => {
     const pending = deferred<ReturnType<typeof serverDiagnosticsSnapshot>>();
     const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread-1" } }));
-    const diagnostics = createServerDiagnosticsActions({
+    const diagnostics = createServerDiagnosticsCoordinator({
       stateStore,
       diagnosticsPort: { readServerDiagnostics: vi.fn(() => pending.promise) },
       ...metadataCacheHost(),
@@ -352,7 +217,7 @@ describe("server diagnostics actions", () => {
     const stateStore = createChatStateStore(
       chatStateFixture({ activeThread: { id: "thread-1" }, connection: { serverDiagnostics: initialDiagnostics } }),
     );
-    const diagnostics = createServerDiagnosticsActions({
+    const diagnostics = createServerDiagnosticsCoordinator({
       stateStore,
       diagnosticsPort: {
         readServerDiagnostics: vi.fn().mockResolvedValue(serverDiagnosticsSnapshot({ mcpServerStatuses: [mcpServerStatus()] })),

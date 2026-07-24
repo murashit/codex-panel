@@ -7,7 +7,7 @@ import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatTurnBusy } from "../turns/turn-state";
-import type { ThreadCommandPort } from "./thread-command-ports";
+import type { ThreadCommandPort } from "./thread-command-port";
 
 const STATUS_COMPACTION_REQUESTED = "Compaction requested.";
 const STATUS_ROLLBACK_STARTING = "Rolling back the latest turn...";
@@ -16,7 +16,7 @@ const STATUS_ROLLBACK_FAILED = "Could not roll back the latest turn.";
 
 export interface ThreadCommandsHost {
   stateStore: ChatStateStore;
-  operations: ThreadManagementOperations;
+  mutations: ThreadManagementMutations;
   commandPort: ThreadCommandPort;
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
@@ -39,7 +39,7 @@ interface ThreadForkPublication {
   finish(options?: { sourceArchived?: boolean }): void;
 }
 
-interface ThreadManagementOperations {
+interface ThreadManagementMutations {
   renameThread(threadId: string, value: string): Promise<boolean>;
   archiveThread(threadId: string, options?: { saveMarkdown?: boolean }): Promise<boolean>;
 }
@@ -114,7 +114,7 @@ async function archiveThreadFromPanel(host: ThreadCommandsHost, threadId: string
   }
   try {
     const options = saveMarkdown === undefined ? {} : { saveMarkdown };
-    return await host.operations.archiveThread(threadId, options);
+    return await host.mutations.archiveThread(threadId, options);
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return false;
@@ -163,7 +163,7 @@ async function forkThreadFromTurn(
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
     if (sourceName) {
       try {
-        if (!(await host.operations.renameThread(forkedThreadId, sourceName))) return;
+        if (!(await host.mutations.renameThread(forkedThreadId, sourceName))) return;
       } catch (error) {
         if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
         const message = error instanceof Error ? error.message : String(error);
@@ -218,7 +218,7 @@ async function forkThreadFromTurn(
 
 async function renameThread(host: ThreadCommandsHost, threadId: string, value: string): Promise<boolean> {
   try {
-    const result = await host.operations.renameThread(threadId, value);
+    const result = await host.mutations.renameThread(threadId, value);
     if (!result) return false;
     return true;
   } catch (error) {
@@ -314,7 +314,7 @@ async function archiveReplacedSource(
 ): Promise<boolean> {
   try {
     const archiveOptions = options.saveMarkdown === undefined ? {} : { saveMarkdown: options.saveMarkdown };
-    if (await host.operations.archiveThread(sourceThreadId, archiveOptions)) return true;
+    if (await host.mutations.archiveThread(sourceThreadId, archiveOptions)) return true;
     reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, "archive was not completed");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

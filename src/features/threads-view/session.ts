@@ -9,9 +9,9 @@ import { observedInitialError, observedInitialLoading } from "../../shared/runti
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../threads/workflows/archive-export";
-import type { ThreadOperationsPort, ThreadTitlePort } from "../threads/workflows/ports";
+import type { ThreadMutationPort, ThreadTitlePort } from "../threads/workflows/ports";
 import type { ThreadFactSink } from "../threads/workflows/thread-facts";
-import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
+import { createThreadMutationCommands, type ThreadMutationCommands } from "../threads/workflows/thread-mutation-commands";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
 import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows, transitionThreadsRenameState } from "./state";
@@ -21,7 +21,7 @@ export interface ThreadsViewHost {
   readonly threadCatalog: ThreadsViewThreadCatalog;
   readonly threadFacts: ThreadFactSink;
   readonly threadNameMutations: KeyedOperationQueue<string>;
-  readonly threadOperationsPort: ThreadOperationsPort;
+  readonly threadMutationPort: ThreadMutationPort;
   readonly threadTitlePort: ThreadTitlePort;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
@@ -52,7 +52,7 @@ interface ThreadTitleContextPreparation {
 
 export class ThreadsViewSession {
   private readonly lifetime = new OwnerLifetime();
-  private readonly operations: ThreadOperations;
+  private readonly mutations: ThreadMutationCommands;
   private readonly titleService: ThreadTitleService;
   private readonly renderTask: DeferredTask;
   private observedFetching = false;
@@ -70,8 +70,8 @@ export class ThreadsViewSession {
 
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
     this.renderTask = new DeferredTask(() => this.viewWindow(), 0);
-    this.operations = createThreadOperations({
-      port: this.host.threadOperationsPort,
+    this.mutations = createThreadMutationCommands({
+      port: this.host.threadMutationPort,
       nameMutations: this.host.threadNameMutations,
       archiveExport: {
         settings: () => this.host.settings.archiveExportSettings(),
@@ -296,7 +296,7 @@ export class ThreadsViewSession {
     this.nextRenameSaveToken += 1;
     this.render();
     try {
-      await this.operations.renameThread(threadId, value, {
+      await this.mutations.renameThread(threadId, value, {
         shouldStart: () => this.lifetime.isCurrent(viewLifetime) && this.renameSaveStillActive(threadId, saveToken),
       });
       if (!this.lifetime.isCurrent(viewLifetime)) return;
@@ -367,7 +367,7 @@ export class ThreadsViewSession {
     }
     const viewLifetime = this.lifetime.signal();
     try {
-      await this.operations.archiveThread(threadId, {
+      await this.mutations.archiveThread(threadId, {
         saveMarkdown,
       });
       if (!this.lifetime.isCurrent(viewLifetime)) return;

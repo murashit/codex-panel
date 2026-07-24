@@ -11,7 +11,7 @@ type ConnectionBundleInput = Parameters<typeof createConnectionBundle>[1];
 describe("connection bundle", () => {
   it("responds through the responder that delivered the request", async () => {
     const fixture = connectionBundleFixture();
-    await fixture.bundle.connection.actions.ensureConnected();
+    await fixture.bundle.connection.coordinator.ensureConnected();
     const responder = { respond: vi.fn(), reject: vi.fn() };
 
     fixture.connectionHandlers().onServerRequest(userInputRequest(1), responder);
@@ -22,7 +22,7 @@ describe("connection bundle", () => {
 
   it("cannot reuse a responder after its connection scope is invalidated", async () => {
     const fixture = connectionBundleFixture();
-    await fixture.bundle.connection.actions.ensureConnected();
+    await fixture.bundle.connection.coordinator.ensureConnected();
     const responder = { respond: vi.fn(), reject: vi.fn() };
 
     fixture.connectionHandlers().onServerRequest(userInputRequest(1), responder);
@@ -38,7 +38,7 @@ describe("connection bundle", () => {
     const fixture = connectionBundleFixture({
       readServerDiagnostics: vi.fn().mockRejectedValue(error),
     });
-    await fixture.bundle.connection.actions.ensureConnected();
+    await fixture.bundle.connection.coordinator.ensureConnected();
 
     fixture.runScheduledDiagnostics();
     await vi.waitFor(() => {
@@ -49,7 +49,7 @@ describe("connection bundle", () => {
   it("does not run deferred diagnostics after disconnect", async () => {
     const readServerDiagnostics = vi.fn().mockResolvedValue(null);
     const fixture = connectionBundleFixture({ readServerDiagnostics });
-    await fixture.bundle.connection.actions.ensureConnected();
+    await fixture.bundle.connection.coordinator.ensureConnected();
     fixture.setConnected(false);
 
     fixture.runScheduledDiagnostics();

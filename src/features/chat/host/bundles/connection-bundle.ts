@@ -5,10 +5,10 @@ import { type ConnectionManager, StaleConnectionError } from "../../../../app-se
 import type { SharedServerMetadataResource } from "../../../../domain/server/metadata";
 import { isStaleExecutionRuntimeError } from "../../../../shared/runtime/execution-runtime-lifetime";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
-import { type ChatConnectionActions, createChatConnectionActions } from "../../application/connection/connection-actions";
-import type { ServerDiagnosticsPort } from "../../application/connection/metadata-port";
-import { createServerDiagnosticsActions } from "../../application/connection/server-diagnostics-actions";
-import { createServerMetadataActions } from "../../application/connection/server-metadata-actions";
+import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
+import { createServerDiagnosticsCoordinator } from "../../application/connection/server-diagnostics-coordinator";
+import type { ServerDiagnosticsPort } from "../../application/connection/server-diagnostics-port";
+import { createServerMetadataEffects } from "../../application/connection/server-metadata-effects";
 import type { LocalIdSource } from "../../application/local-id-source";
 import type { ChatConnectionPhase } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
@@ -44,10 +44,10 @@ interface ChatPanelConnectionBundleHost {
 export interface ChatPanelConnectionBundle {
   connection: {
     manager: ConnectionManager;
-    actions: ChatConnectionActions;
+    coordinator: ChatConnectionCoordinator;
   };
   inboundHandler: ChatInboundHandler;
-  sharedStateActions: {
+  sharedStateEffects: {
     applyAppServerMetadataResource: (resource: SharedServerMetadataResource) => void;
   };
   invalidateConnectionScope: () => void;
@@ -121,7 +121,7 @@ export function createConnectionBundle(
   const { environment, stateStore } = host;
   const { connection, diagnosticsPort, localItemIds, status, autoTitleCoordinator } = input;
   const serverRequestResponders = createServerRequestResponderRegistry();
-  const serverMetadata = createServerMetadataActions({
+  const serverMetadataEffects = createServerMetadataEffects({
     stateStore,
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
     refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
@@ -129,7 +129,7 @@ export function createConnectionBundle(
     refreshRateLimits: () => environment.plugin.appServerQueries.refreshRateLimits(),
     isStaleRuntimeError: isStaleExecutionRuntimeError,
   });
-  const serverDiagnostics = createServerDiagnosticsActions({
+  const diagnosticsCoordinator = createServerDiagnosticsCoordinator({
     stateStore,
     diagnosticsPort,
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
@@ -141,12 +141,12 @@ export function createConnectionBundle(
     stateStore,
     {
       refreshServerDiagnostics: (options) => {
-        void serverDiagnostics.refreshServerDiagnostics(options).catch((error: unknown) => {
+        void diagnosticsCoordinator.refreshServerDiagnostics(options).catch((error: unknown) => {
           status.addSystemMessage(error instanceof Error ? error.message : String(error));
         });
       },
-      applyAppServerResourceEvent: (event) => {
-        void serverMetadata.applyAppServerResourceEvent(event).catch((error: unknown) => {
+      handleAppServerResourceFact: (fact) => {
+        void serverMetadataEffects.handleAppServerResourceFact(fact).catch((error: unknown) => {
           status.addSystemMessage(error instanceof Error ? error.message : String(error));
         });
       },
@@ -171,7 +171,7 @@ export function createConnectionBundle(
       autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
   };
-  const connectionActions = createChatConnectionActions({
+  const connectionCoordinator = createChatConnectionCoordinator({
     ...connectionExitHost,
     canConnect: host.canConnect,
     connection: {
@@ -189,17 +189,17 @@ export function createConnectionBundle(
           },
           onExit: () => {
             serverRequestResponders.clear();
-            serverDiagnostics.invalidate();
-            connectionActions.handleExit();
+            diagnosticsCoordinator.invalidate();
+            connectionCoordinator.handleExit();
           },
         }),
       isConnected: () => connection.isConnected(),
     },
-    metadata: {
-      refreshAppServerMetadata: () => serverMetadata.refreshAppServerMetadata(),
+    metadataEffects: {
+      refreshAppServerMetadata: () => serverMetadataEffects.refreshAppServerMetadata(),
     },
-    diagnostics: {
-      refreshServerDiagnostics: (options) => serverDiagnostics.refreshServerDiagnostics(options),
+    diagnosticsCoordinator: {
+      refreshServerDiagnostics: (options) => diagnosticsCoordinator.refreshServerDiagnostics(options),
     },
     refreshSharedThreads,
     scheduleDeferredDiagnostics: () => {
@@ -208,7 +208,7 @@ export function createConnectionBundle(
           host.deferredTasks.scheduleDiagnostics(callback);
         },
         isConnected: () => connection.isConnected(),
-        refreshServerDiagnostics: (options) => serverDiagnostics.refreshServerDiagnostics(options),
+        refreshServerDiagnostics: (options) => diagnosticsCoordinator.refreshServerDiagnostics(options),
         addSystemMessage: (text) => {
           status.addSystemMessage(text);
         },
@@ -233,17 +233,17 @@ export function createConnectionBundle(
   return {
     connection: {
       manager: connection,
-      actions: connectionActions,
+      coordinator: connectionCoordinator,
     },
     inboundHandler,
-    sharedStateActions: {
+    sharedStateEffects: {
       applyAppServerMetadataResource: (resource) => {
-        serverMetadata.applyAppServerMetadataResource(resource);
+        serverMetadataEffects.applyAppServerMetadataResource(resource);
       },
     },
     invalidateConnectionScope: () => {
       serverRequestResponders.clear();
-      serverDiagnostics.invalidate();
+      diagnosticsCoordinator.invalidate();
     },
     refreshSharedThreads,
   };

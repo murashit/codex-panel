@@ -3,17 +3,17 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { LocalIdSource } from "../local-id-source";
-import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
+import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
 import type { ChatStateStore } from "../state/store";
-import type { GoalActions } from "../threads/goal-actions";
+import type { GoalCommands } from "../threads/goal-commands";
 import type { ThreadCommands } from "../threads/thread-commands";
-import type { ThreadStartOutcome } from "../threads/thread-start-actions";
-import { type ComposerSubmitActions, type ComposerSubmitActionsHost, submitComposer } from "./composer-submit-actions";
+import type { ThreadStartOutcome } from "../threads/thread-start-command";
+import { type ComposerSubmitCommand, type ComposerSubmitCommandHost, submitComposer } from "./composer-submit-command";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
 import type { ThreadReferenceInput, WebUrlInput } from "./slash-command-execution";
 import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
 import type { ChatTurnPort } from "./turn-port";
-import { createTurnSubmissionActions } from "./turn-submission-actions";
+import { createTurnSubmissionCommand } from "./turn-submission-command";
 
 export interface TurnWorkflowContext {
   stateStore: ChatStateStore;
@@ -56,11 +56,11 @@ export interface TurnWorkflowContext {
 }
 
 export interface TurnWorkflowRefs {
-  threadStarter: TurnWorkflowThreadStarter;
-  runtimeSettings: ChatRuntimeSettingsActions;
-  threadActions: ThreadCommands;
-  reconnectPanel: () => Promise<void>;
-  goals: GoalActions;
+  threadStartCommand: TurnWorkflowThreadStarter;
+  runtimeSettings: ChatRuntimeSettingsCommands;
+  threadCommands: ThreadCommands;
+  reconnectCommand: () => Promise<void>;
+  goals: GoalCommands;
 }
 
 interface TurnWorkflowThreadStarter {
@@ -71,20 +71,20 @@ interface PlanImplementation {
   implement: (itemId: string) => Promise<void>;
 }
 
-export interface TurnWorkflowActions {
+export interface TurnWorkflowCommands {
   planImplementation: PlanImplementation;
-  composerSubmit: ComposerSubmitActions;
+  composerSubmit: ComposerSubmitCommand;
 }
 
-export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: TurnWorkflowRefs): TurnWorkflowActions {
+export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: TurnWorkflowRefs): TurnWorkflowCommands {
   const { stateStore, localItemIds, connectionAvailable, turnPort, referThread, readWebUrl, status, runtime, thread, composer, scroll } =
     context;
-  const turnSubmission = createTurnSubmissionActions({
+  const turnSubmissionCommand = createTurnSubmissionCommand({
     stateStore,
     localItemIds,
     turnPort,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
-    startThread: (preview, options) => refs.threadStarter.startThread(preview, options),
+    startThread: (preview, options) => refs.threadStartCommand.startThread(preview, options),
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     resetThreadTurnPresence: thread.resetTurnPresence,
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
@@ -99,10 +99,10 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     referThread,
     readWebUrl,
     startNewThread: thread.startNewThread,
-    startThreadForGoal: (objective) => startThreadForGoal(refs.threadStarter, objective, status.addSystemMessage),
+    startThreadForGoal: (objective) => startThreadForGoal(refs.threadStartCommand, objective, status.addSystemMessage),
     resumeThread: thread.selectThread,
-    threadActions: refs.threadActions,
-    reconnect: refs.reconnectPanel,
+    threadCommands: refs.threadCommands,
+    reconnect: refs.reconnectCommand,
     ...(thread.openSideChat ? { openSideChat: thread.openSideChat } : {}),
     runtimeSettings: refs.runtimeSettings,
     goals: refs.goals,
@@ -120,13 +120,13 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     stateStore,
     ensureConnected: () => turnPort.ensureConnected(),
     sendTurnText: async (text) => {
-      await turnSubmission.sendTurnText({ text });
+      await turnSubmissionCommand.sendTurnText({ text });
     },
     requestDefaultCollaborationModeForNextTurn: () => {
       refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
     },
   };
-  const composerSubmitHost: ComposerSubmitActionsHost = {
+  const composerSubmitHost: ComposerSubmitCommandHost = {
     stateStore,
     localItemIds,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
@@ -144,7 +144,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
       execute: (command, args, inputSnapshot, isWebImportCurrent) =>
         executeSlashCommandWithState(slashCommandExecutorHost, command, args, inputSnapshot, isWebImportCurrent),
     },
-    turnSubmission,
+    turnSubmissionCommand,
     connection: {
       ensureConnected: () => turnPort.ensureConnected(),
     },

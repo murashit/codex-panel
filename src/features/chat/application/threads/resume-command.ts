@@ -11,7 +11,7 @@ import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
 import type { ThreadResumePort, ThreadResumeSnapshot } from "./thread-loading-ports";
 import { canSwitchToThread } from "./thread-switching";
 
-export interface ResumeActionsHost {
+export interface ResumeCommandHost {
   stateStore: ChatStateStore;
   resumeWork: ChatResumeWorkTracker;
   history: HistoryController;
@@ -25,7 +25,7 @@ export interface ResumeActionsHost {
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
 }
 
-export interface ResumeActions {
+export interface ResumeCommand {
   resumeThread(threadId: string, intent?: ActiveChatResume, options?: ResumeThreadOptions): Promise<boolean>;
 }
 
@@ -33,14 +33,14 @@ export interface ResumeThreadOptions {
   onAdopted?: () => void;
 }
 
-export function createResumeActions(host: ResumeActionsHost): ResumeActions {
+export function createResumeCommand(host: ResumeCommandHost): ResumeCommand {
   return {
     resumeThread: (threadId, intent, options) => resumeThread(host, threadId, intent, options),
   };
 }
 
 async function resumeThread(
-  host: ResumeActionsHost,
+  host: ResumeCommandHost,
   threadId: string,
   intent?: ActiveChatResume,
   options?: ResumeThreadOptions,
@@ -88,7 +88,7 @@ async function resumeThread(
 }
 
 function applyResumedThread(
-  host: ResumeActionsHost,
+  host: ResumeCommandHost,
   response: ThreadResumeSnapshot,
   expectedPanelTargetRevision: number,
 ): PanelTargetLease | null {
@@ -105,7 +105,7 @@ function applyResumedThread(
 }
 
 function recoverResumedThreadTokenUsage(
-  host: ResumeActionsHost,
+  host: ResumeCommandHost,
   threadId: string,
   path: string | null,
   resume: ActiveChatResume,
@@ -124,7 +124,7 @@ function recoverResumedThreadTokenUsage(
     .catch(() => undefined);
 }
 
-function isStaleResume(host: ResumeActionsHost, resume: ActiveChatResume, panelTarget?: PanelTargetLease): boolean {
+function isStaleResume(host: ResumeCommandHost, resume: ActiveChatResume, panelTarget?: PanelTargetLease): boolean {
   return (
     host.resumeWork.isStale(resume) ||
     host.closing() ||

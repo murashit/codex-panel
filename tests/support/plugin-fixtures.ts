@@ -5,7 +5,7 @@ import { vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../../src/constants";
 import type { Thread } from "../../src/domain/threads/model";
-import { createThreadGoalOperationCoordinator } from "../../src/features/chat/application/threads/goal-actions";
+import { createThreadGoalCoordinator } from "../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../../src/main";
@@ -133,7 +133,7 @@ function chatHostFixture(): CodexChatHost {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
     },
-    threadGoalOperations: createThreadGoalOperationCoordinator(),
+    threadGoalCoordinator: createThreadGoalCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationQueue(),
     settings: chatPanelSettingsAccess(settings),
     workspace: {

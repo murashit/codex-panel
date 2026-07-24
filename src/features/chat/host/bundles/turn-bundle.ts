@@ -2,21 +2,24 @@ import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
-import type { ChatRuntimeSettingsActions } from "../../application/runtime/settings-actions";
+import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
-import type { ThreadStartActions } from "../../application/threads/thread-start-actions";
-import { type TurnWorkflowActions as ChatPanelTurnWorkflowActions, createTurnWorkflowActions } from "../../application/turns/composition";
+import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
+import {
+  type TurnWorkflowCommands as ChatPanelTurnWorkflowCommands,
+  createTurnWorkflowCommands,
+} from "../../application/turns/composition";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
 import type { ChatPanelEnvironment } from "../contracts";
 import { readWebUrl } from "../obsidian/web-context.obsidian";
 import type {
-  ChatPanelGoalActions,
-  ChatPanelThreadActions,
+  ChatPanelGoalCommands,
+  ChatPanelThreadCommands,
   ChatPanelThreadLifecycle,
-  ChatPanelThreadNavigationActions,
+  ChatPanelThreadNavigationCommands,
 } from "./thread-bundle";
 
 interface ChatPanelTurnStatus {
@@ -35,7 +38,7 @@ interface ChatPanelTurnHost {
 
 export interface ChatPanelTurnBundle {
   pendingRequests: PendingRequestActions;
-  turnActions: ChatPanelTurnWorkflowActions;
+  turnCommands: ChatPanelTurnWorkflowCommands;
 }
 
 interface ChatPanelTurnInput {
@@ -44,12 +47,12 @@ interface ChatPanelTurnInput {
   status: ChatPanelTurnStatus;
   inboundHandler: ChatInboundHandler;
   threadLifecycle: ChatPanelThreadLifecycle;
-  threadActions: ChatPanelThreadActions;
-  navigation: ChatPanelThreadNavigationActions;
+  threadCommands: ChatPanelThreadCommands;
+  navigation: ChatPanelThreadNavigationCommands;
   composerController: ChatComposerController;
-  runtimeSettings: ChatRuntimeSettingsActions;
-  threadStart: ThreadStartActions;
-  goals: ChatPanelGoalActions;
+  runtimeSettings: ChatRuntimeSettingsCommands;
+  threadStart: ThreadStartCommand;
+  goals: ChatPanelGoalCommands;
   autoTitleCoordinator: AutoTitleCoordinator;
   reconnect: () => Promise<void>;
   runtimeProjection: ChatPanelRuntimeProjection;
@@ -64,7 +67,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     status,
     inboundHandler,
     threadLifecycle,
-    threadActions,
+    threadCommands,
     navigation,
     composerController,
     runtimeSettings,
@@ -89,7 +92,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
   });
-  const turnActions = createTurnWorkflowActions(
+  const turnCommands = createTurnWorkflowCommands(
     {
       stateStore: host.stateStore,
       localItemIds,
@@ -154,16 +157,16 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       },
     },
     {
-      threadStarter: threadStart,
+      threadStartCommand: threadStart,
       runtimeSettings,
-      threadActions,
-      reconnectPanel: reconnect,
+      threadCommands,
+      reconnectCommand: reconnect,
       goals,
     },
   );
 
   return {
     pendingRequests,
-    turnActions,
+    turnCommands,
   };
 }

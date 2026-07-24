@@ -1,8 +1,8 @@
 import { Notice } from "obsidian";
 
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
-import { createThreadOperationsAdapter } from "../../../threads/app-server/workflow-adapters";
-import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
+import { createThreadMutationAdapter } from "../../../threads/app-server/workflow-adapters";
+import { createThreadMutationCommands, type ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -10,11 +10,9 @@ import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
-import {
-  createGoalActions,
-  createThreadGoalSyncActions,
-  type ThreadGoalOperationCoordinator,
-} from "../../application/threads/goal-actions";
+import { createGoalCommands, type GoalCommands } from "../../application/threads/goal-commands";
+import { createGoalEditorActions, type GoalEditorActions } from "../../application/threads/goal-editor-actions";
+import { createThreadGoalSync, type ThreadGoalSync } from "../../application/threads/goal-sync";
 import { HistoryController } from "../../application/threads/history-controller";
 import type { PersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import {
@@ -23,24 +21,25 @@ import {
   type ThreadRenameEditorActions,
 } from "../../application/threads/rename-editor-actions";
 import { RestorationController } from "../../application/threads/restoration-controller";
-import { createResumeActions, type ResumeActions } from "../../application/threads/resume-actions";
+import { createResumeCommand, type ResumeCommand } from "../../application/threads/resume-command";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadCommands, type ThreadCommandsHost } from "../../application/threads/thread-commands";
-import { createThreadNavigationActions } from "../../application/threads/thread-navigation-actions";
-import type { ThreadStartActions } from "../../application/threads/thread-start-actions";
+import type { ThreadGoalCoordinator } from "../../application/threads/thread-goal-coordinator";
+import { createThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
+import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
 import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
 import type { ChatComposerController } from "../../panel/composer-controller";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
 import type { ChatPanelEnvironment } from "../contracts";
 
-type ChatPanelGoalSyncActions = ReturnType<typeof createThreadGoalSyncActions>;
-export type ChatPanelGoalActions = ReturnType<typeof createGoalActions>;
-export type ChatPanelThreadActions = ReturnType<typeof createThreadCommands>;
-export type ChatPanelThreadNavigationActions = ReturnType<typeof createThreadNavigationActions>;
+type ChatPanelGoalSync = ThreadGoalSync;
+export type ChatPanelGoalCommands = GoalCommands & GoalEditorActions;
+export type ChatPanelThreadCommands = ReturnType<typeof createThreadCommands>;
+export type ChatPanelThreadNavigationCommands = ReturnType<typeof createThreadNavigationCommands>;
 
 export interface ChatPanelThreadLifecycle {
   restoration: RestorationController;
-  resume: ResumeActions;
+  resume: ResumeCommand;
   identity: ActiveThreadIdentitySync;
 }
 
@@ -70,9 +69,9 @@ interface ChatPanelThreadFoundation {
   titleService: ThreadTitleService;
   autoTitleCoordinator: AutoTitleCoordinator;
   history: HistoryController;
-  goalSync: ChatPanelGoalSyncActions;
-  goalOperations: ThreadGoalOperationCoordinator;
-  threadOperations: ThreadOperations;
+  goalSync: ChatPanelGoalSync;
+  goalCoordinator: ThreadGoalCoordinator;
+  threadMutations: ThreadMutationCommands;
   invalidateThreadWork(): void;
 }
 
@@ -82,17 +81,17 @@ interface ChatPanelThreadLifecycleInput {
   ensureConnected: () => Promise<void>;
   ensureInitialized: () => Promise<void>;
   status: ChatPanelThreadStatus;
-  threadStart: ThreadStartActions;
+  threadStart: ThreadStartCommand;
   foundation: ChatPanelThreadFoundation;
   notifyActiveThreadIdentityChanged: () => void;
 }
 
 interface ChatPanelThreadLifecycleBundle extends ChatPanelThreadLifecycle {
-  goals: ChatPanelGoalActions;
+  goals: ChatPanelGoalCommands;
   rename: ThreadRenameEditorActions;
 }
 
-interface ChatPanelThreadActionInput {
+interface ChatPanelThreadCommandInput {
   appServer: ChatAppServerGateway;
   status: ChatPanelThreadStatus;
   composerController: ChatComposerController;
@@ -102,24 +101,24 @@ interface ChatPanelThreadActionInput {
   navigation: PersistentNavigationLifecycle;
 }
 
-interface ChatPanelThreadActionBundle {
-  actions: ChatPanelThreadActions;
+interface ChatPanelThreadCommandBundle {
+  commands: ChatPanelThreadCommands;
   toolbarPanelActions: ToolbarPanelActions;
-  navigation: ChatPanelThreadNavigationActions;
+  navigation: ChatPanelThreadNavigationCommands;
 }
 
 export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPanelThreadFoundationInput): ChatPanelThreadFoundation {
   const { appServer, localItemIds, status } = input;
   const { environment, stateStore } = host;
-  const threadOperationsPort = createThreadOperationsAdapter(appServer.clientAccess);
+  const threadMutationPort = createThreadMutationAdapter(appServer.clientAccess);
   const titleService = createThreadTitleService({
     port: environment.plugin.threadTitlePort,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
     visibleCompletedTurnContext: (turnId) =>
       threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
   });
-  const threadOperations = createThreadOperations({
-    port: threadOperationsPort,
+  const threadMutations = createThreadMutationCommands({
+    port: threadMutationPort,
     nameMutations: environment.plugin.threadNameMutations,
     archiveExport: {
       settings: () => environment.plugin.settings.archiveExportSettings(),
@@ -140,7 +139,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
       titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
     renameGeneratedTitle: (threadId, title, options) =>
-      threadOperations.renameThread(threadId, title, {
+      threadMutations.renameThread(threadId, title, {
         shouldStart: options.shouldStart,
         shouldPublish: options.shouldPublish,
       }),
@@ -162,8 +161,8 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     titleService.invalidate();
     autoTitleCoordinator.invalidate();
   };
-  const goalOperations = environment.plugin.threadGoalOperations;
-  const goalSync = createThreadGoalSyncActions(
+  const goalCoordinator = environment.plugin.threadGoalCoordinator;
+  const goalSync = createThreadGoalSync(
     {
       stateStore,
       goalPort: appServer.threadGoalRead,
@@ -175,7 +174,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
         stateStore.dispatch({ type: "thread-stream/item-upserted", item });
       },
     },
-    goalOperations,
+    goalCoordinator,
   );
 
   return {
@@ -183,8 +182,8 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     autoTitleCoordinator,
     history,
     goalSync,
-    goalOperations,
-    threadOperations,
+    goalCoordinator,
+    threadMutations,
     invalidateThreadWork,
   };
 }
@@ -215,7 +214,8 @@ export function createThreadLifecycleBundle(
     },
     notifyActiveThreadIdentityChanged,
   });
-  const goals = createGoalActions(
+  const goalEditor = createGoalEditorActions({ stateStore: host.stateStore });
+  const goalCommands = createGoalCommands(
     {
       stateStore: host.stateStore,
       goalPort: appServer.threadGoal,
@@ -225,6 +225,7 @@ export function createThreadLifecycleBundle(
         lifecycle.restoration.ensureLoaded(async (threadId) => {
           await lifecycle.resume.resumeThread(threadId);
         }),
+      startEditingGoal: goalEditor.startEditing,
       addSystemMessage: (text) => {
         status.addSystemMessage(text);
       },
@@ -232,13 +233,14 @@ export function createThreadLifecycleBundle(
         host.stateStore.dispatch({ type: "thread-stream/item-upserted", item });
       },
     },
-    foundation.goalOperations,
+    foundation.goalCoordinator,
   );
+  const goals: ChatPanelGoalCommands = { ...goalCommands, ...goalEditor };
   const rename = createThreadRenameEditorActions({
     stateStore: host.stateStore,
     ensureConnected,
     addSystemMessage: status.addSystemMessage,
-    renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
+    renameThread: (threadId, value) => foundation.threadMutations.renameThread(threadId, value),
     resolveThreadTitleContext: (threadId) => foundation.titleService.resolveContext(threadId),
     generateThreadTitle: (context, signal) => foundation.titleService.generate(context, signal),
   });
@@ -253,15 +255,15 @@ export function createThreadLifecycleBundle(
   };
 }
 
-export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatPanelThreadActionInput): ChatPanelThreadActionBundle {
+export function createThreadCommandBundle(host: ChatPanelThreadHost, input: ChatPanelThreadCommandInput): ChatPanelThreadCommandBundle {
   const { appServer, status, composerController, foundation, lifecycle } = input;
   const { environment, stateStore } = host;
   const threadCommandsHost: ThreadCommandsHost = {
     stateStore,
-    operations: {
-      renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
+    mutations: {
+      renameThread: (threadId, value) => foundation.threadMutations.renameThread(threadId, value),
       archiveThread: async (threadId, options) => {
-        await foundation.threadOperations.archiveThread(threadId, options);
+        await foundation.threadMutations.archiveThread(threadId, options);
         return true;
       },
     },
@@ -293,12 +295,12 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     beginThreadForkPublication: (sourceThreadId) => environment.plugin.threadFactCoordinator.beginForkPublication(sourceThreadId),
     threadHasPendingOrRunningPanel: (threadId) => environment.plugin.workspace.threadHasPendingOrRunningPanel(threadId),
   };
-  const actions = createThreadCommands(threadCommandsHost);
+  const commands = createThreadCommands(threadCommandsHost);
   const toolbarPanelActions = createToolbarPanelActions({
     stateStore,
-    threadActions: actions,
+    threadCommands: commands,
   });
-  const navigation = createThreadNavigationActions({
+  const navigation = createThreadNavigationCommands({
     stateStore,
     identity: lifecycle.identity,
     closeForThreadSelection: () => {
@@ -315,7 +317,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     },
     navigation: input.navigation,
   });
-  return { actions, toolbarPanelActions, navigation };
+  return { commands, toolbarPanelActions, navigation };
 }
 
 function createSessionThreadLifecycle(
@@ -324,7 +326,7 @@ function createSessionThreadLifecycle(
     appServer: ChatAppServerGateway;
     ensureInitialized: () => Promise<void>;
     status: ChatPanelThreadStatus;
-    goalSync: ChatPanelGoalSyncActions;
+    goalSync: ChatPanelGoalSync;
     autoTitleCoordinator: AutoTitleCoordinator;
     history: HistoryController;
     invalidateThreadWork: () => void;
@@ -347,7 +349,7 @@ function createSessionThreadLifecycle(
   const resetThreadTurnPresence = (hadTurns: boolean) => {
     autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
   };
-  const resume = createResumeActions({
+  const resume = createResumeCommand({
     stateStore: host.stateStore,
     resumePort: {
       ensureConnected: async () => {

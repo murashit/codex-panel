@@ -30,7 +30,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
         { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
       ],
     }),
-    threadActions: {
+    threadCommands: {
       forkThread: vi.fn().mockResolvedValue(undefined),
       rollbackThread: vi.fn().mockResolvedValue(undefined),
       compactThread: vi.fn().mockResolvedValue(undefined),
@@ -316,7 +316,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("fork", "", ctx);
 
-    expect(ctx.threadActions.forkThread).toHaveBeenCalledWith("active-thread");
+    expect(ctx.threadCommands.forkThread).toHaveBeenCalledWith("active-thread");
   });
 
   it("opens a side chat from the active thread", async () => {
@@ -333,7 +333,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rollback", "", ctx);
 
-    expect(ctx.threadActions.rollbackThread).toHaveBeenCalledWith("active-thread");
+    expect(ctx.threadCommands.rollbackThread).toHaveBeenCalledWith("active-thread");
   });
 
   it("rejects /rollback without an active thread", async () => {
@@ -341,7 +341,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rollback", "", ctx);
 
-    expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
+    expect(ctx.threadCommands.rollbackThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread to roll back.");
   });
 
@@ -490,7 +490,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("archive", "", ctx);
 
-    expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.threadCommands.archiveThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/archive requires a thread. Usage: /archive <thread>");
   });
 
@@ -501,7 +501,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("archive", '"Beta thread"', ctx);
 
-    expect(ctx.threadActions.archiveThread).toHaveBeenCalledWith("thread-beta");
+    expect(ctx.threadCommands.archiveThread).toHaveBeenCalledWith("thread-beta");
   });
 
   it("renames a selected thread by quoted title", async () => {
@@ -511,7 +511,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rename", '"Beta thread" New Beta Name', ctx);
 
-    expect(ctx.threadActions.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
+    expect(ctx.threadCommands.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
   });
 
   it("trims /rename names before saving", async () => {
@@ -521,7 +521,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rename", '"Beta thread"   New Beta Name   ', ctx);
 
-    expect(ctx.threadActions.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
+    expect(ctx.threadCommands.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
   });
 
   it("rejects /rename without a thread and name", async () => {
@@ -529,7 +529,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rename", "thread-1", ctx);
 
-    expect(ctx.threadActions.renameThread).not.toHaveBeenCalled();
+    expect(ctx.threadCommands.renameThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rename requires a thread and a name. Usage: /rename <thread> <name>");
   });
 

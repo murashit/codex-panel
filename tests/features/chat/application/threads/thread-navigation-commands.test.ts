@@ -10,9 +10,9 @@ import type {
 import { createPersistentNavigationLifecycle } from "../../../../../src/features/chat/application/threads/persistent-navigation-lifecycle";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import {
-  createThreadNavigationActions,
-  type ThreadNavigationActionsHost,
-} from "../../../../../src/features/chat/application/threads/thread-navigation-actions";
+  createThreadNavigationCommands,
+  type ThreadNavigationCommandsHost,
+} from "../../../../../src/features/chat/application/threads/thread-navigation-commands";
 import { deferred } from "../../../../support/async";
 
 function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagent = false): void {
@@ -46,9 +46,9 @@ function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagen
   });
 }
 
-function createActionsHarness(overrides: Partial<ThreadNavigationActionsHost> = {}) {
+function createActionsHarness(overrides: Partial<ThreadNavigationCommandsHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
-  const host: ThreadNavigationActionsHost = {
+  const host: ThreadNavigationCommandsHost = {
     stateStore,
     identity: {
       clearActiveThreadIdentity: vi.fn(),
@@ -63,15 +63,15 @@ function createActionsHarness(overrides: Partial<ThreadNavigationActionsHost> = 
     navigation: navigationMock(),
     ...overrides,
   };
-  return { actions: createThreadNavigationActions(host), host, stateStore };
+  return { commands: createThreadNavigationCommands(host), host, stateStore };
 }
 
-describe("ThreadNavigationActions", () => {
+describe("ThreadNavigationCommands", () => {
   it("starts a blank chat by clearing active thread identity", async () => {
-    const { actions, host, stateStore } = createActionsHarness();
+    const { commands, host, stateStore } = createActionsHarness();
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
 
-    await actions.startNewThread();
+    await commands.startNewThread();
 
     expect(host.identity.clearActiveThreadIdentity).toHaveBeenCalledOnce();
     expect(host.navigation.commitPersistentNavigation).toHaveBeenCalledWith({ kind: "ready" });
@@ -81,12 +81,12 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("ignores blank chat navigation while a turn is running", async () => {
-    const { actions, host, stateStore } = createActionsHarness();
+    const { commands, host, stateStore } = createActionsHarness();
     resumeThreadState(stateStore, "active");
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
-    await actions.startNewThread();
+    await commands.startNewThread();
 
     expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
@@ -95,11 +95,11 @@ describe("ThreadNavigationActions", () => {
 
   it("starts a blank chat while a subagent turn continues", async () => {
     const navigation = navigationMock();
-    const { actions, host, stateStore } = createActionsHarness({ navigation });
+    const { commands, host, stateStore } = createActionsHarness({ navigation });
     resumeThreadState(stateStore, "child", true);
     stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
 
-    await actions.startNewThread();
+    await commands.startNewThread();
 
     expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith(null);
     expect(host.identity.clearActiveThreadIdentity).toHaveBeenCalledOnce();
@@ -109,11 +109,11 @@ describe("ThreadNavigationActions", () => {
 
   it("keeps a running subagent active when unsubscribe preparation fails", async () => {
     const navigation = navigationMock(null);
-    const { actions, host, stateStore } = createActionsHarness({ navigation });
+    const { commands, host, stateStore } = createActionsHarness({ navigation });
     resumeThreadState(stateStore, "child", true);
     stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
 
-    await actions.startNewThread();
+    await commands.startNewThread();
 
     expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith(null);
     expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
@@ -124,11 +124,11 @@ describe("ThreadNavigationActions", () => {
     const prepared = deferred<PersistentNavigationPreparation | null>();
     const navigation = navigationMock();
     navigation.prepareForPersistentNavigation.mockReturnValue(prepared.promise);
-    const { actions, host, stateStore } = createActionsHarness({ navigation });
+    const { commands, host, stateStore } = createActionsHarness({ navigation });
     resumeThreadState(stateStore, "child", true);
     stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
 
-    const startingNew = actions.startNewThread();
+    const startingNew = commands.startNewThread();
     await vi.waitFor(() => expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith(null));
     host.resumeWork.begin("child");
     prepared.resolve({ kind: "unsubscribe-on-adoption", threadId: "child" });
@@ -139,11 +139,11 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("focuses an already open thread without resuming it", async () => {
-    const { actions, host } = createActionsHarness({
+    const { commands, host } = createActionsHarness({
       focusThreadInOpenView: vi.fn().mockResolvedValue(true),
     });
 
-    await actions.selectThread("thread");
+    await commands.selectThread("thread");
 
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
     expect(host.focusThreadInOpenView).toHaveBeenCalledWith("thread");
@@ -152,14 +152,14 @@ describe("ThreadNavigationActions", () => {
 
   it("keeps a running subagent subscribed when the selected thread is already open elsewhere", async () => {
     const navigation = navigationMock();
-    const { actions, host, stateStore } = createActionsHarness({
+    const { commands, host, stateStore } = createActionsHarness({
       navigation,
       focusThreadInOpenView: vi.fn().mockResolvedValue(true),
     });
     resumeThreadState(stateStore, "child", true);
     stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
 
-    await actions.selectThread("other");
+    await commands.selectThread("other");
 
     expect(host.focusThreadInOpenView).toHaveBeenCalledWith("other");
     expect(navigation.prepareForPersistentNavigation).not.toHaveBeenCalled();
@@ -167,9 +167,9 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("resumes the thread when it is not already open", async () => {
-    const { actions, host } = createActionsHarness();
+    const { commands, host } = createActionsHarness();
 
-    await actions.selectThread("thread");
+    await commands.selectThread("thread");
 
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith(
@@ -182,11 +182,11 @@ describe("ThreadNavigationActions", () => {
   it("does not resume an older selection after a newer selection wins during view lookup", async () => {
     const firstLookup = deferred<boolean>();
     const focusThreadInOpenView = vi.fn((threadId: string) => (threadId === "first" ? firstLookup.promise : Promise.resolve(false)));
-    const { actions, host } = createActionsHarness({ focusThreadInOpenView });
+    const { commands, host } = createActionsHarness({ focusThreadInOpenView });
 
-    const firstSelection = actions.selectThread("first");
+    const firstSelection = commands.selectThread("first");
     await vi.waitFor(() => expect(focusThreadInOpenView).toHaveBeenCalledWith("first"));
-    await actions.selectThread("second");
+    await commands.selectThread("second");
     firstLookup.resolve(false);
     await firstSelection;
 
@@ -205,11 +205,11 @@ describe("ThreadNavigationActions", () => {
       options?.onAdopted?.();
       return true;
     });
-    const { actions, host, stateStore } = createActionsHarness({ navigation, resumeThread });
+    const { commands, host, stateStore } = createActionsHarness({ navigation, resumeThread });
     resumeThreadState(stateStore, "child", true);
     stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
 
-    await actions.selectThread("other");
+    await commands.selectThread("other");
 
     expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith("other");
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
@@ -243,11 +243,11 @@ describe("ThreadNavigationActions", () => {
       if (threadId === "first") await history.promise;
       return true;
     });
-    const { actions } = createActionsHarness({ stateStore, navigation, resumeThread });
+    const { commands } = createActionsHarness({ stateStore, navigation, resumeThread });
 
-    const firstSelection = actions.selectThread("first");
+    const firstSelection = commands.selectThread("first");
     await vi.waitFor(() => expect(unsubscribeThread).toHaveBeenCalledWith("child"));
-    await actions.selectThread("second");
+    await commands.selectThread("second");
     history.resolve(undefined);
     await firstSelection;
 
@@ -255,11 +255,11 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("blocks switching away while a turn is running", async () => {
-    const { actions, host, stateStore } = createActionsHarness();
+    const { commands, host, stateStore } = createActionsHarness();
     resumeThreadState(stateStore, "active");
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
-    await actions.selectThread("other");
+    await commands.selectThread("other");
 
     expect(host.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the current turn before switching threads.");
     expect(host.closeForThreadSelection).not.toHaveBeenCalled();
@@ -268,10 +268,10 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("closes the toolbar panel before selecting from the toolbar", async () => {
-    const { actions, host, stateStore } = createActionsHarness();
+    const { commands, host, stateStore } = createActionsHarness();
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
 
-    await actions.selectThreadFromToolbar("thread");
+    await commands.selectThreadFromToolbar("thread");
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
@@ -280,12 +280,12 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("routes toolbar selection away from a busy origin panel", async () => {
-    const { actions, host, stateStore } = createActionsHarness();
+    const { commands, host, stateStore } = createActionsHarness();
     resumeThreadState(stateStore, "active");
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
-    await actions.selectThreadFromToolbar("other");
+    await commands.selectThreadFromToolbar("other");
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.addSystemMessage).not.toHaveBeenCalled();

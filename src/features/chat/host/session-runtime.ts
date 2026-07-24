@@ -2,16 +2,16 @@ import { codexPanelAppServerInitializeParams } from "../../../app-server/connect
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleExecutionRuntimeError } from "../../../shared/runtime/execution-runtime-lifetime";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../app-server/session-gateway";
-import { createReconnectPanelAction } from "../application/connection/reconnect-actions";
+import { createReconnectPanelCommand } from "../application/connection/reconnect-command";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
-import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
+import { createChatRuntimeSettingsCommands } from "../application/runtime/settings-commands";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import { createEphemeralThreadLifecycle } from "../application/threads/ephemeral-thread-lifecycle";
 import { createPersistentNavigationLifecycle } from "../application/threads/persistent-navigation-lifecycle";
 import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
-import { createThreadStartActions } from "../application/threads/thread-start-actions";
+import { createThreadStartCommand } from "../application/threads/thread-start-command";
 import { collaborationModeIntentValue } from "../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import { createStructuredSystemItem, createSystemItem } from "../domain/thread-stream/factories/system-items";
@@ -21,7 +21,7 @@ import type { ChatThreadStreamScrollBinding } from "../panel/thread-stream-scrol
 import { createChatComposerController } from "./bundles/composer-bundle";
 import { createConnectionBundle } from "./bundles/connection-bundle";
 import { createShellBundle } from "./bundles/shell-bundle";
-import { createThreadActionBundle, createThreadFoundation, createThreadLifecycleBundle } from "./bundles/thread-bundle";
+import { createThreadCommandBundle, createThreadFoundation, createThreadLifecycleBundle } from "./bundles/thread-bundle";
 import { createTurnBundle } from "./bundles/turn-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
 import type { ChatViewDeferredTasks } from "./session/deferred-work";
@@ -89,21 +89,21 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
   );
   const {
-    connection: { actions: connectionActions },
+    connection: { coordinator: connectionCoordinator },
     inboundHandler,
   } = connectionBundle;
-  const ensureConnected = () => connectionActions.ensureConnected();
+  const ensureConnected = () => connectionCoordinator.ensureConnected();
   const appServer = createChatAppServerGateway(currentAppServer, {
     vaultPath: resourceContext.vaultPath,
     currentClient,
     connectedClient: async () => {
       if (host.getClosing()) return null;
-      await connectionActions.ensureConnected();
+      await connectionCoordinator.ensureConnected();
       if (host.getClosing()) return null;
       return currentClient();
     },
   });
-  const runtimeSettings = createChatRuntimeSettingsActions(
+  const runtimeSettings = createChatRuntimeSettingsCommands(
     {
       stateStore,
       runtimeSettingsPort: appServer.runtimeSettings,
@@ -125,7 +125,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     vaultPath: () => environment.plugin.appServerContext.vaultPath,
     nowMs: () => Date.now(),
   });
-  const threadStart = createThreadStartActions({
+  const threadStart = createThreadStartCommand({
     stateStore,
     threadStartPort: appServer.threadStart,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
@@ -140,7 +140,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     appServer,
     localItemIds,
     ensureConnected,
-    ensureInitialized: () => connectionActions.ensureInitialized(),
+    ensureInitialized: () => connectionCoordinator.ensureInitialized(),
     status,
     threadStart,
     foundation: threadFoundation,
@@ -166,7 +166,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     subscriptions: appServer.threadSubscription,
     addSystemMessage: status.addSystemMessage,
   });
-  const threadActions = createThreadActionBundle(host, {
+  const threadCommands = createThreadCommandBundle(host, {
     appServer,
     status,
     composerController,
@@ -178,7 +178,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const reconnectHost = {
     stateStore,
     resetConnectionScope: () => {
-      connectionActions.invalidate();
+      connectionCoordinator.invalidate();
       invalidateThreadWork();
       host.deferredTasks.clearDiagnostics();
       connectionBundle.invalidateConnectionScope();
@@ -194,7 +194,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       status.addSystemMessage(text);
     },
   };
-  const reconnectPanel = createReconnectPanelAction(reconnectHost);
+  const reconnectPanel = createReconnectPanelCommand(reconnectHost);
   const reconnect = async () => {
     await reconnectPanel();
   };
@@ -204,8 +204,8 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     status,
     inboundHandler,
     threadLifecycle,
-    threadActions: threadActions.actions,
-    navigation: threadActions.navigation,
+    threadCommands: threadCommands.commands,
+    navigation: threadCommands.navigation,
     composerController,
     runtimeSettings,
     threadStart,
@@ -213,17 +213,17 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
     reconnect,
     runtimeProjection,
-    refreshDiagnostics: () => connectionActions.refreshDiagnostics(),
+    refreshDiagnostics: () => connectionCoordinator.refreshDiagnostics(),
     notifyActiveThreadIdentityChanged,
   });
   const shell = createShellBundle(host, {
     connection,
-    connectionActions,
+    connectionCoordinator,
     goals: threadLifecycle.goals,
     rename: threadLifecycle.rename,
-    threadActions: threadActions.actions,
-    toolbarPanelActions: threadActions.toolbarPanelActions,
-    navigation: threadActions.navigation,
+    threadCommands: threadCommands.commands,
+    toolbarPanelActions: threadCommands.toolbarPanelActions,
+    navigation: threadCommands.navigation,
     reconnect,
     history: threadFoundation.history,
     pendingRequests: turn.pendingRequests,
@@ -242,24 +242,24 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     stateStore,
     threadCatalog: environment.plugin.threadCatalog,
     appServerQueries: environment.plugin.appServerQueries,
-    applyAppServerMetadataResource: connectionBundle.sharedStateActions.applyAppServerMetadataResource,
+    applyAppServerMetadataResource: connectionBundle.sharedStateEffects.applyAppServerMetadataResource,
     refreshTabHeader,
   });
 
-  const actions = {
+  const commands = {
     invalidateThreadWork: () => {
       invalidateThreadWork();
       threadLifecycle.restoration.invalidate();
     },
     reconnect,
     refreshSharedThreads,
-    startNewThread: (options?: { focus?: boolean }) => threadActions.navigation.startNewThread(options),
+    startNewThread: (options?: { focus?: boolean }) => threadCommands.navigation.startNewThread(options),
   };
 
   return {
     connection: {
       manager: connection,
-      actions: connectionActions,
+      coordinator: connectionCoordinator,
     },
     thread: {
       resume: threadLifecycle.resume,
@@ -272,14 +272,14 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       controller: composerController,
     },
     shell,
-    actions,
+    commands,
     runtime: {
       sharedState,
     },
     dispose: async (unmount: () => void): Promise<void> => {
       connection.disconnect();
-      connectionActions.invalidate();
-      actions.invalidateThreadWork();
+      connectionCoordinator.invalidate();
+      commands.invalidateThreadWork();
       host.deferredTasks.clearAll();
       sharedState.unsubscribe();
       connectionBundle.invalidateConnectionScope();

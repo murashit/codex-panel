@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
 
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
-import type { ChatRuntimeSettingsActions } from "../../application/runtime/settings-actions";
+import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import type { ChatStateStore } from "../../application/state/store";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
@@ -22,7 +22,7 @@ interface ChatPanelComposerHost {
 export function createChatComposerController(
   host: ChatPanelComposerHost,
   input: {
-    runtimeSettings: ChatRuntimeSettingsActions;
+    runtimeSettings: ChatRuntimeSettingsCommands;
   },
 ): ChatComposerController {
   const { environment, stateStore } = host;

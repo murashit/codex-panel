@@ -18,8 +18,8 @@ import {
   slashCommandSubcommands,
 } from "../composer/slash-commands";
 import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCommand } from "../composer/thread-title-argument";
-import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import type { GoalActions } from "../threads/goal-actions";
+import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
+import type { GoalCommands } from "../threads/goal-commands";
 import type { ThreadCommands } from "../threads/thread-commands";
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
@@ -28,7 +28,7 @@ export interface SlashCommandExecutionPorts {
   startNewThread: () => Promise<void>;
   startThreadForGoal: (objective: string) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
-  threadActions: {
+  threadCommands: {
     forkThread: ThreadCommands["forkThread"];
     rollbackThread: ThreadCommands["rollbackThread"];
     compactThread: ThreadCommands["compactThread"];
@@ -40,21 +40,21 @@ export interface SlashCommandExecutionPorts {
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
   runtimeSettings: {
-    toggleFastMode: ChatRuntimeSettingsActions["toggleFastMode"];
-    toggleCollaborationMode: ChatRuntimeSettingsActions["toggleCollaborationMode"];
-    toggleAutoReview: ChatRuntimeSettingsActions["toggleAutoReview"];
-    requestModel: ChatRuntimeSettingsActions["requestModel"];
-    resetModelToConfig: ChatRuntimeSettingsActions["resetModelToConfig"];
-    requestPermissionProfile: ChatRuntimeSettingsActions["requestPermissionProfile"];
-    resetPermissionProfileToConfig: ChatRuntimeSettingsActions["resetPermissionProfileToConfig"];
-    requestReasoningEffort: ChatRuntimeSettingsActions["requestReasoningEffort"];
-    resetReasoningEffortToConfig: ChatRuntimeSettingsActions["resetReasoningEffortToConfig"];
+    toggleFastMode: ChatRuntimeSettingsCommands["toggleFastMode"];
+    toggleCollaborationMode: ChatRuntimeSettingsCommands["toggleCollaborationMode"];
+    toggleAutoReview: ChatRuntimeSettingsCommands["toggleAutoReview"];
+    requestModel: ChatRuntimeSettingsCommands["requestModel"];
+    resetModelToConfig: ChatRuntimeSettingsCommands["resetModelToConfig"];
+    requestPermissionProfile: ChatRuntimeSettingsCommands["requestPermissionProfile"];
+    resetPermissionProfileToConfig: ChatRuntimeSettingsCommands["resetPermissionProfileToConfig"];
+    requestReasoningEffort: ChatRuntimeSettingsCommands["requestReasoningEffort"];
+    resetReasoningEffortToConfig: ChatRuntimeSettingsCommands["resetReasoningEffortToConfig"];
   };
   goals: {
-    activeGoal: GoalActions["activeGoal"];
-    setObjective: GoalActions["setObjective"];
-    setStatus: GoalActions["setStatus"];
-    clear: GoalActions["clear"];
+    activeGoal: GoalCommands["activeGoal"];
+    setObjective: GoalCommands["setObjective"];
+    setStatus: GoalCommands["setStatus"];
+    clear: GoalCommands["clear"];
   };
   statusDetails: () => ThreadStreamNoticeSection[];
   permissionDetails: () => ThreadStreamNoticeSection[];
@@ -169,7 +169,7 @@ export async function executeSlashCommand(
         context.addSystemMessage("No active thread to fork.");
         return;
       }
-      await context.threadActions.forkThread(context.activeThreadId);
+      await context.threadCommands.forkThread(context.activeThreadId);
       return;
     case "btw":
       if (!context.activeThreadId) {
@@ -187,14 +187,14 @@ export async function executeSlashCommand(
         context.addSystemMessage("No active thread to roll back.");
         return;
       }
-      await context.threadActions.rollbackThread(context.activeThreadId);
+      await context.threadCommands.rollbackThread(context.activeThreadId);
       return;
     case "compact":
       if (!context.activeThreadId) {
         context.addSystemMessage("No active thread to compact.");
         return;
       }
-      await context.threadActions.compactThread(context.activeThreadId);
+      await context.threadCommands.compactThread(context.activeThreadId);
       return;
     case "archive": {
       const query = parseThreadOnlyArgs(args);
@@ -207,7 +207,7 @@ export async function executeSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      await context.threadActions.archiveThread(thread.thread.id);
+      await context.threadCommands.archiveThread(thread.thread.id);
       return;
     }
     case "rename": {
@@ -221,7 +221,7 @@ export async function executeSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      await context.threadActions.renameThread(thread.thread.id, parsed.text);
+      await context.threadCommands.renameThread(thread.thread.id, parsed.text);
       return;
     }
     case "fast":

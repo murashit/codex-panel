@@ -9,12 +9,12 @@ import type { ChatStateStore } from "../state/store";
 import { parseWebCommandArgs, type SlashCommandExecutionResult } from "./slash-command-execution";
 import { submissionStateSnapshot } from "./submission-state";
 import type { ChatTurnPort } from "./turn-port";
-import type { TurnSubmissionRequest } from "./turn-submission-actions";
+import type { TurnSubmissionRequest } from "./turn-submission-command";
 import { pendingWebSubmissionItem } from "./web-submission";
 
 const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
 
-export interface ComposerSubmitActionsHost {
+export interface ComposerSubmitCommandHost {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
   ensureRestoredThreadLoaded?: () => Promise<boolean>;
@@ -40,7 +40,7 @@ export interface ComposerSubmitActionsHost {
       isCurrent?: () => boolean,
     ): Promise<SlashCommandExecutionResult | undefined>;
   };
-  turnSubmission: {
+  turnSubmissionCommand: {
     sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
   };
   connection: {
@@ -56,11 +56,11 @@ export interface ComposerSubmitActionsHost {
   };
 }
 
-export interface ComposerSubmitActions {
+export interface ComposerSubmitCommand {
   submit: () => Promise<void>;
 }
 
-export async function submitComposer(host: ComposerSubmitActionsHost): Promise<void> {
+export async function submitComposer(host: ComposerSubmitCommandHost): Promise<void> {
   const pendingSubmission = host.stateStore.getState().pendingSubmission;
   if (pendingSubmission) {
     if (pendingSubmission.phase === "cancellable") {
@@ -89,7 +89,7 @@ export async function submitComposer(host: ComposerSubmitActionsHost): Promise<v
 }
 
 async function sendMessage(
-  host: ComposerSubmitActionsHost,
+  host: ComposerSubmitCommandHost,
   text: string,
   originalDraft: string,
   panelTarget: PanelTargetLease,
@@ -129,7 +129,7 @@ async function sendMessage(
     if (result?.sendText) {
       if (pendingWeb && !pendingWebSubmissionIsCurrent(host, pendingWeb.id)) return;
       if (!pendingWeb) host.scroll.showLatest();
-      const submitted = await host.turnSubmission.sendTurnText({
+      const submitted = await host.turnSubmissionCommand.sendTurnText({
         text: result.sendText,
         inputSnapshot,
         ...(result.sendInput !== undefined ? { codexInputOverride: result.sendInput } : {}),
@@ -159,11 +159,11 @@ async function sendMessage(
   }
 
   host.scroll.showLatest();
-  await host.turnSubmission.sendTurnText({ text, inputSnapshot });
+  await host.turnSubmissionCommand.sendTurnText({ text, inputSnapshot });
 }
 
 async function executeSlashCommandAndRestoreOnFailure(
-  host: ComposerSubmitActionsHost,
+  host: ComposerSubmitCommandHost,
   command: SlashCommandName,
   args: string,
   inputSnapshot: ComposerInputSnapshot,
@@ -197,7 +197,7 @@ interface PendingWebSubmission {
 }
 
 function beginPendingWebSubmission(
-  host: ComposerSubmitActionsHost,
+  host: ComposerSubmitCommandHost,
   command: SlashCommandName,
   args: string,
   originalDraft: string,
@@ -218,7 +218,7 @@ function beginPendingWebSubmission(
   return { id };
 }
 
-function pendingWebSubmissionIsCurrent(host: ComposerSubmitActionsHost, submissionId: string): boolean {
+function pendingWebSubmissionIsCurrent(host: ComposerSubmitCommandHost, submissionId: string): boolean {
   const state = host.stateStore.getState();
   return cancellablePendingSubmissionMatches(
     { pendingSubmission: state.pendingSubmission, activeThreadId: submissionStateSnapshot(state).activeThreadId },
@@ -226,17 +226,17 @@ function pendingWebSubmissionIsCurrent(host: ComposerSubmitActionsHost, submissi
   );
 }
 
-function cancelPendingWebSubmission(host: ComposerSubmitActionsHost, id: string): void {
+function cancelPendingWebSubmission(host: ComposerSubmitCommandHost, id: string): void {
   host.stateStore.dispatch({ type: "web-submission/cancelled", submissionId: id });
 }
 
-function rollbackPendingWebSubmission(host: ComposerSubmitActionsHost, id: string, text: string): void {
+function rollbackPendingWebSubmission(host: ComposerSubmitCommandHost, id: string, text: string): void {
   if (!pendingWebSubmissionIsCurrent(host, id)) return;
   cancelPendingWebSubmission(host, id);
   host.composer.setDraft(text, { focus: true, clearSuggestions: true, preserveContext: true });
 }
 
-async function interruptTurn(host: ComposerSubmitActionsHost, panelTarget: PanelTargetLease): Promise<void> {
+async function interruptTurn(host: ComposerSubmitCommandHost, panelTarget: PanelTargetLease): Promise<void> {
   const state = submissionStateSnapshot(host.stateStore.getState());
   const turnId = state.activeTurnId;
   if (!state.activeThreadId || !turnId) return;

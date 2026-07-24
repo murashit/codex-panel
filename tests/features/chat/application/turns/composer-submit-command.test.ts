@@ -4,7 +4,7 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { submitComposer } from "../../../../../src/features/chat/application/turns/composer-submit-actions";
+import { submitComposer } from "../../../../../src/features/chat/application/turns/composer-submit-command";
 import { deferred } from "../../../../support/async";
 import { chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
@@ -69,7 +69,7 @@ function createHost(
       captureInputSnapshot,
     },
     slashCommandExecutor: { execute },
-    turnSubmission: { sendTurnText },
+    turnSubmissionCommand: { sendTurnText },
     connection: {
       ensureConnected,
     },

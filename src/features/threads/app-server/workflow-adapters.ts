@@ -9,9 +9,9 @@ import {
 } from "../../../app-server/services/threads";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { findThreadTitleContext } from "../../../domain/threads/title-generation-model";
-import type { ThreadOperationsPort, ThreadTitlePort } from "../workflows/ports";
+import type { ThreadMutationPort, ThreadTitlePort } from "../workflows/ports";
 
-export function createThreadOperationsAdapter(clientAccess: AppServerClientAccess): ThreadOperationsPort {
+export function createThreadMutationAdapter(clientAccess: AppServerClientAccess): ThreadMutationPort {
   return {
     renameThread: (threadId, name) => clientAccess.withClient((client) => renameThread(client, threadId, name)),
     archiveThread: (threadId, prepare) =>

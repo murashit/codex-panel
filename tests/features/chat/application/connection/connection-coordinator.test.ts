@@ -1,42 +1,42 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type ChatConnectionActionsHost,
-  createChatConnectionActions,
-} from "../../../../../src/features/chat/application/connection/connection-actions";
+  type ChatConnectionCoordinatorHost,
+  createChatConnectionCoordinator,
+} from "../../../../../src/features/chat/application/connection/connection-coordinator";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 
-type ChatConnectionAdapter = ChatConnectionActionsHost["connection"];
-type ChatConnectionMetadataActions = ChatConnectionActionsHost["metadata"];
-type ChatConnectionDiagnosticsActions = ChatConnectionActionsHost["diagnostics"];
+type ChatConnectionPort = ChatConnectionCoordinatorHost["connection"];
+type ChatConnectionMetadataEffects = ChatConnectionCoordinatorHost["metadataEffects"];
+type ChatConnectionDiagnosticsCoordinator = ChatConnectionCoordinatorHost["diagnosticsCoordinator"];
 
-function createActionsHarness({ connected = false, canConnect = true } = {}) {
+function createCoordinatorHarness({ connected = false, canConnect = true } = {}) {
   const stateStore = createChatStateStore(createChatState());
   let isConnected = connected;
   const connect = vi.fn().mockImplementation(async () => {
     isConnected = true;
     return { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" };
   });
-  const connection: ChatConnectionAdapter = {
+  const connection: ChatConnectionPort = {
     connect,
     isConnected: () => isConnected,
   };
   const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
   const refreshServerDiagnostics = vi.fn().mockResolvedValue(undefined);
-  const metadata = {
+  const metadataEffects = {
     refreshAppServerMetadata,
-  } satisfies ChatConnectionMetadataActions;
-  const diagnostics = {
+  } satisfies ChatConnectionMetadataEffects;
+  const diagnosticsCoordinator = {
     refreshServerDiagnostics,
-  } satisfies ChatConnectionDiagnosticsActions;
-  const host: ChatConnectionActionsHost = {
+  } satisfies ChatConnectionDiagnosticsCoordinator;
+  const host: ChatConnectionCoordinatorHost = {
     stateStore,
     connection,
     canConnect: () => canConnect,
-    metadata,
-    diagnostics,
+    metadataEffects,
+    diagnosticsCoordinator,
     invalidateThreadWork: vi.fn(),
     refreshSharedThreads: vi.fn().mockResolvedValue(undefined),
     scheduleDeferredDiagnostics: vi.fn(),
@@ -52,7 +52,7 @@ function createActionsHarness({ connected = false, canConnect = true } = {}) {
   };
   return {
     connect,
-    actions: createChatConnectionActions(host),
+    coordinator: createChatConnectionCoordinator(host),
     host,
     refreshAppServerMetadata,
     refreshServerDiagnostics,
@@ -63,22 +63,22 @@ function createActionsHarness({ connected = false, canConnect = true } = {}) {
   };
 }
 
-describe("ChatConnectionActions", () => {
+describe("ChatConnectionCoordinator", () => {
   it("does not acquire a connection after its owner starts closing", async () => {
-    const { actions, connect } = createActionsHarness({ canConnect: false });
+    const { coordinator, connect } = createCoordinatorHarness({ canConnect: false });
 
-    await actions.ensureConnected();
+    await coordinator.ensureConnected();
 
     expect(connect).not.toHaveBeenCalled();
   });
 
-  it("coalesces concurrent connection attempts inside the actions boundary", async () => {
-    const { actions, connect, setConnected } = createActionsHarness();
-    const pending = deferred<Awaited<ReturnType<ChatConnectionAdapter["connect"]>>>();
+  it("coalesces concurrent connection attempts inside the coordinator boundary", async () => {
+    const { coordinator, connect, setConnected } = createCoordinatorHarness();
+    const pending = deferred<Awaited<ReturnType<ChatConnectionPort["connect"]>>>();
     connect.mockImplementationOnce(() => pending.promise);
 
-    const first = actions.ensureConnected();
-    const second = actions.ensureConnected();
+    const first = coordinator.ensureConnected();
+    const second = coordinator.ensureConnected();
 
     expect(connect).toHaveBeenCalledOnce();
     setConnected(true);
@@ -87,14 +87,14 @@ describe("ChatConnectionActions", () => {
   });
 
   it("starts fresh work after invalidation and ignores the obsolete result", async () => {
-    const { actions, connect, setConnected, stateStore } = createActionsHarness();
-    const obsolete = deferred<Awaited<ReturnType<ChatConnectionAdapter["connect"]>>>();
-    const current = deferred<Awaited<ReturnType<ChatConnectionAdapter["connect"]>>>();
+    const { coordinator, connect, setConnected, stateStore } = createCoordinatorHarness();
+    const obsolete = deferred<Awaited<ReturnType<ChatConnectionPort["connect"]>>>();
+    const current = deferred<Awaited<ReturnType<ChatConnectionPort["connect"]>>>();
     connect.mockImplementationOnce(() => obsolete.promise).mockImplementationOnce(() => current.promise);
 
-    const first = actions.ensureConnected();
-    actions.invalidate();
-    const second = actions.ensureConnected();
+    const first = coordinator.ensureConnected();
+    coordinator.invalidate();
+    const second = coordinator.ensureConnected();
     setConnected(true);
     current.resolve({ codexHome: "/current", platformFamily: "unix", platformOs: "macos", userAgent: "test" });
     await second;
@@ -106,9 +106,9 @@ describe("ChatConnectionActions", () => {
   });
 
   it("connects once and publishes startup metadata", async () => {
-    const { connect, actions, host, refreshAppServerMetadata, stateStore } = createActionsHarness();
+    const { connect, coordinator, host, refreshAppServerMetadata, stateStore } = createCoordinatorHarness();
 
-    await actions.ensureConnected();
+    await coordinator.ensureConnected();
 
     expect(connect).toHaveBeenCalledOnce();
     expect(stateStore.getState().connection.initializeResponse).toEqual({
@@ -124,11 +124,11 @@ describe("ChatConnectionActions", () => {
   });
 
   it("publishes initialization readiness before shared resources finish hydrating", async () => {
-    const { actions, host, refreshAppServerMetadata, stateStore } = createActionsHarness();
+    const { coordinator, host, refreshAppServerMetadata, stateStore } = createCoordinatorHarness();
     const metadata = deferred<void>();
     refreshAppServerMetadata.mockReturnValueOnce(metadata.promise);
 
-    await actions.ensureInitialized();
+    await coordinator.ensureInitialized();
 
     expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
@@ -136,7 +136,7 @@ describe("ChatConnectionActions", () => {
     expect(host.scheduleDeferredDiagnostics).not.toHaveBeenCalled();
 
     let connected = false;
-    const fullyConnected = actions.ensureConnected().then(() => {
+    const fullyConnected = coordinator.ensureConnected().then(() => {
       connected = true;
     });
     await Promise.resolve();
@@ -150,10 +150,10 @@ describe("ChatConnectionActions", () => {
   });
 
   it("keeps the initialized connection usable when metadata hydration fails", async () => {
-    const { actions, host, refreshAppServerMetadata, stateStore } = createActionsHarness();
+    const { coordinator, host, refreshAppServerMetadata, stateStore } = createCoordinatorHarness();
     refreshAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));
 
-    await actions.ensureConnected();
+    await coordinator.ensureConnected();
 
     expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
     expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
@@ -164,10 +164,10 @@ describe("ChatConnectionActions", () => {
   });
 
   it("keeps the initialized connection usable when thread hydration fails", async () => {
-    const { actions, host } = createActionsHarness();
+    const { coordinator, host } = createCoordinatorHarness();
     vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(new Error("threads unavailable"));
 
-    await actions.ensureConnected();
+    await coordinator.ensureConnected();
 
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
     expect(host.setStatus).not.toHaveBeenCalledWith("Connection failed.", expect.anything());
@@ -176,9 +176,9 @@ describe("ChatConnectionActions", () => {
   });
 
   it("refreshes metadata before server diagnostics", async () => {
-    const { actions, host, refreshAppServerMetadata, refreshServerDiagnostics } = createActionsHarness({ connected: true });
+    const { coordinator, host, refreshAppServerMetadata, refreshServerDiagnostics } = createCoordinatorHarness({ connected: true });
 
-    await actions.refreshDiagnostics();
+    await coordinator.refreshDiagnostics();
 
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
@@ -186,28 +186,28 @@ describe("ChatConnectionActions", () => {
   });
 
   it("refreshes active threads without refreshing metadata", async () => {
-    const { actions, host, refreshAppServerMetadata } = createActionsHarness({ connected: true });
+    const { coordinator, host, refreshAppServerMetadata } = createCoordinatorHarness({ connected: true });
 
-    await actions.refreshActiveThreads();
+    await coordinator.refreshActiveThreads();
 
     expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
     expect(refreshAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("ignores stale resource context failures while refreshing active threads", async () => {
-    const { actions, host } = createActionsHarness({ connected: true });
+    const { coordinator, host } = createCoordinatorHarness({ connected: true });
     const error = new Error("stale");
     vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(error);
     host.isStaleRuntimeError = vi.fn((candidate) => candidate === error);
 
-    await actions.refreshActiveThreads();
+    await coordinator.refreshActiveThreads();
 
     expect(host.isStaleRuntimeError).toHaveBeenCalledWith(error);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {
-    const { actions, host, stateStore } = createActionsHarness({ connected: true });
+    const { coordinator, host, stateStore } = createCoordinatorHarness({ connected: true });
     const initializeResponse = { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" } as const;
     const runtimeConfig = { ...runtimeConfigFixture(), model: "gpt-5.1" };
     stateStore.dispatch({ type: "connection/initialized", initializeResponse });
@@ -244,7 +244,7 @@ describe("ChatConnectionActions", () => {
       approvalsReviewer: null,
     });
 
-    actions.handleExit();
+    coordinator.handleExit();
 
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Codex app-server stopped.", {
@@ -267,11 +267,11 @@ describe("ChatConnectionActions", () => {
   });
 
   it("explains missing configured command failures", async () => {
-    const { actions, connect, host } = createActionsHarness();
+    const { coordinator, connect, host } = createCoordinatorHarness();
     const error = Object.assign(new Error("spawn codex ENOENT"), { code: "ENOENT", syscall: "spawn" });
     connect.mockRejectedValueOnce(error);
 
-    await actions.ensureConnected();
+    await coordinator.ensureConnected();
 
     expect(host.setStatus).toHaveBeenCalledWith("Connection failed.", {
       kind: "failed",
@@ -285,12 +285,12 @@ describe("ChatConnectionActions", () => {
   });
 
   it("ignores stale connection failures during startup", async () => {
-    const { actions, connect, host } = createActionsHarness();
+    const { coordinator, connect, host } = createCoordinatorHarness();
     const error = new Error("stale connection");
     connect.mockRejectedValueOnce(error);
     host.isStaleConnectionError = vi.fn((candidate) => candidate === error);
 
-    await actions.ensureConnected();
+    await coordinator.ensureConnected();
 
     expect(host.isStaleConnectionError).toHaveBeenCalledWith(error);
     expect(host.setStatus).toHaveBeenCalledWith("Starting Codex app-server...", { kind: "connecting" });

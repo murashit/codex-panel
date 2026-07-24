@@ -12,7 +12,7 @@ import { deferred } from "../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
-describe("chat app-server transports", () => {
+describe("chat app-server adapters", () => {
   it("adds connection-requiring capabilities only after the connected client host exists", async () => {
     const client = { request: vi.fn() } as unknown as AppServerClient;
     const currentGateway = createChatCurrentAppServerGateway({
@@ -647,7 +647,7 @@ describe("chat app-server transports", () => {
     expect(request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: false });
   });
 
-  it("uses a short-lived client for clientAccess operations that reject server requests", async () => {
+  it("uses a short-lived client for clientAccess mutations that reject server requests", async () => {
     const currentRequest = vi.fn();
     const currentClient = { request: currentRequest } as unknown as AppServerClient;
     const shortClient = { request: vi.fn().mockResolvedValue("short-lived") } as unknown as AppServerClient;
@@ -674,7 +674,7 @@ describe("chat app-server transports", () => {
     withShortLived.mockRestore();
   });
 
-  it("rejects current-client operations while disconnected", async () => {
+  it("rejects current-client mutations while disconnected", async () => {
     const operation = vi.fn();
     const gateway = createTestGateway({ currentClient: () => null });
 

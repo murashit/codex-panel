@@ -6,7 +6,7 @@ import type { ComposerInputSnapshot } from "../../../../../src/features/chat/app
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createTurnWorkflowActions } from "../../../../../src/features/chat/application/turns/composition";
+import { createTurnWorkflowCommands } from "../../../../../src/features/chat/application/turns/composition";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
@@ -51,7 +51,7 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items
   stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
 }
 
-describe("createTurnWorkflowActions", () => {
+describe("createTurnWorkflowCommands", () => {
   it("does not attach composer-only active file context when implementing a plan", async () => {
     const stateStore = createChatStateStore(createChatState());
     const plan = planItem("plan");
@@ -76,7 +76,7 @@ describe("createTurnWorkflowActions", () => {
         { type: "fileReference", name: "unexpected", path: "notes/Alpha.md" },
       ],
     }));
-    const actions = createTurnWorkflowActions(
+    const actions = createTurnWorkflowCommands(
       {
         stateStore,
         localItemIds: createLocalIdSource(),
@@ -119,15 +119,15 @@ describe("createTurnWorkflowActions", () => {
         scroll: { showLatest: vi.fn() },
       },
       {
-        threadStarter: { startThread: vi.fn() },
+        threadStartCommand: { startThread: vi.fn() },
         runtimeSettings: {
           applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
           requestDefaultCollaborationModeForNextTurn: vi.fn(() => {
             stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
           }),
         } as never,
-        threadActions: {} as never,
-        reconnectPanel: vi.fn(),
+        threadCommands: {} as never,
+        reconnectCommand: vi.fn(),
         goals: {} as never,
       },
     );

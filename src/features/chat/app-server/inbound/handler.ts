@@ -15,7 +15,7 @@ import {
 } from "../../../../domain/pending-requests/model";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { ThreadFactInput } from "../../../threads/workflows/thread-facts";
-import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
+import type { AppServerResourceFact } from "../../application/connection/server-metadata-effects";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
@@ -30,9 +30,9 @@ import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items
 import { classifyAppServerLog } from "./app-server-logs";
 import { type ChatInboundEffect, planChatInboundNotification } from "./notification-plan";
 
-export interface ChatInboundHandlerActions {
+export interface ChatInboundHandlerEffects {
   refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
-  applyAppServerResourceEvent: (event: AppServerResourceEvent) => void;
+  handleAppServerResourceFact: (fact: AppServerResourceFact) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
   applyThreadFact: (fact: ThreadFactInput) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
@@ -54,16 +54,16 @@ export interface ChatInboundHandler {
 
 interface ChatInboundHandlerContext {
   store: ChatStateStore;
-  actions: ChatInboundHandlerActions;
+  effects: ChatInboundHandlerEffects;
   localItemIds: LocalIdSource;
 }
 
 export function createChatInboundHandler(
   store: ChatStateStore,
-  actions: ChatInboundHandlerActions,
+  effects: ChatInboundHandlerEffects,
   localItemIds: LocalIdSource,
 ): ChatInboundHandler {
-  const context: ChatInboundHandlerContext = { store, actions, localItemIds };
+  const context: ChatInboundHandlerContext = { store, effects, localItemIds };
   return {
     handleNotification: (notification) => {
       handleNotification(context, notification);
@@ -126,7 +126,7 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
       dispatch(context, { type: "request/mcp-elicitation-queued", elicitation: route.elicitation });
       return;
     case "currentTime":
-      if (!context.actions.respondToServerRequest(route.request.id, serverRequestCurrentTimeResponse(Date.now()))) {
+      if (!context.effects.respondToServerRequest(route.request.id, serverRequestCurrentTimeResponse(Date.now()))) {
         addSystemMessage(context, "Could not send current time because Codex app-server is not connected.");
       }
       return;
@@ -138,7 +138,7 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
       return;
     case "unknown": {
       const message = `Rejected unknown app-server request: ${request.method}`;
-      context.actions.rejectServerRequest(request.id, -32601, message);
+      context.effects.rejectServerRequest(request.id, -32601, message);
       return;
     }
   }
@@ -157,7 +157,7 @@ function handleAppServerLog(context: ChatInboundHandlerContext, message: string)
 function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: ApprovalAction): void {
   const approval = state(context).requests.approvals.find((item) => item.requestId === requestId) ?? null;
   if (!approval) return;
-  if (!context.actions.respondToServerRequest(approval.requestId, serverRequestApprovalResponse(approval, action))) {
+  if (!context.effects.respondToServerRequest(approval.requestId, serverRequestApprovalResponse(approval, action))) {
     addSystemMessage(context, "Could not send approval response because Codex app-server is not connected.");
     return;
   }
@@ -167,7 +167,7 @@ function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingR
 function resolveUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId, answers: Record<string, string>): void {
   const input = pendingUserInput(context, requestId);
   if (!input) return;
-  if (!context.actions.respondToServerRequest(input.requestId, serverRequestUserInputResponse(input.params.questions, answers))) {
+  if (!context.effects.respondToServerRequest(input.requestId, serverRequestUserInputResponse(input.params.questions, answers))) {
     addSystemMessage(context, "Could not send user input because Codex app-server is not connected.");
     return;
   }
@@ -181,7 +181,7 @@ function resolveUserInput(context: ChatInboundHandlerContext, requestId: Pending
 function cancelUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
   const input = pendingUserInput(context, requestId);
   if (!input) return;
-  if (!context.actions.rejectServerRequest(input.requestId, -32000, "User cancelled input request.")) {
+  if (!context.effects.rejectServerRequest(input.requestId, -32000, "User cancelled input request.")) {
     addSystemMessage(context, "Could not cancel user input because Codex app-server is not connected.");
     return;
   }
@@ -196,7 +196,7 @@ function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: Pe
   const elicitation = state(context).requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
   if (!elicitation) return;
   const content = action === "accept" ? contentForPendingMcpElicitation(elicitation, state(context).requests.mcpElicitationDrafts) : null;
-  if (!context.actions.respondToServerRequest(elicitation.requestId, serverRequestMcpElicitationResponse(action, content))) {
+  if (!context.effects.respondToServerRequest(elicitation.requestId, serverRequestMcpElicitationResponse(action, content))) {
     addSystemMessage(context, "Could not send MCP request response because Codex app-server is not connected.");
     return;
   }
@@ -228,7 +228,7 @@ function addDedupedSystemMessage(context: ChatInboundHandlerContext, text: strin
 
 function rejectServerRequest(context: ChatInboundHandlerContext, request: ServerRequest, message: string): void {
   addSystemMessage(context, message);
-  if (!context.actions.rejectServerRequest(request.id, -32601, message)) {
+  if (!context.effects.rejectServerRequest(request.id, -32601, message)) {
     addSystemMessage(context, "Could not reject app-server request because Codex app-server is not connected.");
   }
 }
@@ -240,16 +240,16 @@ function localItemId(context: ChatInboundHandlerContext, prefix: string): string
 function runInboundEffect(context: ChatInboundHandlerContext, effect: ChatInboundEffect): void {
   switch (effect.type) {
     case "refresh-server-diagnostics":
-      context.actions.refreshServerDiagnostics({ forceResourceProbes: effect.forceResourceProbes === true });
+      context.effects.refreshServerDiagnostics({ forceResourceProbes: effect.forceResourceProbes === true });
       return;
-    case "apply-app-server-resource-event":
-      context.actions.applyAppServerResourceEvent(effect.event);
+    case "handle-app-server-resource-fact":
+      context.effects.handleAppServerResourceFact(effect.fact);
       return;
     case "maybe-name-thread":
-      context.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
+      context.effects.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
       return;
     case "apply-thread-fact":
-      context.actions.applyThreadFact(effect.fact);
+      context.effects.applyThreadFact(effect.fact);
       return;
   }
 }

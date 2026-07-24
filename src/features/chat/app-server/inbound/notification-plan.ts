@@ -3,7 +3,7 @@ import { threadFromAppServerRecord } from "../../../../app-server/services/threa
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadFactInput } from "../../../threads/workflows/thread-facts";
-import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
+import type { AppServerResourceFact } from "../../application/connection/server-metadata-effects";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
 import type { SubagentActivityAction } from "../../application/state/subagent-activity";
@@ -21,7 +21,7 @@ export type ChatInboundEffect =
       completedTurnTranscriptSummary: TurnCompletionTranscriptSummary;
     }
   | { type: "refresh-server-diagnostics"; forceResourceProbes?: boolean }
-  | { type: "apply-app-server-resource-event"; event: AppServerResourceEvent }
+  | { type: "handle-app-server-resource-fact"; fact: AppServerResourceFact }
   | { type: "apply-thread-fact"; fact: ThreadFactInput };
 
 type TurnCompletionTranscriptSummary = TurnRuntimeProjectionOutcome["completedTurnTranscriptSummary"];
@@ -263,19 +263,19 @@ function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatI
       });
     case "account/rateLimits/updated":
       return effectPlan({
-        type: "apply-app-server-resource-event",
-        event: { type: "rate-limits-updated" },
+        type: "handle-app-server-resource-fact",
+        fact: { type: "rate-limits-updated" },
       });
     case "skills/changed":
-      return effectPlan({ type: "apply-app-server-resource-event", event: { type: "skills-changed" } });
+      return effectPlan({ type: "handle-app-server-resource-fact", fact: { type: "skills-changed" } });
     case "app/list/updated":
       return effectPlan({ type: "refresh-server-diagnostics" });
     case "mcpServer/oauthLogin/completed":
       return effectPlan({ type: "refresh-server-diagnostics", forceResourceProbes: true });
     case "mcpServer/startupStatus/updated":
       return effectPlan({
-        type: "apply-app-server-resource-event",
-        event: {
+        type: "handle-app-server-resource-fact",
+        fact: {
           type: "mcp-startup-status-updated",
           name: notification.params.name,
           status: notification.params.status,

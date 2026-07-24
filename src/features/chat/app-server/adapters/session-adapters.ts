@@ -23,7 +23,7 @@ import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsPort } from "../../application/runtime/settings-port";
 import type { EphemeralThreadForkResult, EphemeralThreadPort } from "../../application/threads/ephemeral-thread-port";
 import type { ThreadGoalPort, ThreadGoalReadPort } from "../../application/threads/goal-ports";
-import type { ThreadCommandPort } from "../../application/threads/thread-command-ports";
+import type { ThreadCommandPort } from "../../application/threads/thread-command-port";
 import type {
   ThreadHistoryPage,
   ThreadHistoryPort,

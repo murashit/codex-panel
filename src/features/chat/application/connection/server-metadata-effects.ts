@@ -8,12 +8,12 @@ import type { McpServerStartupStatus } from "../../../../domain/server/mcp-statu
 import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../../domain/server/metadata";
 import type { ChatStateStore } from "../state/store";
 
-export type AppServerResourceEvent =
+export type AppServerResourceFact =
   | { type: "skills-changed" }
   | { type: "rate-limits-updated" }
   | { type: "mcp-startup-status-updated"; name: string; status: McpServerStartupStatus; message: string | null };
 
-export interface ServerMetadataActionsHost {
+export interface ServerMetadataEffectsHost {
   stateStore: ChatStateStore;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
   refreshAppServerMetadata: () => Promise<void>;
@@ -22,46 +22,46 @@ export interface ServerMetadataActionsHost {
   isStaleRuntimeError: (error: unknown) => boolean;
 }
 
-export interface ServerMetadataActions {
+export interface ServerMetadataEffects {
   applyAppServerMetadataResource: (resource: SharedServerMetadataResource) => void;
   refreshAppServerMetadata: () => Promise<void>;
-  applyAppServerResourceEvent: (event: AppServerResourceEvent) => Promise<void>;
+  handleAppServerResourceFact: (fact: AppServerResourceFact) => Promise<void>;
 }
 
-export function createServerMetadataActions(host: ServerMetadataActionsHost): ServerMetadataActions {
+export function createServerMetadataEffects(host: ServerMetadataEffectsHost): ServerMetadataEffects {
   return {
     applyAppServerMetadataResource: (resource) => {
       applyAppServerMetadataResource(host, resource);
     },
     refreshAppServerMetadata: () => refreshAppServerMetadata(host),
-    applyAppServerResourceEvent: async (event) => {
-      if (event.type === "skills-changed") {
+    handleAppServerResourceFact: async (fact) => {
+      if (fact.type === "skills-changed") {
         await refreshMetadataResource(host, host.refreshSkills);
         return;
       }
-      if (event.type === "rate-limits-updated") {
+      if (fact.type === "rate-limits-updated") {
         await refreshMetadataResource(host, host.refreshRateLimits);
         return;
       }
-      await applyAppServerResourceEvent(host, event);
+      applyAppServerResourceFact(host, fact);
     },
   };
 }
 
-async function applyAppServerResourceEvent(host: ServerMetadataActionsHost, event: AppServerResourceEvent): Promise<void> {
-  switch (event.type) {
+function applyAppServerResourceFact(host: ServerMetadataEffectsHost, fact: AppServerResourceFact): void {
+  switch (fact.type) {
     case "skills-changed":
     case "rate-limits-updated":
       return;
     case "mcp-startup-status-updated":
-      if (event.name.length > 0) {
-        applyMcpStartupStatusEvent(host, event.name, event.status, event.message);
+      if (fact.name.length > 0) {
+        applyMcpStartupStatusEvent(host, fact.name, fact.status, fact.message);
       }
       return;
   }
 }
 
-function applyAppServerMetadataResource(host: ServerMetadataActionsHost, resource: SharedServerMetadataResource): void {
+function applyAppServerMetadataResource(host: ServerMetadataEffectsHost, resource: SharedServerMetadataResource): void {
   if (resource.id === "runtimeConfig") {
     if (resource.value) host.stateStore.dispatch({ type: "connection/metadata-applied", runtimeConfig: resource.value });
     return;
@@ -102,7 +102,7 @@ function applyAppServerMetadataResource(host: ServerMetadataActionsHost, resourc
   }
 }
 
-async function refreshAppServerMetadata(host: ServerMetadataActionsHost): Promise<void> {
+async function refreshAppServerMetadata(host: ServerMetadataEffectsHost): Promise<void> {
   try {
     await host.refreshAppServerMetadata();
   } catch (error) {
@@ -111,7 +111,7 @@ async function refreshAppServerMetadata(host: ServerMetadataActionsHost): Promis
   }
 }
 
-async function refreshMetadataResource(host: ServerMetadataActionsHost, refresh: () => Promise<void>): Promise<void> {
+async function refreshMetadataResource(host: ServerMetadataEffectsHost, refresh: () => Promise<void>): Promise<void> {
   try {
     await refresh();
   } catch (error) {
@@ -120,7 +120,7 @@ async function refreshMetadataResource(host: ServerMetadataActionsHost, refresh:
 }
 
 function applyMcpStartupStatusEvent(
-  host: ServerMetadataActionsHost,
+  host: ServerMetadataEffectsHost,
   name: string,
   startupStatus: McpServerStartupStatus,
   message: string | null,
@@ -138,7 +138,7 @@ function applyMcpStartupStatusEvent(
   });
 }
 
-function currentMetadataDiagnostics(host: ServerMetadataActionsHost): SharedServerMetadata["serverDiagnostics"] {
+function currentMetadataDiagnostics(host: ServerMetadataEffectsHost): SharedServerMetadata["serverDiagnostics"] {
   const current = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
   const metadata = host.appServerMetadataSnapshot();
   return metadata ? diagnosticsWithMetadataResourceProbes(current, metadata.serverDiagnostics) : current;

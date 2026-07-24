@@ -12,7 +12,7 @@ import type { ArchiveExportDestination, ArchiveExportSettings } from "../../thre
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
 import type { ThreadFactCoordinator } from "../../threads/workflows/thread-fact-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
-import type { ThreadGoalOperationCoordinator } from "../application/threads/goal-actions";
+import type { ThreadGoalCoordinator } from "../application/threads/thread-goal-coordinator";
 
 export interface CodexChatHost {
   readonly appServerClientAccess: AppServerClientAccess;
@@ -24,7 +24,7 @@ export interface CodexChatHost {
   readonly threadFactCoordinator: ThreadFactCoordinator;
   readonly threadNameMutations: KeyedOperationQueue<string>;
   readonly threadTitlePort: ThreadTitlePort;
-  readonly threadGoalOperations: ThreadGoalOperationCoordinator;
+  readonly threadGoalCoordinator: ThreadGoalCoordinator;
   readonly runtimeSettingsCommitQueue: KeyedOperationQueue<string>;
 }
 

@@ -8,25 +8,25 @@ import {
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { activeThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { ServerDiagnosticsPort } from "./metadata-port";
+import type { ServerDiagnosticsPort } from "./server-diagnostics-port";
 
 interface RefreshServerDiagnosticsOptions {
   appServerMetadataSnapshot?: boolean;
   forceResourceProbes?: boolean;
 }
 
-export interface ServerDiagnosticsActionsHost {
+export interface ServerDiagnosticsCoordinatorHost {
   stateStore: ChatStateStore;
   diagnosticsPort: ServerDiagnosticsPort;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
 }
 
-export interface ServerDiagnosticsActions {
+export interface ServerDiagnosticsCoordinator {
   refreshServerDiagnostics: (options?: RefreshServerDiagnosticsOptions) => Promise<void>;
   invalidate(): void;
 }
 
-export function createServerDiagnosticsActions(host: ServerDiagnosticsActionsHost): ServerDiagnosticsActions {
+export function createServerDiagnosticsCoordinator(host: ServerDiagnosticsCoordinatorHost): ServerDiagnosticsCoordinator {
   let generation = 0;
   return {
     refreshServerDiagnostics: async (options) => {
@@ -40,7 +40,7 @@ export function createServerDiagnosticsActions(host: ServerDiagnosticsActionsHos
 }
 
 async function refreshServerDiagnostics(
-  host: ServerDiagnosticsActionsHost,
+  host: ServerDiagnosticsCoordinatorHost,
   options: RefreshServerDiagnosticsOptions = {},
   isCurrent: () => boolean,
 ): Promise<boolean> {
@@ -80,7 +80,7 @@ async function refreshServerDiagnostics(
   return true;
 }
 
-function currentPanelDiagnostics(host: ServerDiagnosticsActionsHost): SharedServerMetadata["serverDiagnostics"] {
+function currentPanelDiagnostics(host: ServerDiagnosticsCoordinatorHost): SharedServerMetadata["serverDiagnostics"] {
   const current = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
   const metadata = host.appServerMetadataSnapshot();
   return metadata ? diagnosticsWithMetadataResourceProbes(current, metadata.serverDiagnostics) : current;

@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type ChatReconnectActionsHost,
-  createReconnectPanelAction,
-} from "../../../../../src/features/chat/application/connection/reconnect-actions";
+  type ChatReconnectCommandHost,
+  createReconnectPanelCommand,
+} from "../../../../../src/features/chat/application/connection/reconnect-command";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 
-function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
+function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
   stateStore.dispatch({
@@ -37,7 +37,7 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
     },
   });
   stateStore.dispatch({ type: "thread-list/applied", threads: [{ id: "thread" } as never] });
-  const host: ChatReconnectActionsHost = {
+  const host: ChatReconnectCommandHost = {
     stateStore,
     resetConnectionScope: vi.fn(),
     setStatus: vi.fn(),
@@ -63,10 +63,10 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
     addSystemMessage: vi.fn(),
     ...overrides,
   };
-  return { host, stateStore, reconnect: createReconnectPanelAction(host) };
+  return { host, stateStore, reconnect: createReconnectPanelCommand(host) };
 }
 
-describe("createReconnectPanelAction", () => {
+describe("createReconnectPanelCommand", () => {
   it("resets local connection work before reconnecting and retains shared thread projections", async () => {
     const { host, stateStore, reconnect } = createHost();
 

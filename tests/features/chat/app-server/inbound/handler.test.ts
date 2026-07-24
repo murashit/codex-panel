@@ -5,7 +5,7 @@ import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import {
   type ChatInboundHandler,
-  type ChatInboundHandlerActions,
+  type ChatInboundHandlerEffects,
   createChatInboundHandler,
 } from "../../../../../src/features/chat/app-server/inbound/handler";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
@@ -30,8 +30,8 @@ type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
 
 function handlerForState(
   state = chatStateFixture(),
-  actions: Partial<ChatInboundHandlerActions> & {
-    applyThreadFact?: ChatInboundHandlerActions["applyThreadFact"];
+  actions: Partial<ChatInboundHandlerEffects> & {
+    applyThreadFact?: ChatInboundHandlerEffects["applyThreadFact"];
   } = {},
 ): TestChatInboundHandler {
   const store = testStoreForState(state);
@@ -40,7 +40,7 @@ function handlerForState(
     store,
     {
       refreshServerDiagnostics: vi.fn(),
-      applyAppServerResourceEvent: vi.fn(),
+      handleAppServerResourceFact: vi.fn(),
       maybeNameThread: vi.fn(),
       applyThreadFact: applyThreadFact ?? vi.fn(),
       respondToServerRequest: vi.fn(() => true),
@@ -199,16 +199,16 @@ describe("ChatInboundHandler", () => {
   });
 
   describe("app-server source of truth updates", () => {
-    it("routes skill changes through the app-server resource event boundary", () => {
-      const applyAppServerResourceEvent = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyAppServerResourceEvent });
+    it("routes skill changes through the app-server resource fact boundary", () => {
+      const handleAppServerResourceFact = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { handleAppServerResourceFact });
 
       handler.handleNotification({
         method: "skills/changed",
         params: {},
       } satisfies Extract<ServerNotification, { method: "skills/changed" }>);
 
-      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({ type: "skills-changed" });
+      expect(handleAppServerResourceFact).toHaveBeenCalledWith({ type: "skills-changed" });
     });
 
     it("stores the latest aggregated turn diff for the active turn", () => {
@@ -552,10 +552,10 @@ describe("ChatInboundHandler", () => {
       expect(maybeNameThread).not.toHaveBeenCalled();
     });
 
-    it("routes sparse account rate limit updates through the app-server resource event boundary", () => {
+    it("routes sparse account rate limit updates through the app-server resource fact boundary", () => {
       const state = chatStateFixture();
-      const applyAppServerResourceEvent = vi.fn();
-      const handler = handlerForState(state, { applyAppServerResourceEvent });
+      const handleAppServerResourceFact = vi.fn();
+      const handler = handlerForState(state, { handleAppServerResourceFact });
 
       handler.handleNotification({
         method: "account/rateLimits/updated",
@@ -575,13 +575,13 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "account/rateLimits/updated" }>);
 
       expect(state.connection.rateLimit).toBeNull();
-      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({ type: "rate-limits-updated" });
+      expect(handleAppServerResourceFact).toHaveBeenCalledWith({ type: "rate-limits-updated" });
     });
 
-    it("routes MCP startup status through the app-server resource event boundary", () => {
+    it("routes MCP startup status through the app-server resource fact boundary", () => {
       const state = chatStateFixture();
-      const applyAppServerResourceEvent = vi.fn();
-      const handler = handlerForState(state, { applyAppServerResourceEvent });
+      const handleAppServerResourceFact = vi.fn();
+      const handler = handlerForState(state, { handleAppServerResourceFact });
 
       handler.handleNotification({
         method: "mcpServer/startupStatus/updated",
@@ -594,7 +594,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
 
-      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({
+      expect(handleAppServerResourceFact).toHaveBeenCalledWith({
         type: "mcp-startup-status-updated",
         name: "github",
         status: "failed",
@@ -1865,7 +1865,7 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("adds a goal event when a goal completes", () => {
+    it("adds a goal fact when a goal completes", () => {
       const activeGoal = {
         threadId: "thread-active",
         objective: "Finish",

@@ -5,7 +5,7 @@ import { activePanelOperationDecision } from "../panel-operation-policy";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
-import type { ThreadStartOutcome } from "../threads/thread-start-actions";
+import type { ThreadStartOutcome } from "../threads/thread-start-command";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
@@ -19,7 +19,7 @@ import { STATUS_TURN_RUNNING } from "./turn-state";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 
-export interface TurnSubmissionActionsHost {
+export interface TurnSubmissionCommandHost {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
   turnPort: ChatTurnPort;
@@ -50,7 +50,7 @@ type TurnSubmissionPlan =
   | { kind: "start-thread-then-turn" }
   | { kind: "start-turn"; threadId: string };
 
-export interface TurnSubmissionActions {
+export interface TurnSubmissionCommand {
   sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
 }
 
@@ -63,7 +63,7 @@ export interface TurnSubmissionRequest {
   failureDraft?: string;
 }
 
-export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): TurnSubmissionActions {
+export function createTurnSubmissionCommand(host: TurnSubmissionCommandHost): TurnSubmissionCommand {
   let submissionInFlight = false;
   return {
     sendTurnText: async (request) => {
@@ -79,7 +79,7 @@ export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): Tu
 }
 
 async function sendTurnText(
-  host: TurnSubmissionActionsHost,
+  host: TurnSubmissionCommandHost,
   localItemIds: LocalIdSource,
   request: TurnSubmissionRequest,
 ): Promise<boolean> {
@@ -244,7 +244,7 @@ function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
 }
 
 async function startThreadForTurn(
-  host: TurnSubmissionActionsHost,
+  host: TurnSubmissionCommandHost,
   text: string,
   pendingSubmissionId?: string,
 ): Promise<ThreadStartOutcome> {
@@ -258,7 +258,7 @@ async function startThreadForTurn(
 }
 
 async function steerCurrentTurn(
-  host: TurnSubmissionActionsHost,
+  host: TurnSubmissionCommandHost,
   localItemIds: LocalIdSource,
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
   text: string,
@@ -316,7 +316,7 @@ async function steerCurrentTurn(
 }
 
 function clearDraftForSubmission(
-  host: TurnSubmissionActionsHost,
+  host: TurnSubmissionCommandHost,
   request: TurnSubmissionRequest,
   options: { clearSuggestions?: boolean } = {},
 ): void {
@@ -332,7 +332,7 @@ function clearDraftForSubmission(
 }
 
 function restoreSubmittedDraft(
-  host: TurnSubmissionActionsHost,
+  host: TurnSubmissionCommandHost,
   text: string,
   request: TurnSubmissionRequest,
   options: { focus?: boolean } = {},
@@ -345,19 +345,19 @@ function restoreSubmittedDraft(
 }
 
 function prunePreservedComposerContext(
-  host: TurnSubmissionActionsHost,
+  host: TurnSubmissionCommandHost,
   request: TurnSubmissionRequest,
   options: { clearSuggestions?: boolean } = {},
 ): void {
   if (request.preserveComposerContextOnFailure) host.setDraft("", options);
 }
 
-function isCurrentTurn(host: TurnSubmissionActionsHost, threadId: string, turnId: string): boolean {
+function isCurrentTurn(host: TurnSubmissionCommandHost, threadId: string, turnId: string): boolean {
   const state = submissionStateSnapshot(host.stateStore.getState());
   return state.activeThreadId === threadId && state.activeTurnId === turnId;
 }
 
-function pendingRequestIsCurrent(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {
+function pendingRequestIsCurrent(host: TurnSubmissionCommandHost, request: TurnSubmissionRequest): boolean {
   if (!request.pendingSubmissionId) return true;
   const state = host.stateStore.getState();
   return pendingSubmissionMatches(
@@ -366,18 +366,18 @@ function pendingRequestIsCurrent(host: TurnSubmissionActionsHost, request: TurnS
   );
 }
 
-function submissionScopeIsCurrent(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest, panelTarget: PanelTargetLease): boolean {
+function submissionScopeIsCurrent(host: TurnSubmissionCommandHost, request: TurnSubmissionRequest, panelTarget: PanelTargetLease): boolean {
   return pendingRequestIsCurrent(host, request) && panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget);
 }
 
-function commitPendingRequest(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {
+function commitPendingRequest(host: TurnSubmissionCommandHost, request: TurnSubmissionRequest): boolean {
   if (!request.pendingSubmissionId) return true;
   if (!pendingRequestIsCurrent(host, request)) return false;
   host.stateStore.dispatch({ type: "web-submission/committed", submissionId: request.pendingSubmissionId });
   return pendingRequestIsCurrent(host, request) && host.stateStore.getState().pendingSubmission?.phase === "committed";
 }
 
-function failPendingRequest(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {
+function failPendingRequest(host: TurnSubmissionCommandHost, request: TurnSubmissionRequest): boolean {
   if (!request.pendingSubmissionId || !pendingRequestIsCurrent(host, request)) return false;
   host.stateStore.dispatch({ type: "web-submission/failed", submissionId: request.pendingSubmissionId });
   return true;
