@@ -22,7 +22,6 @@ export interface ThreadOperationsHost {
 
 interface ArchiveThreadOptions {
   saveMarkdown?: boolean;
-  shouldPublish?: () => boolean;
 }
 
 export interface ArchiveThreadResult {
@@ -97,7 +96,6 @@ async function archiveThread(
         }
       : undefined,
   );
-  if (!(options.shouldPublish?.() ?? true)) return { exportedPath };
   if (exportedPath) {
     host.notice(`Saved archived thread to ${exportedPath}.`);
   }

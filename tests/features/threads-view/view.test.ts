@@ -396,6 +396,37 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("publishes a completed archive after the threads view closes", async () => {
+    const archived = deferred<object>();
+    const archiveThread = vi.fn(() => archived.promise);
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/archive": archiveThread,
+    });
+    const applyThreadOperationEvent = vi.fn();
+    const view = await threadsView(
+      threadsHost({
+        threadEvents: { apply: applyThreadOperationEvent },
+      }),
+    );
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
+    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" }));
+
+    await view.onClose();
+    archived.resolve({});
+
+    await waitForAsyncWork(() => {
+      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
+        type: "thread-archived",
+        threadId: "thread",
+      });
+    });
+    expect(view.containerEl.childElementCount).toBe(0);
+  });
+
   it("does not archive a thread while its panel is pending or running", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
@@ -443,6 +474,43 @@ describe("CodexThreadsView", () => {
         name: "Renamed thread",
       });
     });
+  });
+
+  it("publishes a completed rename after the threads view closes", async () => {
+    const renamed = deferred<object>();
+    const renameThreadRequest = vi.fn(() => renamed.promise);
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/name/set": renameThreadRequest,
+    });
+    const applyThreadOperationEvent = vi.fn();
+    const view = await threadsView(
+      threadsHost({
+        threadEvents: { apply: applyThreadOperationEvent },
+      }),
+    );
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    if (!input) throw new Error("Missing rename input");
+    changeInputValue(input, "Renamed after close");
+    input.dispatchEvent(new FocusEvent("blur"));
+    await waitForAsyncWork(() => {
+      expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed after close" });
+    });
+
+    await view.onClose();
+    renamed.resolve({});
+
+    await waitForAsyncWork(() => {
+      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
+        type: "thread-renamed",
+        threadId: "thread",
+        name: "Renamed after close",
+      });
+    });
+    expect(view.containerEl.childElementCount).toBe(0);
   });
 
   it("keeps the rename editor locked until a save finishes", async () => {

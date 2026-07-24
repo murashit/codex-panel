@@ -46,10 +46,6 @@ export interface ThreadsViewSessionEnvironment {
 
 type ThreadsViewStatus = { kind: "idle" } | { kind: "loading"; message: string } | { kind: "error"; message: string };
 
-interface ThreadsViewOperationLease {
-  readonly lifetime: AbortSignal;
-}
-
 interface ThreadTitleContextPreparation {
   readonly threadId: string;
 }
@@ -291,7 +287,7 @@ export class ThreadsViewSession {
   }
 
   private async saveRename(threadId: string, value: string): Promise<void> {
-    const lease = this.captureOperationLease();
+    const viewLifetime = this.lifetime.signal();
     const previousState = this.renameStates.get(threadId);
     if (previousState?.kind !== "editing") return;
     const saveToken = this.nextRenameSaveToken;
@@ -301,10 +297,9 @@ export class ThreadsViewSession {
     this.render();
     try {
       await this.operations.renameThread(threadId, value, {
-        shouldStart: () => this.operationContextIsCurrent(lease) && this.renameSaveStillActive(threadId, saveToken),
-        shouldPublish: () => this.operationContextIsCurrent(lease) && this.renameSaveStillActive(threadId, saveToken),
+        shouldStart: () => this.lifetime.isCurrent(viewLifetime) && this.renameSaveStillActive(threadId, saveToken),
       });
-      if (!this.operationViewIsCurrent(lease)) return;
+      if (!this.lifetime.isCurrent(viewLifetime)) return;
       const currentState = this.renameStates.get(threadId);
       const nextState = this.transitionRenameState(threadId, { type: "save-succeeded", saveToken });
       if (nextState !== currentState) {
@@ -312,7 +307,7 @@ export class ThreadsViewSession {
         this.render();
       }
     } catch (error) {
-      if (!this.operationViewIsCurrent(lease) || !this.renameSaveStillActive(threadId, saveToken)) return;
+      if (!this.lifetime.isCurrent(viewLifetime) || !this.renameSaveStillActive(threadId, saveToken)) return;
       this.noticeError(error);
       this.transitionRenameState(threadId, { type: "save-failed", saveToken });
       this.render();
@@ -320,7 +315,7 @@ export class ThreadsViewSession {
   }
 
   private async autoNameThread(threadId: string): Promise<void> {
-    const lease = this.captureOperationLease();
+    const viewLifetime = this.lifetime.signal();
     const previousState = this.renameStates.get(threadId);
     const generationToken = this.nextRenameGenerationToken;
     const generatingState = this.transitionRenameState(threadId, {
@@ -337,17 +332,17 @@ export class ThreadsViewSession {
       const context = generatingState.autoName.context;
       const title = await this.titleService.generate(context, controller.signal);
       if (!title) throw new Error("Codex did not return a usable thread title.");
-      if (!this.operationViewIsCurrent(lease)) return;
+      if (!this.lifetime.isCurrent(viewLifetime)) return;
       this.transitionRenameState(threadId, { type: "generation-succeeded", generationToken, draft: title });
     } catch (error) {
-      if (!this.operationViewIsCurrent(lease)) return;
+      if (!this.lifetime.isCurrent(viewLifetime)) return;
       if (this.renameStates.get(threadId) === generatingState) {
         this.noticeError(error);
       }
     } finally {
       const operation = this.renameGenerationControllers.get(threadId);
       if (operation?.generationToken === generationToken) this.renameGenerationControllers.delete(threadId);
-      if (this.operationViewIsCurrent(lease)) {
+      if (this.lifetime.isCurrent(viewLifetime)) {
         this.finishAutoNameThread(threadId, generationToken);
       }
     }
@@ -370,31 +365,18 @@ export class ThreadsViewSession {
       new Notice("Finish or interrupt the thread before archiving it.");
       return;
     }
-    const lease = this.captureOperationLease();
+    const viewLifetime = this.lifetime.signal();
     try {
       await this.operations.archiveThread(threadId, {
         saveMarkdown,
-        shouldPublish: () => this.operationContextIsCurrent(lease),
       });
-      if (!this.operationViewIsCurrent(lease)) return;
+      if (!this.lifetime.isCurrent(viewLifetime)) return;
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
     } catch (error) {
-      if (!this.operationViewIsCurrent(lease)) return;
+      if (!this.lifetime.isCurrent(viewLifetime)) return;
       this.noticeError(error);
     }
-  }
-
-  private captureOperationLease(): ThreadsViewOperationLease {
-    return { lifetime: this.lifetime.signal() };
-  }
-
-  private operationContextIsCurrent(lease: ThreadsViewOperationLease): boolean {
-    return this.lifetime.isCurrent(lease.lifetime);
-  }
-
-  private operationViewIsCurrent(lease: ThreadsViewOperationLease): boolean {
-    return this.lifetime.isCurrent(lease.lifetime);
   }
 
   private noticeError(error: unknown): void {
