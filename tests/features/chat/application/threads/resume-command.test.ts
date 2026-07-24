@@ -113,6 +113,36 @@ describe("ResumeCommand", () => {
     await expect(resuming).resolves.toBe(true);
   });
 
+  it("announces target adoption only when resume changes the panel target", async () => {
+    const sameTarget = createActions(activation("thread"));
+    sameTarget.stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: panelThread("thread"),
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    const sameTargetBeforeActivate = vi.fn();
+
+    await sameTarget.commands.resumeThread("thread", undefined, { beforeActivate: sameTargetBeforeActivate });
+
+    expect(sameTargetBeforeActivate).not.toHaveBeenCalled();
+
+    const differentTarget = createActions(activation("other"));
+    const differentTargetBeforeActivate = vi.fn();
+
+    await differentTarget.commands.resumeThread("other", undefined, { beforeActivate: differentTargetBeforeActivate });
+
+    expect(differentTargetBeforeActivate).toHaveBeenCalledOnce();
+  });
+
   it("does not change active thread when the resume port has no snapshot", async () => {
     const { commands, host, loadLatest, resumeThread, stateStore } = createActions(null);
 

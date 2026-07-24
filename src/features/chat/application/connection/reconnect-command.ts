@@ -14,11 +14,15 @@ export interface ChatReconnectCommandHost {
   addSystemMessage: (text: string) => void;
 }
 
-export function createReconnectPanelCommand(host: ChatReconnectCommandHost): () => Promise<boolean> {
+export interface ReconnectPanelOptions {
+  beforeTargetReset?: () => void;
+}
+
+export function createReconnectPanelCommand(host: ChatReconnectCommandHost): (options?: ReconnectPanelOptions) => Promise<boolean> {
   let activeReconnect: Promise<boolean> | null = null;
-  return async () => {
+  return async (options) => {
     if (activeReconnect) return activeReconnect;
-    const operation = reconnectPanel(host);
+    const operation = reconnectPanel(host, options);
     activeReconnect = operation;
     try {
       return await operation;
@@ -28,10 +32,12 @@ export function createReconnectPanelCommand(host: ChatReconnectCommandHost): () 
   };
 }
 
-async function reconnectPanel(host: ChatReconnectCommandHost): Promise<boolean> {
+async function reconnectPanel(host: ChatReconnectCommandHost, options: ReconnectPanelOptions = {}): Promise<boolean> {
   const currentState = host.stateStore.getState();
   const panelTarget = capturePanelTargetLease(currentState);
-  const threadId = activeThreadState(currentState)?.lifetime?.kind === "ephemeral" ? null : panelThreadId(currentState);
+  const ephemeral = activeThreadState(currentState)?.lifetime?.kind === "ephemeral";
+  const threadId = ephemeral ? null : panelThreadId(currentState);
+  if (ephemeral) options.beforeTargetReset?.();
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   host.resetConnectionScope();
   host.stateStore.dispatch({ type: "connection/scoped-cleared" });

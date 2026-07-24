@@ -274,11 +274,12 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
       composerController.setDraft(text, { focus: true });
     },
     openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
-    openThreadInCurrentPanel: async (threadId, onAdopted) => {
+    openThreadInCurrentPanel: async (threadId, onAdopted, beforeActivate) => {
       const activityPublication = host.beginPanelActivityPublication(threadId);
       const adoption = { completed: false };
       try {
         await lifecycle.resume.resumeThread(threadId, undefined, {
+          ...(beforeActivate ? { beforeActivate } : {}),
           onAdopted: () => {
             adoption.completed = true;
             onAdopted();

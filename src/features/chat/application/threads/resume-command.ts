@@ -3,7 +3,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import { effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { activeThreadState } from "../state/root-reducer";
+import { activeThreadState, panelThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import type { HistoryController } from "./history-controller";
@@ -30,6 +30,7 @@ export interface ResumeCommand {
 }
 
 export interface ResumeThreadOptions {
+  beforeActivate?: () => void;
   onAdopted?: () => void;
 }
 
@@ -61,6 +62,7 @@ async function resumeThread(
     const effect = await host.resumePort.resumeThread(threadId);
     if (!effectCompletedInCurrentContext(effect)) return false;
     if (isStaleResume(host, resume, initialPanelTarget)) return false;
+    if (panelThreadId(host.stateStore.getState()) !== effect.value.activation.thread.id) options?.beforeActivate?.();
     const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);
     if (!adoptedPanelTarget) return false;
     currentPanelTarget = adoptedPanelTarget;

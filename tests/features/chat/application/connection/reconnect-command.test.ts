@@ -153,6 +153,7 @@ describe("createReconnectPanelCommand", () => {
 
   it("does not resume an ephemeral thread after an unexpected exit", async () => {
     const { host, stateStore, reconnect } = createHost();
+    const beforeTargetReset = vi.fn();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -168,12 +169,21 @@ describe("createReconnectPanelCommand", () => {
       approvalsReviewer: null,
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
-    stateStore.dispatch({ type: "connection/scoped-cleared" });
-    expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
 
-    await reconnect();
+    await reconnect({ beforeTargetReset });
 
     expect(host.resumeThread).not.toHaveBeenCalled();
+    expect(beforeTargetReset).toHaveBeenCalledOnce();
+    expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
+  });
+
+  it("does not announce a target reset when reconnecting a persistent thread", async () => {
+    const { reconnect } = createHost();
+    const beforeTargetReset = vi.fn();
+
+    await reconnect({ beforeTargetReset });
+
+    expect(beforeTargetReset).not.toHaveBeenCalled();
   });
 
   it("reports resume failures after reconnecting", async () => {

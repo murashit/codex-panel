@@ -22,6 +22,7 @@ export interface ThreadMutationCommandsHost {
 
 interface ArchiveThreadOptions {
   saveMarkdown?: boolean;
+  beforePublish?: () => void;
 }
 
 export interface ArchiveThreadResult {
@@ -99,6 +100,7 @@ async function archiveThread(
   if (exportedPath) {
     host.notice(`Saved archived thread to ${exportedPath}.`);
   }
+  options.beforePublish?.();
   host.facts.apply({ type: "thread-archived", threadId });
   return { exportedPath };
 }

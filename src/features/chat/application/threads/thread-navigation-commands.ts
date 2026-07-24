@@ -21,13 +21,13 @@ export interface ThreadNavigationCommandsHost {
 }
 
 export interface ThreadNavigationCommands {
-  startNewThread(options?: { focus?: boolean }): Promise<void>;
-  selectThread(threadId: string): Promise<void>;
+  startNewThread(options?: { focus?: boolean; beforeActivate?: () => void }): Promise<void>;
+  selectThread(threadId: string, options?: { beforeActivate?: () => void }): Promise<void>;
   selectThreadFromToolbar(threadId: string): Promise<void>;
 }
 
 export function createThreadNavigationCommands(host: ThreadNavigationCommandsHost): ThreadNavigationCommands {
-  const selectThread = async (threadId: string): Promise<void> => {
+  const selectThread = async (threadId: string, options: { beforeActivate?: () => void } = {}): Promise<void> => {
     if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
       host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
@@ -41,6 +41,7 @@ export function createThreadNavigationCommands(host: ThreadNavigationCommandsHos
     if (!preparation || !host.resumeWork.isCurrent(intent)) return;
     if (
       !(await host.resumeThread(threadId, intent, {
+        ...(options.beforeActivate ? { beforeActivate: options.beforeActivate } : {}),
         onAdopted: () => {
           host.navigation.commitPersistentNavigation(preparation);
         },
@@ -51,13 +52,14 @@ export function createThreadNavigationCommands(host: ThreadNavigationCommandsHos
   };
 
   return {
-    async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
+    async startNewThread(options: { focus?: boolean; beforeActivate?: () => void } = {}): Promise<void> {
       const state = host.stateStore.getState();
       if (chatTurnBusy(state) && activeThreadState(state)?.provenance?.kind !== "subagent") return;
       const intent = host.resumeWork.begin(null);
       const preparation = await host.navigation.prepareForPersistentNavigation(null);
       if (!preparation || !host.resumeWork.isCurrent(intent)) return;
 
+      options.beforeActivate?.();
       host.identity.clearActiveThreadIdentity();
       host.navigation.commitPersistentNavigation(preparation);
       host.stateStore.dispatch({ type: "ui/panel-set", panel: null });

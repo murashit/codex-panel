@@ -22,7 +22,7 @@ export interface ThreadCommandsHost {
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<void>;
-  openThreadInCurrentPanel: (threadId: string, onAdopted: () => void) => Promise<CurrentPanelAdoption>;
+  openThreadInCurrentPanel: (threadId: string, onAdopted: () => void, beforeActivate?: () => void) => Promise<CurrentPanelAdoption>;
   beginThreadForkPublication: (sourceThreadId: string) => ThreadForkPublication;
   threadHasPendingOrRunningPanel: (threadId: string) => boolean;
 }
@@ -41,17 +41,17 @@ interface ThreadForkPublication {
 
 interface ThreadManagementMutations {
   renameThread(threadId: string, value: string): Promise<boolean>;
-  archiveThread(threadId: string, options?: { saveMarkdown?: boolean }): Promise<boolean>;
+  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; beforePublish?: () => void }): Promise<boolean>;
 }
 
 export interface ThreadCommands {
   compactActiveThread: () => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
-  archiveThread: (threadId: string, saveMarkdown?: boolean) => Promise<void>;
+  archiveThread: (threadId: string, saveMarkdown?: boolean, beforeUnavailable?: () => void) => Promise<void>;
   forkThread: (threadId: string) => Promise<void>;
   forkThreadFromTurn: (threadId: string, turnId: string | null, archiveSource: boolean) => Promise<void>;
   renameThread: (threadId: string, name: string) => Promise<boolean>;
-  rollbackThread: (threadId: string) => Promise<void>;
+  rollbackThread: (threadId: string, options?: { adoptPanelTarget?: (replacementDraft: string) => void }) => Promise<void>;
 }
 
 interface ThreadCommandPanelScope {
@@ -65,11 +65,11 @@ export function createThreadCommands(host: ThreadCommandsHost): ThreadCommands {
   return {
     compactActiveThread: () => compactActiveThread(host),
     compactThread: (threadId) => compactThread(host, threadId),
-    archiveThread: (threadId, saveMarkdown) => archiveThread(host, threadId, saveMarkdown),
+    archiveThread: (threadId, saveMarkdown, beforeUnavailable) => archiveThread(host, threadId, saveMarkdown, beforeUnavailable),
     forkThread: (threadId) => forkThread(host, threadId),
     forkThreadFromTurn: (threadId, turnId, archiveSource) => forkThreadFromTurn(host, threadId, turnId, archiveSource),
     renameThread: (threadId, name) => renameThread(host, threadId, name),
-    rollbackThread: (threadId) => rollbackThread(host, threadId),
+    rollbackThread: (threadId, options) => rollbackThread(host, threadId, options),
   };
 }
 
@@ -99,11 +99,21 @@ async function compactThread(host: ThreadCommandsHost, threadId: string): Promis
   }
 }
 
-async function archiveThread(host: ThreadCommandsHost, threadId: string, saveMarkdown?: boolean): Promise<void> {
-  await archiveThreadFromPanel(host, threadId, saveMarkdown);
+async function archiveThread(
+  host: ThreadCommandsHost,
+  threadId: string,
+  saveMarkdown?: boolean,
+  beforeUnavailable?: () => void,
+): Promise<void> {
+  await archiveThreadFromPanel(host, threadId, saveMarkdown, beforeUnavailable);
 }
 
-async function archiveThreadFromPanel(host: ThreadCommandsHost, threadId: string, saveMarkdown?: boolean): Promise<boolean> {
+async function archiveThreadFromPanel(
+  host: ThreadCommandsHost,
+  threadId: string,
+  saveMarkdown?: boolean,
+  beforeUnavailable?: () => void,
+): Promise<boolean> {
   if (host.threadHasPendingOrRunningPanel(threadId)) {
     host.addSystemMessage("Finish or interrupt the thread before archiving it.");
     return false;
@@ -113,7 +123,10 @@ async function archiveThreadFromPanel(host: ThreadCommandsHost, threadId: string
     return false;
   }
   try {
-    const options = saveMarkdown === undefined ? {} : { saveMarkdown };
+    const options = {
+      ...(saveMarkdown === undefined ? {} : { saveMarkdown }),
+      ...(beforeUnavailable ? { beforePublish: beforeUnavailable } : {}),
+    };
     return await host.mutations.archiveThread(threadId, options);
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -227,7 +240,11 @@ async function renameThread(host: ThreadCommandsHost, threadId: string, value: s
   }
 }
 
-async function rollbackThread(host: ThreadCommandsHost, threadId: string): Promise<void> {
+async function rollbackThread(
+  host: ThreadCommandsHost,
+  threadId: string,
+  options: { adoptPanelTarget?: (replacementDraft: string) => void } = {},
+): Promise<void> {
   if (activePanelOperationBlocked(host, threadId, "rollback")) return;
   if (chatTurnBusy(threadCommandState(host))) {
     host.addSystemMessage("Interrupt the current turn before rolling back.");
@@ -272,9 +289,14 @@ async function rollbackThread(host: ThreadCommandsHost, threadId: string): Promi
     if (effectCompletedInCurrentContext(effect)) publication.record(forkedThread);
     else return;
     if (!threadCommandScopeStillTargetsPanel(host, scope)) return;
-    const adoption = await host.openThreadInCurrentPanel(forkedThread.id, () => {
-      host.setComposerText(candidate.text);
-    });
+    const onAdopted = () => {
+      if (!options.adoptPanelTarget) host.setComposerText(candidate.text);
+    };
+    const adoption = options.adoptPanelTarget
+      ? await host.openThreadInCurrentPanel(forkedThread.id, onAdopted, () => {
+          options.adoptPanelTarget?.(candidate.text);
+        })
+      : await host.openThreadInCurrentPanel(forkedThread.id, onAdopted);
     if (!adoption.adopted) {
       if (threadCommandScopeStillTargetsPanel(host, scope)) {
         host.addSystemMessage("The rolled-back version was created but could not be opened in this panel. Open it from thread history.");

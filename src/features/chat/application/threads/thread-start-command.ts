@@ -24,7 +24,10 @@ export interface ThreadStartCommandHost {
 }
 
 export interface ThreadStartCommand {
-  startThread: (preview?: string, options?: { syncGoal?: boolean; preservePendingSubmissionId?: string }) => Promise<ThreadStartOutcome>;
+  startThread: (
+    preview?: string,
+    options?: { syncGoal?: boolean; preservePendingSubmissionId?: string; beforeActivate?: () => void },
+  ) => Promise<ThreadStartOutcome>;
 }
 
 export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadStartCommand {
@@ -36,7 +39,7 @@ export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadSt
 async function startThread(
   host: ThreadStartCommandHost,
   preview?: string,
-  options: { syncGoal?: boolean; preservePendingSubmissionId?: string } = {},
+  options: { syncGoal?: boolean; preservePendingSubmissionId?: string; beforeActivate?: () => void } = {},
 ): Promise<ThreadStartOutcome> {
   const requestState = host.stateStore.getState();
   const panelTarget = capturePanelTargetLease(requestState);
@@ -80,6 +83,7 @@ async function startThread(
     expectedPanelTargetRevision: panelTarget.revision,
     ...(options.preservePendingSubmissionId ? { preservePendingSubmissionId: options.preservePendingSubmissionId } : {}),
   });
+  options.beforeActivate?.();
   const applied = host.stateStore.dispatch(action);
   if (activeThreadId(applied) !== action.thread.id) {
     return { kind: "created-not-activated", threadId: action.thread.id };

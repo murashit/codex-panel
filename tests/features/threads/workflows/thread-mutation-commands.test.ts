@@ -78,6 +78,16 @@ describe("ThreadMutationCommands", () => {
     });
   });
 
+  it("announces archive target adoption immediately before publishing the archive fact", async () => {
+    const { mutations, catalog } = operationsFixture();
+    const beforePublish = vi.fn();
+
+    await mutations.archiveThread("thread", { saveMarkdown: false, beforePublish });
+
+    expect(beforePublish).toHaveBeenCalledOnce();
+    expect(callOrder(beforePublish)).toBeLessThan(callOrder(catalog.apply));
+  });
+
   it("resolves persisted reference titles before archive export", async () => {
     const client = clientMock();
     const clientId = "local-user-1-seed-1-1";

@@ -686,6 +686,24 @@ describe("thread management commands", () => {
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
   });
 
+  it("hands the rollback draft to the submission owner before adopting the fork", async () => {
+    const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
+    const adoptPanelTarget = vi.fn(() => {
+      expect(activeThreadId(host.stateStore.getState())).toBe("source");
+    });
+    host.openThreadInCurrentPanel.mockImplementation(async (threadId, onAdopted, beforeActivate) => {
+      beforeActivate?.();
+      adoptThread(host, threadId);
+      onAdopted();
+      return { adopted: true, activityPublication: host.activityPublication };
+    });
+
+    await threadCommands(host).rollbackThread("source", { adoptPanelTarget });
+
+    expect(adoptPanelTarget).toHaveBeenCalledWith("three");
+    expect(host.setComposerText).not.toHaveBeenCalled();
+  });
+
   it("keeps the adopted rollback when archiving its source fails", async () => {
     const host = hostMock({
       items: turnItems(),
