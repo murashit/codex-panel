@@ -136,7 +136,6 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     if (appServerContextReplaced) {
       const nextRuntime = this.createExecutionRuntime(settings.codexPath);
       this.selectionRewriteController?.closeAll();
-      this.panels.invalidateRuntimeIntents();
       const previousRuntime = this.executionRuntime;
       this.executionRuntime = null;
       const views = previousRuntime?.dispose() ?? { chat: [], threads: [] };

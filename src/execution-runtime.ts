@@ -146,52 +146,14 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   adoptViews(views: ExecutionRuntimeViews): void {
     this.assertActive();
     for (const view of views.chat) {
-      if (
-        this.tryCleanup(() => {
-          view.attachRuntime(this.chatHost());
-        })
-      )
-        this.chatViews.add(view);
-      else
-        this.tryCleanup(() => {
-          view.detachRuntime();
-        });
+      view.attachRuntime(this.chatHost());
+      view.activateRuntime();
+      this.chatViews.add(view);
     }
     for (const view of views.threads) {
-      if (
-        this.tryCleanup(() => {
-          view.attachRuntime(this.threadsHost());
-        })
-      )
-        this.threadsViews.add(view);
-      else
-        this.tryCleanup(() => {
-          view.detachRuntime();
-        });
-    }
-    for (const view of [...this.chatViews]) {
-      if (
-        this.tryCleanup(() => {
-          view.activateRuntime();
-        })
-      )
-        continue;
-      this.chatViews.delete(view);
-      this.tryCleanup(() => {
-        view.detachRuntime();
-      });
-    }
-    for (const view of [...this.threadsViews]) {
-      if (
-        this.tryCleanup(() => {
-          view.activateRuntime();
-        })
-      )
-        continue;
-      this.threadsViews.delete(view);
-      this.tryCleanup(() => {
-        view.detachRuntime();
-      });
+      view.attachRuntime(this.threadsHost());
+      view.activateRuntime();
+      this.threadsViews.add(view);
     }
   }
 
@@ -224,20 +186,12 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.disposed = true;
     const views: { chat: ChatRuntimeView[]; threads: ThreadsRuntimeView[] } = { chat: [], threads: [] };
     for (const view of this.chatViews) {
-      if (
-        this.tryCleanup(() => {
-          view.detachRuntime();
-        })
-      )
-        views.chat.push(view);
+      view.detachRuntime();
+      views.chat.push(view);
     }
     for (const view of this.threadsViews) {
-      if (
-        this.tryCleanup(() => {
-          view.detachRuntime();
-        })
-      )
-        views.threads.push(view);
+      view.detachRuntime();
+      views.threads.push(view);
     }
     this.chatViews.clear();
     this.threadsViews.clear();
