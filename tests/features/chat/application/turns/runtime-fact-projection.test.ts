@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
-import { planTurnRuntimeEvents } from "../../../../../src/features/chat/application/turns/runtime-event-plan";
-import type { TurnRuntimeEvent } from "../../../../../src/features/chat/application/turns/runtime-events";
+import { projectTurnRuntimeFacts } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
+import type { TurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-facts";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
@@ -16,13 +16,13 @@ function applyActions(state: ChatState, actions: readonly ChatAction[]): ChatSta
   return actions.reduce(chatReducer, state);
 }
 
-describe("TurnRuntimeEvent planner", () => {
-  it("reports turn starts as turn-runtime outcomes", () => {
+describe("TurnRuntimeFact projection", () => {
+  it("projects turn starts without completion outcomes", () => {
     const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
 
-    const plan = planTurnRuntimeEvents(state, [{ type: "turnStarted", threadId: "thread-active", turnId: "turn-active" }]);
+    const projection = projectTurnRuntimeFacts(state, [{ type: "turnStarted", threadId: "thread-active", turnId: "turn-active" }]);
 
-    expect(plan.outcomes).toEqual([]);
+    expect(projection.outcomes).toEqual([]);
   });
 
   it("reconciles completed turn snapshots with optimistic local user dialogues", () => {
@@ -30,7 +30,7 @@ describe("TurnRuntimeEvent planner", () => {
     state = withChatStateThreadStreamItems(state, [
       { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "turn-active" },
     ]);
-    const events: TurnRuntimeEvent[] = [
+    const facts: TurnRuntimeFact[] = [
       {
         type: "turnCompleted",
         threadId: "thread-active",
@@ -62,11 +62,11 @@ describe("TurnRuntimeEvent planner", () => {
       },
     ];
 
-    const plan = planTurnRuntimeEvents(state, events);
-    const next = applyActions(state, plan.actions);
+    const projection = projectTurnRuntimeFacts(state, facts);
+    const next = applyActions(state, projection.actions);
 
     expect(chatStateThreadStreamItems(next).map((item) => item.id)).toEqual(["u1", "a1"]);
-    expect(plan.outcomes).toEqual([
+    expect(projection.outcomes).toEqual([
       {
         type: "turn-completed",
         threadId: "thread-active",
@@ -91,8 +91,8 @@ describe("TurnRuntimeEvent planner", () => {
       executionState: "completed",
     };
 
-    const plan = planTurnRuntimeEvents(state, [{ type: "autoReviewUpdated", item }]);
-    const next = applyActions(state, plan.actions);
+    const projection = projectTurnRuntimeFacts(state, [{ type: "autoReviewUpdated", item }]);
+    const next = applyActions(state, projection.actions);
 
     expect(chatStateThreadStreamItems(next).map((streamItem) => streamItem.id)).toEqual(["m1", "review-1"]);
   });

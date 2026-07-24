@@ -5,7 +5,7 @@ import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 type TurnRuntimeTextItemKind = "tool" | "hook" | "reasoning";
 type TurnRuntimeOutputItemKind = "command" | "fileChange";
 
-export type TurnRuntimeEvent =
+export type TurnRuntimeFact =
   | {
       type: "assistantDelta";
       turnId: string;

@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { routeServerRequest } from "../../../../../src/app-server/routing/server-requests";
-import { planChatNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
+import { planChatInboundNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
 import { routeServerNotification } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -32,7 +32,7 @@ describe("chat inbound routing", () => {
 
     expect(() => {
       for (const method of plannedMethods) {
-        planChatNotification(state, notificationFixture(method), (prefix) => `${prefix}-1`);
+        planChatInboundNotification(state, notificationFixture(method), (prefix) => `${prefix}-1`);
       }
     }).not.toThrow();
   });
@@ -75,7 +75,7 @@ describe("chat inbound routing", () => {
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
     state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
 
-    const plan = planChatNotification(state, turnStartedNotification(), (prefix) => `${prefix}-1`);
+    const plan = planChatInboundNotification(state, turnStartedNotification(), (prefix) => `${prefix}-1`);
 
     expect(plan.effects).toEqual([]);
   });
@@ -85,7 +85,7 @@ describe("chat inbound routing", () => {
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
     state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
 
-    const plan = planChatNotification(state, turnCompletedNotification(), (prefix) => `${prefix}-1`);
+    const plan = planChatInboundNotification(state, turnCompletedNotification(), (prefix) => `${prefix}-1`);
 
     expect(plan.effects).toEqual([
       {
@@ -274,7 +274,7 @@ describe("chat inbound routing", () => {
       params: { threadId: "thread-active", turnId: "turn-active" },
     } as unknown as ServerNotification;
 
-    expect(planChatNotification(state, notification, (prefix) => `${prefix}-1`)).toEqual({ actions: [], effects: [] });
+    expect(planChatInboundNotification(state, notification, (prefix) => `${prefix}-1`)).toEqual({ actions: [], effects: [] });
   });
 
   it.each([

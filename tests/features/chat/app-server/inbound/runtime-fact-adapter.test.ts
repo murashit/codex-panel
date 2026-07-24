@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
-import { turnRuntimeEventsFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-events";
+import { turnRuntimeFactsFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
 
-describe("app-server turn runtime event mapping", () => {
-  it("maps assistant deltas to panel-owned runtime events", () => {
+describe("app-server turn runtime fact adapter", () => {
+  it("maps assistant deltas to panel-owned runtime facts", () => {
     const notification = {
       method: "item/agentMessage/delta",
       params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
     } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>;
 
-    const events = turnRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`);
+    const facts = turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`);
 
-    expect(events).toEqual([{ type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true }]);
+    expect(facts).toEqual([{ type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true }]);
   });
 
   it("maps completed turns to completed turn snapshots", () => {
@@ -35,9 +35,9 @@ describe("app-server turn runtime event mapping", () => {
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;
 
-    const events = turnRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`);
+    const facts = turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`);
 
-    expect(events).toEqual([
+    expect(facts).toEqual([
       expect.objectContaining({
         type: "turnCompleted",
         threadId: "thread-active",
@@ -46,7 +46,7 @@ describe("app-server turn runtime event mapping", () => {
         completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
       }),
     ]);
-    expect(events[0]).toMatchObject({
+    expect(facts[0]).toMatchObject({
       completedItems: [
         expect.objectContaining({ id: "u1", kind: "dialogue", role: "user", text: "hello" }),
         expect.objectContaining({ id: "a1", kind: "dialogue", role: "assistant", text: "done" }),
@@ -79,9 +79,9 @@ describe("app-server turn runtime event mapping", () => {
       },
     } satisfies Extract<ServerNotification, { method: "hook/completed" }>;
 
-    const events = turnRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`);
+    const facts = turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`);
 
-    expect(events).toEqual([
+    expect(facts).toEqual([
       {
         type: "hookRunObserved",
         turnId: "turn-active",
@@ -100,9 +100,9 @@ describe("app-server turn runtime event mapping", () => {
         }),
       },
     ]);
-    const event = events[0];
-    if (event?.type !== "hookRunObserved") throw new Error("Expected a hook runtime event");
-    if (event.item.kind !== "hook") throw new Error("Expected a hook item");
-    expect(event.item.hookRun).not.toHaveProperty("durationMs");
+    const fact = facts[0];
+    if (fact?.type !== "hookRunObserved") throw new Error("Expected a hook runtime fact");
+    if (fact.item.kind !== "hook") throw new Error("Expected a hook item");
+    expect(fact.item.hookRun).not.toHaveProperty("durationMs");
   });
 });

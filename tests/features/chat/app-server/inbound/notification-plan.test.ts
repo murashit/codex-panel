@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
-import { planChatNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
+import { planChatInboundNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
 import { chatStateFixture } from "../../support/state";
 
 describe("chat notification plan", () => {
@@ -20,14 +20,14 @@ describe("chat notification plan", () => {
     const state = chatStateFixture({ activeThread: { id: "thread-active", goal: currentGoal } });
 
     expect(
-      planChatNotification(
+      planChatInboundNotification(
         state,
         { method: "thread/goal/updated", params: { threadId: "thread-other", turnId: null, goal: nextGoal } },
         (prefix) => `${prefix}-1`,
       ),
     ).toEqual({ actions: [], effects: [] });
     expect(
-      planChatNotification(
+      planChatInboundNotification(
         state,
         { method: "thread/goal/updated", params: { threadId: "thread-active", turnId: null, goal: nextGoal } },
         (prefix) => `${prefix}-1`,

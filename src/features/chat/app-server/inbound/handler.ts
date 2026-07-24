@@ -28,7 +28,7 @@ import {
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import { classifyAppServerLog } from "./app-server-logs";
-import { type ChatNotificationEffect, planChatNotification } from "./notification-plan";
+import { type ChatInboundEffect, planChatInboundNotification } from "./notification-plan";
 
 export interface ChatInboundHandlerActions {
   refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
@@ -107,9 +107,9 @@ function dispatch(context: ChatInboundHandlerContext, action: ChatAction): void 
 }
 
 function handleNotification(context: ChatInboundHandlerContext, notification: ServerNotification): void {
-  const plan = planChatNotification(state(context), notification, (prefix) => localItemId(context, prefix));
+  const plan = planChatInboundNotification(state(context), notification, (prefix) => localItemId(context, prefix));
   for (const action of plan.actions) dispatch(context, action);
-  for (const effect of plan.effects) runNotificationEffect(context, effect);
+  for (const effect of plan.effects) runInboundEffect(context, effect);
 }
 
 function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
@@ -237,7 +237,7 @@ function localItemId(context: ChatInboundHandlerContext, prefix: string): string
   return context.localItemIds.next(prefix);
 }
 
-function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatNotificationEffect): void {
+function runInboundEffect(context: ChatInboundHandlerContext, effect: ChatInboundEffect): void {
   switch (effect.type) {
     case "refresh-server-diagnostics":
       context.actions.refreshServerDiagnostics({ forceResourceProbes: effect.forceResourceProbes === true });

@@ -1,6 +1,6 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { jsonPreview } from "../../../../domain/display/json-preview";
-import type { TurnRuntimeEvent } from "../../application/turns/runtime-events";
+import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
 import { STREAMED_COMMAND_RUNNING_TEXT, STREAMED_MCP_PROGRESS_LABEL } from "../../domain/thread-stream/factories/streaming-items";
 import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
@@ -17,16 +17,16 @@ import {
 } from "../mappers/thread-stream/turn-items";
 import type { StreamUpdateNotification, TurnLifecycleNotification, UserVisibleNoticeNotification } from "./notification-routing";
 
-type RuntimeEventSource =
+type RuntimeFactSource =
   | StreamUpdateNotification
   | TurnLifecycleNotification
   | Extract<ServerNotification, { method: "serverRequest/resolved" }>
   | UserVisibleNoticeNotification;
 
-export function turnRuntimeEventsFromNotification(
-  notification: RuntimeEventSource,
+export function turnRuntimeFactsFromNotification(
+  notification: RuntimeFactSource,
   localItemId: (prefix: string) => string,
-): readonly TurnRuntimeEvent[] {
+): readonly TurnRuntimeFact[] {
   switch (notification.method) {
     case "item/agentMessage/delta":
       return [
@@ -78,9 +78,9 @@ export function turnRuntimeEventsFromNotification(
         },
       ];
     case "item/started":
-      return startedItemEvents(notification.params.item, notification.params.turnId);
+      return startedItemFacts(notification.params.item, notification.params.turnId);
     case "item/completed":
-      return completedItemEvents(notification.params.item, notification.params.turnId);
+      return completedItemFacts(notification.params.item, notification.params.turnId);
     case "item/commandExecution/outputDelta":
       return [
         {
@@ -102,9 +102,9 @@ export function turnRuntimeEventsFromNotification(
     case "turn/diff/updated":
       return [{ type: "turnDiffUpdated", turnId: notification.params.turnId, diff: notification.params.diff }];
     case "hook/started":
-      return hookRunEvents(notification.params.run, notification.params.turnId, "running");
+      return hookRunFacts(notification.params.run, notification.params.turnId, "running");
     case "hook/completed":
-      return hookRunEvents(notification.params.run, notification.params.turnId, notification.params.run.status);
+      return hookRunFacts(notification.params.run, notification.params.turnId, notification.params.run.status);
     case "item/mcpToolCall/progress":
       return [
         {
@@ -147,19 +147,19 @@ export function turnRuntimeEventsFromNotification(
     case "warning":
     case "configWarning":
     case "windows/worldWritableWarning":
-      return [jsonNoticeEvent(notification, localItemId)];
+      return [jsonNoticeFact(notification, localItemId)];
     case "windowsSandbox/setupCompleted":
-      return notification.params.success ? [] : [jsonNoticeEvent(notification, localItemId)];
+      return notification.params.success ? [] : [jsonNoticeFact(notification, localItemId)];
   }
 }
 
-function startedItemEvents(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeEvent[] {
+function startedItemFacts(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeFact[] {
   if (shouldSuppressLifecycleItem(item)) return [];
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
   return streamItem ? [{ type: "itemUpserted", item: streamItem }] : [];
 }
 
-function completedItemEvents(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeEvent[] {
+function completedItemFacts(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeFact[] {
   if (item.type === "userMessage") return [];
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
   return streamItem ? [{ type: "itemCompleted", turnId, item: streamItem }] : [];
@@ -169,16 +169,16 @@ function fileChangeItem(itemId: string, turnId: string, changes: readonly AppSer
   return streamingFileChangeThreadStreamItem(itemId, turnId, normalizeFileChanges(changes), status);
 }
 
-function hookRunEvents(
+function hookRunFacts(
   run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"],
   turnId: string | null,
   status: string,
-): readonly TurnRuntimeEvent[] {
+): readonly TurnRuntimeFact[] {
   const item = hookRunThreadStreamItem(run, turnId, status);
   return item ? [{ type: "hookRunObserved", item, turnId, eventName: run.eventName }] : [];
 }
 
-function jsonNoticeEvent(notification: UserVisibleNoticeNotification, localItemId: (prefix: string) => string): TurnRuntimeEvent {
+function jsonNoticeFact(notification: UserVisibleNoticeNotification, localItemId: (prefix: string) => string): TurnRuntimeFact {
   return {
     type: "systemNotice",
     item: createSystemItem(localItemId("system"), `${notification.method}: ${jsonPreview(notification.params)}`),
