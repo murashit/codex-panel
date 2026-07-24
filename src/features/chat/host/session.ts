@@ -36,7 +36,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.runtime = this.createSessionRuntime();
     if (snapshot) {
       this.applyViewState(snapshot.viewState);
-      if (!snapshot.ephemeralSource) this.runtime.composer.controller.setDraft(snapshot.composerDraft);
+      if (!snapshot.ephemeralSource) this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
     }
   }
 
@@ -97,9 +97,10 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   runtimeSnapshot(): ChatPanelRuntimeSnapshot {
     const lifetime = activeThreadState(this.state)?.lifetime;
+    const composer = this.runtime.composer.controller.runtimeSnapshot();
     return {
       viewState: this.persistedState(),
-      composerDraft: this.state.composer.draft,
+      composer,
       ephemeralSource:
         this.pendingEphemeralSource ??
         (lifetime?.kind === "ephemeral" ? { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle } : null),
@@ -270,7 +271,7 @@ export class ChatPanelSession implements ChatPanelHandle {
         },
         { focus: false },
       ).then((opened) => {
-        if (opened && !this.closing) this.runtime.composer.controller.setDraft(snapshot.composerDraft);
+        if (opened && !this.closing) this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
       });
       return;
     }

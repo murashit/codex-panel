@@ -12,6 +12,7 @@ import type { ArchiveExportDestination, ArchiveExportSettings } from "../../thre
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
 import type { ThreadFactCoordinator } from "../../threads/workflows/thread-fact-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
+import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ThreadGoalCoordinator } from "../application/threads/thread-goal-coordinator";
 
 export interface CodexChatHost {
@@ -96,7 +97,7 @@ export interface ChatViewLifecycleSurface {
 
 export interface ChatPanelRuntimeSnapshot {
   readonly viewState: Record<string, unknown>;
-  readonly composerDraft: string;
+  readonly composer: ComposerRuntimeSnapshot;
   readonly ephemeralSource: { readonly threadId: string; readonly title: string | null } | null;
 }
 

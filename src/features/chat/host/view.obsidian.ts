@@ -2,6 +2,7 @@ import { Component, ItemView, type ViewStateResult, type WorkspaceLeaf } from "o
 
 import { VIEW_TYPE_CODEX_PANEL } from "../../../constants";
 import { createObsidianVaultMarkdownDestination } from "../../../shared/obsidian/vault-write-destination.obsidian";
+import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import { createLocalIdSource } from "../application/local-id-source";
 import type { ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatViewRuntimeOwner, CodexChatHost } from "./contracts";
 import { ChatPanelSession } from "./session";
@@ -114,7 +115,7 @@ export class CodexChatView extends ItemView {
     }
     this.runtimeSnapshot = {
       viewState: typeof state === "object" && state !== null ? { ...(state as Record<string, unknown>) } : { version: 1 },
-      composerDraft: this.runtimeSnapshot?.composerDraft ?? "",
+      composer: this.runtimeSnapshot?.composer ?? emptyComposerRuntimeSnapshot(),
       ephemeralSource: this.runtimeSnapshot?.ephemeralSource ?? null,
     };
   }
@@ -144,4 +145,14 @@ export class CodexChatView extends ItemView {
   private detachedViewState(): Record<string, unknown> {
     return this.runtimeSnapshot?.viewState ?? { version: 1 };
   }
+}
+
+function emptyComposerRuntimeSnapshot(): ComposerRuntimeSnapshot {
+  return {
+    draft: "",
+    attachments: [],
+    activeNoteSnapshots: [],
+    selectionSnapshots: [],
+    threadCommandTarget: null,
+  };
 }
