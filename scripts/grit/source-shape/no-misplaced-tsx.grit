@@ -1,5 +1,0 @@
-language js
-
-`$program` where {
-  register_diagnostic(span=$program, message="Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.", severity="error")
-}

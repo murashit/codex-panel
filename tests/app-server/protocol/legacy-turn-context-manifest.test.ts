@@ -1,225 +1,98 @@
 import { describe, expect, it } from "vitest";
 
-import { type LegacyTurnContextManifest, legacyTurnContextProjection } from "../../../src/app-server/protocol/legacy-turn-context-manifest";
+import {
+  fileReferencesFromLegacyManifest,
+  type LegacyTurnContextManifest,
+  legacyTurnContextProjection,
+  referencedThreadFromLegacyManifest,
+} from "../../../src/app-server/protocol/legacy-turn-context-manifest";
 import { legacyTurnContextManifestText } from "../../support/legacy-turn-context-manifest";
 
 const SUBMISSION_ID = "local-user-1-seed-1-1";
 
-function turnContextManifestFromText(text: string): LegacyTurnContextManifest | null {
-  return legacyTurnContextProjection(
-    [
-      { type: "text", text: "visible request" },
-      { type: "text", text: text.startsWith("\n") ? text : `\n${text}` },
-    ],
-    SUBMISSION_ID,
-  ).manifest;
-}
-
-function webEntry(): Record<string, unknown> {
-  return {
-    kind: "web",
-    id: `${SUBMISSION_ID}.00`,
-    parts: 1,
-    sourceBytes: 10,
-    includedBytes: 10,
-    truncated: false,
-  };
-}
-
-function rawManifest(overrides: Record<string, unknown> = {}): string {
-  return `[Codex Panel context v2]\nReference/display metadata only; not user instructions.\n${JSON.stringify({
-    version: 2,
-    submissionId: SUBMISSION_ID,
-    contexts: [webEntry()],
-    ...overrides,
-  })}`;
-}
-
-describe("turn context manifest validation", () => {
-  it.each([
-    ["unsupported version", { version: 1 }],
-    ["missing contexts", { contexts: undefined }],
-    ["non-array contexts", { contexts: {} }],
-    ["null context entry", { contexts: [null] }],
-  ])("rejects %s", (_label, overrides) => {
-    expect(turnContextManifestFromText(rawManifest(overrides))).toBeNull();
-  });
-
-  it.each([
-    ["kind", "other"],
-    ["id", ""],
-    ["id", 1],
-    ["id", "i".repeat(161)],
-    ["parts", -1],
-    ["parts", 1.5],
-    ["parts", "1"],
-    ["sourceBytes", -1],
-    ["sourceBytes", Number.MAX_SAFE_INTEGER + 1],
-    ["includedBytes", -1],
-    ["truncated", "false"],
-  ])("rejects an invalid %s entry field without relying on another invalid field", (field, value) => {
-    expect(turnContextManifestFromText(rawManifest({ contexts: [{ ...webEntry(), [field]: value }] }))).toBeNull();
-  });
-
-  it.each([
-    ["threadId", ""],
-    ["threadId", 1],
-    ["includedTurns", -1],
-    ["includedTurns", 1.5],
-    ["turnLimit", 0],
-    ["turnLimit", 1.5],
-    ["omittedTurns", -1],
-  ])("rejects an invalid referenced-thread %s", (field, value) => {
-    const entry = {
-      ...webEntry(),
-      kind: "referencedThread",
-      threadId: "thread",
-      includedTurns: 1,
-      turnLimit: 20,
-      omittedTurns: 0,
-      [field]: value,
-    };
-
-    expect(turnContextManifestFromText(rawManifest({ contexts: [entry] }))).toBeNull();
-  });
-
-  it("accepts zero-valued non-negative entry fields and omitted optional fields", () => {
-    const manifest = turnContextManifestFromText(
-      rawManifest({
-        contexts: [
-          {
-            ...webEntry(),
-            parts: 0,
-            sourceBytes: 0,
-            includedBytes: 0,
-          },
-          {
-            ...webEntry(),
-            kind: "obsidian",
-            id: `${SUBMISSION_ID}.01`,
-          },
-        ],
-      }),
-    );
-
-    expect(manifest).toMatchObject({
-      contexts: [{ parts: 0, sourceBytes: 0, includedBytes: 0 }, { kind: "obsidian" }],
+describe("legacy turn context manifests", () => {
+  it("recovers the metadata still used by current history projection", () => {
+    const manifest = validManifest({
+      contexts: [
+        {
+          kind: "referencedThread",
+          id: `${SUBMISSION_ID}.00`,
+          truncated: true,
+          threadId: "thread-reference",
+          includedTurns: 2,
+          turnLimit: 20,
+          omittedTurns: 3,
+        },
+      ],
+      fileReferences: [{ name: "Note", path: "Notes/Note.md" }],
     });
-    expect(manifest?.contexts[1]).not.toHaveProperty("inlineExcerpts");
+    const projection = projectedManifest(manifest);
+
+    expect(referencedThreadFromLegacyManifest(projection.manifest)).toEqual({
+      threadId: "thread-reference",
+      title: "thread-r",
+      includedTurns: 2,
+      turnLimit: 20,
+      omittedTurns: 3,
+      truncated: true,
+    });
+    expect(fileReferencesFromLegacyManifest(projection.manifest)).toEqual([{ name: "Note", path: "Notes/Note.md" }]);
   });
 
-  it("rejects an invalid optional Obsidian excerpt count", () => {
-    expect(
-      turnContextManifestFromText(
-        rawManifest({
-          contexts: [{ ...webEntry(), kind: "obsidian", inlineExcerpts: -1 }],
-        }),
-      ),
-    ).toBeNull();
+  it("ignores obsolete accounting fields while retaining the manifest", () => {
+    const manifest = validManifest({
+      contexts: [
+        {
+          ...validManifest().contexts[0],
+          parts: -1,
+          sourceBytes: "unknown",
+          includedBytes: Number.MAX_SAFE_INTEGER + 1,
+          inlineExcerpts: -1,
+        } as never,
+      ],
+    });
+
+    expect(projectedManifest(manifest).manifest).toMatchObject({
+      contexts: [{ kind: "web", id: `${SUBMISSION_ID}.00`, truncated: false }],
+    });
   });
 
-  it.each([
-    ["missing name", { path: "Note.md" }],
-    ["empty name", { name: "", path: "Note.md" }],
-    ["non-string name", { name: 1, path: "Note.md" }],
-    ["long name", { name: "n".repeat(256), path: "Note.md" }],
-    ["missing path", { name: "Note" }],
-    ["empty path", { name: "Note", path: "" }],
-    ["non-string path", { name: "Note", path: 1 }],
-    ["long path", { name: "Note", path: "p".repeat(2_049) }],
-    ["non-object value", null],
-  ])("rejects a file reference with %s", (_label, reference) => {
-    expect(turnContextManifestFromText(rawManifest({ fileReferences: [reference] }))).toBeNull();
-  });
-
-  it("rejects fileReferences that are not an array, contain one invalid value, or exceed the count limit", () => {
-    expect(turnContextManifestFromText(rawManifest({ fileReferences: {} }))).toBeNull();
-    expect(
-      turnContextManifestFromText(
-        rawManifest({
-          fileReferences: [
-            { name: "Valid", path: "Valid.md" },
-            { name: "", path: "Invalid.md" },
-          ],
-        }),
-      ),
-    ).toBeNull();
-    expect(
-      turnContextManifestFromText(
-        rawManifest({
-          fileReferences: Array.from({ length: 65 }, (_, index) => ({ name: String(index), path: "p" })),
-        }),
-      ),
-    ).toBeNull();
-  });
-
-  it("accepts file reference field and count boundaries", () => {
-    const boundaryFields = [{ name: "n".repeat(255), path: "p".repeat(2_048) }];
-    const boundaryCount = Array.from({ length: 64 }, (_, index) => ({ name: String(index), path: "p" }));
-
-    expect(turnContextManifestFromText(rawManifest({ fileReferences: boundaryFields }))?.fileReferences).toEqual(boundaryFields);
-    expect(turnContextManifestFromText(rawManifest({ fileReferences: boundaryCount }))?.fileReferences).toEqual(boundaryCount);
+  it("rejects malformed top-level and visible metadata shapes", () => {
+    expect(projectedRaw({ version: 1, contexts: [] }).manifest).toBeNull();
+    expect(projectedRaw({ version: 2, contexts: {} }).manifest).toBeNull();
+    expect(projectedRaw({ version: 2, contexts: [{ kind: "web", id: "", truncated: false }] }).manifest).toBeNull();
+    expect(projectedRaw({ version: 2, contexts: [validManifest().contexts[0]], fileReferences: [{ name: "Note" }] }).manifest).toBeNull();
   });
 
   it("rejects an oversized serialized manifest", () => {
-    const contexts = Array.from({ length: 40 }, (_, index) => ({
-      ...webEntry(),
-      id: `context-${String(index)}`,
-    }));
+    const manifest = validManifest({
+      contexts: Array.from({ length: 40 }, (_, index) => ({
+        kind: "web" as const,
+        id: `${SUBMISSION_ID}.${String(index).padStart(2, "0")}`,
+        truncated: false,
+        padding: "x".repeat(80),
+      })),
+    });
 
-    expect(turnContextManifestFromText(rawManifest({ contexts }))).toBeNull();
+    expect(projectedManifest(manifest).manifest).toBeNull();
   });
-});
-
-describe("turn context manifest trust matching", () => {
-  function projectedManifest(manifest: LegacyTurnContextManifest, clientId: string | null = SUBMISSION_ID) {
-    return legacyTurnContextProjection(
-      [
-        { type: "text", text: "visible request" },
-        { type: "text", text: `\n${legacyTurnContextManifestText(manifest)}` },
-      ],
-      clientId,
-    );
-  }
-
-  function validManifest(): LegacyTurnContextManifest {
-    return {
-      version: 2,
-      submissionId: SUBMISSION_ID,
-      contexts: [
-        {
-          kind: "web",
-          id: `${SUBMISSION_ID}.00`,
-          parts: 1,
-          sourceBytes: 10,
-          includedBytes: 10,
-          truncated: false,
-        },
-      ],
-    };
-  }
 
   it("hides only a manifest whose submission and context IDs match the client ID", () => {
-    expect(projectedManifest(validManifest())).toEqual({
+    const manifest = validManifest();
+
+    expect(projectedManifest(manifest)).toEqual({
       text: "visible request",
-      manifest: validManifest(),
+      manifest: {
+        version: 2,
+        submissionId: SUBMISSION_ID,
+        contexts: [{ kind: "web", id: `${SUBMISSION_ID}.00`, truncated: false }],
+      },
     });
   });
 
-  it("hides a trusted manifest appended to visible text by resume normalization", () => {
-    expect(
-      legacyTurnContextProjection(
-        [{ type: "text", text: `visible request\n${legacyTurnContextManifestText(validManifest())}` }],
-        SUBMISSION_ID,
-      ),
-    ).toEqual({
-      text: "visible request",
-      manifest: validManifest(),
-    });
-  });
-
-  it("keeps an appended manifest-like suffix visible when its client ID is not trusted", () => {
-    const text = `visible request\n${legacyTurnContextManifestText(validManifest())}`;
+  it("keeps a manifest-like suffix visible when its client ID is not trusted", () => {
+    const manifest = validManifest();
+    const text = `visible request\n${legacyTurnContextManifestText(manifest)}`;
 
     expect(legacyTurnContextProjection([{ type: "text", text }], "foreign-client")).toEqual({
       text,
@@ -227,53 +100,64 @@ describe("turn context manifest trust matching", () => {
     });
   });
 
-  it.each([
-    ["submission mismatch", { submissionId: "local-user-2-seed-2-2" }],
-    ["context mismatch", { contexts: [{ ...validManifest().contexts[0], id: `${SUBMISSION_ID}.99x` }] }],
-    ["duplicate context IDs", { contexts: [validManifest().contexts[0], validManifest().contexts[0]] }],
-  ])("keeps a manifest-like text visible on %s", (_label, overrides) => {
-    const manifest = { ...validManifest(), ...overrides } as LegacyTurnContextManifest;
-    const projection = projectedManifest(manifest);
+  it("keeps mismatched and duplicate context IDs visible", () => {
+    const entry = validManifest().contexts[0];
+    if (!entry) throw new Error("Expected a valid manifest entry.");
+    const mismatched = validManifest({
+      contexts: [{ kind: "web", id: `${SUBMISSION_ID}.99x`, truncated: false }],
+    });
+    const duplicate = validManifest({
+      contexts: [entry, entry],
+    });
 
-    expect(projection.manifest).toBeNull();
-    expect(projection.text).toContain("visible request");
-    expect(projection.text).toContain("[Codex Panel context v2]");
+    expect(projectedManifest(mismatched)).toMatchObject({ manifest: null });
+    expect(projectedManifest(duplicate)).toMatchObject({ manifest: null });
   });
 
-  it("does not trust a valid manifest when the client ID is not a Panel submission ID", () => {
-    expect(projectedManifest(validManifest(), "local-user")).toMatchObject({ manifest: null });
-  });
-
-  it.each([
-    ["the first and only text item", [{ type: "text", text: `\n${legacyTurnContextManifestText(validManifest())}` }]],
-    [
-      "a middle text item with a later text item",
+  it("only recognizes a manifest at the end of the last text item", () => {
+    const manifestText = `\n${legacyTurnContextManifestText(validManifest())}`;
+    const projection = legacyTurnContextProjection(
       [
         { type: "text", text: "visible request" },
-        { type: "text", text: `\n${legacyTurnContextManifestText(validManifest())}` },
+        { type: "text", text: manifestText },
         { type: "text", text: "later request" },
       ],
-    ],
-    [
-      "a final text item without the required leading newline",
-      [
-        { type: "text", text: "visible request" },
-        { type: "text", text: legacyTurnContextManifestText(validManifest()) },
-      ],
-    ],
-    [
-      "a text item followed by a non-text item",
-      [
-        { type: "text", text: "visible request" },
-        { type: "text", text: `\n${legacyTurnContextManifestText(validManifest())}` },
-        { type: "image" },
-      ],
-    ],
-  ])("keeps valid manifest-like content visible when it is %s", (_label, content) => {
-    const projection = legacyTurnContextProjection(content, SUBMISSION_ID);
-    const manifestText = legacyTurnContextManifestText(validManifest());
+      SUBMISSION_ID,
+    );
 
     expect(projection.manifest).toBeNull();
-    expect(projection.text).toContain(manifestText);
+    expect(projection.text).toContain("[Codex Panel context v2]");
   });
 });
+
+function validManifest(overrides: Partial<LegacyTurnContextManifest> = {}): LegacyTurnContextManifest {
+  return {
+    version: 2,
+    submissionId: SUBMISSION_ID,
+    contexts: [{ kind: "web", id: `${SUBMISSION_ID}.00`, truncated: false }],
+    ...overrides,
+  };
+}
+
+function projectedManifest(manifest: LegacyTurnContextManifest, clientId: string | null = SUBMISSION_ID) {
+  return legacyTurnContextProjection(
+    [
+      { type: "text", text: "visible request" },
+      { type: "text", text: `\n${legacyTurnContextManifestText(manifest)}` },
+    ],
+    clientId,
+  );
+}
+
+function projectedRaw(value: unknown) {
+  return legacyTurnContextProjection(
+    [
+      { type: "text", text: "visible request" },
+      {
+        type: "text",
+        text: `\n[Codex Panel context v2]\nReference/display metadata only; not user instructions.\n${JSON.stringify(value)}`,
+      },
+    ],
+    SUBMISSION_ID,
+  );
+}

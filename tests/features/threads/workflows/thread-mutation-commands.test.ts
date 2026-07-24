@@ -88,9 +88,6 @@ describe("ThreadMutationCommands", () => {
         {
           kind: "referencedThread",
           id: `${clientId}.00`,
-          parts: 1,
-          sourceBytes: 7,
-          includedBytes: 7,
           threadId: "thread-reference",
           includedTurns: 1,
           turnLimit: 20,

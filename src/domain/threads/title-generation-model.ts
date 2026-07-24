@@ -35,15 +35,11 @@ export function threadTitleContextFromTurnTranscriptSummary(summary: TurnTranscr
 export async function findThreadTitleContext(options: {
   threadId: string;
   readTurns: ThreadTitleContextPageReader;
-  pageLimit?: number;
-  maxPages?: number;
 }): Promise<ThreadTitleContext | null> {
-  const pageLimit = options.pageLimit ?? DEFAULT_CONTEXT_PAGE_LIMIT;
-  const maxPages = options.maxPages ?? DEFAULT_CONTEXT_MAX_PAGES;
   let cursor: string | null = null;
 
-  for (let page = 0; page < maxPages; page += 1) {
-    const response = await options.readTurns(options.threadId, cursor, pageLimit, "asc");
+  for (let page = 0; page < DEFAULT_CONTEXT_MAX_PAGES; page += 1) {
+    const response = await options.readTurns(options.threadId, cursor, DEFAULT_CONTEXT_PAGE_LIMIT, "asc");
     for (const summary of response.summaries) {
       const context = threadTitleContextFromTurnTranscriptSummary(summary);
       if (context) return context;

@@ -12,21 +12,6 @@
       "includes": ["**/*.{ts,tsx,mjs}"]
     },
     {
-      "path": "./scripts/grit/source-shape/no-responsibility-root-module-files.grit",
-      "includes": ["**/src/{app-server,domain}/*.{ts,tsx}", "**/src/features/{chat,threads}/*.{ts,tsx}"]
-    },
-    {
-      "path": "./scripts/grit/source-shape/no-misplaced-tsx.grit",
-      "includes": [
-        "**/src/**/*.tsx",
-        "!**/src/{settings,shared/ui}/**",
-        "!**/src/features/chat/{panel,ui}/**",
-        "!**/src/features/{selection-rewrite,threads-view,turn-diff}/*.dom.tsx",
-        "!**/src/shared/dom/*.dom.tsx",
-        "!**/src/shared/obsidian/*.obsidian.tsx"
-      ]
-    },
-    {
       "path": "./scripts/grit/source-shape/no-self-referential-initializer-callback.grit",
       "includes": ["**/*.{ts,tsx,mjs}"]
     },
@@ -50,10 +35,6 @@
     },
 
     // App-server and generated protocol boundaries.
-    {
-      "path": "./scripts/grit/import-boundaries/no-app-server-subfolder-root-imports.grit",
-      "includes": ["**/src/app-server/**/*.ts"]
-    },
     {
       "path": "./scripts/grit/import-boundaries/no-app-server-connection-boundary-imports.grit",
       "includes": [
@@ -92,12 +73,8 @@
     },
     // Workspace and feature coordination boundaries.
     {
-      "path": "./scripts/grit/import-boundaries/no-chat-workspace-boundary-imports.grit",
-      "includes": ["**/src/features/chat/**/*.{ts,tsx}"]
-    },
-    {
       "path": "./scripts/grit/import-boundaries/no-feature-workspace-boundary-imports.grit",
-      "includes": ["**/src/features/**/*.{ts,tsx}", "!**/src/features/chat/**"]
+      "includes": ["**/src/features/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-workspace-chat-internal-imports.grit",
@@ -138,6 +115,10 @@
     {
       "path": "./scripts/grit/runtime/no-direct-ambient-effects.grit",
       "includes": ["**/src/features/chat/application/state/**/*.ts", "**/src/**/*-facts.ts", "**/src/**/*-projection.{ts,tsx}"]
+    },
+    {
+      "path": "./scripts/grit/runtime/no-direct-ambient-time.grit",
+      "includes": ["**/src/features/chat/application/state/**/*.ts", "**/src/**/*-facts.ts"]
     },
 
     // DOM bridge and Preact root boundaries.

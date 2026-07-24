@@ -1,5 +1,0 @@
-language js
-
-`$program` where {
-  register_diagnostic(span=$program, message="Keep responsibility-split source roots free of module files; add modules to the matching subfolder instead of the root.", severity="error")
-}

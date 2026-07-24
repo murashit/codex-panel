@@ -6,7 +6,7 @@ import { visit } from "unist-util-visit";
 import { parseFileHref } from "../vault/file-hrefs";
 import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, vaultRelativePath } from "../vault/paths";
 import type { Thread } from "./model";
-import { threadArchiveTitle } from "./title";
+import { threadDisplayTitle } from "./title";
 import type { ThreadTranscriptEntry } from "./transcript";
 
 interface MarkdownSourceReplacement {
@@ -26,7 +26,7 @@ export interface ArchiveThreadInput extends Thread {
 }
 
 export function archivedThreadMarkdown(thread: ArchiveThreadInput, exportedAt = new Date(), settings: ArchiveMarkdownOptions = {}): string {
-  const title = threadArchiveTitle(thread);
+  const title = threadDisplayTitle(thread);
   const tags = normalizedArchiveTags(settings.archiveExportTags ?? "");
   const frontmatter = [
     "---",

@@ -1,7 +1,6 @@
 import { shortThreadId } from "./id";
 import type { Thread } from "./model";
 
-const MAX_ARCHIVED_THREAD_DISPLAY_TITLE_LENGTH = 96;
 const MAX_THREAD_COMMAND_DISPLAY_TITLE_LENGTH = 96;
 const UNTITLED_THREAD_TITLE = "Untitled thread";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,14 +24,6 @@ export function threadCommandDisplayTitle(thread: Thread): string {
 
 export function threadRenameDraftTitle(thread: Thread): string {
   return threadMeaningfulTitle(thread) ?? "";
-}
-
-export function threadArchiveTitle(thread: Thread): string {
-  return threadMeaningfulTitle(thread) ?? UNTITLED_THREAD_TITLE;
-}
-
-export function threadArchiveDisplayTitle(thread: Thread): string {
-  return truncateThreadDisplayTitle(threadArchiveTitle(thread), MAX_ARCHIVED_THREAD_DISPLAY_TITLE_LENGTH);
 }
 
 export function threadWindowTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {

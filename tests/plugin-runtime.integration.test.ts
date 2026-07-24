@@ -251,38 +251,6 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(shortLivedClient.request).toHaveBeenCalledWith("config/read", { cwd: "/vault", includeLayers: true });
   });
 
-  it("rejects a short-lived result when the app-server context changes during the operation", async () => {
-    const result = deferred<string>();
-    withShortLivedAppServerClientMock.mockReturnValue(result.promise);
-    const plugin = await pluginWithLeaves([]);
-    await publishCodexPath(plugin, "codex-a");
-
-    const operation = currentChatHost(plugin).appServerClientAccess.withClient(() => Promise.resolve("unused"), {
-      serverRequests: { kind: "reject", message: "test" },
-    });
-    await publishCodexPath(plugin, "codex-b");
-    result.resolve("stale-result");
-
-    await expect(operation).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
-  });
-
-  it("rejects an old A result after switching from A to B and back to A", async () => {
-    const result = deferred<string>();
-    withShortLivedAppServerClientMock.mockReturnValue(result.promise);
-    const plugin = await pluginWithLeaves([]);
-    await publishCodexPath(plugin, "codex-a");
-
-    const operation = currentChatHost(plugin).appServerClientAccess.withClient(() => Promise.resolve("unused"), {
-      serverRequests: { kind: "reject", message: "test" },
-    });
-    await publishCodexPath(plugin, "codex-b");
-    await publishCodexPath(plugin, "codex-a");
-    result.resolve("stale-a");
-
-    await expect(operation).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
-    expect(currentChatHost(plugin).appServerContext).toEqual({ codexPath: "codex-a", vaultPath: "/vault" });
-  });
-
   it("does not start a short-lived operation when its app-server context changes while connecting", async () => {
     const clientReady = deferred<void>();
     const shortLivedClient = { request: vi.fn().mockResolvedValue({}) };

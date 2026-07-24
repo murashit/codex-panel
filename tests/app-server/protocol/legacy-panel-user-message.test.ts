@@ -161,9 +161,6 @@ describe("legacy Codex Panel user-message compatibility", () => {
         {
           kind: "web",
           id: `${clientId}.01`,
-          parts: 1,
-          sourceBytes: 10,
-          includedBytes: 10,
           truncated: false,
         },
       ],

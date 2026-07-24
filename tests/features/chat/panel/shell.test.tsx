@@ -420,9 +420,6 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendSho
       connection: {
         connected: options.toolbarConnected ?? (() => false),
       },
-      clock: {
-        nowMs: () => 0,
-      },
       settings: {
         vaultPath: () => "/vault",
         configuredCommand: () => "codex",

@@ -231,7 +231,6 @@ describe("SettingsDynamicSectionsController", () => {
       type: "thread-restored",
       thread: expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
     });
-    expect(controller.snapshot().archivedThreads).toEqual([]);
   });
 
   it("serializes conflicting archived mutations and publishes their facts in order", async () => {
@@ -348,35 +347,6 @@ describe("SettingsDynamicSectionsController", () => {
     await expect(staleMutation).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
   });
 
-  it("records restored archived threads in the active catalog", async () => {
-    const notify = vi.fn();
-    const applyThreadFact = vi.fn();
-    const initialClient = settingsClient();
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
-    });
-    useShortLivedClients(initialClient, restoreClient);
-    const controller = new SettingsDynamicSectionsController(
-      settingsTabHost({
-        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        applyThreadFact,
-      }),
-      { display: vi.fn(), notify },
-    );
-
-    await controller.refreshDynamicSections();
-    await controller.restoreArchivedThread("thread-old");
-
-    const snapshot = controller.snapshot();
-    expect(snapshot.archivedThreads).toEqual([]);
-    expect(snapshot.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(applyThreadFact).toHaveBeenCalledWith({
-      type: "thread-restored",
-      thread: expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
-    });
-    expect(notify).not.toHaveBeenCalledWith("Could not restore archived Codex thread.");
-  });
-
   it("displays restored archived thread state after recording the active catalog event", async () => {
     const snapshots: SettingsDynamicSectionsSnapshot[] = [];
     const initialClient = settingsClient();
@@ -408,6 +378,7 @@ describe("SettingsDynamicSectionsController", () => {
       },
     );
     controllerRef.current = controller;
+    controller.activate();
 
     await controller.refreshDynamicSections();
     snapshots.length = 0;
@@ -449,6 +420,7 @@ describe("SettingsDynamicSectionsController", () => {
       },
     );
     controllerRef.current = controller;
+    controller.activate();
 
     await controller.refreshDynamicSections();
     snapshots.length = 0;

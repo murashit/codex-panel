@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { shortThreadId } from "../domain/threads/id";
 import type { Thread } from "../domain/threads/model";
-import { threadArchiveDisplayTitle } from "../domain/threads/title";
+import { threadCommandDisplayTitle } from "../domain/threads/title";
 import { ObsidianCommitTextInput, ObsidianExtraButton, ObsidianToggle } from "../shared/obsidian/components.obsidian";
 import { DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE } from "./model";
 import type { ArchivedThreadSectionState } from "./section-state";
@@ -90,7 +90,7 @@ function ArchivedThreadList({ state }: { state: ArchivedThreadSectionState }): U
 }
 
 function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedThreadSectionState }): UiNode {
-  const title = threadArchiveDisplayTitle(thread);
+  const title = threadCommandDisplayTitle(thread);
   const deleteConfirming = state.deleteConfirmThreadId === thread.id;
   return (
     <SettingRow

@@ -26,7 +26,6 @@ describe("createChatPanelRuntimeProjection", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      nowMs: () => 0,
     });
 
     expect(projection.statusDetails()).toEqual([
@@ -84,7 +83,6 @@ describe("createChatPanelRuntimeProjection", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      nowMs: () => 0,
     });
 
     expect(projection.permissionDetails()).toEqual([
@@ -127,7 +125,6 @@ describe("createChatPanelRuntimeProjection", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      nowMs: () => 0,
     });
 
     expect(projection.permissionDetails()).toEqual([
@@ -163,7 +160,6 @@ describe("createChatPanelRuntimeProjection", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      nowMs: () => 0,
     });
 
     expect(projection.permissionDetails()[0]?.auditFacts).toEqual([

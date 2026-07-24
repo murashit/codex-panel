@@ -82,6 +82,8 @@ Codex Panel UI should feel native inside Obsidian. Prefer Obsidian variables, st
 
 Tests should protect user-visible behavior, app-server/Panel responsibility boundaries, and state-transition invariants across panels, threads, requests, streams, and display fallbacks.
 
-Avoid tests that freeze incidental implementation details unless those details directly protect a user-visible invariant.
+Prefer one representative success path and one materially different failure or concurrency path for each durable contract. Do not multiply cases for unreachable inputs, equivalent branches, or incidental implementation details, and do not add production options or abstractions solely to make such cases injectable.
+
+When concurrency or lifetime handling starts accumulating revisions, cancellation flags, or cleanup guards, first reconsider the ownership boundary. Express coordination at the largest real semantic owner, keep independent work independent, and make replacement or cancellation explicit only where it is part of the user-visible operation.
 
 Panel tests may define how received structured values are displayed, retained, or normalized. They should not redefine Codex-owned runtime policy, model lists, sandbox behavior, approval policy, or thread history semantics.

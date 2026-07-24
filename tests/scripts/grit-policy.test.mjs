@@ -11,18 +11,6 @@ let projectPluginsPromise;
 
 const policyCases = [
   policyCase("no-handwritten-reexports.grit", "src/example.ts", 'export { value } from "./owner";', "const value = 1;\nexport { value };"),
-  policyCase("no-responsibility-root-module-files.grit", "src/domain/escape.ts", "export const value = 1;", "export const value = 1;", {
-    validPath: "src/domain/example/safe.ts",
-  }),
-  policyCase(
-    "no-misplaced-tsx.grit",
-    "src/features/threads/escape.tsx",
-    "export const value = 1;",
-    "export function Safe(): JSX.Element { return <span />; }",
-    {
-      validPath: "src/features/chat/ui/safe.tsx",
-    },
-  ),
   policyCase(
     "no-self-referential-initializer-callback.grit",
     "src/example.ts",
@@ -52,12 +40,6 @@ const policyCases = [
     "src/shared/runtime/escape.ts",
     'import type { Feature } from "../../features/escape";',
     "export type Value = string;",
-  ),
-  policyCase(
-    "no-app-server-subfolder-root-imports.grit",
-    "src/app-server/protocol/escape.ts",
-    'import type { Root } from "../root";',
-    'import type { Client } from "../connection/client";',
   ),
   policyCase(
     "no-app-server-connection-boundary-imports.grit",
@@ -94,12 +76,6 @@ const policyCases = [
     "src/settings/escape.ts",
     'export async function read(client) { await client.request("config/read"); }',
     "export async function read(service) { await service.readConfig(); }",
-  ),
-  policyCase(
-    "no-chat-workspace-boundary-imports.grit",
-    "src/features/chat/host/escape.ts",
-    'import type { Workspace } from "../../../workspace/panel-coordinator";',
-    "export type Value = string;",
   ),
   policyCase(
     "no-feature-workspace-boundary-imports.grit",
@@ -158,14 +134,10 @@ const policyCases = [
   policyCase(
     "no-direct-ambient-effects.grit",
     "src/features/chat/application/state/escape.ts",
-    "export const now = Date.now();",
+    "export const random = Math.random();",
     "export const now = 1;",
     {
       invalid: [
-        {
-          path: "src/features/threads/workflows/thread-facts.ts",
-          source: "export const generated = Math.random();",
-        },
         {
           path: "src/features/threads/workflows/thread-projection.ts",
           source: "export const scheduled = setTimeout(() => undefined, 0);",
@@ -199,6 +171,26 @@ const policyCases = [
         {
           path: "src/features/threads/workflows/thread-projection.ts",
           source: "export const projected = 1;",
+        },
+      ],
+    },
+  ),
+  policyCase(
+    "no-direct-ambient-time.grit",
+    "src/features/chat/application/state/escape.ts",
+    "export const now = Date.now();",
+    "export const state = {};",
+    {
+      invalid: [
+        {
+          path: "src/features/threads/workflows/thread-facts.ts",
+          source: "export const now = new Date();",
+        },
+      ],
+      valid: [
+        {
+          path: "src/features/chat/panel/runtime-status-projection.ts",
+          source: "export const now = Date.now();",
         },
       ],
     },

@@ -1,7 +1,7 @@
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
-import { threadArchiveDisplayTitle } from "../domain/threads/title";
+import { threadCommandDisplayTitle } from "../domain/threads/title";
 import type { ObservedResult } from "../shared/runtime/observed-result";
 import { OwnerLifetime } from "../shared/runtime/owner-lifetime";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
@@ -279,15 +279,14 @@ export class SettingsDynamicSectionsController {
       operation: async (dynamicData, operationToken) => {
         const restoredThread = await dynamicData.restoreArchivedThread(threadId);
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
-        this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-        this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(`Restored "${threadArchiveDisplayTitle(restoredThread)}".`);
+        this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(`Restored "${threadCommandDisplayTitle(restoredThread)}".`);
       },
     });
   }
 
   async deleteArchivedThread(threadId: string): Promise<void> {
     const thread = this.archivedThreads.find((item) => item.id === threadId);
-    const title = thread ? threadArchiveDisplayTitle(thread) : threadId;
+    const title = thread ? threadCommandDisplayTitle(thread) : threadId;
     await this.runArchivedThreadOperation({
       loadingStatus: "Loading archived threads...",
       failureStatus: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
@@ -295,7 +294,6 @@ export class SettingsDynamicSectionsController {
       operation: async (dynamicData, operationToken) => {
         await dynamicData.deleteArchivedThread(threadId);
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
-        this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
         this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(`Deleted "${title}".`);
       },
     });

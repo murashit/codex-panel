@@ -37,10 +37,6 @@ export interface VaultRelativeFolderPathOptions {
   emptyFallback?: string;
 }
 
-export interface UniqueVaultPathOptions {
-  firstCollisionSuffix?: number;
-}
-
 const DEFAULT_FIRST_COLLISION_SUFFIX = 2;
 const UNSAFE_VAULT_PATH_CHARS = '<>:"/\\|?*[]#^';
 
@@ -76,11 +72,10 @@ export async function uniqueVaultPath(
   destination: Pick<VaultPathDestination, "normalizePath" | "exists">,
   folder: string,
   filename: string,
-  options: UniqueVaultPathOptions = {},
 ): Promise<string> {
   const { stem, extension } = splitVaultFilename(filename);
   let candidate = destination.normalizePath(`${folder}/${filename}`);
-  let suffix = options.firstCollisionSuffix ?? DEFAULT_FIRST_COLLISION_SUFFIX;
+  let suffix = DEFAULT_FIRST_COLLISION_SUFFIX;
   while (await destination.exists(candidate)) {
     candidate = destination.normalizePath(`${folder}/${stem} ${String(suffix)}${extension}`);
     suffix += 1;

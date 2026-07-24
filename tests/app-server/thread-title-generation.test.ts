@@ -34,8 +34,6 @@ describe("thread title", () => {
     const calls: { cursor: string | null; limit: number; sortDirection: string }[] = [];
     const context = await findThreadTitleContext({
       threadId: "thread",
-      pageLimit: 2,
-      maxPages: 3,
       readTurns: async (_threadId, cursor, limit, sortDirection) => {
         calls.push({ cursor, limit, sortDirection });
         if (cursor === null) {
@@ -56,8 +54,8 @@ describe("thread title", () => {
       assistantResponse: "古いturnを使って候補を作ります。",
     });
     expect(calls).toEqual([
-      { cursor: null, limit: 2, sortDirection: "asc" },
-      { cursor: "cursor-2", limit: 2, sortDirection: "asc" },
+      { cursor: null, limit: 20, sortDirection: "asc" },
+      { cursor: "cursor-2", limit: 20, sortDirection: "asc" },
     ]);
   });
 
@@ -95,27 +93,11 @@ describe("thread title", () => {
     );
   });
 
-  it("normalizes generated titles", () => {
+  it("parses and normalizes generated titles", () => {
     expect(threadTitleFromGeneratedText('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
+    expect(threadTitleFromGeneratedText('```json\n{"title":"Codex Panelの自動命名"}\n```')).toBe("Codex Panelの自動命名");
     expect(threadTitleFromGeneratedText("")).toBeNull();
     expect(threadTitleFromGeneratedText("x".repeat(80))).toHaveLength(THREAD_TITLE_MAX_CHARS);
-  });
-
-  it("parses generated title text", () => {
-    expect(threadTitleFromGeneratedText('```json\n{"title":"Codex Panelの自動命名"}\n```')).toBe("Codex Panelの自動命名");
-  });
-
-  it("asks the model to infer the title language from the initial request", () => {
-    const prompt = threadTitlePrompt({
-      userRequest: "Please fix the automatic thread naming behavior.",
-      assistantResponse: "I found the prompt and adjusted it.",
-    });
-
-    expect(prompt).toContain("infer the main language of the user's initial request");
-    expect(prompt).toContain("Write the title in the inferred language");
-    expect(prompt).toContain("3-7 words for languages that use spaces");
-    expect(prompt).toContain("12-28 characters for languages that usually do not");
-    expect(prompt).toContain(`Never exceed ${String(THREAD_TITLE_MAX_CHARS)} characters`);
   });
 
   it("uses explicit title runtime overrides", async () => {

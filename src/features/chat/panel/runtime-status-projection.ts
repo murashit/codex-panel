@@ -28,7 +28,6 @@ interface ChatPanelRuntimeProjectionInput {
   connected: () => boolean;
   configuredCommand: () => string;
   vaultPath: () => string;
-  nowMs: () => number;
 }
 
 export function createChatPanelRuntimeProjection(input: ChatPanelRuntimeProjectionInput): ChatPanelRuntimeProjection {
@@ -48,7 +47,7 @@ function statusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoti
     buildStatusDetails({
       activeThreadId: activeThreadId(state),
       snapshot: runtimeSnapshot(state),
-      nowMs: input.nowMs(),
+      nowMs: Date.now(),
     }),
   );
 }

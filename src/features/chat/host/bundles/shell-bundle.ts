@@ -85,9 +85,6 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     connection: {
       connected: () => connection.isConnected(),
     },
-    clock: {
-      nowMs: () => Date.now(),
-    },
     settings: {
       vaultPath: () => environment.plugin.appServerContext.vaultPath,
       configuredCommand: () => environment.plugin.appServerContext.codexPath,

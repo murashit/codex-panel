@@ -8,14 +8,7 @@ import {
   threadRecencyAt,
   upsertThread,
 } from "../../../src/domain/threads/model";
-import {
-  threadArchiveDisplayTitle,
-  threadArchiveTitle,
-  threadDisplayTitle,
-  threadMeaningfulTitle,
-  threadRenameDraftTitle,
-  threadWindowTitle,
-} from "../../../src/domain/threads/title";
+import { threadDisplayTitle, threadMeaningfulTitle, threadRenameDraftTitle, threadWindowTitle } from "../../../src/domain/threads/title";
 
 describe("thread helpers", () => {
   it("resolves meaningful titles from explicit names, then previews, without id fallbacks", () => {
@@ -24,16 +17,14 @@ describe("thread helpers", () => {
     expect(threadMeaningfulTitle(thread({ id: "thread-id", name: null, preview: "" }))).toBeNull();
   });
 
-  it("keeps user-facing placeholders separate from rename drafts and archive titles", () => {
+  it("keeps user-facing placeholders separate from rename drafts", () => {
     const idOnly = thread({ id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", name: null, preview: "" });
 
     expect(threadDisplayTitle(idOnly)).toBe("Untitled thread");
     expect(threadRenameDraftTitle(idOnly)).toBe("");
-    expect(threadArchiveTitle(idOnly)).toBe("Untitled thread");
-    expect(threadArchiveDisplayTitle(idOnly)).toBe("Untitled thread");
   });
 
-  it("uses useful preview text instead of UUID-like names for draft and archive titles", () => {
+  it("uses useful preview text instead of UUID-like names", () => {
     const uuidNamed = thread({
       id: "thread-id",
       name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
@@ -42,10 +33,6 @@ describe("thread helpers", () => {
 
     expect(threadDisplayTitle(uuidNamed)).toBe("Useful preview");
     expect(threadRenameDraftTitle(uuidNamed)).toBe("Useful preview");
-    expect(threadArchiveTitle(uuidNamed)).toBe("Useful preview");
-    expect(threadArchiveDisplayTitle(uuidNamed)).toBe("Useful preview");
-    expect(threadArchiveDisplayTitle(thread({ preview: "A title\nwith   extra\tspace" }))).toBe("A title with extra space");
-    expect(threadArchiveDisplayTitle(thread({ preview: "x".repeat(120) }))).toMatch(/^x{93}\.\.\.$/);
   });
 
   it("builds window titles from loaded threads, restored titles, then short ids", () => {

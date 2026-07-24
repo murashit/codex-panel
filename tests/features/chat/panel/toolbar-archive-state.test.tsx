@@ -94,9 +94,6 @@ function toolbarSurface(
     connection: {
       connected: () => false,
     },
-    clock: {
-      nowMs: () => 0,
-    },
     settings: {
       vaultPath: () => "/vault",
       configuredCommand: () => "codex",

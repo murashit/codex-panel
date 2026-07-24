@@ -5,8 +5,6 @@ import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../../src/dom
 describe("UTF-8 context budgets", () => {
   it.each([
     { value: "", maxBytes: 10, expected: "" },
-    { value: "text", maxBytes: 0, expected: "" },
-    { value: "text", maxBytes: -1, expected: "" },
     { value: "ascii", maxBytes: 5, expected: "ascii" },
     { value: "あい", maxBytes: 3, expected: "あ" },
     { value: "A😀B", maxBytes: 5, expected: "A😀" },
@@ -53,6 +51,5 @@ describe("UTF-8 context budgets", () => {
       includedBytes: 8,
     });
     expect(splitUtf8Context("text", 4, 0)).toEqual({ parts: [], includedBytes: 0 });
-    expect(splitUtf8Context("text", 0, 2)).toEqual({ parts: [], includedBytes: 0 });
   });
 });

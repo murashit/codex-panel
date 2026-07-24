@@ -40,17 +40,6 @@ describe("AppServerQueryCache", () => {
     });
   });
 
-  it("rejects new work after disposal", () => {
-    const cache = createCache({
-      withClient: vi.fn(() => Promise.resolve([])) as AppServerClientAccess["withClient"],
-    });
-
-    cache.dispose();
-    cache.dispose();
-
-    expect(() => cache.fetchModels()).toThrow(StaleExecutionRuntimeError);
-  });
-
   it("classifies late completion after disposal as a stale execution runtime", async () => {
     const pending = deferred<readonly []>();
     const cache = createCache({

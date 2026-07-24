@@ -1,0 +1,8 @@
+language js
+
+or {
+  `Date.now()` as $stmt,
+  `new Date()` as $stmt
+} where {
+  register_diagnostic(span=$stmt, message="Keep direct ambient time out of state and fact modules; record time at the boundary that creates the fact.", severity="error")
+}

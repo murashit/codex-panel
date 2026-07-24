@@ -10,22 +10,15 @@ import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
 
 const TURN_CONTEXT_MANIFEST_PREFIX = "[Codex Panel context v2]";
 const TURN_CONTEXT_MANIFEST_MAX_BYTES = 2_800;
-const TURN_CONTEXT_FILE_REFERENCE_MAX_COUNT = 64;
-const TURN_CONTEXT_FILE_REFERENCE_NAME_MAX_LENGTH = 255;
-const TURN_CONTEXT_FILE_REFERENCE_PATH_MAX_LENGTH = 2_048;
 
 interface LegacyTurnContextManifestEntry {
   kind: "referencedThread" | "web" | "obsidian";
   id: string;
-  parts: number;
-  sourceBytes: number;
-  includedBytes: number;
   truncated: boolean;
   threadId?: string;
   includedTurns?: number;
   turnLimit?: number;
   omittedTurns?: number;
-  inlineExcerpts?: number;
 }
 
 export interface LegacyTurnContextManifest {
@@ -60,7 +53,7 @@ function legacyTurnContextManifestFromText(text: string): LegacyTurnContextManif
   if (value["version"] !== 2 || !Array.isArray(value["contexts"])) return null;
   const contexts = value["contexts"].map(legacyManifestEntryFromUnknown);
   if (contexts.some((entry) => entry === null)) return null;
-  const submissionId = optionalStringValue(value["submissionId"], 120);
+  const submissionId = optionalStringValue(value["submissionId"]);
   if (submissionId === null) return null;
   const fileReferences = optionalFileReferences(value["fileReferences"]);
   if (fileReferences === null) return null;
@@ -142,26 +135,9 @@ function legacyManifestEntryFromUnknown(input: unknown): LegacyTurnContextManife
   const value = input as Record<string, unknown>;
   const kind = contextKind(value["kind"]);
   const id = stringValue(value["id"]);
-  const parts = nonNegativeInteger(value["parts"]);
-  const sourceBytes = nonNegativeInteger(value["sourceBytes"]);
-  const includedBytes = nonNegativeInteger(value["includedBytes"]);
   const truncated = value["truncated"];
-  if (!kind || !id || parts === null || sourceBytes === null || includedBytes === null || typeof truncated !== "boolean") return null;
-
-  if (kind === "obsidian") {
-    const inlineExcerpts = optionalNonNegativeInteger(value["inlineExcerpts"]);
-    if (inlineExcerpts === null) return null;
-    return {
-      kind,
-      id,
-      parts,
-      sourceBytes,
-      includedBytes,
-      truncated,
-      ...(inlineExcerpts === undefined ? {} : { inlineExcerpts }),
-    };
-  }
-  if (kind !== "referencedThread") return { kind, id, parts, sourceBytes, includedBytes, truncated };
+  if (!kind || !id || typeof truncated !== "boolean") return null;
+  if (kind !== "referencedThread") return { kind, id, truncated };
   const threadId = stringValue(value["threadId"]);
   const includedTurns = nonNegativeInteger(value["includedTurns"]);
   const turnLimit = positiveInteger(value["turnLimit"]);
@@ -170,9 +146,6 @@ function legacyManifestEntryFromUnknown(input: unknown): LegacyTurnContextManife
   return {
     kind,
     id,
-    parts,
-    sourceBytes,
-    includedBytes,
     truncated,
     threadId,
     includedTurns,
@@ -186,17 +159,17 @@ function contextKind(value: unknown): LegacyTurnContextManifestEntry["kind"] | n
 }
 
 function stringValue(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 && value.length <= 160 ? value : null;
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function optionalStringValue(value: unknown, maxLength: number): string | null | undefined {
+function optionalStringValue(value: unknown): string | null | undefined {
   if (value === undefined) return undefined;
-  return typeof value === "string" && value.length > 0 && value.length <= maxLength ? value : null;
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 function optionalFileReferences(value: unknown): VaultFileReference[] | null | undefined {
   if (value === undefined) return undefined;
-  if (!Array.isArray(value) || value.length > TURN_CONTEXT_FILE_REFERENCE_MAX_COUNT) return null;
+  if (!Array.isArray(value)) return null;
   const references = value.map(manifestFileReference);
   return references.some((reference) => reference === null) ? null : (references as VaultFileReference[]);
 }
@@ -204,17 +177,13 @@ function optionalFileReferences(value: unknown): VaultFileReference[] | null | u
 function manifestFileReference(input: unknown): VaultFileReference | null {
   if (!input || typeof input !== "object") return null;
   const reference = input as Record<string, unknown>;
-  const name = optionalStringValue(reference["name"], TURN_CONTEXT_FILE_REFERENCE_NAME_MAX_LENGTH);
-  const path = optionalStringValue(reference["path"], TURN_CONTEXT_FILE_REFERENCE_PATH_MAX_LENGTH);
+  const name = optionalStringValue(reference["name"]);
+  const path = optionalStringValue(reference["path"]);
   return name && path ? { name, path } : null;
 }
 
 function nonNegativeInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
-}
-
-function optionalNonNegativeInteger(value: unknown): number | null | undefined {
-  return value === undefined ? undefined : nonNegativeInteger(value);
 }
 
 function positiveInteger(value: unknown): number | null {

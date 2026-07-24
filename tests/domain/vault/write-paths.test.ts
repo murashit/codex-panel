@@ -166,12 +166,6 @@ describe("vault write paths", () => {
     ]);
   });
 
-  it("starts collision suffixes at 2 for generated vault paths", async () => {
-    const destination = memoryDestination(["Files/Paper.pdf"]);
-
-    await expect(uniqueVaultPath(destination, "Files", "Paper.pdf")).resolves.toBe("Files/Paper 2.pdf");
-  });
-
   it("increments collision suffixes until an unused vault path is found", async () => {
     const destination = memoryDestination(["Files/Paper.pdf", "Files/Paper 2.pdf"]);
 

@@ -20,6 +20,8 @@ Use `npm run test:coverage` to identify source modules and branches that lack ex
 
 Use `npm run test:mutation` for an exploratory mutation test of domain-owned logic, app-server protocol normalization, thread-stream event mapping, and the chat root reducer. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run ignores expensive module-initialization mutants, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.
 
+When reviewing tests, map each case to a reachable user action, external boundary, or distinct state transition. Keep representative coverage of normal workflows before adding variants; remove cases that only exercise test doubles, impossible configuration, duplicate ownership, or wording and internal shape without a durable contract.
+
 ## Commit Messages
 
 Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) for new commits:

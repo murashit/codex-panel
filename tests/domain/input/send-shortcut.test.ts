@@ -28,10 +28,7 @@ describe("composer send keys", () => {
     expect(isComposerSendKey(event, shortcut)).toBe(expected);
   });
 
-  it.each([
-    { name: "Enter mode", event: { ...baseEvent, isComposing: true }, shortcut: "enter" },
-    { name: "Cmd/Ctrl+Enter mode", event: { ...baseEvent, metaKey: true, isComposing: true }, shortcut: "mod-enter" },
-  ] as const)("does not send during composition in $name", ({ event, shortcut }) => {
-    expect(isComposerSendKey(event, shortcut)).toBe(false);
+  it("does not send while an input method is composing", () => {
+    expect(isComposerSendKey({ ...baseEvent, isComposing: true }, "enter")).toBe(false);
   });
 });

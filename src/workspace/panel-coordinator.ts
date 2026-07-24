@@ -52,7 +52,7 @@ export class WorkspacePanelCoordinator {
   private workspacePanelReconcileTimer: number | null = null;
   private lastFocusedPanelViewId: string | null = null;
   private foregroundIntent: object | null = null;
-  private invokingForegroundRevealLeaf: WorkspaceLeaf | null = null;
+  private readonly revealingLeafCounts = new Map<WorkspaceLeaf, number>();
   private readonly deferredLeafLoads = new WeakMap<WorkspaceLeaf, Promise<void>>();
 
   constructor(private readonly options: WorkspacePanelCoordinatorOptions) {}
@@ -61,16 +61,16 @@ export class WorkspacePanelCoordinator {
     this.cancelWorkspacePanelReconcile();
     this.lastFocusedPanelViewId = null;
     this.foregroundIntent = null;
-    this.invokingForegroundRevealLeaf = null;
+    this.revealingLeafCounts.clear();
   }
 
   async activateView(): Promise<CodexChatView | null> {
     return this.activateViewNow(this.beginForegroundIntent());
   }
 
-  private async activateViewNow(intent: object): Promise<CodexChatView | null> {
+  private async activateViewNow(intent: object, focus = true): Promise<CodexChatView | null> {
     const target = this.findCurrentThreadPanelTarget();
-    if (target) return this.activateThreadPanelTarget(target, intent);
+    if (target) return this.activateThreadPanelTarget(target, intent, focus);
 
     const leaf = await this.options.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_PANEL, "right", {
       active: false,
@@ -82,15 +82,17 @@ export class WorkspacePanelCoordinator {
     if (!this.panelStillOwnsView(leaf, view)) return null;
     const surface = workspacePanelSurface(view);
     await surface.connect();
-    this.publishForeground(intent, leaf, view, () => {
-      surface.focusComposer({ force: true });
-    });
+    if (focus) {
+      this.publishForeground(intent, leaf, view, () => {
+        surface.focusComposer({ force: true });
+      });
+    }
     return view;
   }
 
   async startNewChat(): Promise<void> {
     const intent = this.beginForegroundIntent();
-    const view = await this.activateViewNow(intent);
+    const view = await this.activateViewNow(intent, false);
     if (!view) return;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return;
@@ -191,7 +193,7 @@ export class WorkspacePanelCoordinator {
   }
 
   activeLeafChanged(leaf: WorkspaceLeaf | null): void {
-    const programmatic = Boolean(leaf && this.invokingForegroundRevealLeaf === leaf);
+    const programmatic = Boolean(leaf && this.revealingLeafCounts.has(leaf));
     if (!programmatic) this.foregroundIntent = null;
     this.reconcileWorkspacePanels(leaf);
   }
@@ -375,8 +377,8 @@ export class WorkspacePanelCoordinator {
     return null;
   }
 
-  private async activateThreadPanelTarget(target: ThreadPanelTarget, intent: object): Promise<CodexChatView | null> {
-    if (target.kind === "new") return this.activateNewViewNow({}, intent);
+  private async activateThreadPanelTarget(target: ThreadPanelTarget, intent: object, focus: boolean): Promise<CodexChatView | null> {
+    if (target.kind === "new") return this.activateNewViewNow({ focus }, intent);
 
     await this.revealForeground(target.leaf);
     if ("view" in target) {
@@ -384,9 +386,11 @@ export class WorkspacePanelCoordinator {
       const surface = workspacePanelSurface(target.view);
       await surface.connect();
       await surface.focusThread(null, { focus: false });
-      this.publishForeground(intent, target.leaf, target.view, () => {
-        surface.focusComposer({ force: true });
-      });
+      if (focus) {
+        this.publishForeground(intent, target.leaf, target.view, () => {
+          surface.focusComposer({ force: true });
+        });
+      }
       return target.view;
     }
 
@@ -395,13 +399,15 @@ export class WorkspacePanelCoordinator {
       const surface = workspacePanelSurface(view);
       await surface.connect();
       await surface.focusThread(null, { focus: false });
-      this.publishForeground(intent, target.leaf, view, () => {
-        surface.focusComposer({ force: true });
-      });
+      if (focus) {
+        this.publishForeground(intent, target.leaf, view, () => {
+          surface.focusComposer({ force: true });
+        });
+      }
       return view;
     }
 
-    return this.activateNewViewNow({}, intent);
+    return this.activateNewViewNow({ focus }, intent);
   }
 
   private async openThreadInTarget(target: ThreadPanelTarget, threadId: string, intent: object): Promise<boolean> {
@@ -471,15 +477,17 @@ export class WorkspacePanelCoordinator {
   }
 
   private panelStillOwnsView(leaf: WorkspaceLeaf, view: CodexChatView): boolean {
-    return this.panelLeaves().includes(leaf) && leaf.view === view;
+    return this.panelLeaves().includes(leaf) && leaf.view === view && isAttachedChatView(leaf.view);
   }
 
   private async revealForeground(leaf: WorkspaceLeaf): Promise<void> {
-    this.invokingForegroundRevealLeaf = leaf;
+    this.revealingLeafCounts.set(leaf, (this.revealingLeafCounts.get(leaf) ?? 0) + 1);
     try {
       await this.options.app.workspace.revealLeaf(leaf);
     } finally {
-      this.invokingForegroundRevealLeaf = null;
+      const remaining = (this.revealingLeafCounts.get(leaf) ?? 1) - 1;
+      if (remaining === 0) this.revealingLeafCounts.delete(leaf);
+      else this.revealingLeafCounts.set(leaf, remaining);
     }
   }
 

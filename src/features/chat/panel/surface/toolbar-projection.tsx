@@ -19,9 +19,6 @@ export interface ChatPanelToolbarSurface {
   connection: {
     connected: () => boolean;
   };
-  clock: {
-    nowMs: () => number;
-  };
   settings: {
     vaultPath: () => string;
     configuredCommand: () => string;
@@ -34,7 +31,6 @@ interface ToolbarViewModelInput {
   stateStore: ChatStateStore;
   snapshot: RuntimeSnapshot;
   connected: boolean;
-  nowMs: number;
   turnBusy: boolean;
   vaultPath: string;
   configuredCommand: string;
@@ -66,7 +62,6 @@ function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, model: Chat
       availableModels: model.connection.availableModels,
     }),
     connected: surface.connection.connected(),
-    nowMs: surface.clock.nowMs(),
     turnBusy: model.turnBusy,
     vaultPath: surface.settings.vaultPath(),
     configuredCommand: surface.settings.configuredCommand(),
@@ -91,7 +86,7 @@ export function ChatPanelToolbar({
 function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewModel {
   const { model, snapshot } = input;
   const projection = toolbarStateProjection(input);
-  const limit = rateLimitSummary(snapshot, input.nowMs);
+  const limit = rateLimitSummary(snapshot, Date.now());
   const diagnostics = model.connection;
   const permissions = runtimePermissionSections({
     snapshot,

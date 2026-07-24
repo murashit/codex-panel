@@ -835,9 +835,6 @@ function toolbarSurfaceFixture(overrides: { archiveExportEnabled?: boolean } = {
     connection: {
       connected: () => true,
     },
-    clock: {
-      nowMs: () => 0,
-    },
     settings: {
       vaultPath: () => "/vault",
       configuredCommand: () => "codex",

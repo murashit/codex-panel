@@ -826,7 +826,19 @@ describe("settings tab", () => {
     useShortLivedClients(client);
     const deleteRequest = deferred<undefined>();
     client.requestHandlers["thread/delete"]?.mockReturnValue(deleteRequest.promise);
-    const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
+    let publishArchivedThreads = (): void => undefined;
+    const tab = newSettingsTab({
+      archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })],
+      observeArchived: (listener) => {
+        publishArchivedThreads = () => {
+          listener({ value: [], error: null, isFetching: false });
+        };
+        return () => undefined;
+      },
+      applyThreadFact: (fact) => {
+        if (fact.type === "thread-deleted") publishArchivedThreads();
+      },
+    });
 
     tab.display();
     await flushPromises();

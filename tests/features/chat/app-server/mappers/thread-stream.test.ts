@@ -56,9 +56,6 @@ describe("turn item conversion preserves app-server semantics", () => {
         {
           kind: "referencedThread",
           id: `${clientId}.00`,
-          parts: 1,
-          sourceBytes: 24,
-          includedBytes: 24,
           threadId: "thread-reference",
           includedTurns: 2,
           turnLimit: 20,
@@ -132,9 +129,6 @@ describe("turn item conversion preserves app-server semantics", () => {
         {
           kind: "web",
           id: `${clientId}.00`,
-          parts: 1,
-          sourceBytes: 4,
-          includedBytes: 4,
           truncated: false,
         },
       ],
@@ -166,9 +160,6 @@ describe("turn item conversion preserves app-server semantics", () => {
         {
           kind: "web",
           id: `${clientId}.00`,
-          parts: 1,
-          sourceBytes: 34,
-          includedBytes: 34,
           truncated: false,
         },
       ],
@@ -219,7 +210,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     expect(projected).not.toHaveProperty("contextAttachments");
   });
 
-  it("surfaces a truncated Obsidian excerpt from the persisted manifest", () => {
+  it("surfaces truncated Obsidian context from the persisted manifest", () => {
     const clientId = "local-user-1-seed-1-1";
     const manifest = legacyTurnContextManifestText({
       version: 2,
@@ -228,11 +219,7 @@ describe("turn item conversion preserves app-server semantics", () => {
         {
           kind: "obsidian",
           id: `${clientId}.00`,
-          parts: 8,
-          sourceBytes: 30_000,
-          includedBytes: 20_000,
           truncated: true,
-          inlineExcerpts: 1,
         },
       ],
     });
@@ -249,7 +236,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       text: "review the selection",
-      contextAttachments: [{ label: "Obsidian excerpt (truncated)" }],
+      contextAttachments: [{ label: "Obsidian context (truncated)" }],
     });
   });
 

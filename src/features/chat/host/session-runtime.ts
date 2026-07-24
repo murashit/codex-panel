@@ -123,7 +123,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     connected: () => connection.isConnected(),
     configuredCommand: () => environment.plugin.appServerContext.codexPath,
     vaultPath: () => environment.plugin.appServerContext.vaultPath,
-    nowMs: () => Date.now(),
   });
   const threadStart = createThreadStartCommand({
     stateStore,
