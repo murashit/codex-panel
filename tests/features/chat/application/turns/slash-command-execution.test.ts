@@ -16,6 +16,11 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
   return {
     activeThreadId: "thread-1",
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
+    submission: {
+      isCurrent: vi.fn(() => true),
+      markAdopted: vi.fn(),
+      adoptPanelTarget: vi.fn(),
+    },
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
@@ -125,7 +130,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", "", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("latest");
+    expect(ctx.resumeThread).toHaveBeenCalledWith("latest", { beforeActivate: expect.any(Function) });
   });
 
   it("reconnects the panel for /reconnect", async () => {
@@ -143,7 +148,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", "Beta", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-beta");
+    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-beta", { beforeActivate: expect.any(Function) });
 
     await executeSlashCommand("resume", "thread-alpha", ctx);
     expect(ctx.resumeThread).toHaveBeenCalledOnce();
@@ -162,7 +167,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", `"${completedTitle}"`, ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("target");
+    expect(ctx.resumeThread).toHaveBeenCalledWith("target", { beforeActivate: expect.any(Function) });
 
     const directInput = context({ listedThreads: [other, target] });
     await executeSlashCommand("resume", `"${completedTitle}"`, directInput);
@@ -177,7 +182,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", "Draft", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha");
+    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha", { beforeActivate: expect.any(Function) });
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -188,7 +193,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", "alpha", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha");
+    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha", { beforeActivate: expect.any(Function) });
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Multiple matching threads: Alpha plan (thread-a), Older Alpha plan (thread-b)");
   });
 
@@ -272,7 +277,8 @@ describe("slash commands", () => {
 
     const result = await executeSlashCommand("web", "https://example.com/article 要約して", ctx);
 
-    expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "要約して", inputSnapshot);
+    expect(ctx.submission.markAdopted).not.toHaveBeenCalled();
+    expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "要約して", inputSnapshot, ctx.submission.isCurrent);
     expect(result).toEqual({ sendText: "https://example.com/article 要約して", sendInput: input });
   });
 
@@ -289,7 +295,7 @@ describe("slash commands", () => {
 
     const result = await executeSlashCommand("web", "https://example.com/article", ctx);
 
-    expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "", inputSnapshot);
+    expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "", inputSnapshot, ctx.submission.isCurrent);
     expect(result).toEqual({ sendText: "https://example.com/article", sendInput: input });
   });
 
@@ -316,7 +322,11 @@ describe("slash commands", () => {
 
     await executeSlashCommand("fork", "", ctx);
 
+    expect(ctx.submission.markAdopted).toHaveBeenCalledOnce();
     expect(ctx.threadCommands.forkThread).toHaveBeenCalledWith("active-thread");
+    expect(vi.mocked(ctx.submission.markAdopted).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(ctx.threadCommands.forkThread).mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
   });
 
   it("opens a side chat from the active thread", async () => {
@@ -333,7 +343,9 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rollback", "", ctx);
 
-    expect(ctx.threadCommands.rollbackThread).toHaveBeenCalledWith("active-thread");
+    expect(ctx.threadCommands.rollbackThread).toHaveBeenCalledWith("active-thread", {
+      adoptPanelTarget: expect.any(Function),
+    });
   });
 
   it("rejects /rollback without an active thread", async () => {
@@ -391,6 +403,7 @@ describe("slash commands", () => {
     expect(ctx.goals.setStatus).toHaveBeenCalledWith("thread-1", "paused");
     expect(ctx.goals.setStatus).toHaveBeenCalledWith("thread-1", "active");
     expect(ctx.goals.clear).toHaveBeenCalledWith("thread-1");
+    expect(ctx.submission.markAdopted).toHaveBeenCalledTimes(4);
   });
 
   it("loads the current goal into the composer for /goal edit", async () => {
@@ -399,6 +412,7 @@ describe("slash commands", () => {
 
     const result = await executeSlashCommand("goal", "edit", ctx);
 
+    expect(ctx.submission.markAdopted).not.toHaveBeenCalled();
     expect(result).toEqual({ composerDraft: "/goal set Ship goal support" });
   });
 
@@ -452,7 +466,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("goal", "set Ship this", ctx);
 
-    expect(ctx.startThreadForGoal).toHaveBeenCalledWith("Ship this");
+    expect(ctx.startThreadForGoal).toHaveBeenCalledWith("Ship this", { beforeActivate: expect.any(Function) });
     expect(ctx.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("No active thread for goal management.");
   });
@@ -501,7 +515,25 @@ describe("slash commands", () => {
 
     await executeSlashCommand("archive", '"Beta thread"', ctx);
 
-    expect(ctx.threadCommands.archiveThread).toHaveBeenCalledWith("thread-beta");
+    expect(ctx.threadCommands.archiveThread).toHaveBeenCalledWith("thread-beta", undefined, undefined);
+    expect(ctx.submission.adoptPanelTarget).not.toHaveBeenCalled();
+  });
+
+  it("adopts the panel target only when archiving the active thread is published", async () => {
+    const archiveThread = vi.fn(async (_threadId, _saveMarkdown, beforeUnavailable) => {
+      beforeUnavailable?.();
+    });
+    const ctx = context({
+      threadCommands: {
+        ...context().threadCommands,
+        archiveThread,
+      },
+    });
+
+    await executeSlashCommand("archive", '"Current"', ctx);
+
+    expect(archiveThread).toHaveBeenCalledWith("thread-1", undefined, expect.any(Function));
+    expect(ctx.submission.adoptPanelTarget).toHaveBeenCalledOnce();
   });
 
   it("renames a selected thread by quoted title", async () => {

@@ -81,9 +81,18 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
 describe("executeSlashCommandWithState", () => {
   it("executes slash commands against the current chat state", async () => {
     const { host } = createHost();
+    const adoptPanelTarget = vi.fn();
+    host.startNewThread = vi.fn(async (options) => {
+      options?.beforeActivate?.();
+    });
 
-    const result = await executeSlashCommandWithState(host, "clear", "");
+    const result = await executeSlashCommandWithState(host, "clear", "", undefined, {
+      isCurrent: () => true,
+      markAdopted: vi.fn(),
+      adoptPanelTarget,
+    });
 
+    expect(adoptPanelTarget).toHaveBeenCalledOnce();
     expect(host.startNewThread).toHaveBeenCalledOnce();
     expect(result).toBeUndefined();
   });
@@ -115,7 +124,7 @@ describe("executeSlashCommandWithState", () => {
 
     await executeSlashCommandWithState(host, "goal", "set Ship this");
 
-    expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this");
+    expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this", { beforeActivate: expect.any(Function) });
     expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
   });
 
@@ -227,7 +236,11 @@ describe("executeSlashCommandWithState", () => {
     const { host } = createHost({ toolInventoryDetails });
     let current = true;
 
-    const executing = executeSlashCommandWithState(host, "tools", "", undefined, () => current);
+    const executing = executeSlashCommandWithState(host, "tools", "", undefined, {
+      isCurrent: () => current,
+      markAdopted: vi.fn(),
+      adoptPanelTarget: vi.fn(),
+    });
     await vi.waitFor(() => expect(toolInventoryDetails).toHaveBeenCalledOnce());
     current = false;
     details.resolve([]);

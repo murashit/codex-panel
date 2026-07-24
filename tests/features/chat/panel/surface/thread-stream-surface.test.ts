@@ -158,7 +158,6 @@ describe("thread stream surface", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com Summarize",
         phase: "cancellable",
       },
     });

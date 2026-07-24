@@ -17,7 +17,9 @@ import {
   slashCommandSubcommandDefinition,
   slashCommandSubcommands,
 } from "../composer/slash-commands";
+import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCommand } from "../composer/thread-title-argument";
+import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
 import type { GoalCommands } from "../threads/goal-commands";
 import type { ThreadCommands } from "../threads/thread-commands";
@@ -25,9 +27,9 @@ import type { ThreadCommands } from "../threads/thread-commands";
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
 export interface SlashCommandExecutionPorts {
-  startNewThread: () => Promise<void>;
-  startThreadForGoal: (objective: string) => Promise<string | null>;
-  resumeThread: (threadId: string) => Promise<void>;
+  startNewThread: (options?: { beforeActivate?: () => void }) => Promise<void>;
+  startThreadForGoal: (objective: string, options?: { beforeActivate?: () => void }) => Promise<string | null>;
+  resumeThread: (threadId: string, options?: { beforeActivate?: () => void }) => Promise<void>;
   threadCommands: {
     forkThread: ThreadCommands["forkThread"];
     rollbackThread: ThreadCommands["rollbackThread"];
@@ -35,7 +37,7 @@ export interface SlashCommandExecutionPorts {
     archiveThread: ThreadCommands["archiveThread"];
     renameThread: ThreadCommands["renameThread"];
   };
-  reconnect: () => Promise<void>;
+  reconnect: (options?: ReconnectPanelOptions) => Promise<void>;
   openSideChat?: (threadId: string) => Promise<void>;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
@@ -72,7 +74,7 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
   inputSnapshot?: ComposerInputSnapshot;
-  isWebImportCurrent?: () => boolean;
+  submission: ComposerSubmissionAdoption;
 }
 
 export interface SlashCommandExecutionResult {
@@ -104,7 +106,10 @@ export async function executeSlashCommand(
 
   switch (command) {
     case "clear":
-      await context.startNewThread();
+      context.submission.markAdopted();
+      await context.startNewThread({
+        beforeActivate: context.submission.adoptPanelTarget,
+      });
       return;
     case "resume": {
       const query = parseThreadOnlyArgs(args, { allowEmpty: true });
@@ -117,11 +122,17 @@ export async function executeSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      await context.resumeThread(thread.thread.id);
+      context.submission.markAdopted();
+      await context.resumeThread(thread.thread.id, {
+        beforeActivate: context.submission.adoptPanelTarget,
+      });
       return;
     }
     case "reconnect":
-      await context.reconnect();
+      context.submission.markAdopted();
+      await context.reconnect({
+        beforeTargetReset: context.submission.adoptPanelTarget,
+      });
       return;
     case "refer": {
       const parsed = parseReferArgs(args);
@@ -159,9 +170,7 @@ export async function executeSlashCommand(
         context.addSystemMessage("Cannot read a web URL without composer input context.");
         return;
       }
-      const web = context.isWebImportCurrent
-        ? await context.readWebUrl(parsed.url, parsed.message, context.inputSnapshot, context.isWebImportCurrent)
-        : await context.readWebUrl(parsed.url, parsed.message, context.inputSnapshot);
+      const web = await context.readWebUrl(parsed.url, parsed.message, context.inputSnapshot, context.submission.isCurrent);
       return { sendText: web.text, sendInput: web.input };
     }
     case "fork":
@@ -169,6 +178,7 @@ export async function executeSlashCommand(
         context.addSystemMessage("No active thread to fork.");
         return;
       }
+      context.submission.markAdopted();
       await context.threadCommands.forkThread(context.activeThreadId);
       return;
     case "btw":
@@ -180,6 +190,7 @@ export async function executeSlashCommand(
         context.addSystemMessage("Side chat is not available.");
         return;
       }
+      context.submission.markAdopted();
       await context.openSideChat(context.activeThreadId);
       return;
     case "rollback":
@@ -187,13 +198,17 @@ export async function executeSlashCommand(
         context.addSystemMessage("No active thread to roll back.");
         return;
       }
-      await context.threadCommands.rollbackThread(context.activeThreadId);
+      context.submission.markAdopted();
+      await context.threadCommands.rollbackThread(context.activeThreadId, {
+        adoptPanelTarget: context.submission.adoptPanelTarget,
+      });
       return;
     case "compact":
       if (!context.activeThreadId) {
         context.addSystemMessage("No active thread to compact.");
         return;
       }
+      context.submission.markAdopted();
       await context.threadCommands.compactThread(context.activeThreadId);
       return;
     case "archive": {
@@ -207,7 +222,12 @@ export async function executeSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      await context.threadCommands.archiveThread(thread.thread.id);
+      context.submission.markAdopted();
+      await context.threadCommands.archiveThread(
+        thread.thread.id,
+        undefined,
+        thread.thread.id === context.activeThreadId ? context.submission.adoptPanelTarget : undefined,
+      );
       return;
     }
     case "rename": {
@@ -221,16 +241,20 @@ export async function executeSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
+      context.submission.markAdopted();
       await context.threadCommands.renameThread(thread.thread.id, parsed.text);
       return;
     }
     case "fast":
+      context.submission.markAdopted();
       await context.runtimeSettings.toggleFastMode();
       return;
     case "auto-review":
+      context.submission.markAdopted();
       await context.runtimeSettings.toggleAutoReview();
       return;
     case "plan":
+      context.submission.markAdopted();
       await context.runtimeSettings.toggleCollaborationMode();
       if (args) return { sendText: args };
       return;
@@ -242,6 +266,7 @@ export async function executeSlashCommand(
     case "permissions": {
       const requested = parsePermissionProfileOverride(args);
       if (requested !== undefined) {
+        context.submission.markAdopted();
         const applied = await applyPermissionProfileOverride(context, requested);
         if (applied === false) return;
         context.addSystemMessage(permissionProfileOverrideMessage(requested));
@@ -259,6 +284,7 @@ export async function executeSlashCommand(
     case "model": {
       const requested = parseModelOverride(args);
       if (requested !== undefined) {
+        context.submission.markAdopted();
         const applied = await applyModelOverride(context, requested);
         if (applied === false) return;
         context.addSystemMessage(modelOverrideMessage(requested));
@@ -274,6 +300,7 @@ export async function executeSlashCommand(
           context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
           return;
         }
+        context.submission.markAdopted();
         const applied = await applyReasoningEffortOverride(context, requested);
         if (applied === false) return;
         context.addSystemMessage(reasoningEffortOverrideMessage(requested));
@@ -367,7 +394,12 @@ async function executeGoalCommand(args: string, context: SlashCommandExecutionCo
   }
   const goal = context.goals.activeGoal();
   if (parsed.kind === "set") {
-    const threadId = context.activeThreadId ?? (await context.startThreadForGoal(parsed.objective));
+    context.submission.markAdopted();
+    const threadId =
+      context.activeThreadId ??
+      (await context.startThreadForGoal(parsed.objective, {
+        beforeActivate: context.submission.adoptPanelTarget,
+      }));
     if (!threadId) {
       context.addSystemMessage("No active thread for goal management.");
       return;
@@ -388,13 +420,16 @@ async function executeGoalCommand(args: string, context: SlashCommandExecutionCo
     return { composerDraft: `/goal set ${goal.objective}` };
   }
   if (parsed.kind === "pause") {
+    context.submission.markAdopted();
     await context.goals.setStatus(threadId, "paused");
     return;
   }
   if (parsed.kind === "resume") {
+    context.submission.markAdopted();
     await context.goals.setStatus(threadId, "active");
     return;
   }
+  context.submission.markAdopted();
   await context.goals.clear(threadId);
   return;
 }

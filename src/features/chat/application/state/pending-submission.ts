@@ -4,7 +4,6 @@ export interface ChatPendingSubmissionState {
   readonly id: string;
   readonly item: ThreadStreamDialogueItem;
   readonly targetThreadId: string | null;
-  readonly originalDraft: string;
   readonly phase: "cancellable" | "committed";
 }
 

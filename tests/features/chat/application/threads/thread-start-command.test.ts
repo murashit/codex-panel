@@ -39,6 +39,27 @@ describe("thread start commands", () => {
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
 
+  it("announces an owned target adoption immediately before activation", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const beforeActivate = vi.fn(() => {
+      expect(activeThreadId(stateStore.getState())).toBeNull();
+    });
+    const commands = createThreadStartCommand({
+      stateStore,
+      threadStartPort: {
+        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
+      },
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      recordStartedThread: vi.fn(),
+      syncThreadGoal: vi.fn(),
+    });
+
+    await commands.startThread("first prompt", { beforeActivate });
+
+    expect(beforeActivate).toHaveBeenCalledOnce();
+    expect(activeThreadId(stateStore.getState())).toBe("started");
+  });
+
   it("keeps empty-panel runtime reservations when starting the first thread", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     stateStore.dispatch({ type: "runtime/model-requested", model: "gpt-5.5" });
@@ -107,7 +128,6 @@ describe("thread start commands", () => {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -136,7 +156,6 @@ describe("thread start commands", () => {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });

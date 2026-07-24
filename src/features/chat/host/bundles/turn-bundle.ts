@@ -1,5 +1,6 @@
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
+import type { ReconnectPanelOptions } from "../../application/connection/reconnect-command";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
@@ -54,7 +55,7 @@ interface ChatPanelTurnInput {
   threadStart: ThreadStartCommand;
   goals: ChatPanelGoalCommands;
   autoTitleCoordinator: AutoTitleCoordinator;
-  reconnect: () => Promise<void>;
+  reconnect: (options?: ReconnectPanelOptions) => Promise<void>;
   runtimeProjection: ChatPanelRuntimeProjection;
   refreshDiagnostics: () => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
@@ -144,6 +145,11 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       composer: {
         prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
         captureInputSnapshot: () => composerController.captureInputSnapshot(),
+        claimSubmission: () => composerController.claimSubmission(),
+        isSubmissionPreparing: () => composerController.isSubmissionPreparing(),
+        failActiveSubmissionClaim: () => {
+          composerController.failActiveSubmissionClaim();
+        },
         draft: () => composerController.draft,
         trimmedDraft: () => composerController.trimmedDraft,
         setDraft: (text, options) => {

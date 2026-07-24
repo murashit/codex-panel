@@ -9,9 +9,11 @@ import type {
   ComposerContextReferences,
 } from "../../../../src/features/chat/application/composer/context-references";
 import type { NoteCandidateProvider } from "../../../../src/features/chat/application/composer/note-context";
+import { createLocalIdSource } from "../../../../src/features/chat/application/local-id-source";
 import type { ChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { threadStreamItems } from "../../../../src/features/chat/application/state/thread-stream";
+import { submitComposer } from "../../../../src/features/chat/application/turns/composer-submit-command";
 import { pendingWebSubmissionItem } from "../../../../src/features/chat/application/turns/web-submission";
 import type { ThreadStreamItem } from "../../../../src/features/chat/domain/thread-stream/items";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
@@ -113,6 +115,155 @@ function composerControllerFixture(
 }
 
 describe("ChatComposerController", () => {
+  it("keeps edits typed after a claimed submission and restores both drafts on failure", () => {
+    const stateStore = createChatStateStore();
+    resumeComposerThread(stateStore, "thread");
+    const { controller } = composerControllerFixture({ stateStore });
+    controller.setDraft("first message");
+
+    const claim = controller.claimSubmission();
+    expect(claim?.text).toBe("first message");
+    expect(stateStore.getState().composer.draft).toBe("");
+
+    controller.setDraft("next message");
+    claim?.settle("failed");
+
+    expect(stateStore.getState().composer.draft).toBe("first message\n\nnext message");
+  });
+
+  it("leaves the editable next draft untouched when a claimed submission is accepted", () => {
+    const { controller, stateStore } = composerControllerFixture();
+    controller.setDraft("first message");
+    const claim = controller.claimSubmission();
+
+    controller.setDraft("next message");
+    claim?.settle("accepted");
+
+    expect(stateStore.getState().composer.draft).toBe("next message");
+  });
+
+  it("places a slash command replacement before a draft typed while the command was running", () => {
+    const { controller, stateStore } = composerControllerFixture();
+    controller.setDraft("/goal");
+    const claim = controller.claimSubmission();
+
+    controller.setDraft("next message");
+    claim?.settle("accepted", "/goal set Current objective");
+
+    expect(stateStore.getState().composer.draft).toBe("/goal set Current objective\n\nnext message");
+  });
+
+  it("releases a stale claim without restoring it into the new panel target", () => {
+    const stateStore = createChatStateStore();
+    resumeComposerThread(stateStore, "first");
+    const { controller } = composerControllerFixture({ stateStore });
+    controller.setDraft("/web https://example.com");
+    const staleClaim = controller.claimSubmission();
+
+    resumeComposerThread(stateStore, "second");
+    controller.setDraft("second-thread draft");
+
+    expect(controller.isSubmissionPreparing()).toBe(false);
+    staleClaim?.settle("failed");
+    expect(stateStore.getState().composer.draft).toBe("second-thread draft");
+    expect(controller.claimSubmission()).not.toBeNull();
+  });
+
+  it("keeps an adopted target-changing slash command committed without restoring it over the next draft", async () => {
+    const stateStore = createChatStateStore();
+    const { controller } = composerControllerFixture({ stateStore });
+    controller.setDraft("/clear");
+    const execute = vi.fn(async (_command, _args, _snapshot, submission) => {
+      controller.setDraft("next message");
+      submission.adoptPanelTarget();
+      resumeComposerThread(stateStore, "started");
+      return undefined;
+    });
+
+    await submitComposer({
+      stateStore,
+      localItemIds: createLocalIdSource(),
+      composer: controller,
+      slashCommandExecutor: { execute },
+      turnSubmissionCommand: { sendTurnText: vi.fn().mockResolvedValue(true) },
+      connection: { ensureConnected: vi.fn().mockResolvedValue(true) },
+      turnPort: { interruptTurn: vi.fn().mockResolvedValue({}) },
+      status: { setStatus: vi.fn(), addSystemMessage: vi.fn() },
+      scroll: { showLatest: vi.fn() },
+    });
+
+    expect(execute).toHaveBeenCalledOnce();
+    expect(stateStore.getState().composer.draft).toBe("next message");
+    expect(controller.isSubmissionPreparing()).toBe(false);
+  });
+
+  it("places a rollback replacement before the next draft across its adopted target", () => {
+    const stateStore = createChatStateStore();
+    resumeComposerThread(stateStore, "source");
+    const { controller } = composerControllerFixture({ stateStore });
+    controller.setDraft("/rollback");
+    const claim = controller.claimSubmission();
+    controller.setDraft("next message");
+    claim?.adoptPanelTarget("rolled back prompt");
+
+    resumeComposerThread(stateStore, "rolled-back");
+
+    expect(stateStore.getState().composer.draft).toBe("rolled back prompt\n\nnext message");
+    claim?.settle("accepted");
+    expect(stateStore.getState().composer.draft).toBe("rolled back prompt\n\nnext message");
+  });
+
+  it("hands claimed draft and context to a replacement runtime", () => {
+    const first = composerControllerFixture();
+    const attachment = {
+      kind: "image" as const,
+      name: "diagram",
+      path: "Codex Attachments/diagram.png",
+      marker: "![[Codex Attachments/diagram.png]]",
+    };
+    const activeNote = { name: "Note", path: "Note.md", linktext: "Note" };
+    const selection = {
+      name: "Selection",
+      path: "Selection.md",
+      linktext: "Selection",
+      range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } },
+      text: "text",
+    };
+    first.controller.restoreRuntimeSnapshot({
+      draft: `/web https://example.com ${attachment.marker} [[Note]]`,
+      attachments: [attachment],
+      activeNoteSnapshots: [activeNote],
+      selectionSnapshots: [selection],
+      threadCommandTarget: null,
+    });
+    first.controller.claimSubmission();
+    first.controller.setDraft("next draft");
+
+    const snapshot = first.controller.runtimeSnapshot();
+    const replacement = composerControllerFixture();
+    replacement.controller.restoreRuntimeSnapshot(snapshot);
+    const restoredInput = replacement.controller.captureInputSnapshot();
+
+    expect(snapshot.draft).toBe(`/web https://example.com ${attachment.marker} [[Note]]\n\nnext draft`);
+    expect(restoredInput.attachments).toEqual([attachment]);
+    expect(restoredInput.activeNoteSnapshots).toEqual([activeNote]);
+    expect(restoredInput.selectionSnapshots).toEqual([selection]);
+  });
+
+  it("does not hand an adopted submission back as a resendable draft", () => {
+    const { controller } = composerControllerFixture();
+    controller.setDraft("submitted message");
+    const claim = controller.claimSubmission();
+    controller.setDraft("later draft");
+    claim?.markAdopted();
+
+    const snapshot = controller.runtimeSnapshot();
+    claim?.settle("failed");
+
+    expect(snapshot.draft).toBe("later draft");
+    expect(controller.isSubmissionPreparing()).toBe(false);
+  });
+
   it("focuses only while its panel is foreground unless workspace publication forces it", () => {
     let foreground = false;
     const { controller, parent, renderShell } = composerControllerFixture({
@@ -147,7 +298,6 @@ describe("ChatComposerController", () => {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft: "/web https://example.com summarize",
         phase: "cancellable",
       },
     });
@@ -168,7 +318,6 @@ describe("ChatComposerController", () => {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft: "/web https://example.com summarize",
         phase: "committed",
       },
     } as never);
@@ -199,7 +348,6 @@ describe("ChatComposerController", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -692,18 +840,18 @@ describe("ChatComposerController", () => {
     if (!pending) throw new Error("Expected pending web submission");
 
     controller.setDraft(originalDraft);
+    const claim = controller.claimSubmission();
     stateStore.dispatch({
       type: "web-submission/pending",
       submission: {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft,
         phase: "cancellable",
       },
     });
-    controller.setDraft("", { clearSuggestions: true, preserveContext: true });
     stateStore.dispatch({ type: "connection/scoped-cleared" });
+    claim?.settle("failed");
     const restoredSnapshot = controller.captureInputSnapshot();
 
     expect(controller.draft).toBe(originalDraft);

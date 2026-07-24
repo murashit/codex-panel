@@ -2,6 +2,8 @@ import type { CodexInput } from "../../../../domain/chat/input";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { ComposerSubmissionClaim } from "../composer/submission-claim";
+import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
 import type { ChatStateStore } from "../state/store";
@@ -37,8 +39,8 @@ export interface TurnWorkflowContext {
   };
   thread: {
     ensureRestoredThreadLoaded: () => Promise<boolean>;
-    startNewThread: () => Promise<void>;
-    selectThread: (threadId: string) => Promise<void>;
+    startNewThread: (options?: { beforeActivate?: () => void }) => Promise<void>;
+    selectThread: (threadId: string, options?: { beforeActivate?: () => void }) => Promise<void>;
     notifyIdentityChanged: () => void;
     resetTurnPresence: (hadTurns: boolean) => void;
     openSideChat?: (threadId: string) => Promise<void>;
@@ -46,6 +48,9 @@ export interface TurnWorkflowContext {
   composer: {
     prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
     captureInputSnapshot: () => ComposerInputSnapshot;
+    claimSubmission: () => ComposerSubmissionClaim | null;
+    isSubmissionPreparing: () => boolean;
+    failActiveSubmissionClaim: () => void;
     draft: () => string;
     trimmedDraft: () => string;
     setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean }) => void;
@@ -59,12 +64,15 @@ export interface TurnWorkflowRefs {
   threadStartCommand: TurnWorkflowThreadStarter;
   runtimeSettings: ChatRuntimeSettingsCommands;
   threadCommands: ThreadCommands;
-  reconnectCommand: () => Promise<void>;
+  reconnectCommand: (options?: ReconnectPanelOptions) => Promise<void>;
   goals: GoalCommands;
 }
 
 interface TurnWorkflowThreadStarter {
-  startThread: (preview?: string, options?: { syncGoal?: boolean; preservePendingSubmissionId?: string }) => Promise<ThreadStartOutcome>;
+  startThread: (
+    preview?: string,
+    options?: { syncGoal?: boolean; preservePendingSubmissionId?: string; beforeActivate?: () => void },
+  ) => Promise<ThreadStartOutcome>;
 }
 
 interface PlanImplementation {
@@ -89,7 +97,6 @@ export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: T
     resetThreadTurnPresence: thread.resetTurnPresence,
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
     prepareInput: composer.prepareInput,
-    setDraft: composer.setDraft,
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
   });
@@ -99,7 +106,8 @@ export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: T
     referThread,
     readWebUrl,
     startNewThread: thread.startNewThread,
-    startThreadForGoal: (objective) => startThreadForGoal(refs.threadStartCommand, objective, status.addSystemMessage),
+    startThreadForGoal: (objective, options) =>
+      startThreadForGoal(refs.threadStartCommand, objective, status.addSystemMessage, options?.beforeActivate),
     resumeThread: thread.selectThread,
     threadCommands: refs.threadCommands,
     reconnect: refs.reconnectCommand,
@@ -137,12 +145,13 @@ export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: T
       get trimmedDraft() {
         return composer.trimmedDraft();
       },
-      setDraft: composer.setDraft,
-      captureInputSnapshot: composer.captureInputSnapshot,
+      claimSubmission: composer.claimSubmission,
+      isSubmissionPreparing: composer.isSubmissionPreparing,
+      failActiveSubmissionClaim: composer.failActiveSubmissionClaim,
     },
     slashCommandExecutor: {
-      execute: (command, args, inputSnapshot, isWebImportCurrent) =>
-        executeSlashCommandWithState(slashCommandExecutorHost, command, args, inputSnapshot, isWebImportCurrent),
+      execute: (command, args, inputSnapshot, submission) =>
+        executeSlashCommandWithState(slashCommandExecutorHost, command, args, inputSnapshot, submission),
     },
     turnSubmissionCommand,
     connection: {
@@ -170,8 +179,12 @@ async function startThreadForGoal(
   starter: TurnWorkflowThreadStarter,
   objective: string,
   addSystemMessage: (message: string) => void,
+  beforeActivate?: () => void,
 ): Promise<string | null> {
-  const outcome = await starter.startThread(objective, { syncGoal: false });
+  const outcome = await starter.startThread(objective, {
+    syncGoal: false,
+    ...(beforeActivate ? { beforeActivate } : {}),
+  });
   if (outcome.kind === "created-not-activated") {
     addSystemMessage(
       `Created thread ${outcome.threadId}, but the connection changed before it could be opened. Resume it from history before setting its goal.`,

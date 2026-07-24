@@ -39,7 +39,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
   const startTurn = vi.fn().mockResolvedValue(completedCurrent({ turnId: "turn" }));
   const steerTurn = vi.fn().mockResolvedValue(completedCurrent(undefined));
-  const host: TurnSubmissionCommandHost = {
+  const host: TurnSubmissionCommandHost & { setDraft: ReturnType<typeof vi.fn> } = {
     stateStore,
     turnPort: {
       ensureConnected: vi.fn().mockResolvedValue(true),
@@ -49,6 +49,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     },
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
     startThread: vi.fn().mockImplementation(async (_preview, options) => {
+      options?.beforeActivate?.();
       resumeThread(stateStore, options?.preservePendingSubmissionId);
       return { kind: "created-activated", threadId: "thread" };
     }),
@@ -259,8 +260,29 @@ describe("TurnSubmissionCommand", () => {
     });
     expect(host.prepareInput).not.toHaveBeenCalled();
     expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
-    expect(host.setDraft).toHaveBeenCalledWith("");
+    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
+  });
+
+  it("hands an owned first-turn claim across the thread activation boundary", async () => {
+    const { host } = createHost();
+    const markAdopted = vi.fn();
+    const adoptPanelTarget = vi.fn();
+
+    await createTurnSubmissionCommand(host).sendTurnText({
+      text: "first message",
+      submissionClaim: {
+        text: "first message",
+        inputSnapshot: {} as never,
+        isCurrent: vi.fn(() => true),
+        markAdopted,
+        adoptPanelTarget,
+        settle: vi.fn(),
+      },
+    });
+
+    expect(markAdopted).toHaveBeenCalled();
+    expect(adoptPanelTarget).toHaveBeenCalledOnce();
   });
 
   it("replaces a pending web submission when starting a turn", async () => {
@@ -273,7 +295,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -305,7 +326,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -352,7 +372,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft: "/web https://example.com summarize",
         phase: "cancellable",
       },
     } as never);
@@ -361,9 +380,7 @@ describe("TurnSubmissionCommand", () => {
     const submitting = commands.sendTurnText({
       text: pending.text,
       codexInputOverride: textInput(pending.text),
-      preserveComposerContextOnFailure: true,
       pendingSubmissionId: pending.id,
-      failureDraft: "/web https://example.com summarize",
     });
     await vi.waitFor(() => expect(host.startThread).toHaveBeenCalledOnce());
 
@@ -388,7 +405,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com summarize",
         phase: "cancellable",
       },
     });
@@ -398,15 +414,13 @@ describe("TurnSubmissionCommand", () => {
       commands.sendTurnText({
         text: pending.text,
         codexInputOverride: textInput(pending.text),
-        preserveComposerContextOnFailure: true,
         pendingSubmissionId: pending.id,
-        failureDraft: "/web https://example.com summarize",
       }),
     ).resolves.toBe(false);
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(host.setDraft).toHaveBeenCalledWith("/web https://example.com summarize", { preserveContext: true });
+    expect(host.setDraft).not.toHaveBeenCalled();
   });
 
   it("cleans up a committed web import when starting the turn fails", async () => {
@@ -421,7 +435,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com summarize",
         phase: "cancellable",
       },
     });
@@ -431,14 +444,12 @@ describe("TurnSubmissionCommand", () => {
       commands.sendTurnText({
         text: pending.text,
         codexInputOverride: textInput(pending.text),
-        preserveComposerContextOnFailure: true,
         pendingSubmissionId: pending.id,
-        failureDraft: "/web https://example.com summarize",
       }),
     ).resolves.toBe(false);
 
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(host.setDraft).toHaveBeenCalledWith("/web https://example.com summarize", { preserveContext: true });
+    expect(host.setDraft).not.toHaveBeenCalled();
   });
 
   it("commits a pending web import before steering and lets the late result adopt it", async () => {
@@ -455,7 +466,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com summarize",
         phase: "cancellable",
       },
     } as never);
@@ -464,9 +474,7 @@ describe("TurnSubmissionCommand", () => {
     const submitting = commands.sendTurnText({
       text: pending.text,
       codexInputOverride: textInput(pending.text),
-      preserveComposerContextOnFailure: true,
       pendingSubmissionId: pending.id,
-      failureDraft: "/web https://example.com summarize",
     });
     await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
 
@@ -493,7 +501,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com summarize",
         phase: "cancellable",
       },
     } as never);
@@ -503,14 +510,12 @@ describe("TurnSubmissionCommand", () => {
       commands.sendTurnText({
         text: pending.text,
         codexInputOverride: textInput(pending.text),
-        preserveComposerContextOnFailure: true,
         pendingSubmissionId: pending.id,
-        failureDraft: "/web https://example.com summarize",
       }),
     ).resolves.toBe(false);
 
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(host.setDraft).toHaveBeenCalledWith("/web https://example.com summarize", { focus: true, preserveContext: true });
+    expect(host.setDraft).not.toHaveBeenCalled();
   });
 
   it("restores the original web command when starting the adopted turn returns no response", async () => {
@@ -525,7 +530,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -535,13 +539,11 @@ describe("TurnSubmissionCommand", () => {
       commands.sendTurnText({
         text: pending.text,
         codexInputOverride: textInput(pending.text),
-        preserveComposerContextOnFailure: true,
         pendingSubmissionId: pending.id,
-        failureDraft: "/web https://example.com summarize",
       }),
     ).resolves.toBe(false);
 
-    expect(host.setDraft).toHaveBeenCalledWith("/web https://example.com summarize", { preserveContext: true });
+    expect(host.setDraft).not.toHaveBeenCalled();
     expect(stateStore.getState().pendingSubmission).toBeNull();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
   });
@@ -558,7 +560,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -568,13 +569,11 @@ describe("TurnSubmissionCommand", () => {
       commands.sendTurnText({
         text: pending.text,
         codexInputOverride: textInput(pending.text),
-        preserveComposerContextOnFailure: true,
         pendingSubmissionId: pending.id,
-        failureDraft: "/web https://example.com summarize",
       }),
     ).resolves.toBe(false);
 
-    expect(host.setDraft).toHaveBeenCalledWith("/web https://example.com summarize", { preserveContext: true });
+    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("offline");
     expect(stateStore.getState().pendingSubmission).toBeNull();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
@@ -592,7 +591,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -696,14 +694,10 @@ describe("TurnSubmissionCommand", () => {
     const submitted = await commands.sendTurnText({
       text: "[[Codex Clippings/Example.md]] summarize [[Attachment.png]]",
       codexInputOverride: input,
-      preserveComposerContextOnFailure: true,
     });
 
     expect(submitted).toBe(false);
-    expect(host.setDraft).toHaveBeenCalledWith("", { preserveContext: true });
-    expect(host.setDraft).toHaveBeenCalledWith("[[Codex Clippings/Example.md]] summarize [[Attachment.png]]", {
-      preserveContext: true,
-    });
+    expect(host.setDraft).not.toHaveBeenCalled();
   });
 
   it("does not restore a turn that completed in a superseded app-server context", async () => {
@@ -714,8 +708,7 @@ describe("TurnSubmissionCommand", () => {
 
     await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(true);
 
-    expect(host.setDraft).toHaveBeenCalledWith("");
-    expect(host.setDraft).not.toHaveBeenCalledWith("hello");
+    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -741,8 +734,7 @@ describe("TurnSubmissionCommand", () => {
 
     await commands.sendTurnText({ text: "hello" });
 
-    expect(host.setDraft).toHaveBeenCalledWith("");
-    expect(host.setDraft).not.toHaveBeenCalledWith("hello");
+    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -770,6 +762,29 @@ describe("TurnSubmissionCommand", () => {
     ).toBe(true);
   });
 
+  it("does not clear a newer composer draft when steering with a claimed submission", async () => {
+    const { host, stateStore } = createHost();
+    resumeThread(stateStore);
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    const settle = vi.fn();
+    const commands = createTurnSubmissionCommand(host);
+
+    await commands.sendTurnText({
+      text: "follow up",
+      submissionClaim: {
+        text: "follow up",
+        inputSnapshot: {} as never,
+        isCurrent: vi.fn(() => true),
+        markAdopted: vi.fn(),
+        adoptPanelTarget: vi.fn(),
+        settle,
+      },
+    });
+
+    expect(host.setDraft).not.toHaveBeenCalled();
+    expect(settle).toHaveBeenCalledWith("accepted");
+  });
+
   it("replaces a pending web submission after steering succeeds", async () => {
     const { host, stateStore } = createHost();
     resumeThread(stateStore);
@@ -782,7 +797,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -816,7 +830,6 @@ describe("TurnSubmissionCommand", () => {
         id: pending.id,
         item: pending,
         targetThreadId: "thread",
-        originalDraft: "/web https://example.com",
         phase: "cancellable",
       },
     });
@@ -836,9 +849,7 @@ describe("TurnSubmissionCommand", () => {
     const submitting = commands.sendTurnText({
       text: pending.text,
       codexInputOverride: input,
-      preserveComposerContextOnFailure: true,
       pendingSubmissionId: pending.id,
-      failureDraft: "/web https://example.com summarize",
     });
     await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
     const clientId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
@@ -907,6 +918,53 @@ describe("TurnSubmissionCommand", () => {
     expect(startTurn).toHaveBeenCalledWith(expect.objectContaining({ input: textInput("first") }));
   });
 
+  it("settles claimed submissions without running delayed draft clear or restoration", async () => {
+    const settings = deferred<boolean>();
+    const { host, startTurn, stateStore } = createHost({ applyPendingThreadSettings: vi.fn(() => settings.promise) });
+    resumeThread(stateStore);
+    const commands = createTurnSubmissionCommand(host);
+    const firstSettle = vi.fn();
+    const secondSettle = vi.fn();
+    const firstMarkAdopted = vi.fn();
+    const secondMarkAdopted = vi.fn();
+
+    const first = commands.sendTurnText({
+      text: "first",
+      submissionClaim: {
+        text: "first",
+        inputSnapshot: {} as never,
+        isCurrent: vi.fn(() => true),
+        markAdopted: firstMarkAdopted,
+        adoptPanelTarget: vi.fn(),
+        settle: firstSettle,
+      },
+    });
+    await Promise.resolve();
+    const second = commands.sendTurnText({
+      text: "second",
+      submissionClaim: {
+        text: "second",
+        inputSnapshot: {} as never,
+        isCurrent: vi.fn(() => true),
+        markAdopted: secondMarkAdopted,
+        adoptPanelTarget: vi.fn(),
+        settle: secondSettle,
+      },
+    });
+    settings.resolve(true);
+
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(false);
+    expect(firstSettle).toHaveBeenCalledOnce();
+    expect(firstSettle).toHaveBeenCalledWith("accepted");
+    expect(secondSettle).toHaveBeenCalledOnce();
+    expect(secondSettle).toHaveBeenCalledWith("failed");
+    expect(firstMarkAdopted).toHaveBeenCalledOnce();
+    expect(secondMarkAdopted).not.toHaveBeenCalled();
+    expect(firstMarkAdopted.mock.invocationCallOrder[0]).toBeLessThan(startTurn.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY);
+    expect(host.setDraft).not.toHaveBeenCalled();
+  });
+
   it("keeps local user ids distinct when submissions share the same timestamp", async () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(1234);
     try {
@@ -942,7 +1000,7 @@ describe("TurnSubmissionCommand", () => {
     await commands.sendTurnText({ text: "follow up" });
 
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
   });
@@ -956,8 +1014,7 @@ describe("TurnSubmissionCommand", () => {
 
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(true);
 
-    expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(host.setDraft).not.toHaveBeenCalledWith("follow up", { focus: true });
+    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -974,8 +1031,7 @@ describe("TurnSubmissionCommand", () => {
     await commands.sendTurnText({ text: "follow up" });
 
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(host.setDraft).not.toHaveBeenCalledWith("follow up", { focus: true });
+    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
+import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import type { ChatStateStore } from "../state/store";
@@ -30,7 +31,7 @@ export async function executeSlashCommandWithState(
   command: SlashCommandName,
   args: string,
   inputSnapshot?: ComposerInputSnapshot,
-  isCurrent: () => boolean = () => true,
+  submission: ComposerSubmissionAdoption = NOOP_SUBMISSION_ADOPTION,
 ): Promise<SlashCommandExecutionResult | undefined> {
   const chatState = host.stateStore.getState();
   const operation = activePanelOperationForSlashCommand(command, args);
@@ -43,10 +44,10 @@ export async function executeSlashCommandWithState(
   return runSlashCommand(command, args, {
     ...host,
     addSystemMessage: (text) => {
-      if (isCurrent()) host.addSystemMessage(text);
+      if (submission.isCurrent()) host.addSystemMessage(text);
     },
     addStructuredSystemMessage: (text, details) => {
-      if (isCurrent()) host.addStructuredSystemMessage(text, details);
+      if (submission.isCurrent()) host.addStructuredSystemMessage(text, details);
     },
     activeThreadId: state.activeThreadId,
     listedThreads: state.listedThreads,
@@ -54,10 +55,16 @@ export async function executeSlashCommandWithState(
     referThread: host.referThread,
     readWebUrl: host.readWebUrl,
     ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),
-    isWebImportCurrent: isCurrent,
+    submission,
     supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
   });
 }
+
+const NOOP_SUBMISSION_ADOPTION: ComposerSubmissionAdoption = {
+  isCurrent: () => true,
+  markAdopted: () => undefined,
+  adoptPanelTarget: () => undefined,
+};
 
 function supportedReasoningEfforts(state: ReturnType<ChatStateStore["getState"]>): ReasoningEffort[] {
   const config = runtimeConfigOrDefault(state.connection.runtimeConfig);

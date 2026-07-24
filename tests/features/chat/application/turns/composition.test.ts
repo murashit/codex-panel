@@ -76,6 +76,7 @@ describe("createTurnWorkflowCommands", () => {
         { type: "fileReference", name: "unexpected", path: "notes/Alpha.md" },
       ],
     }));
+    const setDraft = vi.fn();
     const actions = createTurnWorkflowCommands(
       {
         stateStore,
@@ -112,9 +113,12 @@ describe("createTurnWorkflowCommands", () => {
         composer: {
           prepareInput,
           captureInputSnapshot: vi.fn(() => composerSnapshot),
+          claimSubmission: vi.fn(() => null),
+          isSubmissionPreparing: vi.fn(() => false),
+          failActiveSubmissionClaim: vi.fn(),
           draft: () => "",
           trimmedDraft: () => "",
-          setDraft: vi.fn(),
+          setDraft,
         },
         scroll: { showLatest: vi.fn() },
       },
@@ -134,6 +138,7 @@ describe("createTurnWorkflowCommands", () => {
     await actions.planImplementation.implement(plan.id);
 
     expect(prepareInput).not.toHaveBeenCalled();
+    expect(setDraft).not.toHaveBeenCalled();
     expect(startTurn).toHaveBeenCalledWith({
       threadId: "thread",
       input: [{ type: "text", text: IMPLEMENT_PLAN_PROMPT }],

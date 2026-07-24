@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Thread } from "../../../../../src/domain/threads/model";
+import type { ComposerSubmissionClaim } from "../../../../../src/features/chat/application/composer/submission-claim";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
+import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { submitComposer } from "../../../../../src/features/chat/application/turns/composer-submit-command";
@@ -19,6 +21,15 @@ function thread(id: string): Thread {
     archived: false,
     provenance: { kind: "interactive" },
   };
+}
+
+function submissionClaim(
+  text: string,
+  inputSnapshot: ComposerSubmissionClaim["inputSnapshot"],
+  settle: ComposerSubmissionClaim["settle"],
+  isCurrent: () => boolean = () => true,
+): ComposerSubmissionClaim {
+  return { text, inputSnapshot, isCurrent, markAdopted: vi.fn(), adoptPanelTarget: vi.fn(), settle };
 }
 
 function createHost(
@@ -55,6 +66,16 @@ function createHost(
     ...(options.threadCommandTarget ? { threadCommandTarget: options.threadCommandTarget } : {}),
   } as never;
   const captureInputSnapshot = vi.fn(() => inputSnapshot);
+  const settleSubmission = vi.fn();
+  const claimSubmission = vi.fn<() => ComposerSubmissionClaim | null>(() => {
+    const panelTarget = capturePanelTargetLease(stateStore.getState());
+    return submissionClaim(
+      draft,
+      inputSnapshot,
+      settleSubmission,
+      vi.fn(() => panelTargetLeaseIsCurrent(stateStore.getState(), panelTarget)),
+    );
+  });
   const host = {
     stateStore,
     localItemIds: createLocalIdSource(),
@@ -67,6 +88,9 @@ function createHost(
       },
       setDraft,
       captureInputSnapshot,
+      claimSubmission,
+      isSubmissionPreparing: vi.fn(() => false),
+      failActiveSubmissionClaim: vi.fn(),
     },
     slashCommandExecutor: { execute },
     turnSubmissionCommand: { sendTurnText },
@@ -83,18 +107,120 @@ function createHost(
   return {
     host,
     captureInputSnapshot,
+    claimSubmission,
     ensureConnected,
     execute,
     inputSnapshot,
     interruptTurn,
     sendTurnText,
     setDraft,
+    settleSubmission,
     showLatest,
     stateStore,
   };
 }
 
 describe("submitComposer", () => {
+  it("claims a plain submission before restored-thread loading and passes the claim to turn preparation", async () => {
+    const restored = deferred<boolean>();
+    const { host, inputSnapshot, sendTurnText } = createHost("first message");
+    const settle = vi.fn();
+    const claim = submissionClaim("first message", inputSnapshot, settle);
+    host.composer.claimSubmission = vi.fn(() => claim);
+    const hostWithRestoration = { ...host, ensureRestoredThreadLoaded: vi.fn(() => restored.promise) };
+
+    const submitting = submitComposer(hostWithRestoration);
+
+    expect(host.composer.claimSubmission).toHaveBeenCalledOnce();
+    expect(sendTurnText).not.toHaveBeenCalled();
+
+    restored.resolve(true);
+    await submitting;
+
+    expect(sendTurnText).toHaveBeenCalledWith({
+      text: "first message",
+      inputSnapshot,
+      submissionClaim: claim,
+    });
+  });
+
+  it("settles a claimed submission when a web submission appears during restored-thread loading", async () => {
+    const restored = deferred<boolean>();
+    const { host, inputSnapshot, sendTurnText, stateStore } = createHost("first message");
+    const settle = vi.fn();
+    host.composer.claimSubmission = vi.fn(() => {
+      const panelTarget = capturePanelTargetLease(stateStore.getState());
+      return submissionClaim(
+        "first message",
+        inputSnapshot,
+        settle,
+        vi.fn(() => panelTargetLeaseIsCurrent(stateStore.getState(), panelTarget)),
+      );
+    });
+    const hostWithRestoration = { ...host, ensureRestoredThreadLoaded: vi.fn(() => restored.promise) };
+    const submitting = submitComposer(hostWithRestoration);
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: {
+        id: "local-web",
+        item: {
+          id: "local-web",
+          kind: "dialogue",
+          dialogueKind: "user",
+          role: "user",
+          text: "https://example.com/ summarize",
+        },
+        targetThreadId: null,
+        phase: "cancellable",
+      },
+    });
+
+    restored.resolve(true);
+    await submitting;
+
+    expect(sendTurnText).not.toHaveBeenCalled();
+    expect(settle).toHaveBeenCalledOnce();
+    expect(settle).toHaveBeenCalledWith("failed");
+  });
+
+  it("settles a claimed submission without restoring it after the panel target changes during loading", async () => {
+    const restored = deferred<boolean>();
+    const { host, inputSnapshot, sendTurnText, stateStore } = createHost("first message");
+    const settle = vi.fn();
+    host.composer.claimSubmission = vi.fn(() => {
+      const panelTarget = capturePanelTargetLease(stateStore.getState());
+      return submissionClaim(
+        "first message",
+        inputSnapshot,
+        settle,
+        vi.fn(() => panelTargetLeaseIsCurrent(stateStore.getState(), panelTarget)),
+      );
+    });
+    const hostWithRestoration = { ...host, ensureRestoredThreadLoaded: vi.fn(() => restored.promise) };
+    const submitting = submitComposer(hostWithRestoration);
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: thread("other"),
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+
+    restored.resolve(true);
+    await submitting;
+
+    expect(sendTurnText).not.toHaveBeenCalled();
+    expect(settle).toHaveBeenCalledOnce();
+    expect(settle).toHaveBeenCalledWith("failed");
+  });
+
   it("does not cancel or restore a committed web submission", async () => {
     const { host, execute, setDraft, stateStore } = createHost("");
     const pending = {
@@ -107,7 +233,6 @@ describe("submitComposer", () => {
         text: "https://example.com/ summarize",
       },
       targetThreadId: null,
-      originalDraft: "/web https://example.com summarize",
       phase: "committed" as const,
     };
     stateStore.dispatch({ type: "web-submission/pending", submission: pending } as never);
@@ -136,7 +261,9 @@ describe("submitComposer", () => {
 
     expect(showLatest).toHaveBeenCalledOnce();
     expect(ensureConnected).not.toHaveBeenCalled();
-    expect(sendTurnText).toHaveBeenCalledWith({ text: "hello", inputSnapshot });
+    expect(sendTurnText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "hello", inputSnapshot, submissionClaim: expect.any(Object) }),
+    );
     const [showLatestOrder] = showLatest.mock.invocationCallOrder;
     const [sendTurnTextOrder] = sendTurnText.mock.invocationCallOrder;
     if (showLatestOrder === undefined || sendTurnTextOrder === undefined) {
@@ -153,12 +280,15 @@ describe("submitComposer", () => {
 
     expect(setDraft).not.toHaveBeenCalled();
     expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(execute).toHaveBeenCalledWith("clear", "hello", inputSnapshot, expect.any(Function));
-    expect(showLatest).toHaveBeenCalledOnce();
-    expect(sendTurnText).toHaveBeenCalledWith({
-      text: "hello",
-      inputSnapshot,
+    expect(execute).toHaveBeenCalledWith("clear", "hello", inputSnapshot, {
+      isCurrent: expect.any(Function),
+      markAdopted: expect.any(Function),
+      adoptPanelTarget: expect.any(Function),
     });
+    expect(showLatest).toHaveBeenCalledOnce();
+    expect(sendTurnText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "hello", inputSnapshot, submissionClaim: expect.any(Object) }),
+    );
   });
 
   it("passes the same input snapshot through slash command send results", async () => {
@@ -173,16 +303,18 @@ describe("submitComposer", () => {
 
     await submitComposer(host);
 
-    expect(sendTurnText).toHaveBeenCalledWith({
-      text: "[[Note]] (L1:C1-L1:C2)",
-      inputSnapshot,
-      codexInputOverride: [{ type: "text", text: "referenced input" }],
-      preserveComposerContextOnFailure: true,
-    });
+    expect(sendTurnText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "[[Note]] (L1:C1-L1:C2)",
+        inputSnapshot,
+        codexInputOverride: [{ type: "text", text: "referenced input" }],
+        submissionClaim: expect.any(Object),
+      }),
+    );
   });
 
   it("restores slash command text when command send results are not submitted", async () => {
-    const { host, execute, inputSnapshot, sendTurnText, setDraft } = createHost("/web https://example.com [[Note]]");
+    const { host, execute, inputSnapshot, sendTurnText } = createHost("/web https://example.com [[Note]]");
     execute.mockResolvedValue({
       sendText: "https://example.com/ [[Note]]",
       sendInput: [
@@ -195,23 +327,20 @@ describe("submitComposer", () => {
 
     await submitComposer(host);
 
-    expect(sendTurnText).toHaveBeenCalledWith({
-      text: "https://example.com/ [[Note]]",
-      inputSnapshot,
-      codexInputOverride: [
-        { type: "text", text: "https://example.com/ [[Note]]" },
-        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
-        { type: "fileReference", name: "Note", path: "Note.md" },
-      ],
-      preserveComposerContextOnFailure: true,
-      pendingSubmissionId: expect.stringMatching(/^local-web-/),
-      failureDraft: "/web https://example.com [[Note]]",
-    });
-    expect(setDraft).toHaveBeenCalledWith("/web https://example.com [[Note]]", {
-      focus: true,
-      clearSuggestions: true,
-      preserveContext: true,
-    });
+    expect(sendTurnText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "https://example.com/ [[Note]]",
+        inputSnapshot,
+        codexInputOverride: [
+          { type: "text", text: "https://example.com/ [[Note]]" },
+          { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
+          { type: "fileReference", name: "Note", path: "Note.md" },
+        ],
+        pendingSubmissionId: expect.stringMatching(/^local-web-/),
+        submissionClaim: expect.any(Object),
+      }),
+    );
+    expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalled();
   });
 
   it("shows a pending web message while context is fetched and hands it to turn submission", async () => {
@@ -233,7 +362,7 @@ describe("submitComposer", () => {
       contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
       provenance: { source: "localUser", channel: "preflight" },
     });
-    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true, preserveContext: true });
+    expect(setDraft).not.toHaveBeenCalled();
     expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).not.toHaveBeenCalled();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
@@ -241,18 +370,19 @@ describe("submitComposer", () => {
     fetch.resolve({ sendText: "https://example.com/ summarize", sendInput: [{ type: "text", text: "prepared" }] });
     await submitting;
 
-    expect(sendTurnText).toHaveBeenCalledWith({
-      text: "https://example.com/ summarize",
-      inputSnapshot,
-      codexInputOverride: [{ type: "text", text: "prepared" }],
-      preserveComposerContextOnFailure: true,
-      pendingSubmissionId: pending?.id,
-      failureDraft: "/web https://example.com summarize",
-    });
+    expect(sendTurnText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "https://example.com/ summarize",
+        inputSnapshot,
+        codexInputOverride: [{ type: "text", text: "prepared" }],
+        pendingSubmissionId: pending?.id,
+        submissionClaim: expect.any(Object),
+      }),
+    );
   });
 
   it("cancels a pending web import and restores its exact draft before late success", async () => {
-    const { host, execute, sendTurnText, setDraft, stateStore } = createHost("  /web https://example.com summarize  ");
+    const { host, execute, sendTurnText, stateStore } = createHost("  /web https://example.com summarize  ");
     const fetch = deferred<{ sendText: string }>();
     execute.mockImplementation(() => fetch.promise);
 
@@ -261,10 +391,7 @@ describe("submitComposer", () => {
     await submitComposer(host);
 
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(setDraft.mock.calls.at(-1)).toEqual([
-      "  /web https://example.com summarize  ",
-      { focus: true, clearSuggestions: true, preserveContext: true },
-    ]);
+    expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalledOnce();
     expect(execute).toHaveBeenCalledOnce();
     fetch.resolve({ sendText: "https://example.com/ summarize" });
     await first;
@@ -282,10 +409,8 @@ describe("submitComposer", () => {
     fetch.reject(new Error("offline"));
     await first;
 
-    expect(setDraft.mock.calls).toEqual([
-      ["", { clearSuggestions: true, preserveContext: true }],
-      ["/web https://example.com summarize", { focus: true, clearSuggestions: true, preserveContext: true }],
-    ]);
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalledOnce();
     expect(host.status.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -301,10 +426,8 @@ describe("submitComposer", () => {
     await first;
 
     expect(execute).not.toHaveBeenCalled();
-    expect(setDraft.mock.calls.at(-1)).toEqual([
-      "/web https://example.com summarize",
-      { focus: true, clearSuggestions: true, preserveContext: true },
-    ]);
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalledOnce();
     expect(host.status.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -363,13 +486,13 @@ describe("submitComposer", () => {
     fetch.reject(new Error("offline"));
     await submitting;
 
-    expect(setDraft.mock.calls).toEqual([["", { clearSuggestions: true, preserveContext: true }]]);
+    expect(setDraft).not.toHaveBeenCalled();
     expect(host.status.addSystemMessage).not.toHaveBeenCalled();
     expect(stateStore.getState().pendingSubmission).toBeNull();
   });
 
   it.each(["connection/scoped-cleared", "connection/context-replaced"] as const)(
-    "recovers the web draft and ignores late fetch success after %s",
+    "leaves web draft recovery to the claim and ignores late fetch success after %s",
     async (type) => {
       const { host, execute, sendTurnText, setDraft, stateStore } = createHost("  /web https://example.com summarize  ");
       const fetch = deferred<{ sendText: string }>();
@@ -380,14 +503,14 @@ describe("submitComposer", () => {
       stateStore.dispatch({ type });
 
       expect(stateStore.getState().pendingSubmission).toBeNull();
-      expect(stateStore.getState().composer.draft).toBe("  /web https://example.com summarize  ");
+      expect(stateStore.getState().composer.draft).toBe("");
 
       fetch.resolve({ sendText: "https://example.com/ summarize" });
       await submitting;
 
       expect(sendTurnText).not.toHaveBeenCalled();
-      expect(setDraft.mock.calls).toEqual([["", { clearSuggestions: true, preserveContext: true }]]);
-      expect(stateStore.getState().composer.draft).toBe("  /web https://example.com summarize  ");
+      expect(setDraft).not.toHaveBeenCalled();
+      expect(stateStore.getState().composer.draft).toBe("");
       expect(host.status.addSystemMessage).not.toHaveBeenCalled();
     },
   );
@@ -428,59 +551,63 @@ describe("submitComposer", () => {
     expect(execute).not.toHaveBeenCalled();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(setDraft.mock.calls).toEqual([
-      ["", { clearSuggestions: true, preserveContext: true }],
-      ["/web https://example.com summarize", { focus: true, clearSuggestions: true, preserveContext: true }],
-    ]);
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalledOnce();
   });
 
   it("executes reconnect without a connected client preflight", async () => {
-    const { host, ensureConnected, execute, setDraft } = createHost("/reconnect");
+    const { host, ensureConnected, execute, setDraft, settleSubmission } = createHost("/reconnect");
 
     await submitComposer(host);
 
     expect(ensureConnected).not.toHaveBeenCalled();
-    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(execute).toHaveBeenCalledWith("reconnect", "", expect.any(Object), expect.any(Function));
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(settleSubmission).toHaveBeenCalledWith("accepted");
+    expect(execute).toHaveBeenCalledWith("reconnect", "", expect.any(Object), {
+      isCurrent: expect.any(Function),
+      markAdopted: expect.any(Function),
+      adoptPanelTarget: expect.any(Function),
+    });
   });
 
   it("executes compact without a connected client preflight", async () => {
-    const { host, ensureConnected, execute, setDraft } = createHost("/compact");
+    const { host, ensureConnected, execute, setDraft, settleSubmission } = createHost("/compact");
 
     await submitComposer(host);
 
     expect(ensureConnected).not.toHaveBeenCalled();
-    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(execute).toHaveBeenCalledWith("compact", "", expect.any(Object), expect.any(Function));
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(settleSubmission).toHaveBeenCalledWith("accepted");
+    expect(execute).toHaveBeenCalledWith("compact", "", expect.any(Object), {
+      isCurrent: expect.any(Function),
+      markAdopted: expect.any(Function),
+      adoptPanelTarget: expect.any(Function),
+    });
   });
 
   it("restores slash command composer drafts from command results", async () => {
-    const { host, ensureConnected, execute, sendTurnText, setDraft, showLatest } = createHost("/goal edit");
+    const { host, ensureConnected, execute, sendTurnText, setDraft, settleSubmission, showLatest } = createHost("/goal edit");
     execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });
 
     await submitComposer(host);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(setDraft).not.toHaveBeenCalledWith("", expect.anything());
-    expect(setDraft).toHaveBeenCalledWith("/goal set Current objective", { focus: true, clearSuggestions: true });
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(settleSubmission).toHaveBeenCalledWith("accepted", "/goal set Current objective");
     expect(showLatest).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
   });
 
   it("restores slash command text and reports executor errors", async () => {
-    const { host, execute, sendTurnText, setDraft, showLatest } = createHost("/web https://obsidian.md/help/plugins/web-viewer 読める？");
+    const { host, execute, sendTurnText, setDraft, settleSubmission, showLatest } = createHost(
+      "/web https://obsidian.md/help/plugins/web-viewer 読める？",
+    );
     execute.mockRejectedValue(new Error("No readable content found for https://obsidian.md/help/plugins/web-viewer"));
 
     await submitComposer(host);
 
-    expect(setDraft).toHaveBeenCalledWith("/web https://obsidian.md/help/plugins/web-viewer 読める？", {
-      focus: true,
-      clearSuggestions: true,
-    });
-    expect(setDraft.mock.calls.at(-1)).toEqual([
-      "/web https://obsidian.md/help/plugins/web-viewer 読める？",
-      { focus: true, clearSuggestions: true },
-    ]);
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(settleSubmission).toHaveBeenCalledWith("failed");
     expect(host.status.addSystemMessage).toHaveBeenCalledWith("No readable content found for https://obsidian.md/help/plugins/web-viewer");
     expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).not.toHaveBeenCalled();
@@ -489,12 +616,13 @@ describe("submitComposer", () => {
 
   it("restores the completed thread target when slash execution fails", async () => {
     const threadCommandTarget = { command: "resume" as const, threadId: "target-thread", title: "Completed title" };
-    const { host, execute, setDraft } = createHost('/resume "Completed title"', { threadCommandTarget });
+    const { host, execute, setDraft, settleSubmission } = createHost('/resume "Completed title"', { threadCommandTarget });
     execute.mockRejectedValue(new Error("offline"));
 
     await submitComposer(host);
 
-    expect(setDraft.mock.calls.at(-1)).toEqual(['/resume "Completed title"', { focus: true, clearSuggestions: true, threadCommandTarget }]);
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(settleSubmission).toHaveBeenCalledWith("failed");
   });
 
   it("interrupts a running turn when submitting an empty draft", async () => {

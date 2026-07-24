@@ -689,10 +689,7 @@ function clearConnectionScopedState(state: ChatState): ChatState {
     },
     threadStream: ephemeralExpired ? initialThreadStreamState() : cleared.threadStream,
     pendingSubmission: null,
-    composer:
-      state.pendingSubmission?.phase === "cancellable"
-        ? { ...initialComposerState(), draft: state.pendingSubmission.originalDraft }
-        : state.composer,
+    composer: state.composer,
   });
 }
 

@@ -1,5 +1,6 @@
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import { type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
+import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import { parseSlashCommand } from "../composer/suggestions";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
@@ -21,23 +22,16 @@ export interface ComposerSubmitCommandHost {
   composer: {
     readonly draft: string;
     readonly trimmedDraft: string;
-    setDraft(
-      text: string,
-      options?: {
-        clearSuggestions?: boolean;
-        focus?: boolean;
-        preserveContext?: boolean;
-        threadCommandTarget?: ComposerInputSnapshot["threadCommandTarget"] | null;
-      },
-    ): void;
-    captureInputSnapshot(): ComposerInputSnapshot;
+    claimSubmission(): ComposerSubmissionClaim | null;
+    isSubmissionPreparing(): boolean;
+    failActiveSubmissionClaim(): void;
   };
   slashCommandExecutor: {
     execute(
       command: SlashCommandName,
       args: string,
       inputSnapshot: ComposerInputSnapshot,
-      isCurrent?: () => boolean,
+      submission: ComposerSubmissionAdoption,
     ): Promise<SlashCommandExecutionResult | undefined>;
   };
   turnSubmissionCommand: {
@@ -64,51 +58,53 @@ export async function submitComposer(host: ComposerSubmitCommandHost): Promise<v
   const pendingSubmission = host.stateStore.getState().pendingSubmission;
   if (pendingSubmission) {
     if (pendingSubmission.phase === "cancellable") {
-      rollbackPendingWebSubmission(host, pendingSubmission.id, pendingSubmission.originalDraft);
+      rollbackPendingWebSubmission(host, pendingSubmission.id);
     }
     return;
   }
+  if (host.composer.isSubmissionPreparing()) return;
   const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   const originalDraft = host.composer.draft;
   const draft = originalDraft.trim();
-  if (host.ensureRestoredThreadLoaded && !(await host.ensureRestoredThreadLoaded())) return;
-  if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
-  const chatState = host.stateStore.getState();
-  const state = submissionStateSnapshot(chatState);
-  if (host.stateStore.getState().pendingSubmission) return;
-  const operationDecision = activePanelOperationDecision(chatState, "submit");
-  if (state.busy && state.activeThreadId && state.activeTurnId && (draft.length === 0 || operationDecision.kind === "blocked")) {
-    await interruptTurn(host, panelTarget);
-    return;
+  const submissionClaim = draft.length > 0 ? host.composer.claimSubmission() : null;
+  if (draft.length > 0 && !submissionClaim) return;
+  try {
+    if (host.ensureRestoredThreadLoaded && !(await host.ensureRestoredThreadLoaded())) return;
+    if (submissionClaim ? !submissionClaim.isCurrent() : !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
+    const chatState = host.stateStore.getState();
+    const state = submissionStateSnapshot(chatState);
+    if (host.stateStore.getState().pendingSubmission) return;
+    const operationDecision = activePanelOperationDecision(chatState, "submit");
+    if (state.busy && state.activeThreadId && state.activeTurnId && (draft.length === 0 || operationDecision.kind === "blocked")) {
+      await interruptTurn(host, panelTarget);
+      return;
+    }
+    if (operationDecision.kind === "blocked") {
+      host.status.addSystemMessage(operationDecision.message);
+      return;
+    }
+    await sendMessage(host, draft, submissionClaim);
+  } finally {
+    submissionClaim?.settle("failed");
   }
-  if (operationDecision.kind === "blocked") {
-    host.status.addSystemMessage(operationDecision.message);
-    return;
-  }
-  await sendMessage(host, draft, originalDraft, panelTarget);
 }
 
-async function sendMessage(
-  host: ComposerSubmitCommandHost,
-  text: string,
-  originalDraft: string,
-  panelTarget: PanelTargetLease,
-): Promise<void> {
+async function sendMessage(host: ComposerSubmitCommandHost, text: string, submissionClaim: ComposerSubmissionClaim | null): Promise<void> {
   if (!text) return;
-  if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
-  const inputSnapshot = host.composer.captureInputSnapshot();
+  if (!submissionClaim) return;
+  if (!submissionClaim.isCurrent()) return;
+  const inputSnapshot = submissionClaim.inputSnapshot;
 
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
-    const pendingWeb = beginPendingWebSubmission(host, slashCommand.command, slashCommand.args, originalDraft);
+    const pendingWeb = beginPendingWebSubmission(host, slashCommand.command, slashCommand.args);
     if (slashCommandRequiresConnection(slashCommand.command)) {
       const connected = await host.connection.ensureConnected();
       if (!connected) {
-        if (pendingWeb && pendingWebSubmissionIsCurrent(host, pendingWeb.id))
-          rollbackPendingWebSubmission(host, pendingWeb.id, originalDraft);
+        if (pendingWeb && pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id);
         return;
       }
-      if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
+      if (!submissionClaim.isCurrent()) return;
       if (pendingWeb && !pendingWebSubmissionIsCurrent(host, pendingWeb.id)) return;
     }
     const execution = await executeSlashCommandAndRestoreOnFailure(
@@ -116,15 +112,15 @@ async function sendMessage(
       slashCommand.command,
       slashCommand.args,
       inputSnapshot,
-      originalDraft,
+      submissionClaim,
       pendingWeb?.id,
-      () => panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget),
     );
     if (execution.failed) return;
-    if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
+    if (!submissionClaim.isCurrent()) return;
     const result = execution.result;
-    if (result?.composerDraft !== undefined) {
-      host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
+    if (result?.composerDraft !== undefined && result.sendText === undefined) {
+      submissionClaim.settle("accepted", result.composerDraft);
+      return;
     }
     if (result?.sendText) {
       if (pendingWeb && !pendingWebSubmissionIsCurrent(host, pendingWeb.id)) return;
@@ -133,60 +129,56 @@ async function sendMessage(
         text: result.sendText,
         inputSnapshot,
         ...(result.sendInput !== undefined ? { codexInputOverride: result.sendInput } : {}),
-        ...(result.sendInput !== undefined ? { preserveComposerContextOnFailure: true } : {}),
-        ...(pendingWeb ? { pendingSubmissionId: pendingWeb.id, failureDraft: originalDraft } : {}),
+        ...(pendingWeb ? { pendingSubmissionId: pendingWeb.id } : {}),
+        submissionClaim,
       });
       if (!submitted) {
         if (pendingWeb) {
-          if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id, originalDraft);
-        } else {
-          host.composer.setDraft(originalDraft, {
-            focus: true,
-            clearSuggestions: true,
-            ...(inputSnapshot.threadCommandTarget ? { threadCommandTarget: inputSnapshot.threadCommandTarget } : {}),
-          });
+          if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id);
         }
       }
     }
     if (result === undefined || (result.sendText === undefined && result.composerDraft === undefined)) {
       if (pendingWeb) {
-        if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id, originalDraft);
+        if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id);
       } else {
-        host.composer.setDraft("", { clearSuggestions: true });
+        submissionClaim.settle("accepted");
       }
     }
     return;
   }
 
   host.scroll.showLatest();
-  await host.turnSubmissionCommand.sendTurnText({ text, inputSnapshot });
+  await host.turnSubmissionCommand.sendTurnText({
+    text,
+    inputSnapshot,
+    submissionClaim,
+  });
 }
 
 async function executeSlashCommandAndRestoreOnFailure(
   host: ComposerSubmitCommandHost,
   command: SlashCommandName,
   args: string,
-  inputSnapshot: ComposerInputSnapshot,
-  originalText: string,
+  inputSnapshot: ComposerSubmissionClaim["inputSnapshot"],
+  submission: ComposerSubmissionClaim,
   pendingWebSubmissionId?: string,
-  isCurrent: () => boolean = () => true,
 ): Promise<{ failed: false; result: SlashCommandExecutionResult | undefined } | { failed: true }> {
   try {
     const commandIsCurrent = () =>
-      isCurrent() && (pendingWebSubmissionId === undefined || pendingWebSubmissionIsCurrent(host, pendingWebSubmissionId));
+      submission.isCurrent() && (pendingWebSubmissionId === undefined || pendingWebSubmissionIsCurrent(host, pendingWebSubmissionId));
     return {
       failed: false,
-      result: await host.slashCommandExecutor.execute(command, args, inputSnapshot, commandIsCurrent),
+      result: await host.slashCommandExecutor.execute(command, args, inputSnapshot, {
+        isCurrent: commandIsCurrent,
+        markAdopted: submission.markAdopted,
+        adoptPanelTarget: submission.adoptPanelTarget,
+      }),
     };
   } catch (error) {
-    if (!isCurrent()) return { failed: true };
+    if (!submission.isCurrent()) return { failed: true };
     if (pendingWebSubmissionId && !pendingWebSubmissionIsCurrent(host, pendingWebSubmissionId)) return { failed: true };
     if (pendingWebSubmissionId) cancelPendingWebSubmission(host, pendingWebSubmissionId);
-    host.composer.setDraft(originalText, {
-      focus: true,
-      clearSuggestions: true,
-      ...(inputSnapshot.threadCommandTarget ? { threadCommandTarget: inputSnapshot.threadCommandTarget } : {}),
-    });
     host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
     return { failed: true };
   }
@@ -196,12 +188,7 @@ interface PendingWebSubmission {
   id: string;
 }
 
-function beginPendingWebSubmission(
-  host: ComposerSubmitCommandHost,
-  command: SlashCommandName,
-  args: string,
-  originalDraft: string,
-): PendingWebSubmission | null {
+function beginPendingWebSubmission(host: ComposerSubmitCommandHost, command: SlashCommandName, args: string): PendingWebSubmission | null {
   if (command !== "web") return null;
   const parsed = parseWebCommandArgs(args);
   if (!parsed) return null;
@@ -211,9 +198,8 @@ function beginPendingWebSubmission(
   const activeThreadId = submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
   host.stateStore.dispatch({
     type: "web-submission/pending",
-    submission: { id, item, targetThreadId: activeThreadId, originalDraft, phase: "cancellable" },
+    submission: { id, item, targetThreadId: activeThreadId, phase: "cancellable" },
   });
-  host.composer.setDraft("", { clearSuggestions: true, preserveContext: true });
   host.scroll.showLatest();
   return { id };
 }
@@ -230,10 +216,10 @@ function cancelPendingWebSubmission(host: ComposerSubmitCommandHost, id: string)
   host.stateStore.dispatch({ type: "web-submission/cancelled", submissionId: id });
 }
 
-function rollbackPendingWebSubmission(host: ComposerSubmitCommandHost, id: string, text: string): void {
+function rollbackPendingWebSubmission(host: ComposerSubmitCommandHost, id: string): void {
   if (!pendingWebSubmissionIsCurrent(host, id)) return;
   cancelPendingWebSubmission(host, id);
-  host.composer.setDraft(text, { focus: true, clearSuggestions: true, preserveContext: true });
+  host.composer.failActiveSubmissionClaim();
 }
 
 async function interruptTurn(host: ComposerSubmitCommandHost, panelTarget: PanelTargetLease): Promise<void> {

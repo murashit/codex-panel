@@ -1,5 +1,6 @@
 import { type CodexInput, codexTextInput } from "../../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -24,20 +25,14 @@ export interface TurnSubmissionCommandHost {
   localItemIds: LocalIdSource;
   turnPort: ChatTurnPort;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
-  startThread: (preview?: string, options?: { preservePendingSubmissionId?: string }) => Promise<ThreadStartOutcome>;
+  startThread: (
+    preview?: string,
+    options?: { preservePendingSubmissionId?: string; beforeActivate?: () => void },
+  ) => Promise<ThreadStartOutcome>;
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
   prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
-  setDraft: (
-    text: string,
-    options?: {
-      focus?: boolean;
-      clearSuggestions?: boolean;
-      preserveContext?: boolean;
-      threadCommandTarget?: ComposerInputSnapshot["threadCommandTarget"] | null;
-    },
-  ) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
 }
@@ -58,21 +53,26 @@ export interface TurnSubmissionRequest {
   text: string;
   inputSnapshot?: ComposerInputSnapshot;
   codexInputOverride?: CodexInput;
-  preserveComposerContextOnFailure?: boolean;
   pendingSubmissionId?: string;
-  failureDraft?: string;
+  submissionClaim?: ComposerSubmissionClaim;
 }
 
 export function createTurnSubmissionCommand(host: TurnSubmissionCommandHost): TurnSubmissionCommand {
   let submissionInFlight = false;
   return {
     sendTurnText: async (request) => {
-      if (submissionInFlight) return false;
+      if (submissionInFlight) {
+        request.submissionClaim?.settle("failed");
+        return false;
+      }
       submissionInFlight = true;
+      let accepted = false;
       try {
-        return await sendTurnText(host, host.localItemIds, request);
+        accepted = await sendTurnText(host, host.localItemIds, request);
+        return accepted;
       } finally {
         submissionInFlight = false;
+        request.submissionClaim?.settle(accepted ? "accepted" : "failed");
       }
     },
   };
@@ -113,13 +113,19 @@ async function sendTurnText(
         if (pendingRequestIsCurrent(host, request)) host.addSystemMessage(plan.message);
         return false;
       case "steer":
-        return await steerCurrentTurn(host, localItemIds, plan, text, prepared, request);
+        return await steerCurrentTurn(host, localItemIds, plan, prepared, request);
       case "start-thread-then-turn":
         if (!commitPendingRequest(host, request)) return false;
+        request.submissionClaim?.markAdopted();
         {
-          const started = await startThreadForTurn(host, prepared.text, request.pendingSubmissionId);
+          const started = await startThreadForTurn(
+            host,
+            prepared.text,
+            request.pendingSubmissionId,
+            request.submissionClaim?.adoptPanelTarget,
+          );
           if (started.kind === "not-started") {
-            if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
+            failPendingRequest(host, request);
             return false;
           }
           if (started.kind === "created-not-activated") {
@@ -138,13 +144,14 @@ async function sendTurnText(
     }
     const activeThreadId = plan.kind === "start-turn" ? plan.threadId : submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
     if (!activeThreadId) {
-      if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
+      failPendingRequest(host, request);
       return false;
     }
     expectedThreadId = activeThreadId;
     if (!commitPendingRequest(host, request)) return false;
+    if (request.pendingSubmissionId) request.submissionClaim?.markAdopted();
     if (!(await host.applyPendingThreadSettings())) {
-      if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
+      failPendingRequest(host, request);
       return false;
     }
     if (
@@ -168,7 +175,7 @@ async function sendTurnText(
       pendingTurnStart: optimistic.pendingTurnStart,
       ...(request.pendingSubmissionId ? { pendingSubmissionId: request.pendingSubmissionId } : {}),
     });
-    clearDraftForSubmission(host, request);
+    request.submissionClaim?.markAdopted();
 
     const outcome = await host.turnPort.startTurn({
       threadId: activeThreadId,
@@ -184,7 +191,6 @@ async function sendTurnText(
         pendingTurnStart: failedState.pendingTurnStart,
       });
       host.stateStore.dispatch({ type: "turn/start-failed", items });
-      restoreSubmittedDraft(host, text, request);
       return false;
     }
     if (outcome.kind === "completed-stale") return true;
@@ -201,7 +207,6 @@ async function sendTurnText(
         responseTurnId: response.turnId,
       })
     ) {
-      prunePreservedComposerContext(host, request);
       const items = acknowledgeOptimisticTurnStart({
         items: acknowledgedState.items,
         optimisticUserId: optimisticItemId,
@@ -227,7 +232,6 @@ async function sendTurnText(
       });
       host.stateStore.dispatch({ type: "turn/start-failed", items });
       failPendingRequest(host, request);
-      restoreSubmittedDraft(host, text, request);
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     return false;
@@ -247,10 +251,13 @@ async function startThreadForTurn(
   host: TurnSubmissionCommandHost,
   text: string,
   pendingSubmissionId?: string,
+  beforeActivate?: () => void,
 ): Promise<ThreadStartOutcome> {
-  const started = pendingSubmissionId
-    ? await host.startThread(text, { preservePendingSubmissionId: pendingSubmissionId })
-    : await host.startThread(text);
+  const options = {
+    ...(pendingSubmissionId ? { preservePendingSubmissionId: pendingSubmissionId } : {}),
+    ...(beforeActivate ? { beforeActivate } : {}),
+  };
+  const started = Object.keys(options).length > 0 ? await host.startThread(text, options) : await host.startThread(text);
   if (started.kind !== "created-activated") return started;
   host.notifyActiveThreadIdentityChanged();
   host.resetThreadTurnPresence(false);
@@ -261,14 +268,13 @@ async function steerCurrentTurn(
   host: TurnSubmissionCommandHost,
   localItemIds: LocalIdSource,
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
-  text: string,
   prepared: { text: string; input: CodexInput },
   request: TurnSubmissionRequest,
 ): Promise<boolean> {
   if (!pendingRequestIsCurrent(host, request)) return false;
   if (!commitPendingRequest(host, request)) return false;
+  request.submissionClaim?.markAdopted();
   const localSteerId = localItemIds.next("local-steer");
-  clearDraftForSubmission(host, request, { clearSuggestions: true });
 
   try {
     const outcome = await host.turnPort.steerTurn({
@@ -280,14 +286,12 @@ async function steerCurrentTurn(
     if (outcome.kind === "not-started") {
       if (pendingRequestIsCurrent(host, request)) {
         failPendingRequest(host, request);
-        restoreSubmittedDraft(host, text, request, { focus: true });
       }
       return false;
     }
     if (outcome.kind === "completed-stale") return true;
     const currentTurn = isCurrentTurn(host, plan.threadId, plan.turnId);
     if (!pendingRequestIsCurrent(host, request) || (!currentTurn && !request.pendingSubmissionId)) return true;
-    prunePreservedComposerContext(host, request, { clearSuggestions: true });
     const item = localUserDialogueItemFromInput({
       id: request.pendingSubmissionId ?? localSteerId,
       ...(request.pendingSubmissionId ? { clientId: localSteerId, interaction: "steer" as const } : {}),
@@ -308,48 +312,10 @@ async function steerCurrentTurn(
       (request.pendingSubmissionId !== undefined && pendingRequestIsCurrent(host, request))
     ) {
       failPendingRequest(host, request);
-      restoreSubmittedDraft(host, text, request, { focus: true });
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     return false;
   }
-}
-
-function clearDraftForSubmission(
-  host: TurnSubmissionCommandHost,
-  request: TurnSubmissionRequest,
-  options: { clearSuggestions?: boolean } = {},
-): void {
-  const draftOptions = {
-    ...options,
-    ...(request.preserveComposerContextOnFailure ? { preserveContext: true } : {}),
-  };
-  if (Object.keys(draftOptions).length === 0) {
-    host.setDraft("");
-    return;
-  }
-  host.setDraft("", draftOptions);
-}
-
-function restoreSubmittedDraft(
-  host: TurnSubmissionCommandHost,
-  text: string,
-  request: TurnSubmissionRequest,
-  options: { focus?: boolean } = {},
-): void {
-  host.setDraft(request.failureDraft ?? text, {
-    ...options,
-    ...(request.preserveComposerContextOnFailure ? { preserveContext: true } : {}),
-    ...(request.inputSnapshot?.threadCommandTarget ? { threadCommandTarget: request.inputSnapshot.threadCommandTarget } : {}),
-  });
-}
-
-function prunePreservedComposerContext(
-  host: TurnSubmissionCommandHost,
-  request: TurnSubmissionRequest,
-  options: { clearSuggestions?: boolean } = {},
-): void {
-  if (request.preserveComposerContextOnFailure) host.setDraft("", options);
 }
 
 function isCurrentTurn(host: TurnSubmissionCommandHost, threadId: string, turnId: string): boolean {

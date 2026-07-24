@@ -16,7 +16,7 @@ import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../.
 
 describe("chatReducer", () => {
   it.each(["connection/scoped-cleared", "connection/context-replaced"] as const)(
-    "restores cancellable web drafts when %s clears their context",
+    "leaves composer restoration to its owner when %s clears pending web context",
     (type) => {
       const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
       if (!pending) throw new Error("Expected pending web submission");
@@ -26,7 +26,6 @@ describe("chatReducer", () => {
           id: pending.id,
           item: pending,
           targetThreadId: null,
-          originalDraft: "  /web https://example.com summarize  ",
           phase: "cancellable",
         },
       } as never);
@@ -34,7 +33,7 @@ describe("chatReducer", () => {
       const cleared = chatReducer(state, { type });
 
       expect(cleared.pendingSubmission).toBeNull();
-      expect(cleared.composer.draft).toBe("  /web https://example.com summarize  ");
+      expect(cleared.composer.draft).toBe("");
     },
   );
 
@@ -47,7 +46,6 @@ describe("chatReducer", () => {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        originalDraft: "/web https://example.com summarize",
         phase: "committed",
       },
     } as never);
@@ -905,7 +903,6 @@ function pendingWebSubmission(
     id,
     item,
     targetThreadId: null,
-    originalDraft: `/web ${item.text}`,
     phase,
   };
 }
