@@ -156,6 +156,9 @@ export function createConnectionBundle(
       applyThreadFact: (fact) => {
         environment.plugin.threadFactCoordinator.apply(fact);
       },
+      observeThreadGoal: (threadId) => {
+        environment.plugin.threadGoalCoordinator.markAuthoritativeObservation(threadId);
+      },
       respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
       rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),
     },

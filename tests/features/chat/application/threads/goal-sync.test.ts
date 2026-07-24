@@ -50,7 +50,7 @@ describe("createThreadGoalSync", () => {
 
     const reading = sync.syncThreadGoal("thread");
     await vi.waitFor(() => expect(goalPort.readThreadGoal).toHaveBeenCalledOnce());
-    goalCoordinator.markMutationCommitted("thread");
+    goalCoordinator.markAuthoritativeObservation("thread");
     oldRead.resolve(goal({ objective: "Old" }));
     await reading;
 
@@ -78,7 +78,7 @@ describe("createThreadGoalSync", () => {
 
     const reading = sync.syncThreadGoal("thread");
     await vi.waitFor(() => expect(goalPort.readThreadGoal).toHaveBeenCalledOnce());
-    goalCoordinator.markMutationCommitted("thread");
+    goalCoordinator.markAuthoritativeObservation("thread");
     oldRead.reject(new Error("old read failed"));
     await reading;
 

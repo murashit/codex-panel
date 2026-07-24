@@ -135,7 +135,7 @@ async function clearGoal(host: GoalCommandsContext, threadId: string, scope: Goa
     if (!(await host.goalPort.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId, scope)) return false;
     const effect = await host.goalPort.clearThreadGoal(threadId);
     if (!effectCompletedInCurrentContext(effect)) return false;
-    host.goalCoordinator.markMutationCommitted(threadId);
+    host.goalCoordinator.markAuthoritativeObservation(threadId);
     return applyThreadGoalIfActive(host, threadId, null, { reportChange: true, panelTarget: scope.panelTarget });
   } catch (error) {
     addThreadGoalSystemMessage(host, threadId, errorMessage(error), scope.panelTarget);
@@ -155,7 +155,7 @@ async function setGoal(
     }
     const effect = await host.goalPort.setThreadGoal(threadId, params);
     if (!effectCompletedInCurrentContext(effect)) return GOAL_MUTATION_NOT_COMMITTED;
-    host.goalCoordinator.markMutationCommitted(threadId);
+    host.goalCoordinator.markAuthoritativeObservation(threadId);
     return {
       committed: true,
       presented: applyThreadGoalIfActive(host, threadId, effect.value, { reportChange: true, panelTarget: scope.panelTarget }),

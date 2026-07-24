@@ -4,7 +4,7 @@ export interface ThreadGoalCoordinator {
   readonly goalMutations: KeyedOperationQueue<string>;
   captureReadRevision(threadId: string): number;
   readRevisionIsCurrent(threadId: string, revision: number): boolean;
-  markMutationCommitted(threadId: string): void;
+  markAuthoritativeObservation(threadId: string): void;
 }
 
 export function createThreadGoalCoordinator(): ThreadGoalCoordinator {
@@ -14,7 +14,7 @@ export function createThreadGoalCoordinator(): ThreadGoalCoordinator {
     goalMutations,
     captureReadRevision: (threadId) => readRevisions.get(threadId) ?? 0,
     readRevisionIsCurrent: (threadId, revision) => (readRevisions.get(threadId) ?? 0) === revision,
-    markMutationCommitted: (threadId) => {
+    markAuthoritativeObservation: (threadId) => {
       readRevisions.set(threadId, (readRevisions.get(threadId) ?? 0) + 1);
     },
   };

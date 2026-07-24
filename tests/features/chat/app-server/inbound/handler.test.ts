@@ -43,6 +43,7 @@ function handlerForState(
       handleAppServerResourceFact: vi.fn(),
       maybeNameThread: vi.fn(),
       applyThreadFact: applyThreadFact ?? vi.fn(),
+      observeThreadGoal: vi.fn(),
       respondToServerRequest: vi.fn(() => true),
       rejectServerRequest: vi.fn(() => true),
       ...inboundActions,
@@ -1863,6 +1864,33 @@ describe("ChatInboundHandler", () => {
         text: "cleared: Finish well",
         objective: "Finish well",
       });
+    });
+
+    it("observes authoritative goal notifications even for an inactive thread", () => {
+      const observeThreadGoal = vi.fn();
+      const handler = handlerForState(activeRunningState(), { observeThreadGoal });
+      const goal = {
+        threadId: "thread-inactive",
+        objective: "Finish",
+        status: "active",
+        tokenBudget: null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
+
+      handler.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-inactive", turnId: null, goal },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+      handler.handleNotification({
+        method: "thread/goal/cleared",
+        params: { threadId: "thread-inactive" },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
+
+      expect(observeThreadGoal).toHaveBeenNthCalledWith(1, "thread-inactive");
+      expect(observeThreadGoal).toHaveBeenNthCalledWith(2, "thread-inactive");
     });
 
     it("adds a goal fact when a goal completes", () => {

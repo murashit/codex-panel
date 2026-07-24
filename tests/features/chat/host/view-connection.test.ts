@@ -2,6 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
+import type { ThreadGoal } from "../../../../src/domain/threads/goal";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
@@ -271,6 +272,63 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.containerEl.textContent).toContain("Ship the feature");
   });
 
+  it("keeps a goal update notification over an earlier in-flight goal read", async () => {
+    const oldRead = deferred<{ goal: ThreadGoal | null }>();
+    const client = connectedClient({
+      "thread/goal/get": vi.fn(() => oldRead.promise),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    const opening = view.surface.openThread("thread-1", { focus: false });
+    await waitForAsyncWork(() => {
+      expect(client.request).toHaveBeenCalledWith("thread/goal/get", { threadId: "thread-1" });
+    });
+    connectionMockState().onNotification?.({
+      method: "thread/goal/updated",
+      params: {
+        threadId: "thread-1",
+        turnId: null,
+        goal: goalSnapshot("Latest", 2),
+      },
+    } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("Latest");
+    });
+
+    oldRead.resolve({ goal: goalSnapshot("Old", 1) });
+    await opening;
+
+    expect(view.containerEl.textContent).toContain("Latest");
+    expect(view.containerEl.textContent).not.toContain("Old");
+  });
+
+  it("keeps a goal clear notification over an earlier in-flight goal read", async () => {
+    const oldRead = deferred<{ goal: ThreadGoal | null }>();
+    const client = connectedClient({
+      "thread/goal/get": vi.fn(() => oldRead.promise),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    const opening = view.surface.openThread("thread-1", { focus: false });
+    await waitForAsyncWork(() => {
+      expect(client.request).toHaveBeenCalledWith("thread/goal/get", { threadId: "thread-1" });
+    });
+    connectionMockState().onNotification?.({
+      method: "thread/goal/cleared",
+      params: { threadId: "thread-1" },
+    } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
+
+    oldRead.resolve({ goal: goalSnapshot("Old", 1) });
+    await opening;
+
+    expect(view.containerEl.querySelector(".codex-panel__goal")).toBeNull();
+    expect(view.containerEl.textContent).not.toContain("Old");
+  });
+
   it("ignores stale connection work after the view closes", async () => {
     let resolveConfig!: (value: unknown) => void;
     const client = connectedClient({
@@ -351,3 +409,16 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
   });
 });
+
+function goalSnapshot(objective: string, updatedAt: number): ThreadGoal {
+  return {
+    threadId: "thread-1",
+    objective,
+    status: "active",
+    tokenBudget: null,
+    tokensUsed: 0,
+    timeUsedSeconds: 0,
+    createdAt: 1,
+    updatedAt,
+  };
+}

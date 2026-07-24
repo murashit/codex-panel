@@ -35,6 +35,7 @@ export interface ChatInboundHandlerEffects {
   handleAppServerResourceFact: (fact: AppServerResourceFact) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
   applyThreadFact: (fact: ThreadFactInput) => void;
+  observeThreadGoal: (threadId: string) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
 }
@@ -107,6 +108,9 @@ function dispatch(context: ChatInboundHandlerContext, action: ChatAction): void 
 }
 
 function handleNotification(context: ChatInboundHandlerContext, notification: ServerNotification): void {
+  if (notification.method === "thread/goal/updated" || notification.method === "thread/goal/cleared") {
+    context.effects.observeThreadGoal(notification.params.threadId);
+  }
   const plan = planChatInboundNotification(state(context), notification, (prefix) => localItemId(context, prefix));
   for (const action of plan.actions) dispatch(context, action);
   for (const effect of plan.effects) runInboundEffect(context, effect);

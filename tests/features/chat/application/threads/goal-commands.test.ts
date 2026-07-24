@@ -41,7 +41,7 @@ describe("createGoalCommands", () => {
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
     const goalCoordinator = createThreadGoalCoordinator();
-    const markMutationCommitted = vi.spyOn(goalCoordinator, "markMutationCommitted");
+    const markAuthoritativeObservation = vi.spyOn(goalCoordinator, "markAuthoritativeObservation");
     const commands = createGoalCommands(
       {
         stateStore,
@@ -66,9 +66,9 @@ describe("createGoalCommands", () => {
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "paused: Updated", objective: "Updated" }));
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "cleared: Updated", objective: "Updated" }));
     expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
-    expect(markMutationCommitted).toHaveBeenNthCalledWith(1, "thread");
-    expect(markMutationCommitted).toHaveBeenNthCalledWith(2, "thread");
-    expect(markMutationCommitted).toHaveBeenNthCalledWith(3, "thread");
+    expect(markAuthoritativeObservation).toHaveBeenNthCalledWith(1, "thread");
+    expect(markAuthoritativeObservation).toHaveBeenNthCalledWith(2, "thread");
+    expect(markAuthoritativeObservation).toHaveBeenNthCalledWith(3, "thread");
   });
 
   it("does not mark stale or failed goal mutations as committed", async () => {
@@ -80,7 +80,7 @@ describe("createGoalCommands", () => {
       clearThreadGoal: vi.fn().mockRejectedValue(new Error("offline")),
     });
     const goalCoordinator = createThreadGoalCoordinator();
-    const markMutationCommitted = vi.spyOn(goalCoordinator, "markMutationCommitted");
+    const markAuthoritativeObservation = vi.spyOn(goalCoordinator, "markAuthoritativeObservation");
     const commands = createGoalCommands(
       {
         stateStore,
@@ -96,7 +96,7 @@ describe("createGoalCommands", () => {
     await expect(commands.setObjective("thread", "Stale", null)).resolves.toBe(false);
     await expect(commands.clear("thread")).resolves.toBe(false);
 
-    expect(markMutationCommitted).not.toHaveBeenCalled();
+    expect(markAuthoritativeObservation).not.toHaveBeenCalled();
   });
 
   it("serializes goal mutations for the same thread", async () => {
