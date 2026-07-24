@@ -10,7 +10,7 @@ import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../threads/workflows/archive-export";
 import type { ThreadOperationsTransport, ThreadTitleTransport } from "../threads/workflows/ports";
-import type { ThreadOperationEventSink } from "../threads/workflows/thread-operation-event";
+import type { ThreadFactSink } from "../threads/workflows/thread-facts";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
@@ -19,7 +19,7 @@ export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
   readonly threadCatalog: ThreadsViewThreadCatalog;
-  readonly threadEvents: ThreadOperationEventSink;
+  readonly threadFacts: ThreadFactSink;
   readonly threadNameMutations: KeyedOperationQueue<string>;
   readonly threadOperationsTransport: ThreadOperationsTransport;
   readonly threadTitleTransport: ThreadTitleTransport;
@@ -80,7 +80,7 @@ export class ThreadsViewSession {
         vaultConfigDir: this.environment.vaultConfigDir(),
       },
       archiveDestination: () => this.environment.archiveDestination(),
-      operationEvents: this.host.threadEvents,
+      facts: this.host.threadFacts,
       referenceThreads: () => this.threads,
       notice: (message) => {
         new Notice(message);

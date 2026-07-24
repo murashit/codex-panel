@@ -166,7 +166,7 @@ function chatHostFixture(): CodexChatHost {
       loadMoreActiveThreads: vi.fn(() => Promise.resolve([])),
       observeActiveThreadsResult: vi.fn(() => () => undefined),
     },
-    threadOperationCoordinator: {
+    threadFactCoordinator: {
       apply: vi.fn(),
       beginForkPublication: vi.fn(() => ({ record: vi.fn(), finish: vi.fn() })),
     },

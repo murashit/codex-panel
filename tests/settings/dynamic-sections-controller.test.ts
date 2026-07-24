@@ -200,7 +200,7 @@ describe("SettingsDynamicSectionsController", () => {
 
   it("ignores refresh requests while an archived thread operation is loading", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
-    const applyThreadCatalogEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     const initialClient = settingsClient();
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => staleRestore.promise),
@@ -211,7 +211,7 @@ describe("SettingsDynamicSectionsController", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadCatalogEvent, refreshArchived }), {
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact, refreshArchived }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
@@ -227,7 +227,7 @@ describe("SettingsDynamicSectionsController", () => {
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
 
-    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+    expect(applyThreadFact).toHaveBeenCalledWith({
       type: "thread-restored",
       thread: expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
     });
@@ -245,9 +245,9 @@ describe("SettingsDynamicSectionsController", () => {
     const deleteClient = settingsRequestClient({
       "thread/delete": deleteRequest,
     });
-    const applyThreadCatalogEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     useShortLivedClients(restoreClient, deleteClient);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadCatalogEvent }), {
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
@@ -264,12 +264,12 @@ describe("SettingsDynamicSectionsController", () => {
     await flushPromises();
 
     expect(deleteRequest).toHaveBeenCalledOnce();
-    expect(applyThreadCatalogEvent).toHaveBeenCalledTimes(1);
+    expect(applyThreadFact).toHaveBeenCalledTimes(1);
 
     deleteResult.resolve({});
     await Promise.all([restore, deletion]);
 
-    expect(applyThreadCatalogEvent.mock.calls.map(([event]) => event.type)).toEqual(["thread-restored", "thread-deleted"]);
+    expect(applyThreadFact.mock.calls.map(([event]) => event.type)).toEqual(["thread-restored", "thread-deleted"]);
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
   });
 
@@ -278,10 +278,10 @@ describe("SettingsDynamicSectionsController", () => {
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => restoreResult.promise),
     });
-    const applyThreadCatalogEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     const display = vi.fn();
     useShortLivedClients(restoreClient);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadCatalogEvent }), {
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact }), {
       display,
       notify: vi.fn(),
     });
@@ -294,7 +294,7 @@ describe("SettingsDynamicSectionsController", () => {
     restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored after close" }) });
     await restore;
 
-    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+    expect(applyThreadFact).toHaveBeenCalledWith({
       type: "thread-restored",
       thread: expect.objectContaining({ id: "thread-old", preview: "Restored after close", archived: false }),
     });
@@ -306,9 +306,9 @@ describe("SettingsDynamicSectionsController", () => {
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => restoreResult.promise),
     });
-    const applyThreadCatalogEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     useShortLivedClients(restoreClient);
-    const host = settingsTabHost({ applyThreadCatalogEvent });
+    const host = settingsTabHost({ applyThreadFact });
     const controller = new SettingsDynamicSectionsController(host, { display: vi.fn(), notify: vi.fn() });
 
     const restore = controller.restoreArchivedThread("thread-old");
@@ -317,7 +317,7 @@ describe("SettingsDynamicSectionsController", () => {
     restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored after replacement" }) });
     await restore;
 
-    expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+    expect(applyThreadFact).not.toHaveBeenCalled();
   });
 
   it("starts a replacement-context archived mutation while old work is still pending", async () => {
@@ -350,7 +350,7 @@ describe("SettingsDynamicSectionsController", () => {
 
   it("records restored archived threads in the active catalog", async () => {
     const notify = vi.fn();
-    const applyThreadCatalogEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     const initialClient = settingsClient();
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
@@ -359,7 +359,7 @@ describe("SettingsDynamicSectionsController", () => {
     const controller = new SettingsDynamicSectionsController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        applyThreadCatalogEvent,
+        applyThreadFact,
       }),
       { display: vi.fn(), notify },
     );
@@ -370,7 +370,7 @@ describe("SettingsDynamicSectionsController", () => {
     const snapshot = controller.snapshot();
     expect(snapshot.archivedThreads).toEqual([]);
     expect(snapshot.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+    expect(applyThreadFact).toHaveBeenCalledWith({
       type: "thread-restored",
       thread: expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
     });
@@ -395,7 +395,7 @@ describe("SettingsDynamicSectionsController", () => {
           };
           return () => undefined;
         },
-        applyThreadCatalogEvent: () => {
+        applyThreadFact: () => {
           emitArchived([]);
         },
       }),
@@ -436,7 +436,7 @@ describe("SettingsDynamicSectionsController", () => {
           };
           return () => undefined;
         },
-        applyThreadCatalogEvent: () => {
+        applyThreadFact: () => {
           emitArchived([]);
         },
       }),

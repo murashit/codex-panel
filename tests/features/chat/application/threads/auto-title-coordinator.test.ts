@@ -206,7 +206,7 @@ function coordinatorFixture(
       createFolder: vi.fn().mockResolvedValue(undefined),
       createMarkdownFile: vi.fn().mockResolvedValue(undefined),
     }),
-    operationEvents: {
+    facts: {
       apply: (event) => {
         if (event.type === "thread-renamed") {
           stateStore.dispatch({

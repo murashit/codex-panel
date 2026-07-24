@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../../../src/domain/threads/catalog-read-model";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { createThreadOperationCoordinator } from "../../../../src/features/threads/workflows/thread-operation-coordinator";
-import type { ThreadLifecycleEvent } from "../../../../src/features/threads/workflows/thread-operation-event";
-import { projectThreadCatalogChanges } from "../../../../src/features/threads/workflows/thread-read-model-projection";
+import { createThreadFactCoordinator } from "../../../../src/features/threads/workflows/thread-fact-coordinator";
+import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
+import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
 
-describe("ThreadOperationCoordinator", () => {
+describe("ThreadFactCoordinator", () => {
   it("commits ordinary facts directly and a completed fork as one ordered fact batch", () => {
     const commit = vi.fn();
-    const coordinator = createThreadOperationCoordinator(commit);
+    const coordinator = createThreadFactCoordinator(commit);
 
     coordinator.apply({ type: "thread-renamed", threadId: "other", name: "Other" });
     const publication = coordinator.beginForkPublication("source");
@@ -28,7 +28,7 @@ describe("ThreadOperationCoordinator", () => {
 
   it("holds unclaimed fork notifications until every publication for the source finishes", () => {
     const commit = vi.fn();
-    const coordinator = createThreadOperationCoordinator(commit);
+    const coordinator = createThreadFactCoordinator(commit);
     const first = coordinator.beginForkPublication("source");
     const second = coordinator.beginForkPublication("source");
     first.record(thread("first"));
@@ -48,7 +48,7 @@ describe("ThreadOperationCoordinator", () => {
 
   it("carries lifecycle observed before the fork response into the claimed child", () => {
     const commit = vi.fn();
-    const coordinator = createThreadOperationCoordinator(commit);
+    const coordinator = createThreadFactCoordinator(commit);
     const publication = coordinator.beginForkPublication("source");
     coordinator.apply({
       type: "thread-upserted",
@@ -70,7 +70,7 @@ describe("ThreadOperationCoordinator", () => {
 
   it("settles source lifecycle only after every publication for the source finishes", () => {
     const commit = vi.fn();
-    const coordinator = createThreadOperationCoordinator(commit);
+    const coordinator = createThreadFactCoordinator(commit);
     const first = coordinator.beginForkPublication("source");
     const second = coordinator.beginForkPublication("source");
     first.record(thread("first"));
@@ -87,7 +87,7 @@ describe("ThreadOperationCoordinator", () => {
 
   it("commits a restored source even when a failed fork produced no child", () => {
     const commit = vi.fn();
-    const coordinator = createThreadOperationCoordinator(commit);
+    const coordinator = createThreadFactCoordinator(commit);
     const publication = coordinator.beginForkPublication("source");
     const restored = thread("source", true, { preview: "restored" });
     coordinator.apply({ type: "thread-archived", threadId: "source" });
@@ -98,13 +98,13 @@ describe("ThreadOperationCoordinator", () => {
     expect(commit).toHaveBeenCalledWith([{ type: "thread-restored", thread: restored }]);
   });
 
-  it("projects rename and archive events through the shared query owner", () => {
+  it("projects rename and archive facts through the shared query owner", () => {
     const store = catalogStore({
       active: [thread("active"), thread("other")],
       archived: [thread("archived", true)],
     });
     const onEventApplied = vi.fn();
-    const coordinator = operationCoordinatorForStore(store, onEventApplied);
+    const coordinator = factCoordinatorForStore(store, onEventApplied);
 
     coordinator.apply({ type: "thread-renamed", threadId: "active", name: "Renamed" });
     coordinator.apply({ type: "thread-archived", threadId: "active" });
@@ -117,7 +117,7 @@ describe("ThreadOperationCoordinator", () => {
   it("publishes a fork replacement to active observers as one mutation batch", () => {
     const store = catalogStore({ active: [thread("source"), thread("other")], archived: [] });
     const onEventApplied = vi.fn();
-    const coordinator = operationCoordinatorForStore(store, onEventApplied);
+    const coordinator = factCoordinatorForStore(store, onEventApplied);
     const publication = coordinator.beginForkPublication("source");
 
     coordinator.apply({
@@ -149,7 +149,7 @@ describe("ThreadOperationCoordinator", () => {
 
   it("publishes a normal fork once without removing its source", () => {
     const store = catalogStore({ active: [thread("source")] });
-    const publication = operationCoordinatorForStore(store).beginForkPublication("source");
+    const publication = factCoordinatorForStore(store).beginForkPublication("source");
 
     publication.record(thread("forked"));
     publication.finish();
@@ -160,7 +160,7 @@ describe("ThreadOperationCoordinator", () => {
 
   it("keeps the source active when an unarchive supersedes a deferred archive", () => {
     const store = catalogStore({ active: [thread("source")], archived: [] });
-    const coordinator = operationCoordinatorForStore(store);
+    const coordinator = factCoordinatorForStore(store);
     const publication = coordinator.beginForkPublication("source");
     publication.record(thread("forked"));
 
@@ -175,7 +175,7 @@ describe("ThreadOperationCoordinator", () => {
 
   it("publishes the restored source record that supersedes a deferred archive", () => {
     const store = catalogStore({ active: [thread("source")], archived: [] });
-    const coordinator = operationCoordinatorForStore(store);
+    const coordinator = factCoordinatorForStore(store);
     const publication = coordinator.beginForkPublication("source");
     publication.record(thread("forked"));
     const restoredSource = thread("source", true, { preview: "restored preview", updatedAt: 4 });
@@ -191,7 +191,7 @@ describe("ThreadOperationCoordinator", () => {
 
   it("does not resurrect a fork child archived before publication finishes", () => {
     const store = catalogStore({ active: [thread("source")], archived: [] });
-    const coordinator = operationCoordinatorForStore(store);
+    const coordinator = factCoordinatorForStore(store);
     const publication = coordinator.beginForkPublication("source");
     publication.record(thread("forked"));
 
@@ -204,9 +204,9 @@ describe("ThreadOperationCoordinator", () => {
     expect(store.archivedThreadsSnapshot()).toEqual([thread("source", true), thread("forked", true)]);
   });
 
-  it("does not delay unrelated catalog events during a fork publication", () => {
+  it("does not delay unrelated catalog facts during a fork publication", () => {
     const store = catalogStore({ active: [thread("source")] });
-    const coordinator = operationCoordinatorForStore(store);
+    const coordinator = factCoordinatorForStore(store);
     const publication = coordinator.beginForkPublication("source");
 
     coordinator.apply({ type: "thread-upserted", thread: thread("unrelated") });
@@ -215,9 +215,9 @@ describe("ThreadOperationCoordinator", () => {
     publication.finish();
   });
 
-  it("does not invent an archived record when an archive event lacks a source snapshot", () => {
+  it("does not invent an archived record when an archive fact lacks a source snapshot", () => {
     const store = catalogStore();
-    const coordinator = operationCoordinatorForStore(store);
+    const coordinator = factCoordinatorForStore(store);
 
     coordinator.apply({ type: "thread-archived", threadId: "unknown" });
 
@@ -232,7 +232,7 @@ describe("ThreadOperationCoordinator", () => {
       active: [thread("active")],
       archived: [thread("restored", true), thread("unarchived", true)],
     });
-    const coordinator = operationCoordinatorForStore(store);
+    const coordinator = factCoordinatorForStore(store);
 
     coordinator.apply({ type: "thread-restored", thread: thread("restored", true) });
     coordinator.apply({ type: "thread-unarchived", threadId: "unarchived" });
@@ -246,7 +246,7 @@ describe("ThreadOperationCoordinator", () => {
       active: [thread("active"), thread("kept")],
       archived: [thread("deleted", true)],
     });
-    const coordinator = operationCoordinatorForStore(store);
+    const coordinator = factCoordinatorForStore(store);
 
     coordinator.apply({ type: "thread-renamed", threadId: "missing", name: "Not invented" });
     coordinator.apply({ type: "thread-deleted", threadId: "deleted" });
@@ -256,13 +256,10 @@ describe("ThreadOperationCoordinator", () => {
   });
 });
 
-function operationCoordinatorForStore(
-  store: ReturnType<typeof catalogStore>,
-  onEventsApplied?: (events: readonly ThreadLifecycleEvent[]) => void,
-) {
-  return createThreadOperationCoordinator((events) => {
-    store.applyThreadCatalogChanges(projectThreadCatalogChanges(store, events));
-    onEventsApplied?.(events);
+function factCoordinatorForStore(store: ReturnType<typeof catalogStore>, onFactsApplied?: (facts: readonly ThreadFact[]) => void) {
+  return createThreadFactCoordinator((facts) => {
+    store.applyThreadCatalogChanges(projectThreadFacts(store, facts));
+    onFactsApplied?.(facts);
   });
 }
 

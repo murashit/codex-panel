@@ -130,7 +130,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     threadStartTransport: appServer.threadStart,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     recordStartedThread: (thread) => {
-      environment.plugin.threadOperationCoordinator.apply({ type: "thread-upserted", thread });
+      environment.plugin.threadFactCoordinator.apply({ type: "thread-upserted", thread });
     },
     syncThreadGoal: (threadId) => {
       void threadFoundation.goalSync.syncThreadGoal(threadId);

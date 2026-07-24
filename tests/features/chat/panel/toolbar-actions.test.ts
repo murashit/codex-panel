@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
+import type { ThreadCommands } from "../../../../src/features/chat/application/threads/thread-commands";
 import { createToolbarPanelActions, createToolbarUiActions } from "../../../../src/features/chat/panel/toolbar-actions";
 
 describe("createToolbarPanelActions", () => {
@@ -13,7 +13,7 @@ describe("createToolbarPanelActions", () => {
     const archiveThread = vi.fn().mockResolvedValue(undefined);
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread } as unknown as ThreadManagementActions,
+      threadActions: { archiveThread } as unknown as ThreadCommands,
     });
 
     actions.startArchive("thread");
@@ -29,7 +29,7 @@ describe("createToolbarPanelActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     actions.toggleHistory();
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
@@ -46,7 +46,7 @@ describe("createToolbarPanelActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     actions.toggleHistory();
     actions.startArchive("thread");
@@ -64,7 +64,7 @@ describe("createToolbarPanelActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     actions.toggleHistory();
     actions.startArchive("thread");

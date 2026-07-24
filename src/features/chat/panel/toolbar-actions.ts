@@ -4,13 +4,13 @@ import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { GoalActions } from "../application/threads/goal-actions";
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
-import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
+import type { ThreadCommands } from "../application/threads/thread-commands";
 import type { ThreadNavigationActions } from "../application/threads/thread-navigation-actions";
 import type { ToolbarActions } from "../ui/toolbar";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
-  threadActions: ThreadManagementActions;
+  threadActions: ThreadCommands;
 }
 
 export interface ToolbarPanelActions {
@@ -28,7 +28,7 @@ export interface ToolbarPanelActions {
 export interface ToolbarUiActionDependencies {
   connectionActions: ChatConnectionActions;
   reconnectPanel: () => Promise<void>;
-  threadActions: ThreadManagementActions;
+  threadActions: ThreadCommands;
   goals: GoalActions;
   toolbarPanel: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;

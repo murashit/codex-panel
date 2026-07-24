@@ -217,7 +217,7 @@ describe("chat app-server transports", () => {
     const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    }).threadMutation;
+    }).threadCommands;
 
     await expect(transport.compactThread("thread")).resolves.toEqual({ kind: "completed-current", value: undefined });
 
@@ -230,7 +230,7 @@ describe("chat app-server transports", () => {
     const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    }).threadMutation;
+    }).threadCommands;
 
     const outcome = await transport.forkThread("source");
 
@@ -247,7 +247,7 @@ describe("chat app-server transports", () => {
     const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    }).threadMutation;
+    }).threadCommands;
 
     await transport.forkThread("source", { position: { kind: "through-turn", turnId: "turn-2" } });
 
@@ -267,7 +267,7 @@ describe("chat app-server transports", () => {
     const transport = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
-    }).threadMutation;
+    }).threadCommands;
 
     const forking = transport.forkThread("source");
     currentClient = secondClient;
@@ -285,7 +285,7 @@ describe("chat app-server transports", () => {
     const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    }).threadMutation;
+    }).threadCommands;
 
     const outcome = await transport.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
@@ -311,7 +311,7 @@ describe("chat app-server transports", () => {
     const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    }).threadMutation;
+    }).threadCommands;
 
     await transport.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
@@ -347,7 +347,7 @@ describe("chat app-server transports", () => {
     const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    }).threadMutation;
+    }).threadCommands;
 
     await transport.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },

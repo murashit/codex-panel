@@ -9,7 +9,7 @@ import type {
 } from "./features/chat/host/contracts";
 import type { SelectionRewriteCommandController } from "./features/selection-rewrite/command.obsidian";
 import type { SelectionRewriteTransport } from "./features/selection-rewrite/transport";
-import type { ThreadLifecycleEvent } from "./features/threads/workflows/thread-operation-event";
+import type { ThreadFact } from "./features/threads/workflows/thread-facts";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
 import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/turn-diff/model";
@@ -187,17 +187,17 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     }
   }
 
-  private applyThreadLifecycleSurfaceEvents(events: readonly ThreadLifecycleEvent[]): void {
-    for (const event of events) this.applyThreadLifecycleSurfaceEvent(event);
+  private applyThreadFacts(facts: readonly ThreadFact[]): void {
+    for (const fact of facts) this.applyThreadFact(fact);
   }
 
-  private applyThreadLifecycleSurfaceEvent(event: ThreadLifecycleEvent): void {
-    switch (event.type) {
+  private applyThreadFact(fact: ThreadFact): void {
+    switch (fact.type) {
       case "thread-archived":
-        this.applyThreadArchived(event.threadId);
+        this.applyThreadArchived(fact.threadId);
         return;
       case "thread-renamed":
-        this.applyThreadRenamed(event.threadId, event.name);
+        this.applyThreadRenamed(fact.threadId, fact.name);
         return;
       default:
         return;
@@ -255,8 +255,8 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
           this.refreshThreadsViewLiveState();
         },
       },
-      onThreadLifecycleEvents: (events) => {
-        this.applyThreadLifecycleSurfaceEvents(events);
+      onThreadFacts: (facts) => {
+        this.applyThreadFacts(facts);
       },
       openNewPanel: () => this.panels.openNewPanel(),
       openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),

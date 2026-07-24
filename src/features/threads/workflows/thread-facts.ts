@@ -1,6 +1,6 @@
 import type { Thread } from "../../../domain/threads/model";
 
-export type ThreadLifecycleEvent =
+export type ThreadFact =
   | { type: "thread-upserted"; thread: Thread }
   | { type: "thread-renamed"; threadId: string; name: string | null }
   | { type: "thread-archived"; threadId: string }
@@ -8,12 +8,12 @@ export type ThreadLifecycleEvent =
   | { type: "thread-restored"; thread: Thread }
   | { type: "thread-unarchived"; threadId: string };
 
-export type ThreadOperationEvent =
-  | Exclude<ThreadLifecycleEvent, { type: "thread-upserted" }>
+export type ThreadFactInput =
+  | Exclude<ThreadFact, { type: "thread-upserted" }>
   | { type: "thread-upserted"; thread: Thread; forkedFromThreadId?: string | null };
 
-export interface ThreadOperationEventSink {
-  apply(event: ThreadOperationEvent): void;
+export interface ThreadFactSink {
+  apply(fact: ThreadFactInput): void;
 }
 
-export type ThreadOperationCommitter = (events: readonly ThreadLifecycleEvent[]) => void;
+export type ThreadFactCommitter = (facts: readonly ThreadFact[]) => void;

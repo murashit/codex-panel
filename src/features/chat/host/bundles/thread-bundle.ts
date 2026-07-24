@@ -25,7 +25,7 @@ import {
 import { RestorationController } from "../../application/threads/restoration-controller";
 import { createResumeActions, type ResumeActions } from "../../application/threads/resume-actions";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
-import { createThreadManagementActions, type ThreadManagementActionsHost } from "../../application/threads/thread-management-actions";
+import { createThreadCommands, type ThreadCommandsHost } from "../../application/threads/thread-commands";
 import { createThreadNavigationActions } from "../../application/threads/thread-navigation-actions";
 import type { ThreadStartActions } from "../../application/threads/thread-start-actions";
 import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
@@ -35,7 +35,7 @@ import type { ChatPanelEnvironment } from "../contracts";
 
 type ChatPanelGoalSyncActions = ReturnType<typeof createThreadGoalSyncActions>;
 export type ChatPanelGoalActions = ReturnType<typeof createGoalActions>;
-export type ChatPanelThreadActions = ReturnType<typeof createThreadManagementActions>;
+export type ChatPanelThreadActions = ReturnType<typeof createThreadCommands>;
 export type ChatPanelThreadNavigationActions = ReturnType<typeof createThreadNavigationActions>;
 
 export interface ChatPanelThreadLifecycle {
@@ -128,7 +128,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
       vaultConfigDir: environment.obsidian.app.vault.configDir,
     },
     archiveDestination: environment.obsidian.archiveDestination,
-    operationEvents: environment.plugin.threadOperationCoordinator,
+    facts: environment.plugin.threadFactCoordinator,
     referenceThreads: () => stateStore.getState().threadList.listedThreads,
     notice: (text) => {
       new Notice(text);
@@ -256,7 +256,7 @@ export function createThreadLifecycleBundle(
 export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatPanelThreadActionInput): ChatPanelThreadActionBundle {
   const { appServer, status, composerController, foundation, lifecycle } = input;
   const { environment, stateStore } = host;
-  const threadManagementHost: ThreadManagementActionsHost = {
+  const threadCommandsHost: ThreadCommandsHost = {
     stateStore,
     operations: {
       renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
@@ -265,7 +265,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
         return true;
       },
     },
-    threadTransport: appServer.threadMutation,
+    commandPort: appServer.threadCommands,
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
     setComposerText: (text) => {
@@ -290,10 +290,10 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
         throw error;
       }
     },
-    beginThreadForkPublication: (sourceThreadId) => environment.plugin.threadOperationCoordinator.beginForkPublication(sourceThreadId),
+    beginThreadForkPublication: (sourceThreadId) => environment.plugin.threadFactCoordinator.beginForkPublication(sourceThreadId),
     threadHasPendingOrRunningPanel: (threadId) => environment.plugin.workspace.threadHasPendingOrRunningPanel(threadId),
   };
-  const actions = createThreadManagementActions(threadManagementHost);
+  const actions = createThreadCommands(threadCommandsHost);
   const toolbarPanelActions = createToolbarPanelActions({
     stateStore,
     threadActions: actions,
@@ -362,7 +362,7 @@ function createSessionThreadLifecycle(
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged,
     recordResumedThread: (thread) => {
-      host.environment.plugin.threadOperationCoordinator.apply({ type: "thread-upserted", thread });
+      host.environment.plugin.threadFactCoordinator.apply({ type: "thread-upserted", thread });
     },
     addSystemMessage: status.addSystemMessage,
     syncThreadGoal: (threadId) => goalSync.syncThreadGoal(threadId),

@@ -377,9 +377,9 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": archiveThread,
     });
-    const applyThreadOperationEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     const host = threadsHost({
-      threadEvents: { apply: applyThreadOperationEvent },
+      threadFacts: { apply: applyThreadFact },
     });
     const view = await threadsView(host);
 
@@ -389,7 +389,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" });
-      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-archived",
         threadId: "thread",
       });
@@ -403,10 +403,10 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": archiveThread,
     });
-    const applyThreadOperationEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     const view = await threadsView(
       threadsHost({
-        threadEvents: { apply: applyThreadOperationEvent },
+        threadFacts: { apply: applyThreadFact },
       }),
     );
 
@@ -419,7 +419,7 @@ describe("CodexThreadsView", () => {
     archived.resolve({});
 
     await waitForAsyncWork(() => {
-      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-archived",
         threadId: "thread",
       });
@@ -452,9 +452,9 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
-    const applyThreadOperationEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     const host = threadsHost({
-      threadEvents: { apply: applyThreadOperationEvent },
+      threadFacts: { apply: applyThreadFact },
     });
     const view = await threadsView(host);
 
@@ -468,7 +468,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed thread" });
-      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-renamed",
         threadId: "thread",
         name: "Renamed thread",
@@ -483,10 +483,10 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
-    const applyThreadOperationEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     const view = await threadsView(
       threadsHost({
-        threadEvents: { apply: applyThreadOperationEvent },
+        threadFacts: { apply: applyThreadFact },
       }),
     );
 
@@ -504,7 +504,7 @@ describe("CodexThreadsView", () => {
     renamed.resolve({});
 
     await waitForAsyncWork(() => {
-      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-renamed",
         threadId: "thread",
         name: "Renamed after close",
@@ -520,9 +520,9 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
-    const applyThreadOperationEvent = vi.fn();
+    const applyThreadFact = vi.fn();
     const host = threadsHost({
-      threadEvents: { apply: applyThreadOperationEvent },
+      threadFacts: { apply: applyThreadFact },
     });
     const view = await threadsView(host);
 
@@ -545,7 +545,7 @@ describe("CodexThreadsView", () => {
     saved.resolve({});
 
     await waitForAsyncWork(() => {
-      expect(applyThreadOperationEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-renamed",
         threadId: "thread",
         name: "Saved title",
@@ -891,10 +891,10 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       ? (overrides["threadCatalog"] as Partial<ThreadsViewHost["threadCatalog"]>)
       : {};
   const threadEventOverrides =
-    "threadEvents" in overrides && overrides["threadEvents"] !== null && typeof overrides["threadEvents"] === "object"
-      ? (overrides["threadEvents"] as Partial<ThreadsViewHost["threadEvents"]>)
+    "threadFacts" in overrides && overrides["threadFacts"] !== null && typeof overrides["threadFacts"] === "object"
+      ? (overrides["threadFacts"] as Partial<ThreadsViewHost["threadFacts"]>)
       : {};
-  const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadEvents"));
+  const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadFacts"));
   const activeObservers = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
   const emitActive = (threads: readonly Thread[]): void => {
     for (const observer of activeObservers) observer(queryResult(threads));
@@ -918,7 +918,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     vaultPath: "/vault",
     threadNameMutations: createKeyedOperationQueue(),
     threadOperationsTransport: createThreadOperationsTransport(clientAccess),
-    threadEvents: {
+    threadFacts: {
       apply: threadEventOverrides.apply ?? vi.fn(),
     },
     threadTitleTransport: createThreadTitleTransport({

@@ -10,7 +10,7 @@ import type { ObservedResultListener } from "../../../shared/runtime/observed-re
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
 import type { ThreadTitleTransport } from "../../threads/workflows/ports";
-import type { ThreadOperationCoordinator } from "../../threads/workflows/thread-operation-coordinator";
+import type { ThreadFactCoordinator } from "../../threads/workflows/thread-fact-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ThreadGoalOperationCoordinator } from "../application/threads/goal-actions";
 
@@ -21,7 +21,7 @@ export interface CodexChatHost {
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
-  readonly threadOperationCoordinator: ThreadOperationCoordinator;
+  readonly threadFactCoordinator: ThreadFactCoordinator;
   readonly threadNameMutations: KeyedOperationQueue<string>;
   readonly threadTitleTransport: ThreadTitleTransport;
   readonly threadGoalOperations: ThreadGoalOperationCoordinator;

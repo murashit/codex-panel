@@ -17,7 +17,7 @@ import {
 } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
-import type { ThreadOperationEvent as ThreadCatalogEvent } from "../../../../../src/features/threads/workflows/thread-operation-event";
+import type { ThreadFactInput as ThreadCatalogEvent } from "../../../../../src/features/threads/workflows/thread-facts";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -31,18 +31,18 @@ type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
 function handlerForState(
   state = chatStateFixture(),
   actions: Partial<ChatInboundHandlerActions> & {
-    applyThreadCatalogEvent?: ChatInboundHandlerActions["applyThreadOperationEvent"];
+    applyThreadFact?: ChatInboundHandlerActions["applyThreadFact"];
   } = {},
 ): TestChatInboundHandler {
   const store = testStoreForState(state);
-  const { applyThreadCatalogEvent, ...inboundActions } = actions;
+  const { applyThreadFact, ...inboundActions } = actions;
   const handler = createChatInboundHandler(
     store,
     {
       refreshServerDiagnostics: vi.fn(),
       applyAppServerResourceEvent: vi.fn(),
       maybeNameThread: vi.fn(),
-      applyThreadOperationEvent: applyThreadCatalogEvent ?? vi.fn(),
+      applyThreadFact: applyThreadFact ?? vi.fn(),
       respondToServerRequest: vi.fn(() => true),
       rejectServerRequest: vi.fn(() => true),
       ...inboundActions,
@@ -364,8 +364,8 @@ describe("ChatInboundHandler", () => {
           status: "completed",
         },
       ]);
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(state, { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(state, { applyThreadFact });
 
       handler.handleNotification({
         method: "turn/started",
@@ -387,7 +387,7 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(chatStateThreadStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
       expect(pendingTurnStart(handler.currentState())).toBeNull();
-      expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("captures only prompt-submit hooks observed during the pending turn start", () => {
@@ -1271,8 +1271,8 @@ describe("ChatInboundHandler", () => {
 
     it("routes active-thread archive notifications to the shared catalog without clearing the panel", () => {
       const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(state, { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(state, { applyThreadFact });
 
       handler.handleNotification({
         method: "thread/archived",
@@ -1280,37 +1280,37 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
       expect(activeThreadState(handler.currentState())?.id).toBe("thread-active");
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-archived",
         threadId: "thread-active",
       } satisfies ThreadCatalogEvent);
     });
 
     it("records deleted thread notifications in the active catalog", () => {
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
 
       handler.handleNotification({
         method: "thread/deleted",
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/deleted" }>);
 
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-deleted",
         threadId: "thread-active",
       } satisfies ThreadCatalogEvent);
     });
 
     it("routes unarchived thread notifications through the catalog instead of refreshing in the handler", () => {
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
 
       handler.handleNotification({
         method: "thread/unarchived",
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/unarchived" }>);
 
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-unarchived",
         threadId: "thread-active",
       } satisfies ThreadCatalogEvent);
@@ -1319,15 +1319,15 @@ describe("ChatInboundHandler", () => {
     it("records unrelated thread-started notifications", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(state, { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(state, { applyThreadFact });
 
       handler.handleNotification({
         method: "thread/started",
         params: { thread: appServerThread("thread-other", "/workspace/other") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-upserted",
         thread: expect.objectContaining({ id: "thread-other" }),
         forkedFromThreadId: null,
@@ -1335,15 +1335,15 @@ describe("ChatInboundHandler", () => {
     });
 
     it("preserves fork ancestry for atomic catalog publication", () => {
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
 
       handler.handleNotification({
         method: "thread/started",
         params: { thread: { ...appServerThread("thread-forked", "/workspace"), forkedFromId: "thread-source" } },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-upserted",
         thread: expect.objectContaining({ id: "thread-forked" }),
         forkedFromThreadId: "thread-source",
@@ -1353,8 +1353,8 @@ describe("ChatInboundHandler", () => {
     it("records active thread-started notifications without projecting protocol cwd", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(state, { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(state, { applyThreadFact });
 
       handler.handleNotification({
         method: "thread/started",
@@ -1362,7 +1362,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-upserted",
         thread: expect.objectContaining({ id: "thread-active" }),
         forkedFromThreadId: null,
@@ -1370,8 +1370,8 @@ describe("ChatInboundHandler", () => {
     });
 
     it("keeps ephemeral thread-started notifications out of the shared catalog and an empty panel", () => {
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
 
       handler.handleNotification({
         method: "thread/started",
@@ -1379,12 +1379,12 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(handler.currentState().panelThread).toEqual({ kind: "empty" });
-      expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("keeps subagent thread-started notifications out of the shared catalog", () => {
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
       const child = appServerThread("child", "/workspace/active");
 
       handler.handleNotification({
@@ -1410,7 +1410,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("tracks direct subagent activity without admitting unrelated inactive notifications", () => {
@@ -1638,8 +1638,8 @@ describe("ChatInboundHandler", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, { threadList: { listedThreads: [panelThread("thread-active")] } });
-      const applyThreadCatalogEvent = vi.fn();
-      const handler = handlerForState(state, { applyThreadCatalogEvent });
+      const applyThreadFact = vi.fn();
+      const handler = handlerForState(state, { applyThreadFact });
 
       handler.handleNotification({
         method: "thread/name/updated",
@@ -1647,7 +1647,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>);
 
       expect(state.threadList.listedThreads[0]?.name).toBeNull();
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-renamed",
         threadId: "thread-active",
         name: "Codex Panel自動命名",

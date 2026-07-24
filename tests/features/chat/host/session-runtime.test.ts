@@ -216,7 +216,7 @@ describe("chat panel session runtime actions", () => {
     plugin?: {
       workspace?: Partial<ChatPanelEnvironment["plugin"]["workspace"]>;
       threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
-      threadOperationCoordinator?: Partial<ChatPanelEnvironment["plugin"]["threadOperationCoordinator"]>;
+      threadFactCoordinator?: Partial<ChatPanelEnvironment["plugin"]["threadFactCoordinator"]>;
       appServerQueries?: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]>;
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
@@ -289,10 +289,10 @@ describe("chat panel session runtime actions", () => {
         },
         appServerQueries,
         threadCatalog,
-        threadOperationCoordinator: {
-          apply: overrides.plugin?.threadOperationCoordinator?.apply ?? vi.fn(),
+        threadFactCoordinator: {
+          apply: overrides.plugin?.threadFactCoordinator?.apply ?? vi.fn(),
           beginForkPublication:
-            overrides.plugin?.threadOperationCoordinator?.beginForkPublication ?? vi.fn(() => ({ record: vi.fn(), finish: vi.fn() })),
+            overrides.plugin?.threadFactCoordinator?.beginForkPublication ?? vi.fn(() => ({ record: vi.fn(), finish: vi.fn() })),
         },
         threadNameMutations: createKeyedOperationQueue(),
         threadGoalOperations: createThreadGoalOperationCoordinator(),

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
+import type { ThreadCommands } from "../../../../src/features/chat/application/threads/thread-commands";
 import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell.dom";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatThreadStreamSurfaceContext } from "../../../../src/features/chat/panel/surface/thread-stream-projection";
@@ -23,7 +23,7 @@ describe("chat toolbar archive confirmation state", () => {
     const container = document.createElement("div");
     const toolbarActions = createToolbarPanelActions({
       stateStore: store,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     store.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread-1", "Thread one")] });
     store.dispatch({ type: "ui/panel-set", panel: "history" });
@@ -57,7 +57,7 @@ describe("chat toolbar archive confirmation state", () => {
     const container = document.createElement("div");
     const toolbarActions = createToolbarPanelActions({
       stateStore: store,
-      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
     let archiveExportEnabled = true;
     const parts = shellParts(store, toolbarActions, () => archiveExportEnabled);

@@ -4,7 +4,7 @@ import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-serve
 import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { ThreadCatalogArchivedReader } from "../features/threads/catalog/thread-catalog";
-import type { ThreadOperationEventSink } from "../features/threads/workflows/thread-operation-event";
+import type { ThreadFactSink } from "../features/threads/workflows/thread-facts";
 import { createKeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
 import type { ObservedResultListener } from "../shared/runtime/observed-result";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
@@ -21,7 +21,7 @@ export interface SettingsAppServerDynamicDataOptions {
   clientAccess: AppServerClientAccess;
   appServerQueries: SettingsAppServerQueries;
   threadCatalog: ThreadCatalogArchivedReader;
-  threadEvents: ThreadOperationEventSink;
+  threadFacts: ThreadFactSink;
 }
 
 export function createSettingsAppServerDynamicData(options: SettingsAppServerDynamicDataOptions): SettingsDynamicDataAccess {
@@ -55,13 +55,13 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
     restoreArchivedThread: (threadId) =>
       runArchivedThreadMutation(threadId, async () => {
         const thread = await withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
-        options.threadEvents.apply({ type: "thread-restored", thread });
+        options.threadFacts.apply({ type: "thread-restored", thread });
         return thread;
       }),
     deleteArchivedThread: (threadId) =>
       runArchivedThreadMutation(threadId, async () => {
         await withSettingsConnection((client) => deleteThread(client, threadId));
-        options.threadEvents.apply({ type: "thread-deleted", threadId });
+        options.threadFacts.apply({ type: "thread-deleted", threadId });
       }),
   };
 }

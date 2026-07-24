@@ -153,8 +153,8 @@ export function createConnectionBundle(
       maybeNameThread: (threadId, turnId, completedTurnTranscriptSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
       },
-      applyThreadOperationEvent: (event) => {
-        environment.plugin.threadOperationCoordinator.apply(event);
+      applyThreadFact: (fact) => {
+        environment.plugin.threadFactCoordinator.apply(fact);
       },
       respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
       rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),

@@ -6,7 +6,7 @@ import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { ChatStateStore } from "../state/store";
 import type { GoalActions } from "../threads/goal-actions";
-import type { ThreadManagementActions } from "../threads/thread-management-actions";
+import type { ThreadCommands } from "../threads/thread-commands";
 import type { ThreadStartOutcome } from "../threads/thread-start-actions";
 import { type ComposerSubmitActions, type ComposerSubmitActionsHost, submitComposer } from "./composer-submit-actions";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
@@ -58,7 +58,7 @@ export interface TurnWorkflowContext {
 export interface TurnWorkflowRefs {
   threadStarter: TurnWorkflowThreadStarter;
   runtimeSettings: ChatRuntimeSettingsActions;
-  threadActions: ThreadManagementActions;
+  threadActions: ThreadCommands;
   reconnectPanel: () => Promise<void>;
   goals: GoalActions;
 }

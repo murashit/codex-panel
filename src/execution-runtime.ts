@@ -17,12 +17,9 @@ import type { SelectionRewriteTransport } from "./features/selection-rewrite/tra
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
 import { createThreadOperationsTransport, createThreadTitleTransport } from "./features/threads/app-server/workflow-transports";
 import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
-import {
-  createThreadOperationCoordinator,
-  type ThreadOperationCoordinator,
-} from "./features/threads/workflows/thread-operation-coordinator";
-import type { ThreadLifecycleEvent } from "./features/threads/workflows/thread-operation-event";
-import { projectThreadCatalogChanges } from "./features/threads/workflows/thread-read-model-projection";
+import { createThreadFactCoordinator, type ThreadFactCoordinator } from "./features/threads/workflows/thread-fact-coordinator";
+import type { ThreadFact } from "./features/threads/workflows/thread-facts";
+import { projectThreadFacts } from "./features/threads/workflows/thread-projection";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
@@ -37,7 +34,7 @@ export interface CodexExecutionRuntimeOptions {
   context: AppServerExecutionContext;
   settings: () => CodexPanelSettings;
   workspace: WorkspacePanels;
-  onThreadLifecycleEvents(events: readonly ThreadLifecycleEvent[]): void;
+  onThreadFacts(facts: readonly ThreadFact[]): void;
   openNewPanel(): Promise<unknown>;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
@@ -53,7 +50,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly context: Readonly<AppServerExecutionContext>;
   private readonly appServerQueries: AppServerQueryCache;
   private readonly threadCatalog: ThreadCatalog;
-  private readonly threadOperationCoordinator: ThreadOperationCoordinator;
+  private readonly threadFactCoordinator: ThreadFactCoordinator;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
   private readonly threadNameMutations = createKeyedOperationQueue<string>();
   private readonly threadGoalOperations = createThreadGoalOperationCoordinator();
@@ -70,16 +67,16 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.context = Object.freeze({ ...options.context });
     this.appServerQueries = new AppServerQueryCache(this.context, this);
     this.threadCatalog = this.appServerQueries;
-    this.threadOperationCoordinator = createThreadOperationCoordinator((events) => {
-      this.threadCatalog.applyThreadCatalogChanges(projectThreadCatalogChanges(this.threadCatalog, events));
-      options.onThreadLifecycleEvents(events);
+    this.threadFactCoordinator = createThreadFactCoordinator((facts) => {
+      this.threadCatalog.applyThreadCatalogChanges(projectThreadFacts(this.threadCatalog, facts));
+      options.onThreadFacts(facts);
     });
     this.settingsDynamicData = createSettingsAppServerDynamicData({
       vaultPath: this.context.vaultPath,
       clientAccess: this,
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
-      threadEvents: this.threadOperationCoordinator,
+      threadFacts: this.threadFactCoordinator,
     });
   }
 
@@ -92,7 +89,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       workspace: this.options.workspace,
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
-      threadOperationCoordinator: this.threadOperationCoordinator,
+      threadFactCoordinator: this.threadFactCoordinator,
       threadNameMutations: this.threadNameMutations,
       threadTitleTransport: this.threadTitleTransport(),
       threadGoalOperations: this.threadGoalOperations,
@@ -106,7 +103,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       settings: this.threadsSettings(),
       vaultPath: this.context.vaultPath,
       threadCatalog: this.threadCatalog,
-      threadEvents: this.threadOperationCoordinator,
+      threadFacts: this.threadFactCoordinator,
       threadNameMutations: this.threadNameMutations,
       threadOperationsTransport: createThreadOperationsTransport(this),
       threadTitleTransport: this.threadTitleTransport(),

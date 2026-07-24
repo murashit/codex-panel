@@ -20,7 +20,7 @@ import {
 import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCommand } from "../composer/thread-title-argument";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { GoalActions } from "../threads/goal-actions";
-import type { ThreadManagementActions } from "../threads/thread-management-actions";
+import type { ThreadCommands } from "../threads/thread-commands";
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
@@ -29,11 +29,11 @@ export interface SlashCommandExecutionPorts {
   startThreadForGoal: (objective: string) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
   threadActions: {
-    forkThread: ThreadManagementActions["forkThread"];
-    rollbackThread: ThreadManagementActions["rollbackThread"];
-    compactThread: ThreadManagementActions["compactThread"];
-    archiveThread: ThreadManagementActions["archiveThread"];
-    renameThread: ThreadManagementActions["renameThread"];
+    forkThread: ThreadCommands["forkThread"];
+    rollbackThread: ThreadCommands["rollbackThread"];
+    compactThread: ThreadCommands["compactThread"];
+    archiveThread: ThreadCommands["archiveThread"];
+    renameThread: ThreadCommands["renameThread"];
   };
   reconnect: () => Promise<void>;
   openSideChat?: (threadId: string) => Promise<void>;

@@ -34,8 +34,8 @@ function threadCatalog(plugin: CodexPanelPlugin) {
   return currentChatHost(plugin).threadCatalog;
 }
 
-function threadOperationCoordinator(plugin: CodexPanelPlugin) {
-  return currentChatHost(plugin).threadOperationCoordinator;
+function threadFactCoordinator(plugin: CodexPanelPlugin) {
+  return currentChatHost(plugin).threadFactCoordinator;
 }
 
 const capturedChatHosts = new WeakMap<CodexPanelPlugin, { current: CodexChatHost | null }>();
@@ -79,7 +79,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
 
-    threadOperationCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+    threadFactCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(firstArchived).toHaveBeenCalledWith("thread-1");
     expect(secondArchived).toHaveBeenCalledWith("thread-1");
@@ -103,7 +103,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
-    threadOperationCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+    threadFactCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(matchingArchived).toHaveBeenCalledWith("thread-1");
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
@@ -130,7 +130,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
 
-    threadOperationCoordinator(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
+    threadFactCoordinator(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
 
     expect(firstRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
     expect(secondRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");

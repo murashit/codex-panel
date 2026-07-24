@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type { ThreadCatalogChange } from "../../../../src/domain/threads/catalog-read-model";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { projectThreadCatalogChanges } from "../../../../src/features/threads/workflows/thread-read-model-projection";
+import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
 
-describe("ThreadReadModelProjection", () => {
-  it("projects an ordered operation event batch without mutating its snapshots", () => {
+describe("thread projection", () => {
+  it("projects an ordered fact batch without mutating its snapshots", () => {
     const active = [thread("source"), thread("other")];
     const archived: Thread[] = [];
 
-    const changes = projectThreadCatalogChanges(
+    const changes = projectThreadFacts(
       {
         activeThreadsSnapshot: () => active,
         archivedThreadsSnapshot: () => archived,
@@ -32,9 +32,9 @@ describe("ThreadReadModelProjection", () => {
     expect(archived).toEqual([]);
   });
 
-  it("requests revalidation when an event needs a record absent from the snapshot", () => {
+  it("requests revalidation when a fact needs a record absent from the snapshot", () => {
     expect(
-      projectThreadCatalogChanges({ activeThreadsSnapshot: () => null, archivedThreadsSnapshot: () => null }, [
+      projectThreadFacts({ activeThreadsSnapshot: () => null, archivedThreadsSnapshot: () => null }, [
         { type: "thread-archived", threadId: "unknown" },
       ]),
     ).toEqual([

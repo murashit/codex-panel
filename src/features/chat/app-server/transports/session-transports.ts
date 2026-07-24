@@ -23,13 +23,13 @@ import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsTransport } from "../../application/runtime/settings-transport";
 import type { EphemeralThreadForkResult, EphemeralThreadTransport } from "../../application/threads/ephemeral-thread-transport";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../../application/threads/goal-transport";
+import type { ThreadCommandPort } from "../../application/threads/thread-command-ports";
 import type {
   ThreadHistoryPage,
   ThreadHistoryTransport,
   ThreadResumeSnapshot,
   ThreadResumeTransport,
 } from "../../application/threads/thread-loading-transport";
-import type { ThreadMutationTransport } from "../../application/threads/thread-mutation-transport";
 import type { ThreadStartTransport } from "../../application/threads/thread-start-transport";
 import type { ThreadSubscriptionTransport } from "../../application/threads/thread-subscription-transport";
 import type { ChatTurnTransport } from "../../application/turns/turn-transport";
@@ -69,7 +69,7 @@ export function createChatConnectedSessionTransports(host: ChatAppServerTranspor
   return {
     turn: createChatTurnTransport(host),
     threadResume: createChatThreadResumeTransport(host),
-    threadMutation: createChatThreadMutationTransport(host),
+    threadCommands: createChatThreadCommandPort(host),
     threadEphemeral: createChatEphemeralThreadTransport(host),
     threadSubscription: createChatThreadSubscriptionTransport(host),
     threadGoal: createChatThreadGoalTransport(host),
@@ -146,7 +146,7 @@ function createChatThreadResumeTransport(host: ChatAppServerTransportHost): Thre
   };
 }
 
-function createChatThreadMutationTransport(host: ChatAppServerTransportHost): ThreadMutationTransport {
+function createChatThreadCommandPort(host: ChatAppServerTransportHost): ThreadCommandPort {
   return {
     ensureConnected: async () => (await host.connectedClient()) !== null,
     compactThread: (threadId) =>

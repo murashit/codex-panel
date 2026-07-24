@@ -24,7 +24,7 @@ interface ThreadForkRuntimeOverrides {
   readonly sandboxPolicy?: RuntimeSandboxPolicy;
 }
 
-export interface ThreadMutationTransport {
+export interface ThreadCommandPort {
   ensureConnected(): Promise<boolean>;
   compactThread(threadId: string): Promise<EffectOutcome<void>>;
   forkThread(threadId: string, options?: ThreadForkOptions): Promise<EffectOutcome<Thread>>;
