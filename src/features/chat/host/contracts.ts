@@ -10,6 +10,7 @@ import type { ObservedResultListener } from "../../../shared/runtime/observed-re
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
+import type { ThreadAutoTitleWork } from "../../threads/workflows/thread-auto-title-work";
 import type { ThreadFactCoordinator } from "../../threads/workflows/thread-fact-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
@@ -25,6 +26,7 @@ export interface CodexChatHost {
   readonly threadFactCoordinator: ThreadFactCoordinator;
   readonly threadNameMutations: KeyedOperationQueue<string>;
   readonly threadTitlePort: ThreadTitlePort;
+  readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;
   readonly threadGoalCoordinator: ThreadGoalCoordinator;
   readonly runtimeSettingsCommitQueue: KeyedOperationQueue<string>;
 }

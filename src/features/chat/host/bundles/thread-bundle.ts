@@ -72,7 +72,7 @@ interface ChatPanelThreadFoundation {
   goalSync: ChatPanelGoalSync;
   goalCoordinator: ThreadGoalCoordinator;
   threadMutations: ThreadMutationCommands;
-  invalidateThreadWork(): void;
+  invalidateActiveThreadWork(): void;
 }
 
 interface ChatPanelThreadLifecycleInput {
@@ -137,12 +137,9 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     stateStore,
     completedTurnTitleContext: (turnId, completedTurnTranscriptSummary) =>
       titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
-    generateTitleFromContext: (context) => titleService.generate(context),
-    renameGeneratedTitle: (threadId, title, options) =>
-      threadMutations.renameThread(threadId, title, {
-        shouldStart: options.shouldStart,
-        shouldPublish: options.shouldPublish,
-      }),
+    submitTitleWork: (threadId, context) => {
+      environment.plugin.threadAutoTitleWork.submit(threadId, context);
+    },
   });
   const history = new HistoryController({
     stateStore,
@@ -155,11 +152,10 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
       autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
   });
-  const invalidateThreadWork = () => {
+  const invalidateActiveThreadWork = () => {
     host.resumeWork.invalidate();
     history.invalidate();
     titleService.invalidate();
-    autoTitleCoordinator.invalidate();
   };
   const goalCoordinator = environment.plugin.threadGoalCoordinator;
   const goalSync = createThreadGoalSync(
@@ -184,7 +180,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     goalSync,
     goalCoordinator,
     threadMutations,
-    invalidateThreadWork,
+    invalidateActiveThreadWork,
   };
 }
 
@@ -210,7 +206,7 @@ export function createThreadLifecycleBundle(
     autoTitleCoordinator: foundation.autoTitleCoordinator,
     history: foundation.history,
     invalidateThreadWork: () => {
-      foundation.invalidateThreadWork();
+      foundation.invalidateActiveThreadWork();
     },
     notifyActiveThreadIdentityChanged,
   });

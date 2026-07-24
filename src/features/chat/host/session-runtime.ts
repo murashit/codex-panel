@@ -69,7 +69,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     status,
   });
   const invalidateThreadWork = (): void => {
-    threadFoundation.invalidateThreadWork();
+    threadFoundation.invalidateActiveThreadWork();
   };
   const connectionBundle = createConnectionBundle(
     {

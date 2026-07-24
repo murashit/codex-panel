@@ -561,6 +561,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
     },
+    threadAutoTitleWork: { submit: vi.fn() },
     threadGoalCoordinator: createThreadGoalCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationQueue(),
     settings: chatPanelSettingsAccess(settings),

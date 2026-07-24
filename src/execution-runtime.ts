@@ -17,6 +17,7 @@ import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
 import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
+import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/threads/workflows/thread-auto-title-work";
 import { createThreadFactCoordinator, type ThreadFactCoordinator } from "./features/threads/workflows/thread-fact-coordinator";
 import type { ThreadFact } from "./features/threads/workflows/thread-facts";
 import { projectThreadFacts } from "./features/threads/workflows/thread-projection";
@@ -51,6 +52,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly appServerQueries: AppServerQueryCache;
   private readonly threadCatalog: ThreadCatalog;
   private readonly threadFactCoordinator: ThreadFactCoordinator;
+  private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
   private readonly threadNameMutations = createKeyedOperationQueue<string>();
   private readonly threadGoalCoordinator = createThreadGoalCoordinator();
@@ -68,8 +70,15 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.appServerQueries = new AppServerQueryCache(this.context, this);
     this.threadCatalog = this.appServerQueries;
     this.threadFactCoordinator = createThreadFactCoordinator((facts) => {
+      for (const fact of facts) this.threadAutoTitleWork?.applyThreadFact(fact);
       this.threadCatalog.applyThreadCatalogChanges(projectThreadFacts(this.threadCatalog, facts));
       options.onThreadFacts(facts);
+    });
+    this.threadAutoTitleWork = createThreadAutoTitleWork({
+      titlePort: this.threadTitlePort(),
+      mutationPort: createThreadMutationAdapter(this),
+      nameMutations: this.threadNameMutations,
+      facts: this.threadFactCoordinator,
     });
     this.settingsDynamicData = createSettingsAppServerDynamicData({
       vaultPath: this.context.vaultPath,
@@ -92,6 +101,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadFactCoordinator: this.threadFactCoordinator,
       threadNameMutations: this.threadNameMutations,
       threadTitlePort: this.threadTitlePort(),
+      threadAutoTitleWork: this.currentThreadAutoTitleWork(),
       threadGoalCoordinator: this.threadGoalCoordinator,
       runtimeSettingsCommitQueue: this.runtimeSettingsCommitQueue,
     };
@@ -184,6 +194,8 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   dispose(): ExecutionRuntimeViews {
     if (this.disposed) return { chat: [], threads: [] };
     this.disposed = true;
+    this.threadAutoTitleWork?.dispose();
+    this.threadAutoTitleWork = null;
     const views: { chat: ChatRuntimeView[]; threads: ThreadsRuntimeView[] } = { chat: [], threads: [] };
     for (const view of this.chatViews) {
       view.detachRuntime();
@@ -294,6 +306,12 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadNamingEffort: () => this.options.settings().threadNamingEffort,
       runner: this.structuredTurnRunner(),
     });
+  }
+
+  private currentThreadAutoTitleWork(): ThreadAutoTitleWork {
+    this.assertActive();
+    if (!this.threadAutoTitleWork) throw new StaleExecutionRuntimeError();
+    return this.threadAutoTitleWork;
   }
 
   private assertActive(): void {

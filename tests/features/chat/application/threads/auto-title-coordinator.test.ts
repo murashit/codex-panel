@@ -1,271 +1,114 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import type { Thread } from "../../../../../src/domain/threads/model";
-import type { ThreadTitleContext } from "../../../../../src/domain/threads/title-generation-model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
-import {
-  type AutoTitleCoordinator,
-  type AutoTitleCoordinatorHost,
-  createAutoTitleCoordinator,
-} from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
-import { threadTitleContextFromThreadStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
-import { createThreadMutationAdapter } from "../../../../../src/features/threads/app-server/workflow-adapters";
-import { createThreadMutationCommands } from "../../../../../src/features/threads/workflows/thread-mutation-commands";
-import { createThreadTitleService } from "../../../../../src/features/threads/workflows/thread-title-service";
-import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
-import { createKeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
-import { deferred } from "../../../../support/async";
+import { createAutoTitleCoordinator } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 
 describe("AutoTitleCoordinator", () => {
-  it("prefers visible turn items over completed turn summaries for active streamed turns", async () => {
-    const renameThreadRequest = vi.fn().mockResolvedValue({});
-    const generateThreadTitle = vi.fn().mockResolvedValue("Visible context title");
-    const { coordinator, stateStore } = coordinatorFixture({
-      currentClient: () => fakeClient({ renameThreadRequest }),
-      generateThreadTitle,
-    });
-    stateStore.dispatch({
-      type: "thread-stream/items-replaced",
-      items: [
-        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "Visible streamed request.", turnId: "turn" },
-        {
-          id: "a1",
-          kind: "dialogue",
-          dialogueKind: "assistantResponse",
-          role: "assistant",
-          text: "Visible streamed response.",
-          dialogueState: "completed",
-          turnId: "turn",
-        },
-      ],
+  it("captures visible first-turn context and hands it to shared title work", () => {
+    const stateStore = listedThreadState();
+    const submitTitleWork = vi.fn();
+    const coordinator = createAutoTitleCoordinator({
+      stateStore,
+      completedTurnTitleContext: () => ({
+        userRequest: "Visible streamed request.",
+        assistantResponse: "Visible streamed response.",
+      }),
+      submitTitleWork,
     });
 
     coordinator.maybeAutoTitleThread("thread", "turn", {
       userText: "Completed payload request.",
       assistantText: "Completed payload response.",
     });
-    await flushPromises();
 
-    expect(generateThreadTitle).toHaveBeenCalledWith(
-      {
-        userRequest: "Visible streamed request.",
-        assistantResponse: "Visible streamed response.",
-      },
-      expect.any(AbortSignal),
-    );
-    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Visible context title" });
+    expect(submitTitleWork).toHaveBeenCalledWith("thread", {
+      userRequest: "Visible streamed request.",
+      assistantResponse: "Visible streamed response.",
+    });
   });
 
-  it("uses visible turn items when completed turn summaries are unavailable", async () => {
-    const renameThreadRequest = vi.fn().mockResolvedValue({});
-    const generateThreadTitle = vi.fn().mockResolvedValue("Visible context title");
-    const { coordinator, stateStore } = coordinatorFixture({
-      currentClient: () => fakeClient({ renameThreadRequest }),
-      generateThreadTitle,
-    });
-    stateStore.dispatch({
-      type: "thread-stream/items-replaced",
-      items: [
-        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "Please diagnose auto naming.", turnId: "turn" },
-        {
-          id: "a1",
-          kind: "dialogue",
-          dialogueKind: "assistantResponse",
-          role: "assistant",
-          text: "I found the regression.",
-          dialogueState: "completed",
-          turnId: "turn",
-        },
-      ],
+  it("does not submit a title when the thread already has one", () => {
+    const stateStore = listedThreadState("Manual title");
+    const submitTitleWork = vi.fn();
+    const coordinator = createAutoTitleCoordinator({
+      stateStore,
+      completedTurnTitleContext: vi.fn(() => ({
+        userRequest: "Request",
+        assistantResponse: "Response",
+      })),
+      submitTitleWork,
     });
 
-    coordinator.maybeAutoTitleThread("thread", "turn", null);
-    await flushPromises();
+    coordinator.maybeAutoTitleThread("thread", "turn", { userText: "Request", assistantText: "Response" });
 
-    expect(generateThreadTitle).toHaveBeenCalledWith(
-      {
-        userRequest: "Please diagnose auto naming.",
-        assistantResponse: "I found the regression.",
-      },
-      expect.any(AbortSignal),
-    );
-    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Visible context title" });
+    expect(submitTitleWork).not.toHaveBeenCalled();
   });
 
-  it("does not apply a completed auto-title after the thread leaves the list", async () => {
-    const generatedTitle = deferred<string | null>();
-    const renameThreadRequest = vi.fn().mockResolvedValue({});
-    const { coordinator, stateStore, notifyThreadRenamed } = coordinatorFixture({
-      currentClient: () => fakeClient({ renameThreadRequest }),
-      generateThreadTitle: vi.fn(() => generatedTitle.promise),
+  it("submits only the first completed turn for the active thread", () => {
+    const stateStore = listedThreadState();
+    const submitTitleWork = vi.fn();
+    const coordinator = createAutoTitleCoordinator({
+      stateStore,
+      completedTurnTitleContext: (_turnId, summary) =>
+        summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
+      submitTitleWork,
     });
 
-    coordinator.maybeAutoTitleThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
-    await flushPromises();
+    coordinator.maybeAutoTitleThread("thread", "turn-1", { userText: "First", assistantText: "Done" });
+    coordinator.maybeAutoTitleThread("thread", "turn-2", { userText: "Second", assistantText: "Done again" });
 
-    stateStore.dispatch({ type: "thread-list/applied", threads: [] });
-    generatedTitle.resolve("Generated title");
-    await flushPromises();
-
-    expect(renameThreadRequest).not.toHaveBeenCalled();
-    expect(notifyThreadRenamed).not.toHaveBeenCalled();
+    expect(submitTitleWork).toHaveBeenCalledOnce();
   });
 
-  it("lets a manual rename win when an older auto-title save finishes later", async () => {
-    const savedAutoTitle = deferred<void>();
-    let persistedName: string | null = null;
-    let stateStoreForNotification: ReturnType<typeof createChatStateStore> | null = null;
-    const renameThreadRequest = vi.fn(async ({ name }: { threadId: string; name: string }) => {
-      if (name === "Generated title") await savedAutoTitle.promise;
-      persistedName = name;
-      if (name === "Generated title") {
-        stateStoreForNotification?.dispatch({
-          type: "thread-list/applied",
-          threads: [{ ...threadFixture("thread"), name }],
-        });
-      }
-      return {};
-    });
-    const { coordinator, stateStore, threadMutations } = coordinatorFixture({
-      currentClient: () => fakeClient({ renameThreadRequest }),
-      generateThreadTitle: vi.fn().mockResolvedValue("Generated title"),
-    });
-    stateStoreForNotification = stateStore;
-
-    coordinator.maybeAutoTitleThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
-    await flushPromises();
-    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Generated title" });
-
-    const manualRename = threadMutations.renameThread("thread", "Manual title");
-    await flushPromises();
-    savedAutoTitle.resolve(undefined);
-    await manualRename;
-    await flushPromises();
-
-    expect(renameThreadRequest).toHaveBeenNthCalledWith(2, { threadId: "thread", name: "Manual title" });
-    expect(persistedName).toBe("Manual title");
-    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Manual title");
-  });
-
-  it("retries after A→B→A invalidation without publishing the old title", async () => {
-    const oldTitle = deferred<string | null>();
-    const renameThreadRequest = vi.fn().mockResolvedValue({});
-    const generateThreadTitle = vi.fn().mockReturnValueOnce(oldTitle.promise).mockResolvedValueOnce("Fresh title");
-    const { coordinator } = coordinatorFixture({
-      currentClient: () => fakeClient({ renameThreadRequest }),
-      generateThreadTitle,
+  it("tracks first-turn presence independently after switching active threads", () => {
+    const stateStore = listedThreadState();
+    const submitTitleWork = vi.fn();
+    const coordinator = createAutoTitleCoordinator({
+      stateStore,
+      completedTurnTitleContext: (_turnId, summary) =>
+        summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
+      submitTitleWork,
     });
 
-    coordinator.maybeAutoTitleThread("thread", "turn-a", { userText: "Old request", assistantText: "Old response" });
-    await flushPromises();
-    coordinator.invalidate();
-    coordinator.invalidate();
-    coordinator.maybeAutoTitleThread("thread", "turn-a2", { userText: "Fresh request", assistantText: "Fresh response" });
-    await flushPromises();
+    coordinator.maybeAutoTitleThread("thread", "turn-a", { userText: "Thread A", assistantText: "Done" });
+    coordinator.resetThreadTurnPresence(false);
+    coordinator.maybeAutoTitleThread("thread-b", "turn-b", { userText: "Thread B", assistantText: "Done" });
 
-    expect(renameThreadRequest).toHaveBeenCalledOnce();
-    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Fresh title" });
-
-    oldTitle.resolve("Stale title");
-    await flushPromises();
-
-    expect(renameThreadRequest).toHaveBeenCalledOnce();
+    expect(submitTitleWork).toHaveBeenNthCalledWith(1, "thread", {
+      userRequest: "Thread A",
+      assistantResponse: "Done",
+    });
+    expect(submitTitleWork).toHaveBeenNthCalledWith(2, "thread-b", {
+      userRequest: "Thread B",
+      assistantResponse: "Done",
+    });
   });
 });
 
-function coordinatorFixture(
-  overrides: {
-    currentClient?: () => AppServerClient;
-    generateThreadTitle?: (context: ThreadTitleContext, signal: AbortSignal) => Promise<string | null>;
-  } = {},
-): AutoTitleCoordinatorHost & {
-  coordinator: AutoTitleCoordinator;
-  notifyThreadRenamed: ReturnType<typeof vi.fn>;
-  threadMutations: ReturnType<typeof createThreadMutationCommands>;
-} {
+function listedThreadState(name: string | null = null) {
   const stateStore = createChatStateStore();
-  stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
-  const currentClient = overrides.currentClient ?? (() => fakeClient());
-  const notifyThreadRenamed = vi.fn();
-  const threadMutations = createThreadMutationCommands({
-    port: createThreadMutationAdapter({
-      withClient: async (operation) => operation(currentClient()),
-    }),
-    nameMutations: createKeyedOperationQueue(),
-    archiveExport: {
-      settings: () => DEFAULT_SETTINGS,
-      enabled: () => false,
-      vaultPath: "/vault",
-      vaultConfigDir: ".obsidian",
-    },
-    archiveDestination: () => ({
-      normalizePath: (path) => path,
-      exists: vi.fn().mockResolvedValue(false),
-      createFolder: vi.fn().mockResolvedValue(undefined),
-      createMarkdownFile: vi.fn().mockResolvedValue(undefined),
-    }),
-    facts: {
-      apply: (event) => {
-        if (event.type === "thread-renamed") {
-          stateStore.dispatch({
-            type: "thread-list/applied",
-            threads: stateStore
-              .getState()
-              .threadList.listedThreads.map((thread) => (thread.id === event.threadId ? { ...thread, name: event.name } : thread)),
-          });
-          notifyThreadRenamed(event.threadId, event.name);
-        }
+  stateStore.dispatch({
+    type: "thread-list/applied",
+    threads: [
+      {
+        id: "thread",
+        preview: "Thread preview",
+        name,
+        archived: false,
+        provenance: { kind: "interactive" },
+        createdAt: 1,
+        updatedAt: 1,
       },
-    },
-    referenceThreads: () => stateStore.getState().threadList.listedThreads,
-    notice: vi.fn(),
+      {
+        id: "thread-b",
+        preview: "Another thread",
+        name: null,
+        archived: false,
+        provenance: { kind: "interactive" },
+        createdAt: 2,
+        updatedAt: 2,
+      },
+    ],
   });
-  const titleService = createThreadTitleService({
-    port: {
-      persistedContext: vi.fn().mockResolvedValue(null),
-      generateTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
-    },
-    visibleCompletedTurnContext: (turnId) =>
-      threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
-  });
-  const host = {
-    stateStore,
-    completedTurnTitleContext: (turnId: string, completedTurnTranscriptSummary) =>
-      titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
-    generateTitleFromContext: (context) => titleService.generate(context),
-    renameGeneratedTitle: (threadId: string, value: string, options: { shouldStart: () => boolean; shouldPublish: () => boolean }) =>
-      threadMutations.renameThread(threadId, value, options),
-  } satisfies AutoTitleCoordinatorHost;
-  return { ...host, notifyThreadRenamed, threadMutations, coordinator: createAutoTitleCoordinator(host) };
-}
-
-function fakeClient(options: { renameThreadRequest?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
-  const renameThreadRequest = options.renameThreadRequest ?? vi.fn().mockResolvedValue({});
-  return {
-    request: vi.fn((method: string, params: { threadId: string; name: string }) => {
-      if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
-      return (renameThreadRequest as unknown as (params: { threadId: string; name: string }) => Promise<unknown>)(params);
-    }),
-  } as unknown as AppServerClient;
-}
-
-function threadFixture(id: string): Thread {
-  return {
-    id,
-    preview: "Thread preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
-}
-
-async function flushPromises(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  return stateStore;
 }

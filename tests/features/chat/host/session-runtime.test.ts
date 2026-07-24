@@ -275,6 +275,7 @@ describe("chat panel session runtime actions", () => {
           persistedContext: vi.fn().mockResolvedValue(null),
           generateTitle: vi.fn().mockResolvedValue(null),
         },
+        threadAutoTitleWork: { submit: vi.fn() },
         settings: overrides.plugin?.settings ?? chatPanelSettingsAccess(settingsSource),
         workspace: {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
