@@ -1,5 +1,5 @@
 {
-  "entry": ["src/main.ts", "scripts/**/*.mjs", "*.config.{ts,mjs}", "tests/**/*.test.{ts,tsx}"],
+  "entry": ["scripts/**/*.mjs", "*.config.{ts,mjs}", "tests/**/*.test.{ts,tsx}"],
   "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}", "scripts/**/*.mjs", "*.config.{ts,mjs}"],
   "ignore": ["src/generated/**"],
   "ignoreBinaries": ["codex", "taskkill"]
