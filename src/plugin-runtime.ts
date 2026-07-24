@@ -176,8 +176,8 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     for (const view of this.threadsViews()) view.refreshSettings();
   }
 
-  private applyThreadArchived(threadId: string): void {
-    this.panels.applyThreadArchived(threadId);
+  private applyThreadUnavailable(threadId: string): void {
+    this.panels.applyThreadUnavailable(threadId);
   }
 
   private applyThreadRenamed(threadId: string, name: string | null): void {
@@ -194,7 +194,8 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   private applyThreadFact(fact: ThreadFact): void {
     switch (fact.type) {
       case "thread-archived":
-        this.applyThreadArchived(fact.threadId);
+      case "thread-deleted":
+        this.applyThreadUnavailable(fact.threadId);
         return;
       case "thread-renamed":
         this.applyThreadRenamed(fact.threadId, fact.name);

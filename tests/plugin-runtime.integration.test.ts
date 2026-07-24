@@ -71,18 +71,22 @@ describe("CodexPanelPlugin runtime integration", () => {
     const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
-    const firstArchived = vi.spyOn((firstLeaf.view as CodexChatView).surface, "applyThreadArchived").mockImplementation(() => undefined);
+    const firstUnavailable = vi
+      .spyOn((firstLeaf.view as CodexChatView).surface, "applyThreadUnavailable")
+      .mockImplementation(() => undefined);
     const firstRefresh = vi.spyOn((firstLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const secondLeaf = leaf();
     secondLeaf.view = chatView(CodexChatView, secondLeaf);
-    const secondArchived = vi.spyOn((secondLeaf.view as CodexChatView).surface, "applyThreadArchived").mockImplementation(() => undefined);
+    const secondUnavailable = vi
+      .spyOn((secondLeaf.view as CodexChatView).surface, "applyThreadUnavailable")
+      .mockImplementation(() => undefined);
     const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
 
     threadFactCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
-    expect(firstArchived).toHaveBeenCalledWith("thread-1");
-    expect(secondArchived).toHaveBeenCalledWith("thread-1");
+    expect(firstUnavailable).toHaveBeenCalledWith("thread-1");
+    expect(secondUnavailable).toHaveBeenCalledWith("thread-1");
     expect(firstRefresh).not.toHaveBeenCalled();
     expect(secondRefresh).not.toHaveBeenCalled();
   });
@@ -93,8 +97,8 @@ describe("CodexPanelPlugin runtime integration", () => {
     const matchingLeaf = leaf();
     matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
     vi.spyOn((matchingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
-    const matchingArchived = vi
-      .spyOn((matchingLeaf.view as CodexChatView).surface, "applyThreadArchived")
+    const matchingUnavailable = vi
+      .spyOn((matchingLeaf.view as CodexChatView).surface, "applyThreadUnavailable")
       .mockImplementation(() => undefined);
     vi.spyOn((matchingLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const otherLeaf = leaf();
@@ -105,7 +109,7 @@ describe("CodexPanelPlugin runtime integration", () => {
 
     threadFactCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
-    expect(matchingArchived).toHaveBeenCalledWith("thread-1");
+    expect(matchingUnavailable).toHaveBeenCalledWith("thread-1");
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
@@ -116,6 +120,31 @@ describe("CodexPanelPlugin runtime integration", () => {
     });
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
+  });
+
+  it("clears active and restored identities when deletion supersedes a deferred archive", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
+    const matchingLeaf = leaf();
+    matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
+    vi.spyOn((matchingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
+    const matchingUnavailable = vi
+      .spyOn((matchingLeaf.view as CodexChatView).surface, "applyThreadUnavailable")
+      .mockImplementation(() => undefined);
+    const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf]);
+    const publication = threadFactCoordinator(plugin).beginForkPublication("thread-1");
+    publication.record(thread("forked"));
+
+    threadFactCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+    threadFactCoordinator(plugin).apply({ type: "thread-deleted", threadId: "thread-1" });
+    publication.finish({ sourceArchived: true });
+
+    expect(matchingUnavailable).toHaveBeenCalledOnce();
+    expect(matchingUnavailable).toHaveBeenCalledWith("thread-1");
+    expect(restoredMatchingLeaf.setViewState).toHaveBeenCalledWith({
+      type: VIEW_TYPE_CODEX_PANEL,
+      state: { version: 1 },
+    });
   });
 
   it("applies known rename mutations to open chat surfaces", async () => {

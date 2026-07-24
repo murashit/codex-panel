@@ -282,11 +282,11 @@ export class WorkspacePanelCoordinator {
     return this.panelLeaves().flatMap((leaf) => (isAttachedChatView(leaf.view) ? [leaf.view] : []));
   }
 
-  applyThreadArchived(threadId: string): void {
+  applyThreadUnavailable(threadId: string): void {
     for (const leaf of this.panelLeaves()) {
       if (isAttachedChatView(leaf.view)) {
         const surface: ChatSharedThreadSurface = leaf.view.surface;
-        surface.applyThreadArchived(threadId);
+        surface.applyThreadUnavailable(threadId);
         continue;
       }
       if (restoredThreadId(leaf) !== threadId) continue;

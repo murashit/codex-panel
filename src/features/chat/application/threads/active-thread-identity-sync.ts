@@ -10,7 +10,7 @@ export interface ActiveThreadIdentitySyncHost {
 
 export interface ActiveThreadIdentitySync {
   clearActiveThreadIdentity: () => void;
-  applyThreadArchiveToActiveIdentity: (threadId: string) => void;
+  applyThreadUnavailableToActiveIdentity: (threadId: string) => void;
   applyThreadRenameToActiveIdentity: (threadId: string, name: string | null) => void;
 }
 
@@ -19,8 +19,8 @@ export function createActiveThreadIdentitySync(host: ActiveThreadIdentitySyncHos
     clearActiveThreadIdentity: () => {
       clearActiveThreadIdentity(host);
     },
-    applyThreadArchiveToActiveIdentity: (threadId) => {
-      applyThreadArchiveToActiveIdentity(host, threadId);
+    applyThreadUnavailableToActiveIdentity: (threadId) => {
+      applyThreadUnavailableToActiveIdentity(host, threadId);
     },
     applyThreadRenameToActiveIdentity: (threadId, name) => {
       applyThreadRenameToActiveIdentity(host, threadId, name);
@@ -35,7 +35,7 @@ function clearActiveThreadIdentity(host: ActiveThreadIdentitySyncHost): void {
   host.notifyActiveThreadIdentityChanged();
 }
 
-function applyThreadArchiveToActiveIdentity(host: ActiveThreadIdentitySyncHost, threadId: string): void {
+function applyThreadUnavailableToActiveIdentity(host: ActiveThreadIdentitySyncHost, threadId: string): void {
   const state = host.stateStore.getState();
   if (activeThreadId(state) !== threadId && awaitingResumeThreadState(state)?.threadId !== threadId) {
     return;

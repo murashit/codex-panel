@@ -189,6 +189,39 @@ describe("ThreadFactCoordinator", () => {
     expect(store.archivedThreadsSnapshot()).toEqual([]);
   });
 
+  it("does not resurrect a source deleted while fork publication is pending", () => {
+    const store = catalogStore({ active: [thread("source")], archived: [] });
+    const coordinator = factCoordinatorForStore(store);
+    const first = coordinator.beginForkPublication("source");
+    const second = coordinator.beginForkPublication("source");
+    first.record(thread("first"));
+    second.record(thread("second"));
+
+    coordinator.apply({ type: "thread-archived", threadId: "source" });
+    first.finish({ sourceArchived: true });
+    coordinator.apply({ type: "thread-deleted", threadId: "source" });
+    second.finish();
+
+    expect(store.appliedChangeBatches).toHaveLength(2);
+    expect(store.activeThreadsSnapshot()).toEqual([thread("second"), thread("first")]);
+    expect(store.archivedThreadsSnapshot()).toEqual([]);
+  });
+
+  it("publishes a restored source that supersedes a deferred deletion", () => {
+    const store = catalogStore({ active: [thread("source")], archived: [] });
+    const coordinator = factCoordinatorForStore(store);
+    const publication = coordinator.beginForkPublication("source");
+    const restoredSource = thread("source", true, { preview: "restored after delete", updatedAt: 5 });
+
+    coordinator.apply({ type: "thread-deleted", threadId: "source" });
+    coordinator.apply({ type: "thread-restored", thread: restoredSource });
+    publication.finish();
+
+    expect(store.appliedChangeBatches).toHaveLength(1);
+    expect(store.activeThreadsSnapshot()).toEqual([{ ...restoredSource, archived: false }]);
+    expect(store.archivedThreadsSnapshot()).toEqual([]);
+  });
+
   it("does not resurrect a fork child archived before publication finishes", () => {
     const store = catalogStore({ active: [thread("source")], archived: [] });
     const coordinator = factCoordinatorForStore(store);

@@ -145,7 +145,7 @@ export interface ChatWorkspacePanelSurface {
 
 export interface ChatSharedThreadSurface {
   refreshSharedThreads(): Promise<void>;
-  applyThreadArchived(threadId: string): void;
+  applyThreadUnavailable(threadId: string): void;
   applyThreadRenamed(threadId: string, name: string | null): void;
 }
 

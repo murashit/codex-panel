@@ -26,7 +26,7 @@ interface PendingForkChild {
 interface ForkSourceGroup {
   publications: Set<PendingForkPublication>;
   unclaimedChildren: Map<string, PendingForkChild>;
-  sourceState: "active" | "archived" | null;
+  sourceState: ForkedThreadState | null;
   restoredSource: Thread | null;
 }
 
@@ -139,12 +139,16 @@ function applySourceFact(group: ForkSourceGroup, fact: ThreadFactInput): boolean
     case "thread-archived":
       group.sourceState = "archived";
       return true;
+    case "thread-deleted":
+      group.sourceState = "deleted";
+      group.restoredSource = null;
+      return true;
     case "thread-unarchived":
       if (group.sourceState !== "archived") return false;
       group.sourceState = "active";
       return true;
     case "thread-restored":
-      if (group.sourceState) group.sourceState = "active";
+      group.sourceState = "active";
       group.restoredSource = fact.thread;
       return true;
     default:
@@ -164,6 +168,7 @@ function completedChildFacts(child: PendingForkChild): ThreadFact[] {
 }
 
 function completedSourceFacts(group: ForkSourceGroup, sourceThreadId: string): ThreadFact[] {
+  if (group.sourceState === "deleted") return [{ type: "thread-deleted", threadId: sourceThreadId }];
   if (group.sourceState === "archived") return [{ type: "thread-archived", threadId: sourceThreadId }];
   if (group.restoredSource) return [{ type: "thread-restored", thread: group.restoredSource }];
   return [];

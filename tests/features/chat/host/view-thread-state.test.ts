@@ -154,7 +154,7 @@ describe("CodexChatView thread state", () => {
     const view = await chatView({ requestSaveLayout });
 
     await view.surface.openThread("thread-1");
-    view.surface.applyThreadArchived("thread-1");
+    view.surface.applyThreadUnavailable("thread-1");
 
     expect(view.getState()).toEqual({ version: 1 });
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);

@@ -45,7 +45,7 @@ describe("createActiveThreadIdentitySync", () => {
       approvalsReviewer: null,
     });
 
-    sync.applyThreadArchiveToActiveIdentity("thread");
+    sync.applyThreadUnavailableToActiveIdentity("thread");
 
     expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
@@ -70,7 +70,7 @@ describe("createActiveThreadIdentitySync", () => {
       approvalsReviewer: null,
     });
 
-    sync.applyThreadArchiveToActiveIdentity("other");
+    sync.applyThreadUnavailableToActiveIdentity("other");
 
     expect(activeThreadId(stateStore.getState())).toBe("active");
     expect(host.invalidateThreadWork).not.toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe("createActiveThreadIdentitySync", () => {
     const { sync, host, stateStore } = createIdentitySyncHarness();
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: "Restored" });
 
-    sync.applyThreadArchiveToActiveIdentity("thread");
+    sync.applyThreadUnavailableToActiveIdentity("thread");
 
     expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();

@@ -149,8 +149,8 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.runtime.composer.controller.focusComposer(options);
   }
 
-  applyThreadArchived(threadId: string): void {
-    this.runtime.thread.identity.applyThreadArchiveToActiveIdentity(threadId);
+  applyThreadUnavailable(threadId: string): void {
+    this.runtime.thread.identity.applyThreadUnavailableToActiveIdentity(threadId);
   }
 
   applyThreadRenamed(threadId: string, name: string | null): void {
