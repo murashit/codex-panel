@@ -25,6 +25,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   private activePanelActivityHold: PanelActivityHold | null = null;
   private unsubscribePanelActivity: (() => void) | null = null;
   private pendingRuntimeRestore: ChatPanelRuntimeSnapshot | null;
+  private pendingEphemeralSource: { threadId: string; title: string | null } | null = null;
 
   constructor(
     private readonly environment: ChatPanelEnvironment,
@@ -40,13 +41,19 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   displayTitle(): string {
-    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
+    if (this.pendingEphemeralSource || activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
       return "Side chat";
     }
     return threadWindowTitle(this.panelThreadId(), this.state.threadList.listedThreads, this.restoredThreadTitle());
   }
 
   persistedState(): Record<string, unknown> {
+    if (this.pendingEphemeralSource) {
+      return {
+        version: 2,
+        ephemeralSource: this.pendingEphemeralSource,
+      };
+    }
     const lifetime = activeThreadState(this.state)?.lifetime;
     if (lifetime?.kind === "ephemeral") {
       return {
@@ -68,6 +75,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   applyViewState(state: unknown): void {
     const restoredState = parseChatPanelViewState(state);
     this.runtime.commands.invalidateThreadWork();
+    this.clearPendingEphemeralIntent();
     if (restoredState.kind === "thread") {
       this.stateStore.dispatch({
         type: "panel/restored-thread-applied",
@@ -92,7 +100,9 @@ export class ChatPanelSession implements ChatPanelHandle {
     return {
       viewState: this.persistedState(),
       composerDraft: this.state.composer.draft,
-      ephemeralSource: lifetime?.kind === "ephemeral" ? { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle } : null,
+      ephemeralSource:
+        this.pendingEphemeralSource ??
+        (lifetime?.kind === "ephemeral" ? { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle } : null),
     };
   }
 
@@ -103,12 +113,15 @@ export class ChatPanelSession implements ChatPanelHandle {
   openPanelSnapshot(): ChatWorkspacePanelSnapshot {
     const activity = panelActivity(this.state);
     const publishedActivity = this.activePanelActivityHold?.activity ?? activity;
+    const preparingEphemeralThread = this.pendingEphemeralSource !== null;
     return {
       viewId: this.environment.obsidian.viewId,
       ...activity,
+      pending: activity.pending || preparingEphemeralThread,
       threadId: this.closing ? null : activity.threadId,
       publishedActivity: {
         ...publishedActivity,
+        pending: publishedActivity.pending || preparingEphemeralThread,
         threadId: this.closing ? null : publishedActivity.threadId,
       },
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
@@ -117,6 +130,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async openThread(threadId: string, options: { focus?: boolean } = {}): Promise<void> {
+    this.clearPendingEphemeralIntent();
     const intent = this.resumeWork.begin(threadId);
     const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
     if (!preparation || !this.resumeWork.isCurrent(intent)) return;
@@ -195,6 +209,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
+    this.clearPendingEphemeralIntent();
     await this.runtime.commands.startNewThread(options);
   }
 
@@ -202,10 +217,21 @@ export class ChatPanelSession implements ChatPanelHandle {
     input: { sourceThreadId: string; sourceThreadTitle: string | null },
     options: { focus?: boolean } = {},
   ): Promise<boolean> {
-    const opened = await this.runtime.thread.ephemeral.open(input);
-    if (!opened) return false;
-    if (options.focus !== false) this.focusComposer();
-    return true;
+    const intent = this.resumeWork.begin(null);
+    const pendingSource = { threadId: input.sourceThreadId, title: input.sourceThreadTitle };
+    this.setPendingEphemeralSource(pendingSource);
+    try {
+      const opened = await this.runtime.thread.ephemeral.open(input, {
+        isCurrent: () => this.resumeWork.isCurrent(intent),
+      });
+      if (!opened || !this.resumeWork.isCurrent(intent)) return false;
+      if (options.focus !== false) this.focusComposer();
+      return true;
+    } finally {
+      if (this.pendingEphemeralSource === pendingSource) {
+        this.setPendingEphemeralSource(null);
+      }
+    }
   }
 
   private get state(): ChatState {
@@ -237,14 +263,15 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (!snapshot) return;
     this.pendingRuntimeRestore = null;
     if (snapshot.ephemeralSource) {
-      void this.runtime.thread.ephemeral
-        .open({
+      void this.openSideChat(
+        {
           sourceThreadId: snapshot.ephemeralSource.threadId,
           sourceThreadTitle: snapshot.ephemeralSource.title,
-        })
-        .then(() => {
-          if (!this.closing) this.runtime.composer.controller.setDraft(snapshot.composerDraft);
-        });
+        },
+        { focus: false },
+      ).then((opened) => {
+        if (opened && !this.closing) this.runtime.composer.controller.setDraft(snapshot.composerDraft);
+      });
       return;
     }
     if (parseChatPanelViewState(snapshot.viewState).kind === "thread") {
@@ -277,6 +304,16 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   private notifyPanelActivityChanged(): void {
     this.environment.plugin.workspace.notifyPanelActivityChanged();
+  }
+
+  private clearPendingEphemeralIntent(): void {
+    if (this.pendingEphemeralSource) this.setPendingEphemeralSource(null);
+  }
+
+  private setPendingEphemeralSource(source: { threadId: string; title: string | null } | null): void {
+    this.pendingEphemeralSource = source;
+    this.environment.view.refreshTabHeader();
+    this.notifyPanelActivityChanged();
   }
 
   beginPanelActivityPublication(replacementThreadId: string): { publish(commit: () => void): void } {

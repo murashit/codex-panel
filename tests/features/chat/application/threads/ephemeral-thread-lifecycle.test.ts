@@ -102,6 +102,30 @@ describe("ephemeral thread lifecycle", () => {
     expect(notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
   });
 
+  it("does not unsubscribe an old side-chat target after reconnect is superseded", async () => {
+    const store = createChatStateStore();
+    const reconnect = deferred<boolean>();
+    const ensureConnected = vi.fn().mockResolvedValueOnce(true).mockReturnValueOnce(reconnect.promise);
+    const port = transportMock();
+    const lifecycle = createEphemeralThreadLifecycle({
+      stateStore: store,
+      port,
+      ensureConnected,
+      addSystemMessage: vi.fn(),
+      notifyActiveThreadIdentityChanged: vi.fn(),
+      interruptTurn: vi.fn().mockResolvedValue(true),
+    });
+    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+
+    const preparing = lifecycle.prepareForPersistentNavigation();
+    await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledTimes(2));
+    store.dispatch({ type: "panel/view-state-cleared" });
+    reconnect.resolve(true);
+
+    await expect(preparing).resolves.toBe(false);
+    expect(port.unsubscribeEphemeralThread).not.toHaveBeenCalled();
+  });
+
   it("interrupts a running side turn before close cleanup", async () => {
     const store = createChatStateStore();
     const port = transportMock();
@@ -178,6 +202,44 @@ describe("ephemeral thread lifecycle", () => {
     expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
   });
 
+  it.each(["false", "reject"] as const)(
+    "retains stale-fork cleanup after unsubscribe %s and retries it at the next lifecycle boundary",
+    async (failure) => {
+      const store = createChatStateStore();
+      const fork = deferred<Awaited<ReturnType<EphemeralThreadPort["forkEphemeralThread"]>>>();
+      const port = transportMock();
+      port.forkEphemeralThread = vi.fn(() => fork.promise);
+      port.unsubscribeEphemeralThread =
+        failure === "false"
+          ? vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true)
+          : vi.fn().mockRejectedValueOnce(new Error("connection unavailable")).mockResolvedValue(true);
+      const lifecycle = createEphemeralThreadLifecycle({
+        stateStore: store,
+        port,
+        ensureConnected: vi.fn().mockResolvedValue(true),
+        addSystemMessage: vi.fn(),
+        notifyActiveThreadIdentityChanged: vi.fn(),
+        interruptTurn: vi.fn().mockResolvedValue(true),
+      });
+
+      const opening = lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+      await vi.waitFor(() => expect(port.forkEphemeralThread).toHaveBeenCalledOnce());
+      store.dispatch({ type: "panel/view-state-cleared" });
+      fork.resolve({
+        kind: "completed-current",
+        value: { kind: "ready", sourceThreadId: "source", activation: activationFixture() },
+      });
+
+      await expect(opening).resolves.toBe(false);
+      expect(port.unsubscribeEphemeralThread).toHaveBeenCalledTimes(1);
+      expect(activeThreadId(store.getState())).toBeNull();
+
+      await expect(lifecycle.prepareForPersistentNavigation()).resolves.toBe(true);
+      expect(port.unsubscribeEphemeralThread).toHaveBeenCalledTimes(2);
+      expect(port.unsubscribeEphemeralThread).toHaveBeenLastCalledWith("side");
+    },
+  );
+
   it("still unsubscribes the side chat when interrupting its running turn fails", async () => {
     const store = createChatStateStore();
     const port = transportMock();
@@ -250,6 +312,7 @@ describe("ephemeral thread lifecycle", () => {
     port.forkEphemeralThread = vi
       .fn()
       .mockResolvedValue({ kind: "completed-current", value: { kind: "cleanup-required", threadId: "side" } });
+    port.unsubscribeEphemeralThread = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
     const addSystemMessage = vi.fn();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
@@ -263,8 +326,9 @@ describe("ephemeral thread lifecycle", () => {
     await expect(lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null })).resolves.toBe(false);
     await lifecycle.dispose();
 
-    expect(addSystemMessage).toHaveBeenCalledWith("Could not prepare the side chat. Cleanup will be retried when this view closes.");
-    expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
+    expect(addSystemMessage).toHaveBeenCalledWith("Could not open the side chat. Please try again.");
+    expect(port.unsubscribeEphemeralThread).toHaveBeenCalledTimes(2);
+    expect(port.unsubscribeEphemeralThread).toHaveBeenLastCalledWith("side");
   });
 });
 

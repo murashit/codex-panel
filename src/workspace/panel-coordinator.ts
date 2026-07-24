@@ -54,6 +54,7 @@ export class WorkspacePanelCoordinator {
   private foregroundIntent: object | null = null;
   private readonly revealingLeafCounts = new Map<WorkspaceLeaf, number>();
   private readonly deferredLeafLoads = new WeakMap<WorkspaceLeaf, Promise<void>>();
+  private contentIntents = new WeakMap<WorkspaceLeaf, object>();
 
   constructor(private readonly options: WorkspacePanelCoordinatorOptions) {}
 
@@ -62,6 +63,7 @@ export class WorkspacePanelCoordinator {
     this.lastFocusedPanelViewId = null;
     this.foregroundIntent = null;
     this.revealingLeafCounts.clear();
+    this.contentIntents = new WeakMap();
   }
 
   async activateView(): Promise<CodexChatView | null> {
@@ -92,14 +94,28 @@ export class WorkspacePanelCoordinator {
 
   async startNewChat(): Promise<void> {
     const intent = this.beginForegroundIntent();
-    const view = await this.activateViewNow(intent, false);
+    const target = this.findCurrentThreadPanelTarget();
+    if (target && "view" in target) {
+      await this.startNewChatInView(target.leaf, target.view, intent);
+      return;
+    }
+    if (target) {
+      const view = await this.activateThreadPanelTarget(target, intent, false);
+      if (!view) return;
+      const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
+      if (!leaf) return;
+      await workspacePanelSurface(view).startNewThread({ focus: false });
+      this.publishForeground(intent, leaf, view, () => {
+        workspacePanelSurface(view).focusComposer({ force: true });
+      });
+      return;
+    }
+
+    const view = await this.createNewViewNow();
     if (!view) return;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return;
-    await workspacePanelSurface(view).startNewThread({ focus: false });
-    this.publishForeground(intent, leaf, view, () => {
-      workspacePanelSurface(view).focusComposer({ force: true });
-    });
+    await this.startNewChatInView(leaf, view, intent);
   }
 
   async activateNewView(
@@ -112,12 +128,10 @@ export class WorkspacePanelCoordinator {
     options: { connect?: boolean; focus?: boolean; state?: Record<string, unknown> },
     intent: object,
   ): Promise<CodexChatView | null> {
-    const leaf = this.createRightSidebarTab();
-    if (!leaf) throw new Error("Could not create a right sidebar leaf.");
-
-    await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: false, ...(options.state ? { state: options.state } : {}) });
-    if (!isAttachedChatView(leaf.view)) return null;
-    const view = leaf.view;
+    const view = await this.createNewViewNow(options.state);
+    if (!view) return null;
+    const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
+    if (!leaf) return null;
     await this.revealForeground(leaf);
     if (!this.panelStillOwnsView(leaf, view)) return null;
     const surface = workspacePanelSurface(view);
@@ -129,27 +143,36 @@ export class WorkspacePanelCoordinator {
     return view;
   }
 
+  private async createNewViewNow(state?: Record<string, unknown>): Promise<CodexChatView | null> {
+    const leaf = this.createRightSidebarTab();
+    if (!leaf) throw new Error("Could not create a right sidebar leaf.");
+
+    await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: false, ...(state ? { state } : {}) });
+    if (!isAttachedChatView(leaf.view)) return null;
+    return leaf.view;
+  }
+
   async openThreadInNewView(threadId: string): Promise<void> {
     await this.openThreadInTarget({ kind: "new" }, threadId, this.beginForegroundIntent());
   }
 
   async openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void> {
     const intent = this.beginForegroundIntent();
-    const view = await this.activateNewViewNow(
-      {
-        connect: false,
-        focus: false,
-        state: { version: 2, ephemeralSource: { threadId: sourceThreadId, title: sourceThreadTitle } },
-      },
-      intent,
-    );
+    const view = await this.createNewViewNow({
+      version: 2,
+      ephemeralSource: { threadId: sourceThreadId, title: sourceThreadTitle },
+    });
     if (!view) return;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return;
-    const opened = await workspacePanelSurface(view).openSideChat({ sourceThreadId, sourceThreadTitle }, { focus: false });
-    if (!opened) return;
+    const surface = workspacePanelSurface(view);
+    this.beginContentIntent(leaf);
+    const opening = surface.openSideChat({ sourceThreadId, sourceThreadTitle }, { focus: false });
+    const revealing = this.revealForeground(leaf);
+    const [opened] = await Promise.all([opening, revealing]);
+    if (!opened || !this.panelStillOwnsView(leaf, view)) return;
     this.publishForeground(intent, leaf, view, () => {
-      workspacePanelSurface(view).focusComposer({ force: true });
+      surface.focusComposer({ force: true });
     });
   }
 
@@ -203,11 +226,14 @@ export class WorkspacePanelCoordinator {
     for (const leaf of this.panelLeaves()) {
       if (!isAttachedChatView(leaf.view) || workspacePanelSurface(leaf.view).openPanelSnapshot().viewId !== viewId) continue;
       const view = leaf.view;
-      await this.revealForeground(leaf);
+      const surface = workspacePanelSurface(view);
+      this.beginContentIntent(leaf);
+      const focusing = surface.focusThread(threadId, { focus: false });
+      const revealing = this.revealForeground(leaf);
+      await Promise.all([focusing, revealing]);
       if (!this.panelStillOwnsView(leaf, view)) return false;
-      await workspacePanelSurface(view).focusThread(threadId, { focus: false });
       this.publishForeground(intent, leaf, view, () => {
-        workspacePanelSurface(view).focusComposer({ force: true });
+        surface.focusComposer({ force: true });
       });
       return true;
     }
@@ -380,7 +406,9 @@ export class WorkspacePanelCoordinator {
   private async activateThreadPanelTarget(target: ThreadPanelTarget, intent: object, focus: boolean): Promise<CodexChatView | null> {
     if (target.kind === "new") return this.activateNewViewNow({ focus }, intent);
 
+    const contentIntent = "view" in target ? null : this.beginContentIntent(target.leaf);
     await this.revealForeground(target.leaf);
+    if (contentIntent && !this.contentIntentIsCurrent(target.leaf, contentIntent)) return null;
     if ("view" in target) {
       if (!this.panelStillOwnsView(target.leaf, target.view)) return null;
       const surface = workspacePanelSurface(target.view);
@@ -413,15 +441,24 @@ export class WorkspacePanelCoordinator {
   private async openThreadInTarget(target: ThreadPanelTarget, threadId: string, intent: object): Promise<boolean> {
     switch (target.kind) {
       case "open":
-        await this.revealForeground(target.leaf);
+        {
+          const surface = workspacePanelSurface(target.view);
+          this.beginContentIntent(target.leaf);
+          const focusing = surface.focusThread(threadId, { focus: false });
+          const revealing = this.revealForeground(target.leaf);
+          await Promise.all([focusing, revealing]);
+        }
         if (!this.panelStillOwnsView(target.leaf, target.view)) return false;
-        await workspacePanelSurface(target.view).focusThread(threadId, { focus: false });
         this.publishForeground(intent, target.leaf, target.view, () => {
           workspacePanelSurface(target.view).focusComposer({ force: true });
         });
         return true;
       case "restored":
-        await this.revealForeground(target.leaf);
+        {
+          const contentIntent = this.beginContentIntent(target.leaf);
+          await this.revealForeground(target.leaf);
+          if (!this.contentIntentIsCurrent(target.leaf, contentIntent)) return false;
+        }
         if (isAttachedChatView(target.leaf.view)) {
           const view = target.leaf.view;
           await workspacePanelSurface(view).focusThread(threadId, { focus: false });
@@ -433,7 +470,11 @@ export class WorkspacePanelCoordinator {
           return this.openThreadInNewViewNow(threadId, intent);
         }
       case "restored-reuse":
-        await this.revealForeground(target.leaf);
+        {
+          const contentIntent = this.beginContentIntent(target.leaf);
+          await this.revealForeground(target.leaf);
+          if (!this.contentIntentIsCurrent(target.leaf, contentIntent)) return false;
+        }
         if (isAttachedChatView(target.leaf.view)) {
           const view = target.leaf.view;
           await workspacePanelSurface(view).openThread(threadId, { focus: false });
@@ -446,9 +487,14 @@ export class WorkspacePanelCoordinator {
         }
       case "empty":
       case "reuse":
-        await this.revealForeground(target.leaf);
+        {
+          const surface = workspacePanelSurface(target.view);
+          this.beginContentIntent(target.leaf);
+          const opening = surface.openThread(threadId, { focus: false });
+          const revealing = this.revealForeground(target.leaf);
+          await Promise.all([opening, revealing]);
+        }
         if (!this.panelStillOwnsView(target.leaf, target.view)) return false;
-        await workspacePanelSurface(target.view).openThread(threadId, { focus: false });
         this.publishForeground(intent, target.leaf, target.view, () => {
           workspacePanelSurface(target.view).focusComposer({ force: true });
         });
@@ -459,21 +505,48 @@ export class WorkspacePanelCoordinator {
   }
 
   private async openThreadInNewViewNow(threadId: string, intent: object): Promise<boolean> {
-    const view = await this.activateNewViewNow({ connect: false, focus: false }, intent);
+    const view = await this.createNewViewNow({ version: 1, threadId });
     if (!view) return false;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return false;
-    await workspacePanelSurface(view).openThread(threadId, { focus: false });
+    const surface = workspacePanelSurface(view);
+    this.beginContentIntent(leaf);
+    const opening = surface.focusThread(threadId, { focus: false });
+    const revealing = this.revealForeground(leaf);
+    await Promise.all([opening, revealing]);
+    if (!this.panelStillOwnsView(leaf, view)) return false;
     this.publishForeground(intent, leaf, view, () => {
-      workspacePanelSurface(view).focusComposer({ force: true });
+      surface.focusComposer({ force: true });
     });
     return true;
+  }
+
+  private async startNewChatInView(leaf: WorkspaceLeaf, view: CodexChatView, intent: object): Promise<void> {
+    const surface = workspacePanelSurface(view);
+    this.beginContentIntent(leaf);
+    const starting = surface.startNewThread({ focus: false });
+    const revealing = this.revealForeground(leaf);
+    await Promise.all([starting, revealing]);
+    if (!this.panelStillOwnsView(leaf, view)) return;
+    this.publishForeground(intent, leaf, view, () => {
+      surface.focusComposer({ force: true });
+    });
   }
 
   private beginForegroundIntent(): object {
     const intent = {};
     this.foregroundIntent = intent;
     return intent;
+  }
+
+  private beginContentIntent(leaf: WorkspaceLeaf): object {
+    const intent = {};
+    this.contentIntents.set(leaf, intent);
+    return intent;
+  }
+
+  private contentIntentIsCurrent(leaf: WorkspaceLeaf, intent: object): boolean {
+    return this.contentIntents.get(leaf) === intent;
   }
 
   private panelStillOwnsView(leaf: WorkspaceLeaf, view: CodexChatView): boolean {

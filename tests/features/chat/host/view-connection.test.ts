@@ -14,6 +14,7 @@ import {
   requestMethods,
   requiredButton,
   requiredTextArea,
+  resumedThread,
   setupViewConnectionHarness,
   type TestAppServerClient,
   threadFixture,
@@ -134,6 +135,75 @@ describe("CodexChatView connection lifecycle", () => {
       expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Side draft");
     });
     expect(view.surface.openPanelSnapshot().threadId).not.toBe("ephemeral-a");
+  });
+
+  it("publishes side-chat preparation as pending before the fork completes", async () => {
+    const fork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
+    const client = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn(() => fork.promise),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+    const refreshHeader = vi.fn();
+    Object.assign(view.leaf, { updateHeader: refreshHeader });
+
+    const opening = view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" }, { focus: false });
+    await waitForAsyncWork(() => {
+      expect(client.request).toHaveBeenCalledWith("thread/fork", expect.objectContaining({ threadId: "source", cwd: "/vault" }));
+    });
+
+    expect(view.getDisplayText()).toBe("Side chat");
+    expect(view.getState()).toEqual({
+      version: 2,
+      ephemeralSource: { threadId: "source", title: "Source" },
+    });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({
+      threadId: null,
+      pending: true,
+      publishedActivity: { pending: true },
+    });
+    expect(refreshHeader).toHaveBeenCalled();
+
+    fork.resolve({ thread: threadFixture("side") });
+    await expect(opening).resolves.toBe(true);
+
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", pending: false });
+  });
+
+  it("lets a newer thread navigation supersede a pending side chat regardless of completion order", async () => {
+    const fork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
+    const resume = deferred<ReturnType<typeof resumedThread>>();
+    const client = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn(() => fork.promise),
+      "thread/resume": vi.fn(() => resume.promise),
+      "thread/unsubscribe": vi.fn().mockResolvedValue({}),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    const openingSide = view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" }, { focus: false });
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/fork", 1));
+    const openingThread = view.surface.openThread("thread-1", { focus: false });
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/resume", 1));
+
+    fork.resolve({ thread: threadFixture("stale-side") });
+    await expect(openingSide).resolves.toBe(false);
+    expect(view.getState()).not.toHaveProperty("ephemeralSource");
+
+    resume.resolve(resumedThread("thread-1"));
+    await openingThread;
+
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1", pending: false });
+    expect(view.getState()).toMatchObject({ version: 1, threadId: "thread-1" });
+    expect(client.request).toHaveBeenCalledWith(
+      "thread/unsubscribe",
+      { threadId: "stale-side" },
+      expect.objectContaining({ timeoutMs: 5_000 }),
+    );
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {

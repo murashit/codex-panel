@@ -14,7 +14,7 @@ interface OpenEphemeralThreadInput {
 }
 
 export interface EphemeralThreadLifecycle {
-  open(input: OpenEphemeralThreadInput): Promise<boolean>;
+  open(input: OpenEphemeralThreadInput, options?: { isCurrent?: () => boolean }): Promise<boolean>;
   prepareForPersistentNavigation(): Promise<boolean>;
   dispose(): Promise<void>;
 }
@@ -32,8 +32,21 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
   let disposed = false;
   let openGeneration = 0;
   const cleanupRequiredThreadIds = new Set<string>();
-  const openIsStale = (generation: number, panelTarget: ReturnType<typeof capturePanelTargetLease>): boolean =>
-    disposed || generation !== openGeneration || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget);
+  const tryCleanupEphemeralThread = async (threadId: string): Promise<void> => {
+    cleanupRequiredThreadIds.add(threadId);
+    try {
+      if (await host.port.unsubscribeEphemeralThread(threadId)) cleanupRequiredThreadIds.delete(threadId);
+    } catch {
+      // Keep the obligation for the next lifecycle boundary.
+    }
+  };
+  const retryRequiredCleanup = async (): Promise<void> => {
+    for (const threadId of cleanupRequiredThreadIds) {
+      await tryCleanupEphemeralThread(threadId);
+    }
+  };
+  const openIsStale = (generation: number, panelTarget: ReturnType<typeof capturePanelTargetLease>, isCurrent: () => boolean): boolean =>
+    disposed || generation !== openGeneration || !isCurrent() || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget);
   const unsubscribeActiveEphemeralThread = async (): Promise<boolean> => {
     const active = activeThreadState(host.stateStore.getState());
     if (active?.lifetime?.kind === "ephemeral") {
@@ -43,34 +56,29 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
   };
 
   return {
-    async open(input): Promise<boolean> {
+    async open(input, options = {}): Promise<boolean> {
       const generation = ++openGeneration;
+      const isCurrent = options.isCurrent ?? (() => true);
       const panelTarget = capturePanelTargetLease(host.stateStore.getState());
       if (!(await host.ensureConnected())) return false;
-      if (openIsStale(generation, panelTarget)) return false;
+      if (openIsStale(generation, panelTarget, isCurrent)) return false;
+      if (cleanupRequiredThreadIds.size > 0) {
+        await retryRequiredCleanup();
+        if (openIsStale(generation, panelTarget, isCurrent)) return false;
+      }
       const effect = await host.port.forkEphemeralThread(input.sourceThreadId);
       if (!effectCompletedInCurrentContext(effect)) return false;
       const result = effect.value;
       if (result.kind === "cleanup-required") {
-        if (openIsStale(generation, panelTarget)) {
-          try {
-            await host.port.unsubscribeEphemeralThread(result.threadId);
-          } catch {
-            // The connection close remains the final cleanup boundary.
-          }
-          return false;
+        await tryCleanupEphemeralThread(result.threadId);
+        if (!openIsStale(generation, panelTarget, isCurrent)) {
+          host.addSystemMessage("Could not open the side chat. Please try again.");
         }
-        cleanupRequiredThreadIds.add(result.threadId);
-        host.addSystemMessage("Could not prepare the side chat. Cleanup will be retried when this view closes.");
         return false;
       }
       const snapshot = result;
-      if (generation !== openGeneration || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) {
-        try {
-          await host.port.unsubscribeEphemeralThread(snapshot.activation.thread.id);
-        } catch {
-          // A late fork must never become active, even when best-effort cleanup fails.
-        }
+      if (openIsStale(generation, panelTarget, isCurrent)) {
+        await tryCleanupEphemeralThread(snapshot.activation.thread.id);
         return false;
       }
       host.stateStore.dispatch(
@@ -89,12 +97,18 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
     async prepareForPersistentNavigation(): Promise<boolean> {
       const state = host.stateStore.getState();
       const active = activeThreadState(state);
-      if (active?.lifetime?.kind !== "ephemeral") return true;
+      if (active?.lifetime?.kind !== "ephemeral") {
+        await retryRequiredCleanup();
+        return true;
+      }
       const panelTarget = capturePanelTargetLease(state);
       if (chatTurnBusy(state)) {
         host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
         return false;
       }
+      if (!(await host.ensureConnected()) || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
+      await retryRequiredCleanup();
+      if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
       try {
         if (!(await unsubscribeActiveEphemeralThread())) {
           if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
@@ -127,13 +141,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       } catch {
         // Ephemeral cleanup must not prevent the panel from closing.
       }
-      for (const threadId of cleanupRequiredThreadIds) {
-        try {
-          if (await host.port.unsubscribeEphemeralThread(threadId)) cleanupRequiredThreadIds.delete(threadId);
-        } catch {
-          // Closing the app-server connection provides the final subscription cleanup boundary.
-        }
-      }
+      await retryRequiredCleanup();
     },
   };
 }
