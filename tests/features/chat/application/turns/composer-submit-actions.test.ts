@@ -73,7 +73,7 @@ function createHost(
     connection: {
       ensureConnected,
     },
-    turnTransport: { interruptTurn },
+    turnPort: { interruptTurn },
     status: {
       setStatus: vi.fn(),
       addSystemMessage: vi.fn(),

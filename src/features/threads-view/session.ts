@@ -9,7 +9,7 @@ import { observedInitialError, observedInitialLoading } from "../../shared/runti
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../threads/workflows/archive-export";
-import type { ThreadOperationsTransport, ThreadTitleTransport } from "../threads/workflows/ports";
+import type { ThreadOperationsPort, ThreadTitlePort } from "../threads/workflows/ports";
 import type { ThreadFactSink } from "../threads/workflows/thread-facts";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
@@ -21,8 +21,8 @@ export interface ThreadsViewHost {
   readonly threadCatalog: ThreadsViewThreadCatalog;
   readonly threadFacts: ThreadFactSink;
   readonly threadNameMutations: KeyedOperationQueue<string>;
-  readonly threadOperationsTransport: ThreadOperationsTransport;
-  readonly threadTitleTransport: ThreadTitleTransport;
+  readonly threadOperationsPort: ThreadOperationsPort;
+  readonly threadTitlePort: ThreadTitlePort;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
@@ -71,7 +71,7 @@ export class ThreadsViewSession {
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
     this.renderTask = new DeferredTask(() => this.viewWindow(), 0);
     this.operations = createThreadOperations({
-      transport: this.host.threadOperationsTransport,
+      port: this.host.threadOperationsPort,
       nameMutations: this.host.threadNameMutations,
       archiveExport: {
         settings: () => this.host.settings.archiveExportSettings(),
@@ -87,7 +87,7 @@ export class ThreadsViewSession {
       },
     });
     this.titleService = createThreadTitleService({
-      transport: this.host.threadTitleTransport,
+      port: this.host.threadTitlePort,
     });
   }
 

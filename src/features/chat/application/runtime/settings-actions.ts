@@ -14,7 +14,7 @@ import { type ActivePanelOperation, activePanelOperationDecision } from "../pane
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { RuntimeSettingsTransport } from "./settings-transport";
+import type { RuntimeSettingsPort } from "./settings-port";
 
 interface RuntimeSettingsCommitResult {
   ok: boolean;
@@ -26,7 +26,7 @@ type FastModeState = "enabled" | "disabled";
 
 export interface RuntimeSettingsActionsHost {
   stateStore: ChatStateStore;
-  runtimeTransport: RuntimeSettingsTransport;
+  runtimeSettingsPort: RuntimeSettingsPort;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   collaborationModeLabel: () => string;
   addSystemMessage: (text: string) => void;
@@ -165,7 +165,7 @@ async function updateRuntimeSettings(
   update: RuntimeSettingsPatch,
 ): Promise<boolean> {
   try {
-    return await host.runtimeTransport.updateThreadSettings(scope.threadId, update);
+    return await host.runtimeSettingsPort.updateThreadSettings(scope.threadId, update);
   } catch (error) {
     if (runtimeSettingsScopeIsCurrent(host, scope)) {
       host.addSystemMessage(error instanceof Error ? error.message : String(error));

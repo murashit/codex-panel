@@ -13,7 +13,7 @@ describe("ThreadTitleService", () => {
     const withClient = vi.fn().mockRejectedValue(new Error("should not read persisted context"));
     const service = titleService({
       visibleContext: () => titleContext("visible request", "visible response"),
-      transport: {
+      port: {
         persistedContext: withClient,
         generateTitle: generateThreadTitle,
       },
@@ -67,7 +67,7 @@ describe("ThreadTitleService", () => {
       .mockResolvedValueOnce("Fresh title");
     const service = titleService({
       visibleContext: () => titleContext("request", "response"),
-      transport: {
+      port: {
         persistedContext: vi.fn().mockResolvedValue(null),
         generateTitle,
       },
@@ -88,7 +88,7 @@ describe("ThreadTitleService", () => {
 
 function titleService(options: Partial<ThreadTitleServiceHost> = {}): ThreadTitleService {
   return createThreadTitleService({
-    transport: {
+    port: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
     },

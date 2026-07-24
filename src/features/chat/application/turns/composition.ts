@@ -12,14 +12,14 @@ import { type ComposerSubmitActions, type ComposerSubmitActionsHost, submitCompo
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
 import type { ThreadReferenceInput, WebUrlInput } from "./slash-command-execution";
 import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
+import type { ChatTurnPort } from "./turn-port";
 import { createTurnSubmissionActions } from "./turn-submission-actions";
-import type { ChatTurnTransport } from "./turn-transport";
 
 export interface TurnWorkflowContext {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
   connectionAvailable: () => boolean;
-  turnTransport: ChatTurnTransport;
+  turnPort: ChatTurnPort;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
   status: {
@@ -77,23 +77,12 @@ export interface TurnWorkflowActions {
 }
 
 export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: TurnWorkflowRefs): TurnWorkflowActions {
-  const {
-    stateStore,
-    localItemIds,
-    connectionAvailable,
-    turnTransport,
-    referThread,
-    readWebUrl,
-    status,
-    runtime,
-    thread,
-    composer,
-    scroll,
-  } = context;
+  const { stateStore, localItemIds, connectionAvailable, turnPort, referThread, readWebUrl, status, runtime, thread, composer, scroll } =
+    context;
   const turnSubmission = createTurnSubmissionActions({
     stateStore,
     localItemIds,
-    turnTransport,
+    turnPort,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     startThread: (preview, options) => refs.threadStarter.startThread(preview, options),
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
@@ -129,7 +118,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
   };
   const planImplementationHost: PlanImplementationHost = {
     stateStore,
-    ensureConnected: () => turnTransport.ensureConnected(),
+    ensureConnected: () => turnPort.ensureConnected(),
     sendTurnText: async (text) => {
       await turnSubmission.sendTurnText({ text });
     },
@@ -157,9 +146,9 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     },
     turnSubmission,
     connection: {
-      ensureConnected: () => turnTransport.ensureConnected(),
+      ensureConnected: () => turnPort.ensureConnected(),
     },
-    turnTransport,
+    turnPort,
     status: {
       setStatus: status.set,
       addSystemMessage: status.addSystemMessage,

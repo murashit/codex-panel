@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
 
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
-import { createThreadOperationsTransport } from "../../../threads/app-server/workflow-transports";
+import { createThreadOperationsAdapter } from "../../../threads/app-server/workflow-adapters";
 import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
@@ -111,15 +111,15 @@ interface ChatPanelThreadActionBundle {
 export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPanelThreadFoundationInput): ChatPanelThreadFoundation {
   const { appServer, localItemIds, status } = input;
   const { environment, stateStore } = host;
-  const threadOperationsTransport = createThreadOperationsTransport(appServer.clientAccess);
+  const threadOperationsPort = createThreadOperationsAdapter(appServer.clientAccess);
   const titleService = createThreadTitleService({
-    transport: environment.plugin.threadTitleTransport,
+    port: environment.plugin.threadTitlePort,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
     visibleCompletedTurnContext: (turnId) =>
       threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
   });
   const threadOperations = createThreadOperations({
-    transport: threadOperationsTransport,
+    port: threadOperationsPort,
     nameMutations: environment.plugin.threadNameMutations,
     archiveExport: {
       settings: () => environment.plugin.settings.archiveExportSettings(),
@@ -147,7 +147,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   });
   const history = new HistoryController({
     stateStore,
-    historyTransport: appServer.threadHistory,
+    historyPort: appServer.threadHistory,
     addSystemMessage: status.addSystemMessage,
     showLatestPageAtBottom: () => {
       host.threadStreamScrollBinding.showLatest();
@@ -166,7 +166,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   const goalSync = createThreadGoalSyncActions(
     {
       stateStore,
-      goalTransport: appServer.threadGoalRead,
+      goalPort: appServer.threadGoalRead,
       localItemIds,
       addSystemMessage: (text) => {
         status.addSystemMessage(text);
@@ -218,7 +218,7 @@ export function createThreadLifecycleBundle(
   const goals = createGoalActions(
     {
       stateStore: host.stateStore,
-      goalTransport: appServer.threadGoal,
+      goalPort: appServer.threadGoal,
       localItemIds,
       startThread: (preview, options) => threadStart.startThread(preview, options),
       ensureRestoredThreadLoaded: () =>
@@ -349,7 +349,7 @@ function createSessionThreadLifecycle(
   };
   const resume = createResumeActions({
     stateStore: host.stateStore,
-    resumeTransport: {
+    resumePort: {
       ensureConnected: async () => {
         await ensureInitialized();
         return appServer.connectionAvailable();

@@ -94,7 +94,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       stateStore: host.stateStore,
       localItemIds,
       connectionAvailable: () => appServer.connectionAvailable(),
-      turnTransport: appServer.turn,
+      turnPort: appServer.turn,
       referThread,
       readWebUrl: (url, message, snapshot, isCurrent) =>
         readWebUrl(

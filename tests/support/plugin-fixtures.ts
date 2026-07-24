@@ -129,7 +129,7 @@ function chatHostFixture(): CodexChatHost {
     },
     appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
     threadNameMutations: createKeyedOperationQueue(),
-    threadTitleTransport: {
+    threadTitlePort: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
     },

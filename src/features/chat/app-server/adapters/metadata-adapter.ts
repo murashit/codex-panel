@@ -4,17 +4,17 @@ import { readRateLimitMetadataProbe } from "../../../../app-server/services/meta
 import { readToolInventory } from "../../../../app-server/services/tool-inventory";
 import type { DiagnosticProbeId, DiagnosticProbeResult } from "../../../../domain/server/diagnostics";
 import { diagnosticProbeError, diagnosticProbeOk } from "../../../../domain/server/diagnostics";
-import type { ServerDiagnosticsSnapshot, ServerDiagnosticsTransport } from "../../application/connection/metadata-transport";
+import type { ServerDiagnosticsPort, ServerDiagnosticsSnapshot } from "../../application/connection/metadata-port";
 
 interface CurrentChatAppServerClientHost {
   currentClient(): AppServerClient | null;
 }
 
-interface ChatAppServerMetadataTransportHost extends CurrentChatAppServerClientHost {
+interface ChatAppServerMetadataAdapterHost extends CurrentChatAppServerClientHost {
   vaultPath: string;
 }
 
-export function createChatServerDiagnosticsTransport(host: ChatAppServerMetadataTransportHost): ServerDiagnosticsTransport {
+export function createChatServerDiagnosticsAdapter(host: ChatAppServerMetadataAdapterHost): ServerDiagnosticsPort {
   return {
     readServerDiagnostics: async (request): Promise<ServerDiagnosticsSnapshot | null> => {
       const client = host.currentClient();

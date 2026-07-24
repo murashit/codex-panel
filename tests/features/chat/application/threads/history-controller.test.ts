@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { HistoryController } from "../../../../../src/features/chat/application/threads/history-controller";
-import type {
-  ThreadHistoryPage,
-  ThreadHistoryTransport,
-} from "../../../../../src/features/chat/application/threads/thread-loading-transport";
+import type { ThreadHistoryPage, ThreadHistoryPort } from "../../../../../src/features/chat/application/threads/thread-loading-ports";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -88,7 +85,7 @@ describe("HistoryController", () => {
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "thread-stream/items-replaced" }));
   });
 
-  it("clears loading state when the history transport has no page", async () => {
+  it("clears loading state when the history port has no page", async () => {
     const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(null);
     const { loader, stateStore, addSystemMessage, setThreadTurnPresence } = historyFixture({ readHistoryPage });
 
@@ -102,7 +99,7 @@ describe("HistoryController", () => {
   });
 });
 
-type HistoryPageReader = ThreadHistoryTransport["readHistoryPage"];
+type HistoryPageReader = ThreadHistoryPort["readHistoryPage"];
 
 function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<HistoryPageReader>> }) {
   let state = chatStateFixture();
@@ -114,7 +111,7 @@ function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<Hist
   const setThreadTurnPresence = vi.fn();
   const loader = new HistoryController({
     stateStore,
-    historyTransport: {
+    historyPort: {
       readHistoryPage: options.readHistoryPage,
     },
     addSystemMessage,

@@ -1,6 +1,6 @@
 import type { SelectionRewriteInstructionHistoryDirection, SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
+import { type SelectionRewriteActivity, SelectionRewriteOutputError, type SelectionRewritePort } from "./port";
 import { buildSelectionRewritePrompt } from "./prompt";
-import { type SelectionRewriteActivity, SelectionRewriteOutputError, type SelectionRewriteTransport } from "./transport";
 
 const MAX_SELECTION_REWRITE_INSTRUCTION_HISTORY = 20;
 
@@ -12,7 +12,7 @@ type ActiveSelectionRewriteGenerationRun = Extract<SelectionRewriteGenerationRun
 export interface SelectionRewriteSessionOptions {
   runtimeSettings: SelectionRewriteRuntimeSettings;
   state: SelectionRewriteState;
-  transport: SelectionRewriteTransport;
+  port: SelectionRewritePort;
 }
 
 export interface SelectionRewriteSessionStatus {
@@ -82,7 +82,7 @@ export class SelectionRewriteSession {
     hooks.render();
 
     try {
-      const output = await this.options.transport.generate({
+      const output = await this.options.port.generate({
         prompt: buildSelectionRewritePrompt(this.state),
         runtimeSettings: this.options.runtimeSettings,
         onActivity: (activity) => {

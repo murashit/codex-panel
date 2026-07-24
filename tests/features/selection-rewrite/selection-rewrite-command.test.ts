@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command.obsidian";
 import type { SelectionRewritePopoverOptions } from "../../../src/features/selection-rewrite/popover.dom";
-import type { SelectionRewriteTransport } from "../../../src/features/selection-rewrite/transport";
+import type { SelectionRewritePort } from "../../../src/features/selection-rewrite/port";
 
 const popoverMock = vi.hoisted(() => {
   const instances: { options: SelectionRewritePopoverOptions; open: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }[] = [];
@@ -63,8 +63,8 @@ describe("selection rewrite command", () => {
     Object.assign(view, { containerEl: { doc: document } });
     view.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });
 
-    const transport: SelectionRewriteTransport = { generate: vi.fn() };
-    const controller = registerSelectionRewriteCommand(plugin as never, transport);
+    const port: SelectionRewritePort = { generate: vi.fn() };
+    const controller = registerSelectionRewriteCommand(plugin as never, port);
     expect(addedCommand.current).not.toBeNull();
     expect(addedCommand.current?.editorCheckCallback(true, editor, view)).toBe(true);
     expect(popoverMock.instances).toHaveLength(0);
@@ -83,7 +83,7 @@ describe("selection rewrite command", () => {
       },
     });
     expect(popoverMock.instances[0]?.open).toHaveBeenCalledOnce();
-    expect(popoverMock.instances[0]?.options.transport).toBe(transport);
+    expect(popoverMock.instances[0]?.options.port).toBe(port);
 
     controller.closeAll();
     expect(popoverMock.instances[0]?.close).toHaveBeenCalledOnce();

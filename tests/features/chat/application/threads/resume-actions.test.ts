@@ -9,9 +9,9 @@ import { createResumeActions, type ResumeActionsHost } from "../../../../../src/
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type {
   ThreadHistoryPage,
+  ThreadResumePort,
   ThreadResumeSnapshot,
-  ThreadResumeTransport,
-} from "../../../../../src/features/chat/application/threads/thread-loading-transport";
+} from "../../../../../src/features/chat/application/threads/thread-loading-ports";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> = {}): ThreadResumeSnapshot {
@@ -38,7 +38,7 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
 function createActions(response: ThreadResumeSnapshot | null = activation("thread"), overrides: Partial<ResumeActionsHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   const resumeThread = vi
-    .fn<ThreadResumeTransport["resumeThread"]>()
+    .fn<ThreadResumePort["resumeThread"]>()
     .mockResolvedValue(response ? { kind: "completed-current", value: response } : { kind: "not-started" });
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyLatestPage = vi.fn();
@@ -55,7 +55,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     addSystemMessage: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-    resumeTransport: overrides.resumeTransport ?? { ensureConnected: vi.fn().mockResolvedValue(true), resumeThread },
+    resumePort: overrides.resumePort ?? { ensureConnected: vi.fn().mockResolvedValue(true), resumeThread },
   };
   return {
     actions: createResumeActions(host),
@@ -113,7 +113,7 @@ describe("ResumeActions", () => {
     await expect(resuming).resolves.toBe(true);
   });
 
-  it("does not change active thread when the resume transport has no snapshot", async () => {
+  it("does not change active thread when the resume port has no snapshot", async () => {
     const { actions, host, loadLatest, resumeThread, stateStore } = createActions(null);
 
     await actions.resumeThread("thread");
@@ -126,13 +126,13 @@ describe("ResumeActions", () => {
 
   it("does not invoke an older resume after a newer intent wins during connection", async () => {
     const firstConnection = deferred<boolean>();
-    const resumeThread = vi.fn<ThreadResumeTransport["resumeThread"]>().mockImplementation(async (threadId) => ({
+    const resumeThread = vi.fn<ThreadResumePort["resumeThread"]>().mockImplementation(async (threadId) => ({
       kind: "completed-current",
       value: activation(threadId),
     }));
     const ensureConnected = vi.fn().mockReturnValueOnce(firstConnection.promise).mockResolvedValue(true);
     const { actions, stateStore } = createActions(undefined, {
-      resumeTransport: { ensureConnected, resumeThread },
+      resumePort: { ensureConnected, resumeThread },
     });
 
     const firstResume = actions.resumeThread("first");

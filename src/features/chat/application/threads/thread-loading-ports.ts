@@ -8,7 +8,7 @@ export interface ThreadHistoryPage {
   hadTurns: boolean;
 }
 
-export interface ThreadHistoryTransport {
+export interface ThreadHistoryPort {
   readHistoryPage(threadId: string, cursor: string | null, limit: number): Promise<ThreadHistoryPage | null>;
 }
 
@@ -18,7 +18,7 @@ export interface ThreadResumeSnapshot {
   initialHistoryPage: ThreadHistoryPage | null;
 }
 
-export interface ThreadResumeTransport {
+export interface ThreadResumePort {
   ensureConnected(): Promise<boolean>;
   resumeThread(threadId: string): Promise<EffectOutcome<ThreadResumeSnapshot>>;
 }

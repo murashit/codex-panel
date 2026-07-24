@@ -119,7 +119,7 @@ describe("executeSlashCommandWithState", () => {
     expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
   });
 
-  it("rejects a directly typed goal command in a side chat before it reaches the goal transport", async () => {
+  it("rejects a directly typed goal command in a side chat before it reaches the goal port", async () => {
     const { host, stateStore } = createHost();
     stateStore.dispatch({
       type: "active-thread/resumed",

@@ -8,7 +8,7 @@ import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/pan
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { ThreadStartTransport } from "./thread-start-transport";
+import type { ThreadStartPort } from "./thread-start-port";
 
 export type ThreadStartOutcome =
   | { readonly kind: "not-started" }
@@ -17,7 +17,7 @@ export type ThreadStartOutcome =
 
 export interface ThreadStartActionsHost {
   stateStore: ChatStateStore;
-  threadStartTransport: ThreadStartTransport;
+  threadStartPort: ThreadStartPort;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   recordStartedThread: (thread: Thread) => void;
   syncThreadGoal: (threadId: string) => void;
@@ -42,7 +42,7 @@ async function startThread(
   const panelTarget = capturePanelTargetLease(requestState);
   const runtimeSnapshot = host.runtimeSnapshotForState(requestState);
   const runtimeConfig = runtimeConfigOrDefault(requestState.connection.runtimeConfig);
-  const effect = await host.threadStartTransport.startThread({
+  const effect = await host.threadStartPort.startThread({
     serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),
     permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
   });

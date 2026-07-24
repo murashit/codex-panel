@@ -71,7 +71,7 @@ export default class CodexPanelPlugin extends Plugin {
       callback: () => void this.runtime.startNewChat().catch(reportCommandError),
     });
 
-    this.runtime.setSelectionRewriteController(registerSelectionRewriteCommand(this, this.runtime.selectionRewriteTransport()));
+    this.runtime.setSelectionRewriteController(registerSelectionRewriteCommand(this, this.runtime.selectionRewritePort()));
 
     this.addSettingTab(new CodexPanelSettingTab(this.app, this, this.runtime.settingTabHost()));
 

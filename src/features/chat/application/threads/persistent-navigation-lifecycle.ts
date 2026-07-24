@@ -2,7 +2,7 @@ import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { chatTurnBusy } from "../turns/turn-state";
 import type { EphemeralThreadLifecycle } from "./ephemeral-thread-lifecycle";
-import type { ThreadSubscriptionTransport } from "./thread-subscription-transport";
+import type { ThreadSubscriptionPort } from "./thread-subscription-port";
 
 export interface PersistentNavigationLifecycle {
   prepareForPersistentNavigation(targetThreadId: string | null): Promise<PersistentNavigationPreparation | null>;
@@ -16,7 +16,7 @@ export type PersistentNavigationPreparation =
 interface PersistentNavigationLifecycleHost {
   stateStore: ChatStateStore;
   ephemeral: EphemeralThreadLifecycle;
-  subscriptions: ThreadSubscriptionTransport;
+  subscriptions: ThreadSubscriptionPort;
   addSystemMessage(text: string): void;
 }
 

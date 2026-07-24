@@ -8,14 +8,14 @@ import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import type { HistoryController } from "./history-controller";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
-import type { ThreadResumeSnapshot, ThreadResumeTransport } from "./thread-loading-transport";
+import type { ThreadResumePort, ThreadResumeSnapshot } from "./thread-loading-ports";
 import { canSwitchToThread } from "./thread-switching";
 
 export interface ResumeActionsHost {
   stateStore: ChatStateStore;
   resumeWork: ChatResumeWorkTracker;
   history: HistoryController;
-  resumeTransport: ThreadResumeTransport;
+  resumePort: ThreadResumePort;
   closing: () => boolean;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   notifyActiveThreadIdentityChanged: () => void;
@@ -56,9 +56,9 @@ async function resumeThread(
   host.history.invalidate();
 
   try {
-    if (!(await host.resumeTransport.ensureConnected())) return false;
+    if (!(await host.resumePort.ensureConnected())) return false;
     if (isStaleResume(host, resume, initialPanelTarget)) return false;
-    const effect = await host.resumeTransport.resumeThread(threadId);
+    const effect = await host.resumePort.resumeThread(threadId);
     if (!effectCompletedInCurrentContext(effect)) return false;
     if (isStaleResume(host, resume, initialPanelTarget)) return false;
     const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);

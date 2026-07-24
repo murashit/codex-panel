@@ -1,11 +1,11 @@
 import type { ThreadGoal, ThreadGoalUpdate } from "../../../../domain/threads/goal";
 import type { EffectOutcome } from "../effect-outcome";
 
-export interface ThreadGoalReadTransport {
+export interface ThreadGoalReadPort {
   readThreadGoal(threadId: string): Promise<ThreadGoal | null | undefined>;
 }
 
-export interface ThreadGoalTransport extends ThreadGoalReadTransport {
+export interface ThreadGoalPort extends ThreadGoalReadPort {
   setThreadGoal(threadId: string, params: ThreadGoalUpdate): Promise<EffectOutcome<ThreadGoal | null>>;
   clearThreadGoal(threadId: string): Promise<EffectOutcome<void>>;
   recordThreadGoalUserMessage(threadId: string, objective: string): Promise<boolean>;

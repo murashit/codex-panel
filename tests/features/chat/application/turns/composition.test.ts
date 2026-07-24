@@ -81,7 +81,7 @@ describe("createTurnWorkflowActions", () => {
         stateStore,
         localItemIds: createLocalIdSource(),
         connectionAvailable: () => true,
-        turnTransport: {
+        turnPort: {
           ensureConnected: vi.fn().mockResolvedValue(true),
           startTurn,
           steerTurn: vi.fn().mockResolvedValue({ kind: "completed-current" as const, value: undefined }),

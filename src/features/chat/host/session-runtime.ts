@@ -82,7 +82,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     {
       connection,
-      diagnosticsTransport: currentAppServer.serverDiagnostics,
+      diagnosticsPort: currentAppServer.serverDiagnostics,
       localItemIds,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
       status,
@@ -106,7 +106,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const runtimeSettings = createChatRuntimeSettingsActions(
     {
       stateStore,
-      runtimeTransport: appServer.runtimeSettings,
+      runtimeSettingsPort: appServer.runtimeSettings,
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       collaborationModeLabel: () => {
         const runtime = stateStore.getState().runtime;
@@ -127,7 +127,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   });
   const threadStart = createThreadStartActions({
     stateStore,
-    threadStartTransport: appServer.threadStart,
+    threadStartPort: appServer.threadStart,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     recordStartedThread: (thread) => {
       environment.plugin.threadFactCoordinator.apply({ type: "thread-upserted", thread });
@@ -151,7 +151,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   });
   const ephemeral = createEphemeralThreadLifecycle({
     stateStore,
-    transport: appServer.threadEphemeral,
+    port: appServer.threadEphemeral,
     ensureConnected: async () => {
       await ensureConnected();
       return connection.isConnected();

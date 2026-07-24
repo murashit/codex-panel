@@ -9,9 +9,9 @@ import {
 } from "../../../app-server/services/threads";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { findThreadTitleContext } from "../../../domain/threads/title-generation-model";
-import type { ThreadOperationsTransport, ThreadTitleTransport } from "../workflows/ports";
+import type { ThreadOperationsPort, ThreadTitlePort } from "../workflows/ports";
 
-export function createThreadOperationsTransport(clientAccess: AppServerClientAccess): ThreadOperationsTransport {
+export function createThreadOperationsAdapter(clientAccess: AppServerClientAccess): ThreadOperationsPort {
   return {
     renameThread: (threadId, name) => clientAccess.withClient((client) => renameThread(client, threadId, name)),
     archiveThread: (threadId, prepare) =>
@@ -23,14 +23,14 @@ export function createThreadOperationsTransport(clientAccess: AppServerClientAcc
   };
 }
 
-export function createThreadTitleTransport(options: {
+export function createThreadTitleAdapter(options: {
   clientAccess: AppServerClientAccess;
   codexPath: string;
   vaultPath: string;
   threadNamingModel(): string | null;
   threadNamingEffort(): ReasoningEffort | null;
   runner: EphemeralStructuredTurnRunner;
-}): ThreadTitleTransport {
+}): ThreadTitlePort {
   return {
     persistedContext: (threadId) =>
       options.clientAccess.withClient((client) =>

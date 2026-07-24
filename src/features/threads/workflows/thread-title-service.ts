@@ -1,9 +1,9 @@
 import { type ThreadTitleContext, threadTitleContextFromTurnTranscriptSummary } from "../../../domain/threads/title-generation-model";
 import type { TurnTranscriptSummary } from "../../../domain/threads/transcript";
-import type { ThreadTitleTransport } from "./ports";
+import type { ThreadTitlePort } from "./ports";
 
 export interface ThreadTitleServiceHost {
-  transport: ThreadTitleTransport;
+  port: ThreadTitlePort;
   visibleContext?(threadId: string): ThreadTitleContext | null;
   visibleCompletedTurnContext?(turnId: string): ThreadTitleContext | null;
 }
@@ -68,7 +68,7 @@ async function resolveThreadTitleContext(host: ThreadTitleServiceHost, threadId:
 }
 
 async function persistedThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {
-  return host.transport.persistedContext(threadId);
+  return host.port.persistedContext(threadId);
 }
 
 function completedTurnContext(
@@ -88,7 +88,7 @@ async function generateTitleFromContext(
   signal: AbortSignal,
 ): Promise<string | null> {
   throwIfTitleGenerationCancelled(signal);
-  const title = await host.transport.generateTitle(context, signal);
+  const title = await host.port.generateTitle(context, signal);
   throwIfTitleGenerationCancelled(signal);
   return title;
 }

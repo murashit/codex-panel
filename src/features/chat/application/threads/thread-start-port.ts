@@ -7,6 +7,6 @@ interface ThreadStartRequest {
   permissions?: RuntimeSettingsPatch["permissions"];
 }
 
-export interface ThreadStartTransport {
+export interface ThreadStartPort {
   startThread(request: ThreadStartRequest): Promise<EffectOutcome<ThreadActivationSnapshot>>;
 }

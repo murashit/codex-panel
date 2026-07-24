@@ -177,7 +177,7 @@ describe("server diagnostics actions", () => {
     const readServerDiagnostics = vi.fn().mockResolvedValue(serverDiagnosticsSnapshot());
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
-      diagnosticsTransport: { readServerDiagnostics },
+      diagnosticsPort: { readServerDiagnostics },
       ...metadataCache,
     });
 
@@ -207,7 +207,7 @@ describe("server diagnostics actions", () => {
     const readServerDiagnostics = vi.fn().mockResolvedValue(serverDiagnosticsSnapshot());
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
-      diagnosticsTransport: { readServerDiagnostics },
+      diagnosticsPort: { readServerDiagnostics },
       ...metadataCache,
     });
 
@@ -234,7 +234,7 @@ describe("server diagnostics actions", () => {
     );
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
-      diagnosticsTransport: { readServerDiagnostics },
+      diagnosticsPort: { readServerDiagnostics },
       ...metadataCacheHost(),
     });
 
@@ -247,11 +247,11 @@ describe("server diagnostics actions", () => {
     });
   });
 
-  it("does not apply diagnostic probes when the transport returns no snapshot", async () => {
+  it("does not apply diagnostic probes when the port returns no snapshot", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
-      diagnosticsTransport: { readServerDiagnostics: vi.fn().mockResolvedValue(null) },
+      diagnosticsPort: { readServerDiagnostics: vi.fn().mockResolvedValue(null) },
       appServerMetadataSnapshot: () => null,
     });
 
@@ -273,7 +273,7 @@ describe("server diagnostics actions", () => {
     });
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
-      diagnosticsTransport: {
+      diagnosticsPort: {
         readServerDiagnostics: vi.fn().mockResolvedValue(
           serverDiagnosticsSnapshot({
             mcpServerStatuses: [mcpServerStatus()],
@@ -303,7 +303,7 @@ describe("server diagnostics actions", () => {
     const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread-1" } }));
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
-      diagnosticsTransport: { readServerDiagnostics: vi.fn(() => pending.promise) },
+      diagnosticsPort: { readServerDiagnostics: vi.fn(() => pending.promise) },
       ...metadataCacheHost(),
     });
 
@@ -321,7 +321,7 @@ describe("server diagnostics actions", () => {
     const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread-1" } }));
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
-      diagnosticsTransport: { readServerDiagnostics: vi.fn(() => pending.promise) },
+      diagnosticsPort: { readServerDiagnostics: vi.fn(() => pending.promise) },
       ...metadataCacheHost(),
     });
 
@@ -354,7 +354,7 @@ describe("server diagnostics actions", () => {
     );
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
-      diagnosticsTransport: {
+      diagnosticsPort: {
         readServerDiagnostics: vi.fn().mockResolvedValue(serverDiagnosticsSnapshot({ mcpServerStatuses: [mcpServerStatus()] })),
       },
       ...metadataCacheHost(),

@@ -40,12 +40,12 @@ describe("chat app-server transports", () => {
   it("starts threads with the session vault path and projects activation snapshots", async () => {
     const request = vi.fn().mockResolvedValue(threadStartResponse("thread"));
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadStart;
 
-    const snapshot = await transport.startThread({ serviceTier: "priority", permissions: ":workspace" });
+    const snapshot = await adapter.startThread({ serviceTier: "priority", permissions: ":workspace" });
 
     expect(request).toHaveBeenCalledWith("thread/start", {
       cwd: "/vault",
@@ -64,12 +64,12 @@ describe("chat app-server transports", () => {
     const firstClient = { request: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).threadStart;
 
-    const starting = transport.startThread({});
+    const starting = adapter.startThread({});
     currentClient = secondClient;
     start.resolve(threadStartResponse("thread"));
 
@@ -82,13 +82,13 @@ describe("chat app-server transports", () => {
   it("starts turns with the session vault path and returns chat-owned turn ids", async () => {
     const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).turn;
 
     await expect(
-      transport.startTurn({
+      adapter.startTurn({
         threadId: "thread",
         input: textInput("hello"),
         clientUserMessageId: "local-user",
@@ -106,7 +106,7 @@ describe("chat app-server transports", () => {
   it("starts turns with wikilink and active file context in one app-server payload", async () => {
     const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).turn;
@@ -122,7 +122,7 @@ describe("chat app-server transports", () => {
       { referenceActiveNoteOnSend: true },
     );
 
-    await transport.startTurn({
+    await adapter.startTurn({
       threadId: "thread",
       input: prepared.input,
       clientUserMessageId: "local-user-1-seed-1-1",
@@ -144,17 +144,17 @@ describe("chat app-server transports", () => {
     });
   });
 
-  it("drops stale turn transport responses after the current client changes", async () => {
+  it("drops stale turn adapter responses after the current client changes", async () => {
     const start = deferred<{ turn: { id: string } }>();
     const firstClient = { request: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).turn;
 
-    const starting = transport.startTurn({ threadId: "thread", input: textInput("hello"), clientUserMessageId: "local-user" });
+    const starting = adapter.startTurn({ threadId: "thread", input: textInput("hello"), clientUserMessageId: "local-user" });
     currentClient = secondClient;
     start.resolve({ turn: { id: "turn-1" } });
 
@@ -166,12 +166,12 @@ describe("chat app-server transports", () => {
     const firstClient = { request: vi.fn().mockReturnValue(steer.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).turn;
 
-    const steering = transport.steerTurn({
+    const steering = adapter.steerTurn({
       threadId: "thread",
       turnId: "turn",
       input: textInput("follow up"),
@@ -186,12 +186,12 @@ describe("chat app-server transports", () => {
   it("uses the steer client id to namespace bounded context", async () => {
     const request = vi.fn().mockResolvedValue({});
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).turn;
 
-    await transport.steerTurn({
+    await adapter.steerTurn({
       threadId: "thread",
       turnId: "turn",
       input: [
@@ -214,12 +214,12 @@ describe("chat app-server transports", () => {
   it("compacts threads through a connected app-server client", async () => {
     const request = vi.fn().mockResolvedValue({});
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
-    await expect(transport.compactThread("thread")).resolves.toEqual({ kind: "completed-current", value: undefined });
+    await expect(adapter.compactThread("thread")).resolves.toEqual({ kind: "completed-current", value: undefined });
 
     expect(request).toHaveBeenCalledWith("thread/compact/start", { threadId: "thread" });
   });
@@ -227,12 +227,12 @@ describe("chat app-server transports", () => {
   it("forks threads with the session vault path and returns panel threads", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
-    const outcome = await transport.forkThread("source");
+    const outcome = await adapter.forkThread("source");
 
     expect(request).toHaveBeenCalledWith("thread/fork", { threadId: "source", cwd: "/vault", excludeTurns: true });
     expect(outcome).toMatchObject({
@@ -244,12 +244,12 @@ describe("chat app-server transports", () => {
   it("forks through a selected turn with an inclusive marker", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
-    await transport.forkThread("source", { position: { kind: "through-turn", turnId: "turn-2" } });
+    await adapter.forkThread("source", { position: { kind: "through-turn", turnId: "turn-2" } });
 
     expect(request).toHaveBeenCalledWith("thread/fork", {
       threadId: "source",
@@ -259,17 +259,17 @@ describe("chat app-server transports", () => {
     });
   });
 
-  it("drops stale fork transport responses after the current client changes", async () => {
+  it("drops stale fork adapter responses after the current client changes", async () => {
     const fork = deferred<{ thread: ThreadRecord }>();
     const firstClient = { request: vi.fn().mockReturnValue(fork.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).threadCommands;
 
-    const forking = transport.forkThread("source");
+    const forking = adapter.forkThread("source");
     currentClient = secondClient;
     fork.resolve({ thread: threadRecord("forked") });
 
@@ -282,12 +282,12 @@ describe("chat app-server transports", () => {
   it("forks before a marker turn while deferring goal continuation", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
-    const outcome = await transport.forkThread("source", {
+    const outcome = await adapter.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
       deferGoalContinuation: true,
     });
@@ -308,12 +308,12 @@ describe("chat app-server transports", () => {
   it("applies active runtime overrides to a rollback fork", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
-    await transport.forkThread("source", {
+    await adapter.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
       deferGoalContinuation: true,
       runtime: {
@@ -344,12 +344,12 @@ describe("chat app-server transports", () => {
   it("preserves explicit default reasoning and service tier values on a rollback fork", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
-    await transport.forkThread("source", {
+    await adapter.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
       runtime: { reasoningEffort: null, serviceTier: null },
     });
@@ -370,12 +370,12 @@ describe("chat app-server transports", () => {
       nextCursor: "older",
     });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadHistory;
 
-    const page = await transport.readHistoryPage("thread", "cursor", 20);
+    const page = await adapter.readHistoryPage("thread", "cursor", 20);
 
     expect(request).toHaveBeenCalledWith("thread/turns/list", {
       threadId: "thread",
@@ -392,17 +392,17 @@ describe("chat app-server transports", () => {
     ]);
   });
 
-  it("drops stale history transport responses after the current client changes", async () => {
+  it("drops stale history adapter responses after the current client changes", async () => {
     const history = deferred<{ data: TurnRecord[]; nextCursor: string | null }>();
     const firstClient = { request: vi.fn().mockReturnValue(history.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).threadHistory;
 
-    const loading = transport.readHistoryPage("thread", "cursor", 20);
+    const loading = adapter.readHistoryPage("thread", "cursor", 20);
     currentClient = secondClient;
     history.resolve({ data: [turn([userMessage("u1", "prompt")])], nextCursor: "older" });
 
@@ -423,12 +423,12 @@ describe("chat app-server transports", () => {
       },
     });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadResume;
 
-    const snapshot = await transport.resumeThread("thread");
+    const snapshot = await adapter.resumeThread("thread");
 
     expect(request).toHaveBeenCalledWith("thread/resume", {
       threadId: "thread",
@@ -450,17 +450,17 @@ describe("chat app-server transports", () => {
     });
   });
 
-  it("drops stale resume transport responses after the current client changes", async () => {
+  it("drops stale resume adapter responses after the current client changes", async () => {
     const resume = deferred<AppServerThreadResumeResponse>();
     const firstClient = { request: vi.fn().mockReturnValue(resume.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).threadResume;
 
-    const resuming = transport.resumeThread("thread");
+    const resuming = adapter.resumeThread("thread");
     currentClient = secondClient;
     resume.resolve(threadResumeResponse("thread"));
 
@@ -471,12 +471,12 @@ describe("chat app-server transports", () => {
   });
 
   it("returns no resume snapshot when no connected client is available", async () => {
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => null,
       connectedClient: vi.fn().mockResolvedValue(null),
     }).threadResume;
 
-    await expect(transport.resumeThread("thread")).resolves.toEqual({ kind: "not-started" });
+    await expect(adapter.resumeThread("thread")).resolves.toEqual({ kind: "not-started" });
   });
 
   it("cleans up a stale ephemeral fork through the client that created it", async () => {
@@ -505,12 +505,12 @@ describe("chat app-server transports", () => {
     const secondRequest = vi.fn();
     const secondClient = { request: secondRequest } as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).threadEphemeral;
 
-    const forking = transport.forkEphemeralThread("source");
+    const forking = adapter.forkEphemeralThread("source");
     await vi.waitFor(() => expect(firstRequest).toHaveBeenCalledWith("thread/inject_items", expect.anything()));
     currentClient = secondClient;
     injected.resolve({});
@@ -526,12 +526,12 @@ describe("chat app-server transports", () => {
   it("unsubscribes a panel from a persistent thread without interrupting its turn", async () => {
     const request = vi.fn().mockResolvedValue({ status: "unsubscribed" });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadSubscription;
 
-    await expect(transport.unsubscribeThread("child")).resolves.toBe(true);
+    await expect(adapter.unsubscribeThread("child")).resolves.toBe(true);
 
     expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "child" }, { timeoutMs: 5_000 });
     expect(request).not.toHaveBeenCalledWith("turn/interrupt", expect.anything());
@@ -539,7 +539,7 @@ describe("chat app-server transports", () => {
 
   it("distinguishes absent goals from unavailable goal clients", async () => {
     const client = { request: vi.fn().mockResolvedValue({ goal: null }) } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadGoal;
@@ -552,7 +552,7 @@ describe("chat app-server transports", () => {
       connectedClient: vi.fn().mockResolvedValue(null),
     }).threadGoalRead;
 
-    await expect(transport.readThreadGoal("thread")).resolves.toBeNull();
+    await expect(adapter.readThreadGoal("thread")).resolves.toBeNull();
     await expect(unavailable.readThreadGoal("thread")).resolves.toBeUndefined();
     await expect(readOnlyUnavailable.readThreadGoal("thread")).resolves.toBeUndefined();
   });
@@ -563,12 +563,12 @@ describe("chat app-server transports", () => {
     const firstClient = { request } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).runtimeSettings;
 
-    const updating = transport.updateThreadSettings("thread", { model: "gpt-5.5" });
+    const updating = adapter.updateThreadSettings("thread", { model: "gpt-5.5" });
     currentClient = secondClient;
     update.resolve(undefined);
 
@@ -594,11 +594,11 @@ describe("chat app-server transports", () => {
       }
     });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
     }).serverDiagnostics;
 
-    const snapshot = await transport.readServerDiagnostics({
+    const snapshot = await adapter.readServerDiagnostics({
       threadId: "thread",
       initialDiagnostics: createServerDiagnostics(),
       cachedSkills: [],
@@ -633,11 +633,11 @@ describe("chat app-server transports", () => {
       }
     });
     const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
+    const adapter = createTestGateway({
       currentClient: () => client,
     }).serverDiagnostics;
 
-    await transport.readServerDiagnostics({
+    await adapter.readServerDiagnostics({
       threadId: null,
       initialDiagnostics: createServerDiagnostics(),
       forceResourceProbes: false,

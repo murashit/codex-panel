@@ -14,15 +14,15 @@ import {
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
 import { submissionStateSnapshot } from "./submission-state";
+import type { ChatTurnPort } from "./turn-port";
 import { STATUS_TURN_RUNNING } from "./turn-state";
-import type { ChatTurnTransport } from "./turn-transport";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 
 export interface TurnSubmissionActionsHost {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
-  turnTransport: ChatTurnTransport;
+  turnPort: ChatTurnPort;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startThread: (preview?: string, options?: { preservePendingSubmissionId?: string }) => Promise<ThreadStartOutcome>;
   notifyActiveThreadIdentityChanged: () => void;
@@ -91,7 +91,7 @@ async function sendTurnText(
       ? host.prepareInput(text, inputSnapshot)
       : { text, input: codexTextInput(text) };
   if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
-  if (!(await host.turnTransport.ensureConnected())) return false;
+  if (!(await host.turnPort.ensureConnected())) return false;
   if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
   if (!(await host.ensureRestoredThreadLoaded())) return false;
   if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
@@ -170,7 +170,7 @@ async function sendTurnText(
     });
     clearDraftForSubmission(host, request);
 
-    const outcome = await host.turnTransport.startTurn({
+    const outcome = await host.turnPort.startTurn({
       threadId: activeThreadId,
       input: prepared.input,
       clientUserMessageId,
@@ -271,7 +271,7 @@ async function steerCurrentTurn(
   clearDraftForSubmission(host, request, { clearSuggestions: true });
 
   try {
-    const outcome = await host.turnTransport.steerTurn({
+    const outcome = await host.turnPort.steerTurn({
       threadId: plan.threadId,
       turnId: plan.turnId,
       input: prepared.input,

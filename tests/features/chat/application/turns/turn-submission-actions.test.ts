@@ -41,7 +41,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const steerTurn = vi.fn().mockResolvedValue(completedCurrent(undefined));
   const host: TurnSubmissionActionsHost = {
     stateStore,
-    turnTransport: {
+    turnPort: {
       ensureConnected: vi.fn().mockResolvedValue(true),
       startTurn,
       steerTurn,
@@ -157,7 +157,7 @@ describe("TurnSubmissionActions", () => {
     const connection = deferred<boolean>();
     const ensureConnected = vi.fn(() => connection.promise);
     const { host, startTurn, stateStore } = createHost({
-      turnTransport: {
+      turnPort: {
         ensureConnected,
         startTurn: vi.fn().mockResolvedValue(completedCurrent({ turnId: "turn" })),
         steerTurn: vi.fn().mockResolvedValue(completedCurrent(undefined)),
@@ -230,7 +230,7 @@ describe("TurnSubmissionActions", () => {
     expect(host.addSystemMessage).toHaveBeenCalledWith("This thread cannot accept messages.");
   });
 
-  it("starts a side-chat turn when no pending runtime setting needs transport", async () => {
+  it("starts a side-chat turn when no pending runtime setting needs port", async () => {
     const { host, startTurn, stateStore } = createHost();
     resumeSideChat(stateStore);
     const actions = createTurnSubmissionActions(host);

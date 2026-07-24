@@ -8,19 +8,19 @@ import { activePanelOperationDecision } from "../panel-operation-policy";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { ThreadGoalReadTransport, ThreadGoalTransport } from "./goal-transport";
+import type { ThreadGoalPort, ThreadGoalReadPort } from "./goal-ports";
 import type { ThreadStartOutcome } from "./thread-start-actions";
 
 export interface ThreadGoalSyncHost {
   stateStore: ChatStateStore;
-  goalTransport: ThreadGoalReadTransport;
+  goalPort: ThreadGoalReadPort;
   localItemIds: LocalIdSource;
   addSystemMessage: (text: string) => void;
   addGoalEvent: (item: GoalThreadStreamItem) => void;
 }
 
 export interface GoalActionsHost extends ThreadGoalSyncHost {
-  goalTransport: ThreadGoalTransport;
+  goalPort: ThreadGoalPort;
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<ThreadStartOutcome>;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
 }
@@ -129,7 +129,7 @@ async function syncThreadGoal(host: ThreadGoalSyncHost, threadId: string, goalOp
   const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   const readRevision = goalOperations.captureReadRevision(threadId);
   try {
-    const goal = await host.goalTransport.readThreadGoal(threadId);
+    const goal = await host.goalPort.readThreadGoal(threadId);
     if (goal === undefined || !goalOperations.readRevisionIsCurrent(threadId, readRevision)) return;
     applyGoalIfActive(host, threadId, goal, { reportChange: false, panelTarget });
   } catch (error) {
@@ -205,8 +205,8 @@ async function setGoalStatus(
 
 async function clearGoal(host: GoalActionsContext, threadId: string, scope: GoalMutationScope): Promise<boolean> {
   try {
-    if (!(await host.goalTransport.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId, scope)) return false;
-    const effect = await host.goalTransport.clearThreadGoal(threadId);
+    if (!(await host.goalPort.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId, scope)) return false;
+    const effect = await host.goalPort.clearThreadGoal(threadId);
     if (!effectCompletedInCurrentContext(effect)) return false;
     host.goalOperations.markMutationCommitted(threadId);
     return applyGoalIfActive(host, threadId, null, { reportChange: true, panelTarget: scope.panelTarget });
@@ -223,10 +223,10 @@ async function setGoal(
   scope: GoalMutationScope,
 ): Promise<GoalMutationOutcome> {
   try {
-    if (!(await host.goalTransport.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId, scope)) {
+    if (!(await host.goalPort.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId, scope)) {
       return GOAL_MUTATION_NOT_COMMITTED;
     }
-    const effect = await host.goalTransport.setThreadGoal(threadId, params);
+    const effect = await host.goalPort.setThreadGoal(threadId, params);
     if (!effectCompletedInCurrentContext(effect)) return GOAL_MUTATION_NOT_COMMITTED;
     host.goalOperations.markMutationCommitted(threadId);
     return {
@@ -306,7 +306,7 @@ async function startThreadAndSaveObjective(
 ): Promise<boolean> {
   const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   try {
-    if (!(await host.goalTransport.ensureConnected())) return false;
+    if (!(await host.goalPort.ensureConnected())) return false;
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) || !emptyPanelCanStartGoalThread(host)) return false;
     const outcome = await host.startThread(plan.objective, { syncGoal: false });
     if (outcome.kind === "created-not-activated") {
@@ -337,7 +337,7 @@ async function recordGoalUserMessage(
   scope: GoalMutationScope,
 ): Promise<void> {
   try {
-    await host.goalTransport.recordThreadGoalUserMessage(threadId, objective);
+    await host.goalPort.recordThreadGoalUserMessage(threadId, objective);
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, `Could not record goal message: ${errorMessage(error)}`, scope.panelTarget);
   }

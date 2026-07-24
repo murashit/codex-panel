@@ -18,7 +18,7 @@ interface ChatTurnSteerRequest {
   clientUserMessageId: string;
 }
 
-export interface ChatTurnTransport {
+export interface ChatTurnPort {
   ensureConnected(): Promise<boolean>;
   startTurn(request: ChatTurnStartRequest): Promise<EffectOutcome<ChatTurnStartResult>>;
   steerTurn(request: ChatTurnSteerRequest): Promise<EffectOutcome<void>>;

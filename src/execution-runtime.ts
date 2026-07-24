@@ -12,10 +12,10 @@ import {
 } from "./app-server/services/ephemeral-structured-turn";
 import { createThreadGoalOperationCoordinator } from "./features/chat/application/threads/goal-actions";
 import type { ChatPanelSettingsAccess, ChatRuntimeView, CodexChatHost, WorkspacePanels } from "./features/chat/host/contracts";
-import { createAppServerSelectionRewriteTransport } from "./features/selection-rewrite/app-server-transport";
-import type { SelectionRewriteTransport } from "./features/selection-rewrite/transport";
+import { createAppServerSelectionRewriteAdapter } from "./features/selection-rewrite/app-server-adapter";
+import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
-import { createThreadOperationsTransport, createThreadTitleTransport } from "./features/threads/app-server/workflow-transports";
+import { createThreadOperationsAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
 import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
 import { createThreadFactCoordinator, type ThreadFactCoordinator } from "./features/threads/workflows/thread-fact-coordinator";
 import type { ThreadFact } from "./features/threads/workflows/thread-facts";
@@ -91,7 +91,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadCatalog: this.threadCatalog,
       threadFactCoordinator: this.threadFactCoordinator,
       threadNameMutations: this.threadNameMutations,
-      threadTitleTransport: this.threadTitleTransport(),
+      threadTitlePort: this.threadTitlePort(),
       threadGoalOperations: this.threadGoalOperations,
       runtimeSettingsCommitQueue: this.runtimeSettingsCommitQueue,
     };
@@ -105,8 +105,8 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFactCoordinator,
       threadNameMutations: this.threadNameMutations,
-      threadOperationsTransport: createThreadOperationsTransport(this),
-      threadTitleTransport: this.threadTitleTransport(),
+      threadOperationsPort: createThreadOperationsAdapter(this),
+      threadTitlePort: this.threadTitlePort(),
       openNewPanel: () => this.options.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.options.openThreadInAvailableView(threadId),
       openPanelActivities: () => this.options.openPanelActivities(),
@@ -195,8 +195,8 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     }
   }
 
-  selectionRewriteTransport(): SelectionRewriteTransport {
-    return createAppServerSelectionRewriteTransport({
+  selectionRewritePort(): SelectionRewritePort {
+    return createAppServerSelectionRewriteAdapter({
       codexPath: this.context.codexPath,
       cwd: this.context.vaultPath,
       runner: this.structuredTurnRunner(),
@@ -331,8 +331,8 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     };
   }
 
-  private threadTitleTransport() {
-    return createThreadTitleTransport({
+  private threadTitlePort() {
+    return createThreadTitleAdapter({
       clientAccess: this,
       codexPath: this.context.codexPath,
       vaultPath: this.context.vaultPath,

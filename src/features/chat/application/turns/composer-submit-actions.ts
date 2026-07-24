@@ -8,8 +8,8 @@ import { cancellablePendingSubmissionMatches } from "../state/pending-submission
 import type { ChatStateStore } from "../state/store";
 import { parseWebCommandArgs, type SlashCommandExecutionResult } from "./slash-command-execution";
 import { submissionStateSnapshot } from "./submission-state";
+import type { ChatTurnPort } from "./turn-port";
 import type { TurnSubmissionRequest } from "./turn-submission-actions";
-import type { ChatTurnTransport } from "./turn-transport";
 import { pendingWebSubmissionItem } from "./web-submission";
 
 const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
@@ -46,7 +46,7 @@ export interface ComposerSubmitActionsHost {
   connection: {
     ensureConnected: () => Promise<boolean>;
   };
-  turnTransport: Pick<ChatTurnTransport, "interruptTurn">;
+  turnPort: Pick<ChatTurnPort, "interruptTurn">;
   status: {
     setStatus: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -241,7 +241,7 @@ async function interruptTurn(host: ComposerSubmitActionsHost, panelTarget: Panel
   const turnId = state.activeTurnId;
   if (!state.activeThreadId || !turnId) return;
   try {
-    if (!(await host.turnTransport.interruptTurn(state.activeThreadId, turnId))) return;
+    if (!(await host.turnPort.interruptTurn(state.activeThreadId, turnId))) return;
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
     host.status.setStatus(STATUS_INTERRUPT_REQUESTED);
   } catch (error) {

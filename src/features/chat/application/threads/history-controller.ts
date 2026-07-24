@@ -1,11 +1,11 @@
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
-import type { ThreadHistoryPage, ThreadHistoryTransport } from "./thread-loading-transport";
+import type { ThreadHistoryPage, ThreadHistoryPort } from "./thread-loading-ports";
 
 export interface HistoryControllerHost {
   stateStore: ChatStateStore;
-  historyTransport: ThreadHistoryTransport;
+  historyPort: ThreadHistoryPort;
   addSystemMessage: (text: string) => void;
   showLatestPageAtBottom: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
@@ -40,7 +40,7 @@ export class HistoryController {
     if (!threadId) return;
     const load = this.startLoading(threadId, "latest");
     try {
-      const response = await this.host.historyTransport.readHistoryPage(threadId, null, 20);
+      const response = await this.host.historyPort.readHistoryPage(threadId, null, 20);
       if (!response) return;
       if (this.isStale(load)) return;
       this.applyLatestPage(threadId, response);
@@ -71,7 +71,7 @@ export class HistoryController {
     const cursor = state.threadStream.historyCursor;
     const load = this.startLoading(threadId, "older");
     try {
-      const response = await this.host.historyTransport.readHistoryPage(threadId, cursor, 20);
+      const response = await this.host.historyPort.readHistoryPage(threadId, cursor, 20);
       if (!response) return;
       if (this.isStale(load)) return;
       const current = this.state;

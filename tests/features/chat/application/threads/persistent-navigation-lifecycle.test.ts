@@ -6,12 +6,12 @@ import {
   createPersistentNavigationLifecycle,
   type PersistentNavigationLifecycle,
 } from "../../../../../src/features/chat/application/threads/persistent-navigation-lifecycle";
-import type { ThreadSubscriptionTransport } from "../../../../../src/features/chat/application/threads/thread-subscription-transport";
+import type { ThreadSubscriptionPort } from "../../../../../src/features/chat/application/threads/thread-subscription-port";
 
 describe("persistent navigation lifecycle", () => {
   it("unsubscribes a running persistent subagent only after the target resume becomes active", async () => {
     const store = runningSubagentStore();
-    const subscriptions = subscriptionTransport();
+    const subscriptions = subscriptionPort();
     const ephemeral = ephemeralLifecycle();
     const lifecycle = createLifecycle({ stateStore: store, subscriptions, ephemeral });
 
@@ -31,7 +31,7 @@ describe("persistent navigation lifecycle", () => {
 
   it("keeps the subagent subscribed until target adoption commits the preparation", async () => {
     const store = runningSubagentStore();
-    const subscriptions = subscriptionTransport();
+    const subscriptions = subscriptionPort();
     const lifecycle = createLifecycle({ stateStore: store, subscriptions });
 
     const preparation = await lifecycle.prepareForPersistentNavigation("other");
@@ -42,7 +42,7 @@ describe("persistent navigation lifecycle", () => {
 
   it("defers running subagent cleanup until the blank target is adopted", async () => {
     const store = runningSubagentStore();
-    const subscriptions = subscriptionTransport(false);
+    const subscriptions = subscriptionPort(false);
     const lifecycle = createLifecycle({ stateStore: store, subscriptions });
 
     const preparation = await lifecycle.prepareForPersistentNavigation(null);
@@ -54,7 +54,7 @@ describe("persistent navigation lifecycle", () => {
 
   it("retries a failed unsubscribe obligation on the next navigation", async () => {
     const store = runningSubagentStore();
-    const subscriptions = subscriptionTransport();
+    const subscriptions = subscriptionPort();
     vi.mocked(subscriptions.unsubscribeThread).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     const addSystemMessage = vi.fn();
     const lifecycle = createLifecycle({ stateStore: store, subscriptions, addSystemMessage });
@@ -73,7 +73,7 @@ describe("persistent navigation lifecycle", () => {
   });
 
   it("does not unsubscribe when the target is the already active subagent", async () => {
-    const subscriptions = subscriptionTransport();
+    const subscriptions = subscriptionPort();
     const lifecycle = createLifecycle({ stateStore: runningSubagentStore(), subscriptions });
 
     await expect(lifecycle.prepareForPersistentNavigation("child")).resolves.toEqual({ kind: "ready" });
@@ -133,7 +133,7 @@ function resumeInteractiveThread(store: ReturnType<typeof createChatStateStore>,
 
 function createLifecycle(options: {
   stateStore: ReturnType<typeof createChatStateStore>;
-  subscriptions: ThreadSubscriptionTransport;
+  subscriptions: ThreadSubscriptionPort;
   ephemeral?: EphemeralThreadLifecycle;
   addSystemMessage?: (text: string) => void;
 }): PersistentNavigationLifecycle {
@@ -145,7 +145,7 @@ function createLifecycle(options: {
   });
 }
 
-function subscriptionTransport(result = true): ThreadSubscriptionTransport {
+function subscriptionPort(result = true): ThreadSubscriptionPort {
   return { unsubscribeThread: vi.fn().mockResolvedValue(result) };
 }
 

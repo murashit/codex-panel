@@ -6,7 +6,7 @@ import type { SharedServerMetadataResource } from "../../../../domain/server/met
 import { isStaleExecutionRuntimeError } from "../../../../shared/runtime/execution-runtime-lifetime";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionActions, createChatConnectionActions } from "../../application/connection/connection-actions";
-import type { ServerDiagnosticsTransport } from "../../application/connection/metadata-transport";
+import type { ServerDiagnosticsPort } from "../../application/connection/metadata-port";
 import { createServerDiagnosticsActions } from "../../application/connection/server-diagnostics-actions";
 import { createServerMetadataActions } from "../../application/connection/server-metadata-actions";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -26,7 +26,7 @@ interface ChatPanelConnectionStatus {
 
 interface ChatPanelConnectionBundleInput {
   connection: ConnectionManager;
-  diagnosticsTransport: ServerDiagnosticsTransport;
+  diagnosticsPort: ServerDiagnosticsPort;
   localItemIds: LocalIdSource;
   status: ChatPanelConnectionStatus;
   autoTitleCoordinator: AutoTitleCoordinator;
@@ -119,7 +119,7 @@ export function createConnectionBundle(
   input: ChatPanelConnectionBundleInput,
 ): ChatPanelConnectionBundle {
   const { environment, stateStore } = host;
-  const { connection, diagnosticsTransport, localItemIds, status, autoTitleCoordinator } = input;
+  const { connection, diagnosticsPort, localItemIds, status, autoTitleCoordinator } = input;
   const serverRequestResponders = createServerRequestResponderRegistry();
   const serverMetadata = createServerMetadataActions({
     stateStore,
@@ -131,7 +131,7 @@ export function createConnectionBundle(
   });
   const serverDiagnostics = createServerDiagnosticsActions({
     stateStore,
-    diagnosticsTransport,
+    diagnosticsPort,
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
   });
   const refreshSharedThreads = async (): Promise<void> => {

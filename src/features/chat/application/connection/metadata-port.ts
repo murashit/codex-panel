@@ -21,6 +21,6 @@ export interface ServerDiagnosticsSnapshot {
   };
 }
 
-export interface ServerDiagnosticsTransport {
+export interface ServerDiagnosticsPort {
   readServerDiagnostics(request: ServerDiagnosticsReadRequest): Promise<ServerDiagnosticsSnapshot | null>;
 }

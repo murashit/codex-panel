@@ -105,7 +105,7 @@ function connectionBundleFixture(overrides: { readServerDiagnostics?: ReturnType
       },
       isConnected: () => connected,
     },
-    diagnosticsTransport: {
+    diagnosticsPort: {
       readServerDiagnostics: overrides.readServerDiagnostics ?? vi.fn().mockResolvedValue(null),
     },
     localItemIds: {

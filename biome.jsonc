@@ -61,7 +61,7 @@
         "**/src/domain/**/*.ts",
         "**/src/shared/**/*.{ts,tsx}",
         "**/src/features/selection-rewrite/**/*.{ts,tsx}",
-        "!**/src/features/selection-rewrite/app-server-transport.ts"
+        "!**/src/features/selection-rewrite/app-server-adapter.ts"
       ]
     },
     {

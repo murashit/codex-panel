@@ -14,10 +14,9 @@ import {
   type SelectionRewriteRuntimeSettings,
   type SelectionRewriteState,
 } from "./model";
-
+import type { SelectionRewritePort } from "./port";
 import { positionSelectionRewritePopover } from "./position.dom";
 import { SelectionRewriteSession, type SelectionRewriteSessionStatus } from "./session";
-import type { SelectionRewriteTransport } from "./transport";
 
 const POPOVER_MARGIN = 8;
 
@@ -39,7 +38,7 @@ export interface SelectionRewritePopoverOptions {
   runtimeSettings: SelectionRewriteRuntimeSettings;
   sendShortcut: SendShortcut;
   state: SelectionRewriteState;
-  transport: SelectionRewriteTransport;
+  port: SelectionRewritePort;
   viewDocument: Document;
   viewWindow: Window;
 }

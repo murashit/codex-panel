@@ -8,7 +8,7 @@ import {
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { activeThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { ServerDiagnosticsTransport } from "./metadata-transport";
+import type { ServerDiagnosticsPort } from "./metadata-port";
 
 interface RefreshServerDiagnosticsOptions {
   appServerMetadataSnapshot?: boolean;
@@ -17,7 +17,7 @@ interface RefreshServerDiagnosticsOptions {
 
 export interface ServerDiagnosticsActionsHost {
   stateStore: ChatStateStore;
-  diagnosticsTransport: ServerDiagnosticsTransport;
+  diagnosticsPort: ServerDiagnosticsPort;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
 }
 
@@ -62,7 +62,7 @@ async function refreshServerDiagnostics(
     ...(cachedSkills !== undefined ? { cachedSkills } : {}),
     ...(cachedSkillsProbe !== undefined ? { cachedSkillsProbe } : {}),
   };
-  const snapshot = await host.diagnosticsTransport.readServerDiagnostics(request);
+  const snapshot = await host.diagnosticsPort.readServerDiagnostics(request);
   if (!snapshot || !isCurrent() || activeThreadId(host.stateStore.getState()) !== threadId) return false;
 
   let diagnostics = currentPanelDiagnostics(host);

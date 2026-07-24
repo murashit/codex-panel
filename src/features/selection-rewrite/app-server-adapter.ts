@@ -3,13 +3,13 @@ import {
   runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
-import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 import {
   type SelectionRewriteOutput,
   SelectionRewriteOutputError,
-  type SelectionRewriteTransport,
-  type SelectionRewriteTransportRequest,
-} from "./transport";
+  type SelectionRewritePort,
+  type SelectionRewritePortRequest,
+} from "./port";
+import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 
 const SELECTION_REWRITE_TIMEOUT_MS = 120_000;
 
@@ -20,19 +20,19 @@ const SELECTION_REWRITE_OUTPUT_SCHEMA: StructuredTurnOutputSchema = {
   additionalProperties: false,
 };
 
-export interface AppServerSelectionRewriteTransportOptions {
+export interface AppServerSelectionRewriteAdapterOptions {
   codexPath: string;
   cwd: string;
   runner?: EphemeralStructuredTurnRunner;
 }
 
-export function createAppServerSelectionRewriteTransport(options: AppServerSelectionRewriteTransportOptions): SelectionRewriteTransport {
+export function createAppServerSelectionRewriteAdapter(options: AppServerSelectionRewriteAdapterOptions): SelectionRewritePort {
   return {
     generate: (request) => runAppServerSelectionRewrite(options, request),
   };
 }
 
-async function runAppServerSelectionRewrite(options: AppServerSelectionRewriteTransportOptions, request: SelectionRewriteTransportRequest) {
+async function runAppServerSelectionRewrite(options: AppServerSelectionRewriteAdapterOptions, request: SelectionRewritePortRequest) {
   let preview = "";
   const lastAgentText = await runEphemeralStructuredTurnForLastAgentText(
     {

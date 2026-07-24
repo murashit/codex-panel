@@ -271,7 +271,7 @@ describe("chat panel session runtime actions", () => {
           withClient: vi.fn(() => Promise.reject(new Error("Unexpected fallback app-server client request."))),
         },
         appServerContext: overrides.plugin?.appServerContext ?? { codexPath: "codex", vaultPath: "/vault" },
-        threadTitleTransport: {
+        threadTitlePort: {
           persistedContext: vi.fn().mockResolvedValue(null),
           generateTitle: vi.fn().mockResolvedValue(null),
         },

@@ -4,7 +4,7 @@ import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/pan
 import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
-import type { EphemeralThreadTransport } from "./ephemeral-thread-transport";
+import type { EphemeralThreadPort } from "./ephemeral-thread-port";
 
 const EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS = 1_000;
 
@@ -21,7 +21,7 @@ export interface EphemeralThreadLifecycle {
 
 interface EphemeralThreadLifecycleHost {
   stateStore: ChatStateStore;
-  transport: EphemeralThreadTransport;
+  port: EphemeralThreadPort;
   ensureConnected(): Promise<boolean>;
   addSystemMessage(text: string): void;
   notifyActiveThreadIdentityChanged(): void;
@@ -37,7 +37,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
   const unsubscribeActiveEphemeralThread = async (): Promise<boolean> => {
     const active = activeThreadState(host.stateStore.getState());
     if (active?.lifetime?.kind === "ephemeral") {
-      return host.transport.unsubscribeEphemeralThread(active.id);
+      return host.port.unsubscribeEphemeralThread(active.id);
     }
     return true;
   };
@@ -48,13 +48,13 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       const panelTarget = capturePanelTargetLease(host.stateStore.getState());
       if (!(await host.ensureConnected())) return false;
       if (openIsStale(generation, panelTarget)) return false;
-      const effect = await host.transport.forkEphemeralThread(input.sourceThreadId);
+      const effect = await host.port.forkEphemeralThread(input.sourceThreadId);
       if (!effectCompletedInCurrentContext(effect)) return false;
       const result = effect.value;
       if (result.kind === "cleanup-required") {
         if (openIsStale(generation, panelTarget)) {
           try {
-            await host.transport.unsubscribeEphemeralThread(result.threadId);
+            await host.port.unsubscribeEphemeralThread(result.threadId);
           } catch {
             // The connection close remains the final cleanup boundary.
           }
@@ -67,7 +67,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       const snapshot = result;
       if (generation !== openGeneration || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) {
         try {
-          await host.transport.unsubscribeEphemeralThread(snapshot.activation.thread.id);
+          await host.port.unsubscribeEphemeralThread(snapshot.activation.thread.id);
         } catch {
           // A late fork must never become active, even when best-effort cleanup fails.
         }
@@ -129,7 +129,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       }
       for (const threadId of cleanupRequiredThreadIds) {
         try {
-          if (await host.transport.unsubscribeEphemeralThread(threadId)) cleanupRequiredThreadIds.delete(threadId);
+          if (await host.port.unsubscribeEphemeralThread(threadId)) cleanupRequiredThreadIds.delete(threadId);
         } catch {
           // Closing the app-server connection provides the final subscription cleanup boundary.
         }

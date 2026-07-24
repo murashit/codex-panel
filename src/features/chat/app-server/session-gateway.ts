@@ -2,15 +2,15 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "../../../app-server/connection/client-access";
 import type { CodexInput } from "../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
-import type { ServerDiagnosticsTransport } from "../application/connection/metadata-transport";
-import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
-import { createChatServerDiagnosticsTransport } from "./transports/metadata-transports";
+import type { ServerDiagnosticsPort } from "../application/connection/metadata-port";
+import { createChatServerDiagnosticsAdapter } from "./adapters/metadata-adapter";
 import {
-  type ChatConnectedSessionTransports,
-  type ChatCurrentSessionTransports,
-  createChatConnectedSessionTransports,
-  createChatCurrentSessionTransports,
-} from "./transports/session-transports";
+  type ChatConnectedSessionAdapters,
+  type ChatCurrentSessionAdapters,
+  createChatConnectedSessionAdapters,
+  createChatCurrentSessionAdapters,
+} from "./adapters/session-adapters";
+import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
 
 export interface ChatCurrentAppServerGatewayHost {
   fallbackClientAccess: AppServerClientAccess;
@@ -30,21 +30,21 @@ interface ChatThreadReferenceResolverOptions {
   setStatus(status: string): void;
 }
 
-export interface ChatCurrentAppServerGateway extends ChatCurrentSessionTransports {
+export interface ChatCurrentAppServerGateway extends ChatCurrentSessionAdapters {
   clientAccess: AppServerClientAccess;
-  serverDiagnostics: ServerDiagnosticsTransport;
+  serverDiagnostics: ServerDiagnosticsPort;
   connectionAvailable(): boolean;
   readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string | null>;
   threadReferences(options: ChatThreadReferenceResolverOptions): ThreadReferenceResolver;
 }
 
-export interface ChatAppServerGateway extends ChatCurrentAppServerGateway, ChatConnectedSessionTransports {}
+export interface ChatAppServerGateway extends ChatCurrentAppServerGateway, ChatConnectedSessionAdapters {}
 
 export function createChatCurrentAppServerGateway(host: ChatCurrentAppServerGatewayHost): ChatCurrentAppServerGateway {
   return {
     clientAccess: createCurrentClientAccess(host),
-    ...createChatCurrentSessionTransports(host),
-    serverDiagnostics: createChatServerDiagnosticsTransport(host),
+    ...createChatCurrentSessionAdapters(host),
+    serverDiagnostics: createChatServerDiagnosticsAdapter(host),
     connectionAvailable: () => host.currentClient() !== null,
     readFileBase64: (path, options) => readCurrentClientFileBase64(host, path, options),
     threadReferences: (options) =>
@@ -61,7 +61,7 @@ export function createChatAppServerGateway(
 ): ChatAppServerGateway {
   return {
     ...currentGateway,
-    ...createChatConnectedSessionTransports(host),
+    ...createChatConnectedSessionAdapters(host),
   };
 }
 

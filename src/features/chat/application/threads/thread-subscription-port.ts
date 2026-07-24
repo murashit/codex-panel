@@ -1,3 +1,3 @@
-export interface ThreadSubscriptionTransport {
+export interface ThreadSubscriptionPort {
   unsubscribeThread(threadId: string): Promise<boolean>;
 }

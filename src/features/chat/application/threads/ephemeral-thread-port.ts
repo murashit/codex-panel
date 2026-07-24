@@ -5,7 +5,7 @@ export type EphemeralThreadForkResult =
   | { kind: "ready"; activation: ThreadActivationSnapshot; sourceThreadId: string }
   | { kind: "cleanup-required"; threadId: string };
 
-export interface EphemeralThreadTransport {
+export interface EphemeralThreadPort {
   forkEphemeralThread(sourceThreadId: string): Promise<EffectOutcome<EphemeralThreadForkResult>>;
   unsubscribeEphemeralThread(threadId: string): Promise<boolean>;
 }

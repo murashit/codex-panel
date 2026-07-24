@@ -16,7 +16,7 @@ export class SelectionRewriteOutputError extends Error {
   }
 }
 
-export interface SelectionRewriteTransportRequest {
+export interface SelectionRewritePortRequest {
   prompt: string;
   runtimeSettings: SelectionRewriteRuntimeSettings;
   onActivity(activity: SelectionRewriteActivity): void;
@@ -24,6 +24,6 @@ export interface SelectionRewriteTransportRequest {
   signal: AbortSignal;
 }
 
-export interface SelectionRewriteTransport {
-  generate(request: SelectionRewriteTransportRequest): Promise<SelectionRewriteOutput>;
+export interface SelectionRewritePort {
+  generate(request: SelectionRewritePortRequest): Promise<SelectionRewriteOutput>;
 }

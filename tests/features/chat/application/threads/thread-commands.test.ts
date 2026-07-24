@@ -120,16 +120,16 @@ describe("thread management actions", () => {
     {
       name: "fork",
       invoke: (actions: ThreadCommands) => actions.forkThread("agent-thread"),
-      transport: "forkThread" as const,
+      method: "forkThread" as const,
       message: "Agent threads cannot be forked.",
     },
     {
       name: "rollback",
       invoke: (actions: ThreadCommands) => actions.rollbackThread("agent-thread"),
-      transport: "forkThread" as const,
+      method: "forkThread" as const,
       message: "Agent threads cannot be rolled back.",
     },
-  ])("rejects $name mutations for subagent threads", async ({ invoke, transport, message }) => {
+  ])("rejects $name mutations for subagent threads", async ({ invoke, method, message }) => {
     const host = hostMock({
       items: turnItems(),
       activeThread: {
@@ -148,7 +148,7 @@ describe("thread management actions", () => {
 
     await invoke(threadCommands(host));
 
-    expect(host.commandPort[transport]).not.toHaveBeenCalled();
+    expect(host.commandPort[method]).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith(message);
   });
 
@@ -248,7 +248,7 @@ describe("thread management actions", () => {
     expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
   });
 
-  it("does not report compaction completion when the transport rejects the mutation", async () => {
+  it("does not report compaction completion when the method rejects the mutation", async () => {
     const host = hostMock({
       items: [],
       commandPort: {
@@ -501,7 +501,7 @@ describe("thread management actions", () => {
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
   });
 
-  it("does not open or record fork responses when the transport has no result", async () => {
+  it("does not open or record fork responses when the method has no result", async () => {
     const host = hostMock({
       items: turnItems(),
       activeThread: { id: "source" },

@@ -8,7 +8,7 @@ import type {
   ChatViewRuntimeOwner,
 } from "./features/chat/host/contracts";
 import type { SelectionRewriteCommandController } from "./features/selection-rewrite/command.obsidian";
-import type { SelectionRewriteTransport } from "./features/selection-rewrite/transport";
+import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import type { ThreadFact } from "./features/threads/workflows/thread-facts";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
@@ -114,9 +114,9 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     this.selectionRewriteController = controller;
   }
 
-  selectionRewriteTransport(): SelectionRewriteTransport {
+  selectionRewritePort(): SelectionRewritePort {
     return {
-      generate: (request) => this.currentExecutionRuntime().selectionRewriteTransport().generate(request),
+      generate: (request) => this.currentExecutionRuntime().selectionRewritePort().generate(request),
     };
   }
 

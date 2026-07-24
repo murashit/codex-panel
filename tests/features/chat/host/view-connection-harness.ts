@@ -557,7 +557,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       emitActiveThreads();
     },
     threadNameMutations: overrides.threadNameMutations ?? createKeyedOperationQueue(),
-    threadTitleTransport: {
+    threadTitlePort: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
     },

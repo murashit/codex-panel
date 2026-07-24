@@ -2,11 +2,11 @@ import { normalizeExplicitThreadName, type Thread } from "../../../domain/thread
 import { threadDisplayTitle } from "../../../domain/threads/title";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
-import type { ThreadOperationsTransport } from "./ports";
+import type { ThreadOperationsPort } from "./ports";
 import type { ThreadFactSink } from "./thread-facts";
 
 export interface ThreadOperationsHost {
-  transport: ThreadOperationsTransport;
+  port: ThreadOperationsPort;
   nameMutations: KeyedOperationQueue<string>;
   archiveExport: {
     settings(): ArchiveExportSettings;
@@ -55,7 +55,7 @@ async function renameThread(
   if (!name) return false;
   return host.nameMutations.run(threadId, async () => {
     if (!(options.shouldStart?.() ?? true)) return false;
-    await host.transport.renameThread(threadId, name);
+    await host.port.renameThread(threadId, name);
     if (options.shouldPublish?.() ?? true) {
       host.facts.apply({ type: "thread-renamed", threadId, name });
     }
@@ -69,7 +69,7 @@ async function archiveThread(
   options: ArchiveThreadOptions = {},
 ): Promise<ArchiveThreadResult> {
   const shouldExport = options.saveMarkdown ?? host.archiveExport.enabled();
-  const exportedPath = await host.transport.archiveThread(
+  const exportedPath = await host.port.archiveThread(
     threadId,
     shouldExport
       ? async (thread) => {

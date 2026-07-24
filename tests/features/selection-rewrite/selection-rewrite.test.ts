@@ -4,17 +4,17 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
-import { createAppServerSelectionRewriteTransport } from "../../../src/features/selection-rewrite/app-server-transport";
+import { createAppServerSelectionRewriteAdapter } from "../../../src/features/selection-rewrite/app-server-adapter";
 import { buildSelectionDiffLines } from "../../../src/features/selection-rewrite/diff";
 import { canApplySelectionRewrite, type SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
+import { SelectionRewriteOutputError, type SelectionRewritePortRequest } from "../../../src/features/selection-rewrite/port";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
-import { SelectionRewriteOutputError, type SelectionRewriteTransportRequest } from "../../../src/features/selection-rewrite/transport";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
-type SelectionRewriteTestRunOptions = SelectionRewriteTransportRequest & { runner: EphemeralStructuredTurnRunner };
+type SelectionRewriteTestRunOptions = SelectionRewritePortRequest & { runner: EphemeralStructuredTurnRunner };
 
 const selectionRewriteGenerate = vi.fn();
 
@@ -177,7 +177,7 @@ describe("selection rewrite positioning", () => {
   });
 });
 
-describe("selection rewrite app-server transport", () => {
+describe("selection rewrite app-server port", () => {
   it("maps the rewrite request, progress, and structured output through the runner", async () => {
     const activities: string[] = [];
     const previews: string[] = [];
@@ -652,7 +652,7 @@ function popoverOptions(
     runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
     sendShortcut: "enter",
     state: rewriteState(),
-    transport: {
+    port: {
       generate: (request) => selectionRewriteGenerate(request),
     },
     viewDocument: document,
@@ -703,7 +703,7 @@ async function flushPromises(): Promise<void> {
 
 function runSelectionRewrite(options: SelectionRewriteTestRunOptions) {
   const { runner, ...request } = options;
-  return createAppServerSelectionRewriteTransport({
+  return createAppServerSelectionRewriteAdapter({
     codexPath: "/bin/codex",
     cwd: "/vault",
     runner,
