@@ -6,7 +6,6 @@ export interface ThreadTitleServiceHost {
   transport: ThreadTitleTransport;
   visibleContext?(threadId: string): ThreadTitleContext | null;
   visibleCompletedTurnContext?(turnId: string): ThreadTitleContext | null;
-  generateThreadTitle?(context: ThreadTitleContext, signal: AbortSignal): Promise<string | null>;
 }
 
 export interface ThreadTitleService {
@@ -89,9 +88,7 @@ async function generateTitleFromContext(
   signal: AbortSignal,
 ): Promise<string | null> {
   throwIfTitleGenerationCancelled(signal);
-  const title = await (host.generateThreadTitle
-    ? host.generateThreadTitle(context, signal)
-    : host.transport.generateTitle(context, signal));
+  const title = await host.transport.generateTitle(context, signal);
   throwIfTitleGenerationCancelled(signal);
   return title;
 }

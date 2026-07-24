@@ -13,7 +13,6 @@ describe("ThreadTitleService", () => {
     const withClient = vi.fn().mockRejectedValue(new Error("should not read persisted context"));
     const service = titleService({
       visibleContext: () => titleContext("visible request", "visible response"),
-      generateThreadTitle,
       transport: {
         persistedContext: withClient,
         generateTitle: generateThreadTitle,
