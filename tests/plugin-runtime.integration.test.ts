@@ -34,8 +34,8 @@ function threadCatalog(plugin: CodexPanelPlugin) {
   return currentChatHost(plugin).threadCatalog;
 }
 
-function threadFactCoordinator(plugin: CodexPanelPlugin) {
-  return currentChatHost(plugin).threadFactCoordinator;
+function threadFacts(plugin: CodexPanelPlugin) {
+  return currentChatHost(plugin).threadFacts;
 }
 
 const capturedChatHosts = new WeakMap<CodexPanelPlugin, { current: CodexChatHost | null }>();
@@ -83,7 +83,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
 
-    threadFactCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+    threadFacts(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(firstUnavailable).toHaveBeenCalledWith("thread-1");
     expect(secondUnavailable).toHaveBeenCalledWith("thread-1");
@@ -107,7 +107,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
-    threadFactCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+    threadFacts(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(matchingUnavailable).toHaveBeenCalledWith("thread-1");
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
@@ -122,31 +122,6 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(otherLeaf.detach).not.toHaveBeenCalled();
   });
 
-  it("clears active and restored identities when deletion supersedes a deferred archive", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
-    const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
-    const matchingLeaf = leaf();
-    matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
-    vi.spyOn((matchingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
-    const matchingUnavailable = vi
-      .spyOn((matchingLeaf.view as CodexChatView).surface, "applyThreadUnavailable")
-      .mockImplementation(() => undefined);
-    const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf]);
-    const publication = threadFactCoordinator(plugin).beginForkPublication("thread-1");
-    publication.record(thread("forked"));
-
-    threadFactCoordinator(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
-    threadFactCoordinator(plugin).apply({ type: "thread-deleted", threadId: "thread-1" });
-    publication.finish({ sourceArchived: true });
-
-    expect(matchingUnavailable).toHaveBeenCalledOnce();
-    expect(matchingUnavailable).toHaveBeenCalledWith("thread-1");
-    expect(restoredMatchingLeaf.setViewState).toHaveBeenCalledWith({
-      type: VIEW_TYPE_CODEX_PANEL,
-      state: { version: 1 },
-    });
-  });
-
   it("applies known rename mutations to open chat surfaces", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const firstLeaf = leaf();
@@ -159,7 +134,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const secondRefresh = vi.spyOn((secondLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
 
-    threadFactCoordinator(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
+    threadFacts(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
 
     expect(firstRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
     expect(secondRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");

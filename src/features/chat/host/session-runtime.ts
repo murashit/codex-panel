@@ -40,7 +40,6 @@ interface ChatPanelSessionRuntimeHost {
   resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
-  beginPanelActivityPublication(replacementThreadId: string): { publish(commit: () => void): void };
 }
 
 export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
@@ -129,7 +128,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     threadStartPort: appServer.threadStart,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     recordStartedThread: (thread) => {
-      environment.plugin.threadFactCoordinator.apply({ type: "thread-upserted", thread });
+      environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });
     },
     syncThreadGoal: (threadId) => {
       void threadFoundation.goalSync.syncThreadGoal(threadId);

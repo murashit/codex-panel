@@ -14,7 +14,7 @@ import {
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
-import type { ThreadFactInput } from "../../../threads/workflows/thread-facts";
+import type { ThreadFact } from "../../../threads/workflows/thread-facts";
 import type { AppServerResourceFact } from "../../application/connection/server-metadata-effects";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
@@ -34,7 +34,7 @@ export interface ChatInboundHandlerEffects {
   refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
   handleAppServerResourceFact: (fact: AppServerResourceFact) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
-  applyThreadFact: (fact: ThreadFactInput) => void;
+  applyThreadFact: (fact: ThreadFact) => void;
   observeThreadGoal: (threadId: string) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;

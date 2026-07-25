@@ -154,7 +154,7 @@ export function createConnectionBundle(
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
       },
       applyThreadFact: (fact) => {
-        environment.plugin.threadFactCoordinator.apply(fact);
+        environment.plugin.threadFacts.apply(fact);
       },
       observeThreadGoal: (threadId) => {
         environment.plugin.threadGoalCoordinator.markAuthoritativeObservation(threadId);

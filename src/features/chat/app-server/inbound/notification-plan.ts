@@ -2,7 +2,7 @@ import type { ServerNotification } from "../../../../app-server/connection/rpc-m
 import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
-import type { ThreadFactInput } from "../../../threads/workflows/thread-facts";
+import type { ThreadFact } from "../../../threads/workflows/thread-facts";
 import type { AppServerResourceFact } from "../../application/connection/server-metadata-effects";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
@@ -22,7 +22,7 @@ export type ChatInboundEffect =
     }
   | { type: "refresh-server-diagnostics"; forceResourceProbes?: boolean }
   | { type: "handle-app-server-resource-fact"; fact: AppServerResourceFact }
-  | { type: "apply-thread-fact"; fact: ThreadFactInput };
+  | { type: "apply-thread-fact"; fact: ThreadFact };
 
 type TurnCompletionTranscriptSummary = TurnRuntimeProjectionOutcome["completedTurnTranscriptSummary"];
 
@@ -338,7 +338,7 @@ function threadStartedPlan(
       ? [{ type: "subagent-activity/tracked", threadId: thread.id, parentTurnId: activeParentTurnId }]
       : [];
   const effects: ChatInboundEffect[] =
-    notification.params.thread.ephemeral || thread.provenance.kind === "subagent"
+    notification.params.thread.ephemeral || notification.params.thread.forkedFromId || thread.provenance.kind === "subagent"
       ? []
       : [
           {
@@ -346,7 +346,6 @@ function threadStartedPlan(
             fact: {
               type: "thread-upserted",
               thread,
-              forkedFromThreadId: notification.params.thread.forkedFromId,
             },
           },
         ];

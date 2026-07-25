@@ -90,7 +90,7 @@ function workFixture(generate: () => Promise<string | null>) {
     },
     mutationPort: { renameThread },
     nameMutations: createKeyedOperationQueue(),
-    facts: { apply: applyFact },
+    facts: { apply: applyFact, applyBatch: vi.fn() },
   });
   return { work, generateTitle, renameThread, applyFact };
 }

@@ -10,7 +10,7 @@ import type { SharedServerMetadata, SharedServerMetadataResource } from "../../.
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadGoalCoordinator } from "../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
-import type { ThreadFactInput } from "../../../../src/features/threads/workflows/thread-facts";
+import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/shared/runtime/observed-result";
@@ -412,7 +412,7 @@ export interface ChatHostFixtureOverrides {
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   notifyPanelActivityChanged?: CodexChatHost["workspace"]["notifyPanelActivityChanged"];
   openSideChat?: CodexChatHost["workspace"]["openSideChat"];
-  applyThreadFact?: CodexChatHost["threadFactCoordinator"]["apply"];
+  applyThreadFact?: CodexChatHost["threadFacts"]["apply"];
   refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
   activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
   appServerMetadataSnapshot?: CodexChatHost["appServerQueries"]["appServerMetadataSnapshot"];
@@ -523,7 +523,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
     emitActiveThreads();
   };
-  const applyThreadFact = (event: ThreadFactInput): void => {
+  const applyThreadFact = (event: ThreadFact): void => {
     switch (event.type) {
       case "thread-archived":
       case "thread-deleted":
@@ -661,20 +661,10 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
         return () => activeThreadResultListeners.delete(listener);
       },
     },
-    threadFactCoordinator: {
+    threadFacts: {
       apply: overrides.applyThreadFact ?? applyThreadFact,
-      beginForkPublication: (sourceThreadId) => {
-        let replacement: Thread | null = null;
-        return {
-          record: (thread) => {
-            replacement = thread;
-          },
-          finish: (options = {}) => {
-            if (!replacement) return;
-            applyThreadFact({ type: "thread-upserted", thread: replacement, forkedFromThreadId: sourceThreadId });
-            if (options.sourceArchived ?? false) applyThreadFact({ type: "thread-archived", threadId: sourceThreadId });
-          },
-        };
+      applyBatch: (facts) => {
+        for (const fact of facts) (overrides.applyThreadFact ?? applyThreadFact)(fact);
       },
     },
   };

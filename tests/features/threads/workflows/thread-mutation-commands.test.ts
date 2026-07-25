@@ -5,6 +5,7 @@ import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadMutationAdapter } from "../../../../src/features/threads/app-server/workflow-adapters";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
+import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import {
   type ArchiveThreadResult,
   createThreadMutationCommands,
@@ -86,6 +87,26 @@ describe("ThreadMutationCommands", () => {
 
     expect(beforePublish).toHaveBeenCalledOnce();
     expect(callOrder(beforePublish)).toBeLessThan(callOrder(catalog.apply));
+  });
+
+  it("publishes replacement and archive facts in one batch", async () => {
+    const { mutations, catalog } = operationsFixture();
+    const replacement = {
+      id: "replacement",
+      preview: "Replacement",
+      createdAt: 2,
+      updatedAt: 2,
+      name: null,
+      archived: false,
+      canAcceptDirectInput: null,
+      provenance: { kind: "interactive" },
+    } satisfies Thread;
+    const replacementFact = { type: "thread-upserted", thread: replacement } as const;
+
+    await mutations.archiveThread("thread", { saveMarkdown: false, additionalFacts: [replacementFact] });
+
+    expect(catalog.applyBatch).toHaveBeenCalledOnce();
+    expect(catalog.applyBatch).toHaveBeenCalledWith([replacementFact, { type: "thread-archived", threadId: "thread" }]);
   });
 
   it("resolves persisted reference titles before archive export", async () => {
@@ -221,8 +242,12 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
     archiveExportFilenameTemplate: "{{title}} {{shortId}}",
     archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
   }));
+  const apply = vi.fn();
   const catalog = {
-    apply: vi.fn(),
+    apply,
+    applyBatch: vi.fn((facts: readonly ThreadFact[]) => {
+      for (const fact of facts) apply(fact);
+    }),
   };
   const notice = vi.fn();
   const host: ThreadMutationCommandsHost = {

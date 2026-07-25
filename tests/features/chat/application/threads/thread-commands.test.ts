@@ -32,7 +32,7 @@ type ThreadCommandsHostMock = Omit<
   | "openThreadInCurrentPanel"
   | "openThreadInNewView"
   | "mutations"
-  | "beginThreadForkPublication"
+  | "applyThreadFact"
   | "setComposerText"
   | "setStatus"
   | "commandPort"
@@ -44,14 +44,7 @@ type ThreadCommandsHostMock = Omit<
   setComposerText: Mock<ThreadCommandsHost["setComposerText"]>;
   openThreadInNewView: Mock<ThreadCommandsHost["openThreadInNewView"]>;
   openThreadInCurrentPanel: Mock<ThreadCommandsHost["openThreadInCurrentPanel"]>;
-  forkPublication: {
-    record: Mock<ReturnType<ThreadCommandsHost["beginThreadForkPublication"]>["record"]>;
-    finish: Mock<ReturnType<ThreadCommandsHost["beginThreadForkPublication"]>["finish"]>;
-  };
-  activityPublication: {
-    publish: Mock<(commit: () => void) => void>;
-  };
-  beginThreadForkPublication: Mock<ThreadCommandsHost["beginThreadForkPublication"]>;
+  applyThreadFact: Mock<ThreadCommandsHost["applyThreadFact"]>;
 };
 
 describe("thread management commands", () => {
@@ -308,14 +301,12 @@ describe("thread management commands", () => {
     expect(host.commandPort.forkThread).toHaveBeenCalledWith("source", {
       position: { kind: "through-turn", turnId: "turn-1" },
     });
-    expect(host.forkPublication.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "forked",
-      }),
-    );
+    expect(host.applyThreadFact).toHaveBeenCalledWith({
+      type: "thread-upserted",
+      thread: expect.objectContaining({ id: "forked" }),
+    });
     expect(host.openThreadInNewView).toHaveBeenCalledWith("forked");
-    expect(host.forkPublication.finish).toHaveBeenCalledWith();
-    expect(callOrder(host.forkPublication.finish)).toBeLessThan(callOrder(host.openThreadInNewView));
+    expect(callOrder(host.applyThreadFact)).toBeLessThan(callOrder(host.openThreadInNewView));
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
@@ -329,13 +320,10 @@ describe("thread management commands", () => {
     expect(host.commandPort.forkThread).toHaveBeenCalledWith("source", {
       position: { kind: "through-turn", turnId: "turn-3" },
     });
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", {});
+    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
     expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.mutations.archiveThread));
-    expect(host.forkPublication.finish).toHaveBeenCalledWith({ sourceArchived: true });
-    expect(callOrder(host.mutations.archiveThread)).toBeLessThan(callOrder(host.forkPublication.finish));
-    expect(callOrder(host.mutations.archiveThread)).toBeLessThan(callOrder(host.activityPublication.publish));
-    expect(callOrder(host.activityPublication.publish)).toBeLessThan(callOrder(host.forkPublication.finish));
+    expect(host.applyThreadFact).not.toHaveBeenCalled();
   });
 
   it("keeps the replacement panel when source archiving fails", async () => {
@@ -349,10 +337,10 @@ describe("thread management commands", () => {
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", {});
+    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
     expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
-    expect(host.forkPublication.finish).toHaveBeenCalledWith({ sourceArchived: false });
+    expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
     expect(host.addSystemMessage).toHaveBeenCalledWith("Forked the thread, but could not archive the previous version: archive failed");
   });
 
@@ -367,8 +355,9 @@ describe("thread management commands", () => {
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", {});
+    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
+    expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
     expect(host.addSystemMessage).toHaveBeenCalledWith(
       "Forked the thread, but could not archive the previous version: archive was not completed",
     );
@@ -435,41 +424,6 @@ describe("thread management commands", () => {
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
 
-  it("does not archive the source when the panel changes during fork naming", async () => {
-    const rename = deferred<boolean>();
-    const host = hostMock({
-      items: turnItems(),
-      activeThread: { id: "source" },
-      mutations: { renameThread: vi.fn(() => rename.promise) },
-    });
-    host.stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: [{ ...panelThread("source"), name: "Source name" }],
-    });
-
-    const pendingFork = threadCommands(host).forkThreadFromTurn("source", null, true);
-    await waitForAsyncWork(() => expect(host.mutations.renameThread).toHaveBeenCalledWith("forked", "Source name"));
-    host.stateStore.dispatch({
-      type: "active-thread/resumed",
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: panelThread("other"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
-    rename.resolve(true);
-    await pendingFork;
-
-    expect(host.mutations.archiveThread).not.toHaveBeenCalled();
-    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
-  });
-
   it("does not overwrite a newer panel while committed source cleanup completes", async () => {
     const archive = deferred<boolean>();
     const host = hostMock({
@@ -479,7 +433,7 @@ describe("thread management commands", () => {
     });
 
     const pendingFork = threadCommands(host).forkThreadFromTurn("source", null, true);
-    await waitForAsyncWork(() => expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", {}));
+    await waitForAsyncWork(() => expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions()));
     host.stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -501,7 +455,7 @@ describe("thread management commands", () => {
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
   });
 
-  it("does not open or record fork responses when the method has no result", async () => {
+  it("does not open or publish fork responses when the method has no result", async () => {
     const host = hostMock({
       items: turnItems(),
       activeThread: { id: "source" },
@@ -513,8 +467,7 @@ describe("thread management commands", () => {
 
     await controller.forkThreadFromTurn("source", null, false);
 
-    expect(host.forkPublication.record).not.toHaveBeenCalled();
-    expect(host.forkPublication.finish).toHaveBeenCalledWith();
+    expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(host.openThreadInNewView).not.toHaveBeenCalled();
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
   });
@@ -530,8 +483,7 @@ describe("thread management commands", () => {
 
     await controller.forkThreadFromTurn("source", null, true);
 
-    expect(host.forkPublication.record).toHaveBeenCalledWith(panelThread("forked"));
-    expect(host.forkPublication.finish).toHaveBeenCalledWith();
+    expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
     expect(host.mutations.renameThread).not.toHaveBeenCalled();
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
@@ -593,13 +545,10 @@ describe("thread management commands", () => {
     });
     expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
     expect(host.setComposerText).toHaveBeenCalledWith("three");
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: false });
+    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions(false));
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.mutations.archiveThread));
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
-    expect(host.forkPublication.record).toHaveBeenCalledWith(panelThread("forked"));
-    expect(host.forkPublication.finish).toHaveBeenCalledWith({ sourceArchived: true });
-    expect(callOrder(host.mutations.archiveThread)).toBeLessThan(callOrder(host.activityPublication.publish));
-    expect(callOrder(host.activityPublication.publish)).toBeLessThan(callOrder(host.forkPublication.finish));
+    expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
   });
 
@@ -614,7 +563,7 @@ describe("thread management commands", () => {
       runtime: { reasoningEffort: null },
     });
     expect(host.setComposerText).toHaveBeenCalledWith("one");
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: false });
+    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions(false));
   });
 
   it("preserves the active thread runtime when creating a rollback fork", async () => {
@@ -662,7 +611,7 @@ describe("thread management commands", () => {
 
     await threadCommands(host).rollbackThread("source");
 
-    expect(host.forkPublication.record).toHaveBeenCalledWith(panelThread("forked"));
+    expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
     expect(activeThreadId(host.stateStore.getState())).toBe("source");
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
@@ -676,13 +625,13 @@ describe("thread management commands", () => {
     host.openThreadInCurrentPanel.mockImplementation(async (threadId, onAdopted) => {
       adoptThread(host, threadId);
       onAdopted();
-      return { adopted: true, activityPublication: host.activityPublication };
+      return { adopted: true };
     });
 
     await threadCommands(host).rollbackThread("source");
 
     expect(host.setComposerText).toHaveBeenCalledWith("three");
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: false });
+    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions(false));
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
   });
 
@@ -695,7 +644,7 @@ describe("thread management commands", () => {
       beforeActivate?.();
       adoptThread(host, threadId);
       onAdopted();
-      return { adopted: true, activityPublication: host.activityPublication };
+      return { adopted: true };
     });
 
     await threadCommands(host).rollbackThread("source", { adoptPanelTarget });
@@ -791,7 +740,7 @@ describe("thread management commands", () => {
 
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
     expect(host.setComposerText).not.toHaveBeenCalled();
-    expect(host.forkPublication.record).toHaveBeenCalledWith(panelThread("forked"));
+    expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
   });
 
@@ -824,7 +773,7 @@ describe("thread management commands", () => {
 
     expect(host.stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
     expect(host.setComposerText).not.toHaveBeenCalled();
-    expect(host.forkPublication.record).toHaveBeenCalledWith(panelThread("forked"));
+    expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
   });
 
@@ -840,7 +789,7 @@ describe("thread management commands", () => {
 
     await controller.rollbackThread("source");
 
-    expect(host.forkPublication.record).not.toHaveBeenCalled();
+    expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
   });
@@ -877,7 +826,7 @@ describe("thread management commands", () => {
     await controller.rollbackThread("source");
 
     expect(host.setComposerText).not.toHaveBeenCalled();
-    expect(host.forkPublication.record).not.toHaveBeenCalled();
+    expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
   });
 });
@@ -921,6 +870,13 @@ function threadCommands(host: ThreadCommandsHost): ThreadCommands {
   return createThreadCommands(host);
 }
 
+function replacementArchiveOptions(saveMarkdown?: boolean) {
+  return {
+    ...(saveMarkdown === undefined ? {} : { saveMarkdown }),
+    additionalFacts: [{ type: "thread-upserted", thread: panelThread("forked") }],
+  };
+}
+
 function hostMock({
   items,
   activeThread,
@@ -946,11 +902,6 @@ function hostMock({
     renameThread: vi.fn<ThreadCommandsHost["mutations"]["renameThread"]>().mockResolvedValue(true),
     ...mutationOverrides,
   };
-  const forkPublication = {
-    record: vi.fn(),
-    finish: vi.fn(),
-  };
-  const activityPublication = { publish: vi.fn((commit: () => void) => commit()) };
   return {
     stateStore,
     commandPort,
@@ -962,11 +913,9 @@ function hostMock({
     openThreadInCurrentPanel: vi.fn<ThreadCommandsHost["openThreadInCurrentPanel"]>().mockImplementation(async (threadId, onAdopted) => {
       adoptThread({ stateStore }, threadId);
       onAdopted();
-      return { adopted: true, activityPublication };
+      return { adopted: true };
     }),
-    forkPublication,
-    activityPublication,
-    beginThreadForkPublication: vi.fn<ThreadCommandsHost["beginThreadForkPublication"]>().mockReturnValue(forkPublication),
+    applyThreadFact: vi.fn<ThreadCommandsHost["applyThreadFact"]>(),
     threadHasPendingOrRunningPanel: vi.fn(() => false),
   };
 }

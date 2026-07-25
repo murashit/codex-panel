@@ -28,7 +28,7 @@ describe("chat thread foundation auto-title handoff", () => {
       },
       mutationPort: { renameThread },
       nameMutations: createKeyedOperationQueue(),
-      facts: { apply: vi.fn() },
+      facts: { apply: vi.fn(), applyBatch: vi.fn() },
     });
     const foundation = createThreadFoundation(
       {
@@ -36,7 +36,6 @@ describe("chat thread foundation auto-title handoff", () => {
         resumeWork: new ChatResumeWorkTracker(),
         threadStreamScrollBinding: { showLatest: vi.fn() },
         getClosing: () => false,
-        beginPanelActivityPublication: () => ({ publish: (commit: () => void) => commit() }),
         environment: {
           obsidian: {
             app: { vault: { configDir: ".obsidian" } },
@@ -51,7 +50,7 @@ describe("chat thread foundation auto-title handoff", () => {
             },
             threadAutoTitleWork: sharedTitleWork,
             threadNameMutations: createKeyedOperationQueue(),
-            threadFactCoordinator: { apply: vi.fn() },
+            threadFacts: { apply: vi.fn(), applyBatch: vi.fn() },
             threadGoalCoordinator: createThreadGoalCoordinator(),
           },
         },

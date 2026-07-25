@@ -5,6 +5,7 @@ import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
 import type { Thread } from "../../../src/domain/threads/model";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "../../../src/features/threads/app-server/workflow-adapters";
+import type { ThreadFactSink } from "../../../src/features/threads/workflows/thread-facts";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import { createKeyedOperationQueue } from "../../../src/shared/runtime/keyed-operation-queue";
@@ -363,7 +364,7 @@ describe("CodexThreadsView", () => {
     });
     const applyThreadFact = vi.fn();
     const host = threadsHost({
-      threadFacts: { apply: applyThreadFact },
+      threadFacts: threadFactSink(applyThreadFact),
     });
     const view = await threadsView(host);
 
@@ -390,7 +391,7 @@ describe("CodexThreadsView", () => {
     const applyThreadFact = vi.fn();
     const view = await threadsView(
       threadsHost({
-        threadFacts: { apply: applyThreadFact },
+        threadFacts: threadFactSink(applyThreadFact),
       }),
     );
 
@@ -438,7 +439,7 @@ describe("CodexThreadsView", () => {
     });
     const applyThreadFact = vi.fn();
     const host = threadsHost({
-      threadFacts: { apply: applyThreadFact },
+      threadFacts: threadFactSink(applyThreadFact),
     });
     const view = await threadsView(host);
 
@@ -470,7 +471,7 @@ describe("CodexThreadsView", () => {
     const applyThreadFact = vi.fn();
     const view = await threadsView(
       threadsHost({
-        threadFacts: { apply: applyThreadFact },
+        threadFacts: threadFactSink(applyThreadFact),
       }),
     );
 
@@ -506,7 +507,7 @@ describe("CodexThreadsView", () => {
     });
     const applyThreadFact = vi.fn();
     const host = threadsHost({
-      threadFacts: { apply: applyThreadFact },
+      threadFacts: threadFactSink(applyThreadFact),
     });
     const view = await threadsView(host);
 
@@ -878,6 +879,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     "threadFacts" in overrides && overrides["threadFacts"] !== null && typeof overrides["threadFacts"] === "object"
       ? (overrides["threadFacts"] as Partial<ThreadsViewHost["threadFacts"]>)
       : {};
+  const applyThreadFact = threadEventOverrides.apply ?? vi.fn();
   const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadFacts"));
   const activeObservers = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
   const emitActive = (threads: readonly Thread[]): void => {
@@ -902,9 +904,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     vaultPath: "/vault",
     threadNameMutations: createKeyedOperationQueue(),
     threadMutationPort: createThreadMutationAdapter(clientAccess),
-    threadFacts: {
-      apply: threadEventOverrides.apply ?? vi.fn(),
-    },
+    threadFacts: threadFactSink(applyThreadFact),
     threadTitlePort: createThreadTitleAdapter({
       clientAccess,
       codexPath: "codex",
@@ -983,6 +983,15 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
             }),
     },
     ...hostOverrides,
+  };
+}
+
+function threadFactSink(apply: ThreadFactSink["apply"]): ThreadFactSink {
+  return {
+    apply,
+    applyBatch: (facts) => {
+      for (const fact of facts) apply(fact);
+    },
   };
 }
 

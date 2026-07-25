@@ -56,7 +56,6 @@ interface ChatPanelThreadHost {
     showLatest(): void;
   };
   getClosing: () => boolean;
-  beginPanelActivityPublication(replacementThreadId: string): { publish(commit: () => void): void };
 }
 
 interface ChatPanelThreadFoundationInput {
@@ -127,7 +126,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
       vaultConfigDir: environment.obsidian.app.vault.configDir,
     },
     archiveDestination: environment.obsidian.archiveDestination,
-    facts: environment.plugin.threadFactCoordinator,
+    facts: environment.plugin.threadFacts,
     referenceThreads: () => stateStore.getState().threadList.listedThreads,
     notice: (text) => {
       new Notice(text);
@@ -271,7 +270,6 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
     },
     openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
     openThreadInCurrentPanel: async (threadId, onAdopted, beforeActivate) => {
-      const activityPublication = host.beginPanelActivityPublication(threadId);
       const adoption = { completed: false };
       try {
         await lifecycle.resume.resumeThread(threadId, undefined, {
@@ -281,15 +279,15 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
             onAdopted();
           },
         });
-        if (adoption.completed) return { adopted: true, activityPublication };
-        activityPublication.publish(() => undefined);
+        if (adoption.completed) return { adopted: true };
         return { adopted: false };
       } catch (error) {
-        activityPublication.publish(() => undefined);
         throw error;
       }
     },
-    beginThreadForkPublication: (sourceThreadId) => environment.plugin.threadFactCoordinator.beginForkPublication(sourceThreadId),
+    applyThreadFact: (fact) => {
+      environment.plugin.threadFacts.apply(fact);
+    },
     threadHasPendingOrRunningPanel: (threadId) => environment.plugin.workspace.threadHasPendingOrRunningPanel(threadId),
   };
   const commands = createThreadCommands(threadCommandsHost);
@@ -361,7 +359,7 @@ function createSessionThreadLifecycle(
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged,
     recordResumedThread: (thread) => {
-      host.environment.plugin.threadFactCoordinator.apply({ type: "thread-upserted", thread });
+      host.environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });
     },
     addSystemMessage: status.addSystemMessage,
     syncThreadGoal: (threadId) => goalSync.syncThreadGoal(threadId),

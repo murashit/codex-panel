@@ -1,4 +1,3 @@
-import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import { effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
@@ -23,25 +22,23 @@ export interface ThreadCommandsHost {
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<void>;
   openThreadInCurrentPanel: (threadId: string, onAdopted: () => void, beforeActivate?: () => void) => Promise<CurrentPanelAdoption>;
-  beginThreadForkPublication: (sourceThreadId: string) => ThreadForkPublication;
+  applyThreadFact: (fact: ThreadUpsertFact) => void;
   threadHasPendingOrRunningPanel: (threadId: string) => boolean;
 }
 
-type CurrentPanelAdoption =
-  | { readonly adopted: false }
-  | {
-      readonly adopted: true;
-      readonly activityPublication: { publish(commit: () => void): void };
-    };
+type CurrentPanelAdoption = { readonly adopted: boolean };
 
-interface ThreadForkPublication {
-  record(thread: Thread): void;
-  finish(options?: { sourceArchived?: boolean }): void;
+interface ThreadUpsertFact {
+  readonly type: "thread-upserted";
+  readonly thread: Thread;
 }
 
 interface ThreadManagementMutations {
   renameThread(threadId: string, value: string): Promise<boolean>;
-  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; beforePublish?: () => void }): Promise<boolean>;
+  archiveThread(
+    threadId: string,
+    options?: { saveMarkdown?: boolean; beforePublish?: () => void; additionalFacts?: readonly ThreadUpsertFact[] },
+  ): Promise<boolean>;
 }
 
 export interface ThreadCommands {
@@ -156,61 +153,43 @@ async function forkThreadFromTurn(
     host.addSystemMessage("Could not find the selected turn to fork.");
     return;
   }
-  let publication: ThreadForkPublication | null = null;
-  let publicationFinished = false;
-  let activityPublication: { publish(commit: () => void): void } | null = null;
-
   try {
-    const sourceName = inheritedForkThreadName(threadId, threadCommandState(host).threadList.listedThreads);
     if (!(await host.commandPort.ensureConnected())) return;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
-    publication = host.beginThreadForkPublication(threadId);
     const effect = turnId
       ? await host.commandPort.forkThread(threadId, { position: { kind: "through-turn", turnId } })
       : await host.commandPort.forkThread(threadId);
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
-    publication.record(forkedThread);
-    if (!effectCompletedInCurrentContext(effect)) return;
-    if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
-    if (sourceName) {
-      try {
-        if (!(await host.mutations.renameThread(forkedThreadId, sourceName))) return;
-      } catch (error) {
-        if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
-        const message = error instanceof Error ? error.message : String(error);
-        host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
-      }
-      if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
+    if (!effectCompletedInCurrentContext(effect) || !threadCommandScopeStillTargetsOriginalPanel(host, scope)) {
+      host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
+      return;
     }
     if (archiveSource) {
       let adoption: CurrentPanelAdoption;
       try {
         adoption = await host.openThreadInCurrentPanel(forkedThreadId, () => undefined);
       } catch (error) {
+        host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
         if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
         const message = error instanceof Error ? error.message : String(error);
         host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel: ${message}`);
         return;
       }
       if (!adoption.adopted) {
+        host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
         if (threadCommandScopeStillTargetsOriginalPanel(host, scope)) {
           host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel.`);
         }
         return;
       }
-      activityPublication = adoption.activityPublication;
-      const sourceArchived = await archiveReplacedSource(host, threadId, forkedThreadId, {
+      await archiveReplacedSource(host, threadId, forkedThread, {
         failureMessage: "Forked the thread, but could not archive the previous version",
       });
-      activityPublication.publish(() => publication?.finish({ sourceArchived }));
-      activityPublication = null;
-      publicationFinished = true;
       return;
     }
-    publication.finish();
-    publicationFinished = true;
+    host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
     try {
       await host.openThreadInNewView(forkedThreadId);
     } catch (error) {
@@ -221,11 +200,6 @@ async function forkThreadFromTurn(
   } catch (error) {
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
-  } finally {
-    if (!publicationFinished) {
-      if (activityPublication) activityPublication.publish(() => publication?.finish());
-      else publication?.finish();
-    }
   }
 }
 
@@ -270,15 +244,10 @@ async function rollbackThread(
         ? { sandboxPolicy: runtime.sandboxPolicy }
         : {}),
   };
-  let publication: ThreadForkPublication | null = null;
-  let publicationFinished = false;
-  let activityPublication: { publish(commit: () => void): void } | null = null;
-
   try {
     host.setStatus(STATUS_ROLLBACK_STARTING);
     if (!(await host.commandPort.ensureConnected())) return;
     if (!threadCommandScopeStillTargetsPanel(host, scope)) return;
-    publication = host.beginThreadForkPublication(threadId);
     const effect = await host.commandPort.forkThread(threadId, {
       position: { kind: "before-turn", turnId: candidate.turnId },
       deferGoalContinuation: true,
@@ -286,63 +255,67 @@ async function rollbackThread(
     });
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
-    if (effectCompletedInCurrentContext(effect)) publication.record(forkedThread);
-    else return;
-    if (!threadCommandScopeStillTargetsPanel(host, scope)) return;
+    if (!effectCompletedInCurrentContext(effect)) return;
+    if (!threadCommandScopeStillTargetsPanel(host, scope)) {
+      host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
+      return;
+    }
     const onAdopted = () => {
       if (!options.adoptPanelTarget) host.setComposerText(candidate.text);
     };
-    const adoption = options.adoptPanelTarget
-      ? await host.openThreadInCurrentPanel(forkedThread.id, onAdopted, () => {
-          options.adoptPanelTarget?.(candidate.text);
-        })
-      : await host.openThreadInCurrentPanel(forkedThread.id, onAdopted);
+    let adoption: CurrentPanelAdoption;
+    try {
+      adoption = options.adoptPanelTarget
+        ? await host.openThreadInCurrentPanel(forkedThread.id, onAdopted, () => {
+            options.adoptPanelTarget?.(candidate.text);
+          })
+        : await host.openThreadInCurrentPanel(forkedThread.id, onAdopted);
+    } catch (error) {
+      host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
+      throw error;
+    }
     if (!adoption.adopted) {
+      host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       if (threadCommandScopeStillTargetsPanel(host, scope)) {
         host.addSystemMessage("The rolled-back version was created but could not be opened in this panel. Open it from thread history.");
         host.setStatus(STATUS_ROLLBACK_FAILED);
       }
       return;
     }
-    activityPublication = adoption.activityPublication;
     if (activeThreadId(threadCommandState(host)) === forkedThread.id) {
       host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
       host.setStatus(STATUS_ROLLBACK_COMPLETE);
     }
-    const sourceArchived = await archiveReplacedSource(host, threadId, forkedThread.id, {
+    await archiveReplacedSource(host, threadId, forkedThread, {
       saveMarkdown: false,
       failureMessage: "Rolled back the latest turn, but could not archive the previous version",
     });
-    activityPublication.publish(() => publication?.finish({ sourceArchived }));
-    activityPublication = null;
-    publicationFinished = true;
   } catch (error) {
     if (!threadCommandScopeStillTargetsPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     host.setStatus(STATUS_ROLLBACK_FAILED);
-  } finally {
-    if (!publicationFinished) {
-      if (activityPublication) activityPublication.publish(() => publication?.finish());
-      else publication?.finish();
-    }
   }
 }
 
 async function archiveReplacedSource(
   host: ThreadCommandsHost,
   sourceThreadId: string,
-  replacementThreadId: string,
+  replacementThread: Thread,
   options: { readonly saveMarkdown?: boolean; readonly failureMessage: string },
-): Promise<boolean> {
+): Promise<void> {
   try {
-    const archiveOptions = options.saveMarkdown === undefined ? {} : { saveMarkdown: options.saveMarkdown };
-    if (await host.mutations.archiveThread(sourceThreadId, archiveOptions)) return true;
-    reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, "archive was not completed");
+    const archiveOptions = {
+      ...(options.saveMarkdown === undefined ? {} : { saveMarkdown: options.saveMarkdown }),
+      additionalFacts: [{ type: "thread-upserted", thread: replacementThread }] satisfies readonly ThreadUpsertFact[],
+    };
+    if (await host.mutations.archiveThread(sourceThreadId, archiveOptions)) return;
+    host.applyThreadFact({ type: "thread-upserted", thread: replacementThread });
+    reportReplacementArchiveFailure(host, replacementThread.id, options.failureMessage, "archive was not completed");
   } catch (error) {
+    host.applyThreadFact({ type: "thread-upserted", thread: replacementThread });
     const message = error instanceof Error ? error.message : String(error);
-    reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, message);
+    reportReplacementArchiveFailure(host, replacementThread.id, options.failureMessage, message);
   }
-  return false;
 }
 
 function reportReplacementArchiveFailure(
@@ -392,3 +365,5 @@ function threadCommandScopeStillTargetsOriginalPanel(host: ThreadCommandsHost, s
   if (!scope.initialActiveThreadId) return true;
   return scope.initialActiveThreadId === scope.targetThreadId && activeThreadId(state) === scope.targetThreadId;
 }
+
+import type { Thread } from "../../../../domain/threads/model";

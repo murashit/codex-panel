@@ -17,7 +17,7 @@ import {
 } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
-import type { ThreadFactInput as ThreadCatalogEvent } from "../../../../../src/features/threads/workflows/thread-facts";
+import type { ThreadFact as ThreadCatalogEvent } from "../../../../../src/features/threads/workflows/thread-facts";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -1331,11 +1331,10 @@ describe("ChatInboundHandler", () => {
       expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-upserted",
         thread: expect.objectContaining({ id: "thread-other" }),
-        forkedFromThreadId: null,
       });
     });
 
-    it("preserves fork ancestry for atomic catalog publication", () => {
+    it("leaves interactive fork publication to the command response", () => {
       const applyThreadFact = vi.fn();
       const handler = handlerForState(chatStateFixture(), { applyThreadFact });
 
@@ -1344,11 +1343,7 @@ describe("ChatInboundHandler", () => {
         params: { thread: { ...appServerThread("thread-forked", "/workspace"), forkedFromId: "thread-source" } },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-upserted",
-        thread: expect.objectContaining({ id: "thread-forked" }),
-        forkedFromThreadId: "thread-source",
-      });
+      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("records active thread-started notifications without projecting protocol cwd", () => {
@@ -1366,7 +1361,6 @@ describe("ChatInboundHandler", () => {
       expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-upserted",
         thread: expect.objectContaining({ id: "thread-active" }),
-        forkedFromThreadId: null,
       });
     });
 

@@ -8,12 +8,7 @@ export type ThreadFact =
   | { type: "thread-restored"; thread: Thread }
   | { type: "thread-unarchived"; threadId: string };
 
-export type ThreadFactInput =
-  | Exclude<ThreadFact, { type: "thread-upserted" }>
-  | { type: "thread-upserted"; thread: Thread; forkedFromThreadId?: string | null };
-
 export interface ThreadFactSink {
-  apply(fact: ThreadFactInput): void;
+  apply(fact: ThreadFact): void;
+  applyBatch(facts: readonly ThreadFact[]): void;
 }
-
-export type ThreadFactCommitter = (facts: readonly ThreadFact[]) => void;

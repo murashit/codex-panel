@@ -6,7 +6,7 @@ import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/pro
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
-import type { ThreadFactInput } from "../../src/features/threads/workflows/thread-facts";
+import type { ThreadFact } from "../../src/features/threads/workflows/thread-facts";
 import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
@@ -194,7 +194,7 @@ export interface SettingsTabHostOptions {
   archivedSnapshot?: Thread[] | null;
   refreshArchived?: () => Promise<readonly Thread[]>;
   observeArchived?: SettingsDynamicDataAccess["observeArchivedThreadsResult"];
-  applyThreadFact?: (event: ThreadFactInput) => void;
+  applyThreadFact?: (event: ThreadFact) => void;
   dynamicData?: SettingsDynamicDataAccess;
   settings?: Partial<{
     threadNamingModel: string | null;
@@ -226,7 +226,13 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     refreshArchivedThreads: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
     observeArchivedThreadsResult: options.observeArchived ?? vi.fn(() => () => undefined),
   };
-  const threadFacts = { apply: options.applyThreadFact ?? vi.fn() };
+  const applyThreadFact = options.applyThreadFact ?? vi.fn();
+  const threadFacts = {
+    apply: applyThreadFact,
+    applyBatch: (facts: readonly ThreadFact[]) => {
+      for (const fact of facts) applyThreadFact(fact);
+    },
+  };
   const clientAccess = {
     withClient: async <T>(operation: (client: AppServerClient) => Promise<T>, clientOptions?: AppServerClientAccessOptions): Promise<T> => {
       const contextKey = appServerQueries.contextKey();

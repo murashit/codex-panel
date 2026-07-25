@@ -21,8 +21,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   private opened = false;
   private closing = false;
   private observedPanelActivity: PanelActivity | null = null;
-  private readonly panelActivityPublicationSlots: PanelActivityPublicationSlot[] = [];
-  private activePanelActivityHold: PanelActivityHold | null = null;
   private unsubscribePanelActivity: (() => void) | null = null;
   private pendingRuntimeRestore: ChatPanelRuntimeSnapshot | null;
   private pendingEphemeralSource: { threadId: string; title: string | null } | null = null;
@@ -113,18 +111,12 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   openPanelSnapshot(): ChatWorkspacePanelSnapshot {
     const activity = panelActivity(this.state);
-    const publishedActivity = this.activePanelActivityHold?.activity ?? activity;
     const preparingEphemeralThread = this.pendingEphemeralSource !== null;
     return {
       viewId: this.environment.obsidian.viewId,
       ...activity,
       pending: activity.pending || preparingEphemeralThread,
       threadId: this.closing ? null : activity.threadId,
-      publishedActivity: {
-        ...publishedActivity,
-        pending: publishedActivity.pending || preparingEphemeralThread,
-        threadId: this.closing ? null : publishedActivity.threadId,
-      },
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
       connected: this.runtime.connection.manager.isConnected(),
     };
@@ -295,9 +287,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       const next = panelActivity(this.state);
       if (panelActivityEquals(this.observedPanelActivity, next)) return;
       this.observedPanelActivity = next;
-      const hold = this.activePanelActivityHold;
-      if (hold && (next.threadId === hold.activity.threadId || hold.replacementThreadIds.has(next.threadId))) return;
-      if (hold) this.activePanelActivityHold = null;
       this.notifyPanelActivityChanged();
     });
     this.notifyPanelActivityChanged();
@@ -315,47 +304,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.pendingEphemeralSource = source;
     this.environment.view.refreshTabHeader();
     this.notifyPanelActivityChanged();
-  }
-
-  beginPanelActivityPublication(replacementThreadId: string): { publish(commit: () => void): void } {
-    const hold: PanelActivityHold = this.activePanelActivityHold ?? {
-      activity: panelActivity(this.state),
-      replacementThreadIds: new Set<string | null>(),
-      pendingPublications: 0,
-    };
-    hold.replacementThreadIds.add(replacementThreadId);
-    hold.pendingPublications += 1;
-    this.activePanelActivityHold = hold;
-    const slot: PanelActivityPublicationSlot = { hold, commit: null };
-    this.panelActivityPublicationSlots.push(slot);
-    return {
-      publish: (commit) => {
-        if (slot.commit) return;
-        slot.commit = commit;
-        hold.pendingPublications -= 1;
-        let failure: unknown = null;
-        let commitFailed = false;
-        let first = this.panelActivityPublicationSlots[0];
-        while (first?.commit && first.hold.pendingPublications === 0) {
-          this.panelActivityPublicationSlots.shift();
-          const slotHold = first.hold;
-          const publishActivity =
-            this.activePanelActivityHold === slotHold && !this.panelActivityPublicationSlots.some((pending) => pending.hold === slotHold);
-          if (publishActivity) this.activePanelActivityHold = null;
-          try {
-            first.commit();
-          } catch (error) {
-            if (!commitFailed) failure = error;
-            commitFailed = true;
-          }
-          if (publishActivity && !panelActivityEquals(slotHold.activity, panelActivity(this.state))) {
-            this.notifyPanelActivityChanged();
-          }
-          first = this.panelActivityPublicationSlots[0];
-        }
-        if (commitFailed) throw failure;
-      },
-    };
   }
 
   private activeThreadTitle(): string | null {
@@ -395,7 +343,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
-      beginPanelActivityPublication: (replacementThreadId) => this.beginPanelActivityPublication(replacementThreadId),
     });
   }
 }
@@ -404,17 +351,6 @@ interface PanelActivity {
   readonly threadId: string | null;
   readonly turnBusy: boolean;
   readonly pending: boolean;
-}
-
-interface PanelActivityHold {
-  readonly activity: PanelActivity;
-  readonly replacementThreadIds: Set<string | null>;
-  pendingPublications: number;
-}
-
-interface PanelActivityPublicationSlot {
-  readonly hold: PanelActivityHold;
-  commit: (() => void) | null;
 }
 
 function panelActivity(state: ChatState): PanelActivity {

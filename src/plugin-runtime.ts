@@ -213,10 +213,10 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
 
   private openPanelActivities(): readonly ThreadsViewPanelActivity[] {
     return this.panels.getOpenPanelSnapshots().map((snapshot) => ({
-      threadId: snapshot.publishedActivity.threadId,
+      threadId: snapshot.threadId,
       selected: snapshot.lastFocused,
-      pending: snapshot.publishedActivity.pending,
-      running: snapshot.publishedActivity.turnBusy,
+      pending: snapshot.pending,
+      running: snapshot.turnBusy,
     }));
   }
 

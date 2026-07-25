@@ -39,11 +39,6 @@ export function normalizeExplicitThreadName(value: string | null | undefined): s
   return name.length > 0 ? name : null;
 }
 
-export function inheritedForkThreadName(threadId: string, threads: readonly Thread[]): string | null {
-  const thread = threads.find((item) => item.id === threadId);
-  return thread ? explicitThreadName(thread) : null;
-}
-
 export function upsertThread(threads: readonly Thread[], thread: Thread): Thread[] {
   const index = threads.findIndex((item) => item.id === thread.id);
   if (index === -1) return [thread, ...threads];

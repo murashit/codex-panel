@@ -644,7 +644,6 @@ function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): WorkspacePan
     threadId,
     turnBusy: false,
     pending: false,
-    publishedActivity: { threadId, turnBusy: false, pending: false },
     hasComposerDraft: false,
     connected: false,
     lastFocused: false,

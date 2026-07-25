@@ -11,7 +11,7 @@ import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/t
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
 import type { ThreadAutoTitleWork } from "../../threads/workflows/thread-auto-title-work";
-import type { ThreadFactCoordinator } from "../../threads/workflows/thread-fact-coordinator";
+import type { ThreadFactSink } from "../../threads/workflows/thread-facts";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ThreadGoalCoordinator } from "../application/threads/thread-goal-coordinator";
@@ -23,7 +23,7 @@ export interface CodexChatHost {
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
-  readonly threadFactCoordinator: ThreadFactCoordinator;
+  readonly threadFacts: ThreadFactSink;
   readonly threadNameMutations: KeyedOperationQueue<string>;
   readonly threadTitlePort: ThreadTitlePort;
   readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;
@@ -119,11 +119,6 @@ export interface ChatWorkspacePanelSnapshot {
   threadId: string | null;
   turnBusy: boolean;
   pending: boolean;
-  publishedActivity: {
-    threadId: string | null;
-    turnBusy: boolean;
-    pending: boolean;
-  };
   hasComposerDraft: boolean;
   connected: boolean;
 }

@@ -206,7 +206,6 @@ describe("chat panel session runtime actions", () => {
       resumeWork,
       threadStreamScrollBinding,
       getClosing: () => false,
-      beginPanelActivityPublication: () => ({ publish: (commit) => commit() }),
     });
     return { runtime, stateStore, resumeWork, deferredTasks, threadStreamScrollBinding };
   }
@@ -216,7 +215,7 @@ describe("chat panel session runtime actions", () => {
     plugin?: {
       workspace?: Partial<ChatPanelEnvironment["plugin"]["workspace"]>;
       threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
-      threadFactCoordinator?: Partial<ChatPanelEnvironment["plugin"]["threadFactCoordinator"]>;
+      threadFacts?: Partial<ChatPanelEnvironment["plugin"]["threadFacts"]>;
       appServerQueries?: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]>;
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
@@ -290,10 +289,9 @@ describe("chat panel session runtime actions", () => {
         },
         appServerQueries,
         threadCatalog,
-        threadFactCoordinator: {
-          apply: overrides.plugin?.threadFactCoordinator?.apply ?? vi.fn(),
-          beginForkPublication:
-            overrides.plugin?.threadFactCoordinator?.beginForkPublication ?? vi.fn(() => ({ record: vi.fn(), finish: vi.fn() })),
+        threadFacts: {
+          apply: overrides.plugin?.threadFacts?.apply ?? vi.fn(),
+          applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
         threadNameMutations: createKeyedOperationQueue(),
         threadGoalCoordinator: createThreadGoalCoordinator(),

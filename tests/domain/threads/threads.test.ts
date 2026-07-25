@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   explicitThreadName,
-  inheritedForkThreadName,
   normalizeExplicitThreadName,
   type Thread,
   threadRecencyAt,
@@ -43,12 +42,6 @@ describe("thread helpers", () => {
     expect(threadWindowTitle("thread", [], "  Restored   title  ")).toBe("Codex: Restored title");
     expect(threadWindowTitle(uuid, [thread({ id: uuid, name: null, preview: "" })])).toBe("Codex: 019e0182");
     expect(threadWindowTitle(uuid, [], null)).toBe("Codex: 019e0182");
-  });
-
-  it("inherits only explicit thread names for forked threads", () => {
-    expect(inheritedForkThreadName("named", [thread({ id: "named", name: "親スレッド", preview: "Preview" })])).toBe("親スレッド");
-    expect(inheritedForkThreadName("preview-only", [thread({ id: "preview-only", preview: "Preview" })])).toBeNull();
-    expect(inheritedForkThreadName("blank-name", [thread({ id: "blank-name", name: "  ", preview: "Preview" })])).toBeNull();
   });
 
   it("resolves only explicit thread names for composer context", () => {

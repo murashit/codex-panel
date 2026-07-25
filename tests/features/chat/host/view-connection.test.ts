@@ -163,7 +163,6 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.surface.openPanelSnapshot()).toMatchObject({
       threadId: null,
       pending: true,
-      publishedActivity: { pending: true },
     });
     expect(refreshHeader).toHaveBeenCalled();
 
