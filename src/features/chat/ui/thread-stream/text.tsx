@@ -1,14 +1,14 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { IconButton } from "../../../../shared/obsidian/components.obsidian";
+import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
 import type {
   ContextItemTextView,
   EditedFilesTextView,
   ReferencedThreadTextView,
   TextItemDetailSectionView,
   ThreadStreamTextView,
-} from "../../presentation/thread-stream/text-view";
-import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
+} from "./model";
 import { closeStreamItemRoleMenuOnOutsidePointer } from "./text.dom";
 import { CollapsibleTextContent, TextContent } from "./text-content.dom";
 
@@ -49,17 +49,19 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
     const role = roleRef.current;
     if (!role) return;
     return closeStreamItemRoleMenuOnOutsidePointer(role, () => {
-      context.onForkMenuToggle?.(null);
+      context.onForkMenuToggle(null);
     });
   }, [context, forkMenuOpen]);
 
   const copyAction =
-    view.copyText !== undefined && context.copyText && !forkMenuOpen ? (
+    view.copyText !== undefined && !forkMenuOpen ? (
       <TextAction
         icon="copy"
         label="Copy message"
         className="codex-panel__copy-dialogue"
-        onClick={() => context.copyText?.(view.copyText ?? "")}
+        onClick={() => {
+          context.copyText(view.copyText ?? "");
+        }}
       />
     ) : null;
 
@@ -72,8 +74,8 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
           label="Fork and archive"
           className="codex-panel__fork-and-archive-dialogue"
           onClick={() => {
-            context.onForkMenuToggle?.(null);
-            context.onFork?.(fork, true);
+            context.onForkMenuToggle(null);
+            context.onFork(fork, true);
           }}
         />
       ) : (
@@ -86,10 +88,10 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
           className="codex-panel__fork-dialogue"
           onClick={() => {
             if (forkMenuOpen) {
-              context.onForkMenuToggle?.(null);
-              context.onFork?.(fork, false);
+              context.onForkMenuToggle(null);
+              context.onFork(fork, false);
             } else {
-              context.onForkMenuToggle?.(view.id);
+              context.onForkMenuToggle(view.id);
             }
           }}
         />
@@ -99,7 +101,9 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
           icon="play"
           label="Implement plan"
           className="codex-panel__implement-plan"
-          onClick={() => context.onImplementPlan?.(implementPlan)}
+          onClick={() => {
+            context.onImplementPlan(implementPlan);
+          }}
         />
       ) : null}
       {rollback ? (
@@ -107,7 +111,9 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
           icon="undo-2"
           label="Roll back latest turn"
           className="codex-panel__rollback-turn"
-          onClick={() => context.onRollback?.()}
+          onClick={() => {
+            context.onRollback();
+          }}
         />
       ) : null}
     </div>
@@ -148,6 +154,7 @@ function ReferencedThread({ reference }: { reference: ReferencedThreadTextView }
 function EditedFiles({ view, context }: { view: EditedFilesTextView; context: TextItemMetadataContext }): UiNode {
   const editedFiles = view.files;
   const turnDiff = view.turnDiff;
+  const activeThreadId = context.activeThreadId;
   const label = editedFiles.length === 1 ? "Edited 1 file" : `Edited ${String(editedFiles.length)} files`;
   return (
     <div className="codex-panel__edited-files">
@@ -155,7 +162,7 @@ function EditedFiles({ view, context }: { view: EditedFilesTextView; context: Te
         <summary tabIndex={-1}>
           <span className="codex-panel__edited-files-summary">
             <span>{label}</span>
-            {turnDiff && context.activeThreadId && context.openTurnDiff ? (
+            {turnDiff && activeThreadId ? (
               <>
                 <span className="codex-panel__edited-files-separator">·</span>
                 <IconButton
@@ -165,8 +172,8 @@ function EditedFiles({ view, context }: { view: EditedFilesTextView; context: Te
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    context.openTurnDiff?.({
-                      threadId: context.activeThreadId ?? "",
+                    context.openTurnDiff({
+                      threadId: activeThreadId,
                       turnId: turnDiff.turnId,
                       files: [...editedFiles],
                       diff: turnDiff.diff,
@@ -321,7 +328,7 @@ function RememberedDetails({
       className={detailsClassName}
       open={context.disclosures.textDetails.has(detailsKey)}
       onToggle={(event) => {
-        context.onDisclosureToggle?.("textDetails", detailsKey, event.currentTarget.open);
+        context.onDisclosureToggle("textDetails", detailsKey, event.currentTarget.open);
       }}
     >
       <summary tabIndex={-1}>{summary}</summary>

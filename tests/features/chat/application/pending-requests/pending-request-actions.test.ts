@@ -18,7 +18,7 @@ describe("PendingRequestActions", () => {
     stateStore.dispatch({ type: "request/user-input-queued", input });
     stateStore.dispatch({ type: "request/user-input-draft-set", key: "7:direction", value: "Left" });
 
-    pendingRequests.actions().resolveUserInput(input.requestId);
+    pendingRequests.actions.resolveUserInput(input.requestId);
 
     expect(responder.resolveUserInput).toHaveBeenCalledWith(input.requestId, { direction: "Left" });
     expect(focusComposer).toHaveBeenCalledOnce();
@@ -31,7 +31,7 @@ describe("PendingRequestActions", () => {
     const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
     stateStore.dispatch({ type: "request/approval-queued", approval: approvalRequest() });
 
-    pendingRequests.actions().resolveApproval(1, action);
+    pendingRequests.actions.resolveApproval(1, action);
 
     expect(responder.resolveApproval).toHaveBeenCalledWith(1, action);
     expect(focusComposer).toHaveBeenCalledOnce();
@@ -42,7 +42,7 @@ describe("PendingRequestActions", () => {
     const input = expectPresent(toPendingUserInput(userInputRequest()));
     stateStore.dispatch({ type: "request/user-input-queued", input });
 
-    pendingRequests.actions().cancelUserInput(input.requestId);
+    pendingRequests.actions.cancelUserInput(input.requestId);
 
     expect(responder.cancelUserInput).toHaveBeenCalledWith(input.requestId);
     expect(focusComposer).toHaveBeenCalledOnce();
@@ -52,7 +52,7 @@ describe("PendingRequestActions", () => {
     const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
     stateStore.dispatch({ type: "request/mcp-elicitation-queued", elicitation: mcpElicitationRequest() });
 
-    pendingRequests.actions().resolveMcpElicitation(9, "accept");
+    pendingRequests.actions.resolveMcpElicitation(9, "accept");
 
     expect(responder.resolveMcpElicitation).toHaveBeenCalledWith(9, "accept");
     expect(focusComposer).toHaveBeenCalledOnce();
@@ -68,10 +68,10 @@ describe("PendingRequestActions", () => {
     stateStore.dispatch({ type: "request/resolved", requestId: input.requestId });
     stateStore.dispatch({ type: "request/resolved", requestId: 9 });
 
-    pendingRequests.actions().resolveApproval(1, "accept");
-    pendingRequests.actions().resolveUserInput(input.requestId);
-    pendingRequests.actions().cancelUserInput(input.requestId);
-    pendingRequests.actions().resolveMcpElicitation(9, "accept");
+    pendingRequests.actions.resolveApproval(1, "accept");
+    pendingRequests.actions.resolveUserInput(input.requestId);
+    pendingRequests.actions.cancelUserInput(input.requestId);
+    pendingRequests.actions.resolveMcpElicitation(9, "accept");
 
     expect(responder.resolveApproval).not.toHaveBeenCalled();
     expect(responder.resolveUserInput).not.toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe("PendingRequestActions", () => {
 
   it("dispatches request drafts and approval disclosure state", () => {
     const { stateStore, pendingRequests } = actionsHarness();
-    const actions = pendingRequests.actions();
+    const actions = pendingRequests.actions;
 
     actions.setUserInputDraft("7:direction", "Right");
     actions.setMcpElicitationDraft("9:mcp:title", "Fix tests");

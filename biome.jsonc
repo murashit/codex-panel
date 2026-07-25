@@ -103,10 +103,6 @@
       "includes": ["**/src/features/chat/panel/**/*.{ts,tsx}"]
     },
     {
-      "path": "./scripts/grit/import-boundaries/no-chat-presentation-outer-layer-imports.grit",
-      "includes": ["**/src/features/chat/presentation/**/*.{ts,tsx}"]
-    },
-    {
       "path": "./scripts/grit/import-boundaries/no-chat-ui-outer-layer-imports.grit",
       "includes": ["**/src/features/chat/ui/**/*.{ts,tsx}"]
     },

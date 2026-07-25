@@ -38,8 +38,8 @@ export interface ComposerMetaViewModel {
   planActive: boolean;
   autoReviewActive: boolean;
   fastActive: boolean;
-  modelChoices?: RuntimeChoice[];
-  effortChoices?: RuntimeChoice[];
+  modelChoices: RuntimeChoice[];
+  effortChoices: RuntimeChoice[];
 }
 
 interface RuntimeChoice {
@@ -66,14 +66,13 @@ export interface ComposerCallbacks {
   onInput: (value: string) => void;
   onUpdateSuggestions: () => void;
   onKeydown: (event: KeyboardEvent) => void;
-  onPaste?: (event: ClipboardEvent) => void;
-  onDrop?: (event: DragEvent) => void;
-  onDragOver?: (event: DragEvent) => void;
+  onPaste: (event: ClipboardEvent) => void;
+  onDrop: (event: DragEvent) => void;
+  onDragOver: (event: DragEvent) => void;
   onSendOrInterrupt: () => void;
-  onHeightChange: () => void;
-  onTogglePlan?: () => void;
-  onToggleAutoReview?: () => void;
-  onToggleFast?: () => void;
+  onTogglePlan: () => void;
+  onToggleAutoReview: () => void;
+  onToggleFast: () => void;
   onSuggestionHover: (index: number) => void;
   onSuggestionInsert: (suggestion: ComposerSuggestion) => void;
 }
@@ -96,8 +95,8 @@ export interface ComposerShellProps {
   meta: ComposerMetaViewModel;
   suggestions: readonly ComposerSuggestion[];
   selectedSuggestionIndex: number;
-  pendingSelection?: ComposerPendingSelection | null;
-  onPendingSelectionApplied?: () => void;
+  pendingSelection: ComposerPendingSelection | null;
+  onPendingSelectionApplied: () => void;
   callbacks: ComposerCallbacks;
   onComposer: (composer: HTMLTextAreaElement | null) => void;
 }
@@ -116,7 +115,7 @@ export function ComposerShell({
   meta,
   suggestions,
   selectedSuggestionIndex,
-  pendingSelection = null,
+  pendingSelection,
   onPendingSelectionApplied,
   callbacks,
   onComposer,
@@ -125,8 +124,6 @@ export function ComposerShell({
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const selectedSuggestionRef = useRef<HTMLDivElement | null>(null);
   const previousDraftRef = useRef(draft);
-  const onHeightChangeRef = useRef(callbacks.onHeightChange);
-  onHeightChangeRef.current = callbacks.onHeightChange;
   const preservedSelection = preserveComposerSelection(composerRef.current, previousDraftRef.current, draft);
   useLayoutEffect(() => {
     const composer = composerRef.current;
@@ -139,7 +136,7 @@ export function ComposerShell({
   }, [onComposer]);
   useLayoutEffect(() => {
     const composer = composerRef.current;
-    if (syncComposerHeight(composer)) onHeightChangeRef.current();
+    syncComposerHeight(composer);
   }, [draft]);
   useLayoutEffect(() => {
     const container = suggestionsRef.current;
@@ -154,7 +151,7 @@ export function ComposerShell({
   useLayoutEffect(() => {
     if (!pendingSelection) return;
     if (pendingSelection.value === draft) restoreComposerSelection(composerRef.current, pendingSelection);
-    onPendingSelectionApplied?.();
+    onPendingSelectionApplied();
   }, [draft, pendingSelection, onPendingSelectionApplied]);
   const sendMode = composerSendMode(
     busy,
@@ -184,7 +181,7 @@ export function ComposerShell({
           value={draft}
           readOnly={composerLocked}
           onInput={(event) => {
-            if (syncComposerHeight(event.currentTarget)) callbacks.onHeightChange();
+            syncComposerHeight(event.currentTarget);
             callbacks.onInput(event.currentTarget.value);
           }}
           onKeyUp={callbacks.onUpdateSuggestions}
@@ -194,13 +191,13 @@ export function ComposerShell({
             callbacks.onKeydown(event);
           }}
           onPaste={(event) => {
-            callbacks.onPaste?.(event);
+            callbacks.onPaste(event);
           }}
           onDrop={(event) => {
-            callbacks.onDrop?.(event);
+            callbacks.onDrop(event);
           }}
           onDragOver={(event) => {
-            callbacks.onDragOver?.(event);
+            callbacks.onDragOver(event);
           }}
         />
         <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} disabled={composerLocked || runtimeControlsDisabled} />
@@ -277,7 +274,7 @@ function ComposerMeta({
               active={meta.planActive}
               disabled={disabled}
               onMouseDown={() => {
-                callbacks.onTogglePlan?.();
+                callbacks.onTogglePlan();
               }}
             />
             <ComposerMetaModeButton
@@ -285,7 +282,7 @@ function ComposerMeta({
               active={meta.autoReviewActive}
               disabled={disabled}
               onMouseDown={() => {
-                callbacks.onToggleAutoReview?.();
+                callbacks.onToggleAutoReview();
               }}
             />
             <ComposerMetaModeButton
@@ -293,7 +290,7 @@ function ComposerMeta({
               active={meta.fastActive}
               disabled={disabled}
               onMouseDown={() => {
-                callbacks.onToggleFast?.();
+                callbacks.onToggleFast();
               }}
             />
           </span>
@@ -330,7 +327,7 @@ function ComposerMeta({
       {picker ? (
         <ComposerMetaChoicePopover
           kind={picker.kind}
-          choices={picker.kind === "model" ? (meta.modelChoices ?? []) : (meta.effortChoices ?? [])}
+          choices={picker.kind === "model" ? meta.modelChoices : meta.effortChoices}
           left={picker.left}
           onClose={closePicker}
         />

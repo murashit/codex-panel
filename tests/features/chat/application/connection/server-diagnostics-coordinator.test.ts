@@ -14,7 +14,6 @@ import type { ToolInventorySnapshot } from "../../../../../src/domain/server/too
 import { createServerDiagnosticsCoordinator } from "../../../../../src/features/chat/application/connection/server-diagnostics-coordinator";
 import { createServerMetadataEffects } from "../../../../../src/features/chat/application/connection/server-metadata-effects";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/tool-inventory-diagnostic-sections";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -156,11 +155,14 @@ describe("server diagnostics coordinator", () => {
     });
     await diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
 
-    const sections = toolInventoryDiagnosticSections(stateStore.getState().connection.serverDiagnostics);
-    const toolProviderRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
-
-    expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
-    expect(toolProviderRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, ready, auth oAuth, 1 tool"]);
+    expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([
+      expect.objectContaining({
+        name: "github",
+        startupStatus: "ready",
+        authStatus: "oAuth",
+        toolCount: 1,
+      }),
+    ]);
   });
 
   it("drops a diagnostics result when its active thread is no longer current", async () => {

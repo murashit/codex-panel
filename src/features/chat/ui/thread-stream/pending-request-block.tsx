@@ -3,45 +3,27 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../../domain/pending-requests/aggregate";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
+import type { PendingRequestBlockActions } from "./context";
 import type {
   PendingApprovalViewModel,
   PendingMcpElicitationFieldViewModel,
   PendingMcpElicitationViewModel,
+  PendingRequestBlockSnapshot,
   PendingUserInputQuestionViewModel,
   PendingUserInputViewModel,
-} from "../../presentation/pending-requests/view-model";
-import type { PendingRequestBlockActions } from "./context";
+} from "./model";
 import { focusPendingRequestControl } from "./pending-request-block.dom";
 import { createStatusStreamItemClassName } from "./status";
 
-export function pendingRequestBlockNode(
-  approvals: readonly PendingApprovalViewModel[],
-  pendingUserInputs: readonly PendingUserInputViewModel[],
-  pendingMcpElicitations: readonly PendingMcpElicitationViewModel[],
-  userInputDrafts: ReadonlyMap<string, string>,
-  mcpElicitationDrafts: ReadonlyMap<string, string>,
-  approvalDetails: ReadonlySet<string>,
-  actions: PendingRequestBlockActions,
-  autoFocusRequested = false,
-  consumeAutoFocus?: () => boolean,
-  autoFocusSignature = "",
-  controlNamespace = "codex-panel",
-): UiNode {
-  return (
-    <PendingRequestBlock
-      approvals={approvals}
-      pendingUserInputs={pendingUserInputs}
-      pendingMcpElicitations={pendingMcpElicitations}
-      userInputDrafts={userInputDrafts}
-      mcpElicitationDrafts={mcpElicitationDrafts}
-      approvalDetails={approvalDetails}
-      actions={actions}
-      autoFocusRequested={autoFocusRequested}
-      consumeAutoFocus={consumeAutoFocus}
-      autoFocusSignature={autoFocusSignature}
-      controlNamespace={controlNamespace}
-    />
-  );
+export function pendingRequestBlockNode(input: {
+  snapshot: PendingRequestBlockSnapshot;
+  actions: PendingRequestBlockActions;
+  consumeAutoFocus: () => boolean;
+  autoFocusSignature: string;
+  controlNamespace: string;
+}): UiNode {
+  const { snapshot, ...context } = input;
+  return <PendingRequestBlock {...snapshot} {...context} />;
 }
 
 function PendingRequestBlock({
@@ -52,7 +34,6 @@ function PendingRequestBlock({
   mcpElicitationDrafts,
   approvalDetails,
   actions,
-  autoFocusRequested,
   consumeAutoFocus,
   autoFocusSignature,
   controlNamespace,
@@ -64,18 +45,15 @@ function PendingRequestBlock({
   mcpElicitationDrafts: ReadonlyMap<string, string>;
   approvalDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
-  autoFocusRequested: boolean;
-  consumeAutoFocus: (() => boolean) | undefined;
+  consumeAutoFocus: () => boolean;
   autoFocusSignature: string;
   controlNamespace: string;
 }): UiNode {
   const requestRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
-    const autoFocusConsumed = consumeAutoFocus?.() ?? false;
-    const shouldFocus = autoFocusRequested || autoFocusConsumed;
-    if (!shouldFocus) return;
+    if (!consumeAutoFocus()) return;
     focusPendingRequestControl(requestRef.current);
-  }, [autoFocusRequested, consumeAutoFocus, autoFocusSignature]);
+  }, [consumeAutoFocus, autoFocusSignature]);
   if (!hasPendingRequests(pendingRequestCountsFromQueues({ approvals, pendingUserInputs, pendingMcpElicitations }))) return null;
   return (
     <div ref={requestRef} className={createStatusStreamItemClassName("codex-panel__pending-request-block", "warning")}>
@@ -216,7 +194,7 @@ function ApprovalDetails({
       className="codex-panel__approval-details"
       open={approvalDetails.has(detailId)}
       onToggle={(event) => {
-        actions.setApprovalDetailsExpanded?.(approval.requestId, event.currentTarget.open);
+        actions.setApprovalDetailsExpanded(approval.requestId, event.currentTarget.open);
       }}
     >
       <summary tabIndex={-1}>Request details</summary>

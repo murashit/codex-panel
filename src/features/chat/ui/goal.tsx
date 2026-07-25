@@ -24,7 +24,7 @@ export interface GoalPanelActions {
 
 export interface GoalPanelOptions {
   sendShortcut: SendShortcut;
-  readOnly?: boolean;
+  readOnly: boolean;
 }
 
 export interface GoalPanelEditorState {

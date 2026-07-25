@@ -1,14 +1,14 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import { RawDiffView } from "../../../../shared/ui/diff-view";
-import type { DetailSection, DetailView } from "../../presentation/thread-stream/detail-view";
 import { OpenAgentThreadAction } from "./agent-thread-action";
 import type { ThreadStreamDisclosureState } from "./context";
+import { type DetailSection, type DetailView, threadStreamExecutionClassName } from "./model";
 
 export interface DetailRenderContext {
   disclosures: ThreadStreamDisclosureState;
-  onDisclosureToggle?: (bucket: "details", id: string, open: boolean) => void;
-  openThreadInNewView?: (threadId: string) => void;
+  onDisclosureToggle: (bucket: "details", id: string, open: boolean) => void;
+  openThreadInNewView: (threadId: string) => void;
 }
 
 export function detailNode(view: DetailView, context: DetailRenderContext): UiNode {
@@ -23,7 +23,7 @@ function Detail({ view, context }: { view: DetailView; context: DetailRenderCont
     view.className,
     "codex-panel__detail",
     view.sections.length === 0 ? "codex-panel__detail--plain" : "",
-    executionClassName(view.state),
+    threadStreamExecutionClassName(view.state),
     open ? "is-open" : "",
   ]
     .filter(Boolean)
@@ -44,7 +44,7 @@ function Detail({ view, context }: { view: DetailView; context: DetailRenderCont
         className="codex-panel__detail-disclosure"
         open={open}
         onToggle={(event) => {
-          context.onDisclosureToggle?.("details", view.detailsKey, event.currentTarget.open);
+          context.onDisclosureToggle("details", view.detailsKey, event.currentTarget.open);
         }}
       >
         <DetailHeader view={view} openThreadInNewView={context.openThreadInNewView} />
@@ -57,24 +57,11 @@ function Detail({ view, context }: { view: DetailView; context: DetailRenderCont
   );
 }
 
-function executionClassName(state: DetailView["state"]): string {
-  if (state === "completed") return "codex-panel__execution codex-panel__execution--completed";
-  if (state === "failed") return "codex-panel__execution codex-panel__execution--failed";
-  if (state === "running") return "codex-panel__execution codex-panel__execution--running";
-  return "";
-}
-
-function DetailHeader({
-  view,
-  openThreadInNewView,
-}: {
-  view: DetailView;
-  openThreadInNewView?: ((threadId: string) => void) | undefined;
-}): UiNode {
+function DetailHeader({ view, openThreadInNewView }: { view: DetailView; openThreadInNewView: (threadId: string) => void }): UiNode {
   const content = (
     <span className="codex-panel__stream-item-role codex-panel__detail-label">
       <span>{view.label}</span>
-      {openThreadInNewView && view.summaryThreadIds.length > 0 ? (
+      {view.summaryThreadIds.length > 0 ? (
         <span className="codex-panel__detail-header-actions">
           {view.summaryThreadIds.map((threadId) => (
             <OpenAgentThreadAction key={threadId} threadId={threadId} openThreadInNewView={openThreadInNewView} />

@@ -1,13 +1,8 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
-
-import type {
-  ThreadStreamActivityItemView,
-  ThreadStreamRenderedItemView,
-  ThreadStreamViewBlock,
-} from "../../presentation/thread-stream/view-model";
-import type { PendingRequestBlockContext, ThreadStreamContext } from "./context";
+import type { ThreadStreamContext } from "./context";
 import { detailNode } from "./detail";
 import { ThreadStreamFlowFrame, type ThreadStreamScrollPortBinding } from "./flow-scroll.measure";
+import type { ThreadStreamActivityItemView, ThreadStreamRenderedItemView, ThreadStreamViewBlock } from "./model";
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { agentRunSummaryNode, statusNode } from "./status";
 import { textNode } from "./text";
@@ -59,27 +54,15 @@ function presentationBlockNode(block: ThreadStreamViewBlock, context: ThreadStre
     return agentRunSummaryNode(block.view, context);
   }
   if (block.kind === "pendingRequests") {
-    const pendingRequests = pendingRequestContext(context);
-    return pendingRequestBlockNode(
-      block.snapshot.approvals,
-      block.snapshot.pendingUserInputs,
-      block.snapshot.pendingMcpElicitations,
-      block.snapshot.userInputDrafts,
-      block.snapshot.mcpElicitationDrafts,
-      block.snapshot.approvalDetails,
-      pendingRequests.actions(),
-      false,
-      pendingRequests.consumeAutoFocus,
-      block.signature,
-      pendingRequests.controlNamespace,
-    );
+    return pendingRequestBlockNode({
+      snapshot: block.snapshot,
+      actions: context.pendingRequests.actions,
+      consumeAutoFocus: context.pendingRequests.consumeAutoFocus,
+      autoFocusSignature: block.signature,
+      controlNamespace: context.pendingRequests.controlNamespace,
+    });
   }
   return streamItemNode(block, context);
-}
-
-function pendingRequestContext(context: ThreadStreamContext): PendingRequestBlockContext {
-  if (!context.pendingRequests) throw new Error("Expected pending request context for pending request block.");
-  return context.pendingRequests;
 }
 
 function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolean; loadOlderTurns: () => void }): UiNode {
@@ -110,7 +93,7 @@ function ActivityGroup({
       className="codex-panel__activity-group"
       open={open}
       onToggle={(event) => {
-        context.onDisclosureToggle?.("activityGroups", group.turnId, event.currentTarget.open);
+        context.onDisclosureToggle("activityGroups", group.turnId, event.currentTarget.open);
       }}
     >
       <summary tabIndex={-1}>{group.summary}</summary>

@@ -16,8 +16,8 @@ import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
-import { createChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
-import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream-scroll-binding";
+import { createChatPanelRuntimeNotices } from "../../panel/runtime/notices";
+import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream/scroll-binding";
 import { createChatComposerController } from "../bundles/composer-bundle";
 import { createConnectionBundle } from "../bundles/connection-bundle";
 import { createShellBundle } from "../bundles/shell-bundle";
@@ -117,7 +117,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     environment.plugin.runtimeSettingsCommitQueue,
   );
-  const runtimeProjection = createChatPanelRuntimeProjection({
+  const runtimeProjection = createChatPanelRuntimeNotices({
     state: () => stateStore.getState(),
     connected: () => connection.isConnected(),
     configuredCommand: () => environment.plugin.appServerContext.codexPath,

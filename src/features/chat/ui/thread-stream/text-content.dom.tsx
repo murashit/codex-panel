@@ -3,9 +3,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { disposeDomListeners, listenDomEvent, listenOutsideDomEvent } from "../../../../shared/dom/events.dom";
 import { observeElementResize } from "../../../../shared/dom/resize-observer.measure";
-import type { ThreadStreamTextView } from "../../presentation/thread-stream/text-view";
 import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 import type { TextItemContentContext } from "./context";
+import type { ThreadStreamTextView } from "./model";
 
 const USER_DIALOGUE_COLLAPSE_HEIGHT_PX = 360;
 
@@ -36,7 +36,7 @@ export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTe
       collapse,
       "pointerdown",
       () => {
-        context.onDisclosureToggle?.("userDialogueExpanded", view.id, false);
+        context.onDisclosureToggle("userDialogueExpanded", view.id, false);
       },
       true,
     );
@@ -60,7 +60,7 @@ export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTe
         onToggle={(event) => {
           if (!event.currentTarget.open) return;
           event.currentTarget.open = false;
-          context.onDisclosureToggle?.("userDialogueExpanded", view.id, true);
+          context.onDisclosureToggle("userDialogueExpanded", view.id, true);
         }}
       >
         <summary tabIndex={-1}>Show more</summary>

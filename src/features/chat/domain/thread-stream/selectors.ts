@@ -10,17 +10,6 @@ export interface PlanImplementationTarget {
   itemId: string;
 }
 
-export interface ThreadStreamItemsEmptySource {
-  items: readonly ThreadStreamItem[];
-  stableItems?: readonly ThreadStreamItem[] | undefined;
-  activeItems?: readonly ThreadStreamItem[] | undefined;
-}
-
-export function threadStreamItemsEmpty(source: ThreadStreamItemsEmptySource): boolean {
-  if (!source.stableItems && !source.activeItems) return source.items.length === 0;
-  return threadStreamSegmentsEmpty(source.stableItems ?? [], source.activeItems ?? []);
-}
-
 export function threadStreamSegmentsEmpty(stableItems: readonly ThreadStreamItem[], activeItems: readonly ThreadStreamItem[]): boolean {
   return stableItems.length === 0 && activeItems.length === 0;
 }

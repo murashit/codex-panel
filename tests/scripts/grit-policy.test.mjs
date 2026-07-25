@@ -104,32 +104,26 @@ const policyCases = [
   policyCase(
     "no-chat-app-server-outer-layer-imports.grit",
     "src/features/chat/app-server/escape.ts",
-    'import type { Panel } from "../panel/toolbar-actions";',
+    'import type { Panel } from "../panel/toolbar/actions";',
     'import type { Store } from "../application/state/store";',
   ),
   policyCase(
     "no-chat-host-rendering-layer-imports.grit",
     "src/features/chat/host/escape.tsx",
-    'import type { View } from "../presentation/thread-stream/view-model";',
+    'import type { View } from "../ui/thread-stream/model";',
     'import type { Store } from "../application/state/store";',
   ),
   policyCase(
     "no-chat-panel-runtime-boundary-imports.grit",
     "src/features/chat/panel/escape.ts",
     'import type { Host } from "../host/contracts";',
-    'import type { View } from "../presentation/thread-stream/view-model";',
-  ),
-  policyCase(
-    "no-chat-presentation-outer-layer-imports.grit",
-    "src/features/chat/presentation/escape.ts",
-    'import type { Store } from "../application/state/store";',
-    'import type { Item } from "../domain/thread-stream/items";',
+    'import type { View } from "../ui/thread-stream/model";',
   ),
   policyCase(
     "no-chat-ui-outer-layer-imports.grit",
     "src/features/chat/ui/escape.ts",
-    'import type { Store } from "../application/state/store";',
-    'import type { View } from "../presentation/thread-stream/view-model";',
+    'import type { Panel } from "../panel/shell/selectors";',
+    'import type { Item } from "../domain/thread-stream/items";',
   ),
   policyCase(
     "no-direct-ambient-effects.grit",
@@ -189,7 +183,7 @@ const policyCases = [
       ],
       valid: [
         {
-          path: "src/features/chat/panel/runtime-status-projection.ts",
+          path: "src/features/chat/panel/runtime/notices.ts",
           source: "export const now = Date.now();",
         },
       ],

@@ -9,7 +9,7 @@ import { createThreadGoalCoordinator } from "../../../../../src/features/chat/ap
 import type { ChatPanelEnvironment } from "../../../../../src/features/chat/host/contracts";
 import { createChatViewDeferredTasks } from "../../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
-import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/panel/thread-stream-scroll-binding";
+import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/panel/thread-stream/scroll-binding";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/model";
 import { StaleExecutionRuntimeError } from "../../../../../src/shared/runtime/execution-runtime-lifetime";
 import { createKeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";

@@ -12,8 +12,8 @@ import {
   createTurnWorkflowCommands,
 } from "../../application/turns/composition";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
-import type { ChatComposerController } from "../../panel/composer-controller";
-import type { ChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
+import type { ChatComposerController } from "../../panel/composer/controller";
+import type { ChatPanelRuntimeNotices } from "../../panel/runtime/notices";
 import type { ChatPanelEnvironment } from "../contracts";
 import { readWebUrl } from "../obsidian/web-context.obsidian";
 import type {
@@ -56,7 +56,7 @@ interface ChatPanelTurnInput {
   goals: ChatPanelGoalCommands;
   autoTitleCoordinator: AutoTitleCoordinator;
   reconnect: (options?: ReconnectPanelOptions) => Promise<void>;
-  runtimeProjection: ChatPanelRuntimeProjection;
+  runtimeProjection: ChatPanelRuntimeNotices;
   refreshDiagnostics: () => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
 }

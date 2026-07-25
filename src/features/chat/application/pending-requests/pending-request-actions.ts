@@ -8,7 +8,6 @@ import {
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import type { ChatStateStore } from "../state/store";
-import { type PendingRequestBlockActions, pendingRequestBlockStateFromChatState } from "./block";
 
 interface PendingRequestResponder {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
@@ -25,56 +24,45 @@ export interface PendingRequestActionsHost {
 }
 
 export interface PendingRequestActions {
-  actions(): PendingRequestBlockActions;
-  consumeAutoFocus(): boolean;
+  readonly actions: {
+    resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
+    resolveUserInput: (requestId: PendingRequestId) => void;
+    cancelUserInput: (requestId: PendingRequestId) => void;
+    resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
+    setApprovalDetailsExpanded: (requestId: PendingRequestId, expanded: boolean) => void;
+    setUserInputDraft: (key: string, value: string) => void;
+    setMcpElicitationDraft: (key: string, value: string) => void;
+  };
+  readonly consumeAutoFocus: () => boolean;
 }
 
 export function createPendingRequestActions(host: PendingRequestActionsHost): PendingRequestActions {
   let lastFocusSignature = "";
 
-  const resolveApproval = (requestId: PendingRequestId, approvalAction: ApprovalAction): void => {
-    const approval = host.stateStore.getState().requests.approvals.find((item) => item.requestId === requestId) ?? null;
-    if (!approval) return;
-    host.responder.resolveApproval(requestId, approvalAction);
-    commitRequestAction(host);
-  };
-
-  const resolveUserInput = (requestId: PendingRequestId): void => {
-    const input = pendingUserInput(host, requestId);
-    if (!input) return;
-    host.responder.resolveUserInput(
-      requestId,
-      answersForPendingUserInput(input, pendingRequestBlockStateFromChatState(host.stateStore.getState()).userInputDrafts),
-    );
-    commitRequestAction(host);
-  };
-
-  const cancelUserInput = (requestId: PendingRequestId): void => {
-    const input = pendingUserInput(host, requestId);
-    if (!input) return;
-    host.responder.cancelUserInput(requestId);
-    commitRequestAction(host);
-  };
-
-  const resolveMcpElicitation = (requestId: PendingRequestId, action: McpElicitationAction): void => {
-    const elicitation = host.stateStore.getState().requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
-    if (!elicitation) return;
-    host.responder.resolveMcpElicitation(requestId, action);
-    commitRequestAction(host);
-  };
-
-  const blockActions: PendingRequestBlockActions = {
+  const blockActions: PendingRequestActions["actions"] = {
     resolveApproval: (requestId, approvalAction) => {
-      resolveApproval(requestId, approvalAction);
+      const approval = host.stateStore.getState().requests.approvals.find((item) => item.requestId === requestId) ?? null;
+      if (!approval) return;
+      host.responder.resolveApproval(requestId, approvalAction);
+      commitRequestAction(host);
     },
     resolveUserInput: (requestId) => {
-      resolveUserInput(requestId);
+      const input = pendingUserInput(host, requestId);
+      if (!input) return;
+      host.responder.resolveUserInput(requestId, answersForPendingUserInput(input, host.stateStore.getState().requests.userInputDrafts));
+      commitRequestAction(host);
     },
     cancelUserInput: (requestId) => {
-      cancelUserInput(requestId);
+      const input = pendingUserInput(host, requestId);
+      if (!input) return;
+      host.responder.cancelUserInput(requestId);
+      commitRequestAction(host);
     },
     resolveMcpElicitation: (requestId, action) => {
-      resolveMcpElicitation(requestId, action);
+      const elicitation = host.stateStore.getState().requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
+      if (!elicitation) return;
+      host.responder.resolveMcpElicitation(requestId, action);
+      commitRequestAction(host);
     },
     setApprovalDetailsExpanded: (requestId, expanded) => {
       host.stateStore.dispatch({
@@ -93,11 +81,9 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
   };
 
   return {
-    actions(): PendingRequestBlockActions {
-      return blockActions;
-    },
+    actions: blockActions,
 
-    consumeAutoFocus(): boolean {
+    consumeAutoFocus: (): boolean => {
       const state = host.stateStore.getState();
       const signature = pendingRequestFocusSignature(
         state.requests.approvals,

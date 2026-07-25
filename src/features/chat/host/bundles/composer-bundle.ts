@@ -1,13 +1,9 @@
 import { Notice } from "obsidian";
 
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
-import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import type { ChatStateStore } from "../../application/state/store";
-import { resolveRuntimeControls } from "../../domain/runtime/resolution";
-import { ChatComposerController } from "../../panel/composer-controller";
-import { chatPanelComposerProjection } from "../../panel/surface/composer-projection";
-import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream-scroll-binding";
+import { ChatComposerController } from "../../panel/composer/controller";
+import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream/scroll-binding";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
 import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
@@ -39,18 +35,9 @@ export function createChatComposerController(
     referenceActiveNoteOnSend: () => environment.plugin.settings.referenceActiveNoteOnSend(),
     sendShortcut: () => environment.plugin.settings.sendShortcut(),
     scrollThreadFromComposerEdges: () => environment.plugin.settings.scrollThreadFromComposerEdges(),
-    canInterrupt: (model) => {
-      return model.turnBusy && Boolean(model.activeThreadId && model.activeTurnId);
-    },
-    composerProjection: (model) =>
-      chatPanelComposerProjection(model, {
-        requestModel: (modelId) => input.runtimeSettings.requestModelFromUi(modelId),
-        requestReasoningEffort: (effort) => input.runtimeSettings.requestReasoningEffortFromUi(effort),
-      }),
-    currentModelForSuggestions: () => {
-      const current = stateStore.getState();
-      const config = runtimeConfigOrDefault(current.connection.runtimeConfig);
-      return resolveRuntimeControls(runtimeSnapshotForChatState(current), config).model.effective;
+    runtimeActions: {
+      requestModel: (modelId) => input.runtimeSettings.requestModelFromUi(modelId),
+      requestReasoningEffort: (effort) => input.runtimeSettings.requestReasoningEffortFromUi(effort),
     },
     threadScrollFromComposer: (action) => {
       host.threadStreamScrollBinding.scrollFromComposer(action);
@@ -58,7 +45,6 @@ export function createChatComposerController(
     togglePlan: () => void input.runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void input.runtimeSettings.toggleAutoReview(),
     toggleFast: () => void input.runtimeSettings.toggleFastMode(),
-    onHeightChange: () => undefined,
     canFocus: environment.obsidian.isForeground,
     onAttachmentError: (message) => {
       new Notice(message);

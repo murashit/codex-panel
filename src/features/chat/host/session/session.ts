@@ -4,8 +4,8 @@ import { activeThreadState, awaitingResumeThreadState, type ChatState, panelThre
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { chatTurnBusy } from "../../application/turns/turn-state";
-import { renderChatPanelShell, unmountChatPanelShell } from "../../panel/shell.dom";
-import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../../panel/thread-stream-scroll-binding";
+import { renderChatPanelShell, unmountChatPanelShell } from "../../panel/shell/render.dom";
+import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../../panel/thread-stream/scroll-binding";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatWorkspacePanelSnapshot } from "../contracts";
 import { parseChatPanelViewState } from "../view-state";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./deferred-work";

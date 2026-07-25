@@ -1,62 +1,12 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../../shared/obsidian/components.obsidian";
-import type { RateLimitSummary } from "../presentation/runtime/status";
 import { focusToolbarRenameInput } from "./toolbar.dom";
+import type { RateLimitSummary, ToolbarStatusRow, ToolbarStatusSection, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
 
 type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;
 };
-
-export interface ToolbarThreadRow {
-  title: string;
-  threadId: string;
-  selected: boolean;
-  renameDisabled: boolean;
-  archiveDisabled: boolean;
-  canArchive: boolean;
-  archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
-  rename: {
-    draft: string;
-    generating: boolean;
-    saving: boolean;
-    autoNameDisabled: boolean;
-  } | null;
-}
-
-interface ToolbarStatusRow {
-  label: string;
-  value: string;
-  level?: "normal" | "warning" | "error";
-}
-
-interface ToolbarStatusSection {
-  title: string;
-  rows: ToolbarStatusRow[];
-}
-
-export interface ToolbarViewModel {
-  newChatDisabled: boolean;
-  sideChatStartDisabled: boolean;
-  compactDisabled: boolean;
-  goalMutationDisabled: boolean;
-  chatActionsOpen: boolean;
-  historyOpen: boolean;
-  statusPanelOpen: boolean;
-  rateLimit: RateLimitSummary | null;
-  debugDetails: () => string;
-  openPanel: "history" | "chat-actions" | "status" | null;
-  threads: ToolbarThreadRow[];
-  hasMoreThreads?: boolean;
-  threadListLoading?: boolean;
-  threadListFetching?: boolean;
-  loadingMoreThreads?: boolean;
-  threadListError?: string | null;
-  connectLabel: string;
-  permissionsAndApprovals: ToolbarStatusSection[];
-  diagnostics: ToolbarStatusSection[];
-  toolInventory: ToolbarStatusSection[];
-}
 
 interface ToolbarPrimaryActions {
   toggleHistory: () => void;
@@ -66,7 +16,7 @@ interface ToolbarPrimaryActions {
 
 interface ToolbarChatActions {
   startNewThread: () => void;
-  startSideChat?: () => void;
+  startSideChat: () => void;
   compactContext: () => void;
   setGoal: () => void;
 }
@@ -74,11 +24,11 @@ interface ToolbarChatActions {
 interface ToolbarStatusActions {
   connect: () => void;
   refreshStatus: () => void;
-  copyDebugDetails: (details: string) => void;
+  copyDebugDetails: () => void;
 }
 
 interface ToolbarThreadActions {
-  loadMore?: () => void;
+  loadMore: () => void;
   resume: (threadId: string) => void;
   archive: {
     start: (threadId: string) => void;
@@ -102,20 +52,22 @@ export interface ToolbarActions {
 }
 
 export function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
+  const historyOpen = model.openPanel === "history";
+  const chatActionsOpen = model.openPanel === "chat-actions";
   return (
     <>
       <div className="nav-header codex-panel__toolbar-primary">
         <div className="nav-buttons-container codex-panel__toolbar-buttons">
           <ToolbarIconButton
             icon="history"
-            label={model.historyOpen ? "Hide thread list" : "Show thread list"}
-            className={["codex-panel__history-toggle", model.historyOpen ? "is-active" : ""].filter(Boolean).join(" ")}
+            label={historyOpen ? "Hide thread list" : "Show thread list"}
+            className={["codex-panel__history-toggle", historyOpen ? "is-active" : ""].filter(Boolean).join(" ")}
             onClick={actions.primary.toggleHistory}
           />
           <ToolbarIconButton
             icon="messages-square"
-            label={model.chatActionsOpen ? "Hide chat actions" : "Show chat actions"}
-            className={["codex-panel__new-chat", model.chatActionsOpen ? "is-active" : ""].filter(Boolean).join(" ")}
+            label={chatActionsOpen ? "Hide chat actions" : "Show chat actions"}
+            className={["codex-panel__new-chat", chatActionsOpen ? "is-active" : ""].filter(Boolean).join(" ")}
             onClick={actions.primary.toggleChatActions}
           />
           <StatusButton model={model} actions={actions.primary} />
@@ -147,11 +99,12 @@ function ToolbarIconButton({
 }
 
 function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarPrimaryActions }): UiNode {
+  const statusOpen = model.openPanel === "status";
   return (
     <ToolbarIconButton
       icon="waypoints"
-      label={model.statusPanelOpen ? "Hide status" : "Show status"}
-      className={["codex-panel__status-menu-toggle", model.statusPanelOpen ? "is-active" : ""].filter(Boolean).join(" ")}
+      label={statusOpen ? "Hide status" : "Show status"}
+      className={["codex-panel__status-menu-toggle", statusOpen ? "is-active" : ""].filter(Boolean).join(" ")}
       onClick={actions.toggleStatusPanel}
     />
   );
@@ -169,11 +122,11 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
       {model.openPanel === "history" ? (
         <ThreadList
           threads={model.threads}
-          initialLoading={model.threadListLoading ?? false}
-          fetching={model.threadListFetching ?? false}
-          hasMore={model.hasMoreThreads ?? false}
-          loadingMore={model.loadingMoreThreads ?? false}
-          error={model.threadListError ?? null}
+          initialLoading={model.threadListLoading}
+          fetching={model.threadListFetching}
+          hasMore={model.hasMoreThreads}
+          loadingMore={model.loadingMoreThreads}
+          error={model.threadListError}
           actions={actions.threads}
         />
       ) : null}
@@ -194,11 +147,9 @@ function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions
       />
       <ToolbarPanelItem
         label="Start side chat"
-        onClick={() => {
-          actions.startSideChat?.();
-        }}
+        onClick={actions.startSideChat}
         className="codex-panel__chat-actions-panel-item"
-        disabled={model.sideChatStartDisabled || model.threads.every((thread) => !thread.selected)}
+        disabled={model.sideChatStartDisabled}
       />
       <ToolbarPanelItem
         label="Compact context"
@@ -222,13 +173,7 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
       <div className="codex-panel__status-panel-items">
         <ToolbarPanelItem label={model.connectLabel} onClick={actions.connect} className="codex-panel__status-panel-item" />
         <ToolbarPanelItem label="Refresh" onClick={actions.refreshStatus} className="codex-panel__status-panel-item" />
-        <ToolbarPanelItem
-          label="Copy debug details"
-          onClick={() => {
-            actions.copyDebugDetails(model.debugDetails());
-          }}
-          className="codex-panel__status-panel-item"
-        />
+        <ToolbarPanelItem label="Copy debug details" onClick={actions.copyDebugDetails} className="codex-panel__status-panel-item" />
       </div>
       <RateLimitPanel rateLimit={model.rateLimit} />
       <DiagnosticSectionsPanel title="Connection diagnostics" sections={model.diagnostics} />
@@ -378,9 +323,7 @@ function ThreadList({
           label={loadingMore ? "Loading more threads…" : "Load more threads"}
           disabled={fetching || loadingMore}
           className="codex-panel__thread codex-panel__thread--load-more"
-          onClick={() => {
-            actions.loadMore?.();
-          }}
+          onClick={actions.loadMore}
         />
       ) : null}
     </div>
@@ -428,7 +371,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
               }}
             />
           ) : null}
-          {thread.canArchive ? <ArchiveControls thread={thread} actions={actions} /> : null}
+          <ArchiveControls thread={thread} actions={actions} />
         </>
       )}
     </div>
@@ -622,5 +565,5 @@ function ToolbarRowActionButton({
 }
 
 function archiveConfirmState(thread: ToolbarThreadRow): { active: boolean; defaultSaveMarkdown: boolean } {
-  return thread.archiveConfirm ?? { active: false, defaultSaveMarkdown: false };
+  return thread.archiveConfirm;
 }

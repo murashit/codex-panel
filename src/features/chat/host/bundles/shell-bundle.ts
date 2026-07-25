@@ -5,14 +5,14 @@ import { activeThreadId } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { HistoryController } from "../../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
-import type { ChatComposerController } from "../../panel/composer-controller";
-import type { ChatPanelShellParts } from "../../panel/shell.dom";
-import type { ChatPanelGoalSurface } from "../../panel/surface/goal-projection";
-import { createChatThreadStreamSurfaceContext } from "../../panel/surface/thread-stream-surface.obsidian";
-import type { ChatPanelToolbarSurface } from "../../panel/surface/toolbar-projection";
-import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream-scroll-binding";
-import { createToolbarUiActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
-import { toolbarOutsidePointerHit } from "../../panel/toolbar-hit-test.dom";
+import type { ChatComposerController } from "../../panel/composer/controller";
+import type { ChatPanelGoalDependencies } from "../../panel/goal/view-projection";
+import type { ChatPanelShellParts } from "../../panel/shell/render.dom";
+import { createChatThreadStreamDependencies } from "../../panel/thread-stream/context.obsidian";
+import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream/scroll-binding";
+import { createToolbarUiActions, type ToolbarPanelActions } from "../../panel/toolbar/actions";
+import { toolbarOutsidePointerHit } from "../../panel/toolbar/hit-test.dom";
+import type { ChatPanelToolbarDependencies } from "../../panel/toolbar/view-projection";
 import type { ChatPanelEnvironment } from "../contracts";
 import type { ChatPanelConnectionBundle } from "./connection-bundle";
 import type { ChatPanelGoalCommands, ChatPanelThreadCommands, ChatPanelThreadNavigationCommands } from "./thread-bundle";
@@ -77,11 +77,14 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
       void environment.plugin.workspace.openSideChat(threadId, thread?.name ?? thread?.preview ?? null);
     },
-    canStartSideChat: () => activePanelOperationDecision(stateStore.getState(), "start-side-chat").kind === "allowed",
-    canCompact: () => activePanelOperationDecision(stateStore.getState(), "compact").kind === "allowed",
-    canMutateGoal: () => activePanelOperationDecision(stateStore.getState(), "goal-mutation").kind !== "blocked",
+    debugDetails: {
+      stateStore,
+      connected: () => connection.isConnected(),
+      vaultPath: () => environment.plugin.appServerContext.vaultPath,
+      configuredCommand: () => environment.plugin.appServerContext.codexPath,
+    },
   });
-  const toolbarSurface: ChatPanelToolbarSurface = {
+  const toolbarDependencies: ChatPanelToolbarDependencies = {
     connection: {
       connected: () => connection.isConnected(),
     },
@@ -91,11 +94,11 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       archiveExportEnabled: () => environment.plugin.settings.archiveExportEnabled(),
     },
   };
-  const goalSurface: ChatPanelGoalSurface = {
+  const goalDependencies: ChatPanelGoalDependencies = {
     sendShortcut: () => environment.plugin.settings.sendShortcut(),
     actions: goals,
   };
-  const threadStreamContext = createChatThreadStreamSurfaceContext({
+  const threadStreamContext = createChatThreadStreamDependencies({
     panelId: environment.obsidian.viewId,
     app: environment.obsidian.app,
     owner: environment.obsidian.owner,
@@ -110,17 +113,14 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       openThreadInNewView: (threadId) => void environment.plugin.workspace.openThreadInNewView(threadId),
       openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
     },
-    requests: {
-      pendingActions: () => pendingRequests.actions(),
-      consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
-    },
+    requests: pendingRequests,
   });
   const parts: ChatPanelShellParts = {
     toolbar: {
-      surface: toolbarSurface,
+      dependencies: toolbarDependencies,
       actions: toolbarActions,
     },
-    goal: goalSurface,
+    goal: goalDependencies,
     threadStream: {
       context: threadStreamContext,
       scrollPortBinding: host.threadStreamScrollBinding,

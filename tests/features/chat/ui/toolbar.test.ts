@@ -3,7 +3,8 @@
 import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
 
-import { Toolbar, type ToolbarActions, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
+import { Toolbar, type ToolbarActions } from "../../../../src/features/chat/ui/toolbar";
+import type { ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar-model";
 import { renderUiRoot } from "../../../../src/shared/dom/preact-root.dom";
 import { changeInputValue, installObsidianDomShims } from "../../../support/dom";
 
@@ -49,14 +50,16 @@ describe("Toolbar decisions", () => {
     mountToolbar(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
     expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.getAttribute("aria-label")).toBe("Show chat actions");
 
-    parent.empty();
-    mountToolbar(parent, toolbarModel({ chatActionsOpen: true, historyOpen: true, statusPanelOpen: true }), toolbarActions());
-    expect(parent.querySelector(".codex-panel__history-toggle")?.getAttribute("aria-label")).toBe("Hide thread list");
-    expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(true);
-    expect(parent.querySelector(".codex-panel__new-chat")?.getAttribute("aria-label")).toBe("Hide chat actions");
-    expect(parent.querySelector(".codex-panel__new-chat")?.classList.contains("is-active")).toBe(true);
-    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Hide status");
-    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.classList.contains("is-active")).toBe(true);
+    for (const [openPanel, selector, label] of [
+      ["history", ".codex-panel__history-toggle", "Hide thread list"],
+      ["chat-actions", ".codex-panel__new-chat", "Hide chat actions"],
+      ["status", ".codex-panel__status-menu-toggle", "Hide status"],
+    ] as const) {
+      parent.empty();
+      mountToolbar(parent, toolbarModel({ openPanel }), toolbarActions());
+      expect(parent.querySelector(selector)?.getAttribute("aria-label")).toBe(label);
+      expect(parent.querySelector(selector)?.classList.contains("is-active")).toBe(true);
+    }
   });
 
   it("renders chat actions in the new chat toolbar menu", () => {
@@ -68,7 +71,7 @@ describe("Toolbar decisions", () => {
 
     mountToolbar(
       parent,
-      toolbarModel({ chatActionsOpen: true, openPanel: "chat-actions" }),
+      toolbarModel({ openPanel: "chat-actions" }),
       toolbarActions({ startNewThread, startSideChat, compactContext, setGoal }),
     );
 
@@ -85,7 +88,7 @@ describe("Toolbar decisions", () => {
 
     mountToolbar(
       parent,
-      toolbarModel({ chatActionsOpen: true, openPanel: "chat-actions", newChatDisabled: true }),
+      toolbarModel({ openPanel: "chat-actions", newChatDisabled: true }),
       toolbarActions({ startNewThread, startSideChat, compactContext, setGoal }),
     );
     const disabledStart = expectPresent(
@@ -103,17 +106,13 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        statusPanelOpen: true,
         openPanel: "status",
         rateLimit: {
-          title: "Codex: 5h 42%, 1w 21%",
-          level: "ok",
           rows: [
             {
               label: "5h",
               value: "42%",
               resetLabel: "reset in 2h",
-              title: "Codex 5h: 42% used.",
               percent: 42,
               meterDivisions: 5,
               level: "ok",
@@ -122,7 +121,6 @@ describe("Toolbar decisions", () => {
               label: "1w",
               value: "21%",
               resetLabel: "reset in 3d 4h",
-              title: "Codex 1w: 21% used.",
               percent: 21,
               meterDivisions: 7,
               level: "ok",
@@ -151,7 +149,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        statusPanelOpen: true,
         openPanel: "status",
         diagnostics: [
           { title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/1.2.3" }] },
@@ -185,7 +182,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        statusPanelOpen: true,
         openPanel: "status",
         permissionsAndApprovals: [
           {
@@ -220,24 +216,14 @@ describe("Toolbar decisions", () => {
     expect(parent.querySelector(".codex-panel__status-diagnostics-row--error")).toBeNull();
   });
 
-  it("copies raw debug details from the status menu", () => {
+  it("requests debug detail copying from the status menu", () => {
     const parent = document.createElement("div");
     const copyDebugDetails = vi.fn();
-    const debugDetails = JSON.stringify({ runtimeConfig: { model: "gpt-5.5" } }, null, 2);
 
-    mountToolbar(
-      parent,
-      toolbarModel({
-        statusPanelOpen: true,
-        openPanel: "status",
-        debugDetails: () => debugDetails,
-      }),
-      toolbarActions({ copyDebugDetails }),
-    );
+    mountToolbar(parent, toolbarModel({ openPanel: "status" }), toolbarActions({ copyDebugDetails }));
 
-    expect(parent.textContent).not.toContain('"model": "gpt-5.5"');
     parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")[2]?.click();
-    expect(copyDebugDetails).toHaveBeenCalledWith(debugDetails);
+    expect(copyDebugDetails).toHaveBeenCalledOnce();
   });
 
   it("renders thread list rename actions and an inline rename editor", () => {
@@ -253,7 +239,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        historyOpen: true,
         openPanel: "history",
         threads: [
           {
@@ -262,7 +247,7 @@ describe("Toolbar decisions", () => {
             selected: true,
             renameDisabled: false,
             archiveDisabled: false,
-            canArchive: true,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: null,
           },
           {
@@ -271,7 +256,7 @@ describe("Toolbar decisions", () => {
             selected: false,
             renameDisabled: false,
             archiveDisabled: false,
-            canArchive: true,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: false },
           },
         ],
@@ -296,7 +281,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        historyOpen: true,
         openPanel: "history",
         threads: [
           {
@@ -305,7 +289,7 @@ describe("Toolbar decisions", () => {
             selected: true,
             renameDisabled: false,
             archiveDisabled: false,
-            canArchive: true,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: null,
           },
           {
@@ -314,7 +298,7 @@ describe("Toolbar decisions", () => {
             selected: false,
             renameDisabled: false,
             archiveDisabled: false,
-            canArchive: true,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: { draft: "New title", generating: false, saving: false, autoNameDisabled: false },
           },
         ],
@@ -344,7 +328,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        historyOpen: true,
         openPanel: "history",
         threads: [
           {
@@ -353,7 +336,7 @@ describe("Toolbar decisions", () => {
             selected: false,
             renameDisabled: false,
             archiveDisabled: false,
-            canArchive: true,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: { draft: "Draft title", generating: true, saving: false, autoNameDisabled: false },
           },
         ],
@@ -372,7 +355,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        historyOpen: true,
         openPanel: "history",
         threads: [
           {
@@ -381,7 +363,7 @@ describe("Toolbar decisions", () => {
             selected: false,
             renameDisabled: false,
             archiveDisabled: false,
-            canArchive: true,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: false },
           },
         ],
@@ -401,7 +383,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        historyOpen: true,
         openPanel: "history",
         threads: [
           {
@@ -410,7 +391,7 @@ describe("Toolbar decisions", () => {
             selected: false,
             renameDisabled: true,
             archiveDisabled: false,
-            canArchive: true,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: { draft: "Draft title", generating: false, saving: true, autoNameDisabled: false },
           },
         ],
@@ -437,7 +418,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        historyOpen: true,
         openPanel: "history",
         threads: [
           {
@@ -446,7 +426,7 @@ describe("Toolbar decisions", () => {
             selected: false,
             renameDisabled: false,
             archiveDisabled: false,
-            canArchive: true,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
             rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: true },
           },
         ],
@@ -468,7 +448,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        historyOpen: true,
         openPanel: "history",
         threads: [
           {
@@ -477,7 +456,6 @@ describe("Toolbar decisions", () => {
             selected: true,
             renameDisabled: false,
             archiveDisabled: false,
-            canArchive: true,
             archiveConfirm: { active: true, defaultSaveMarkdown: true },
             rename: null,
           },
@@ -508,7 +486,6 @@ describe("Toolbar decisions", () => {
     mountToolbar(
       parent,
       toolbarModel({
-        historyOpen: true,
         openPanel: "history",
         threads: [
           {
@@ -517,7 +494,6 @@ describe("Toolbar decisions", () => {
             selected: true,
             renameDisabled: false,
             archiveDisabled: true,
-            canArchive: true,
             archiveConfirm: { active: true, defaultSaveMarkdown: true },
             rename: null,
           },
@@ -539,11 +515,7 @@ describe("Toolbar decisions", () => {
     const parent = document.createElement("div");
     const loadMoreThreads = vi.fn();
 
-    mountToolbar(
-      parent,
-      toolbarModel({ historyOpen: true, openPanel: "history", hasMoreThreads: true }),
-      toolbarActions({ loadMoreThreads }),
-    );
+    mountToolbar(parent, toolbarModel({ openPanel: "history", hasMoreThreads: true }), toolbarActions({ loadMoreThreads }));
 
     const loadMore = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
     expect(loadMore.textContent).toBe("Load more threads");
@@ -552,7 +524,7 @@ describe("Toolbar decisions", () => {
 
     mountToolbar(
       parent,
-      toolbarModel({ historyOpen: true, openPanel: "history", hasMoreThreads: true, loadingMoreThreads: true }),
+      toolbarModel({ openPanel: "history", hasMoreThreads: true, loadingMoreThreads: true }),
       toolbarActions({ loadMoreThreads }),
     );
     const loading = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
@@ -563,7 +535,7 @@ describe("Toolbar decisions", () => {
 
     mountToolbar(
       parent,
-      toolbarModel({ historyOpen: true, openPanel: "history", hasMoreThreads: true, threadListFetching: true }),
+      toolbarModel({ openPanel: "history", hasMoreThreads: true, threadListFetching: true }),
       toolbarActions({ loadMoreThreads }),
     );
     const refreshing = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread--load-more"));
@@ -576,7 +548,7 @@ describe("Toolbar decisions", () => {
   it("does not report an empty history while its first page is loading", () => {
     const parent = document.createElement("div");
 
-    mountToolbar(parent, toolbarModel({ historyOpen: true, openPanel: "history", threads: [], threadListLoading: true }), toolbarActions());
+    mountToolbar(parent, toolbarModel({ openPanel: "history", threads: [], threadListLoading: true }), toolbarActions());
 
     expect(parent.textContent).toContain("Loading threads…");
     expect(parent.textContent).not.toContain("No threads");
@@ -585,11 +557,7 @@ describe("Toolbar decisions", () => {
   it("renders thread list failures as non-navigation status", () => {
     const parent = document.createElement("div");
 
-    mountToolbar(
-      parent,
-      toolbarModel({ historyOpen: true, openPanel: "history", threads: [], threadListError: "Could not load threads." }),
-      toolbarActions(),
-    );
+    mountToolbar(parent, toolbarModel({ openPanel: "history", threads: [], threadListError: "Could not load threads." }), toolbarActions());
 
     const status = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-list-status"));
     expect(status.textContent).toBe("Could not load threads.");
@@ -605,11 +573,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     sideChatStartDisabled: false,
     compactDisabled: false,
     goalMutationDisabled: false,
-    chatActionsOpen: false,
-    historyOpen: false,
-    statusPanelOpen: false,
     rateLimit: null,
-    debugDetails: () => "{}",
     openPanel: null,
     threads: [
       {
@@ -618,10 +582,15 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
         selected: true,
         renameDisabled: false,
         archiveDisabled: false,
-        canArchive: true,
+        archiveConfirm: { active: false, defaultSaveMarkdown: false },
         rename: null,
       },
     ],
+    hasMoreThreads: false,
+    threadListLoading: false,
+    threadListFetching: false,
+    loadingMoreThreads: false,
+    threadListError: null,
     connectLabel: "Reconnect",
     permissionsAndApprovals: [{ title: "Permissions", rows: [{ label: "Thread", value: "(none)" }] }],
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
@@ -640,7 +609,7 @@ interface ToolbarActionOverrides {
   toggleStatusPanel?: () => void;
   connect?: () => void;
   refreshStatus?: () => void;
-  copyDebugDetails?: (details: string) => void;
+  copyDebugDetails?: () => void;
   resumeThread?: (threadId: string) => void;
   loadMoreThreads?: () => void;
   startArchiveThread?: (threadId: string) => void;

@@ -28,8 +28,8 @@ import type { ThreadGoalCoordinator } from "../../application/threads/thread-goa
 import { createThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
 import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
-import type { ChatComposerController } from "../../panel/composer-controller";
-import { createToolbarPanelActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
+import type { ChatComposerController } from "../../panel/composer/controller";
+import { createToolbarPanelActions, type ToolbarPanelActions } from "../../panel/toolbar/actions";
 import type { ChatPanelEnvironment } from "../contracts";
 
 type ChatPanelGoalSync = ThreadGoalSync;

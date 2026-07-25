@@ -46,6 +46,8 @@ function mountComposerShell(
       normalPlaceholder,
       suggestions,
       selectedSuggestionIndex,
+      pendingSelection: null,
+      onPendingSelectionApplied: vi.fn(),
       callbacks,
       meta:
         meta ??
@@ -83,8 +85,10 @@ function composerCallbacks() {
     onInput: vi.fn(),
     onUpdateSuggestions: vi.fn(),
     onKeydown: vi.fn(),
+    onPaste: vi.fn(),
+    onDrop: vi.fn(),
+    onDragOver: vi.fn(),
     onSendOrInterrupt: vi.fn(),
-    onHeightChange: vi.fn(),
     onTogglePlan: vi.fn(),
     onToggleAutoReview: vi.fn(),
     onToggleFast: vi.fn(),
@@ -285,6 +289,8 @@ describe("ComposerShell decisions", () => {
       planActive: true,
       autoReviewActive: false,
       fastActive: true,
+      modelChoices: [],
+      effortChoices: [],
     });
 
     const status = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-status");
@@ -328,6 +334,8 @@ describe("ComposerShell decisions", () => {
       planActive: false,
       autoReviewActive: false,
       fastActive: false,
+      modelChoices: [],
+      effortChoices: [],
     });
 
     expect(parent.querySelector(".codex-panel__composer-meta-fatal")?.textContent).toBe("Codex app-server disconnected");
@@ -348,12 +356,7 @@ describe("ComposerShell decisions", () => {
       [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
       0,
       {
-        onInput: vi.fn(),
-        onUpdateSuggestions: vi.fn(),
-        onKeydown: vi.fn(),
-        onSendOrInterrupt: vi.fn(),
-        onHeightChange: vi.fn(),
-        onSuggestionHover: vi.fn(),
+        ...composerCallbacks(),
         onSuggestionInsert,
       },
     );
@@ -455,6 +458,8 @@ describe("ComposerShell decisions", () => {
           normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,
+          pendingSelection: null,
+          onPendingSelectionApplied: vi.fn(),
           callbacks,
           meta: {
             fatal: null,
@@ -473,6 +478,8 @@ describe("ComposerShell decisions", () => {
             planActive: false,
             autoReviewActive: false,
             fastActive: false,
+            modelChoices: [],
+            effortChoices: [],
           },
           onComposer,
         }),
@@ -497,6 +504,8 @@ describe("ComposerShell decisions", () => {
           normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,
+          pendingSelection: null,
+          onPendingSelectionApplied: vi.fn(),
           callbacks,
           meta: {
             fatal: null,
@@ -515,13 +524,14 @@ describe("ComposerShell decisions", () => {
             planActive: false,
             autoReviewActive: false,
             fastActive: false,
+            modelChoices: [],
+            effortChoices: [],
           },
           onComposer,
         }),
       );
 
       expect(composer.style.height).toBe("56px");
-      expect(callbacks.onHeightChange).toHaveBeenCalled();
     } finally {
       if (descriptor) {
         Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);

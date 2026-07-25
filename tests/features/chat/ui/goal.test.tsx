@@ -289,7 +289,9 @@ function GoalPanelHarness({
       setObjectiveExpanded(expanded);
     },
   };
-  return <GoalPanel goal={goal} actions={actions} options={{ sendShortcut }} editor={editor} display={{ objectiveExpanded }} />;
+  return (
+    <GoalPanel goal={goal} actions={actions} options={{ sendShortcut, readOnly: false }} editor={editor} display={{ objectiveExpanded }} />
+  );
 }
 
 function actions(): GoalPanelActions {
