@@ -17,6 +17,7 @@ import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../..
 import type { ChatPanelToolbarDependencies } from "../../../../../src/features/chat/panel/toolbar/view-projection";
 import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { chatSharedSourcesFixture } from "../../support/shared-sources";
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -29,13 +30,14 @@ describe("chat toolbar archive confirmation state", () => {
       stateStore: store,
       threadCommands: { archiveThread: vi.fn() } as unknown as ThreadCommands,
     });
-    store.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread-1", "Thread one")] });
+    const sharedSources = chatSharedSourcesFixture([threadFixture("thread-1", "Thread one")]);
     store.dispatch({ type: "ui/panel-set", panel: "history" });
     document.body.appendChild(container);
 
     await act(async () => {
       renderChatPanelShell(container, {
         stateStore: store,
+        ...sharedSources,
         showToolbar: true,
         parts: shellParts(store, toolbarActions),
       });
@@ -65,20 +67,20 @@ describe("chat toolbar archive confirmation state", () => {
     });
     let archiveExportEnabled = true;
     const parts = shellParts(store, toolbarActions, () => archiveExportEnabled);
-    store.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread-1", "Thread one")] });
+    const sharedSources = chatSharedSourcesFixture([threadFixture("thread-1", "Thread one")]);
     store.dispatch({ type: "ui/panel-set", panel: "history" });
     toolbarActions.startArchive("thread-1");
     document.body.appendChild(container);
 
     await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
+      renderChatPanelShell(container, { stateStore: store, ...sharedSources, showToolbar: true, parts });
       await settle();
     });
     expect(container.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Save and archive thread");
 
     archiveExportEnabled = false;
     await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
+      renderChatPanelShell(container, { stateStore: store, ...sharedSources, showToolbar: true, parts });
       await settle();
     });
     expect(container.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Archive thread without saving");

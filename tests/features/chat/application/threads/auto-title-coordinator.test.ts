@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Thread } from "../../../../../src/domain/threads/model";
 
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createAutoTitleCoordinator } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
@@ -14,6 +15,7 @@ describe("AutoTitleCoordinator", () => {
         assistantResponse: "Visible streamed response.",
       }),
       submitTitleWork,
+      threadById: catalogThreadById(),
     });
 
     coordinator.maybeAutoTitleThread("thread", "turn", {
@@ -37,6 +39,7 @@ describe("AutoTitleCoordinator", () => {
         assistantResponse: "Response",
       })),
       submitTitleWork,
+      threadById: catalogThreadById("Manual title"),
     });
 
     coordinator.maybeAutoTitleThread("thread", "turn", { userText: "Request", assistantText: "Response" });
@@ -52,6 +55,7 @@ describe("AutoTitleCoordinator", () => {
       completedTurnTitleContext: (_turnId, summary) =>
         summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
       submitTitleWork,
+      threadById: catalogThreadById(),
     });
 
     coordinator.maybeAutoTitleThread("thread", "turn-1", { userText: "First", assistantText: "Done" });
@@ -68,6 +72,7 @@ describe("AutoTitleCoordinator", () => {
       completedTurnTitleContext: (_turnId, summary) =>
         summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
       submitTitleWork,
+      threadById: catalogThreadById(),
     });
 
     coordinator.maybeAutoTitleThread("thread", "turn-a", { userText: "Thread A", assistantText: "Done" });
@@ -85,30 +90,30 @@ describe("AutoTitleCoordinator", () => {
   });
 });
 
-function listedThreadState(name: string | null = null) {
-  const stateStore = createChatStateStore();
-  stateStore.dispatch({
-    type: "thread-list/applied",
-    threads: [
-      {
-        id: "thread",
-        preview: "Thread preview",
-        name,
-        archived: false,
-        provenance: { kind: "interactive" },
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: "thread-b",
-        preview: "Another thread",
-        name: null,
-        archived: false,
-        provenance: { kind: "interactive" },
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ],
-  });
-  return stateStore;
+function listedThreadState(_name: string | null = null) {
+  return createChatStateStore();
+}
+
+function catalogThreadById(name: string | null = null) {
+  const threads: Thread[] = [
+    {
+      id: "thread",
+      preview: "Thread preview",
+      name,
+      archived: false,
+      provenance: { kind: "interactive" },
+      createdAt: 1,
+      updatedAt: 1,
+    },
+    {
+      id: "thread-b",
+      preview: "Another thread",
+      name: null,
+      archived: false,
+      provenance: { kind: "interactive" },
+      createdAt: 2,
+      updatedAt: 2,
+    },
+  ];
+  return (threadId: string) => threads.find((thread) => thread.id === threadId);
 }

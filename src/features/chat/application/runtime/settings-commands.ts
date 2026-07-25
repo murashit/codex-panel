@@ -396,9 +396,10 @@ function runtimeProjection(host: RuntimeSettingsCommandsHost): {
   config: RuntimeConfigSnapshot;
 } {
   const current = state(host);
+  const snapshot = host.runtimeSnapshotForState(current);
   return {
-    snapshot: host.runtimeSnapshotForState(current),
-    config: runtimeConfigOrDefault(current.connection.runtimeConfig),
+    snapshot,
+    config: runtimeConfigOrDefault(snapshot.runtimeConfig),
   };
 }
 

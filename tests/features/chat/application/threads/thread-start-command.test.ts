@@ -11,14 +11,11 @@ import { pendingWebSubmissionItem } from "../../../../../src/features/chat/appli
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
-import { chatStateFixture, chatStateWith } from "../../support/state";
+import { chatStateFixture, chatStateWith, sharedResourcesForChatState } from "../../support/state";
 
 describe("thread start commands", () => {
   it("publishes newly started threads before the first turn completes", async () => {
-    let state = chatStateFixture();
-    const existing = threadFixture("existing");
-    state = chatStateWith(state, { threadList: { listedThreads: [existing] } });
-    const stateStore = createChatStateStore(state);
+    const stateStore = createChatStateStore(chatStateFixture());
     const started = threadFixture("started");
     const optimistic = { ...started, preview: "first prompt" };
     const recordStartedThread = vi.fn();
@@ -27,14 +24,14 @@ describe("thread start commands", () => {
     const commands = createThreadStartCommand({
       stateStore,
       threadStartPort: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal,
     });
 
     await commands.startThread("first prompt");
 
-    expect(stateStore.getState().threadList.listedThreads).toEqual([optimistic, existing]);
+    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(recordStartedThread).toHaveBeenCalledWith(optimistic);
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
@@ -49,7 +46,7 @@ describe("thread start commands", () => {
       threadStartPort: {
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
       },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
@@ -80,7 +77,7 @@ describe("thread start commands", () => {
     const commands = createThreadStartCommand({
       stateStore,
       threadStartPort: { startThread },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
@@ -108,7 +105,7 @@ describe("thread start commands", () => {
       threadStartPort: {
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
       },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal,
     });
@@ -136,7 +133,7 @@ describe("thread start commands", () => {
       threadStartPort: {
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
       },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
@@ -164,7 +161,7 @@ describe("thread start commands", () => {
     const commands = createThreadStartCommand({
       stateStore,
       threadStartPort: { startThread: vi.fn(() => started.promise) },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal: vi.fn(),
     });
@@ -188,7 +185,7 @@ describe("thread start commands", () => {
     const commands = createThreadStartCommand({
       stateStore,
       threadStartPort: { startThread },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
@@ -216,7 +213,7 @@ describe("thread start commands", () => {
     const commands = createThreadStartCommand({
       stateStore,
       threadStartPort: { startThread },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
@@ -233,7 +230,7 @@ describe("thread start commands", () => {
     const commands = createThreadStartCommand({
       stateStore,
       threadStartPort: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal: vi.fn(),
     });
@@ -250,14 +247,14 @@ describe("thread start commands", () => {
     const commands = createThreadStartCommand({
       stateStore,
       threadStartPort: { startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal,
     });
 
     await expect(commands.startThread("local preview")).resolves.toEqual({ kind: "not-started" });
     expect(activeThreadId(stateStore.getState())).toBeNull();
-    expect(stateStore.getState().threadList.listedThreads).toEqual([]);
+    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(recordStartedThread).not.toHaveBeenCalled();
     expect(syncThreadGoal).not.toHaveBeenCalled();
   });
@@ -271,7 +268,7 @@ describe("thread start commands", () => {
       threadStartPort: {
         startThread: vi.fn().mockResolvedValue({ kind: "completed-stale", value: created }),
       },
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal: vi.fn(),
     });
@@ -285,6 +282,13 @@ describe("thread start commands", () => {
     expect(activeThreadId(stateStore.getState())).toBeNull();
   });
 });
+
+const runtimeSnapshotForTestState = (state: Parameters<typeof runtimeSnapshotForChatState>[0]) =>
+  runtimeSnapshotForChatState(state, {
+    runtimeConfigSnapshot: () => sharedResourcesForChatState(state).runtimeConfig,
+    rateLimitsSnapshot: () => sharedResourcesForChatState(state).rateLimit,
+    modelsSnapshot: () => sharedResourcesForChatState(state).availableModels,
+  });
 
 function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
   return {

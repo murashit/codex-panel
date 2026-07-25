@@ -2,9 +2,13 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
-import type { ModelMetadata } from "../../../domain/catalog/metadata";
+import type { ModelMetadata, SkillMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
-import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../domain/server/metadata";
+import type { RuntimeConfigSnapshot } from "../../../domain/runtime/config";
+import type { RateLimitSnapshot } from "../../../domain/runtime/metrics";
+import type { RuntimePermissionProfileSummary } from "../../../domain/runtime/permissions";
+import type { MetadataResourceDiagnostics } from "../../../domain/server/diagnostics";
+import type { SharedServerMetadataResource } from "../../../domain/server/metadata";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import type { ObservedResultListener } from "../../../shared/runtime/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
@@ -55,7 +59,11 @@ export interface WorkspacePanels {
 type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
 
 interface ChatAppServerQueries {
-  appServerMetadataSnapshot(): SharedServerMetadata | null;
+  runtimeConfigSnapshot(): RuntimeConfigSnapshot | null;
+  skillsSnapshot(): readonly SkillMetadata[] | null;
+  permissionProfilesSnapshot(): readonly RuntimePermissionProfileSummary[] | null;
+  rateLimitsSnapshot(): RateLimitSnapshot | null | undefined;
+  metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics;
   refreshAppServerMetadata(): Promise<void>;
   refreshSkills(): Promise<void>;
   refreshRateLimits(): Promise<void>;

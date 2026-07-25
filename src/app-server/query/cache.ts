@@ -12,13 +12,14 @@ import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../do
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
 import {
+  createMetadataResourceDiagnostics,
   createServerDiagnostics,
   type DiagnosticProbeResult,
   diagnosticProbeError,
   diagnosticProbeOk,
-  diagnosticsWithProbe,
+  type MetadataResourceDiagnostics,
 } from "../../domain/server/diagnostics";
-import type { SharedServerMetadata, SharedServerMetadataResource } from "../../domain/server/metadata";
+import type { SharedServerMetadataResource } from "../../domain/server/metadata";
 import { applyThreadCatalogChange, type ThreadCatalogChange, type ThreadCatalogList } from "../../domain/threads/catalog-read-model";
 import type { Thread } from "../../domain/threads/model";
 import { StaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
@@ -44,7 +45,7 @@ import {
   applyActiveThreadMutation,
   recentActiveThreadsFromData,
 } from "./active-thread-inventory";
-import { cloneModelMetadata, cloneSharedServerMetadata, cloneSharedServerMetadataResource, cloneThreads } from "./snapshots";
+import { cloneModelMetadata, cloneSharedServerMetadataResource, cloneThreads } from "./snapshots";
 
 const MODELS_STALE_TIME_MS = 60_000;
 const ACTIVE_THREADS_QUERY_KEY = ["threads", "active"] as const;
@@ -222,36 +223,40 @@ export class AppServerQueryCache {
     const activeChanges = changes.filter((change) => change.list === "active");
     if (activeChanges.length > 0) {
       const key = ACTIVE_THREADS_QUERY_KEY;
-      const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
-      const fetchIsNextPage = this.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward";
-      void this.client.cancelQueries({ queryKey: key, exact: true });
       const before = this.client.getQueryData<ActiveThreadData>(key);
       const after = activeChanges.reduce<ActiveThreadData | undefined>(applyActiveThreadMutation, before);
-      if (after !== before) this.client.setQueryData(key, after);
-      void this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-      const searchKey = ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY;
-      void this.client.cancelQueries({ queryKey: searchKey, exact: true });
-      void this.client.invalidateQueries({ queryKey: searchKey, refetchType: "none" });
-
       const revalidationRequested = activeChanges.some((change) => change.kind === "revalidate");
-      if ((wasFetching && !fetchIsNextPage) || (revalidationRequested && before)) {
-        void this.fetchActiveThreads({ force: true }).catch(() => {
-          // Query observers retain refresh failures while the event projection remains last-known-good state.
-        });
+      const missingSnapshotUpsert = before === undefined && activeChanges.some((change) => change.kind === "upsert");
+      const fetchIsNextPage = this.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward";
+      if (before === undefined || after !== before || revalidationRequested || activeThreadDataHasMore(before) || fetchIsNextPage) {
+        const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
+        void this.client.cancelQueries({ queryKey: key, exact: true });
+        if (after !== before) this.client.setQueryData(key, after);
+        void this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
+        const searchKey = ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY;
+        void this.client.cancelQueries({ queryKey: searchKey, exact: true });
+        void this.client.invalidateQueries({ queryKey: searchKey, refetchType: "none" });
+
+        if ((missingSnapshotUpsert && !fetchIsNextPage) || (wasFetching && !fetchIsNextPage) || (revalidationRequested && before)) {
+          void this.fetchActiveThreads({ force: true }).catch(() => {
+            // Query observers retain refresh failures while the event projection remains last-known-good state.
+          });
+        }
       }
     }
 
     const archivedChanges = changes.filter((change) => change.list === "archived");
     if (archivedChanges.length > 0) {
       const key = ARCHIVED_THREADS_QUERY_KEY;
-      const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
-      void this.client.cancelQueries({ queryKey: key, exact: true });
       const before = this.archivedThreadsSnapshot();
       const after = archivedChanges.reduce<readonly Thread[] | null>(applyThreadCatalogChange, before);
+      const revalidationRequested = archivedChanges.some((change) => change.kind === "revalidate");
+      if (before !== null && after === before && !revalidationRequested) return;
+      const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
+      void this.client.cancelQueries({ queryKey: key, exact: true });
       if (after !== before && after) this.client.setQueryData(key, cloneThreads(after));
       void this.client.invalidateQueries({ queryKey: key, refetchType: "none" });
 
-      const revalidationRequested = archivedChanges.some((change) => change.kind === "revalidate");
       if (wasFetching || (revalidationRequested && before)) {
         void this.fetchArchivedThreads({ force: true }).catch(() => {
           // Query observers retain refresh failures while the event projection remains last-known-good state.
@@ -266,24 +271,52 @@ export class AppServerQueryCache {
     return threads ? cloneThreads(threads) : null;
   }
 
-  appServerMetadataSnapshot(): SharedServerMetadata | null {
-    if (this.disposed) return null;
-    const runtimeConfig = this.client.getQueryData<RuntimeConfigSnapshot>(RUNTIME_CONFIG_QUERY_KEY);
-    if (!runtimeConfig) return null;
+  metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics {
+    if (this.disposed) return createMetadataResourceDiagnostics();
     const skills = this.metadataResourceState("skills");
     const permissionProfiles = this.metadataResourceState("permissionProfiles");
     const rateLimits = this.metadataResourceState("rateLimits");
-    const diagnostics = [this.modelsProbe(), skills.probe, permissionProfiles.probe, rateLimits.probe].reduce(
-      (current, probe) => diagnosticsWithProbe(current, probe),
-      createServerDiagnostics(),
-    );
-    return cloneSharedServerMetadata({
-      runtimeConfig,
-      availableSkills: skills.value ?? [],
-      availablePermissionProfiles: permissionProfiles.value ?? [],
-      rateLimit: rateLimits.value ?? null,
-      serverDiagnostics: diagnostics,
-    });
+    return {
+      probes: {
+        models: this.modelsProbe(),
+        skills: skills.probe,
+        permissionProfiles: permissionProfiles.probe,
+        rateLimits: rateLimits.probe,
+      },
+    };
+  }
+
+  runtimeConfigSnapshot(): RuntimeConfigSnapshot | null {
+    if (this.disposed) return null;
+    const runtimeConfig = this.client.getQueryData<RuntimeConfigSnapshot>(RUNTIME_CONFIG_QUERY_KEY);
+    return runtimeConfig ? cloneRuntimeConfigSnapshot(runtimeConfig) : null;
+  }
+
+  skillsSnapshot(): readonly SkillMetadata[] | null {
+    if (this.disposed) return null;
+    const state = this.client.getQueryData<MetadataResourceSnapshot<readonly SkillMetadata[]>>(SKILLS_QUERY_KEY);
+    return state ? state.value.map((skill) => ({ ...skill })) : null;
+  }
+
+  permissionProfilesSnapshot(): readonly RuntimePermissionProfileSummary[] | null {
+    if (this.disposed) return null;
+    const state =
+      this.client.getQueryData<MetadataResourceSnapshot<readonly RuntimePermissionProfileSummary[]>>(PERMISSION_PROFILES_QUERY_KEY);
+    return state ? state.value.map((profile) => ({ ...profile })) : null;
+  }
+
+  rateLimitsSnapshot(): RateLimitSnapshot | null | undefined {
+    if (this.disposed) return undefined;
+    const state = this.client.getQueryData<MetadataResourceSnapshot<RateLimitSnapshot | null>>(RATE_LIMITS_QUERY_KEY);
+    if (!state) return undefined;
+    return state.value
+      ? {
+          ...state.value,
+          primary: state.value.primary ? { ...state.value.primary } : null,
+          secondary: state.value.secondary ? { ...state.value.secondary } : null,
+          individualLimit: state.value.individualLimit ? { ...state.value.individualLimit } : null,
+        }
+      : null;
   }
 
   observeAppServerMetadataResources(

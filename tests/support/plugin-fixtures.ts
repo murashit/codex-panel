@@ -4,6 +4,7 @@ import { FileSystemAdapter } from "obsidian";
 import { vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../../src/constants";
+import { createServerDiagnostics } from "../../src/domain/server/diagnostics";
 import type { Thread } from "../../src/domain/threads/model";
 import { createThreadGoalCoordinator } from "../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { CodexChatHost } from "../../src/features/chat/host/contracts";
@@ -148,7 +149,11 @@ function chatHostFixture(): CodexChatHost {
       openSideChat: vi.fn(),
     },
     appServerQueries: {
-      appServerMetadataSnapshot: vi.fn(() => null),
+      runtimeConfigSnapshot: vi.fn(() => null),
+      skillsSnapshot: vi.fn(() => null),
+      permissionProfilesSnapshot: vi.fn(() => null),
+      rateLimitsSnapshot: vi.fn(() => undefined),
+      metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve()),
       refreshSkills: vi.fn(() => Promise.resolve()),
       refreshRateLimits: vi.fn(() => Promise.resolve()),

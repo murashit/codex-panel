@@ -1,4 +1,3 @@
-import type { SkillMetadata } from "../../domain/catalog/metadata";
 import {
   type DiagnosticProbeResult,
   diagnosticProbeError,
@@ -13,14 +12,11 @@ import {
 import type { ToolInventoryMarketplaceError, ToolInventoryPlugin, ToolInventorySnapshot } from "../../domain/server/tool-inventory";
 import type { ClientResponseByMethod } from "../connection/client";
 import { toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
-import { listSkillCatalog } from "./catalog";
 import type { AppServerRequestClient } from "./request-client";
 
 export interface ReadToolInventoryOptions {
   readonly threadId?: string | null;
   readonly mcpDiagnostics?: readonly McpServerDiagnostic[];
-  readonly cachedSkills?: readonly SkillMetadata[];
-  readonly cachedSkillsProbe?: DiagnosticProbeResult;
 }
 
 export interface ReadToolInventoryResult {
@@ -36,14 +32,11 @@ export async function readToolInventory(
 ): Promise<ReadToolInventoryResult> {
   const checkedAt = Date.now();
   // As of Codex CLI 0.142.3, app/list can enumerate the full app catalog and leave
-  // app-server CPU-bound after returning. Keep diagnostics on MCP/plugin/skill data
+  // app-server CPU-bound after returning. Keep diagnostics on MCP/plugin data
   // until the app-list API can provide a cheap installed-or-enabled summary.
-  const [plugins, mcp, skills] = await Promise.all([
+  const [plugins, mcp] = await Promise.all([
     readPlugins(client, cwd, checkedAt),
     readMcpServers(client, options.threadId ?? null, checkedAt),
-    options.cachedSkills !== undefined
-      ? Promise.resolve(readCachedSkills(options.cachedSkills, options.cachedSkillsProbe, checkedAt))
-      : readSkills(client, cwd, checkedAt),
   ]);
 
   return {
@@ -55,23 +48,9 @@ export async function readToolInventory(
       mcpServers: mcp.items,
       mcpDiagnostics: options.mcpDiagnostics ?? [],
       mcpError: mcp.error,
-      skills: skills.items,
-      skillsError: skills.error,
     },
-    probes: [plugins.probe, mcp.probe, skills.probe],
+    probes: [plugins.probe, mcp.probe],
     mcpServerStatuses: mcp.items,
-  };
-}
-
-function readCachedSkills(
-  skills: readonly SkillMetadata[],
-  probe: DiagnosticProbeResult | undefined,
-  checkedAt: number,
-): { items: ToolInventorySnapshot["skills"]; error: string | null; probe: DiagnosticProbeResult } {
-  return {
-    items: [...skills],
-    error: null,
-    probe: probe ?? diagnosticProbeOk("skills", `${String(skills.length)} skills`, checkedAt),
   };
 }
 
@@ -143,21 +122,4 @@ async function readMcpServers(
 function mcpSummary(servers: readonly McpServerStatusSummary[]): string {
   const issueCount = servers.filter((server) => server.authStatus === "notLoggedIn").length;
   return issueCount > 0 ? `${String(servers.length)} servers, ${String(issueCount)} auth issues` : `${String(servers.length)} servers`;
-}
-
-async function readSkills(
-  client: AppServerRequestClient,
-  cwd: string,
-  checkedAt: number,
-): Promise<{ items: ToolInventorySnapshot["skills"]; error: string | null; probe: DiagnosticProbeResult }> {
-  try {
-    const catalog = await listSkillCatalog(client, cwd, { enabledOnly: false });
-    return {
-      items: catalog.skills,
-      error: null,
-      probe: diagnosticProbeOk("skills", `${String(catalog.totalCount)} skills`, checkedAt),
-    };
-  } catch (error) {
-    return { items: null, error: shortDiagnosticErrorMessage(error), probe: diagnosticProbeError("skills", error, checkedAt) };
-  }
 }

@@ -94,7 +94,7 @@ describe("tool inventory", () => {
     const result = await readToolInventory(client, "/vault");
 
     expect(client.request).not.toHaveBeenCalledWith("app/list", expect.anything());
-    expect(result.probes.some((probe) => probe.id === "apps")).toBe(false);
+    expect(result.probes.map((probe) => probe.id)).toEqual(["plugins", "mcpServers"]);
   });
 
   it("preserves plugin order from installed plugin summaries", async () => {

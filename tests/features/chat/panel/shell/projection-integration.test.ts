@@ -15,10 +15,10 @@ import type { ChatPanelComposerRuntimeActions } from "../../../../../src/feature
 import { projectChatPanelComposer } from "../../../../../src/features/chat/panel/composer/view-projection";
 import { type ChatPanelGoalDependencies, projectChatPanelGoal } from "../../../../../src/features/chat/panel/goal/view-projection";
 import {
-  selectChatPanelComposer,
+  selectChatPanelComposer as selectChatPanelComposerFromResources,
   selectChatPanelGoal,
-  selectChatPanelThreadStream,
-  selectChatPanelToolbar,
+  selectChatPanelThreadStream as selectChatPanelThreadStreamFromResources,
+  selectChatPanelToolbar as selectChatPanelToolbarFromResources,
 } from "../../../../../src/features/chat/panel/shell/selectors";
 import {
   type ChatThreadStreamDependencies,
@@ -30,10 +30,15 @@ import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/u
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { composerModelFromChatState } from "../../support/shell-selectors";
-import { chatStateFixture, chatStateWith } from "../../support/state";
+import { chatStateFixture, chatStateWith, sharedResourcesForChatState } from "../../support/state";
 import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 installObsidianDomShims();
+
+const selectChatPanelToolbar = (state: ChatState) => selectChatPanelToolbarFromResources(state, sharedResourcesForChatState(state));
+const selectChatPanelThreadStream = (state: ChatState) =>
+  selectChatPanelThreadStreamFromResources(state, sharedResourcesForChatState(state));
+const selectChatPanelComposer = (state: ChatState) => selectChatPanelComposerFromResources(state, sharedResourcesForChatState(state));
 
 describe("chat panel projection integration", () => {
   it("disables compact context without an active thread", () => {

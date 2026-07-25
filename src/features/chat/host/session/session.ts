@@ -42,7 +42,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (this.pendingEphemeralSource || activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
       return "Side chat";
     }
-    return threadWindowTitle(this.panelThreadId(), this.state.threadList.listedThreads, this.restoredThreadTitle());
+    return threadWindowTitle(this.panelThreadId(), this.sharedThreads(), this.restoredThreadTitle());
   }
 
   persistedState(): Record<string, unknown> {
@@ -171,7 +171,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.environment.obsidian.registerPointerDown((event) => {
       this.closeToolbarPanelOnOutsidePointer(event);
     });
-    this.runtime.runtime.sharedState.subscribe();
+    this.runtime.observers.threadCatalog.subscribe();
     this.mountOrRepairShell();
     this.scheduleWarmup();
     this.restoreRuntimeSnapshot();
@@ -236,6 +236,8 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (!root) return;
     renderChatPanelShell(root, {
       stateStore: this.stateStore,
+      appServerQueries: this.environment.plugin.appServerQueries,
+      threadCatalog: this.environment.plugin.threadCatalog,
       showToolbar: this.environment.plugin.settings.showToolbar(),
       parts: this.runtime.shell.parts,
     });
@@ -310,14 +312,14 @@ export class ChatPanelSession implements ChatPanelHandle {
     const activeThread = activeThreadState(this.state);
     if (!activeThread) return null;
     const threadId = activeThread.id;
-    const thread = this.state.threadList.listedThreads.find((item) => item.id === threadId);
+    const thread = this.sharedThreads().find((item) => item.id === threadId);
     return thread ? threadMeaningfulTitle(thread) : (activeThread.title ?? null);
   }
 
   private restoredThreadTitle(): string | null {
     const restoredThread = this.restoredThread();
     if (!restoredThread) return null;
-    const listedThread = this.state.threadList.listedThreads.find((thread) => thread.id === restoredThread.threadId);
+    const listedThread = this.sharedThreads().find((thread) => thread.id === restoredThread.threadId);
     return listedThread ? threadMeaningfulTitle(listedThread) : restoredThread.fallbackTitle;
   }
 
@@ -327,6 +329,10 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   private panelThreadId(): string | null {
     return panelThreadId(this.state);
+  }
+
+  private sharedThreads() {
+    return this.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [];
   }
 
   private ensureRestoredThreadLoaded(): Promise<boolean> {

@@ -71,7 +71,10 @@ export function projectChatPanelToolbar(model: ChatPanelToolbarModel, dependenci
       initializeResponse: diagnostics.initializeResponse,
       diagnostics: diagnostics.serverDiagnostics,
     }),
-    toolInventory: toolInventoryDiagnosticSections(diagnostics.serverDiagnostics),
+    toolInventory: toolInventoryDiagnosticSections(diagnostics.serverDiagnostics, {
+      value: model.availableSkills,
+      probe: diagnostics.serverDiagnostics.probes.skills,
+    }),
   };
 }
 

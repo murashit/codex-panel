@@ -31,7 +31,7 @@ import { classifyAppServerLog } from "./app-server-logs";
 import { type ChatInboundEffect, planChatInboundNotification } from "./notification-plan";
 
 export interface ChatInboundHandlerEffects {
-  refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
+  refreshServerDiagnostics: () => void;
   handleAppServerResourceFact: (fact: AppServerResourceFact) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
   applyThreadFact: (fact: ThreadFact) => void;
@@ -244,7 +244,7 @@ function localItemId(context: ChatInboundHandlerContext, prefix: string): string
 function runInboundEffect(context: ChatInboundHandlerContext, effect: ChatInboundEffect): void {
   switch (effect.type) {
     case "refresh-server-diagnostics":
-      context.effects.refreshServerDiagnostics({ forceResourceProbes: effect.forceResourceProbes === true });
+      context.effects.refreshServerDiagnostics();
       return;
     case "handle-app-server-resource-fact":
       context.effects.handleAppServerResourceFact(effect.fact);

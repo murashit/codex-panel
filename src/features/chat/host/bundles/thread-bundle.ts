@@ -127,13 +127,14 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     },
     archiveDestination: environment.obsidian.archiveDestination,
     facts: environment.plugin.threadFacts,
-    referenceThreads: () => stateStore.getState().threadList.listedThreads,
+    referenceThreads: () => environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
     notice: (text) => {
       new Notice(text);
     },
   });
   const autoTitleCoordinator = createAutoTitleCoordinator({
     stateStore,
+    threadById: (threadId) => environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),
     completedTurnTitleContext: (turnId, completedTurnTranscriptSummary) =>
       titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
     submitTitleWork: (threadId, context) => {
@@ -233,6 +234,7 @@ export function createThreadLifecycleBundle(
   const goals: ChatPanelGoalCommands = { ...goalCommands, ...goalEditor };
   const rename = createThreadRenameEditorActions({
     stateStore: host.stateStore,
+    threadById: (threadId) => host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),
     ensureConnected,
     addSystemMessage: status.addSystemMessage,
     renameThread: (threadId, value) => foundation.threadMutations.renameThread(threadId, value),

@@ -9,20 +9,6 @@ import { deferred } from "../../../../support/async";
 describe("ephemeral thread lifecycle", () => {
   it("activates an ephemeral fork without adding it to the thread list", async () => {
     const store = createChatStateStore();
-    store.dispatch({
-      type: "thread-list/applied",
-      threads: [
-        {
-          id: "source",
-          preview: "Source",
-          name: null,
-          archived: false,
-          createdAt: 1,
-          updatedAt: 1,
-          provenance: { kind: "interactive" },
-        },
-      ],
-    });
     const port = transportMock();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
@@ -40,7 +26,7 @@ describe("ephemeral thread lifecycle", () => {
       id: "side",
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
-    expect(store.getState().threadList.listedThreads.map((thread) => thread.id)).toEqual(["source"]);
+    expect(store.getState()).not.toHaveProperty("threadList");
   });
 
   it("unsubscribes an idle ephemeral thread before persistent navigation", async () => {

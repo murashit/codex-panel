@@ -16,6 +16,7 @@ import type { ChatThreadStreamDependencies } from "../../../../../src/features/c
 import type { ChatPanelToolbarDependencies } from "../../../../../src/features/chat/panel/toolbar/view-projection";
 import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { chatSharedSourcesFixture } from "../../support/shared-sources";
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -105,6 +106,15 @@ describe("ChatPanelShell", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       canFocus: () => true,
+      sharedResources: {
+        runtimeConfigSnapshot: () => null,
+        rateLimitsSnapshot: () => undefined,
+        modelsSnapshot: () => null,
+        skillsSnapshot: () => null,
+        permissionProfilesSnapshot: () => null,
+        activeThreadsSnapshot: () => null,
+        subscribe: () => () => undefined,
+      },
     });
 
     await act(async () => {
@@ -143,7 +153,7 @@ describe("ChatPanelShell", () => {
     const parts = shellParts();
 
     await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: false, parts });
+      renderChatPanelShell(container, { ...shellProps(store), showToolbar: false, parts });
       await settleShellEffects();
     });
 
@@ -158,7 +168,7 @@ describe("ChatPanelShell", () => {
     initialThreadStream.scrollTop = 42;
 
     await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
+      renderChatPanelShell(container, { ...shellProps(store), showToolbar: true, parts });
       await settleShellEffects();
     });
 
@@ -170,7 +180,7 @@ describe("ChatPanelShell", () => {
     expect(container.querySelector<HTMLElement>(".codex-panel__region--thread-stream")?.scrollTop).toBe(42);
 
     await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: false, parts });
+      renderChatPanelShell(container, { ...shellProps(store), showToolbar: false, parts });
       await settleShellEffects();
     });
 
@@ -195,7 +205,7 @@ describe("ChatPanelShell", () => {
     const parts = shellParts();
 
     await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
+      renderChatPanelShell(container, { ...shellProps(store), showToolbar: true, parts });
       await settleShellEffects();
     });
 
@@ -203,7 +213,7 @@ describe("ChatPanelShell", () => {
 
     await act(async () => {
       store.dispatch({ type: "composer/draft-set", draft: "repair root" });
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
+      renderChatPanelShell(container, { ...shellProps(store), showToolbar: true, parts });
       await settleShellEffects();
     });
 
@@ -252,12 +262,17 @@ describe("ChatPanelShell", () => {
 });
 
 function shellProps(store: ReturnType<typeof createChatStateStore>) {
+  const sharedSources = sharedSourcesByStore.get(store) ?? chatSharedSourcesFixture();
+  sharedSourcesByStore.set(store, sharedSources);
   return {
     stateStore: store,
+    ...sharedSources,
     showToolbar: true,
     parts: shellParts(),
   };
 }
+
+const sharedSourcesByStore = new WeakMap<ReturnType<typeof createChatStateStore>, ReturnType<typeof chatSharedSourcesFixture>>();
 
 function shellParts(
   options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter" } = {},

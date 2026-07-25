@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
+import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/panel/runtime/notices";
-import { chatStateFixture, chatStateWith } from "../../support/state";
+import { chatStateFixture, chatStateWith, sharedResourcesForChatState } from "../../support/state";
 
 describe("createChatPanelRuntimeNotices", () => {
   it("builds slash-command runtime details from chat state", () => {
@@ -26,6 +27,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
+      sharedResources: runtimeShared(state),
     });
 
     expect(projection.statusDetails()).toEqual([
@@ -83,6 +85,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
+      sharedResources: runtimeShared(state),
     });
 
     expect(projection.permissionDetails()).toEqual([
@@ -125,6 +128,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
+      sharedResources: runtimeShared(state),
     });
 
     expect(projection.permissionDetails()).toEqual([
@@ -160,6 +164,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
+      sharedResources: runtimeShared(state),
     });
 
     expect(projection.permissionDetails()[0]?.auditFacts).toEqual([
@@ -170,6 +175,17 @@ describe("createChatPanelRuntimeNotices", () => {
     ]);
   });
 });
+
+function runtimeShared(state: Parameters<typeof sharedResourcesForChatState>[0]) {
+  const shared = sharedResourcesForChatState(state);
+  return {
+    runtimeConfigSnapshot: () => shared.runtimeConfig,
+    skillsSnapshot: () => shared.availableSkills,
+    rateLimitsSnapshot: () => shared.rateLimit,
+    modelsSnapshot: () => shared.availableModels,
+    metadataDiagnosticsSnapshot: () => shared.metadataDiagnostics ?? createServerDiagnostics(),
+  };
+}
 
 function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {
   return runtimeConfigSnapshotFromAppServerConfig({

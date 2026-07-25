@@ -74,7 +74,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       if (activePanelOperationDecision(state, "start-side-chat").kind !== "allowed") return;
       const threadId = activeThreadId(state);
       if (!threadId) return;
-      const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
+      const thread = environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId);
       void environment.plugin.workspace.openSideChat(threadId, thread?.name ?? thread?.preview ?? null);
     },
     debugDetails: {
@@ -82,6 +82,10 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       connected: () => connection.isConnected(),
       vaultPath: () => environment.plugin.appServerContext.vaultPath,
       configuredCommand: () => environment.plugin.appServerContext.codexPath,
+      runtimeConfig: () => environment.plugin.appServerQueries.runtimeConfigSnapshot(),
+      rateLimit: () => environment.plugin.appServerQueries.rateLimitsSnapshot(),
+      availableModels: () => environment.plugin.appServerQueries.modelsSnapshot() ?? [],
+      metadataDiagnostics: () => environment.plugin.appServerQueries.metadataDiagnosticsSnapshot(),
     },
   });
   const toolbarDependencies: ChatPanelToolbarDependencies = {

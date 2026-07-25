@@ -1,8 +1,7 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { cloneRuntimeConfigSnapshot } from "../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
-import type { SharedServerMetadata, SharedServerMetadataResource } from "../../domain/server/metadata";
-import { cloneToolInventorySnapshot } from "../../domain/server/tool-inventory";
+import type { SharedServerMetadataResource } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 
 export function cloneThreads(threads: readonly Thread[]): Thread[] {
@@ -17,21 +16,6 @@ export function cloneModelMetadata(models: readonly ModelMetadata[]): ModelMetad
     inputModalities: [...model.inputModalities],
     serviceTiers: model.serviceTiers.map((tier) => ({ ...tier })),
   }));
-}
-
-export function cloneSharedServerMetadata(metadata: SharedServerMetadata): SharedServerMetadata {
-  return {
-    ...metadata,
-    runtimeConfig: metadata.runtimeConfig ? cloneRuntimeConfigSnapshot(metadata.runtimeConfig) : null,
-    rateLimit: metadata.rateLimit ? cloneRateLimitSnapshot(metadata.rateLimit) : null,
-    availableSkills: metadata.availableSkills.map((skill) => ({ ...skill })),
-    availablePermissionProfiles: metadata.availablePermissionProfiles.map((profile) => ({ ...profile })),
-    serverDiagnostics: {
-      probes: { ...metadata.serverDiagnostics.probes },
-      mcpServers: metadata.serverDiagnostics.mcpServers.map((server) => ({ ...server })),
-      toolInventory: metadata.serverDiagnostics.toolInventory ? cloneToolInventorySnapshot(metadata.serverDiagnostics.toolInventory) : null,
-    },
-  };
 }
 
 export function cloneSharedServerMetadataResource(resource: SharedServerMetadataResource): SharedServerMetadataResource {

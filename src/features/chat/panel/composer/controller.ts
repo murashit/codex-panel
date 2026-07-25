@@ -1,5 +1,8 @@
+import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import { isComposerSendKey, type SendShortcut } from "../../../../domain/input/send-shortcut";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
+import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
+import type { Thread } from "../../../../domain/threads/model";
 import { OwnerLifetime } from "../../../../shared/runtime/owner-lifetime";
 import {
   type ComposerAttachment,
@@ -32,7 +35,7 @@ import {
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,
 } from "../../application/composer/wikilink-context";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
-import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
+import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import {
   capturePanelTargetLease,
   type PanelTargetLease,
@@ -78,6 +81,12 @@ interface ChatComposerControllerOptions {
   toggleFast: () => void;
   canFocus: () => boolean;
   onAttachmentError: (message: string) => void;
+  sharedResources: ChatRuntimeSharedResources & {
+    skillsSnapshot(): readonly SkillMetadata[] | null;
+    permissionProfilesSnapshot(): readonly RuntimePermissionProfileSummary[] | null;
+    activeThreadsSnapshot(): readonly Thread[] | null;
+    subscribe(listener: () => void): () => void;
+  };
 }
 
 interface ChatComposerRenderActions {
@@ -107,6 +116,7 @@ export class ChatComposerController {
   private activeSubmissionClaim: ActiveComposerSubmissionClaim | null = null;
   private pendingSelection: ComposerPendingSelection | null = null;
   private readonly unsubscribeState: () => void;
+  private readonly unsubscribeSharedResources: () => void;
   private observedPanelTarget: PanelTargetLease;
   private observedDraft: string;
 
@@ -116,6 +126,9 @@ export class ChatComposerController {
     this.observedDraft = state.composer.draft;
     this.unsubscribeState = options.stateStore.subscribe(() => {
       this.reconcilePanelTarget();
+    });
+    this.unsubscribeSharedResources = options.sharedResources.subscribe(() => {
+      if (this.composer) this.updateSuggestions();
     });
   }
 
@@ -203,6 +216,7 @@ export class ChatComposerController {
   dispose(): void {
     this.activeSubmissionClaim?.claim.settle("accepted");
     this.unsubscribeState();
+    this.unsubscribeSharedResources();
     this.lifetime.dispose();
     for (const pending of this.pendingAttachmentSaves.values()) this.settlePendingAttachmentSave(pending);
     this.pendingAttachmentSaves.clear();
@@ -217,7 +231,7 @@ export class ChatComposerController {
     const threadCommandTarget = threadCommandTargetForDraft(this.draft, this.threadCommandTarget);
     return {
       sourcePath,
-      availableSkills: this.state.connection.availableSkills,
+      availableSkills: this.options.sharedResources.skillsSnapshot() ?? [],
       referenceActiveNoteOnSend: this.options.referenceActiveNoteOnSend(),
       contextReferences: this.options.contextReferenceProvider.contextReferences(sourcePath),
       activeNoteSnapshots: [...this.activeNoteContextSnapshots],
@@ -491,9 +505,9 @@ export class ChatComposerController {
     return activeComposerSuggestions(
       beforeCursor,
       this.noteCandidates(),
-      state.connection.availableSkills,
-      state.threadList.listedThreads,
-      state.connection.availableModels,
+      this.options.sharedResources.skillsSnapshot() ?? [],
+      this.options.sharedResources.activeThreadsSnapshot() ?? [],
+      this.options.sharedResources.modelsSnapshot() ?? [],
       this.currentModelForSuggestions(),
       {
         activeThreadId: activeThreadState(state)?.id ?? null,
@@ -504,7 +518,7 @@ export class ChatComposerController {
         },
         contextReferences: this.contextReferences(),
         dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
-        permissionProfiles: state.connection.availablePermissionProfiles,
+        permissionProfiles: this.options.sharedResources.permissionProfilesSnapshot() ?? [],
         tagCandidates: () => this.options.noteCandidateProvider.tags(),
       },
     );
@@ -645,8 +659,8 @@ export class ChatComposerController {
 
   private currentModelForSuggestions(): string | null {
     const state = this.state;
-    const config = runtimeConfigOrDefault(state.connection.runtimeConfig);
-    return resolveRuntimeControls(runtimeSnapshotForChatState(state), config).model.effective;
+    const config = runtimeConfigOrDefault(this.options.sharedResources.runtimeConfigSnapshot());
+    return resolveRuntimeControls(runtimeSnapshotForChatState(state, this.options.sharedResources), config).model.effective;
   }
 
   private contextReferences(text: string | null = null) {

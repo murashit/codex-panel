@@ -392,10 +392,6 @@ describe("thread management commands", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    host.stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: [{ ...panelThread("source"), name: "Source name" }],
-    });
     const controller = threadCommands(host);
 
     const pendingFork = controller.forkThreadFromTurn("source", null, true);

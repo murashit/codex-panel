@@ -73,7 +73,8 @@ function connectionBundleFixture(overrides: { readServerDiagnostics?: ReturnType
     environment: {
       plugin: {
         appServerQueries: {
-          appServerMetadataSnapshot: () => null,
+          runtimeConfigSnapshot: () => null,
+          skillsSnapshot: () => null,
           refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
           refreshSkills: vi.fn().mockResolvedValue(undefined),
           refreshRateLimits: vi.fn().mockResolvedValue(undefined),

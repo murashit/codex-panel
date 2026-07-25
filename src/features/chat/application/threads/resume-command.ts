@@ -61,12 +61,12 @@ async function resumeThread(
     if (isStaleResume(host, resume, initialPanelTarget)) return false;
     const effect = await host.resumePort.resumeThread(threadId);
     if (!effectCompletedInCurrentContext(effect)) return false;
+    host.recordResumedThread(effect.value.activation.thread);
     if (isStaleResume(host, resume, initialPanelTarget)) return false;
     if (panelThreadId(host.stateStore.getState()) !== effect.value.activation.thread.id) options?.beforeActivate?.();
     const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);
     if (!adoptedPanelTarget) return false;
     currentPanelTarget = adoptedPanelTarget;
-    host.recordResumedThread(effect.value.activation.thread);
     options?.onAdopted?.();
     recoverResumedThreadTokenUsage(host, effect.value.activation.thread.id, effect.value.rolloutPath, resume, adoptedPanelTarget);
     if (effect.value.initialHistoryPage) {

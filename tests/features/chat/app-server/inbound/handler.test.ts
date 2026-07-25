@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { appServerApprovalRequest, appServerUserInputRequest } from "../../../../../src/app-server/protocol/server-requests";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
-import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import {
   type ChatInboundHandler,
   type ChatInboundHandlerEffects,
@@ -575,7 +574,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "account/rateLimits/updated" }>);
 
-      expect(state.connection.rateLimit).toBeNull();
+      expect(state.connection).not.toHaveProperty("rateLimit");
       expect(handleAppServerResourceFact).toHaveBeenCalledWith({ type: "rate-limits-updated" });
     });
 
@@ -613,7 +612,7 @@ describe("ChatInboundHandler", () => {
         params: { data: [] },
       } satisfies Extract<ServerNotification, { method: "app/list/updated" }>);
 
-      expect(refreshServerDiagnostics).toHaveBeenCalledWith({ forceResourceProbes: false });
+      expect(refreshServerDiagnostics).toHaveBeenCalledWith();
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
@@ -626,7 +625,7 @@ describe("ChatInboundHandler", () => {
         params: { name: "github", threadId: null, success: true },
       } satisfies Extract<ServerNotification, { method: "mcpServer/oauthLogin/completed" }>);
 
-      expect(refreshServerDiagnostics).toHaveBeenCalledWith({ forceResourceProbes: true });
+      expect(refreshServerDiagnostics).toHaveBeenCalledWith();
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
   });
@@ -1317,7 +1316,7 @@ describe("ChatInboundHandler", () => {
       } satisfies ThreadCatalogEvent);
     });
 
-    it("records unrelated thread-started notifications", () => {
+    it("leaves interactive thread-started catalog publication to the command result", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       const applyThreadFact = vi.fn();
@@ -1328,10 +1327,7 @@ describe("ChatInboundHandler", () => {
         params: { thread: appServerThread("thread-other", "/workspace/other") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-upserted",
-        thread: expect.objectContaining({ id: "thread-other" }),
-      });
+      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("leaves interactive fork publication to the command response", () => {
@@ -1346,7 +1342,7 @@ describe("ChatInboundHandler", () => {
       expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
-    it("records active thread-started notifications without projecting protocol cwd", () => {
+    it("does not project an active thread-started notification into panel or catalog state", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       const applyThreadFact = vi.fn();
@@ -1358,10 +1354,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-upserted",
-        thread: expect.objectContaining({ id: "thread-active" }),
-      });
+      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("keeps ephemeral thread-started notifications out of the shared catalog and an empty panel", () => {
@@ -1632,7 +1625,6 @@ describe("ChatInboundHandler", () => {
     it("routes thread name notifications through catalog events", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { threadList: { listedThreads: [panelThread("thread-active")] } });
       const applyThreadFact = vi.fn();
       const handler = handlerForState(state, { applyThreadFact });
 
@@ -1641,7 +1633,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", threadName: "  Codex   Panel自動命名  " },
       } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>);
 
-      expect(state.threadList.listedThreads[0]?.name).toBeNull();
+      expect(state).not.toHaveProperty("threadList");
       expect(applyThreadFact).toHaveBeenCalledWith({
         type: "thread-renamed",
         threadId: "thread-active",
@@ -2183,19 +2175,6 @@ function directSubagentThread(id: string, parentThreadId: string): ThreadStarted
     },
     agentNickname: "Scout",
     agentRole: "explorer",
-  };
-}
-
-function panelThread(id: string): PanelThread {
-  return {
-    id,
-    preview: "",
-    createdAt: 0,
-    updatedAt: 0,
-    name: null,
-    archived: false,
-    canAcceptDirectInput: null,
-    provenance: { kind: "interactive" },
   };
 }
 

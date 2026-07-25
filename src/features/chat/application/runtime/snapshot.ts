@@ -6,12 +6,18 @@ import { activeThreadState, type ChatState } from "../state/root-reducer";
 import { threadStreamItems } from "../state/thread-stream";
 
 interface RuntimeSnapshotInput {
-  runtimeConfig: ChatState["connection"]["runtimeConfig"];
+  runtimeConfig: RuntimeSnapshot["runtimeConfig"];
   activeThread: { id: string | null; tokenUsage: ThreadTokenUsage | null };
   runtime: ChatState["runtime"];
-  rateLimit: ChatState["connection"]["rateLimit"];
+  rateLimit: RuntimeSnapshot["rateLimit"];
   hasThreadTurns: boolean;
-  availableModels: ChatState["connection"]["availableModels"];
+  availableModels: RuntimeSnapshot["availableModels"];
+}
+
+export interface ChatRuntimeSharedResources {
+  runtimeConfigSnapshot(): RuntimeSnapshot["runtimeConfig"];
+  rateLimitsSnapshot(): RuntimeSnapshot["rateLimit"] | undefined;
+  modelsSnapshot(): RuntimeSnapshot["availableModels"] | null;
 }
 
 export function threadStreamItemsHaveThreadTurns(items: readonly ThreadStreamItem[]): boolean {
@@ -33,14 +39,14 @@ export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): Runti
   };
 }
 
-export function runtimeSnapshotForChatState(state: ChatState): RuntimeSnapshot {
+export function runtimeSnapshotForChatState(state: ChatState, shared: ChatRuntimeSharedResources): RuntimeSnapshot {
   const activeThread = activeThreadState(state);
   return runtimeSnapshotForChatSlices({
-    runtimeConfig: state.connection.runtimeConfig,
+    runtimeConfig: shared.runtimeConfigSnapshot(),
     activeThread: { id: activeThread?.id ?? null, tokenUsage: activeThread?.tokenUsage ?? null },
     runtime: state.runtime,
-    rateLimit: state.connection.rateLimit,
+    rateLimit: shared.rateLimitsSnapshot() ?? null,
     hasThreadTurns: threadStreamItemsHaveThreadTurns(threadStreamItems(state.threadStream)),
-    availableModels: state.connection.availableModels,
+    availableModels: shared.modelsSnapshot() ?? [],
   });
 }

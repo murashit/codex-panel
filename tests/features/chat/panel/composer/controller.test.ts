@@ -78,10 +78,28 @@ function resumeComposerThread(stateStore: ChatStateStore, threadId: string): voi
 
 type ComposerControllerOptions = ConstructorParameters<typeof ChatComposerController>[0];
 
-function defaultComposerAttachmentOptions(): Pick<ComposerControllerOptions, "attachmentHandler" | "onAttachmentError"> {
+function defaultComposerAttachmentOptions(): Pick<
+  ComposerControllerOptions,
+  "attachmentHandler" | "onAttachmentError" | "sharedResources"
+> {
   return {
     attachmentHandler: { saveFiles: async () => [] },
     onAttachmentError: vi.fn(),
+    sharedResources: sharedResourcesFixture(),
+  };
+}
+
+function sharedResourcesFixture(
+  options: { skills?: readonly SkillMetadata[]; threads?: readonly import("../../../../../src/domain/threads/model").Thread[] } = {},
+): ComposerControllerOptions["sharedResources"] {
+  return {
+    runtimeConfigSnapshot: () => null,
+    rateLimitsSnapshot: () => undefined,
+    modelsSnapshot: () => null,
+    skillsSnapshot: () => options.skills ?? null,
+    permissionProfilesSnapshot: () => null,
+    activeThreadsSnapshot: () => options.threads ?? null,
+    subscribe: () => () => undefined,
   };
 }
 
@@ -403,21 +421,21 @@ describe("ChatComposerController", () => {
     const stateStore = createChatStateStore();
     const preview = `Long preview ${"x".repeat(120)}`;
     const completedTitle = `${preview.slice(0, 93)}...`;
-    stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: [
-        {
-          id: "target-thread",
-          preview,
-          name: null,
-          archived: false,
-          createdAt: 1,
-          updatedAt: 1,
-          provenance: { kind: "interactive" },
-        },
-      ],
+    const threads: import("../../../../../src/domain/threads/model").Thread[] = [
+      {
+        id: "target-thread",
+        preview,
+        name: null,
+        archived: false,
+        createdAt: 1,
+        updatedAt: 1,
+        provenance: { kind: "interactive" },
+      },
+    ];
+    const { controller, parent } = composerControllerFixture({
+      stateStore,
+      controller: { sharedResources: sharedResourcesFixture({ threads }) },
     });
-    const { controller, parent } = composerControllerFixture({ stateStore });
     renderComposerController(parent, controller, stateStore);
     setTextAreaValue(composer(parent), "/refer long");
     composer(parent).setSelectionRange(11, 11);
@@ -1446,7 +1464,6 @@ describe("ChatComposerController", () => {
 
   it("keeps suggestions closed after inserting at a cursor before later trigger text", () => {
     const stateStore = createChatStateStore();
-    stateStore.dispatch({ type: "connection/metadata-applied", availableSkills: [skill("obsidian-search")] });
     stateStore.dispatch({ type: "composer/draft-set", draft: "/pla then $ob" });
     const parent = document.createElement("div");
     let controller: ChatComposerController | null = null;
@@ -1456,6 +1473,7 @@ describe("ChatComposerController", () => {
     });
     controller = new ChatComposerController({
       ...defaultComposerAttachmentOptions(),
+      sharedResources: sharedResourcesFixture({ skills: [skill("obsidian-search")] }),
       noteCandidateProvider: noteProvider(),
       contextReferenceProvider: contextProvider(),
       sourcePath: () => "",

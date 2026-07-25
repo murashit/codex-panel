@@ -1,12 +1,10 @@
-import type { ModelMetadata, ReasoningEffort, SkillMetadata } from "../../../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { PendingRequestId } from "../../../../domain/pending-requests/model";
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
+import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { Diagnostics } from "../../../../domain/server/diagnostics";
-import { createServerDiagnostics, diagnosticsWithMetadataResourceProbes } from "../../../../domain/server/diagnostics";
+import { createServerDiagnostics } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
@@ -52,8 +50,6 @@ import type {
   ClearDisconnectedConnectionStateAction,
   ClearLocalTurnAction,
   ConnectionInitializedAction,
-  ReplaceConnectionContextAction,
-  ThreadListAppliedAction,
   TurnOptimisticStartedAction,
   TurnStartAcknowledgedAction,
   TurnStartFailedAction,
@@ -100,21 +96,8 @@ export type ChatConnectionPhase =
 interface ChatConnectionState {
   readonly phase: ChatConnectionPhase;
   readonly statusText: string;
-  readonly runtimeConfig: RuntimeConfigSnapshot | null;
   readonly initializeResponse: ServerInitialization | null;
-  readonly rateLimit: RateLimitSnapshot | null;
   readonly serverDiagnostics: Diagnostics;
-  readonly availableModels: readonly ModelMetadata[];
-  readonly availableSkills: readonly SkillMetadata[];
-  readonly availablePermissionProfiles: readonly RuntimePermissionProfileSummary[];
-}
-
-interface ChatThreadListState {
-  readonly listedThreads: readonly Thread[];
-  readonly hasMore: boolean;
-  readonly isFetching: boolean;
-  readonly isFetchingNextPage: boolean;
-  readonly error: string | null;
 }
 
 export interface ChatActiveThreadState {
@@ -151,7 +134,6 @@ interface ChatComposerState {
 
 interface ChatStateShape {
   connection: ChatConnectionState;
-  threadList: ChatThreadListState;
   panelThread: ChatPanelThreadState;
   panelTargetRevision: number;
   runtime: ChatRuntimeState;
@@ -170,16 +152,9 @@ type ConnectionAction =
   | { type: "connection/status-set"; statusText: string; phase?: ChatConnectionPhase }
   | ConnectionInitializedAction
   | {
-      type: "connection/metadata-applied";
-      runtimeConfig?: RuntimeConfigSnapshot | null;
-      availableModels?: readonly ModelMetadata[];
-      availableSkills?: readonly SkillMetadata[];
-      availablePermissionProfiles?: readonly RuntimePermissionProfileSummary[];
-      rateLimit?: RateLimitSnapshot | null;
-      serverDiagnostics?: Diagnostics;
+      type: "connection/diagnostics-applied";
+      serverDiagnostics: Diagnostics;
     };
-
-type ThreadListAction = ThreadListAppliedAction;
 
 type ActiveThreadAction = { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
 
@@ -266,7 +241,6 @@ interface PendingStartHookUpsertedAction {
 
 type ChatTransitionAction =
   | ClearDisconnectedConnectionStateAction
-  | ReplaceConnectionContextAction
   | ClearActiveThreadAction
   | ActiveThreadResumedAction
   | ActiveThreadSettingsAppliedAction
@@ -281,7 +255,6 @@ type ChatTransitionAction =
 
 type ChatSliceAction =
   | ConnectionAction
-  | ThreadListAction
   | ActiveThreadAction
   | RuntimeAction
   | RequestAction
@@ -293,7 +266,6 @@ type ChatSliceAction =
 export function createChatState(): ChatState {
   return {
     connection: initialConnectionState(),
-    threadList: initialThreadListState(),
     panelThread: initialPanelThreadState(),
     panelTargetRevision: 0,
     runtime: initialChatRuntimeState(),
@@ -331,7 +303,6 @@ export function panelThreadProvenance(state: ChatState): ChatActiveThreadState["
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case "connection/scoped-cleared":
-    case "connection/context-replaced":
     case "active-thread/cleared":
     case "active-thread/resumed":
     case "active-thread/settings-applied":
@@ -362,8 +333,6 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
   switch (action.type) {
     case "connection/scoped-cleared":
       return clearConnectionScopedState(state);
-    case "connection/context-replaced":
-      return clearConnectionContextState(state);
     case "active-thread/cleared":
       if (action.expectedPanelTargetRevision !== undefined && action.expectedPanelTargetRevision !== state.panelTargetRevision) {
         return state;
@@ -451,10 +420,6 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
     connection: {
       ...state.connection,
       statusText: action.status ?? state.connection.statusText,
-    },
-    threadList: {
-      ...state.threadList,
-      listedThreads: action.listedThreads ?? state.threadList.listedThreads,
     },
     panelThread: {
       kind: "active",
@@ -685,31 +650,11 @@ function clearConnectionScopedState(state: ChatState): ChatState {
     runtime: initialChatRuntimeState(),
     connection: {
       ...state.connection,
-      serverDiagnostics: diagnosticsWithMetadataResourceProbes(createServerDiagnostics(), state.connection.serverDiagnostics),
+      serverDiagnostics: createServerDiagnostics(),
     },
     threadStream: ephemeralExpired ? initialThreadStreamState() : cleared.threadStream,
     pendingSubmission: null,
     composer: state.composer,
-  });
-}
-
-function clearConnectionContextState(state: ChatState): ChatState {
-  const cleared = clearConnectionScopedState(state);
-  return patchChatState(cleared, {
-    panelThread: initialPanelThreadState(),
-    panelTargetRevision: state.panelTargetRevision + 1,
-    connection: {
-      ...cleared.connection,
-      runtimeConfig: null,
-      initializeResponse: null,
-      serverDiagnostics: createServerDiagnostics(),
-      rateLimit: null,
-      availableModels: [],
-      availableSkills: [],
-      availablePermissionProfiles: [],
-    },
-    threadList: initialThreadListState(),
-    threadStream: initialThreadStreamState(),
   });
 }
 
@@ -727,7 +672,6 @@ function panelThreadIdForState(panelThread: ChatPanelThreadState): string | null
 function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState {
   return patchChatState(state, {
     connection: reduceConnectionSlice(state.connection, action),
-    threadList: reduceThreadListSlice(state.threadList, action),
     panelThread: reducePanelThreadSlice(state.panelThread, action),
     panelTargetRevision: state.panelTargetRevision,
     runtime: reduceRuntimeSlice(state.runtime, action),
@@ -749,29 +693,13 @@ function reduceConnectionSlice(state: ChatConnectionState, action: ChatSliceActi
       return patchObject(state, { statusText: action.statusText, ...definedPatch("phase", action.phase) });
     case "connection/initialized":
       return patchObject(state, { initializeResponse: action.initializeResponse });
-    case "connection/metadata-applied":
+    case "connection/diagnostics-applied":
       return patchObject(state, {
-        ...definedPatch("runtimeConfig", action.runtimeConfig),
-        ...definedPatch("availableModels", action.availableModels),
-        ...definedPatch("availableSkills", action.availableSkills),
-        ...definedPatch("availablePermissionProfiles", action.availablePermissionProfiles),
-        ...definedPatch("rateLimit", action.rateLimit),
-        ...definedPatch("serverDiagnostics", action.serverDiagnostics),
+        serverDiagnostics: action.serverDiagnostics,
       });
     default:
       return state;
   }
-}
-
-function reduceThreadListSlice(state: ChatThreadListState, action: ChatSliceAction): ChatThreadListState {
-  if (action.type !== "thread-list/applied") return state;
-  return patchObject(state, {
-    listedThreads: action.threads,
-    ...definedPatch("hasMore", action.hasMore),
-    ...definedPatch("isFetching", action.isFetching),
-    ...definedPatch("isFetchingNextPage", action.isFetchingNextPage),
-    ...definedPatch("error", action.error),
-  });
 }
 
 function reducePanelThreadSlice(state: ChatPanelThreadState, action: ChatSliceAction): ChatPanelThreadState {
@@ -861,18 +789,9 @@ function initialConnectionState(): ChatConnectionState {
   return {
     phase: { kind: "idle" },
     statusText: "Idle",
-    runtimeConfig: null,
     initializeResponse: null,
     serverDiagnostics: createServerDiagnostics(),
-    rateLimit: null,
-    availableModels: [],
-    availableSkills: [],
-    availablePermissionProfiles: [],
   };
-}
-
-function initialThreadListState(): ChatThreadListState {
-  return { listedThreads: [], hasMore: false, isFetching: false, isFetchingNextPage: false, error: null };
 }
 
 function initialPanelThreadState(): ChatPanelThreadState {

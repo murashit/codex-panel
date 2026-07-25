@@ -98,6 +98,8 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       stateStore: host.stateStore,
       localItemIds,
       connectionAvailable: () => appServer.connectionAvailable(),
+      sharedResources: host.environment.plugin.appServerQueries,
+      listedThreads: () => host.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
       turnPort: appServer.turn,
       referThread,
       readWebUrl: (url, message, snapshot, isCurrent) =>
@@ -122,7 +124,11 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
           if (host.stateStore.getState().connection.serverDiagnostics.toolInventory) {
             return runtimeProjection.toolInventoryDetails();
           }
-          await refreshDiagnostics();
+          try {
+            await refreshDiagnostics();
+          } catch (error) {
+            if (!host.stateStore.getState().connection.serverDiagnostics.toolInventory) throw error;
+          }
           return runtimeProjection.toolInventoryDetails();
         },
       },
@@ -138,7 +144,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
           autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
         },
         openSideChat: async (threadId) => {
-          const source = host.stateStore.getState().threadList.listedThreads.find((thread) => thread.id === threadId);
+          const source = host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((thread) => thread.id === threadId);
           await host.environment.plugin.workspace.openSideChat(threadId, source?.name ?? source?.preview ?? null);
         },
       },

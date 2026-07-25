@@ -10,47 +10,24 @@ import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("chatReducer", () => {
-  it.each(["connection/scoped-cleared", "connection/context-replaced"] as const)(
-    "leaves composer restoration to its owner when %s clears pending web context",
-    (type) => {
-      const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-      if (!pending) throw new Error("Expected pending web submission");
-      const state = chatReducer(chatReducer(chatStateFixture(), { type: "composer/draft-set", draft: "" }), {
-        type: "web-submission/pending",
-        submission: {
-          id: pending.id,
-          item: pending,
-          targetThreadId: null,
-          phase: "cancellable",
-        },
-      } as never);
-
-      const cleared = chatReducer(state, { type });
-
-      expect(cleared.pendingSubmission).toBeNull();
-      expect(cleared.composer.draft).toBe("");
-    },
-  );
-
-  it("does not restore committed web drafts when their connection context is replaced", () => {
+  it("leaves composer restoration to its owner when the connection scope clears pending web context", () => {
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
     if (!pending) throw new Error("Expected pending web submission");
-    const state = chatReducer(chatStateFixture(), {
+    const state = chatReducer(chatReducer(chatStateFixture(), { type: "composer/draft-set", draft: "" }), {
       type: "web-submission/pending",
       submission: {
         id: pending.id,
         item: pending,
         targetThreadId: null,
-        phase: "committed",
+        phase: "cancellable",
       },
     } as never);
 
-    const cleared = chatReducer(state, { type: "connection/context-replaced" });
+    const cleared = chatReducer(state, { type: "connection/scoped-cleared" });
 
     expect(cleared.pendingSubmission).toBeNull();
     expect(cleared.composer.draft).toBe("");
@@ -191,11 +168,11 @@ describe("chatReducer", () => {
     ]);
   });
 
-  it("preserves last-known-good shared resources and their probes across a same-context disconnect", () => {
+  it("clears panel-scoped diagnostics on disconnect without owning shared resources", () => {
     let serverDiagnostics = createServerDiagnostics();
     serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("models", "1 model", 1));
     serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("skills", "1 skill", 2));
-    serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("apps", "1 app", 3));
+    serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("plugins", "1 plugin", 3));
     serverDiagnostics = {
       ...serverDiagnostics,
       mcpServers: [{ name: "local", startupStatus: "ready", authStatus: null, toolCount: 1, message: null }],
@@ -207,25 +184,10 @@ describe("chatReducer", () => {
         mcpServers: [],
         mcpDiagnostics: [],
         mcpError: null,
-        skills: [],
-        skillsError: null,
       },
-    };
-    const listedThreads = [thread("listed-thread")];
-    const availableModels = [{ id: "model-1" } as never];
-    const availableSkills = [{ name: "skill-1" } as never];
-    const availablePermissionProfiles = [{ id: ":workspace", description: null, allowed: true }];
-    const rateLimit = {
-      limitId: "codex",
-      limitName: "Codex",
-      primary: { usedPercent: 10, windowDurationMins: 300, resetsAt: 4 },
-      secondary: null,
-      individualLimit: null,
-      rateLimitReachedType: null,
     };
     const state = chatStateWith(chatStateFixture(), {
       connection: {
-        runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-old" },
         initializeResponse: {
           codexHome: "/old/codex-home",
           platformFamily: "unix",
@@ -233,75 +195,18 @@ describe("chatReducer", () => {
           userAgent: "codex-old",
         },
         serverDiagnostics,
-        availableModels,
-        availableSkills,
-        availablePermissionProfiles,
-        rateLimit,
       },
-      threadList: { listedThreads },
     });
 
     const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
-    expect(disconnected.connection).toMatchObject({
-      runtimeConfig: state.connection.runtimeConfig,
-      initializeResponse: state.connection.initializeResponse,
-      availableModels,
-      availableSkills,
-      availablePermissionProfiles,
-      rateLimit,
-    });
-    expect(disconnected.threadList.listedThreads).toEqual(listedThreads);
-    expect(disconnected.connection.serverDiagnostics.probes.models).toEqual(serverDiagnostics.probes.models);
-    expect(disconnected.connection.serverDiagnostics.probes.skills).toEqual(serverDiagnostics.probes.skills);
-    expect(disconnected.connection.serverDiagnostics.probes.apps.status).toBe("unknown");
+    expect(disconnected.connection.initializeResponse).toEqual(state.connection.initializeResponse);
+    expect(disconnected.connection).not.toHaveProperty("runtimeConfig");
+    expect(disconnected).not.toHaveProperty("threadList");
+    expect(disconnected.connection.serverDiagnostics.probes.models.status).toBe("unknown");
+    expect(disconnected.connection.serverDiagnostics.probes.skills.status).toBe("unknown");
+    expect(disconnected.connection.serverDiagnostics.probes.plugins.status).toBe("unknown");
     expect(disconnected.connection.serverDiagnostics.mcpServers).toEqual([]);
     expect(disconnected.connection.serverDiagnostics.toolInventory).toBeNull();
-  });
-
-  it("clears context-bound metadata and thread projections when the app-server context is replaced", () => {
-    const serverDiagnostics = diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "1 model", 1));
-    let state = chatStateWith(chatStateFixture(), {
-      connection: {
-        runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-old" },
-        initializeResponse: {
-          codexHome: "/old/codex-home",
-          platformFamily: "unix",
-          platformOs: "macos",
-          userAgent: "codex-old",
-        },
-        serverDiagnostics,
-        availableModels: [{ id: "model-1" } as never],
-        availableSkills: [{ name: "skill-1" } as never],
-        availablePermissionProfiles: [{ id: ":workspace", description: null, allowed: true }],
-        rateLimit: {
-          limitId: "codex",
-          limitName: "Codex",
-          primary: null,
-          secondary: null,
-          individualLimit: null,
-          rateLimitReachedType: null,
-        },
-      },
-      threadList: { listedThreads: [thread("listed-thread")] },
-      activeThread: {
-        id: "active-thread",
-        title: "Active thread",
-        lifetime: { kind: "persistent" },
-      },
-    });
-    state = withChatStateThreadStreamItems(state, [dialogueItem("old-context-item")]);
-
-    const replaced = chatReducer(state, { type: "connection/context-replaced" });
-    expect(replaced.connection.runtimeConfig).toBeNull();
-    expect(replaced.connection.initializeResponse).toBeNull();
-    expect(replaced.connection.availableModels).toEqual([]);
-    expect(replaced.connection.availableSkills).toEqual([]);
-    expect(replaced.connection.availablePermissionProfiles).toEqual([]);
-    expect(replaced.connection.rateLimit).toBeNull();
-    expect(replaced.connection.serverDiagnostics).toEqual(createServerDiagnostics());
-    expect(replaced.threadList.listedThreads).toEqual([]);
-    expect(replaced.panelThread).toEqual({ kind: "empty" });
-    expect(threadStreamItems(replaced.threadStream)).toEqual([]);
   });
 
   it.each([

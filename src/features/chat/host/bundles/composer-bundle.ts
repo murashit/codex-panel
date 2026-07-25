@@ -49,5 +49,26 @@ export function createChatComposerController(
     onAttachmentError: (message) => {
       new Notice(message);
     },
+    sharedResources: {
+      runtimeConfigSnapshot: () => environment.plugin.appServerQueries.runtimeConfigSnapshot(),
+      rateLimitsSnapshot: () => environment.plugin.appServerQueries.rateLimitsSnapshot(),
+      modelsSnapshot: () => environment.plugin.appServerQueries.modelsSnapshot(),
+      skillsSnapshot: () => environment.plugin.appServerQueries.skillsSnapshot(),
+      permissionProfilesSnapshot: () => environment.plugin.appServerQueries.permissionProfilesSnapshot(),
+      activeThreadsSnapshot: () => environment.plugin.threadCatalog.activeThreadsSnapshot(),
+      subscribe: (listener) => {
+        const unsubscribers = [
+          environment.plugin.appServerQueries.observeAppServerMetadataResources(() => {
+            listener();
+          }),
+          environment.plugin.threadCatalog.observeActiveThreadsResult(() => {
+            listener();
+          }),
+        ];
+        return () => {
+          for (const unsubscribe of unsubscribers) unsubscribe();
+        };
+      },
+    },
   });
 }

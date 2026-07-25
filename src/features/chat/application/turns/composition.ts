@@ -6,6 +6,7 @@ import type { ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
+import type { ChatRuntimeSharedResources } from "../runtime/snapshot";
 import type { ChatStateStore } from "../state/store";
 import type { GoalCommands } from "../threads/goal-commands";
 import type { ThreadCommands } from "../threads/thread-commands";
@@ -21,6 +22,8 @@ export interface TurnWorkflowContext {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
   connectionAvailable: () => boolean;
+  sharedResources: ChatRuntimeSharedResources;
+  listedThreads: () => readonly Thread[];
   turnPort: ChatTurnPort;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
@@ -103,6 +106,8 @@ export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: T
   const slashCommandExecutorHost: SlashCommandExecutorHost = {
     stateStore,
     connectionAvailable,
+    sharedResources: context.sharedResources,
+    listedThreads: context.listedThreads,
     referThread,
     readWebUrl,
     startNewThread: thread.startNewThread,

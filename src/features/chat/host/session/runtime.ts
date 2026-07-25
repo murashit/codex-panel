@@ -25,7 +25,6 @@ import { createThreadCommandBundle, createThreadFoundation, createThreadLifecycl
 import { createTurnBundle } from "../bundles/turn-bundle";
 import type { ChatPanelEnvironment } from "../contracts";
 import type { ChatViewDeferredTasks } from "./deferred-work";
-import { createChatPanelSharedStateBinding } from "./shared-state-binding";
 
 interface ChatPanelSessionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -106,7 +105,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     {
       stateStore,
       runtimeSettingsPort: appServer.runtimeSettings,
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, environment.plugin.appServerQueries),
       collaborationModeLabel: () => {
         const runtime = stateStore.getState().runtime;
         return formatCollaborationModeLabel(
@@ -122,11 +121,12 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     connected: () => connection.isConnected(),
     configuredCommand: () => environment.plugin.appServerContext.codexPath,
     vaultPath: () => environment.plugin.appServerContext.vaultPath,
+    sharedResources: environment.plugin.appServerQueries,
   });
   const threadStart = createThreadStartCommand({
     stateStore,
     threadStartPort: appServer.threadStart,
-    runtimeSnapshotForState: runtimeSnapshotForChatState,
+    runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, environment.plugin.appServerQueries),
     recordStartedThread: (thread) => {
       environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });
     },
@@ -236,13 +236,19 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       throw error;
     }
   };
-  const sharedState = createChatPanelSharedStateBinding({
-    stateStore,
-    threadCatalog: environment.plugin.threadCatalog,
-    appServerQueries: environment.plugin.appServerQueries,
-    applyAppServerMetadataResource: connectionBundle.sharedStateEffects.applyAppServerMetadataResource,
-    refreshTabHeader,
-  });
+  let unsubscribeSharedThreads: (() => void) | null = null;
+  const threadCatalogObserver = {
+    subscribe: () => {
+      unsubscribeSharedThreads?.();
+      unsubscribeSharedThreads = environment.plugin.threadCatalog.observeActiveThreadsResult(() => {
+        refreshTabHeader();
+      });
+    },
+    unsubscribe: () => {
+      unsubscribeSharedThreads?.();
+      unsubscribeSharedThreads = null;
+    },
+  };
 
   const commands = {
     invalidateThreadWork: () => {
@@ -271,15 +277,15 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     shell,
     commands,
-    runtime: {
-      sharedState,
+    observers: {
+      threadCatalog: threadCatalogObserver,
     },
     dispose: async (unmount: () => void): Promise<void> => {
       connection.disconnect();
       connectionCoordinator.invalidate();
       commands.invalidateThreadWork();
       host.deferredTasks.clearAll();
-      sharedState.unsubscribe();
+      threadCatalogObserver.unsubscribe();
       connectionBundle.invalidateConnectionScope();
       composerController.dispose();
       host.threadStreamScrollBinding.dispose();

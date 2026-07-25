@@ -6,7 +6,7 @@ import { modelMetadataFromCatalogModels } from "../../../../src/app-server/proto
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
-import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../../src/domain/server/metadata";
+import type { SharedServerMetadataResource } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadGoalCoordinator } from "../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
@@ -22,6 +22,13 @@ import { chatPanelSettingsAccess } from "../support/settings";
 export interface TestCodexChatHost extends CodexChatHost {
   readonly settingsSource: CodexPanelSettings;
   receiveActiveThreads(threads: readonly Thread[]): void;
+}
+interface SharedServerMetadataFixture {
+  runtimeConfig: ReturnType<typeof runtimeConfigFixture> | null;
+  availableSkills: NonNullable<ReturnType<CodexChatHost["appServerQueries"]["skillsSnapshot"]>>;
+  availablePermissionProfiles: NonNullable<ReturnType<CodexChatHost["appServerQueries"]["permissionProfilesSnapshot"]>>;
+  rateLimit: ReturnType<CodexChatHost["appServerQueries"]["rateLimitsSnapshot"]>;
+  serverDiagnostics: ReturnType<CodexChatHost["appServerQueries"]["metadataDiagnosticsSnapshot"]>;
 }
 let CodexChatView: typeof import("../../../../src/features/chat/host/view.obsidian")["CodexChatView"];
 interface TrackedView {
@@ -415,7 +422,7 @@ export interface ChatHostFixtureOverrides {
   applyThreadFact?: CodexChatHost["threadFacts"]["apply"];
   refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
   activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
-  appServerMetadataSnapshot?: CodexChatHost["appServerQueries"]["appServerMetadataSnapshot"];
+  sharedMetadataSnapshot?: () => SharedServerMetadataFixture | null;
   modelsSnapshot?: CodexChatHost["appServerQueries"]["modelsSnapshot"];
   fetchModels?: CodexChatHost["appServerQueries"]["fetchModels"];
   refreshModels?: CodexChatHost["appServerQueries"]["refreshModels"];
@@ -427,7 +434,7 @@ export interface ChatHostFixtureOverrides {
 
 export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   let activeThreads = overrides.activeThreadsSnapshot?.() ?? null;
-  let metadata = overrides.appServerMetadataSnapshot?.() ?? null;
+  let metadata = overrides.sharedMetadataSnapshot?.() ?? null;
   let models = overrides.modelsSnapshot?.() ?? null;
   const activeThreadResultListeners = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
   const metadataResourceListeners = new Set<(resource: SharedServerMetadataResource) => void>();
@@ -439,7 +446,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     ...overrides.settings,
   };
   const vaultPath = overrides.vaultPath ?? "/vault";
-  const applyMetadataToCache = (nextMetadata: SharedServerMetadata): SharedServerMetadata => {
+  const applyMetadataToCache = (nextMetadata: SharedServerMetadataFixture): SharedServerMetadataFixture => {
     metadata = nextMetadata;
     const resources: SharedServerMetadataResource[] = [
       { id: "runtimeConfig", value: nextMetadata.runtimeConfig ?? undefined },
@@ -464,7 +471,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     }
     return nextMetadata;
   };
-  const loadAppServerMetadata = async (reloadSkills = false): Promise<SharedServerMetadata | null> => {
+  const loadAppServerMetadata = async (reloadSkills = false): Promise<SharedServerMetadataFixture | null> => {
     const client = connectionMock.state.client as TestAppServerClient | null;
     if (!client || !connectionMock.state.connected) return null;
     const connectionStillCurrent = () => connectionMock.state.client === client && connectionMock.state.connected;
@@ -576,7 +583,11 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
     },
     appServerQueries: {
-      appServerMetadataSnapshot: overrides.appServerMetadataSnapshot ?? vi.fn(() => metadata),
+      runtimeConfigSnapshot: vi.fn(() => metadata?.runtimeConfig ?? null),
+      skillsSnapshot: vi.fn(() => metadata?.availableSkills ?? null),
+      permissionProfilesSnapshot: vi.fn(() => metadata?.availablePermissionProfiles ?? null),
+      rateLimitsSnapshot: vi.fn(() => metadata?.rateLimit),
+      metadataDiagnosticsSnapshot: vi.fn(() => metadata?.serverDiagnostics ?? createServerDiagnostics()),
       refreshAppServerMetadata:
         overrides.refreshAppServerMetadata ??
         vi.fn(async () => {

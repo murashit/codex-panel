@@ -5,7 +5,7 @@ import * as shortLivedClient from "../../../../src/app-server/connection/short-l
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/chat/input";
-import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
+import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
 import { deferred } from "../../../support/async";
@@ -601,15 +601,11 @@ describe("chat app-server adapters", () => {
     const snapshot = await adapter.readServerDiagnostics({
       threadId: "thread",
       initialDiagnostics: createServerDiagnostics(),
-      cachedSkills: [],
-      cachedSkillsProbe: diagnosticProbeOk("skills", "0 skills", 1),
-      forceResourceProbes: true,
-      appServerMetadataSnapshot: false,
     });
 
-    expect(snapshot?.resourceProbes.map((probe) => probe.id)).toEqual(["models", "rateLimits"]);
-    expect(request).toHaveBeenCalledWith("model/list", { includeHidden: false, cursor: null, limit: 100 });
-    expect(request).toHaveBeenCalledWith("account/rateLimits/read", undefined);
+    expect(snapshot?.toolInventory.inventory).toBeDefined();
+    expect(request).not.toHaveBeenCalledWith("model/list", expect.anything());
+    expect(request).not.toHaveBeenCalledWith("account/rateLimits/read", expect.anything());
     expect(request).toHaveBeenCalledWith("mcpServerStatus/list", {
       detail: "toolsAndAuthOnly",
       cursor: null,
@@ -619,7 +615,7 @@ describe("chat app-server adapters", () => {
     expect(request).not.toHaveBeenCalledWith("skills/list", expect.anything());
   });
 
-  it("reads skills for diagnostics tool inventory when no cached skills are provided", async () => {
+  it("leaves shared skills out of panel diagnostics inventory", async () => {
     const request = vi.fn((method: string) => {
       switch (method) {
         case "plugin/installed":
@@ -640,11 +636,9 @@ describe("chat app-server adapters", () => {
     await adapter.readServerDiagnostics({
       threadId: null,
       initialDiagnostics: createServerDiagnostics(),
-      forceResourceProbes: false,
-      appServerMetadataSnapshot: true,
     });
 
-    expect(request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: false });
+    expect(request).not.toHaveBeenCalledWith("skills/list", expect.anything());
   });
 
   it("uses a short-lived client for clientAccess mutations that reject server requests", async () => {

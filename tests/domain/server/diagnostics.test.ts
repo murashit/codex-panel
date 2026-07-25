@@ -28,15 +28,7 @@ describe("server diagnostics", () => {
   it("creates generic capability probe defaults", () => {
     const diagnostics = createServerDiagnostics();
 
-    expect(Object.keys(diagnostics.probes)).toEqual([
-      "models",
-      "skills",
-      "permissionProfiles",
-      "apps",
-      "plugins",
-      "rateLimits",
-      "mcpServers",
-    ]);
+    expect(Object.keys(diagnostics.probes)).toEqual(["models", "skills", "permissionProfiles", "plugins", "rateLimits", "mcpServers"]);
     expect(diagnostics.probes.models).toMatchObject({
       id: "models",
       status: "unknown",

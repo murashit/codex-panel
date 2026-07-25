@@ -5,6 +5,7 @@ import type { ChatStateStore } from "../state/store";
 
 export interface AutoTitleCoordinatorHost {
   stateStore: ChatStateStore;
+  threadById(threadId: string): Thread | undefined;
   completedTurnTitleContext(turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null): ThreadTitleContext | null;
   submitTitleWork(threadId: string, context: ThreadTitleContext): void;
 }
@@ -17,9 +18,7 @@ export interface AutoTitleCoordinator {
 export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): AutoTitleCoordinator {
   let activeThreadHadTurns = false;
 
-  const thread = (threadId: string): Thread | undefined =>
-    host.stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
-  const threadHasTitle = (threadId: string): boolean => Boolean(thread(threadId)?.name?.trim());
+  const threadHasTitle = (threadId: string): boolean => Boolean(host.threadById(threadId)?.name?.trim());
 
   return {
     resetThreadTurnPresence(hadTurns) {

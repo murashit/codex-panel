@@ -1,5 +1,5 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import type { Diagnostics } from "../../../../domain/server/diagnostics";
+import type { DiagnosticProbeResult, Diagnostics } from "../../../../domain/server/diagnostics";
 import type { McpServerDiagnostic, McpServerStatusSummary } from "../../../../domain/server/mcp-status";
 import type { ToolInventoryPlugin, ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../../ui/toolbar-model";
@@ -31,19 +31,23 @@ function toolInventorySections(inventory: ToolInventorySnapshot | null): Diagnos
   return toolInventorySnapshotSections(inventory);
 }
 
-export function toolInventoryDiagnosticSections(diagnostics: Pick<Diagnostics, "toolInventory" | "mcpServers">): DiagnosticSection[] {
-  if (!diagnostics.toolInventory) return toolInventorySections(null);
-  return toolInventorySnapshotSections({
-    ...diagnostics.toolInventory,
-    mcpDiagnostics: diagnostics.mcpServers,
-  });
+export function toolInventoryDiagnosticSections(
+  diagnostics: Pick<Diagnostics, "toolInventory" | "mcpServers">,
+  skills: { value: readonly SkillMetadata[]; probe: DiagnosticProbeResult },
+): DiagnosticSection[] {
+  const inventorySections = diagnostics.toolInventory
+    ? toolInventorySnapshotSections({
+        ...diagnostics.toolInventory,
+        mcpDiagnostics: diagnostics.mcpServers,
+      })
+    : toolInventorySections(null);
+  return [...inventorySections, { title: "Skills", rows: skillRows(skills.value, skills.probe) }];
 }
 
 function toolInventorySnapshotSections(inventory: ToolInventorySnapshot): DiagnosticSection[] {
   return [
     { title: "Plugins", rows: pluginRows(inventory) },
     { title: TOOL_PROVIDERS_LABEL, rows: mcpToolProviderRows(inventory) },
-    { title: "Skills", rows: skillRows(inventory) },
   ];
 }
 
@@ -131,13 +135,13 @@ function mcpToolProviderLevel(
   return "normal";
 }
 
-function skillRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
-  if (inventory.skillsError) return [{ label: "Skills", value: inventory.skillsError, level: "error" }];
-  if (!inventory.skills) return [{ label: "Skills", value: "not loaded", level: "warning" }];
+function skillRows(skills: readonly SkillMetadata[], probe: DiagnosticProbeResult): DiagnosticRow[] {
+  if (probe.status === "failed") return [{ label: "Skills", value: probe.message ?? "unavailable", level: "error" }];
+  if (probe.status === "unknown") return [{ label: "Skills", value: "not loaded", level: "warning" }];
 
   const skillsByProvenance = new Map<string, Set<string>>();
   const provenanceRanks = new Map<string, SkillProvenanceRank>();
-  for (const skill of inventory.skills) {
+  for (const skill of skills) {
     if (!skill.enabled) continue;
     const provenance = skillProvenance(skill);
     const skills = skillsByProvenance.get(provenance.label) ?? new Set<string>();

@@ -181,7 +181,7 @@ describe("CodexChatView workspace restoration", () => {
     const view = await chatView({
       host: chatHost({
         activeThreadsSnapshot: vi.fn(() => [cachedThread] as never[]),
-        appServerMetadataSnapshot: vi.fn(
+        sharedMetadataSnapshot: vi.fn(
           () =>
             ({
               runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-cached" },

@@ -6,7 +6,6 @@ import {
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { deferred } from "../../../../support/async";
-import { runtimeConfigFixture } from "../../../../support/runtime-config";
 
 type ChatConnectionPort = ChatConnectionCoordinatorHost["connection"];
 type ChatConnectionMetadataEffects = ChatConnectionCoordinatorHost["metadataEffects"];
@@ -175,14 +174,32 @@ describe("ChatConnectionCoordinator", () => {
     expect(host.notifyConnectionFailed).not.toHaveBeenCalled();
   });
 
-  it("refreshes metadata before server diagnostics", async () => {
+  it("refreshes shared metadata and panel diagnostics independently", async () => {
     const { coordinator, host, refreshAppServerMetadata, refreshServerDiagnostics } = createCoordinatorHarness({ connected: true });
 
     await coordinator.refreshDiagnostics();
 
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
-    expect(refreshServerDiagnostics).toHaveBeenCalledWith({ appServerMetadataSnapshot: true });
+    expect(refreshServerDiagnostics).toHaveBeenCalledWith();
+  });
+
+  it("still refreshes panel diagnostics when shared metadata refresh fails", async () => {
+    const { coordinator, refreshAppServerMetadata, refreshServerDiagnostics } = createCoordinatorHarness({ connected: true });
+    const diagnostics = deferred<void>();
+    refreshAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));
+    refreshServerDiagnostics.mockReturnValueOnce(diagnostics.promise);
+
+    const refreshing = coordinator.refreshDiagnostics();
+    const rejected = vi.fn();
+    void refreshing.catch(rejected);
+    await Promise.resolve();
+
+    expect(refreshServerDiagnostics).toHaveBeenCalledOnce();
+    expect(rejected).not.toHaveBeenCalled();
+
+    diagnostics.resolve();
+    await expect(refreshing).rejects.toThrow("config unavailable");
   });
 
   it("refreshes active threads without refreshing metadata", async () => {
@@ -209,18 +226,7 @@ describe("ChatConnectionCoordinator", () => {
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {
     const { coordinator, host, stateStore } = createCoordinatorHarness({ connected: true });
     const initializeResponse = { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" } as const;
-    const runtimeConfig = { ...runtimeConfigFixture(), model: "gpt-5.1" };
     stateStore.dispatch({ type: "connection/initialized", initializeResponse });
-    stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: [{ id: "thread-1", title: "Thread 1" } as never],
-    });
-    stateStore.dispatch({
-      type: "connection/metadata-applied",
-      availableModels: [{ id: "model-1" } as never],
-      availableSkills: [{ name: "skill-1" } as never],
-      runtimeConfig,
-    });
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -253,17 +259,12 @@ describe("ChatConnectionCoordinator", () => {
     });
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(stateStore.getState()).toMatchObject({
-      threadList: {
-        listedThreads: [{ id: "thread-1", title: "Thread 1" }],
-      },
       panelThread: { kind: "awaiting-resume", threadId: "thread-1", fallbackTitle: "Thread 1" },
       connection: {
-        availableModels: [{ id: "model-1" }],
-        availableSkills: [{ name: "skill-1" }],
-        runtimeConfig,
         initializeResponse,
       },
     });
+    expect(stateStore.getState()).not.toHaveProperty("threadList");
   });
 
   it("explains missing configured command failures", async () => {

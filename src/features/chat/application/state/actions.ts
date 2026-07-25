@@ -7,7 +7,7 @@ import {
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import { isSubagentThread, type Thread, upsertThread } from "../../../../domain/threads/model";
+import type { Thread } from "../../../../domain/threads/model";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
@@ -15,32 +15,10 @@ import type { PendingTurnStart } from "../turns/turn-state";
 
 interface ResumedThreadActionParams {
   response: ThreadActivationSnapshot;
-  listedThreads?: readonly Thread[];
   items?: readonly ThreadStreamItem[];
   preserveRequestedRuntimeSettings?: boolean;
   serviceTierKnown?: boolean;
   preservePendingSubmissionId?: string;
-  expectedPanelTargetRevision?: number;
-}
-
-interface ResumedThreadFromActiveRuntimeParams {
-  thread: Thread;
-  runtime: Pick<
-    ActiveThreadRuntimeState,
-    | "model"
-    | "reasoningEffort"
-    | "serviceTier"
-    | "serviceTierKnown"
-    | "approvalsReviewer"
-    | "approvalPolicyKnown"
-    | "sandboxPolicyKnown"
-    | "permissionProfileKnown"
-    | "approvalPolicy"
-    | "sandboxPolicy"
-    | "activePermissionProfile"
-  >;
-  listedThreads?: readonly Thread[];
-  items?: readonly ThreadStreamItem[];
   expectedPanelTargetRevision?: number;
 }
 
@@ -54,7 +32,6 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState, Runti
   approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
   items?: readonly ThreadStreamItem[];
   status?: string;
-  listedThreads?: readonly Thread[];
   preserveRequestedRuntimeSettings?: boolean;
   preservePendingSubmissionId?: string;
   expectedPanelTargetRevision?: number;
@@ -89,10 +66,6 @@ export interface ClearDisconnectedConnectionStateAction {
   type: "connection/scoped-cleared";
 }
 
-export interface ReplaceConnectionContextAction {
-  type: "connection/context-replaced";
-}
-
 export interface ClearLocalTurnAction {
   type: "turn/scoped-cleared";
 }
@@ -100,15 +73,6 @@ export interface ClearLocalTurnAction {
 export interface ClearActiveThreadAction {
   type: "active-thread/cleared";
   expectedPanelTargetRevision?: number;
-}
-
-export interface ThreadListAppliedAction {
-  type: "thread-list/applied";
-  threads: readonly Thread[];
-  hasMore?: boolean;
-  isFetching?: boolean;
-  isFetchingNextPage?: boolean;
-  error?: string | null;
 }
 
 export interface DisclosureSetAction {
@@ -136,28 +100,6 @@ export interface TurnStartFailedAction {
   items: readonly ThreadStreamItem[];
 }
 
-export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromActiveRuntimeParams): ActiveThreadResumedAction {
-  return resumedThreadAction({
-    response: {
-      thread: params.thread,
-      approvalPolicyKnown: params.runtime.approvalPolicyKnown,
-      sandboxPolicyKnown: params.runtime.sandboxPolicyKnown,
-      permissionProfileKnown: params.runtime.permissionProfileKnown,
-      model: params.runtime.model,
-      reasoningEffort: params.runtime.reasoningEffort,
-      serviceTier: params.runtime.serviceTier,
-      approvalsReviewer: params.runtime.approvalsReviewer,
-      approvalPolicy: params.runtime.approvalPolicy,
-      sandboxPolicy: params.runtime.sandboxPolicy,
-      activePermissionProfile: params.runtime.activePermissionProfile,
-    },
-    serviceTierKnown: params.runtime.serviceTierKnown,
-    ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
-    ...(params.items ? { items: params.items } : {}),
-    ...(params.expectedPanelTargetRevision === undefined ? {} : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
-  });
-}
-
 export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
   const { response } = params;
   const permissions = runtimePermissionStateOrDefault(response);
@@ -175,9 +117,6 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     ...permissions,
     lifetime: { kind: "persistent" },
     ...(params.items ? { items: params.items } : {}),
-    ...(params.listedThreads
-      ? { listedThreads: isSubagentThread(response.thread) ? params.listedThreads : upsertThread(params.listedThreads, response.thread) }
-      : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
     ...(params.preservePendingSubmissionId ? { preservePendingSubmissionId: params.preservePendingSubmissionId } : {}),
     ...(params.expectedPanelTargetRevision === undefined ? {} : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),

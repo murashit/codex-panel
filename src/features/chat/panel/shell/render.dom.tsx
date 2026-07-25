@@ -2,6 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { useMemo } from "preact/hooks";
 import { listenDomEvent } from "../../../../shared/dom/events.dom";
 import { renderUiRoot, unmountUiRoot } from "../../../../shared/dom/preact-root.dom";
+import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
 import type { ChatStateStore } from "../../application/state/store";
 import { ComposerShell } from "../../ui/composer";
 import { GoalPanel } from "../../ui/goal";
@@ -13,7 +14,8 @@ import { type ChatPanelGoalDependencies, projectChatPanelGoal } from "../goal/vi
 import { type ChatThreadStreamDependencies, projectThreadStream } from "../thread-stream/view-projection";
 import { type ChatPanelToolbarDependencies, projectChatPanelToolbar } from "../toolbar/view-projection";
 import { selectChatPanelComposer, selectChatPanelGoal, selectChatPanelThreadStream, selectChatPanelToolbar } from "./selectors";
-import { useChatSelector } from "./state-selector";
+import { type ChatSharedResourceQueries, type ChatSharedResources, useChatSharedResources } from "./shared-resources";
+import { useChatSelector, useComposedChatSelector } from "./state-selector";
 
 export interface ChatPanelShellParts {
   toolbar: {
@@ -33,6 +35,8 @@ export interface ChatPanelShellParts {
 
 interface ChatPanelShellProps {
   stateStore: ChatStateStore;
+  appServerQueries: ChatSharedResourceQueries;
+  threadCatalog: ThreadCatalogPaginatedActiveReader;
   showToolbar: boolean;
   parts: ChatPanelShellParts;
 }
@@ -99,21 +103,32 @@ function shellRegion(container: HTMLElement, region: string): HTMLElement | null
   return container.querySelector<HTMLElement>(`:scope > [data-codex-panel-shell-region="${region}"]`);
 }
 
-function ChatPanelShell({ stateStore, showToolbar, parts }: ChatPanelShellProps): UiNode {
+function ChatPanelShell({ stateStore, appServerQueries, threadCatalog, showToolbar, parts }: ChatPanelShellProps): UiNode {
+  const shared = useChatSharedResources(appServerQueries, threadCatalog);
   return (
     <>
       {showToolbar ? (
         <div key="toolbar" className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
-          <ChatPanelToolbarRegion stateStore={stateStore} dependencies={parts.toolbar.dependencies} actions={parts.toolbar.actions} />
+          <ChatPanelToolbarRegion
+            stateStore={stateStore}
+            shared={shared}
+            dependencies={parts.toolbar.dependencies}
+            actions={parts.toolbar.actions}
+          />
         </div>
       ) : null}
       <div key="body" className="codex-panel__body" data-codex-panel-shell-region="body">
         <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
           <ChatPanelGoalRegion stateStore={stateStore} dependencies={parts.goal} />
         </div>
-        <ChatPanelThreadStreamRegion stateStore={stateStore} dependencies={parts.threadStream} />
+        <ChatPanelThreadStreamRegion stateStore={stateStore} shared={shared} dependencies={parts.threadStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
-          <ChatPanelComposerRegion stateStore={stateStore} presenter={parts.composer.presenter} actions={parts.composer.actions} />
+          <ChatPanelComposerRegion
+            stateStore={stateStore}
+            shared={shared}
+            presenter={parts.composer.presenter}
+            actions={parts.composer.actions}
+          />
         </div>
       </div>
     </>
@@ -122,14 +137,16 @@ function ChatPanelShell({ stateStore, showToolbar, parts }: ChatPanelShellProps)
 
 function ChatPanelToolbarRegion({
   stateStore,
+  shared,
   dependencies,
   actions,
 }: {
   stateStore: ChatStateStore;
+  shared: ChatSharedResources;
   dependencies: ChatPanelToolbarDependencies;
   actions: ToolbarActions;
 }): UiNode {
-  const model = useChatSelector(stateStore, selectChatPanelToolbar);
+  const model = useComposedChatSelector(stateStore, shared, selectChatPanelToolbar);
   return <Toolbar model={projectChatPanelToolbar(model, dependencies)} actions={actions} />;
 }
 
@@ -146,12 +163,14 @@ function ChatPanelGoalRegion({
 
 function ChatPanelThreadStreamRegion({
   stateStore,
+  shared,
   dependencies,
 }: {
   stateStore: ChatStateStore;
+  shared: ChatSharedResources;
   dependencies: ChatPanelShellParts["threadStream"];
 }): UiNode {
-  const model = useChatSelector(stateStore, selectChatPanelThreadStream);
+  const model = useComposedChatSelector(stateStore, shared, selectChatPanelThreadStream);
   return useMemo(() => {
     const projection = projectThreadStream(model, dependencies.context);
     return (
@@ -169,14 +188,16 @@ function ChatPanelThreadStreamRegion({
 
 function ChatPanelComposerRegion({
   stateStore,
+  shared,
   presenter,
   actions,
 }: {
   stateStore: ChatStateStore;
+  shared: ChatSharedResources;
   presenter: ChatPanelComposerPresenter;
   actions: ChatPanelComposerActions;
 }): UiNode {
-  const model = useChatSelector(stateStore, selectChatPanelComposer);
+  const model = useComposedChatSelector(stateStore, shared, selectChatPanelComposer);
   return useMemo(() => <ComposerShell {...presenter.renderState(model, actions)} />, [model, presenter, actions]);
 }
 

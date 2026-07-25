@@ -36,7 +36,6 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
       },
     },
   });
-  stateStore.dispatch({ type: "thread-list/applied", threads: [{ id: "thread" } as never] });
   const host: ChatReconnectCommandHost = {
     stateStore,
     resetConnectionScope: vi.fn(),
@@ -67,7 +66,7 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
 }
 
 describe("createReconnectPanelCommand", () => {
-  it("resets local connection work before reconnecting and retains shared thread projections", async () => {
+  it("resets local connection work before reconnecting without owning shared thread projections", async () => {
     const { host, stateStore, reconnect } = createHost();
 
     await expect(reconnect()).resolves.toBe(true);
@@ -76,13 +75,7 @@ describe("createReconnectPanelCommand", () => {
     expect(host.resetConnectionScope).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
-    expect(stateStore.getState().threadList).toEqual({
-      listedThreads: [{ id: "thread" }],
-      hasMore: false,
-      isFetching: false,
-      isFetchingNextPage: false,
-      error: null,
-    });
+    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
   });

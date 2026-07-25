@@ -80,6 +80,12 @@ describe("createTurnWorkflowCommands", () => {
     const actions = createTurnWorkflowCommands(
       {
         stateStore,
+        sharedResources: {
+          runtimeConfigSnapshot: () => null,
+          rateLimitsSnapshot: () => undefined,
+          modelsSnapshot: () => null,
+        },
+        listedThreads: () => [],
         localItemIds: createLocalIdSource(),
         connectionAvailable: () => true,
         turnPort: {

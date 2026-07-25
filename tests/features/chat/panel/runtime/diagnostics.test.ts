@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-
+import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import {
   createServerDiagnostics,
   diagnosticProbeError,
@@ -64,6 +64,44 @@ describe("connection diagnostics", () => {
   });
 
   it("summarizes usable Codex capabilities and groups skills by provenance", () => {
+    const skills = [
+      {
+        name: "codex-panel-local",
+        description: "Local panel skill",
+        path: "/Users/showhey/Repos/github.com/murashit/codex-panel/.codex/skills/codex-panel-local/SKILL.md",
+        enabled: true,
+      },
+      {
+        name: "jujutsu-agent-workflow",
+        description: "Personal skill",
+        path: "/Users/showhey/.agents/skills/jujutsu-agent-workflow/SKILL.md",
+        enabled: true,
+      },
+      {
+        name: "openai-docs",
+        description: "System skill",
+        path: "/Users/showhey/.codex/skills/.system/openai-docs/SKILL.md",
+        enabled: true,
+      },
+      {
+        name: "github:gh-fix-ci",
+        description: "GitHub CI skill",
+        path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/gh-fix-ci/SKILL.md",
+        enabled: true,
+      },
+      {
+        name: "github:github",
+        description: "GitHub skill",
+        path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/github/SKILL.md",
+        enabled: true,
+      },
+      {
+        name: "gmail:gmail",
+        description: "Disabled skill",
+        path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/gmail/0.1.3/skills/gmail/SKILL.md",
+        enabled: false,
+      },
+    ] satisfies readonly SkillMetadata[];
     const inventory: ToolInventorySnapshot = {
       checkedAt: 1,
       plugins: [
@@ -152,48 +190,12 @@ describe("connection diagnostics", () => {
         },
       ],
       mcpError: null,
-      skills: [
-        {
-          name: "codex-panel-local",
-          description: "Local panel skill",
-          path: "/Users/showhey/Repos/github.com/murashit/codex-panel/.codex/skills/codex-panel-local/SKILL.md",
-          enabled: true,
-        },
-        {
-          name: "jujutsu-agent-workflow",
-          description: "Personal skill",
-          path: "/Users/showhey/.agents/skills/jujutsu-agent-workflow/SKILL.md",
-          enabled: true,
-        },
-        {
-          name: "openai-docs",
-          description: "System skill",
-          path: "/Users/showhey/.codex/skills/.system/openai-docs/SKILL.md",
-          enabled: true,
-        },
-        {
-          name: "github:gh-fix-ci",
-          description: "GitHub CI skill",
-          path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/gh-fix-ci/SKILL.md",
-          enabled: true,
-        },
-        {
-          name: "github:github",
-          description: "GitHub skill",
-          path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/github/SKILL.md",
-          enabled: true,
-        },
-        {
-          name: "gmail:gmail",
-          description: "Disabled skill",
-          path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/gmail/0.1.3/skills/gmail/SKILL.md",
-          enabled: false,
-        },
-      ],
-      skillsError: null,
     };
 
-    const sections = toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory));
+    const sections = toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory), {
+      value: skills,
+      probe: diagnosticProbeOk("skills", "6 skills", 1),
+    });
     const pluginRows = sections.find((section) => section.title === "Plugins")?.rows ?? [];
     const toolProviderRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
     const skillRows = sections.find((section) => section.title === "Skills")?.rows ?? [];
@@ -232,8 +234,6 @@ describe("connection diagnostics", () => {
       ],
       mcpDiagnostics: [],
       mcpError: null,
-      skills: [],
-      skillsError: null,
     };
     let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",
@@ -247,7 +247,11 @@ describe("connection diagnostics", () => {
       toolInventory: inventory,
     };
 
-    const mcpRows = toolInventoryDiagnosticSections(diagnostics).find((section) => section.title === "Tool providers")?.rows ?? [];
+    const mcpRows =
+      toolInventoryDiagnosticSections(diagnostics, {
+        value: [],
+        probe: diagnosticProbeOk("skills", "0 skills", 1),
+      }).find((section) => section.title === "Tool providers")?.rows ?? [];
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, ready, auth oAuth, 1 tool, 0 resources"]);
   });
@@ -269,13 +273,13 @@ describe("connection diagnostics", () => {
         },
       ],
       mcpError: null,
-      skills: [],
-      skillsError: null,
     };
 
     const mcpRows =
-      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory)).find((section) => section.title === "Tool providers")
-        ?.rows ?? [];
+      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory), {
+        value: [],
+        probe: diagnosticProbeOk("skills", "0 skills", 1),
+      }).find((section) => section.title === "Tool providers")?.rows ?? [];
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "figma: MCP server, failed, auth unknown, tools unknown, command not found",

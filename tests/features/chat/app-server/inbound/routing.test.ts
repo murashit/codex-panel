@@ -60,7 +60,7 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, "inactive", { activeThreadId: "thread-active", activeTurnId: "turn-other" });
   });
 
-  it("routes thread-started notifications as global thread catalog events", () => {
+  it("routes thread-started notifications for lifecycle activity", () => {
     const notification = {
       method: "thread/started",
       params: { thread: threadSnapshot("thread-active") },

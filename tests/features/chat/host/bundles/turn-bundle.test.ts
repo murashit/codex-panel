@@ -9,7 +9,7 @@ describe("createTurnBundle", () => {
   it("uses cached tool inventory for /tools without refreshing diagnostics", async () => {
     const stateStore = createChatStateStore();
     stateStore.dispatch({
-      type: "connection/metadata-applied",
+      type: "connection/diagnostics-applied",
       serverDiagnostics: diagnosticsWithToolInventory(createServerDiagnostics(), toolInventory()),
     });
     const fixture = turnBundleFixture({ stateStore });
@@ -32,6 +32,26 @@ describe("createTurnBundle", () => {
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
   });
 
+  it("shows refreshed tool inventory when only shared metadata refresh fails", async () => {
+    const stateStore = createChatStateStore();
+    const fixture = turnBundleFixture({ stateStore });
+    fixture.refreshDiagnostics.mockImplementationOnce(async () => {
+      stateStore.dispatch({
+        type: "connection/diagnostics-applied",
+        serverDiagnostics: diagnosticsWithToolInventory(createServerDiagnostics(), toolInventory()),
+      });
+      throw new Error("config unavailable");
+    });
+
+    await fixture.bundle.turnCommands.composerSubmit.submit();
+
+    expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
+    expect(fixture.status.addStructuredSystemMessage).toHaveBeenCalledWith("Codex capabilities", [
+      { title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] },
+    ]);
+    expect(fixture.status.addSystemMessage).not.toHaveBeenCalledWith("config unavailable");
+  });
+
   it("passes the callable thread reference port through the bundle", async () => {
     const stateStore = createChatStateStore();
     const thread = {
@@ -44,12 +64,12 @@ describe("createTurnBundle", () => {
       canAcceptDirectInput: null,
       provenance: { kind: "interactive" as const },
     };
-    stateStore.dispatch({ type: "thread-list/applied", threads: [thread] });
     const referThread = vi.fn().mockResolvedValue(null);
     const fixture = turnBundleFixture({
       stateStore,
       draft: "/refer Other summarize",
       referThread,
+      threads: [thread],
     });
 
     await fixture.bundle.turnCommands.composerSubmit.submit();
@@ -59,7 +79,12 @@ describe("createTurnBundle", () => {
 });
 
 function turnBundleFixture(
-  options: { stateStore?: ReturnType<typeof createChatStateStore>; draft?: string; referThread?: ReturnType<typeof vi.fn> } = {},
+  options: {
+    stateStore?: ReturnType<typeof createChatStateStore>;
+    draft?: string;
+    referThread?: ReturnType<typeof vi.fn>;
+    threads?: readonly import("../../../../../src/domain/threads/model").Thread[];
+  } = {},
 ) {
   const stateStore = options.stateStore ?? createChatStateStore();
   const draft = options.draft ?? "/tools";
@@ -80,6 +105,18 @@ function turnBundleFixture(
   const refreshDiagnostics = vi.fn().mockResolvedValue(undefined);
   const bundle = createTurnBundle(
     {
+      environment: {
+        plugin: {
+          appServerQueries: {
+            runtimeConfigSnapshot: () => null,
+            rateLimitsSnapshot: () => undefined,
+            modelsSnapshot: () => null,
+          },
+          threadCatalog: {
+            activeThreadsSnapshot: () => options.threads ?? null,
+          },
+        },
+      },
       stateStore,
       threadStreamScrollBinding: {
         showLatest: vi.fn(),
@@ -147,7 +184,5 @@ function toolInventory(): ToolInventorySnapshot {
     mcpServers: [],
     mcpDiagnostics: [],
     mcpError: null,
-    skills: [],
-    skillsError: null,
   };
 }

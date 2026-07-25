@@ -20,7 +20,7 @@ export type ChatInboundEffect =
       turnId: string;
       completedTurnTranscriptSummary: TurnCompletionTranscriptSummary;
     }
-  | { type: "refresh-server-diagnostics"; forceResourceProbes?: boolean }
+  | { type: "refresh-server-diagnostics" }
   | { type: "handle-app-server-resource-fact"; fact: AppServerResourceFact }
   | { type: "apply-thread-fact"; fact: ThreadFact };
 
@@ -271,7 +271,7 @@ function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatI
     case "app/list/updated":
       return effectPlan({ type: "refresh-server-diagnostics" });
     case "mcpServer/oauthLogin/completed":
-      return effectPlan({ type: "refresh-server-diagnostics", forceResourceProbes: true });
+      return effectPlan({ type: "refresh-server-diagnostics" });
     case "mcpServer/startupStatus/updated":
       return effectPlan({
         type: "handle-app-server-resource-fact",
@@ -337,19 +337,7 @@ function threadStartedPlan(
     thread.provenance.kind === "subagent" && thread.provenance.parentThreadId === activeThreadId(state) && activeParentTurnId
       ? [{ type: "subagent-activity/tracked", threadId: thread.id, parentTurnId: activeParentTurnId }]
       : [];
-  const effects: ChatInboundEffect[] =
-    notification.params.thread.ephemeral || notification.params.thread.forkedFromId || thread.provenance.kind === "subagent"
-      ? []
-      : [
-          {
-            type: "apply-thread-fact",
-            fact: {
-              type: "thread-upserted",
-              thread,
-            },
-          },
-        ];
-  return { actions: trackAction, effects };
+  return { actions: trackAction, effects: [] };
 }
 
 function threadGoalPlan(

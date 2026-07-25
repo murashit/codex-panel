@@ -26,10 +26,6 @@ export type ThreadProvenance =
       readonly agentRole: string | null;
     };
 
-export function isSubagentThread(thread: Thread): boolean {
-  return thread.provenance.kind === "subagent";
-}
-
 export function explicitThreadName(thread: Thread): string | null {
   return normalizeExplicitThreadName(thread.name);
 }

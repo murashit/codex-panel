@@ -24,6 +24,8 @@ export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
   setStatus: (status: string) => void;
+  sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1];
+  listedThreads: () => readonly Thread[];
 }
 
 export async function executeSlashCommandWithState(
@@ -40,6 +42,7 @@ export async function executeSlashCommandWithState(
     if (decision.kind === "blocked") throw new Error(decision.message);
   }
   const state = submissionStateSnapshot(chatState);
+  const listedThreads = host.listedThreads();
   if (!host.connectionAvailable() && slashCommandRequiresConnection(command)) return;
   return runSlashCommand(command, args, {
     ...host,
@@ -50,13 +53,13 @@ export async function executeSlashCommandWithState(
       if (submission.isCurrent()) host.addStructuredSystemMessage(text, details);
     },
     activeThreadId: state.activeThreadId,
-    listedThreads: state.listedThreads,
+    listedThreads,
     ...(inputSnapshot?.threadCommandTarget ? { threadCommandTarget: inputSnapshot.threadCommandTarget } : {}),
     referThread: host.referThread,
     readWebUrl: host.readWebUrl,
     ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),
     submission,
-    supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
+    supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState(), host.sharedResources),
   });
 }
 
@@ -66,11 +69,14 @@ const NOOP_SUBMISSION_ADOPTION: ComposerSubmissionAdoption = {
   adoptPanelTarget: () => undefined,
 };
 
-function supportedReasoningEfforts(state: ReturnType<ChatStateStore["getState"]>): ReasoningEffort[] {
-  const config = runtimeConfigOrDefault(state.connection.runtimeConfig);
+function supportedReasoningEfforts(
+  state: ReturnType<ChatStateStore["getState"]>,
+  sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1],
+): ReasoningEffort[] {
+  const config = runtimeConfigOrDefault(sharedResources.runtimeConfigSnapshot());
   const model = findModelMetadataByIdOrName(
-    state.connection.availableModels,
-    resolveRuntimeControls(runtimeSnapshotForChatState(state), config).model.effective,
+    sharedResources.modelsSnapshot() ?? [],
+    resolveRuntimeControls(runtimeSnapshotForChatState(state, sharedResources), config).model.effective,
   );
   return supportedEffortsForModelMetadata(model);
 }

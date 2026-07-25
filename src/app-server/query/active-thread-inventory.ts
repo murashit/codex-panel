@@ -1,5 +1,5 @@
 import type { InfiniteData } from "@tanstack/query-core";
-import type { ThreadCatalogChange } from "../../domain/threads/catalog-read-model";
+import { type ThreadCatalogChange, threadCatalogEntryEqual } from "../../domain/threads/catalog-read-model";
 import { type Thread, threadRecencyAt } from "../../domain/threads/model";
 import type { ThreadPage } from "../services/threads";
 
@@ -28,7 +28,9 @@ export function applyActiveThreadMutation(data: ActiveThreadData | undefined, ch
 
   switch (change.kind) {
     case "upsert": {
-      const existing = pages.some((page) => page.threads.some((thread) => thread.id === change.thread.id));
+      const current = pages.flatMap((page) => page.threads).find((thread) => thread.id === change.thread.id);
+      if (threadCatalogEntryEqual(current, change.thread)) return data;
+      const existing = current !== undefined;
       if (existing) {
         for (const page of pages) {
           page.threads = page.threads.map((thread) => (thread.id === change.thread.id ? change.thread : thread));
@@ -39,9 +41,11 @@ export function applyActiveThreadMutation(data: ActiveThreadData | undefined, ch
       break;
     }
     case "remove":
+      if (!pages.some((page) => page.threads.some((thread) => thread.id === change.threadId))) return data;
       for (const page of pages) page.threads = page.threads.filter((thread) => thread.id !== change.threadId);
       break;
     case "update":
+      if (!pages.some((page) => page.threads.some((thread) => threadCatalogUpdateChangesEntry(thread, change)))) return data;
       for (const page of pages) {
         page.threads = page.threads.map((thread) => (thread.id === change.threadId ? { ...thread, ...change.changes } : thread));
       }
@@ -49,6 +53,14 @@ export function applyActiveThreadMutation(data: ActiveThreadData | undefined, ch
   }
 
   return { pages, pageParams: [...data.pageParams] };
+}
+
+function threadCatalogUpdateChangesEntry(thread: Thread, change: Extract<ThreadCatalogChange, { kind: "update" }>): boolean {
+  if (thread.id !== change.threadId) return false;
+  return (
+    (Object.hasOwn(change.changes, "name") && thread.name !== change.changes.name) ||
+    (Object.hasOwn(change.changes, "recencyAt") && thread.recencyAt !== change.changes.recencyAt)
+  );
 }
 
 function orderedUniqueThreads(threads: readonly Thread[]): readonly Thread[] {

@@ -1,3 +1,4 @@
+import type { Thread } from "../../../../domain/threads/model";
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
@@ -18,6 +19,7 @@ export interface ThreadRenameEditorActionsHost {
   renameThread(threadId: string, value: string): Promise<boolean>;
   resolveThreadTitleContext(threadId: string): Promise<ThreadTitleContext | null>;
   generateThreadTitle(context: ThreadTitleContext, signal?: AbortSignal): Promise<string | null>;
+  threadById(threadId: string): Thread | undefined;
 }
 
 export interface ThreadRenameEditorActions {
@@ -62,7 +64,7 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
     start(threadId: string): void {
       const current = renameState(host);
       if (current.kind === "saving") return;
-      const thread = host.stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
+      const thread = host.threadById(threadId);
       if (!thread) return;
       abortActiveGeneration();
       dispatch(host, { type: "ui/rename-started", threadId, draft: threadRenameDraftTitle(thread) });

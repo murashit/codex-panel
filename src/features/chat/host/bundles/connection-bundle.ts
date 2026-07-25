@@ -2,7 +2,6 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
-import type { SharedServerMetadataResource } from "../../../../domain/server/metadata";
 import { isStaleExecutionRuntimeError } from "../../../../shared/runtime/execution-runtime-lifetime";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
@@ -47,9 +46,6 @@ export interface ChatPanelConnectionBundle {
     coordinator: ChatConnectionCoordinator;
   };
   inboundHandler: ChatInboundHandler;
-  sharedStateEffects: {
-    applyAppServerMetadataResource: (resource: SharedServerMetadataResource) => void;
-  };
   invalidateConnectionScope: () => void;
   refreshSharedThreads: () => Promise<void>;
 }
@@ -57,14 +53,14 @@ export interface ChatPanelConnectionBundle {
 interface DeferredDiagnosticsRefreshHost {
   scheduleDiagnostics(callback: () => void): void;
   isConnected(): boolean;
-  refreshServerDiagnostics(options: { appServerMetadataSnapshot: true }): Promise<void>;
+  refreshServerDiagnostics(): Promise<void>;
   addSystemMessage(text: string): void;
 }
 
 function scheduleDeferredDiagnosticsRefresh(host: DeferredDiagnosticsRefreshHost): void {
   host.scheduleDiagnostics(() => {
     if (!host.isConnected()) return;
-    void host.refreshServerDiagnostics({ appServerMetadataSnapshot: true }).catch((error: unknown) => {
+    void host.refreshServerDiagnostics().catch((error: unknown) => {
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     });
   });
@@ -123,7 +119,6 @@ export function createConnectionBundle(
   const serverRequestResponders = createServerRequestResponderRegistry();
   const serverMetadataEffects = createServerMetadataEffects({
     stateStore,
-    appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
     refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
     refreshSkills: () => environment.plugin.appServerQueries.refreshSkills(),
     refreshRateLimits: () => environment.plugin.appServerQueries.refreshRateLimits(),
@@ -132,7 +127,6 @@ export function createConnectionBundle(
   const diagnosticsCoordinator = createServerDiagnosticsCoordinator({
     stateStore,
     diagnosticsPort,
-    appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
   });
   const refreshSharedThreads = async (): Promise<void> => {
     await environment.plugin.threadCatalog.refreshActiveThreads();
@@ -140,8 +134,8 @@ export function createConnectionBundle(
   const inboundHandler = createChatInboundHandler(
     stateStore,
     {
-      refreshServerDiagnostics: (options) => {
-        void diagnosticsCoordinator.refreshServerDiagnostics(options).catch((error: unknown) => {
+      refreshServerDiagnostics: () => {
+        void diagnosticsCoordinator.refreshServerDiagnostics().catch((error: unknown) => {
           status.addSystemMessage(error instanceof Error ? error.message : String(error));
         });
       },
@@ -202,7 +196,7 @@ export function createConnectionBundle(
       refreshAppServerMetadata: () => serverMetadataEffects.refreshAppServerMetadata(),
     },
     diagnosticsCoordinator: {
-      refreshServerDiagnostics: (options) => diagnosticsCoordinator.refreshServerDiagnostics(options),
+      refreshServerDiagnostics: () => diagnosticsCoordinator.refreshServerDiagnostics(),
     },
     refreshSharedThreads,
     scheduleDeferredDiagnostics: () => {
@@ -211,7 +205,7 @@ export function createConnectionBundle(
           host.deferredTasks.scheduleDiagnostics(callback);
         },
         isConnected: () => connection.isConnected(),
-        refreshServerDiagnostics: (options) => diagnosticsCoordinator.refreshServerDiagnostics(options),
+        refreshServerDiagnostics: () => diagnosticsCoordinator.refreshServerDiagnostics(),
         addSystemMessage: (text) => {
           status.addSystemMessage(text);
         },
@@ -239,11 +233,6 @@ export function createConnectionBundle(
       coordinator: connectionCoordinator,
     },
     inboundHandler,
-    sharedStateEffects: {
-      applyAppServerMetadataResource: (resource) => {
-        serverMetadataEffects.applyAppServerMetadataResource(resource);
-      },
-    },
     invalidateConnectionScope: () => {
       serverRequestResponders.clear();
       diagnosticsCoordinator.invalidate();

@@ -20,7 +20,6 @@ describe("chat thread foundation auto-title handoff", () => {
     const generateTitle = vi.fn(() => generatedTitle.promise);
     const renameThread = vi.fn().mockResolvedValue(undefined);
     const stateStore = createChatStateStore();
-    stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture()] });
     const sharedTitleWork = createThreadAutoTitleWork({
       titlePort: {
         persistedContext: vi.fn().mockResolvedValue(null),
@@ -52,6 +51,9 @@ describe("chat thread foundation auto-title handoff", () => {
             threadNameMutations: createKeyedOperationQueue(),
             threadFacts: { apply: vi.fn(), applyBatch: vi.fn() },
             threadGoalCoordinator: createThreadGoalCoordinator(),
+            threadCatalog: {
+              activeThreadsSnapshot: () => [threadFixture()],
+            },
           },
         },
       } as never,

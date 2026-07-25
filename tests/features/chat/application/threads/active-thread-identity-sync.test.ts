@@ -130,11 +130,10 @@ describe("createActiveThreadIdentitySync", () => {
 
   it("ignores rename notifications for inactive and unrestored threads without identity side effects", () => {
     const { sync, host, stateStore } = createIdentitySyncHarness();
-    stateStore.dispatch({ type: "thread-list/applied", threads: [thread("thread", "Old")] });
 
     sync.applyThreadRenameToActiveIdentity("other", "New");
 
-    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Old");
+    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
   });
 });

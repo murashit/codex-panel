@@ -1,14 +1,20 @@
+import { diagnosticsWithMetadataResourceProbes } from "../../../../domain/server/diagnostics";
 import { explicitThreadName } from "../../../../domain/threads/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { threadStreamItemsHaveThreadTurns } from "../../application/runtime/snapshot";
 import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThreadProvenance } from "../../application/state/root-reducer";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
+import type { ChatSharedResources } from "./shared-resources";
 
 const hasThreadTurnsByStream = new WeakMap<ChatState["threadStream"], boolean>();
+const composedDiagnosticsByPanel = new WeakMap<
+  ChatState["connection"]["serverDiagnostics"],
+  WeakMap<ChatSharedResources["metadataDiagnostics"], ChatState["connection"]["serverDiagnostics"]>
+>();
 
 export interface ChatPanelToolbarModel {
-  readonly threads: ChatState["threadList"]["listedThreads"];
+  readonly threads: ChatSharedResources["threads"];
   readonly hasMoreThreads: boolean;
   readonly threadListLoading: boolean;
   readonly threadListFetching: boolean;
@@ -21,10 +27,11 @@ export interface ChatPanelToolbarModel {
   readonly goalMutationDisabled: boolean;
   readonly activeThreadTokenUsage: ChatActiveThreadState["tokenUsage"];
   readonly turnBusy: boolean;
-  readonly availableModels: ChatState["connection"]["availableModels"];
+  readonly availableModels: ChatSharedResources["availableModels"];
+  readonly availableSkills: ChatSharedResources["availableSkills"];
   readonly initializeResponse: ChatState["connection"]["initializeResponse"];
-  readonly rateLimit: ChatState["connection"]["rateLimit"];
-  readonly runtimeConfig: ChatState["connection"]["runtimeConfig"];
+  readonly rateLimit: ChatSharedResources["rateLimit"];
+  readonly runtimeConfig: ChatSharedResources["runtimeConfig"];
   readonly serverDiagnostics: ChatState["connection"]["serverDiagnostics"];
   readonly runtime: ChatState["runtime"];
   readonly toolbarPanel: ChatState["ui"]["toolbarPanel"];
@@ -40,7 +47,7 @@ export interface ChatPanelGoalModel {
 }
 
 export interface ChatPanelThreadStreamModel {
-  readonly threads: ChatState["threadList"]["listedThreads"];
+  readonly threads: ChatSharedResources["threads"];
   readonly activeThreadId: string | null;
   readonly forkAllowed: boolean;
   readonly rollbackAllowed: boolean;
@@ -61,9 +68,9 @@ export interface ChatPanelThreadStreamModel {
 
 export interface ChatPanelComposerModel {
   readonly connectionPhase: ChatState["connection"]["phase"];
-  readonly runtimeConfig: ChatState["connection"]["runtimeConfig"];
-  readonly availableModels: ChatState["connection"]["availableModels"];
-  readonly rateLimit: ChatState["connection"]["rateLimit"];
+  readonly runtimeConfig: ChatSharedResources["runtimeConfig"];
+  readonly availableModels: ChatSharedResources["availableModels"];
+  readonly rateLimit: ChatSharedResources["rateLimit"];
   readonly activeListedThreadName: string | null;
   readonly sideChatActive: boolean;
   readonly sideChatSourceTitle: string | null;
@@ -85,15 +92,15 @@ export interface ChatPanelComposerModel {
   readonly hasThreadTurns: boolean;
 }
 
-export function selectChatPanelToolbar(state: ChatState): ChatPanelToolbarModel {
+export function selectChatPanelToolbar(state: ChatState, shared: ChatSharedResources): ChatPanelToolbarModel {
   const activeThread = activeThreadState(state);
   return {
-    threads: state.threadList.listedThreads,
-    hasMoreThreads: state.threadList.hasMore,
-    threadListLoading: state.threadList.isFetching && state.threadList.listedThreads.length === 0,
-    threadListFetching: state.threadList.isFetching,
-    isFetchingNextPage: state.threadList.isFetchingNextPage,
-    threadListError: state.threadList.error,
+    threads: shared.threads,
+    hasMoreThreads: shared.hasMoreThreads,
+    threadListLoading: shared.threadListFetching && shared.threads.length === 0,
+    threadListFetching: shared.threadListFetching,
+    isFetchingNextPage: shared.isFetchingNextPage,
+    threadListError: shared.threadListError,
     activeThreadId: activeThread?.id ?? null,
     activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
     sideChatStartDisabled: !activeThread || activePanelOperationDecision(state, "start-side-chat").kind !== "allowed",
@@ -101,16 +108,33 @@ export function selectChatPanelToolbar(state: ChatState): ChatPanelToolbarModel 
     goalMutationDisabled: activePanelOperationDecision(state, "goal-mutation").kind === "blocked",
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
     turnBusy: chatTurnBusy(state),
-    availableModels: state.connection.availableModels,
+    availableModels: shared.availableModels,
+    availableSkills: shared.availableSkills,
     initializeResponse: state.connection.initializeResponse,
-    rateLimit: state.connection.rateLimit,
-    runtimeConfig: state.connection.runtimeConfig,
-    serverDiagnostics: state.connection.serverDiagnostics,
+    rateLimit: shared.rateLimit,
+    runtimeConfig: shared.runtimeConfig,
+    serverDiagnostics: composedDiagnostics(state.connection.serverDiagnostics, shared.metadataDiagnostics),
     runtime: state.runtime,
     toolbarPanel: state.ui.toolbarPanel,
     archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
     rename: state.ui.rename,
   };
+}
+
+function composedDiagnostics(
+  panel: ChatState["connection"]["serverDiagnostics"],
+  metadata: ChatSharedResources["metadataDiagnostics"],
+): ChatState["connection"]["serverDiagnostics"] {
+  let byMetadata = composedDiagnosticsByPanel.get(panel);
+  if (!byMetadata) {
+    byMetadata = new WeakMap();
+    composedDiagnosticsByPanel.set(panel, byMetadata);
+  }
+  const cached = byMetadata.get(metadata);
+  if (cached) return cached;
+  const composed = diagnosticsWithMetadataResourceProbes(panel, metadata);
+  byMetadata.set(metadata, composed);
+  return composed;
 }
 
 export function selectChatPanelGoal(state: ChatState): ChatPanelGoalModel {
@@ -122,10 +146,10 @@ export function selectChatPanelGoal(state: ChatState): ChatPanelGoalModel {
   };
 }
 
-export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadStreamModel {
+export function selectChatPanelThreadStream(state: ChatState, shared: ChatSharedResources): ChatPanelThreadStreamModel {
   const activeThread = activeThreadState(state);
   return {
-    threads: state.threadList.listedThreads,
+    threads: shared.threads,
     activeThreadId: activeThread?.id ?? null,
     forkAllowed: activePanelOperationDecision(state, "fork").kind === "allowed",
     rollbackAllowed: activePanelOperationDecision(state, "rollback").kind === "allowed",
@@ -145,16 +169,16 @@ export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadSt
   };
 }
 
-export function selectChatPanelComposer(state: ChatState): ChatPanelComposerModel {
+export function selectChatPanelComposer(state: ChatState, shared: ChatSharedResources): ChatPanelComposerModel {
   const activeThread = activeThreadState(state);
   const activeThreadId = activeThread?.id ?? null;
   const lifetime = activeThread?.lifetime;
   return {
     connectionPhase: state.connection.phase,
-    runtimeConfig: state.connection.runtimeConfig,
-    availableModels: state.connection.availableModels,
-    rateLimit: state.connection.rateLimit,
-    activeListedThreadName: activeThreadId ? projectedThreadName(state, activeThreadId) : null,
+    runtimeConfig: shared.runtimeConfig,
+    availableModels: shared.availableModels,
+    rateLimit: shared.rateLimit,
+    activeListedThreadName: activeThreadId ? projectedThreadName(shared, activeThreadId) : null,
     sideChatActive: lifetime?.kind === "ephemeral",
     sideChatSourceTitle: lifetime?.kind === "ephemeral" ? lifetime.sourceThreadTitle : null,
     draft: state.composer.draft,
@@ -184,7 +208,7 @@ function hasThreadTurns(threadStream: ChatState["threadStream"]): boolean {
   return result;
 }
 
-function projectedThreadName(state: ChatState, threadId: string): string | null {
-  const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
+function projectedThreadName(shared: ChatSharedResources, threadId: string): string | null {
+  const thread = shared.threads.find((item) => item.id === threadId);
   return thread ? explicitThreadName(thread) : null;
 }

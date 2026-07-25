@@ -33,6 +33,12 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
   const readWebUrl = vi.fn();
   const host: SlashCommandExecutorHost = {
     stateStore,
+    sharedResources: {
+      runtimeConfigSnapshot: () => null,
+      rateLimitsSnapshot: () => undefined,
+      modelsSnapshot: () => null,
+    },
+    listedThreads: () => [],
     connectionAvailable: () => true,
     referThread,
     readWebUrl,
@@ -250,11 +256,7 @@ describe("executeSlashCommandWithState", () => {
   });
 
   it("does not reference threads without a captured input snapshot", async () => {
-    const { host, referThread, stateStore } = createHost();
-    stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: [thread("other", "Other")],
-    });
+    const { host, referThread } = createHost({ listedThreads: () => [thread("other", "Other")] });
 
     const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
 
@@ -264,12 +266,10 @@ describe("executeSlashCommandWithState", () => {
   });
 
   it("forwards readable referenced thread input to turn submission", async () => {
-    const { host, referThread, stateStore } = createHost();
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
-    stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: [thread("019abcde-0000-7000-8000-000000000001", "Other")],
+    const { host, referThread } = createHost({
+      listedThreads: () => [thread("019abcde-0000-7000-8000-000000000001", "Other")],
     });
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     referThread.mockResolvedValue({
       text: "prepared summarize",
       input: textInput("referenced summarize"),

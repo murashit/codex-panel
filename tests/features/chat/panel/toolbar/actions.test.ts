@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
+import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
@@ -131,6 +132,10 @@ describe("createToolbarPanelActions", () => {
         connected: () => true,
         vaultPath: () => "/vault",
         configuredCommand: () => "codex",
+        runtimeConfig: () => null,
+        rateLimit: () => null,
+        availableModels: () => [],
+        metadataDiagnostics: () => createServerDiagnostics(),
       },
     });
     stateStore.dispatch({ type: "runtime/model-requested", model: "gpt-live" });
@@ -154,5 +159,9 @@ function debugDetailsFixture() {
     connected: () => false,
     vaultPath: () => "/vault",
     configuredCommand: () => "codex",
+    runtimeConfig: () => null,
+    rateLimit: () => null,
+    availableModels: () => [],
+    metadataDiagnostics: () => createServerDiagnostics(),
   };
 }

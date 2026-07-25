@@ -200,6 +200,22 @@ describe("AppServerQueryCache", () => {
     expect(cache.recentActiveThreadsSnapshot()?.map((item) => item.id)).toEqual(["second"]);
   });
 
+  it("does not republish a semantically identical lifecycle fact", async () => {
+    const existing = thread("thread");
+    const cache = cacheWithRequestHandlers({
+      "thread/list": vi.fn().mockResolvedValue({ data: [existing], nextCursor: null }),
+    });
+    await cache.refreshActiveThreads();
+    const listener = vi.fn();
+    const unsubscribe = cache.observeActiveThreadsResult(listener, { emitCurrent: false });
+
+    cache.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: existing }]);
+    await flushMicrotasks();
+
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+
   it("shares concurrent Load more requests through the InfiniteQuery", async () => {
     const nextPage = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
     const listThreads = vi
@@ -354,6 +370,20 @@ describe("AppServerQueryCache", () => {
     await expect(initial).resolves.toEqual([{ ...thread("target"), name: "authoritative" }]);
     expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("authoritative");
     expect(listThreads).toHaveBeenCalledTimes(2);
+  });
+
+  it("refetches after an exact lifecycle fact arrives following an initial thread read failure", async () => {
+    const listThreads = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("threads offline"))
+      .mockResolvedValueOnce({ data: [thread("created")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+
+    await expect(cache.refreshActiveThreads()).rejects.toThrow("threads offline");
+    cache.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: thread("created") }]);
+
+    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(cache.activeThreadsSnapshot()).toEqual([thread("created")]));
   });
 
   it("rejoins the active thread query through repeated event cancellations", async () => {
@@ -522,12 +552,10 @@ describe("AppServerQueryCache", () => {
     });
 
     await cache.refreshAppServerMetadata();
-    const metadata = cache.appServerMetadataSnapshot();
-
-    expect(metadata?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
-    expect(metadata?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":workspace"]);
-    expect(metadata?.rateLimit?.primary?.usedPercent).toBe(64);
-    expect(metadata?.serverDiagnostics.probes.models.status).toBe("ok");
+    expect(cache.skillsSnapshot()?.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cache.permissionProfilesSnapshot()?.map((profile) => profile.id)).toEqual([":workspace"]);
+    expect(cache.rateLimitsSnapshot()?.primary?.usedPercent).toBe(64);
+    expect(cache.metadataDiagnosticsSnapshot().probes.models.status).toBe("ok");
     expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-meta"]);
   });
 
@@ -643,7 +671,7 @@ describe("AppServerQueryCache", () => {
     first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
     await Promise.all([fullRefresh, notificationRefresh]);
     expect(listSkills).toHaveBeenCalledOnce();
-    expect(cache.appServerMetadataSnapshot()?.availableSkills.map((skill) => skill.name)).toEqual(["old"]);
+    expect(cache.skillsSnapshot()?.map((skill) => skill.name)).toEqual(["old"]);
   });
 
   it("coalesces repeated skills notifications", async () => {
@@ -686,7 +714,7 @@ describe("AppServerQueryCache", () => {
 
     skills.resolve({ data: [{ skills: [] }] });
     await expect(refresh).rejects.toThrow("config offline");
-    expect(cache.appServerMetadataSnapshot()).toBeNull();
+    expect(cache.runtimeConfigSnapshot()).toBeNull();
   });
 
   it("rejects runtime config refresh failures while preserving prior config and refreshed optional resources", async () => {
@@ -706,9 +734,8 @@ describe("AppServerQueryCache", () => {
 
     await expect(cache.refreshAppServerMetadata()).rejects.toThrow("config offline");
 
-    const snapshot = cache.appServerMetadataSnapshot();
-    expect(snapshot?.runtimeConfig).not.toBeNull();
-    expect(snapshot?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
+    expect(cache.runtimeConfigSnapshot()).not.toBeNull();
+    expect(cache.skillsSnapshot()?.map((skill) => skill.name)).toEqual(["new"]);
   });
 
   it("shares in-flight model fetches between metadata and models queries", async () => {
@@ -752,9 +779,7 @@ describe("AppServerQueryCache", () => {
     await cache.fetchModels();
 
     await cache.refreshAppServerMetadata();
-    const metadataSnapshot = cache.appServerMetadataSnapshot();
-
-    expect(metadataSnapshot?.serverDiagnostics.probes.models.status).toBe("failed");
+    expect(cache.metadataDiagnosticsSnapshot().probes.models.status).toBe("failed");
     expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-cached"]);
   });
 
@@ -785,19 +810,16 @@ describe("AppServerQueryCache", () => {
     await cache.refreshAppServerMetadata();
 
     await cache.refreshAppServerMetadata();
-    const refreshed = cache.appServerMetadataSnapshot();
-
     expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-cached"]);
-    expect(refreshed?.availableSkills.map((skill) => skill.name)).toEqual(["cached-skill"]);
-    expect(refreshed?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":cached"]);
-    expect(refreshed?.rateLimit?.primary?.usedPercent).toBe(17);
-    expect(refreshed?.serverDiagnostics.probes).toMatchObject({
+    expect(cache.skillsSnapshot()?.map((skill) => skill.name)).toEqual(["cached-skill"]);
+    expect(cache.permissionProfilesSnapshot()?.map((profile) => profile.id)).toEqual([":cached"]);
+    expect(cache.rateLimitsSnapshot()?.primary?.usedPercent).toBe(17);
+    expect(cache.metadataDiagnosticsSnapshot().probes).toMatchObject({
       models: { status: "failed" },
       skills: { status: "failed" },
       permissionProfiles: { status: "failed" },
       rateLimits: { status: "failed" },
     });
-    expect(cache.appServerMetadataSnapshot()).toEqual(refreshed);
   });
 
   it("stores an in-flight app-server snapshot as raw thread-list truth", async () => {

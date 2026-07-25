@@ -234,12 +234,13 @@ describe("createChatRuntimeSettingsCommands", () => {
   it("keeps Fast disabled after clearing a thread tier when config defaults to Fast", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { connection: { runtimeConfig: { ...runtimeConfigFixture(), serviceTier: "fast" } } });
     state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
     const store = createChatStateStore(state);
     const port = settingsPortFixture();
     const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages);
+    const commands = runtimeCommandsFixture(store, port, messages, undefined, {
+      runtimeConfig: { ...runtimeConfigFixture(), serviceTier: "fast" },
+    });
 
     await commands.disableFastMode();
 
@@ -259,11 +260,12 @@ describe("createChatRuntimeSettingsCommands", () => {
     state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5" } } });
     // app-server may advertise Fast with an id such as "priority";
     // last verified against codex app-server 0.142.0.
-    state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5", "priority")] } });
     const store = createChatStateStore(state);
     const port = settingsPortFixture();
     const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages);
+    const commands = runtimeCommandsFixture(store, port, messages, undefined, {
+      availableModels: [modelFixture("gpt-5.5", "priority")],
+    });
 
     await commands.toggleFastMode();
 
@@ -315,22 +317,20 @@ describe("createChatRuntimeSettingsCommands", () => {
   it("builds pending thread settings from explicit effective config", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, {
-      connection: {
-        runtimeConfig: {
-          ...runtimeConfigFixture(),
-          model: "gpt-config",
-          reasoningEffort: "medium",
-        },
-      },
-    });
     const store = createChatStateStore(state);
     const port = settingsPortFixture();
     const messages: string[] = [];
     const commands = createChatRuntimeSettingsCommands({
       stateStore: store,
       runtimeSettingsPort: port,
-      runtimeSnapshotForState: (state) => ({ ...runtimeSnapshotFixture(state), runtimeConfig: null }),
+      runtimeSnapshotForState: (state) =>
+        runtimeSnapshotFixture(state, {
+          runtimeConfig: {
+            ...runtimeConfigFixture(),
+            model: "gpt-config",
+            reasoningEffort: "medium",
+          },
+        }),
       collaborationModeLabel: () => "Plan",
       addSystemMessage: (text) => messages.push(text),
     });
@@ -731,12 +731,13 @@ function runtimeCommandsFixture(
   port: RuntimeSettingsPort,
   messages: string[],
   threadCommits?: KeyedOperationQueue<string>,
+  shared: RuntimeSnapshotFixtureShared = {},
 ): ChatRuntimeSettingsCommands {
   return createChatRuntimeSettingsCommands(
     {
       stateStore: store,
       runtimeSettingsPort: port,
-      runtimeSnapshotForState: runtimeSnapshotFixture,
+      runtimeSnapshotForState: (state) => runtimeSnapshotFixture(state, shared),
       collaborationModeLabel: () => "Plan",
       addSystemMessage: (text) => messages.push(text),
     },
@@ -751,8 +752,17 @@ function settingsPortFixture(overrides: Partial<RuntimeSettingsPort> = {}): Runt
   };
 }
 
-function runtimeSnapshotFixture(state: ChatState) {
-  return runtimeSnapshotForChatState(state);
+interface RuntimeSnapshotFixtureShared {
+  runtimeConfig?: ReturnType<typeof runtimeConfigFixture>;
+  availableModels?: readonly ModelMetadata[];
+}
+
+function runtimeSnapshotFixture(state: ChatState, shared: RuntimeSnapshotFixtureShared = {}) {
+  return runtimeSnapshotForChatState(state, {
+    runtimeConfigSnapshot: () => shared.runtimeConfig ?? null,
+    rateLimitsSnapshot: () => undefined,
+    modelsSnapshot: () => shared.availableModels ?? null,
+  });
 }
 
 function modelFixture(model: string, fastTierId: string): ModelMetadata {

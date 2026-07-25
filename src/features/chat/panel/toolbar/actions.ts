@@ -1,4 +1,5 @@
 import { CLIENT_VERSION } from "../../../../constants";
+import { diagnosticsWithMetadataResourceProbes } from "../../../../domain/server/diagnostics";
 import { copyTextWithNotice } from "../../../../shared/obsidian/clipboard.obsidian";
 import type { ChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
@@ -39,6 +40,10 @@ interface ToolbarUiActionDependencies {
     connected: () => boolean;
     vaultPath: () => string;
     configuredCommand: () => string;
+    runtimeConfig: () => unknown;
+    rateLimit: () => unknown;
+    availableModels: () => readonly unknown[];
+    metadataDiagnostics: () => Parameters<typeof diagnosticsWithMetadataResourceProbes>[1];
   };
 }
 
@@ -197,6 +202,7 @@ function runtimeDebugDetails(input: ToolbarUiActionDependencies["debugDetails"])
   const state = input.stateStore.getState();
   const activeThread = activeThreadState(state);
   const connection = state.connection;
+  const serverDiagnostics = diagnosticsWithMetadataResourceProbes(connection.serverDiagnostics, input.metadataDiagnostics());
   return JSON.stringify(
     {
       clientVersion: CLIENT_VERSION,
@@ -208,15 +214,15 @@ function runtimeDebugDetails(input: ToolbarUiActionDependencies["debugDetails"])
         phase: connection.phase,
         statusText: connection.statusText,
         initializeResponse: connection.initializeResponse,
-        rateLimit: connection.rateLimit,
+        rateLimit: input.rateLimit(),
         serverDiagnostics: {
-          probes: connection.serverDiagnostics.probes,
-          mcpServers: connection.serverDiagnostics.mcpServers,
+          probes: serverDiagnostics.probes,
+          mcpServers: serverDiagnostics.mcpServers,
         },
       },
-      runtimeConfig: connection.runtimeConfig,
+      runtimeConfig: input.runtimeConfig(),
       runtime: state.runtime,
-      availableModels: connection.availableModels,
+      availableModels: input.availableModels(),
     },
     null,
     2,

@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
@@ -67,7 +68,7 @@ describe("chat panel session runtime actions", () => {
     await expect(runtime.commands.refreshSharedThreads()).resolves.toBeUndefined();
 
     expect(refresh).toHaveBeenCalledOnce();
-    expect(stateStore.getState().threadList.listedThreads).toEqual([]);
+    expect(stateStore.getState()).not.toHaveProperty("threadList");
   });
 
   it("refreshes persisted view identity after starting a new thread", async () => {
@@ -140,7 +141,7 @@ describe("chat panel session runtime actions", () => {
         },
       },
     });
-    runtime.runtime.sharedState.subscribe();
+    runtime.observers.threadCatalog.subscribe();
     const diagnostics = vi.fn();
     const warmup = vi.fn();
     deferredTasks.scheduleDiagnostics(diagnostics);
@@ -155,7 +156,7 @@ describe("chat panel session runtime actions", () => {
     const invalidateConnection = vi.spyOn(runtime.connection.coordinator, "invalidate");
     const invalidateThreadWork = vi.spyOn(runtime.commands, "invalidateThreadWork");
     const clearDeferredTasks = vi.spyOn(deferredTasks, "clearAll");
-    const unsubscribeSharedState = vi.spyOn(runtime.runtime.sharedState, "unsubscribe");
+    const unsubscribeSharedState = vi.spyOn(runtime.observers.threadCatalog, "unsubscribe");
     const disposeComposer = vi.spyOn(runtime.composer.controller, "dispose");
     const disposeScrollBinding = vi.spyOn(threadStreamScrollBinding, "dispose");
     const disposeEphemeralThread = vi.spyOn(runtime.thread.ephemeral, "dispose");
@@ -175,7 +176,8 @@ describe("chat panel session runtime actions", () => {
       disposeEphemeralThread,
     ].map((operation) => operation.mock.invocationCallOrder[0] ?? 0);
     expect(disposalOrder).toEqual([...disposalOrder].sort((left, right) => left - right));
-    expect([unsubscribeThreads, unsubscribeMetadata].every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
+    expect(unsubscribeThreads).toHaveBeenCalledTimes(2);
+    expect(unsubscribeMetadata).toHaveBeenCalledOnce();
     expect(runtime.composer.controller.hasFocus()).toBe(false);
     threadStreamScrollBinding.showLatest();
     expect(dispatchScrollCommand).not.toHaveBeenCalled();
@@ -325,7 +327,11 @@ describe("chat panel session runtime actions", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]> = {},
   ): ChatPanelEnvironment["plugin"]["appServerQueries"] {
     return {
-      appServerMetadataSnapshot: vi.fn(() => null),
+      runtimeConfigSnapshot: vi.fn(() => null),
+      skillsSnapshot: vi.fn(() => null),
+      permissionProfilesSnapshot: vi.fn(() => null),
+      rateLimitsSnapshot: vi.fn(() => undefined),
+      metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
       refreshSkills: vi.fn().mockResolvedValue(undefined),
       refreshRateLimits: vi.fn().mockResolvedValue(undefined),

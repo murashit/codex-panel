@@ -22,8 +22,7 @@ describe("ThreadRenameEditorActions", () => {
   });
 
   it("starts rename drafts from useful titles instead of id fallbacks", () => {
-    const { actions, stateStore } = actionsFixture();
-    stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...threadFixture("thread"), preview: "" }] });
+    const { actions } = actionsFixture({ threads: [{ ...threadFixture("thread"), preview: "" }] });
 
     actions.start("thread");
 
@@ -106,17 +105,13 @@ describe("ThreadRenameEditorActions", () => {
   it("aborts auto-name when rename moves to another thread", async () => {
     const generatedTitle = deferred<string>();
     let generationSignal: AbortSignal | undefined;
-    const { actions, stateStore } = actionsFixture({
+    const { actions } = actionsFixture({
+      threads: [threadFixture("thread"), { ...threadFixture("other"), preview: "Other preview" }],
       generateThreadTitle: vi.fn((_threadId, signal) => {
         generationSignal = signal;
         return generatedTitle.promise;
       }),
     });
-    stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: [threadFixture("thread"), { ...threadFixture("other"), preview: "Other preview" }],
-    });
-
     actions.start("thread");
     await flushPromises();
     const autoName = actions.autoNameDraft("thread");
@@ -258,7 +253,7 @@ describe("ThreadRenameEditorActions", () => {
   it("blocks starting another inline rename while a save is pending", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);
-    const { actions, stateStore, notifyThreadRenamed } = actionsFixture({
+    const { actions, threadById, notifyThreadRenamed } = actionsFixture({
       currentClient: () => fakeClient({ renameThreadRequest }),
     });
 
@@ -275,7 +270,7 @@ describe("ThreadRenameEditorActions", () => {
     await save;
 
     expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Saved title" });
-    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Saved title");
+    expect(threadById("thread")?.name).toBe("Saved title");
     expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
     expect(actions.editState("thread")).toBeNull();
   });
@@ -356,27 +351,26 @@ function actionsFixture(
     currentClient?: () => AppServerClient;
     generateThreadTitle?: ThreadRenameEditorActionsHost["generateThreadTitle"];
     resolveThreadTitleContext?: ThreadRenameEditorActionsHost["resolveThreadTitleContext"];
+    threads?: Thread[];
   } = {},
 ): ThreadRenameEditorActionsHost & {
   actions: ThreadRenameEditorActions;
   notifyThreadRenamed: ReturnType<typeof vi.fn>;
 } {
   const stateStore = createChatStateStore();
-  stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
+  let threads = overrides.threads ?? [threadFixture("thread")];
   const currentClient = overrides.currentClient ?? (() => fakeClient());
   const notifyThreadRenamed = vi.fn();
   const host = {
     stateStore,
     ensureConnected: overrides.ensureConnected ?? vi.fn().mockResolvedValue(undefined),
     addSystemMessage: overrides.addSystemMessage ?? vi.fn(),
+    threadById: (threadId: string) => threads.find((thread) => thread.id === threadId),
     renameThread: async (threadId: string, value: string) => {
       const name = normalizeExplicitThreadName(value);
       if (!name) return false;
       await currentClient().request("thread/name/set", { threadId, name });
-      stateStore.dispatch({
-        type: "thread-list/applied",
-        threads: stateStore.getState().threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)),
-      });
+      threads = threads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread));
       notifyThreadRenamed(threadId, name);
       return true;
     },

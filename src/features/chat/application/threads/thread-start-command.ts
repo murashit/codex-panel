@@ -44,7 +44,7 @@ async function startThread(
   const requestState = host.stateStore.getState();
   const panelTarget = capturePanelTargetLease(requestState);
   const runtimeSnapshot = host.runtimeSnapshotForState(requestState);
-  const runtimeConfig = runtimeConfigOrDefault(requestState.connection.runtimeConfig);
+  const runtimeConfig = runtimeConfigOrDefault(runtimeSnapshot.runtimeConfig);
   const effect = await host.threadStartPort.startThread({
     serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),
     permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
@@ -75,10 +75,8 @@ async function startThread(
     return { kind: "created-not-activated", threadId: activation.thread.id };
   }
 
-  const state = host.stateStore.getState();
   const action = resumedThreadAction({
     response: patchedActivation,
-    listedThreads: state.threadList.listedThreads,
     preserveRequestedRuntimeSettings: activeThreadId(requestState) === null,
     expectedPanelTargetRevision: panelTarget.revision,
     ...(options.preservePendingSubmissionId ? { preservePendingSubmissionId: options.preservePendingSubmissionId } : {}),

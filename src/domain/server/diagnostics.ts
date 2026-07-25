@@ -6,7 +6,6 @@ const DIAGNOSTIC_PROBE_DEFINITIONS = {
   models: { label: "Models" },
   skills: { label: "Skills" },
   permissionProfiles: { label: "Permission profiles" },
-  apps: { label: "Apps" },
   plugins: { label: "Plugins" },
   rateLimits: { label: "Rate limits" },
   mcpServers: { label: "MCP servers" },
@@ -15,6 +14,7 @@ const DIAGNOSTIC_PROBE_DEFINITIONS = {
 const METADATA_RESOURCE_PROBE_IDS = ["models", "skills", "permissionProfiles", "rateLimits"] as const;
 
 export type DiagnosticProbeId = keyof typeof DIAGNOSTIC_PROBE_DEFINITIONS;
+type MetadataResourceProbeId = (typeof METADATA_RESOURCE_PROBE_IDS)[number];
 type DiagnosticProbeStatus = "unknown" | "ok" | "failed";
 
 export interface DiagnosticProbeResult {
@@ -31,6 +31,10 @@ export interface Diagnostics {
   readonly toolInventory: ToolInventorySnapshot | null;
 }
 
+export interface MetadataResourceDiagnostics {
+  readonly probes: Readonly<Record<MetadataResourceProbeId, DiagnosticProbeResult>>;
+}
+
 export function createServerDiagnostics(): Diagnostics {
   return {
     probes: Object.fromEntries(
@@ -38,6 +42,15 @@ export function createServerDiagnostics(): Diagnostics {
     ) as Record<DiagnosticProbeId, DiagnosticProbeResult>,
     mcpServers: [],
     toolInventory: null,
+  };
+}
+
+export function createMetadataResourceDiagnostics(): MetadataResourceDiagnostics {
+  return {
+    probes: Object.fromEntries(METADATA_RESOURCE_PROBE_IDS.map((id) => [id, createDiagnosticProbeResult(id)])) as Record<
+      MetadataResourceProbeId,
+      DiagnosticProbeResult
+    >,
   };
 }
 
@@ -66,7 +79,10 @@ export function diagnosticsWithToolInventory(diagnostics: Diagnostics, toolInven
   };
 }
 
-export function diagnosticsWithMetadataResourceProbes(diagnostics: Diagnostics, metadataDiagnostics: Diagnostics): Diagnostics {
+export function diagnosticsWithMetadataResourceProbes(
+  diagnostics: Diagnostics,
+  metadataDiagnostics: MetadataResourceDiagnostics,
+): Diagnostics {
   return METADATA_RESOURCE_PROBE_IDS.reduce((current, id) => diagnosticsWithProbe(current, metadataDiagnostics.probes[id]), diagnostics);
 }
 

@@ -17,7 +17,7 @@ interface ChatConnectionMetadataEffects {
 }
 
 interface ChatConnectionDiagnosticsCoordinator {
-  refreshServerDiagnostics: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
+  refreshServerDiagnostics: () => Promise<void>;
 }
 
 export interface ChatConnectionCoordinatorHost {
@@ -130,8 +130,12 @@ async function refreshDiagnostics(
   await coordinator.ensureConnected();
   if (!host.connection.isConnected()) return;
   host.clearDeferredDiagnostics();
-  await host.metadataEffects.refreshAppServerMetadata();
-  await host.diagnosticsCoordinator.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
+  const [metadataResult, diagnosticsResult] = await Promise.allSettled([
+    host.metadataEffects.refreshAppServerMetadata(),
+    host.diagnosticsCoordinator.refreshServerDiagnostics(),
+  ]);
+  if (metadataResult.status === "rejected") throw metadataResult.reason;
+  if (diagnosticsResult.status === "rejected") throw diagnosticsResult.reason;
 }
 
 async function refreshStatusPanel(

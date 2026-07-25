@@ -14,7 +14,13 @@ import {
 } from "../../../../../src/features/chat/panel/shell/selectors";
 import { useChatSelector } from "../../../../../src/features/chat/panel/shell/state-selector";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { chatSharedResourcesFixture } from "../../support/shared-resources";
 import { chatStateFixture, chatStateWith } from "../../support/state";
+
+const shared = chatSharedResourcesFixture();
+const toolbarSelector = (state: ChatState) => selectChatPanelToolbar(state, shared);
+const threadStreamSelector = (state: ChatState) => selectChatPanelThreadStream(state, shared);
+const composerSelector = (state: ChatState) => selectChatPanelComposer(state, shared);
 
 describe("useChatSelector", () => {
   it("catches an update between the render read and subscription", async () => {
@@ -98,7 +104,7 @@ describe("useChatSelector", () => {
 });
 
 function ComposerValue({ store }: { store: ChatStateStore }): ComponentChild {
-  return useChatSelector(store, selectChatPanelComposer).draft;
+  return useChatSelector(store, composerSelector).draft;
 }
 
 function SelectorRegions({
@@ -110,10 +116,10 @@ function SelectorRegions({
 }): ComponentChild {
   return (
     <>
-      <Region store={store} selector={selectChatPanelToolbar} rendered={renders.toolbar} />
+      <Region store={store} selector={toolbarSelector} rendered={renders.toolbar} />
       <Region store={store} selector={selectChatPanelGoal} rendered={renders.goal} />
-      <Region store={store} selector={selectChatPanelThreadStream} rendered={renders.threadStream} />
-      <Region store={store} selector={selectChatPanelComposer} rendered={renders.composer} />
+      <Region store={store} selector={threadStreamSelector} rendered={renders.threadStream} />
+      <Region store={store} selector={composerSelector} rendered={renders.composer} />
     </>
   );
 }
