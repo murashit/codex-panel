@@ -14,13 +14,18 @@ import {
 } from "../../../../../src/features/chat/panel/shell/selectors";
 import { useChatSelector } from "../../../../../src/features/chat/panel/shell/state-selector";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
-import { chatSharedResourcesFixture } from "../../support/shared-resources";
+import {
+  chatSharedResourcesFixture,
+  composerSharedValues,
+  threadStreamSharedValues,
+  toolbarSharedValues,
+} from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const shared = chatSharedResourcesFixture();
-const toolbarSelector = (state: ChatState) => selectChatPanelToolbar(state, shared);
-const threadStreamSelector = (state: ChatState) => selectChatPanelThreadStream(state, shared);
-const composerSelector = (state: ChatState) => selectChatPanelComposer(state, shared);
+const toolbarSelector = (state: ChatState) => selectChatPanelToolbar(state, toolbarSharedValues(shared));
+const threadStreamSelector = (state: ChatState) => selectChatPanelThreadStream(state, threadStreamSharedValues(shared));
+const composerSelector = (state: ChatState) => selectChatPanelComposer(state, composerSharedValues(shared));
 
 describe("useChatSelector", () => {
   it("catches an update between the render read and subscription", async () => {

@@ -136,7 +136,10 @@ describe("chat panel session runtime actions", () => {
         plugin: {
           threadCatalog: { observeActiveThreadsResult: vi.fn(() => unsubscribeThreads) },
           appServerQueries: {
-            observeAppServerMetadataResources: vi.fn(() => unsubscribeMetadata),
+            observeRuntimeConfigResource: vi.fn(() => unsubscribeMetadata),
+            observeModelsResource: vi.fn(() => unsubscribeMetadata),
+            observeSkillsResource: vi.fn(() => unsubscribeMetadata),
+            observePermissionProfilesResource: vi.fn(() => unsubscribeMetadata),
           },
         },
       },
@@ -177,7 +180,7 @@ describe("chat panel session runtime actions", () => {
     ].map((operation) => operation.mock.invocationCallOrder[0] ?? 0);
     expect(disposalOrder).toEqual([...disposalOrder].sort((left, right) => left - right));
     expect(unsubscribeThreads).toHaveBeenCalledTimes(2);
-    expect(unsubscribeMetadata).toHaveBeenCalledOnce();
+    expect(unsubscribeMetadata).toHaveBeenCalledTimes(4);
     expect(runtime.composer.controller.hasFocus()).toBe(false);
     threadStreamScrollBinding.showLatest();
     expect(dispatchScrollCommand).not.toHaveBeenCalled();
@@ -338,7 +341,11 @@ describe("chat panel session runtime actions", () => {
       modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn().mockResolvedValue([]),
       refreshModels: vi.fn().mockResolvedValue([]),
-      observeAppServerMetadataResources: vi.fn(() => () => undefined),
+      observeRuntimeConfigResource: vi.fn(() => () => undefined),
+      observeModelsResource: vi.fn(() => () => undefined),
+      observeSkillsResource: vi.fn(() => () => undefined),
+      observePermissionProfilesResource: vi.fn(() => () => undefined),
+      observeRateLimitsResource: vi.fn(() => () => undefined),
       observeModelsResult: vi.fn(() => () => undefined),
       ...overrides,
     };

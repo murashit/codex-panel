@@ -160,7 +160,11 @@ function chatHostFixture(): CodexChatHost {
       modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn(() => Promise.resolve([])),
       refreshModels: vi.fn(() => Promise.resolve([])),
-      observeAppServerMetadataResources: vi.fn(() => () => undefined),
+      observeRuntimeConfigResource: vi.fn(() => () => undefined),
+      observeModelsResource: vi.fn(() => () => undefined),
+      observeSkillsResource: vi.fn(() => () => undefined),
+      observePermissionProfilesResource: vi.fn(() => () => undefined),
+      observeRateLimitsResource: vi.fn(() => () => undefined),
       observeModelsResult: vi.fn(() => () => undefined),
     },
     threadCatalog: {

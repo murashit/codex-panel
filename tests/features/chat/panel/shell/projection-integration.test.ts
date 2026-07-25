@@ -29,16 +29,19 @@ import { GoalPanel } from "../../../../../src/features/chat/ui/goal";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { composerSharedValues, threadStreamSharedValues, toolbarSharedValues } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith, sharedResourcesForChatState } from "../../support/state";
 import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 installObsidianDomShims();
 
-const selectChatPanelToolbar = (state: ChatState) => selectChatPanelToolbarFromResources(state, sharedResourcesForChatState(state));
+const selectChatPanelToolbar = (state: ChatState) =>
+  selectChatPanelToolbarFromResources(state, toolbarSharedValues(sharedResourcesForChatState(state)));
 const selectChatPanelThreadStream = (state: ChatState) =>
-  selectChatPanelThreadStreamFromResources(state, sharedResourcesForChatState(state));
-const selectChatPanelComposer = (state: ChatState) => selectChatPanelComposerFromResources(state, sharedResourcesForChatState(state));
+  selectChatPanelThreadStreamFromResources(state, threadStreamSharedValues(sharedResourcesForChatState(state)));
+const selectChatPanelComposer = (state: ChatState) =>
+  selectChatPanelComposerFromResources(state, composerSharedValues(sharedResourcesForChatState(state)));
 
 describe("chat panel projection integration", () => {
   it("disables compact context without an active thread", () => {

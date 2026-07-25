@@ -1,7 +1,6 @@
 import { useLayoutEffect, useReducer, useRef } from "preact/hooks";
 import type { ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
-import type { ChatSharedResources } from "./shared-resources";
 
 type ChatSelector<Selection> = (state: ChatState) => Selection;
 type SelectionEquality<Selection> = (left: Selection, right: Selection) => boolean;
@@ -51,43 +50,6 @@ export function useChatSelector<Selection extends object>(
   }, [store, selector, equality]);
 
   return selection;
-}
-
-export function useComposedChatSelector<Selection extends object>(
-  store: ChatStateStore,
-  shared: ChatSharedResources,
-  selector: (state: ChatState, shared: ChatSharedResources) => Selection,
-  equality: SelectionEquality<Selection> = shallowEqual,
-): Selection {
-  const sharedRef = useRef(shared);
-  const selectorRef = useRef(selector);
-  const selectionRef = useRef(selector(store.getState(), shared));
-  const [, rerender] = useReducer((version: number) => version + 1, 0);
-  if (sharedRef.current !== shared || selectorRef.current !== selector) {
-    sharedRef.current = shared;
-    selectorRef.current = selector;
-    const next = selector(store.getState(), shared);
-    if (!equality(selectionRef.current, next)) selectionRef.current = next;
-  }
-
-  useLayoutEffect(() => {
-    let active = true;
-    const update = (): void => {
-      if (!active) return;
-      const next = selectorRef.current(store.getState(), sharedRef.current);
-      if (equality(selectionRef.current, next)) return;
-      selectionRef.current = next;
-      rerender(undefined);
-    };
-    const unsubscribe = store.subscribe(update);
-    update();
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [store, equality]);
-
-  return selectionRef.current;
 }
 
 function selectionFor<Selection extends object>(

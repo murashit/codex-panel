@@ -568,19 +568,62 @@ describe("AppServerQueryCache", () => {
       "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
-    const listener = vi.fn();
-    const unsubscribe = cache.observeAppServerMetadataResources(listener, { emitCurrent: false });
+    const runtimeConfigListener = vi.fn();
+    const modelsListener = vi.fn();
+    const skillsListener = vi.fn();
+    const unsubscribers = [
+      cache.observeRuntimeConfigResource(runtimeConfigListener, { emitCurrent: false }),
+      cache.observeModelsResource(modelsListener, { emitCurrent: false }),
+      cache.observeSkillsResource(skillsListener, { emitCurrent: false }),
+    ];
 
     const refresh = cache.refreshAppServerMetadata();
     await flushMicrotasks();
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ id: "runtimeConfig", value: expect.any(Object) }));
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ id: "models", value: [] }));
-    expect(listener).not.toHaveBeenCalledWith(expect.objectContaining({ id: "skills", value: expect.any(Array) }));
+    expect(runtimeConfigListener).toHaveBeenCalledWith(expect.objectContaining({ id: "runtimeConfig", value: expect.any(Object) }));
+    expect(modelsListener).toHaveBeenCalledWith(expect.objectContaining({ id: "models", value: [] }));
+    expect(skillsListener).not.toHaveBeenCalled();
 
     skills.resolve({ data: [{ skills: [catalogSkill("writer")] }] });
     await refresh;
 
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ id: "skills", value: [expect.objectContaining({ name: "writer" })] }));
+    expect(skillsListener).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "skills", value: [expect.objectContaining({ name: "writer" })] }),
+    );
+    for (const unsubscribe of unsubscribers) unsubscribe();
+  });
+
+  it("lets display consumers observe one metadata resource without subscribing to unrelated records", async () => {
+    const listSkills = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [{ skills: [catalogSkill("writer")] }] })
+      .mockRejectedValueOnce(new Error("skills offline"));
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockResolvedValue({ data: [catalogModel("unrelated")] }),
+      "skills/list": listSkills,
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+    const listener = vi.fn();
+    const unsubscribe = cache.observeSkillsResource(listener, { emitCurrent: false });
+
+    await cache.refreshAppServerMetadata();
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenLastCalledWith({
+      id: "skills",
+      value: [expect.objectContaining({ name: "writer" })],
+      probe: expect.objectContaining({ id: "skills", status: "ok" }),
+    });
+
+    await expect(cache.refreshSkills()).rejects.toThrow("skills offline");
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenLastCalledWith({
+      id: "skills",
+      value: [expect.objectContaining({ name: "writer" })],
+      probe: expect.objectContaining({ id: "skills", status: "failed" }),
+    });
     unsubscribe();
   });
 
@@ -595,7 +638,7 @@ describe("AppServerQueryCache", () => {
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
     await expect(cache.refreshSkills()).rejects.toThrow("skills offline");
     const listener = vi.fn();
-    const unsubscribe = cache.observeAppServerMetadataResources(listener, { emitCurrent: false });
+    const unsubscribe = cache.observeSkillsResource(listener, { emitCurrent: false });
 
     const refresh = cache.refreshSkills();
     await flushMicrotasks();
@@ -679,7 +722,7 @@ describe("AppServerQueryCache", () => {
     const listSkills = vi.fn(() => first.promise);
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
     const listener = vi.fn();
-    const unsubscribe = cache.observeAppServerMetadataResources(listener, { emitCurrent: false });
+    const unsubscribe = cache.observeSkillsResource(listener, { emitCurrent: false });
 
     const older = cache.refreshSkills();
     await flushMicrotasks();

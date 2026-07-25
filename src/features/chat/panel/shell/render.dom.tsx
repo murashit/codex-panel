@@ -14,8 +14,17 @@ import { type ChatPanelGoalDependencies, projectChatPanelGoal } from "../goal/vi
 import { type ChatThreadStreamDependencies, projectThreadStream } from "../thread-stream/view-projection";
 import { type ChatPanelToolbarDependencies, projectChatPanelToolbar } from "../toolbar/view-projection";
 import { selectChatPanelComposer, selectChatPanelGoal, selectChatPanelThreadStream, selectChatPanelToolbar } from "./selectors";
-import { type ChatSharedResourceQueries, type ChatSharedResources, useChatSharedResources } from "./shared-resources";
-import { useChatSelector, useComposedChatSelector } from "./state-selector";
+import {
+  type ChatSharedDisplayQueries,
+  metadataDiagnosticsFromResources,
+  useActiveThreadsResource,
+  useModelsResource,
+  usePermissionProfilesProbe,
+  useRateLimitsResource,
+  useRuntimeConfigResource,
+  useSkillsResource,
+} from "./shared-resource-hooks";
+import { useChatSelector } from "./state-selector";
 
 export interface ChatPanelShellParts {
   toolbar: {
@@ -35,7 +44,7 @@ export interface ChatPanelShellParts {
 
 interface ChatPanelShellProps {
   stateStore: ChatStateStore;
-  appServerQueries: ChatSharedResourceQueries;
+  appServerQueries: ChatSharedDisplayQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
   showToolbar: boolean;
   parts: ChatPanelShellParts;
@@ -104,14 +113,14 @@ function shellRegion(container: HTMLElement, region: string): HTMLElement | null
 }
 
 function ChatPanelShell({ stateStore, appServerQueries, threadCatalog, showToolbar, parts }: ChatPanelShellProps): UiNode {
-  const shared = useChatSharedResources(appServerQueries, threadCatalog);
   return (
     <>
       {showToolbar ? (
         <div key="toolbar" className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
           <ChatPanelToolbarRegion
             stateStore={stateStore}
-            shared={shared}
+            appServerQueries={appServerQueries}
+            threadCatalog={threadCatalog}
             dependencies={parts.toolbar.dependencies}
             actions={parts.toolbar.actions}
           />
@@ -121,11 +130,12 @@ function ChatPanelShell({ stateStore, appServerQueries, threadCatalog, showToolb
         <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
           <ChatPanelGoalRegion stateStore={stateStore} dependencies={parts.goal} />
         </div>
-        <ChatPanelThreadStreamRegion stateStore={stateStore} shared={shared} dependencies={parts.threadStream} />
+        <ChatPanelThreadStreamRegion stateStore={stateStore} threadCatalog={threadCatalog} dependencies={parts.threadStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
           <ChatPanelComposerRegion
             stateStore={stateStore}
-            shared={shared}
+            appServerQueries={appServerQueries}
+            threadCatalog={threadCatalog}
             presenter={parts.composer.presenter}
             actions={parts.composer.actions}
           />
@@ -137,16 +147,40 @@ function ChatPanelShell({ stateStore, appServerQueries, threadCatalog, showToolb
 
 function ChatPanelToolbarRegion({
   stateStore,
-  shared,
+  appServerQueries,
+  threadCatalog,
   dependencies,
   actions,
 }: {
   stateStore: ChatStateStore;
-  shared: ChatSharedResources;
+  appServerQueries: ChatSharedDisplayQueries;
+  threadCatalog: ThreadCatalogPaginatedActiveReader;
   dependencies: ChatPanelToolbarDependencies;
   actions: ToolbarActions;
 }): UiNode {
-  const model = useComposedChatSelector(stateStore, shared, selectChatPanelToolbar);
+  const activeThreads = useActiveThreadsResource(threadCatalog);
+  const runtimeConfig = useRuntimeConfigResource(appServerQueries);
+  const models = useModelsResource(appServerQueries);
+  const skills = useSkillsResource(appServerQueries);
+  const permissionProfilesProbe = usePermissionProfilesProbe(appServerQueries);
+  const rateLimits = useRateLimitsResource(appServerQueries);
+  const metadataDiagnostics = useMemo(
+    () => metadataDiagnosticsFromResources({ models, skills, permissionProfilesProbe, rateLimits }),
+    [models, skills, permissionProfilesProbe, rateLimits],
+  );
+  const selector = useMemo(
+    () => (state: Parameters<typeof selectChatPanelToolbar>[0]) =>
+      selectChatPanelToolbar(state, {
+        activeThreads,
+        runtimeConfig,
+        models: models.value,
+        skills: skills.value,
+        rateLimit: rateLimits.value,
+        metadataDiagnostics,
+      }),
+    [activeThreads, runtimeConfig, models, skills, rateLimits, metadataDiagnostics],
+  );
+  const model = useChatSelector(stateStore, selector);
   return <Toolbar model={projectChatPanelToolbar(model, dependencies)} actions={actions} />;
 }
 
@@ -163,14 +197,20 @@ function ChatPanelGoalRegion({
 
 function ChatPanelThreadStreamRegion({
   stateStore,
-  shared,
+  threadCatalog,
   dependencies,
 }: {
   stateStore: ChatStateStore;
-  shared: ChatSharedResources;
+  threadCatalog: ThreadCatalogPaginatedActiveReader;
   dependencies: ChatPanelShellParts["threadStream"];
 }): UiNode {
-  const model = useComposedChatSelector(stateStore, shared, selectChatPanelThreadStream);
+  const activeThreads = useActiveThreadsResource(threadCatalog);
+  const selector = useMemo(
+    () => (state: Parameters<typeof selectChatPanelThreadStream>[0]) =>
+      selectChatPanelThreadStream(state, { threads: activeThreads.threads }),
+    [activeThreads.threads],
+  );
+  const model = useChatSelector(stateStore, selector);
   return useMemo(() => {
     const projection = projectThreadStream(model, dependencies.context);
     return (
@@ -188,16 +228,32 @@ function ChatPanelThreadStreamRegion({
 
 function ChatPanelComposerRegion({
   stateStore,
-  shared,
+  appServerQueries,
+  threadCatalog,
   presenter,
   actions,
 }: {
   stateStore: ChatStateStore;
-  shared: ChatSharedResources;
+  appServerQueries: ChatSharedDisplayQueries;
+  threadCatalog: ThreadCatalogPaginatedActiveReader;
   presenter: ChatPanelComposerPresenter;
   actions: ChatPanelComposerActions;
 }): UiNode {
-  const model = useComposedChatSelector(stateStore, shared, selectChatPanelComposer);
+  const activeThreads = useActiveThreadsResource(threadCatalog);
+  const runtimeConfig = useRuntimeConfigResource(appServerQueries);
+  const models = useModelsResource(appServerQueries);
+  const rateLimits = useRateLimitsResource(appServerQueries);
+  const selector = useMemo(
+    () => (state: Parameters<typeof selectChatPanelComposer>[0]) =>
+      selectChatPanelComposer(state, {
+        threads: activeThreads.threads,
+        runtimeConfig,
+        models: models.value,
+        rateLimit: rateLimits.value,
+      }),
+    [activeThreads.threads, runtimeConfig, models.value, rateLimits.value],
+  );
+  const model = useChatSelector(stateStore, selector);
   return useMemo(() => <ComposerShell {...presenter.renderState(model, actions)} />, [model, presenter, actions]);
 }
 

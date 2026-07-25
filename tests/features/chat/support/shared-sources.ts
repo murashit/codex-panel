@@ -1,14 +1,18 @@
 import type { Thread } from "../../../../src/domain/threads/model";
-import type { ChatSharedResourceQueries } from "../../../../src/features/chat/panel/shell/shared-resources";
+import type { ChatSharedDisplayQueries } from "../../../../src/features/chat/panel/shell/shared-resource-hooks";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../../src/features/threads/catalog/thread-catalog";
 
 export function chatSharedSourcesFixture(threads: readonly Thread[] = []): {
-  appServerQueries: ChatSharedResourceQueries;
+  appServerQueries: ChatSharedDisplayQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
 } {
   return {
     appServerQueries: {
-      observeAppServerMetadataResources: () => () => undefined,
+      observeRuntimeConfigResource: () => () => undefined,
+      observeModelsResource: () => () => undefined,
+      observeSkillsResource: () => () => undefined,
+      observePermissionProfilesResource: () => () => undefined,
+      observeRateLimitsResource: () => () => undefined,
     },
     threadCatalog: {
       fetchActiveThreads: async () => threads,

@@ -4,8 +4,7 @@ import {
   type ChatState,
   createChatState,
 } from "../../../../src/features/chat/application/state/root-reducer";
-import type { ChatSharedResources } from "../../../../src/features/chat/panel/shell/shared-resources";
-import { chatSharedResourcesFixture } from "./shared-resources";
+import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "./shared-display-values";
 
 interface RuntimePatch {
   active?: Partial<ChatState["runtime"]["active"]>;
@@ -14,13 +13,13 @@ interface RuntimePatch {
 
 interface ChatStateFixturePatch {
   connection?: Partial<ChatState["connection"]> & {
-    runtimeConfig?: ChatSharedResources["runtimeConfig"];
-    availableModels?: ChatSharedResources["availableModels"];
-    availableSkills?: ChatSharedResources["availableSkills"];
-    rateLimit?: ChatSharedResources["rateLimit"];
+    runtimeConfig?: ChatSharedDisplayValues["runtimeConfig"];
+    availableModels?: ChatSharedDisplayValues["availableModels"];
+    availableSkills?: ChatSharedDisplayValues["availableSkills"];
+    rateLimit?: ChatSharedDisplayValues["rateLimit"];
   };
   threadList?: {
-    listedThreads?: ChatSharedResources["threads"];
+    listedThreads?: ChatSharedDisplayValues["threads"];
     hasMore?: boolean;
     isFetching?: boolean;
     isFetchingNextPage?: boolean;
@@ -37,7 +36,7 @@ interface ChatStateFixturePatch {
   };
 }
 
-const sharedResourcesByState = new WeakMap<ChatState, ChatSharedResources>();
+const sharedResourcesByState = new WeakMap<ChatState, ChatSharedDisplayValues>();
 
 export function chatStateFixture(patch: ChatStateFixturePatch = {}): ChatState {
   return chatStateWith(createChatState(), patch);
@@ -86,7 +85,7 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
   return next;
 }
 
-export function sharedResourcesForChatState(state: ChatState): ChatSharedResources {
+export function sharedResourcesForChatState(state: ChatState): ChatSharedDisplayValues {
   return sharedResourcesByState.get(state) ?? chatSharedResourcesFixture();
 }
 

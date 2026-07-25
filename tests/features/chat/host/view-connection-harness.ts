@@ -471,6 +471,24 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     }
     return nextMetadata;
   };
+  const observeMetadataResource = <Resource extends SharedServerMetadataResource>(
+    id: Resource["id"],
+    listener: (resource: Resource) => void,
+    current: () => Resource | undefined,
+    options: { emitCurrent?: boolean },
+  ): (() => void) => {
+    const aggregateListener = (resource: SharedServerMetadataResource): void => {
+      if (resource.id === id) listener(resource as Resource);
+    };
+    metadataResourceListeners.add(aggregateListener);
+    if (options.emitCurrent ?? true) {
+      const resource = current();
+      if (resource) listener(resource);
+    }
+    return () => {
+      metadataResourceListeners.delete(aggregateListener);
+    };
+  };
   const loadAppServerMetadata = async (reloadSkills = false): Promise<SharedServerMetadataFixture | null> => {
     const client = connectionMock.state.client as TestAppServerClient | null;
     if (!client || !connectionMock.state.connected) return null;
@@ -609,20 +627,69 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       modelsSnapshot: overrides.modelsSnapshot ?? vi.fn(() => models),
       fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
       refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
-      observeAppServerMetadataResources: (listener, options = {}) => {
-        metadataResourceListeners.add(listener);
-        if ((options.emitCurrent ?? true) && metadata) applyMetadataToCache(metadata);
-        if ((options.emitCurrent ?? true) && models) {
-          listener({
-            id: "models",
-            value: models,
-            probe: diagnosticProbeOk("models", `${String(models.length)} models`, Date.now()),
-          });
-        }
-        return () => {
-          metadataResourceListeners.delete(listener);
-        };
-      },
+      observeRuntimeConfigResource: (listener, options = {}) =>
+        observeMetadataResource(
+          "runtimeConfig",
+          listener,
+          () => (metadata ? { id: "runtimeConfig", value: metadata.runtimeConfig ?? undefined } : undefined),
+          options,
+        ),
+      observeModelsResource: (listener, options = {}) =>
+        observeMetadataResource(
+          "models",
+          listener,
+          () =>
+            models
+              ? {
+                  id: "models",
+                  value: models,
+                  probe: diagnosticProbeOk("models", `${String(models.length)} models`, Date.now()),
+                }
+              : undefined,
+          options,
+        ),
+      observeSkillsResource: (listener, options = {}) =>
+        observeMetadataResource(
+          "skills",
+          listener,
+          () =>
+            metadata
+              ? {
+                  id: "skills",
+                  value: metadata.availableSkills,
+                  probe: metadata.serverDiagnostics.probes.skills,
+                }
+              : undefined,
+          options,
+        ),
+      observePermissionProfilesResource: (listener, options = {}) =>
+        observeMetadataResource(
+          "permissionProfiles",
+          listener,
+          () =>
+            metadata
+              ? {
+                  id: "permissionProfiles",
+                  value: metadata.availablePermissionProfiles,
+                  probe: metadata.serverDiagnostics.probes.permissionProfiles,
+                }
+              : undefined,
+          options,
+        ),
+      observeRateLimitsResource: (listener, options = {}) =>
+        observeMetadataResource(
+          "rateLimits",
+          listener,
+          () =>
+            metadata
+              ? {
+                  id: "rateLimits",
+                  value: metadata.rateLimit,
+                  probe: metadata.serverDiagnostics.probes.rateLimits,
+                }
+              : undefined,
+          options,
+        ),
       observeModelsResult: (listener, options = {}) => {
         modelResultListeners.add(listener);
         if ((options.emitCurrent ?? true) && models) listener(queryResult(models));

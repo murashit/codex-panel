@@ -26,3 +26,9 @@ export type SharedServerMetadataResource =
       readonly value: RateLimitSnapshot | null | undefined;
       readonly probe: DiagnosticProbeResult;
     };
+
+export type RuntimeConfigMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "runtimeConfig" }>;
+export type ModelsMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "models" }>;
+export type SkillsMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "skills" }>;
+export type PermissionProfilesMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "permissionProfiles" }>;
+export type RateLimitsMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "rateLimits" }>;

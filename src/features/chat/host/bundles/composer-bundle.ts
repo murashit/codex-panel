@@ -58,7 +58,16 @@ export function createChatComposerController(
       activeThreadsSnapshot: () => environment.plugin.threadCatalog.activeThreadsSnapshot(),
       subscribe: (listener) => {
         const unsubscribers = [
-          environment.plugin.appServerQueries.observeAppServerMetadataResources(() => {
+          environment.plugin.appServerQueries.observeRuntimeConfigResource(() => {
+            listener();
+          }),
+          environment.plugin.appServerQueries.observeModelsResource(() => {
+            listener();
+          }),
+          environment.plugin.appServerQueries.observeSkillsResource(() => {
+            listener();
+          }),
+          environment.plugin.appServerQueries.observePermissionProfilesResource(() => {
             listener();
           }),
           environment.plugin.threadCatalog.observeActiveThreadsResult(() => {

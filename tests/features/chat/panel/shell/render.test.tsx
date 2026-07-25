@@ -2,6 +2,8 @@
 
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import { diagnosticProbeOk } from "../../../../../src/domain/server/diagnostics";
+import type { SkillsMetadataResource } from "../../../../../src/domain/server/metadata";
 import type { ComposerContextReferenceProvider } from "../../../../../src/features/chat/application/composer/context-references";
 import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
@@ -68,6 +70,47 @@ describe("ChatPanelShell", () => {
     await act(async () => {
       unmountChatPanelShell(container);
     });
+  });
+
+  it("keeps composer rendering independent from toolbar-only shared resource updates", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const props = shellProps(store);
+    const skillListeners = new Set<(resource: SkillsMetadataResource) => void>();
+    props.appServerQueries.observeSkillsResource = (listener) => {
+      skillListeners.add(listener);
+      return () => {
+        skillListeners.delete(listener);
+      };
+    };
+    const originalPresenter = props.parts.composer.presenter;
+    const renderComposer = vi.fn(originalPresenter.renderState);
+    props.parts.composer.presenter = { renderState: renderComposer };
+
+    await act(async () => {
+      renderChatPanelShell(container, props);
+      await settleShellEffects();
+    });
+    expect(skillListeners.size).toBe(1);
+    renderComposer.mockClear();
+
+    await act(async () => {
+      for (const listener of skillListeners) {
+        listener({
+          id: "skills",
+          value: [{ name: "writer", description: "", path: "/skills/writer", enabled: true }],
+          probe: diagnosticProbeOk("skills", "1 skill", 1),
+        });
+      }
+      await settleShellEffects();
+    });
+
+    expect(renderComposer).not.toHaveBeenCalled();
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+    expect(skillListeners.size).toBe(0);
   });
 
   it("keeps Tab wikilink insertion before closing brackets through shell selector updates", async () => {

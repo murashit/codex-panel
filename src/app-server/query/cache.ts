@@ -19,7 +19,14 @@ import {
   diagnosticProbeOk,
   type MetadataResourceDiagnostics,
 } from "../../domain/server/diagnostics";
-import type { SharedServerMetadataResource } from "../../domain/server/metadata";
+import type {
+  ModelsMetadataResource,
+  PermissionProfilesMetadataResource,
+  RateLimitsMetadataResource,
+  RuntimeConfigMetadataResource,
+  SharedServerMetadataResource,
+  SkillsMetadataResource,
+} from "../../domain/server/metadata";
 import { applyThreadCatalogChange, type ThreadCatalogChange, type ThreadCatalogList } from "../../domain/threads/catalog-read-model";
 import type { Thread } from "../../domain/threads/model";
 import { StaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
@@ -319,73 +326,79 @@ export class AppServerQueryCache {
       : null;
   }
 
-  observeAppServerMetadataResources(
-    listener: (resource: SharedServerMetadataResource) => void,
+  observeRuntimeConfigResource(
+    listener: (resource: RuntimeConfigMetadataResource) => void,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     this.assertUsable();
-    let unsubscribed = false;
-    const emit = (resource: SharedServerMetadataResource): void => {
-      if (!this.disposed && !unsubscribed) listener(cloneSharedServerMetadataResource(resource));
-    };
+    return this.observeMetadataQueryResource(
+      this.runtimeConfigQueryOptions(),
+      (result) => ({
+        id: "runtimeConfig",
+        value: result.data ? cloneRuntimeConfigSnapshot(result.data) : undefined,
+      }),
+      listener,
+      options,
+    );
+  }
 
-    const runtimeConfig = new QueryObserver(this.client, { ...this.runtimeConfigQueryOptions(), enabled: false });
-    const models = new QueryObserver(this.client, { ...this.modelsQueryOptions(), enabled: false });
-    const skills = new QueryObserver(this.client, { ...this.skillsQueryOptions(), enabled: false });
-    const permissionProfiles = new QueryObserver(this.client, { ...this.permissionProfilesQueryOptions(), enabled: false });
-    const rateLimits = new QueryObserver(this.client, { ...this.rateLimitsQueryOptions(), enabled: false });
-    const emitRuntimeConfig = (result: QueryObserverResult<RuntimeConfigSnapshot>, includeFetching = false): void => {
-      if (result.isFetching && !includeFetching) return;
-      emit({ id: "runtimeConfig", value: result.data ? cloneRuntimeConfigSnapshot(result.data) : undefined });
-    };
-    const emitModels = (result: QueryObserverResult<readonly ModelMetadata[]>, includeFetching = false): void => {
-      if (result.isFetching && !includeFetching) return;
-      emit({ id: "models", value: result.data ? cloneModelMetadata(result.data) : undefined, probe: this.modelsProbe() });
-    };
-    const emitSkills = (result: QueryObserverResult<MetadataResourceSnapshot<readonly SkillMetadata[]>>, includeFetching = false): void => {
-      if (result.isFetching && !includeFetching) return;
-      const state = this.metadataResourceState("skills");
-      emit({ id: "skills", value: state.value ?? undefined, probe: state.probe });
-    };
-    const emitPermissionProfiles = (
-      result: QueryObserverResult<MetadataResourceSnapshot<readonly RuntimePermissionProfileSummary[]>>,
-      includeFetching = false,
-    ): void => {
-      if (result.isFetching && !includeFetching) return;
-      const state = this.metadataResourceState("permissionProfiles");
-      emit({ id: "permissionProfiles", value: state.value ?? undefined, probe: state.probe });
-    };
-    const emitRateLimits = (
-      result: QueryObserverResult<MetadataResourceSnapshot<RateLimitSnapshot | null>>,
-      includeFetching = false,
-    ): void => {
-      if (result.isFetching && !includeFetching) return;
-      const state = this.metadataResourceState("rateLimits");
-      emit({ id: "rateLimits", value: state.value, probe: state.probe });
-    };
-    const unsubscribers = [
-      runtimeConfig.subscribe(emitRuntimeConfig),
-      models.subscribe(emitModels),
-      skills.subscribe(emitSkills),
-      permissionProfiles.subscribe(emitPermissionProfiles),
-      rateLimits.subscribe(emitRateLimits),
-    ];
-    if (options.emitCurrent ?? true) {
-      emitRuntimeConfig(runtimeConfig.getCurrentResult(), true);
-      emitModels(models.getCurrentResult(), true);
-      emitSkills(skills.getCurrentResult(), true);
-      emitPermissionProfiles(permissionProfiles.getCurrentResult(), true);
-      emitRateLimits(rateLimits.getCurrentResult(), true);
-    }
-    return this.trackObserver(() => {
-      unsubscribed = true;
-      for (const unsubscribe of unsubscribers) unsubscribe();
-      runtimeConfig.destroy();
-      models.destroy();
-      skills.destroy();
-      permissionProfiles.destroy();
-      rateLimits.destroy();
-    });
+  observeModelsResource(listener: (resource: ModelsMetadataResource) => void, options: { emitCurrent?: boolean } = {}): () => void {
+    this.assertUsable();
+    return this.observeMetadataQueryResource(
+      this.modelsQueryOptions(),
+      (result) => ({
+        id: "models",
+        value: result.data ? cloneModelMetadata(result.data) : undefined,
+        probe: this.modelsProbe(),
+      }),
+      listener,
+      options,
+    );
+  }
+
+  observeSkillsResource(listener: (resource: SkillsMetadataResource) => void, options: { emitCurrent?: boolean } = {}): () => void {
+    this.assertUsable();
+    return this.observeMetadataQueryResource(
+      this.skillsQueryOptions(),
+      (result) => ({
+        id: "skills",
+        value: result.data?.value,
+        probe: this.metadataResourceState("skills").probe,
+      }),
+      listener,
+      options,
+    );
+  }
+
+  observePermissionProfilesResource(
+    listener: (resource: PermissionProfilesMetadataResource) => void,
+    options: { emitCurrent?: boolean } = {},
+  ): () => void {
+    this.assertUsable();
+    return this.observeMetadataQueryResource(
+      this.permissionProfilesQueryOptions(),
+      (result) => ({
+        id: "permissionProfiles",
+        value: result.data?.value,
+        probe: this.metadataResourceState("permissionProfiles").probe,
+      }),
+      listener,
+      options,
+    );
+  }
+
+  observeRateLimitsResource(listener: (resource: RateLimitsMetadataResource) => void, options: { emitCurrent?: boolean } = {}): () => void {
+    this.assertUsable();
+    return this.observeMetadataQueryResource(
+      this.rateLimitsQueryOptions(),
+      (result) => ({
+        id: "rateLimits",
+        value: result.data?.value,
+        probe: this.metadataResourceState("rateLimits").probe,
+      }),
+      listener,
+      options,
+    );
   }
 
   refreshAppServerMetadata(): Promise<void> {
@@ -603,6 +616,28 @@ export class AppServerQueryCache {
     };
     const unsubscribe = observer.subscribe(emit);
     if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
+    return this.trackObserver(() => {
+      unsubscribe();
+      observer.destroy();
+    });
+  }
+
+  private observeMetadataQueryResource<TQuery, Resource extends SharedServerMetadataResource>(
+    queryOptions: AppServerQueryOptions<TQuery>,
+    project: (result: QueryObserverResult<TQuery>) => Resource,
+    listener: (resource: Resource) => void,
+    options: { emitCurrent?: boolean },
+  ): () => void {
+    const observer = new QueryObserver<TQuery>(this.client, {
+      ...queryOptions,
+      enabled: false,
+    });
+    const emit = (result: QueryObserverResult<TQuery>, includeFetching = false): void => {
+      if (this.disposed || (result.isFetching && !includeFetching)) return;
+      listener(cloneSharedServerMetadataResource(project(result)) as Resource);
+    };
+    const unsubscribe = observer.subscribe(emit);
+    if (options.emitCurrent ?? true) emit(observer.getCurrentResult(), true);
     return this.trackObserver(() => {
       unsubscribe();
       observer.destroy();

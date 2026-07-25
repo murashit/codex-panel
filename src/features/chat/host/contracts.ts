@@ -8,7 +8,13 @@ import type { RuntimeConfigSnapshot } from "../../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../../domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../../domain/runtime/permissions";
 import type { MetadataResourceDiagnostics } from "../../../domain/server/diagnostics";
-import type { SharedServerMetadataResource } from "../../../domain/server/metadata";
+import type {
+  ModelsMetadataResource,
+  PermissionProfilesMetadataResource,
+  RateLimitsMetadataResource,
+  RuntimeConfigMetadataResource,
+  SkillsMetadataResource,
+} from "../../../domain/server/metadata";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import type { ObservedResultListener } from "../../../shared/runtime/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
@@ -67,10 +73,17 @@ interface ChatAppServerQueries {
   refreshAppServerMetadata(): Promise<void>;
   refreshSkills(): Promise<void>;
   refreshRateLimits(): Promise<void>;
-  observeAppServerMetadataResources(
-    listener: (resource: SharedServerMetadataResource) => void,
+  observeRuntimeConfigResource(
+    listener: (resource: RuntimeConfigMetadataResource) => void,
     options?: { emitCurrent?: boolean },
   ): () => void;
+  observeModelsResource(listener: (resource: ModelsMetadataResource) => void, options?: { emitCurrent?: boolean }): () => void;
+  observeSkillsResource(listener: (resource: SkillsMetadataResource) => void, options?: { emitCurrent?: boolean }): () => void;
+  observePermissionProfilesResource(
+    listener: (resource: PermissionProfilesMetadataResource) => void,
+    options?: { emitCurrent?: boolean },
+  ): () => void;
+  observeRateLimitsResource(listener: (resource: RateLimitsMetadataResource) => void, options?: { emitCurrent?: boolean }): () => void;
   modelsSnapshot(): readonly ModelMetadata[] | null;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
