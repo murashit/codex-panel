@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
+import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
 import {
   EphemeralThreadCleanupRequiredError,
   forkEphemeralThread,
@@ -8,7 +8,7 @@ import {
   startThread,
   threadFromAppServerRecord,
   unsubscribeThread,
-} from "../../src/app-server/services/threads";
+} from "../../../src/app-server/services/threads";
 
 describe("app-server thread response adapters", () => {
   it("preserves spawned subagent provenance in the domain thread", () => {

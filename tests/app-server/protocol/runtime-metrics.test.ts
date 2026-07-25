@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   accountRateLimitsSummaryFromResponse,
   rateLimitSnapshotFromAccountRateLimitsResponse,
-} from "../../src/app-server/protocol/runtime-metrics";
+} from "../../../src/app-server/protocol/runtime-metrics";
 
 type AccountRateLimitsResponse = Parameters<typeof rateLimitSnapshotFromAccountRateLimitsResponse>[0];
 type AppServerRateLimitSnapshot = AccountRateLimitsResponse["rateLimits"];

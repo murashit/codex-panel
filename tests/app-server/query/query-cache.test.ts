@@ -1,13 +1,13 @@
 import { onlineManager } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
-import type { AppServerClientAccess } from "../../src/app-server/connection/client-access";
-import type { AppServerExecutionContext } from "../../src/app-server/connection/execution-context";
-import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
-import { AppServerQueryCache } from "../../src/app-server/query/cache";
-import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
-import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
-import type { Thread } from "../../src/domain/threads/model";
-import { StaleExecutionRuntimeError } from "../../src/shared/runtime/execution-runtime-lifetime";
+import type { AppServerClientAccess } from "../../../src/app-server/connection/client-access";
+import type { AppServerExecutionContext } from "../../../src/app-server/connection/execution-context";
+import type { CatalogModel, CatalogSkillMetadata } from "../../../src/app-server/protocol/catalog";
+import { AppServerQueryCache } from "../../../src/app-server/query/cache";
+import type { RateLimitSnapshot } from "../../../src/domain/runtime/metrics";
+import type { RuntimePermissionProfileSummary } from "../../../src/domain/runtime/permissions";
+import type { Thread } from "../../../src/domain/threads/model";
+import { StaleExecutionRuntimeError } from "../../../src/shared/runtime/execution-runtime-lifetime";
 
 describe("AppServerQueryCache", () => {
   it("uses its required runtime-owned client access", async () => {

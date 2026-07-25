@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type AppServerTransportHandlers, StdioAppServerTransport } from "../../src/app-server/connection/transport";
+import { type AppServerTransportHandlers, StdioAppServerTransport } from "../../../src/app-server/connection/transport";
 
 const spawnMock = vi.hoisted(() => vi.fn());
 

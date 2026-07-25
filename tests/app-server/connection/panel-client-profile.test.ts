@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import manifest from "../../manifest.json";
-import { codexPanelAppServerInitializeParams } from "../../src/app-server/connection/client-profile";
-import compatibility from "../../src/app-server/connection/compatibility.json";
+import manifest from "../../../manifest.json";
+import { codexPanelAppServerInitializeParams } from "../../../src/app-server/connection/client-profile";
+import compatibility from "../../../src/app-server/connection/compatibility.json";
 
 describe("codexPanelAppServerInitializeParams", () => {
   it("builds the panel initialize profile from compatibility policy and manifest version", () => {

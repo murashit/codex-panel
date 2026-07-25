@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { recoverRolloutTokenUsage } from "../../src/app-server/services/rollout-token-usage";
+import { recoverRolloutTokenUsage } from "../../../src/app-server/services/rollout-token-usage";
 
 describe("rollout token usage recovery", () => {
   it("parses the last valid token_count event", async () => {

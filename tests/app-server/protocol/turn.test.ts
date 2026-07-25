@@ -10,7 +10,7 @@ import {
   type TurnRecord,
   transcriptEntriesFromTurnRecords,
   turnTranscriptAssistantTextFromTurnRecord,
-} from "../../src/app-server/protocol/turn";
+} from "../../../src/app-server/protocol/turn";
 
 describe("app-server turn records", () => {
   it("projects readable transcript entries without command log items", () => {

@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createVaultComposerAttachmentHandler } from "../../../../src/features/chat/host/obsidian/composer-attachments.obsidian";
+import { createVaultComposerAttachmentHandler } from "../../../../../src/features/chat/host/obsidian/composer-attachments.obsidian";
 
 describe("vault composer attachments", () => {
   it("saves unnamed pasted images with a generated filename and Obsidian embed marker", async () => {

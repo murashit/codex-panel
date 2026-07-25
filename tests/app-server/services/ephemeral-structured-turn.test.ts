@@ -1,18 +1,18 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../src/app-server/connection/client";
-import type { ClientRequestParams } from "../../src/app-server/connection/rpc-messages";
-import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
-import { type EphemeralStructuredTurnClient, runEphemeralStructuredTurn } from "../../src/app-server/services/ephemeral-structured-turn";
-import type { AppServerStartEphemeralThreadOptions } from "../../src/app-server/services/threads";
-import type { AppServerStartStructuredTurnOptions } from "../../src/app-server/services/turns";
-import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
-import type { RequestId } from "../../src/generated/app-server/RequestId";
-import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
-import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
-import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
-import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
+import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../../src/app-server/connection/client";
+import type { ClientRequestParams } from "../../../src/app-server/connection/rpc-messages";
+import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
+import { type EphemeralStructuredTurnClient, runEphemeralStructuredTurn } from "../../../src/app-server/services/ephemeral-structured-turn";
+import type { AppServerStartEphemeralThreadOptions } from "../../../src/app-server/services/threads";
+import type { AppServerStartStructuredTurnOptions } from "../../../src/app-server/services/turns";
+import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
+import type { RequestId } from "../../../src/generated/app-server/RequestId";
+import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
+import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
+import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
+import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
 
 interface TurnStartResponse {
   turn: TurnRecord;

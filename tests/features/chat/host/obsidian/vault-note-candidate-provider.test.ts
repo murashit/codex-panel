@@ -8,9 +8,9 @@ const dailyNotesInterface = vi.hoisted(() => ({
 
 vi.mock("obsidian-daily-notes-interface", () => dailyNotesInterface);
 
-import { VaultComposerContextReferenceProvider } from "../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
-import { configuredDailyNoteReferences } from "../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
-import { VaultNoteCandidateProvider } from "../../../../src/features/chat/host/obsidian/vault-note-candidate-provider.obsidian";
+import { VaultComposerContextReferenceProvider } from "../../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
+import { configuredDailyNoteReferences } from "../../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
+import { VaultNoteCandidateProvider } from "../../../../../src/features/chat/host/obsidian/vault-note-candidate-provider.obsidian";
 
 describe("VaultNoteCandidateProvider", () => {
   beforeEach(() => {

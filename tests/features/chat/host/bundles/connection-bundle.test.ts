@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ConnectionManagerHandlers } from "../../../../src/app-server/connection/connection-manager";
-import type { ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
-import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { createConnectionBundle } from "../../../../src/features/chat/host/bundles/connection-bundle";
-import { chatStateFixture } from "../support/state";
+import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
+import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { createConnectionBundle } from "../../../../../src/features/chat/host/bundles/connection-bundle";
+import { chatStateFixture } from "../../support/state";
 
 type ConnectionBundleHost = Parameters<typeof createConnectionBundle>[0];
 type ConnectionBundleInput = Parameters<typeof createConnectionBundle>[1];

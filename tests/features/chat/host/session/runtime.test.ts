@@ -2,21 +2,21 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Thread } from "../../../../src/domain/threads/model";
-import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
-import { createThreadGoalCoordinator } from "../../../../src/features/chat/application/threads/thread-goal-coordinator";
-import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/contracts";
-import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
-import { createChatPanelSessionRuntime } from "../../../../src/features/chat/host/session/runtime";
-import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
-import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { StaleExecutionRuntimeError } from "../../../../src/shared/runtime/execution-runtime-lifetime";
-import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
-import { deferred, waitForAsyncWork } from "../../../support/async";
-import { installObsidianDomShims } from "../../../support/dom";
-import { chatPanelSettingsAccess } from "../support/settings";
-import { composerModelFromChatState } from "../support/shell-selectors";
+import type { Thread } from "../../../../../src/domain/threads/model";
+import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
+import { createThreadGoalCoordinator } from "../../../../../src/features/chat/application/threads/thread-goal-coordinator";
+import type { ChatPanelEnvironment } from "../../../../../src/features/chat/host/contracts";
+import { createChatViewDeferredTasks } from "../../../../../src/features/chat/host/session/deferred-work";
+import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
+import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/panel/thread-stream-scroll-binding";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/model";
+import { StaleExecutionRuntimeError } from "../../../../../src/shared/runtime/execution-runtime-lifetime";
+import { createKeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
+import { deferred, waitForAsyncWork } from "../../../../support/async";
+import { installObsidianDomShims } from "../../../../support/dom";
+import { chatPanelSettingsAccess } from "../../support/settings";
+import { composerModelFromChatState } from "../../support/shell-selectors";
 
 installObsidianDomShims();
 

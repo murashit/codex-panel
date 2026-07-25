@@ -21,7 +21,7 @@ describe("StdioAppServerTransport Windows launch", () => {
   it("starts Windows command shims through cmd.exe", async () => {
     Object.defineProperty(process, "platform", { value: "win32" });
     vi.stubEnv("ComSpec", String.raw`C:\Windows\System32\cmd.exe`);
-    const { StdioAppServerTransport } = await import("../../src/app-server/connection/transport");
+    const { StdioAppServerTransport } = await import("../../../src/app-server/connection/transport");
     const codexCmd = String.raw`C:\Users\me\AppData\Roaming\npm\codex.cmd`;
     const cwd = String.raw`C:\vault`;
 
@@ -44,7 +44,7 @@ describe("StdioAppServerTransport Windows launch", () => {
   it("kills the cmd.exe process tree when stopping Windows command shim launches", async () => {
     Object.defineProperty(process, "platform", { value: "win32" });
     vi.stubEnv("ComSpec", String.raw`C:\Windows\System32\cmd.exe`);
-    const { StdioAppServerTransport } = await import("../../src/app-server/connection/transport");
+    const { StdioAppServerTransport } = await import("../../../src/app-server/connection/transport");
     const codexCmd = String.raw`C:\Users\me\AppData\Roaming\npm\codex.cmd`;
     const cmdProcess = fakeChildProcess({ pid: 4242 });
 

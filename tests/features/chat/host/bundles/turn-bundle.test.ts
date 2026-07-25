@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createServerDiagnostics, diagnosticsWithToolInventory } from "../../../../src/domain/server/diagnostics";
-import type { ToolInventorySnapshot } from "../../../../src/domain/server/tool-inventory";
-import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { createTurnBundle } from "../../../../src/features/chat/host/bundles/turn-bundle";
+import { createServerDiagnostics, diagnosticsWithToolInventory } from "../../../../../src/domain/server/diagnostics";
+import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { createTurnBundle } from "../../../../../src/features/chat/host/bundles/turn-bundle";
 
 describe("createTurnBundle", () => {
   it("uses cached tool inventory for /tools without refreshing diagnostics", async () => {

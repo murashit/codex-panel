@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppServerClientHandlers, AppServerServerRequestResponder } from "../../src/app-server/connection/client";
-import { AppServerClient } from "../../src/app-server/connection/client";
-import type { RpcOutboundMessage } from "../../src/app-server/connection/rpc-messages";
-import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
-import type { InitializeParams } from "../../src/generated/app-server/InitializeParams";
-import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
-import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
+import type { AppServerClientHandlers, AppServerServerRequestResponder } from "../../../src/app-server/connection/client";
+import { AppServerClient } from "../../../src/app-server/connection/client";
+import type { RpcOutboundMessage } from "../../../src/app-server/connection/rpc-messages";
+import type { AppServerTransport, AppServerTransportHandlers } from "../../../src/app-server/connection/transport";
+import type { InitializeParams } from "../../../src/generated/app-server/InitializeParams";
+import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
+import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
 
 const TEST_INITIALIZE_PARAMS: InitializeParams = {
   clientInfo: {

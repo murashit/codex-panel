@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AppServerClientHandlers, AppServerClientOptions } from "../../src/app-server/connection/client";
-import { withShortLivedAppServerClient } from "../../src/app-server/connection/short-lived-client";
+import type { AppServerClientHandlers, AppServerClientOptions } from "../../../src/app-server/connection/client";
+import { withShortLivedAppServerClient } from "../../../src/app-server/connection/short-lived-client";
 
 const clientMocks = vi.hoisted(() => ({
   connect: vi.fn<() => Promise<unknown>>(),
@@ -9,7 +9,7 @@ const clientMocks = vi.hoisted(() => ({
   options: [] as AppServerClientOptions[],
 }));
 
-vi.mock("../../src/app-server/connection/client", () => ({
+vi.mock("../../../src/app-server/connection/client", () => ({
   AppServerClient: class {
     constructor(options: AppServerClientOptions) {
       clientMocks.options.push(options);

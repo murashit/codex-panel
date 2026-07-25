@@ -4,7 +4,7 @@ import {
   appServerThreadGoalUpdate,
   appServerThreadGoalUserHistoryItem,
   threadGoalFromAppServerGoal,
-} from "../../src/app-server/protocol/thread-goal";
+} from "../../../src/app-server/protocol/thread-goal";
 
 describe("app-server thread goal model", () => {
   it("maps app-server goals into panel-owned goal snapshots", () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ModelMetadataClient } from "../../src/app-server/services/catalog";
-import { resolvedRuntimeOverrideForClient } from "../../src/app-server/services/runtime-overrides";
-import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelListResponse";
+import type { ModelMetadataClient } from "../../../src/app-server/services/catalog";
+import { resolvedRuntimeOverrideForClient } from "../../../src/app-server/services/runtime-overrides";
+import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
 
 describe("resolvedRuntimeOverrideForClient", () => {
   it("uses Codex defaults without loading model metadata", async () => {

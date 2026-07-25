@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { threadActivationSnapshotFromAppServerResponse } from "../../src/app-server/services/threads";
-import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
-import type { ThreadResumeResponse } from "../../src/generated/app-server/v2/ThreadResumeResponse";
+import { threadActivationSnapshotFromAppServerResponse } from "../../../src/app-server/services/threads";
+import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
+import type { ThreadResumeResponse } from "../../../src/generated/app-server/v2/ThreadResumeResponse";
 
 describe("app-server thread activation", () => {
   it("maps app-server activation responses into panel-owned snapshots", () => {

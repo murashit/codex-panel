@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CodexInput } from "../../../../src/domain/chat/input";
-import type { ComposerInputSnapshot } from "../../../../src/features/chat/application/composer/input-snapshot";
-import { deferred } from "../../../support/async";
+import type { CodexInput } from "../../../../../src/domain/chat/input";
+import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
+import { deferred } from "../../../../support/async";
 
 const mocks = vi.hoisted(() => ({
   defuddleParse: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock("defuddle", () => ({
   }),
 }));
 
-const { readWebUrl } = await import("../../../../src/features/chat/host/obsidian/web-context.obsidian");
+const { readWebUrl } = await import("../../../../../src/features/chat/host/obsidian/web-context.obsidian");
 
 describe("web context reader", () => {
   beforeEach(() => {

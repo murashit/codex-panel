@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AppServerClient } from "../../src/app-server/connection/client";
+import { AppServerClient } from "../../../src/app-server/connection/client";
 import {
   ConnectionManager,
   type ConnectionManagerHandlers,
   StaleConnectionError,
-} from "../../src/app-server/connection/connection-manager";
-import type { RpcOutboundMessage, ServerNotification } from "../../src/app-server/connection/rpc-messages";
-import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
-import type { InitializeParams } from "../../src/generated/app-server/InitializeParams";
+} from "../../../src/app-server/connection/connection-manager";
+import type { RpcOutboundMessage, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
+import type { AppServerTransport, AppServerTransportHandlers } from "../../../src/app-server/connection/transport";
+import type { InitializeParams } from "../../../src/generated/app-server/InitializeParams";
 
 const TEST_INITIALIZE_PARAMS: InitializeParams = {
   clientInfo: {

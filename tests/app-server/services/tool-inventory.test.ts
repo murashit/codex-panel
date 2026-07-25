@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
-import { readToolInventory } from "../../src/app-server/services/tool-inventory";
+import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
+import { readToolInventory } from "../../../src/app-server/services/tool-inventory";
 
 describe("tool inventory", () => {
   it("loads every MCP server status page", async () => {

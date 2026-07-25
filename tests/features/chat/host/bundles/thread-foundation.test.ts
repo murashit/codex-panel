@@ -2,17 +2,17 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { Thread } from "../../../../src/domain/threads/model";
-import { createLocalIdSource } from "../../../../src/features/chat/application/local-id-source";
-import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
-import { createThreadGoalCoordinator } from "../../../../src/features/chat/application/threads/thread-goal-coordinator";
-import { createThreadFoundation } from "../../../../src/features/chat/host/bundles/thread-bundle";
-import { createThreadAutoTitleWork } from "../../../../src/features/threads/workflows/thread-auto-title-work";
-import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
-import { deferred } from "../../../support/async";
-import { chatPanelSettingsAccess } from "../support/settings";
+import type { Thread } from "../../../../../src/domain/threads/model";
+import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
+import { createThreadGoalCoordinator } from "../../../../../src/features/chat/application/threads/thread-goal-coordinator";
+import { createThreadFoundation } from "../../../../../src/features/chat/host/bundles/thread-bundle";
+import { createThreadAutoTitleWork } from "../../../../../src/features/threads/workflows/thread-auto-title-work";
+import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
+import { createKeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
+import { deferred } from "../../../../support/async";
+import { chatPanelSettingsAccess } from "../../support/settings";
 
 describe("chat thread foundation auto-title handoff", () => {
   it("lets shared first-turn title work finish after the initiating panel invalidates its active thread", async () => {

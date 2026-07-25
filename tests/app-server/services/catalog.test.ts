@@ -4,18 +4,18 @@ import {
   hookItemsFromCatalogHooks,
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
-} from "../../src/app-server/protocol/catalog";
+} from "../../../src/app-server/protocol/catalog";
 import {
   listHookCatalog,
   listModelMetadata,
   listSkillCatalog,
   setHookItemEnabled,
   trustHookItem,
-} from "../../src/app-server/services/catalog";
-import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
-import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
-import type { Model } from "../../src/generated/app-server/v2/Model";
-import type { SkillMetadata } from "../../src/generated/app-server/v2/SkillMetadata";
+} from "../../../src/app-server/services/catalog";
+import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
+import type { HookMetadata } from "../../../src/generated/app-server/v2/HookMetadata";
+import type { Model } from "../../../src/generated/app-server/v2/Model";
+import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
 
 describe("app-server catalog mappers", () => {
   it("maps app-server models to panel model options", () => {

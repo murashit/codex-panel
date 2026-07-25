@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { appServerRuntimeSettingsPatch } from "../../src/app-server/protocol/thread-settings";
-import { approvalsReviewerOrNull, parseServiceTier } from "../../src/domain/runtime/policy";
+import { appServerRuntimeSettingsPatch } from "../../../src/app-server/protocol/thread-settings";
+import { approvalsReviewerOrNull, parseServiceTier } from "../../../src/domain/runtime/policy";
 import {
   applyRuntimeSettingsPatchValue,
   type RuntimeSettingsPatch,
   runtimeCollaborationModeSettings,
-} from "../../src/domain/runtime/thread-settings";
+} from "../../../src/domain/runtime/thread-settings";
 
 describe("app-server thread settings", () => {
   it("applies defined thread setting values and omits undefined values", () => {

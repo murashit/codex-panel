@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
+import { createChatViewDeferredTasks } from "../../../../../src/features/chat/host/session/deferred-work";
 
 describe("createChatViewDeferredTasks", () => {
   beforeEach(() => {
