@@ -5,7 +5,7 @@ import { createObsidianVaultMarkdownDestination } from "../../../shared/obsidian
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import { createLocalIdSource } from "../application/local-id-source";
 import type { ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatViewRuntimeOwner, CodexChatHost } from "./contracts";
-import { ChatPanelSession } from "./session";
+import { ChatPanelSession } from "./session/session";
 
 export class CodexChatView extends ItemView {
   private session: ChatPanelSession | null = null;

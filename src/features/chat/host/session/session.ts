@@ -1,15 +1,15 @@
-import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
-import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
-import { activeThreadState, awaitingResumeThreadState, type ChatState, panelThreadId } from "../application/state/root-reducer";
-import { type ChatStateStore, createChatStateStore } from "../application/state/store";
-import { ChatResumeWorkTracker } from "../application/threads/resume-work";
-import { chatTurnBusy } from "../application/turns/turn-state";
-import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
-import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
-import type { ChatPanelEnvironment, ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatWorkspacePanelSnapshot } from "./contracts";
-import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
-import { createChatPanelSessionRuntime } from "./session-runtime";
-import { parseChatPanelViewState } from "./view-state";
+import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../../domain/pending-requests/aggregate";
+import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
+import { activeThreadState, awaitingResumeThreadState, type ChatState, panelThreadId } from "../../application/state/root-reducer";
+import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
+import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
+import { chatTurnBusy } from "../../application/turns/turn-state";
+import { renderChatPanelShell, unmountChatPanelShell } from "../../panel/shell.dom";
+import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../../panel/thread-stream-scroll-binding";
+import type { ChatPanelEnvironment, ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatWorkspacePanelSnapshot } from "../contracts";
+import { parseChatPanelViewState } from "../view-state";
+import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./deferred-work";
+import { createChatPanelSessionRuntime } from "./runtime";
 
 export class ChatPanelSession implements ChatPanelHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();

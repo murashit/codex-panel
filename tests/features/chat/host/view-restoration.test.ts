@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
-import type { ChatPanelSession } from "../../../../src/features/chat/host/session";
+import type { ChatPanelSession } from "../../../../src/features/chat/host/session/session";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { runtimeConfigFixture } from "../../../support/runtime-config";
 import {
