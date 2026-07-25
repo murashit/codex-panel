@@ -626,13 +626,9 @@ describe("AppServerQueryCache", () => {
     await Promise.all([first, second]);
   });
 
-  it("uses the regular skills query when a notification overlaps a full refresh", async () => {
+  it("coalesces a skills notification with an in-flight full refresh", async () => {
     const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const second = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const listSkills = vi
-      .fn()
-      .mockImplementationOnce(() => first.promise)
-      .mockImplementationOnce(() => second.promise);
+    const listSkills = vi.fn(() => first.promise);
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
       "model/list": vi.fn().mockResolvedValue({ data: [] }),
@@ -645,19 +641,14 @@ describe("AppServerQueryCache", () => {
     await flushMicrotasks();
     const notificationRefresh = cache.refreshSkills();
     first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
-    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
-    expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: false });
-    second.resolve({ data: [{ skills: [catalogSkill("new")] }] });
     await Promise.all([fullRefresh, notificationRefresh]);
-    expect(cache.appServerMetadataSnapshot()?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
+    expect(listSkills).toHaveBeenCalledOnce();
+    expect(cache.appServerMetadataSnapshot()?.availableSkills.map((skill) => skill.name)).toEqual(["old"]);
   });
 
-  it("does not surface cancellation when a newer skills notification replaces an older refresh", async () => {
+  it("coalesces repeated skills notifications", async () => {
     const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const listSkills = vi
-      .fn()
-      .mockImplementationOnce(() => first.promise)
-      .mockResolvedValueOnce({ data: [{ skills: [catalogSkill("latest")] }] });
+    const listSkills = vi.fn(() => first.promise);
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
     const listener = vi.fn();
     const unsubscribe = cache.observeAppServerMetadataResources(listener, { emitCurrent: false });
@@ -670,10 +661,10 @@ describe("AppServerQueryCache", () => {
     await expect(Promise.all([older, newer])).resolves.toEqual([undefined, undefined]);
     expect(listener).toHaveBeenLastCalledWith({
       id: "skills",
-      value: [expect.objectContaining({ name: "latest" })],
+      value: [expect.objectContaining({ name: "stale" })],
       probe: expect.objectContaining({ status: "ok" }),
     });
-    expect(listSkills).toHaveBeenCalledTimes(2);
+    expect(listSkills).toHaveBeenCalledOnce();
     unsubscribe();
   });
 

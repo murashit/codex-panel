@@ -377,14 +377,14 @@ export class AppServerQueryCache {
 
   refreshSkills(): Promise<void> {
     return this.runWhileActive(async () => {
-      await this.refreshNotifiedMetadataResource("skills");
+      await this.fetchMetadataResource("skills");
       this.assertUsable();
     });
   }
 
   refreshRateLimits(): Promise<void> {
     return this.runWhileActive(async () => {
-      await this.refreshNotifiedMetadataResource("rateLimits");
+      await this.fetchMetadataResource("rateLimits");
       this.assertUsable();
     });
   }
@@ -508,17 +508,6 @@ export class AppServerQueryCache {
       await this.client.fetchQuery(options);
       this.assertUsable();
     })();
-  }
-
-  private async refreshNotifiedMetadataResource(resource: "skills" | "rateLimits"): Promise<void> {
-    const queryKey = resource === "skills" ? SKILLS_QUERY_KEY : RATE_LIMITS_QUERY_KEY;
-    await this.client.cancelQueries({ queryKey, exact: true });
-    this.assertUsable();
-    try {
-      await this.fetchMetadataResource(resource);
-    } catch (error) {
-      if (!(error instanceof CancelledError)) throw error;
-    }
   }
 
   private metadataResourceState(resource: "skills"): { value: readonly SkillMetadata[] | null; probe: DiagnosticProbeResult };
