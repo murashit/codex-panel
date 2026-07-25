@@ -24,6 +24,8 @@ Panel settings should store only panel-specific preferences. Do not mirror Codex
 
 `codex app-server` is the source of truth for Codex state. Panel-side caches exist to keep the UI stable across transient failures; failed reads or stale panels must not become authoritative empty state.
 
+Panel-originated commands should project their successful results promptly into the shared read model. Independent clients are not part of the same immediate-consistency boundary: their changes may appear through app-server notifications, an explicit refresh, or a later manual sync, and intermediate cross-client ordering is not guaranteed.
+
 The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility.
 
 Runtime controls should express visible user intent for the active thread rather than copy Codex configuration. Diagnostics should expose only actionable troubleshooting facts.
@@ -48,7 +50,7 @@ Chat-visible state should have one authoritative owner. Components should consum
 
 TanStack Query is the single panel-side owner of cached app-server resources. Features may project authoritative event results into that state, but should not introduce parallel cache or synchronization mechanisms. Partial read models are reconciled at explicit lifecycle boundaries rather than kept globally and continuously consistent.
 
-Thread lifecycle changes should be projected from authoritative lifecycle facts into the shared read model. When one user action changes multiple visible projections, publish them coherently without delaying live operational state or coupling independent panels.
+Thread lifecycle changes should be projected from authoritative lifecycle facts into the shared read model. When one Panel action replaces multiple visible projections, such as a forked child replacing an archived source, publish that result coherently without building a general transaction layer for independently initiated client changes.
 
 Reads with different completeness requirements have separate lifecycles. Complete operation-local reads must not replace bounded shared history, and transient activity should come from its owning live state rather than forcing history refreshes.
 
@@ -58,7 +60,7 @@ Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex 
 
 Long-running actions must preserve the user intent that started them. Panel-local results may affect a panel only while that intent still owns its target; Codex facts completed in the current app-server context remain shared truth even if the initiating panel has moved on.
 
-Coordinate conflicting work at the narrowest shared semantic owner. Independent panels should not block one another, and stale reads or writes must not overwrite newer shared state. Coalesce work only when replacement is part of the operation's meaning.
+Coordinate conflicting Panel work at the narrowest shared semantic owner. Independent panels should not block one another, and stale work started by this Panel must not overwrite newer Panel intent or committed shared results. Do not extend that ordering guarantee to independent clients; coalesce work only when replacement is part of the Panel operation's meaning.
 
 Foreground reveal and focus are the narrow workspace-wide exception: the latest user intent wins without serializing unrelated panel or app-server work. Cleanup obligations created by a committed state transition must survive the UI action that initiated them.
 
