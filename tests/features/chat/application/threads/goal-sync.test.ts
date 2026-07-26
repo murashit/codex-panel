@@ -4,8 +4,7 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import type { ThreadGoalReadPort } from "../../../../../src/features/chat/application/threads/goal-ports";
-import { createThreadGoalSync } from "../../../../../src/features/chat/application/threads/goal-sync";
+import { createThreadGoalSync, type ThreadGoalSource } from "../../../../../src/features/chat/application/threads/goal-sync";
 import { createThreadGoalCoordinator } from "../../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -16,10 +15,10 @@ describe("createThreadGoalSync", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
-    const goalPort = goalReadPortFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
+    const source = goalReadPortFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
     const sync = createThreadGoalSync({
       stateStore,
-      goalPort,
+      source,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
@@ -35,12 +34,12 @@ describe("createThreadGoalSync", () => {
     state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Latest" }) } });
     const stateStore = createChatStateStore(state);
     const oldRead = deferred<ThreadGoal | null>();
-    const goalPort = goalReadPortFixture({ readThreadGoal: vi.fn(() => oldRead.promise) });
+    const source = goalReadPortFixture({ readThreadGoal: vi.fn(() => oldRead.promise) });
     const goalCoordinator = createThreadGoalCoordinator();
     const sync = createThreadGoalSync(
       {
         stateStore,
-        goalPort,
+        source,
         localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
         addSystemMessage: vi.fn(),
         addGoalEvent: vi.fn(),
@@ -49,7 +48,7 @@ describe("createThreadGoalSync", () => {
     );
 
     const reading = sync.syncThreadGoal("thread");
-    await vi.waitFor(() => expect(goalPort.readThreadGoal).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(source.readThreadGoal).toHaveBeenCalledOnce());
     goalCoordinator.markAuthoritativeObservation("thread");
     oldRead.resolve(goal({ objective: "Old" }));
     await reading;
@@ -62,13 +61,13 @@ describe("createThreadGoalSync", () => {
     state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Latest" }) } });
     const stateStore = createChatStateStore(state);
     const oldRead = deferred<ThreadGoal | null>();
-    const goalPort = goalReadPortFixture({ readThreadGoal: vi.fn(() => oldRead.promise) });
+    const source = goalReadPortFixture({ readThreadGoal: vi.fn(() => oldRead.promise) });
     const addSystemMessage = vi.fn();
     const goalCoordinator = createThreadGoalCoordinator();
     const sync = createThreadGoalSync(
       {
         stateStore,
-        goalPort,
+        source,
         localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
         addSystemMessage,
         addGoalEvent: vi.fn(),
@@ -77,7 +76,7 @@ describe("createThreadGoalSync", () => {
     );
 
     const reading = sync.syncThreadGoal("thread");
-    await vi.waitFor(() => expect(goalPort.readThreadGoal).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(source.readThreadGoal).toHaveBeenCalledOnce());
     goalCoordinator.markAuthoritativeObservation("thread");
     oldRead.reject(new Error("old read failed"));
     await reading;
@@ -90,11 +89,11 @@ describe("createThreadGoalSync", () => {
     state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Initial" }) } });
     const stateStore = createChatStateStore(state);
     const read = deferred<ThreadGoal | null>();
-    const goalPort = goalReadPortFixture({ readThreadGoal: vi.fn(() => read.promise) });
+    const source = goalReadPortFixture({ readThreadGoal: vi.fn(() => read.promise) });
     const sync = createThreadGoalSync(
       {
         stateStore,
-        goalPort,
+        source,
         localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
         addSystemMessage: vi.fn(),
         addGoalEvent: vi.fn(),
@@ -103,7 +102,7 @@ describe("createThreadGoalSync", () => {
     );
 
     const reading = sync.syncThreadGoal("thread");
-    await vi.waitFor(() => expect(goalPort.readThreadGoal).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(source.readThreadGoal).toHaveBeenCalledOnce());
     read.resolve(goal({ objective: "Authoritative" }));
     await reading;
 
@@ -115,10 +114,10 @@ describe("createThreadGoalSync", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const addSystemMessage = vi.fn();
-    const goalPort = goalReadPortFixture({ readThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) });
+    const source = goalReadPortFixture({ readThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) });
     const sync = createThreadGoalSync({
       stateStore,
-      goalPort,
+      source,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -136,11 +135,11 @@ describe("createThreadGoalSync", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
-    const goalPort = goalReadPortFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
+    const source = goalReadPortFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
     const addSystemMessage = vi.fn();
     const sync = createThreadGoalSync({
       stateStore,
-      goalPort,
+      source,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -167,7 +166,7 @@ function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
   };
 }
 
-function goalReadPortFixture(overrides: Partial<ThreadGoalReadPort> = {}): ThreadGoalReadPort {
+function goalReadPortFixture(overrides: Partial<ThreadGoalSource> = {}): ThreadGoalSource {
   return {
     readThreadGoal: vi.fn().mockResolvedValue(null),
     ...overrides,

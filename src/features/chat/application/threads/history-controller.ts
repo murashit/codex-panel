@@ -1,11 +1,21 @@
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
-import type { ThreadHistoryPage, ThreadHistoryPort } from "./thread-loading-ports";
+
+export interface ThreadHistoryPage {
+  items: ThreadStreamItem[];
+  nextCursor: string | null;
+  hadTurns: boolean;
+}
+
+export interface ThreadHistorySource {
+  readHistoryPage(threadId: string, cursor: string | null, limit: number): Promise<ThreadHistoryPage | null>;
+}
 
 export interface HistoryControllerHost {
   stateStore: ChatStateStore;
-  historyPort: ThreadHistoryPort;
+  source: ThreadHistorySource;
   addSystemMessage: (text: string) => void;
   showLatestPageAtBottom: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
@@ -40,7 +50,7 @@ export class HistoryController {
     if (!threadId) return;
     const load = this.startLoading(threadId, "latest");
     try {
-      const response = await this.host.historyPort.readHistoryPage(threadId, null, 20);
+      const response = await this.host.source.readHistoryPage(threadId, null, 20);
       if (!response) return;
       if (this.isStale(load)) return;
       this.applyLatestPage(threadId, response);
@@ -71,7 +81,7 @@ export class HistoryController {
     const cursor = state.threadStream.historyCursor;
     const load = this.startLoading(threadId, "older");
     try {
-      const response = await this.host.historyPort.readHistoryPage(threadId, cursor, 20);
+      const response = await this.host.source.readHistoryPage(threadId, cursor, 20);
       if (!response) return;
       if (this.isStale(load)) return;
       const current = this.state;

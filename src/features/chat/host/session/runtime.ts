@@ -125,7 +125,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   });
   const threadStart = createThreadStartCommand({
     stateStore,
-    threadStartPort: appServer.threadStart,
+    effects: appServer.threadStart,
     runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, environment.plugin.appServerQueries),
     recordStartedThread: (thread) => {
       environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });
@@ -149,7 +149,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   });
   const ephemeral = createEphemeralThreadLifecycle({
     stateStore,
-    port: appServer.threadEphemeral,
+    effects: appServer.threadEphemeral,
     ensureConnected: async () => {
       await ensureConnected();
       return connection.isConnected();
@@ -161,11 +161,12 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const navigation = createPersistentNavigationLifecycle({
     stateStore,
     ephemeral,
-    subscriptions: appServer.threadSubscription,
+    unsubscribeThread: (threadId) => appServer.threadSubscription.unsubscribeThread(threadId),
     addSystemMessage: status.addSystemMessage,
   });
   const threadCommands = createThreadCommandBundle(host, {
     appServer,
+    ensureConnected,
     status,
     composerController,
     foundation: threadFoundation,

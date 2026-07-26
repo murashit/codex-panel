@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
 import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createEphemeralThreadLifecycle } from "../../../../../src/features/chat/application/threads/ephemeral-thread-lifecycle";
-import type { EphemeralThreadPort } from "../../../../../src/features/chat/application/threads/ephemeral-thread-port";
+import {
+  createEphemeralThreadLifecycle,
+  type EphemeralThreadEffects,
+} from "../../../../../src/features/chat/application/threads/ephemeral-thread-lifecycle";
 import { deferred } from "../../../../support/async";
 
 describe("ephemeral thread lifecycle", () => {
@@ -12,7 +14,7 @@ describe("ephemeral thread lifecycle", () => {
     const port = transportMock();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage: vi.fn(),
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -34,7 +36,7 @@ describe("ephemeral thread lifecycle", () => {
     const port = transportMock();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage: vi.fn(),
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -56,7 +58,7 @@ describe("ephemeral thread lifecycle", () => {
     const notifyActiveThreadIdentityChanged = vi.fn();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage: vi.fn(),
       notifyActiveThreadIdentityChanged,
@@ -95,7 +97,7 @@ describe("ephemeral thread lifecycle", () => {
     const port = transportMock();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected,
       addSystemMessage: vi.fn(),
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -118,7 +120,7 @@ describe("ephemeral thread lifecycle", () => {
     const interruptTurn = vi.fn().mockResolvedValue(true);
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage: vi.fn(),
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -135,17 +137,17 @@ describe("ephemeral thread lifecycle", () => {
 
   it("unsubscribes a fork that resolves after the lifecycle is disposed without activating it", async () => {
     const store = createChatStateStore();
-    let resolveFork!: (value: Awaited<ReturnType<EphemeralThreadPort["forkEphemeralThread"]>>) => void;
+    let resolveFork!: (value: Awaited<ReturnType<EphemeralThreadEffects["forkEphemeralThread"]>>) => void;
     const port = transportMock();
     port.forkEphemeralThread = vi.fn(
       () =>
-        new Promise<Awaited<ReturnType<EphemeralThreadPort["forkEphemeralThread"]>>>((resolve) => {
+        new Promise<Awaited<ReturnType<EphemeralThreadEffects["forkEphemeralThread"]>>>((resolve) => {
           resolveFork = resolve;
         }),
     );
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage: vi.fn(),
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -167,12 +169,12 @@ describe("ephemeral thread lifecycle", () => {
 
   it("unsubscribes a cleanup-required fork that resolves after disposal", async () => {
     const store = createChatStateStore();
-    const fork = deferred<Awaited<ReturnType<EphemeralThreadPort["forkEphemeralThread"]>>>();
+    const fork = deferred<Awaited<ReturnType<EphemeralThreadEffects["forkEphemeralThread"]>>>();
     const port = transportMock();
     port.forkEphemeralThread = vi.fn(() => fork.promise);
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage: vi.fn(),
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -192,7 +194,7 @@ describe("ephemeral thread lifecycle", () => {
     "retains stale-fork cleanup after unsubscribe %s and retries it at the next lifecycle boundary",
     async (failure) => {
       const store = createChatStateStore();
-      const fork = deferred<Awaited<ReturnType<EphemeralThreadPort["forkEphemeralThread"]>>>();
+      const fork = deferred<Awaited<ReturnType<EphemeralThreadEffects["forkEphemeralThread"]>>>();
       const port = transportMock();
       port.forkEphemeralThread = vi.fn(() => fork.promise);
       port.unsubscribeEphemeralThread =
@@ -201,7 +203,7 @@ describe("ephemeral thread lifecycle", () => {
           : vi.fn().mockRejectedValueOnce(new Error("connection unavailable")).mockResolvedValue(true);
       const lifecycle = createEphemeralThreadLifecycle({
         stateStore: store,
-        port,
+        effects: port,
         ensureConnected: vi.fn().mockResolvedValue(true),
         addSystemMessage: vi.fn(),
         notifyActiveThreadIdentityChanged: vi.fn(),
@@ -231,7 +233,7 @@ describe("ephemeral thread lifecycle", () => {
     const port = transportMock();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage: vi.fn(),
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -252,7 +254,7 @@ describe("ephemeral thread lifecycle", () => {
       const port = transportMock();
       const lifecycle = createEphemeralThreadLifecycle({
         stateStore: store,
-        port,
+        effects: port,
         ensureConnected: vi.fn().mockResolvedValue(true),
         addSystemMessage: vi.fn(),
         notifyActiveThreadIdentityChanged: vi.fn(),
@@ -278,7 +280,7 @@ describe("ephemeral thread lifecycle", () => {
     const addSystemMessage = vi.fn();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage,
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -302,7 +304,7 @@ describe("ephemeral thread lifecycle", () => {
     const addSystemMessage = vi.fn();
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
-      port,
+      effects: port,
       ensureConnected: vi.fn().mockResolvedValue(true),
       addSystemMessage,
       notifyActiveThreadIdentityChanged: vi.fn(),
@@ -318,7 +320,7 @@ describe("ephemeral thread lifecycle", () => {
   });
 });
 
-function transportMock(): EphemeralThreadPort {
+function transportMock(): EphemeralThreadEffects {
   return {
     forkEphemeralThread: vi.fn().mockResolvedValue({
       kind: "completed-current",

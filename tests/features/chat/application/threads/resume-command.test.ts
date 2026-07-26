@@ -4,14 +4,14 @@ import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/metrics
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import type { HistoryController } from "../../../../../src/features/chat/application/threads/history-controller";
-import { createResumeCommand, type ResumeCommandHost } from "../../../../../src/features/chat/application/threads/resume-command";
+import type { HistoryController, ThreadHistoryPage } from "../../../../../src/features/chat/application/threads/history-controller";
+import {
+  createResumeCommand,
+  type ResumeCommandHost,
+  type ThreadResumeEffects,
+  type ThreadResumeSnapshot,
+} from "../../../../../src/features/chat/application/threads/resume-command";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
-import type {
-  ThreadHistoryPage,
-  ThreadResumePort,
-  ThreadResumeSnapshot,
-} from "../../../../../src/features/chat/application/threads/thread-loading-ports";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> = {}): ThreadResumeSnapshot {
@@ -38,7 +38,7 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
 function createActions(response: ThreadResumeSnapshot | null = activation("thread"), overrides: Partial<ResumeCommandHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   const resumeThread = vi
-    .fn<ThreadResumePort["resumeThread"]>()
+    .fn<ThreadResumeEffects["resumeThread"]>()
     .mockResolvedValue(response ? { kind: "completed-current", value: response } : { kind: "not-started" });
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyLatestPage = vi.fn();
@@ -55,7 +55,8 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     addSystemMessage: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-    resumePort: overrides.resumePort ?? { ensureConnected: vi.fn().mockResolvedValue(true), resumeThread },
+    effects: overrides.effects ?? { resumeThread },
+    ensureConnected: overrides.ensureConnected ?? vi.fn().mockResolvedValue(true),
   };
   return {
     commands: createResumeCommand(host),
@@ -156,13 +157,14 @@ describe("ResumeCommand", () => {
 
   it("does not invoke an older resume after a newer intent wins during connection", async () => {
     const firstConnection = deferred<boolean>();
-    const resumeThread = vi.fn<ThreadResumePort["resumeThread"]>().mockImplementation(async (threadId) => ({
+    const resumeThread = vi.fn<ThreadResumeEffects["resumeThread"]>().mockImplementation(async (threadId) => ({
       kind: "completed-current",
       value: activation(threadId),
     }));
     const ensureConnected = vi.fn().mockReturnValueOnce(firstConnection.promise).mockResolvedValue(true);
     const { commands, stateStore } = createActions(undefined, {
-      resumePort: { ensureConnected, resumeThread },
+      effects: { resumeThread },
+      ensureConnected,
     });
 
     const firstResume = commands.resumeThread("first");

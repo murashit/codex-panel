@@ -6,7 +6,6 @@ import {
   createPersistentNavigationLifecycle,
   type PersistentNavigationLifecycle,
 } from "../../../../../src/features/chat/application/threads/persistent-navigation-lifecycle";
-import type { ThreadSubscriptionPort } from "../../../../../src/features/chat/application/threads/thread-subscription-port";
 
 describe("persistent navigation lifecycle", () => {
   it("unsubscribes a running persistent subagent only after the target resume becomes active", async () => {
@@ -133,19 +132,19 @@ function resumeInteractiveThread(store: ReturnType<typeof createChatStateStore>,
 
 function createLifecycle(options: {
   stateStore: ReturnType<typeof createChatStateStore>;
-  subscriptions: ThreadSubscriptionPort;
+  subscriptions: ReturnType<typeof subscriptionPort>;
   ephemeral?: EphemeralThreadLifecycle;
   addSystemMessage?: (text: string) => void;
 }): PersistentNavigationLifecycle {
   return createPersistentNavigationLifecycle({
     stateStore: options.stateStore,
-    subscriptions: options.subscriptions,
+    unsubscribeThread: options.subscriptions.unsubscribeThread,
     ephemeral: options.ephemeral ?? ephemeralLifecycle(),
     addSystemMessage: options.addSystemMessage ?? vi.fn(),
   });
 }
 
-function subscriptionPort(result = true): ThreadSubscriptionPort {
+function subscriptionPort(result = true) {
   return { unsubscribeThread: vi.fn().mockResolvedValue(result) };
 }
 

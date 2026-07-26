@@ -2,7 +2,6 @@ import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { chatTurnBusy } from "../turns/turn-state";
 import type { EphemeralThreadLifecycle } from "./ephemeral-thread-lifecycle";
-import type { ThreadSubscriptionPort } from "./thread-subscription-port";
 
 export interface PersistentNavigationLifecycle {
   prepareForPersistentNavigation(targetThreadId: string | null): Promise<PersistentNavigationPreparation | null>;
@@ -16,7 +15,7 @@ export type PersistentNavigationPreparation =
 interface PersistentNavigationLifecycleHost {
   stateStore: ChatStateStore;
   ephemeral: EphemeralThreadLifecycle;
-  subscriptions: ThreadSubscriptionPort;
+  unsubscribeThread(threadId: string): Promise<boolean>;
   addSystemMessage(text: string): void;
 }
 
@@ -28,7 +27,7 @@ export function createPersistentNavigationLifecycle(host: PersistentNavigationLi
     if (!pendingUnsubscribes.has(threadId) || unsubscribeAttempts.has(threadId)) return;
     const attempt = (async (): Promise<void> => {
       try {
-        if (await host.subscriptions.unsubscribeThread(threadId)) {
+        if (await host.unsubscribeThread(threadId)) {
           pendingUnsubscribes.delete(threadId);
           return;
         }

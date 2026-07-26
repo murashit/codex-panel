@@ -92,6 +92,7 @@ interface ChatPanelThreadLifecycleBundle extends ChatPanelThreadLifecycle {
 
 interface ChatPanelThreadCommandInput {
   appServer: ChatAppServerGateway;
+  ensureConnected: () => Promise<void>;
   status: ChatPanelThreadStatus;
   composerController: ChatComposerController;
   foundation: ChatPanelThreadFoundation;
@@ -143,7 +144,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   });
   const history = new HistoryController({
     stateStore,
-    historyPort: appServer.threadHistory,
+    source: appServer.threadHistory,
     addSystemMessage: status.addSystemMessage,
     showLatestPageAtBottom: () => {
       host.threadStreamScrollBinding.showLatest();
@@ -161,7 +162,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   const goalSync = createThreadGoalSync(
     {
       stateStore,
-      goalPort: appServer.threadGoalRead,
+      source: appServer.threadGoalRead,
       localItemIds,
       addSystemMessage: (text) => {
         status.addSystemMessage(text);
@@ -214,7 +215,11 @@ export function createThreadLifecycleBundle(
   const goalCommands = createGoalCommands(
     {
       stateStore: host.stateStore,
-      goalPort: appServer.threadGoal,
+      effects: appServer.threadGoal,
+      ensureConnected: async () => {
+        await ensureConnected();
+        return appServer.connectionAvailable();
+      },
       localItemIds,
       startThread: (preview, options) => threadStart.startThread(preview, options),
       ensureRestoredThreadLoaded: () =>
@@ -253,7 +258,7 @@ export function createThreadLifecycleBundle(
 }
 
 export function createThreadCommandBundle(host: ChatPanelThreadHost, input: ChatPanelThreadCommandInput): ChatPanelThreadCommandBundle {
-  const { appServer, status, composerController, foundation, lifecycle } = input;
+  const { appServer, ensureConnected, status, composerController, foundation, lifecycle } = input;
   const { environment, stateStore } = host;
   const threadCommandsHost: ThreadCommandsHost = {
     stateStore,
@@ -264,7 +269,11 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
         return true;
       },
     },
-    commandPort: appServer.threadCommands,
+    effects: appServer.threadCommands,
+    ensureConnected: async () => {
+      await ensureConnected();
+      return appServer.connectionAvailable();
+    },
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
     setComposerText: (text) => {
@@ -348,12 +357,10 @@ function createSessionThreadLifecycle(
   };
   const resume = createResumeCommand({
     stateStore: host.stateStore,
-    resumePort: {
-      ensureConnected: async () => {
-        await ensureInitialized();
-        return appServer.connectionAvailable();
-      },
-      resumeThread: (threadId) => appServer.threadResume.resumeThread(threadId),
+    effects: appServer.threadResume,
+    ensureConnected: async () => {
+      await ensureInitialized();
+      return appServer.connectionAvailable();
     },
     resumeWork: host.resumeWork,
     history,

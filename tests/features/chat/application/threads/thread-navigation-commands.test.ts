@@ -228,7 +228,7 @@ describe("ThreadNavigationCommands", () => {
     const unsubscribeThread = vi.fn().mockResolvedValue(true);
     const navigation = createPersistentNavigationLifecycle({
       stateStore,
-      subscriptions: { unsubscribeThread },
+      unsubscribeThread,
       ephemeral: {
         open: vi.fn(),
         prepareForPersistentNavigation: vi.fn().mockResolvedValue(true),

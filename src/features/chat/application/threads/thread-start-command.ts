@@ -1,14 +1,24 @@
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
+import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
+import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
-import { effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
+import { type EffectOutcome, effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { ThreadStartPort } from "./thread-start-port";
+
+interface ThreadStartRequest {
+  serviceTier?: RuntimeServiceTierRequest;
+  permissions?: RuntimeSettingsPatch["permissions"];
+}
+
+export interface ThreadStartEffects {
+  startThread(request: ThreadStartRequest): Promise<EffectOutcome<ThreadActivationSnapshot>>;
+}
 
 export type ThreadStartOutcome =
   | { readonly kind: "not-started" }
@@ -17,7 +27,7 @@ export type ThreadStartOutcome =
 
 export interface ThreadStartCommandHost {
   stateStore: ChatStateStore;
-  threadStartPort: ThreadStartPort;
+  effects: ThreadStartEffects;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   recordStartedThread: (thread: Thread) => void;
   syncThreadGoal: (threadId: string) => void;
@@ -45,7 +55,7 @@ async function startThread(
   const panelTarget = capturePanelTargetLease(requestState);
   const runtimeSnapshot = host.runtimeSnapshotForState(requestState);
   const runtimeConfig = runtimeConfigOrDefault(runtimeSnapshot.runtimeConfig);
-  const effect = await host.threadStartPort.startThread({
+  const effect = await host.effects.startThread({
     serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),
     permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
   });

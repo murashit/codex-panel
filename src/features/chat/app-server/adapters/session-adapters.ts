@@ -21,17 +21,13 @@ import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-set
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
 import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsPort } from "../../application/runtime/settings-port";
-import type { EphemeralThreadForkResult, EphemeralThreadPort } from "../../application/threads/ephemeral-thread-port";
-import type { ThreadGoalPort, ThreadGoalReadPort } from "../../application/threads/goal-ports";
-import type { ThreadCommandPort } from "../../application/threads/thread-command-port";
-import type {
-  ThreadHistoryPage,
-  ThreadHistoryPort,
-  ThreadResumePort,
-  ThreadResumeSnapshot,
-} from "../../application/threads/thread-loading-ports";
-import type { ThreadStartPort } from "../../application/threads/thread-start-port";
-import type { ThreadSubscriptionPort } from "../../application/threads/thread-subscription-port";
+import type { EphemeralThreadEffects, EphemeralThreadForkResult } from "../../application/threads/ephemeral-thread-lifecycle";
+import type { ThreadGoalEffects } from "../../application/threads/goal-commands";
+import type { ThreadGoalSource } from "../../application/threads/goal-sync";
+import type { ThreadHistoryPage, ThreadHistorySource } from "../../application/threads/history-controller";
+import type { ThreadResumeEffects, ThreadResumeSnapshot } from "../../application/threads/resume-command";
+import type { ThreadCommandEffects } from "../../application/threads/thread-commands";
+import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";
 import { threadStreamItemsFromTurns } from "../mappers/thread-stream/turn-items";
 
@@ -78,7 +74,7 @@ export function createChatConnectedSessionAdapters(host: ChatAppServerAdapterHos
 
 export type ChatConnectedSessionAdapters = ReturnType<typeof createChatConnectedSessionAdapters>;
 
-function createChatThreadStartAdapter(host: ChatCurrentAppServerAdapterHost): ThreadStartPort {
+function createChatThreadStartAdapter(host: ChatCurrentAppServerAdapterHost): ThreadStartEffects {
   return {
     startThread: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
@@ -131,24 +127,22 @@ function createChatRuntimeSettingsAdapter(host: CurrentChatAppServerClientHost):
   };
 }
 
-function createChatThreadHistoryAdapter(host: CurrentChatAppServerClientHost): ThreadHistoryPort {
+function createChatThreadHistoryAdapter(host: CurrentChatAppServerClientHost): ThreadHistorySource {
   return {
     readHistoryPage: (threadId, cursor, limit): Promise<ThreadHistoryPage | null> =>
       withCurrentChatAppServerClient(host, (client) => readChatThreadHistoryPage(client, threadId, cursor, limit)),
   };
 }
 
-function createChatThreadResumeAdapter(host: ChatAppServerAdapterHost): ThreadResumePort {
+function createChatThreadResumeAdapter(host: ChatAppServerAdapterHost): ThreadResumeEffects {
   return {
-    ensureConnected: async () => (await host.connectedClient()) !== null,
     resumeThread: (threadId): Promise<EffectOutcome<ThreadResumeSnapshot>> =>
       runCurrentChatAppServerEffect(host, (client) => resumeChatThread(client, threadId, host.vaultPath)),
   };
 }
 
-function createChatThreadCommandAdapter(host: ChatAppServerAdapterHost): ThreadCommandPort {
+function createChatThreadCommandAdapter(host: ChatAppServerAdapterHost): ThreadCommandEffects {
   return {
-    ensureConnected: async () => (await host.connectedClient()) !== null,
     compactThread: (threadId) =>
       runCurrentChatAppServerEffect(host, async (client) => {
         await compactThread(client, threadId);
@@ -158,7 +152,7 @@ function createChatThreadCommandAdapter(host: ChatAppServerAdapterHost): ThreadC
   };
 }
 
-function createChatEphemeralThreadAdapter(host: ChatAppServerAdapterHost): EphemeralThreadPort {
+function createChatEphemeralThreadAdapter(host: ChatAppServerAdapterHost): EphemeralThreadEffects {
   return {
     forkEphemeralThread: async (sourceThreadId) => {
       const client = host.currentClient();
@@ -199,9 +193,9 @@ async function forkEphemeralThreadResult(
   }
 }
 
-function createChatThreadSubscriptionAdapter(host: ChatAppServerAdapterHost): ThreadSubscriptionPort {
+function createChatThreadSubscriptionAdapter(host: ChatAppServerAdapterHost) {
   return {
-    unsubscribeThread: async (threadId) => {
+    unsubscribeThread: async (threadId: string) => {
       const result = await withCurrentChatAppServerClient(host, async (client) => {
         await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
         return true;
@@ -211,16 +205,14 @@ function createChatThreadSubscriptionAdapter(host: ChatAppServerAdapterHost): Th
   };
 }
 
-function createChatThreadGoalReadAdapter(host: CurrentChatAppServerClientHost): ThreadGoalReadPort {
+function createChatThreadGoalReadAdapter(host: CurrentChatAppServerClientHost): ThreadGoalSource {
   return {
     readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
   };
 }
 
-function createChatThreadGoalAdapter(host: ConnectedChatAppServerClientHost): ThreadGoalPort {
+function createChatThreadGoalAdapter(host: CurrentChatAppServerClientHost): ThreadGoalEffects {
   return {
-    ensureConnected: async () => (await host.connectedClient()) !== null,
-    readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
     setThreadGoal: async (threadId, params) => {
       return runCurrentChatAppServerEffect(host, (client) => setThreadGoal(client, threadId, params));
     },
@@ -295,7 +287,7 @@ async function resumeChatThread(client: AppServerRequestClient, threadId: string
 async function readThreadGoalFromCurrentClient(
   host: CurrentChatAppServerClientHost,
   threadId: string,
-): ReturnType<ThreadGoalReadPort["readThreadGoal"]> {
+): ReturnType<ThreadGoalSource["readThreadGoal"]> {
   const client = host.currentClient();
   if (!client) return undefined;
   const goal = await readThreadGoal(client, threadId);

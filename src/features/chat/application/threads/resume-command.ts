@@ -1,21 +1,32 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { Thread } from "../../../../domain/threads/model";
-import { effectCompletedInCurrentContext } from "../effect-outcome";
+import { type EffectOutcome, effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadState, panelThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
-import type { HistoryController } from "./history-controller";
+import type { HistoryController, ThreadHistoryPage } from "./history-controller";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
-import type { ThreadResumePort, ThreadResumeSnapshot } from "./thread-loading-ports";
 import { canSwitchToThread } from "./thread-switching";
+
+export interface ThreadResumeSnapshot {
+  activation: ThreadActivationSnapshot;
+  rolloutPath: string | null;
+  initialHistoryPage: ThreadHistoryPage | null;
+}
+
+export interface ThreadResumeEffects {
+  resumeThread(threadId: string): Promise<EffectOutcome<ThreadResumeSnapshot>>;
+}
 
 export interface ResumeCommandHost {
   stateStore: ChatStateStore;
   resumeWork: ChatResumeWorkTracker;
   history: HistoryController;
-  resumePort: ThreadResumePort;
+  effects: ThreadResumeEffects;
+  ensureConnected: () => Promise<boolean>;
   closing: () => boolean;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   notifyActiveThreadIdentityChanged: () => void;
@@ -57,9 +68,9 @@ async function resumeThread(
   host.history.invalidate();
 
   try {
-    if (!(await host.resumePort.ensureConnected())) return false;
+    if (!(await host.ensureConnected())) return false;
     if (isStaleResume(host, resume, initialPanelTarget)) return false;
-    const effect = await host.resumePort.resumeThread(threadId);
+    const effect = await host.effects.resumeThread(threadId);
     if (!effectCompletedInCurrentContext(effect)) return false;
     host.recordResumedThread(effect.value.activation.thread);
     if (isStaleResume(host, resume, initialPanelTarget)) return false;

@@ -1,12 +1,40 @@
+import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
+import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
+import type { Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
-import { effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
+import { type EffectOutcome, effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatTurnBusy } from "../turns/turn-state";
-import type { ThreadCommandPort } from "./thread-command-port";
+
+type ThreadForkPosition =
+  | { readonly kind: "through-turn"; readonly turnId: string }
+  | { readonly kind: "before-turn"; readonly turnId: string };
+
+interface ThreadForkOptions {
+  readonly position?: ThreadForkPosition;
+  readonly deferGoalContinuation?: boolean;
+  readonly runtime?: ThreadForkRuntimeOverrides;
+}
+
+interface ThreadForkRuntimeOverrides {
+  readonly model?: string;
+  readonly reasoningEffort?: ReasoningEffort | null;
+  readonly serviceTier?: ServiceTier | null;
+  readonly approvalPolicy?: RuntimeApprovalPolicy;
+  readonly approvalsReviewer?: ApprovalsReviewer;
+  readonly permissions?: string;
+  readonly sandboxPolicy?: RuntimeSandboxPolicy;
+}
+
+export interface ThreadCommandEffects {
+  compactThread(threadId: string): Promise<EffectOutcome<void>>;
+  forkThread(threadId: string, options?: ThreadForkOptions): Promise<EffectOutcome<Thread>>;
+}
 
 const STATUS_COMPACTION_REQUESTED = "Compaction requested.";
 const STATUS_ROLLBACK_STARTING = "Rolling back the latest turn...";
@@ -16,7 +44,8 @@ const STATUS_ROLLBACK_FAILED = "Could not roll back the latest turn.";
 export interface ThreadCommandsHost {
   stateStore: ChatStateStore;
   mutations: ThreadManagementMutations;
-  commandPort: ThreadCommandPort;
+  effects: ThreadCommandEffects;
+  ensureConnected: () => Promise<boolean>;
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
@@ -83,9 +112,9 @@ async function compactThread(host: ThreadCommandsHost, threadId: string): Promis
   if (activePanelOperationBlocked(host, threadId, "compact")) return;
   const scope = captureThreadCommandPanelScope(host, threadId);
   try {
-    if (!(await host.commandPort.ensureConnected())) return;
+    if (!(await host.ensureConnected())) return;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
-    const effect = await host.commandPort.compactThread(threadId);
+    const effect = await host.effects.compactThread(threadId);
     if (!effectCompletedInCurrentContext(effect)) return;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(STATUS_COMPACTION_REQUESTED);
@@ -154,11 +183,11 @@ async function forkThreadFromTurn(
     return;
   }
   try {
-    if (!(await host.commandPort.ensureConnected())) return;
+    if (!(await host.ensureConnected())) return;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
     const effect = turnId
-      ? await host.commandPort.forkThread(threadId, { position: { kind: "through-turn", turnId } })
-      : await host.commandPort.forkThread(threadId);
+      ? await host.effects.forkThread(threadId, { position: { kind: "through-turn", turnId } })
+      : await host.effects.forkThread(threadId);
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
@@ -246,9 +275,9 @@ async function rollbackThread(
   };
   try {
     host.setStatus(STATUS_ROLLBACK_STARTING);
-    if (!(await host.commandPort.ensureConnected())) return;
+    if (!(await host.ensureConnected())) return;
     if (!threadCommandScopeStillTargetsPanel(host, scope)) return;
-    const effect = await host.commandPort.forkThread(threadId, {
+    const effect = await host.effects.forkThread(threadId, {
       position: { kind: "before-turn", turnId: candidate.turnId },
       deferGoalContinuation: true,
       runtime: runtimeOverrides,
@@ -365,5 +394,3 @@ function threadCommandScopeStillTargetsOriginalPanel(host: ThreadCommandsHost, s
   if (!scope.initialActiveThreadId) return true;
   return scope.initialActiveThreadId === scope.targetThreadId && activeThreadId(state) === scope.targetThreadId;
 }
-
-import type { Thread } from "../../../../domain/threads/model";

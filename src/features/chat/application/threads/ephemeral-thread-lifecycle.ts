@@ -1,10 +1,19 @@
-import { effectCompletedInCurrentContext } from "../effect-outcome";
+import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
+import { type EffectOutcome, effectCompletedInCurrentContext } from "../effect-outcome";
 import { ephemeralThreadActivatedAction } from "../state/actions";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
-import type { EphemeralThreadPort } from "./ephemeral-thread-port";
+
+export type EphemeralThreadForkResult =
+  | { kind: "ready"; activation: ThreadActivationSnapshot; sourceThreadId: string }
+  | { kind: "cleanup-required"; threadId: string };
+
+export interface EphemeralThreadEffects {
+  forkEphemeralThread(sourceThreadId: string): Promise<EffectOutcome<EphemeralThreadForkResult>>;
+  unsubscribeEphemeralThread(threadId: string): Promise<boolean>;
+}
 
 const EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS = 1_000;
 
@@ -21,7 +30,7 @@ export interface EphemeralThreadLifecycle {
 
 interface EphemeralThreadLifecycleHost {
   stateStore: ChatStateStore;
-  port: EphemeralThreadPort;
+  effects: EphemeralThreadEffects;
   ensureConnected(): Promise<boolean>;
   addSystemMessage(text: string): void;
   notifyActiveThreadIdentityChanged(): void;
@@ -35,7 +44,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
   const tryCleanupEphemeralThread = async (threadId: string): Promise<void> => {
     cleanupRequiredThreadIds.add(threadId);
     try {
-      if (await host.port.unsubscribeEphemeralThread(threadId)) cleanupRequiredThreadIds.delete(threadId);
+      if (await host.effects.unsubscribeEphemeralThread(threadId)) cleanupRequiredThreadIds.delete(threadId);
     } catch {
       // Keep the obligation for the next lifecycle boundary.
     }
@@ -50,7 +59,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
   const unsubscribeActiveEphemeralThread = async (): Promise<boolean> => {
     const active = activeThreadState(host.stateStore.getState());
     if (active?.lifetime?.kind === "ephemeral") {
-      return host.port.unsubscribeEphemeralThread(active.id);
+      return host.effects.unsubscribeEphemeralThread(active.id);
     }
     return true;
   };
@@ -66,7 +75,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
         await retryRequiredCleanup();
         if (openIsStale(generation, panelTarget, isCurrent)) return false;
       }
-      const effect = await host.port.forkEphemeralThread(input.sourceThreadId);
+      const effect = await host.effects.forkEphemeralThread(input.sourceThreadId);
       if (!effectCompletedInCurrentContext(effect)) return false;
       const result = effect.value;
       if (result.kind === "cleanup-required") {

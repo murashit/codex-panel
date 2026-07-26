@@ -5,15 +5,21 @@ import type { LocalIdSource } from "../local-id-source";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { ThreadGoalReadPort } from "./goal-ports";
 import { createThreadGoalCoordinator, type ThreadGoalCoordinator } from "./thread-goal-coordinator";
 
-export interface ThreadGoalSyncHost {
+export interface ThreadGoalSource {
+  readThreadGoal(threadId: string): Promise<ThreadGoal | null | undefined>;
+}
+
+export interface ThreadGoalProjectionHost {
   stateStore: ChatStateStore;
-  goalPort: ThreadGoalReadPort;
   localItemIds: LocalIdSource;
   addSystemMessage: (text: string) => void;
   addGoalEvent: (item: GoalThreadStreamItem) => void;
+}
+
+export interface ThreadGoalSyncHost extends ThreadGoalProjectionHost {
+  source: ThreadGoalSource;
 }
 
 export interface ThreadGoalSync {
@@ -33,7 +39,7 @@ async function syncThreadGoal(host: ThreadGoalSyncHost, threadId: string, goalCo
   const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   const readRevision = goalCoordinator.captureReadRevision(threadId);
   try {
-    const goal = await host.goalPort.readThreadGoal(threadId);
+    const goal = await host.source.readThreadGoal(threadId);
     if (goal === undefined || !goalCoordinator.readRevisionIsCurrent(threadId, readRevision)) return;
     applyThreadGoalIfActive(host, threadId, goal, { reportChange: false, panelTarget });
   } catch (error) {
@@ -43,7 +49,7 @@ async function syncThreadGoal(host: ThreadGoalSyncHost, threadId: string, goalCo
 }
 
 export function applyThreadGoalIfActive(
-  host: ThreadGoalSyncHost,
+  host: ThreadGoalProjectionHost,
   threadId: string,
   goal: ThreadGoal | null,
   options: { reportChange: boolean; panelTarget?: PanelTargetLease },
@@ -59,7 +65,7 @@ export function applyThreadGoalIfActive(
 }
 
 export function addThreadGoalSystemMessage(
-  host: Pick<ThreadGoalSyncHost, "stateStore" | "addSystemMessage">,
+  host: Pick<ThreadGoalProjectionHost, "stateStore" | "addSystemMessage">,
   threadId: string,
   text: string,
   panelTarget?: PanelTargetLease,

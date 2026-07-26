@@ -542,11 +542,11 @@ describe("chat app-server adapters", () => {
     const adapter = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    }).threadGoal;
+    }).threadGoalRead;
     const unavailable = createTestGateway({
       currentClient: () => null,
       connectedClient: vi.fn().mockResolvedValue(null),
-    }).threadGoal;
+    }).threadGoalRead;
     const readOnlyUnavailable = createTestGateway({
       currentClient: () => null,
       connectedClient: vi.fn().mockResolvedValue(null),

@@ -23,7 +23,7 @@ describe("thread start commands", () => {
 
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
+      effects: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal,
@@ -43,7 +43,7 @@ describe("thread start commands", () => {
     });
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: {
+      effects: {
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
@@ -76,7 +76,7 @@ describe("thread start commands", () => {
 
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: { startThread },
+      effects: { startThread },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
@@ -102,7 +102,7 @@ describe("thread start commands", () => {
     const syncThreadGoal = vi.fn();
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: {
+      effects: {
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
@@ -130,7 +130,7 @@ describe("thread start commands", () => {
     });
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: {
+      effects: {
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
@@ -160,7 +160,7 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: { startThread: vi.fn(() => started.promise) },
+      effects: { startThread: vi.fn(() => started.promise) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal: vi.fn(),
@@ -184,7 +184,7 @@ describe("thread start commands", () => {
       .mockResolvedValue(completedActivation(activationFixture(threadFixture("started"), { serviceTier: "flex" })));
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: { startThread },
+      effects: { startThread },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
@@ -212,7 +212,7 @@ describe("thread start commands", () => {
     const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started"))));
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: { startThread },
+      effects: { startThread },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
@@ -229,7 +229,7 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
+      effects: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal: vi.fn(),
@@ -246,7 +246,7 @@ describe("thread start commands", () => {
     const syncThreadGoal = vi.fn();
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: { startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
+      effects: { startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal,
@@ -265,7 +265,7 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
       stateStore,
-      threadStartPort: {
+      effects: {
         startThread: vi.fn().mockResolvedValue({ kind: "completed-stale", value: created }),
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
