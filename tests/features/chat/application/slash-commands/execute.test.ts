@@ -10,7 +10,7 @@ import {
 import {
   executeSlashCommand,
   type SlashCommandExecutionContext,
-} from "../../../../../src/features/chat/application/turns/slash-command-execution";
+} from "../../../../../src/features/chat/application/slash-commands/execute";
 
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {

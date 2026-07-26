@@ -7,14 +7,14 @@ import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
 import type { ChatRuntimeSharedResources } from "../runtime/snapshot";
+import type { ThreadReferenceInput, WebUrlInput } from "../slash-commands/execute";
+import { executePanelSlashCommand, type PanelSlashCommandHost } from "../slash-commands/execute-with-state";
 import type { ChatStateStore } from "../state/store";
 import type { GoalCommands } from "../threads/goal-commands";
 import type { ThreadCommands } from "../threads/thread-commands";
 import type { ThreadStartOutcome } from "../threads/thread-start-command";
 import { type ComposerSubmitCommand, type ComposerSubmitCommandHost, submitComposer } from "./composer-submit-command";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
-import type { ThreadReferenceInput, WebUrlInput } from "./slash-command-execution";
-import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
 import type { ChatTurnPort } from "./turn-port";
 import { createTurnSubmissionCommand } from "./turn-submission-command";
 
@@ -103,7 +103,7 @@ export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: T
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
   });
-  const slashCommandExecutorHost: SlashCommandExecutorHost = {
+  const slashCommandExecutorHost: PanelSlashCommandHost = {
     stateStore,
     connectionAvailable,
     sharedResources: context.sharedResources,
@@ -156,7 +156,7 @@ export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: T
     },
     slashCommandExecutor: {
       execute: (command, args, inputSnapshot, submission) =>
-        executeSlashCommandWithState(slashCommandExecutorHost, command, args, inputSnapshot, submission),
+        executePanelSlashCommand(slashCommandExecutorHost, command, args, inputSnapshot, submission),
     },
     turnSubmissionCommand,
     connection: {

@@ -12,6 +12,8 @@ import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
+import type { GoalCommands } from "../threads/goal-commands";
+import type { ThreadCommands } from "../threads/thread-commands";
 import {
   type SlashCommandName,
   type SlashCommandSubcommandDefinition,
@@ -19,11 +21,9 @@ import {
   slashCommandHelpSections,
   slashCommandSubcommandDefinition,
   slashCommandSubcommands,
-} from "../slash-commands/catalog";
-import { parseWebCommandArgs } from "../slash-commands/parse";
-import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCommand } from "../slash-commands/thread-arguments";
-import type { GoalCommands } from "../threads/goal-commands";
-import type { ThreadCommands } from "../threads/thread-commands";
+} from "./catalog";
+import { parseWebCommandArgs } from "./parse";
+import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCommand } from "./thread-arguments";
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 

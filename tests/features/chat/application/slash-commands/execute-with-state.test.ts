@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { CodexInput } from "../../../../../src/domain/chat/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import {
+  executePanelSlashCommand,
+  type PanelSlashCommandHost,
+} from "../../../../../src/features/chat/application/slash-commands/execute-with-state";
 import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import {
-  executeSlashCommandWithState,
-  type SlashCommandExecutorHost,
-} from "../../../../../src/features/chat/application/turns/slash-command-executor";
 import { deferred } from "../../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -24,14 +24,14 @@ function thread(id: string, name: string | null = null): Thread {
   };
 }
 
-type SlashCommandExecutorHostOverrides = Partial<SlashCommandExecutorHost>;
+type PanelSlashCommandHostOverrides = Partial<PanelSlashCommandHost>;
 
-function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
+function createHost(overrides: PanelSlashCommandHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
   const compactThread = vi.fn().mockResolvedValue(undefined);
   const referThread = vi.fn().mockResolvedValue(null);
   const readWebUrl = vi.fn();
-  const host: SlashCommandExecutorHost = {
+  const host: PanelSlashCommandHost = {
     stateStore,
     sharedResources: {
       runtimeConfigSnapshot: () => null,
@@ -84,7 +84,7 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
   return { compactThread, host, readWebUrl, referThread, stateStore };
 }
 
-describe("executeSlashCommandWithState", () => {
+describe("executePanelSlashCommand", () => {
   it("executes slash commands against the current chat state", async () => {
     const { host } = createHost();
     const adoptPanelTarget = vi.fn();
@@ -92,7 +92,7 @@ describe("executeSlashCommandWithState", () => {
       options?.beforeActivate?.();
     });
 
-    const result = await executeSlashCommandWithState(host, "clear", "", undefined, {
+    const result = await executePanelSlashCommand(host, "clear", "", undefined, {
       isCurrent: () => true,
       markAdopted: vi.fn(),
       adoptPanelTarget,
@@ -120,7 +120,7 @@ describe("executeSlashCommandWithState", () => {
       approvalsReviewer: null,
     });
 
-    await executeSlashCommandWithState(host, "compact", "");
+    await executePanelSlashCommand(host, "compact", "");
 
     expect(compactThread).toHaveBeenCalledWith("thread");
   });
@@ -128,7 +128,7 @@ describe("executeSlashCommandWithState", () => {
   it("starts an empty panel before setting a slash command goal", async () => {
     const { host } = createHost();
 
-    await executeSlashCommandWithState(host, "goal", "set Ship this");
+    await executePanelSlashCommand(host, "goal", "set Ship this");
 
     expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this", { beforeActivate: expect.any(Function) });
     expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
@@ -152,8 +152,8 @@ describe("executeSlashCommandWithState", () => {
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
 
-    await expect(executeSlashCommandWithState(host, "goal", "")).rejects.toThrow("Goals are unavailable in side chats.");
-    await expect(executeSlashCommandWithState(host, "goal", "set Ship this")).rejects.toThrow("Goals are unavailable in side chats.");
+    await expect(executePanelSlashCommand(host, "goal", "")).rejects.toThrow("Goals are unavailable in side chats.");
+    await expect(executePanelSlashCommand(host, "goal", "set Ship this")).rejects.toThrow("Goals are unavailable in side chats.");
 
     expect(host.goals.setObjective).not.toHaveBeenCalled();
   });
@@ -199,7 +199,7 @@ describe("executeSlashCommandWithState", () => {
       },
     });
 
-    await expect(executeSlashCommandWithState(host, "goal", "")).resolves.toBeUndefined();
+    await expect(executePanelSlashCommand(host, "goal", "")).resolves.toBeUndefined();
 
     expect(host.addStructuredSystemMessage).toHaveBeenCalledWith("Thread goal", expect.any(Array));
     expect(host.goals.setObjective).not.toHaveBeenCalled();
@@ -223,7 +223,7 @@ describe("executeSlashCommandWithState", () => {
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
 
-    await executeSlashCommandWithState(host, "compact", "");
+    await executePanelSlashCommand(host, "compact", "");
 
     expect(compactThread).toHaveBeenCalledWith("side");
   });
@@ -231,7 +231,7 @@ describe("executeSlashCommandWithState", () => {
   it("runs reconnect even when there is no current app-server client", async () => {
     const { host } = createHost({ connectionAvailable: () => false });
 
-    await executeSlashCommandWithState(host, "reconnect", "");
+    await executePanelSlashCommand(host, "reconnect", "");
 
     expect(host.reconnect).toHaveBeenCalledOnce();
   });
@@ -242,7 +242,7 @@ describe("executeSlashCommandWithState", () => {
     const { host } = createHost({ toolInventoryDetails });
     let current = true;
 
-    const executing = executeSlashCommandWithState(host, "tools", "", undefined, {
+    const executing = executePanelSlashCommand(host, "tools", "", undefined, {
       isCurrent: () => current,
       markAdopted: vi.fn(),
       adoptPanelTarget: vi.fn(),
@@ -258,7 +258,7 @@ describe("executeSlashCommandWithState", () => {
   it("does not reference threads without a captured input snapshot", async () => {
     const { host, referThread } = createHost({ listedThreads: () => [thread("other", "Other")] });
 
-    const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
+    const result = await executePanelSlashCommand(host, "refer", "Other summarize");
 
     expect(referThread).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Cannot reference a thread without composer input context.");
@@ -275,7 +275,7 @@ describe("executeSlashCommandWithState", () => {
       input: textInput("referenced summarize"),
     });
 
-    const result = await executeSlashCommandWithState(host, "refer", "Other summarize", inputSnapshot);
+    const result = await executePanelSlashCommand(host, "refer", "Other summarize", inputSnapshot);
 
     expect(referThread).toHaveBeenCalledWith(
       expect.objectContaining({ id: "019abcde-0000-7000-8000-000000000001" }),

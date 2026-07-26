@@ -7,18 +7,18 @@ import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
-import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "../slash-commands/catalog";
 import type { ChatStateStore } from "../state/store";
+import { submissionStateSnapshot } from "../turns/submission-state";
+import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
 import {
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionPorts,
   type SlashCommandExecutionResult,
   type ThreadReferenceInput,
   type WebUrlInput,
-} from "./slash-command-execution";
-import { submissionStateSnapshot } from "./submission-state";
+} from "./execute";
 
-export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
+export interface PanelSlashCommandHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;
   connectionAvailable: () => boolean;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
@@ -28,8 +28,8 @@ export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   listedThreads: () => readonly Thread[];
 }
 
-export async function executeSlashCommandWithState(
-  host: SlashCommandExecutorHost,
+export async function executePanelSlashCommand(
+  host: PanelSlashCommandHost,
   command: SlashCommandName,
   args: string,
   inputSnapshot?: ComposerInputSnapshot,
