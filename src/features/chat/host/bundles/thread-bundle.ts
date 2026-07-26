@@ -282,19 +282,15 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
     openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
     openThreadInCurrentPanel: async (threadId, onAdopted, beforeActivate) => {
       const adoption = { completed: false };
-      try {
-        await lifecycle.resume.resumeThread(threadId, undefined, {
-          ...(beforeActivate ? { beforeActivate } : {}),
-          onAdopted: () => {
-            adoption.completed = true;
-            onAdopted();
-          },
-        });
-        if (adoption.completed) return { adopted: true };
-        return { adopted: false };
-      } catch (error) {
-        throw error;
-      }
+      await lifecycle.resume.resumeThread(threadId, undefined, {
+        ...(beforeActivate ? { beforeActivate } : {}),
+        onAdopted: () => {
+          adoption.completed = true;
+          onAdopted();
+        },
+      });
+      if (adoption.completed) return { adopted: true };
+      return { adopted: false };
     },
     applyThreadFact: (fact) => {
       environment.plugin.threadFacts.apply(fact);
