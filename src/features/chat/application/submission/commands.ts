@@ -50,13 +50,11 @@ export interface SubmissionCommandsContext {
   };
   composer: {
     prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
-    captureInputSnapshot: () => ComposerInputSnapshot;
     claimSubmission: () => ComposerSubmissionClaim | null;
     isSubmissionPreparing: () => boolean;
     failActiveSubmissionClaim: () => void;
     draft: () => string;
     trimmedDraft: () => string;
-    setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean }) => void;
   };
   scroll: {
     showLatest: () => void;
@@ -121,7 +119,6 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
     goals: refs.goals,
     addSystemMessage: status.addSystemMessage,
     addStructuredSystemMessage: status.addStructuredSystemMessage,
-    setStatus: status.set,
     statusDetails: runtime.statusDetails,
     permissionDetails: runtime.permissionDetails,
     connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,

@@ -7,8 +7,8 @@ import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
+import { activeThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { submissionStateSnapshot } from "../submission/snapshot";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
 import {
   executeSlashCommand as runSlashCommand,
@@ -23,7 +23,6 @@ export interface PanelSlashCommandHost extends SlashCommandExecutionPorts {
   connectionAvailable: () => boolean;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
-  setStatus: (status: string) => void;
   sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1];
   listedThreads: () => readonly Thread[];
 }
@@ -41,7 +40,6 @@ export async function executePanelSlashCommand(
     const decision = activePanelOperationDecision(chatState, operation);
     if (decision.kind === "blocked") throw new Error(decision.message);
   }
-  const state = submissionStateSnapshot(chatState);
   const listedThreads = host.listedThreads();
   if (!host.connectionAvailable() && slashCommandRequiresConnection(command)) return;
   return runSlashCommand(command, args, {
@@ -52,7 +50,7 @@ export async function executePanelSlashCommand(
     addStructuredSystemMessage: (text, details) => {
       if (submission.isCurrent()) host.addStructuredSystemMessage(text, details);
     },
-    activeThreadId: state.activeThreadId,
+    activeThreadId: activeThreadId(chatState),
     listedThreads,
     ...(inputSnapshot?.threadCommandTarget ? { threadCommandTarget: inputSnapshot.threadCommandTarget } : {}),
     referThread: host.referThread,

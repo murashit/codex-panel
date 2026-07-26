@@ -57,18 +57,6 @@ describe("createSubmissionCommands", () => {
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);
     const startTurn = vi.fn().mockResolvedValue({ kind: "completed-current" as const, value: { turnId: "turn" } });
-    const composerSnapshot: ComposerInputSnapshot = {
-      sourcePath: "notes/Alpha.md",
-      availableSkills: [],
-      referenceActiveNoteOnSend: true,
-      contextReferences: {
-        activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
-        selection: null,
-      },
-      activeNoteSnapshots: [],
-      selectionSnapshots: [],
-      attachments: [],
-    };
     const prepareInput = vi.fn((text: string, _snapshot: ComposerInputSnapshot): { text: string; input: CodexInput } => ({
       text,
       input: [
@@ -76,7 +64,6 @@ describe("createSubmissionCommands", () => {
         { type: "fileReference", name: "unexpected", path: "notes/Alpha.md" },
       ],
     }));
-    const setDraft = vi.fn();
     const actions = createSubmissionCommands(
       {
         stateStore,
@@ -118,13 +105,11 @@ describe("createSubmissionCommands", () => {
         },
         composer: {
           prepareInput,
-          captureInputSnapshot: vi.fn(() => composerSnapshot),
           claimSubmission: vi.fn(() => null),
           isSubmissionPreparing: vi.fn(() => false),
           failActiveSubmissionClaim: vi.fn(),
           draft: () => "",
           trimmedDraft: () => "",
-          setDraft,
         },
         scroll: { showLatest: vi.fn() },
       },
@@ -144,7 +129,6 @@ describe("createSubmissionCommands", () => {
     await actions.planImplementation.implement(plan.id);
 
     expect(prepareInput).not.toHaveBeenCalled();
-    expect(setDraft).not.toHaveBeenCalled();
     expect(startTurn).toHaveBeenCalledWith({
       threadId: "thread",
       input: [{ type: "text", text: IMPLEMENT_PLAN_PROMPT }],

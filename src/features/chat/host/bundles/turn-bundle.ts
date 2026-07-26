@@ -147,7 +147,6 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       },
       composer: {
         prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
-        captureInputSnapshot: () => composerController.captureInputSnapshot(),
         claimSubmission: () => composerController.claimSubmission(),
         isSubmissionPreparing: () => composerController.isSubmissionPreparing(),
         failActiveSubmissionClaim: () => {
@@ -155,9 +154,6 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
         },
         draft: () => composerController.draft,
         trimmedDraft: () => composerController.trimmedDraft,
-        setDraft: (text, options) => {
-          composerController.setDraft(text, options);
-        },
       },
       scroll: {
         showLatest: () => {

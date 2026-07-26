@@ -72,7 +72,6 @@ function createHost(overrides: PanelSlashCommandHostOverrides = {}) {
     },
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
-    setStatus: vi.fn(),
     statusDetails: () => [],
     permissionDetails: () => [],
     connectionDiagnosticDetails: () => [],
