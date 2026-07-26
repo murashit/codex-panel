@@ -112,7 +112,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     actions: {
       rollbackThread: (threadId) => void threadCommands.rollbackThread(threadId),
       forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadCommands.forkThreadFromTurn(threadId, turnId, archiveSource),
-      implementPlan: (itemId) => void turn.turnCommands.planImplementation.implement(itemId),
+      implementPlan: (itemId) => void turn.submissionCommands.planImplementation.implement(itemId),
       openThreadInAvailableView: (threadId) => void environment.plugin.workspace.openThreadInAvailableView(threadId),
       openThreadInNewView: (threadId) => void environment.plugin.workspace.openThreadInNewView(threadId),
       openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
@@ -132,7 +132,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     composer: {
       presenter: composerController,
       actions: {
-        submit: () => void turn.turnCommands.composerSubmit.submit(),
+        submit: () => void turn.submissionCommands.composerSubmit.submit(),
       },
     },
   };

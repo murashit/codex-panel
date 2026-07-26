@@ -6,8 +6,8 @@ import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/ap
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/actions";
 import { activeThreadId } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
-import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";

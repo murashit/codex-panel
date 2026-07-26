@@ -13,8 +13,8 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
-import { submitComposer } from "../../../../../src/features/chat/application/turns/composer-submit-command";
-import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
+import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { ChatComposerController } from "../../../../../src/features/chat/panel/composer/controller";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer";

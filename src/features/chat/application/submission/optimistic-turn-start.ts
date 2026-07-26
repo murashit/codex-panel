@@ -6,7 +6,7 @@ import type { ThreadStreamDialogueItem, ThreadStreamFileReference, ThreadStreamI
 import { isLocalSteerDialogueClientId } from "../../domain/thread-stream/local-dialogue-ids";
 import type { ThreadStreamItemProvenance } from "../../domain/thread-stream/provenance";
 import { attachHookRunsToTurn } from "../../domain/thread-stream/updates";
-import type { PendingTurnStart } from "./turn-state";
+import type { PendingTurnStart } from "../turns/turn-state";
 
 interface LocalUserDialogueParams {
   id: string;

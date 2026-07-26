@@ -7,6 +7,8 @@ import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurre
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadStartOutcome } from "../threads/thread-start-command";
+import type { ChatTurnPort } from "../turns/turn-port";
+import { STATUS_TURN_RUNNING } from "../turns/turn-state";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
@@ -14,9 +16,7 @@ import {
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
-import { submissionStateSnapshot } from "./submission-state";
-import type { ChatTurnPort } from "./turn-port";
-import { STATUS_TURN_RUNNING } from "./turn-state";
+import { submissionStateSnapshot } from "./snapshot";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 

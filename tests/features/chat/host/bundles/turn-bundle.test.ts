@@ -14,7 +14,7 @@ describe("createTurnBundle", () => {
     });
     const fixture = turnBundleFixture({ stateStore });
 
-    await fixture.bundle.turnCommands.composerSubmit.submit();
+    await fixture.bundle.submissionCommands.composerSubmit.submit();
 
     expect(fixture.refreshDiagnostics).not.toHaveBeenCalled();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
@@ -26,7 +26,7 @@ describe("createTurnBundle", () => {
   it("refreshes diagnostics for /tools when tool inventory is not loaded", async () => {
     const fixture = turnBundleFixture();
 
-    await fixture.bundle.turnCommands.composerSubmit.submit();
+    await fixture.bundle.submissionCommands.composerSubmit.submit();
 
     expect(fixture.refreshDiagnostics).toHaveBeenCalledOnce();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
@@ -43,7 +43,7 @@ describe("createTurnBundle", () => {
       throw new Error("config unavailable");
     });
 
-    await fixture.bundle.turnCommands.composerSubmit.submit();
+    await fixture.bundle.submissionCommands.composerSubmit.submit();
 
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
     expect(fixture.status.addStructuredSystemMessage).toHaveBeenCalledWith("Codex capabilities", [
@@ -72,7 +72,7 @@ describe("createTurnBundle", () => {
       threads: [thread],
     });
 
-    await fixture.bundle.turnCommands.composerSubmit.submit();
+    await fixture.bundle.submissionCommands.composerSubmit.submit();
 
     expect(referThread).toHaveBeenCalledWith(thread, "summarize", { sourcePath: "snapshot.md" });
   });

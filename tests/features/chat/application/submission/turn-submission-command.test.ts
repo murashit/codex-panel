@@ -6,13 +6,13 @@ import type { EffectOutcome } from "../../../../../src/features/chat/application
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
-import { optimisticTurnStart } from "../../../../../src/features/chat/application/turns/optimistic-turn-start";
+import { optimisticTurnStart } from "../../../../../src/features/chat/application/submission/optimistic-turn-start";
 import {
   createTurnSubmissionCommand,
   type TurnSubmissionCommandHost,
-} from "../../../../../src/features/chat/application/turns/turn-submission-command";
-import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
+} from "../../../../../src/features/chat/application/submission/turn-submission-command";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
+import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { deferred } from "../../../../support/async";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 

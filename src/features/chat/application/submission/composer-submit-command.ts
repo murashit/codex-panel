@@ -8,8 +8,8 @@ import { parseSlashCommand, parseWebCommandArgs } from "../slash-commands/parse"
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { cancellablePendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
-import { submissionStateSnapshot } from "./submission-state";
-import type { ChatTurnPort } from "./turn-port";
+import type { ChatTurnPort } from "../turns/turn-port";
+import { submissionStateSnapshot } from "./snapshot";
 import type { TurnSubmissionRequest } from "./turn-submission-command";
 import { pendingWebSubmissionItem } from "./web-submission";
 

@@ -1,7 +1,7 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { activeThreadState, type ChatState } from "../state/root-reducer";
 import { threadStreamItems } from "../state/thread-stream";
-import { activeTurnId, chatTurnBusy, type PendingTurnStart, pendingTurnStart } from "./turn-state";
+import { activeTurnId, chatTurnBusy, type PendingTurnStart, pendingTurnStart } from "../turns/turn-state";
 
 export interface SubmissionStateSnapshot {
   activeThreadId: string | null;

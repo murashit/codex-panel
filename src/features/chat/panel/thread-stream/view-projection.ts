@@ -9,7 +9,7 @@ import {
   threadStreamRollbackCandidateFromItems,
   threadStreamStableItems,
 } from "../../application/state/thread-stream";
-import { implementPlanTarget } from "../../application/turns/plan-implementation";
+import { implementPlanTarget } from "../../application/submission/plan-implementation";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
 import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";

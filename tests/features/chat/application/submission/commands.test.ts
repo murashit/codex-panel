@@ -6,7 +6,7 @@ import type { ComposerInputSnapshot } from "../../../../../src/features/chat/app
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createTurnWorkflowCommands } from "../../../../../src/features/chat/application/turns/composition";
+import { createSubmissionCommands } from "../../../../../src/features/chat/application/submission/commands";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
@@ -51,7 +51,7 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items
   stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
 }
 
-describe("createTurnWorkflowCommands", () => {
+describe("createSubmissionCommands", () => {
   it("does not attach composer-only active file context when implementing a plan", async () => {
     const stateStore = createChatStateStore(createChatState());
     const plan = planItem("plan");
@@ -77,7 +77,7 @@ describe("createTurnWorkflowCommands", () => {
       ],
     }));
     const setDraft = vi.fn();
-    const actions = createTurnWorkflowCommands(
+    const actions = createSubmissionCommands(
       {
         stateStore,
         sharedResources: {

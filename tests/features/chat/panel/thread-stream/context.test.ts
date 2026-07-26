@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { createChatThreadStreamDependencies } from "../../../../../src/features/chat/panel/thread-stream/context.obsidian";
 import {
   type ChatThreadStreamScrollBinding,

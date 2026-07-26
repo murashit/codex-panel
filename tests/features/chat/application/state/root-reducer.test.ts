@@ -6,8 +6,8 @@ import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../
 import { activeThreadState, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
-import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture, chatStateWith } from "../../support/state";

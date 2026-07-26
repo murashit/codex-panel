@@ -13,12 +13,12 @@ import type { ChatStateStore } from "../state/store";
 import type { GoalCommands } from "../threads/goal-commands";
 import type { ThreadCommands } from "../threads/thread-commands";
 import type { ThreadStartOutcome } from "../threads/thread-start-command";
+import type { ChatTurnPort } from "../turns/turn-port";
 import { type ComposerSubmitCommand, type ComposerSubmitCommandHost, submitComposer } from "./composer-submit-command";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
-import type { ChatTurnPort } from "./turn-port";
 import { createTurnSubmissionCommand } from "./turn-submission-command";
 
-export interface TurnWorkflowContext {
+export interface SubmissionCommandsContext {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
   connectionAvailable: () => boolean;
@@ -63,15 +63,15 @@ export interface TurnWorkflowContext {
   };
 }
 
-export interface TurnWorkflowRefs {
-  threadStartCommand: TurnWorkflowThreadStarter;
+export interface SubmissionCommandsRefs {
+  threadStartCommand: SubmissionThreadStarter;
   runtimeSettings: ChatRuntimeSettingsCommands;
   threadCommands: ThreadCommands;
   reconnectCommand: (options?: ReconnectPanelOptions) => Promise<void>;
   goals: GoalCommands;
 }
 
-interface TurnWorkflowThreadStarter {
+interface SubmissionThreadStarter {
   startThread: (
     preview?: string,
     options?: { syncGoal?: boolean; preservePendingSubmissionId?: string; beforeActivate?: () => void },
@@ -82,12 +82,12 @@ interface PlanImplementation {
   implement: (itemId: string) => Promise<void>;
 }
 
-export interface TurnWorkflowCommands {
+export interface SubmissionCommands {
   planImplementation: PlanImplementation;
   composerSubmit: ComposerSubmitCommand;
 }
 
-export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: TurnWorkflowRefs): TurnWorkflowCommands {
+export function createSubmissionCommands(context: SubmissionCommandsContext, refs: SubmissionCommandsRefs): SubmissionCommands {
   const { stateStore, localItemIds, connectionAvailable, turnPort, referThread, readWebUrl, status, runtime, thread, composer, scroll } =
     context;
   const turnSubmissionCommand = createTurnSubmissionCommand({
@@ -181,7 +181,7 @@ export function createTurnWorkflowCommands(context: TurnWorkflowContext, refs: T
 }
 
 async function startThreadForGoal(
-  starter: TurnWorkflowThreadStarter,
+  starter: SubmissionThreadStarter,
   objective: string,
   addSystemMessage: (message: string) => void,
   beforeActivate?: () => void,

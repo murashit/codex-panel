@@ -4,7 +4,7 @@ import { htmlToMarkdown, type RequestUrlResponse, requestUrl } from "obsidian";
 import type { CodexInput } from "../../../../domain/chat/input";
 import { codexTextInputWithAttachments } from "../../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
-import { normalizedHttpUrl } from "../../application/turns/web-submission";
+import { normalizedHttpUrl } from "../../application/submission/web-submission";
 import { WEB_CONTEXT_KEY } from "../../domain/thread-stream/format/context-attachments";
 
 export interface WebUrlInput {

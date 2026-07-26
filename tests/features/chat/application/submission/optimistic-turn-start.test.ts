@@ -6,7 +6,7 @@ import {
   localUserDialogueItemFromInput,
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
-} from "../../../../../src/features/chat/application/turns/optimistic-turn-start";
+} from "../../../../../src/features/chat/application/submission/optimistic-turn-start";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("optimistic turn start helpers", () => {

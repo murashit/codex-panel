@@ -6,7 +6,7 @@ import {
   implementPlan,
   implementPlanTarget,
   type PlanImplementationHost,
-} from "../../../../../src/features/chat/application/turns/plan-implementation";
+} from "../../../../../src/features/chat/application/submission/plan-implementation";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";

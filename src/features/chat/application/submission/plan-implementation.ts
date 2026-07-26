@@ -5,7 +5,7 @@ import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/pan
 import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { type ChatThreadStreamState, threadStreamItems } from "../state/thread-stream";
-import { type ChatTurnState, chatTurnBusy } from "./turn-state";
+import { type ChatTurnState, chatTurnBusy } from "../turns/turn-state";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 

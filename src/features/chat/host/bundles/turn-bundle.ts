@@ -5,12 +5,9 @@ import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import type { ChatStateStore } from "../../application/state/store";
+import { type SubmissionCommands as ChatPanelSubmissionCommands, createSubmissionCommands } from "../../application/submission/commands";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
-import {
-  type TurnWorkflowCommands as ChatPanelTurnWorkflowCommands,
-  createTurnWorkflowCommands,
-} from "../../application/turns/composition";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ChatComposerController } from "../../panel/composer/controller";
 import type { ChatPanelRuntimeNotices } from "../../panel/runtime/notices";
@@ -39,7 +36,7 @@ interface ChatPanelTurnHost {
 
 export interface ChatPanelTurnBundle {
   pendingRequests: PendingRequestActions;
-  turnCommands: ChatPanelTurnWorkflowCommands;
+  submissionCommands: ChatPanelSubmissionCommands;
 }
 
 interface ChatPanelTurnInput {
@@ -93,7 +90,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
   });
-  const turnCommands = createTurnWorkflowCommands(
+  const submissionCommands = createSubmissionCommands(
     {
       stateStore: host.stateStore,
       localItemIds,
@@ -179,6 +176,6 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
 
   return {
     pendingRequests,
-    turnCommands,
+    submissionCommands,
   };
 }

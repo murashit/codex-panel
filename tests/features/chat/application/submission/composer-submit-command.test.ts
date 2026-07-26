@@ -6,7 +6,7 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { submitComposer } from "../../../../../src/features/chat/application/turns/composer-submit-command";
+import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import { deferred } from "../../../../support/async";
 import { chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";

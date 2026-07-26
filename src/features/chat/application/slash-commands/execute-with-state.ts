@@ -8,7 +8,7 @@ import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import type { ChatStateStore } from "../state/store";
-import { submissionStateSnapshot } from "../turns/submission-state";
+import { submissionStateSnapshot } from "../submission/snapshot";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
 import {
   executeSlashCommand as runSlashCommand,
