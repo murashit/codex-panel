@@ -16,6 +16,12 @@ jj diff --from <previous-tag> --to main
 
 `release:notes` produces a non-mutating candidate draft from selected Conventional Commits; it is neither exhaustive nor authoritative. Compare the full range with the previous release, confirm the actual user-facing changes, and scan omitted commits for changes that affect versioning or release notes. Choose the version using the policy above, group related commits by behavior, and draft concise public-facing notes.
 
+## Release note drafting
+
+Release notes are a short public summary of user-visible behavior, not a changelog of commit subjects. Review the previous three release-note files (or all available files when fewer exist) for style, then compare the complete release range with the implementation and tests. Group related commits into a small number of concrete before/after outcomes and omit internal work unless it changes a user-visible contract or support baseline.
+
+Use the existing notes as the style reference and the audited diff as the factual reference. Keep the final file to one short `## Changes` section in the same language as the existing release notes.
+
 After choosing the version, prepare it, replace the generated draft with the reviewed notes, commit the release changes, and run the preflight before pushing the matching tag:
 
 ```sh

@@ -17,14 +17,15 @@ description: Use when preparing, checking, committing, tagging, pushing, or repa
 
 ## Review And Release Procedure
 
-1. Read `docs/release.md` and inspect the current version metadata and recent release notes.
+1. Read `docs/release.md`, inspect the current version metadata, and read the previous three release-note files to establish the established style before inspecting the candidate range.
 2. Identify the previous released tag and complete commit range, then run `npm run release:notes -- <previous-tag>` without choosing the target version yet.
 3. Audit the range before drafting:
    - Read each candidate's full diff, relevant tests, and call path far enough to determine the previous and new user-observable behavior and the audience of any messages or metadata.
    - Scan non-candidate commits, including `refactor`, `chore`, dependency, merge, and documentation changes, for hidden capabilities, regressions, baseline changes, or disruptive behavior.
    - Combine related implementation commits into behavioral changes instead of producing one bullet per commit.
+   - Keep an evidence map from each proposed bullet to its implementation and tests; classify omitted work as intentionally internal when it has no public-facing effect.
 4. Choose the target version from the highest-impact behavior using the policy in `docs/release.md`, and draft the public-facing bullets from the audited behavior rather than commit subjects.
-5. Run `npm run release:prepare -- X.Y.Z`, replace its generated draft with the reviewed bullets, and inspect the complete release diff.
+5. Run `npm run release:prepare -- X.Y.Z`, replace its generated draft with the reviewed bullets in the established release-note style, and inspect the complete release diff.
 6. Ask once for approval of the version, final bullets, and included range before committing. If the user approves subject to a concrete wording correction, apply it and continue without another approval unless the correction makes scope, version, or meaning ambiguous.
 7. After approval, follow `docs/release.md` through preflight, tag, and push. Let GitHub Actions create or update the GitHub Release, then verify the workflow and expected assets.
 
