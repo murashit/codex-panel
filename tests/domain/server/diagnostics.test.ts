@@ -7,8 +7,10 @@ import {
   diagnosticProbeLabel,
   diagnosticProbeOk,
   diagnosticsWithToolInventory,
+  replaceMcpServerStatusDiagnostics,
   serverIdentity,
   serverPlatform,
+  shortDiagnosticErrorMessage,
   upsertMcpServerDiagnostic,
 } from "../../../src/domain/server/diagnostics";
 import type { ServerInitialization } from "../../../src/domain/server/initialization";
@@ -26,6 +28,8 @@ describe("server diagnostics", () => {
 
     expect(serverIdentity(response)).toBe("codex-cli/0.128.0");
     expect(serverPlatform(response)).toBe("macos/unix");
+    expect(serverIdentity(null)).toBe("(not connected)");
+    expect(serverPlatform(null)).toBe("(not connected)");
   });
 
   it("creates generic capability probe defaults", () => {
@@ -98,6 +102,16 @@ describe("server diagnostics", () => {
       toolCount: 2,
       message: null,
     });
+
+    diagnostics = upsertMcpServerDiagnostic(diagnostics, {
+      name: "docs",
+      startupStatus: "ready",
+      authStatus: "oAuth",
+      toolCount: 1,
+      message: null,
+    });
+    expect(diagnostics.mcpServers.map((server) => server.name)).toEqual(["docs", "github"]);
+    expect(shortDiagnosticErrorMessage("1234567890", 10)).toBe("1234567890");
   });
 
   it("derives codex app ids from MCP tool prefixes", () => {
@@ -174,6 +188,10 @@ describe("server diagnostics", () => {
     if (!cloned?.plugins || !cloned.mcpServers || !cloned.mcpDiagnostics) throw new Error("Expected cloned tool inventory");
 
     expect(cloned).not.toBe(source);
+    expect(cloned.plugins).toEqual(source.plugins);
+    expect(cloned.pluginMarketplaceErrors).toEqual(source.pluginMarketplaceErrors);
+    expect(cloned.mcpDiagnostics).toEqual(source.mcpDiagnostics);
+    expect(cloned.mcpServers).toEqual(source.mcpServers);
     expect(cloned.plugins).not.toBe(source.plugins);
     expect(cloned.mcpServers).not.toBe(source.mcpServers);
     expect(cloned.mcpServers[0]?.codexAppIds).not.toBe(source.mcpServers?.[0]?.codexAppIds);
@@ -187,5 +205,25 @@ describe("server diagnostics", () => {
 
     expect(source.plugins?.[0]?.name).toBe("writer");
     expect(source.mcpServers?.[0]?.codexAppIds).toEqual(["github"]);
+  });
+
+  it("replaces MCP status diagnostics while retaining known startup facts", () => {
+    let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
+      name: "github",
+      startupStatus: "failed",
+      authStatus: "notLoggedIn",
+      toolCount: 2,
+      message: "missing token",
+    });
+
+    diagnostics = replaceMcpServerStatusDiagnostics(diagnostics, [
+      { name: "github", authStatus: "oAuth", toolCount: 3, resourceCount: 2, resourceTemplateCount: 1 },
+      { name: "docs", authStatus: "oAuth", toolCount: 1, resourceCount: 0, resourceTemplateCount: 0 },
+    ]);
+
+    expect(diagnostics.mcpServers).toEqual([
+      { name: "docs", startupStatus: "unknown", authStatus: "oAuth", toolCount: 1, message: null },
+      { name: "github", startupStatus: "failed", authStatus: "oAuth", toolCount: 3, message: "missing token" },
+    ]);
   });
 });

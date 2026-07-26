@@ -47,6 +47,11 @@ describe("app-server turn records", () => {
     ).toBeNull();
   });
 
+  it("requires both user and assistant text for a completed turn summary", () => {
+    expect(completedTurnTranscriptSummaryFromTurnRecord(turn([userMessage("u1", "依頼")]))).toBeNull();
+    expect(completedTurnTranscriptSummaryFromTurnRecord(turn([agentMessage("a1", "回答")]))).toBeNull();
+  });
+
   it("projects completed turn transcript summaries from turn lists without exposing filtering logic to callers", () => {
     expect(
       completedTurnTranscriptSummariesFromTurnRecords([
@@ -92,6 +97,22 @@ describe("app-server turn records", () => {
     ).toEqual(["oldest", "middle", "newest"]);
   });
 
+  it("omits referenced turns that contain no readable transcript entries", () => {
+    expect(referencedThreadTurnsFromNewestFirstTurnRecords([turn([commandItem("cmd")])])).toEqual([]);
+  });
+
+  it("sorts missing turn start times before dated turns", () => {
+    expect(
+      chronologicalTurnTranscriptSummariesFromTurnRecords([
+        turn([userMessage("dated", "dated"), agentMessage("dated-a", "dated-answer")], { startedAt: 10 }),
+        turn([userMessage("missing", "missing"), agentMessage("missing-a", "missing-answer")], { startedAt: null }),
+      ]),
+    ).toEqual([
+      { userText: "missing", assistantText: "missing-answer" },
+      { userText: "dated", assistantText: "dated-answer" },
+    ]);
+  });
+
   it("keeps local image attachments out of user transcript text when text is present", () => {
     expect(
       transcriptEntriesFromTurnRecords([
@@ -135,6 +156,39 @@ describe("app-server turn records", () => {
     ]);
   });
 
+  it("omits image attachments already represented by visible text", () => {
+    expect(
+      transcriptEntriesFromTurnRecords([
+        turn([
+          {
+            type: "userMessage",
+            id: "u1",
+            clientId: null,
+            content: [
+              { type: "text", text: "https://example.com/diagram.png", text_elements: [] },
+              { type: "image", url: "https://example.com/diagram.png" },
+            ],
+          },
+        ]),
+      ]),
+    ).toEqual([{ kind: "user", text: "https://example.com/diagram.png", timestamp: null }]);
+  });
+
+  it("keeps skill references when a user message has no visible text", () => {
+    expect(
+      transcriptEntriesFromTurnRecords([
+        turn([
+          {
+            type: "userMessage",
+            id: "u1",
+            clientId: null,
+            content: [{ type: "skill", name: "review", path: "/skills/review" }],
+          },
+        ]),
+      ]),
+    ).toEqual([{ kind: "user", text: "[$review] /skills/review", timestamp: null }]);
+  });
+
   it("extracts assistant-like transcript text for generated turn consumers", () => {
     expect(turnTranscriptAssistantTextFromTurnRecord(turn([userMessage("u1", "依頼"), planItem("p1", "計画")]))).toBe("計画");
   });
@@ -149,6 +203,7 @@ describe("app-server turn records", () => {
         ]),
       ),
     ).toBe('{"replacementText":"final"}');
+    expect(lastAgentMessageTextFromTurnRecord(turn([agentMessage("only", "only answer")]))).toBe("only answer");
   });
 
   it("returns null when a turn has no agent message text", () => {

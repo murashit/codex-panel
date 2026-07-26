@@ -34,6 +34,16 @@ describe("ThreadMutationCommands", () => {
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
+  it("can skip a rename before contacting the app server", async () => {
+    const { mutations, client, catalog } = operationsFixture();
+
+    await expect(mutations.renameThread("thread", "Title", { shouldStart: () => false })).resolves.toBe(false);
+    await expect(mutations.renameThread("thread", "   ")).resolves.toBe(false);
+
+    expect(client?.request).not.toHaveBeenCalled();
+    expect(catalog.apply).not.toHaveBeenCalled();
+  });
+
   it("serializes successive names for the same thread", async () => {
     const generatedSave = deferred<object>();
     const client = clientMock();

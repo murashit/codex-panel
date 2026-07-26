@@ -6,6 +6,7 @@ import {
   type ThreadTitleService,
   type ThreadTitleServiceHost,
 } from "../../../../src/features/threads/workflows/thread-title-service";
+import { deferred } from "../../../support/async";
 
 describe("ThreadTitleService", () => {
   it("resolves visible context once and generates from the prepared context", async () => {
@@ -34,6 +35,15 @@ describe("ThreadTitleService", () => {
     await expect(service.resolveContext("thread")).resolves.toBeNull();
   });
 
+  it("falls back to persisted context when no visible context exists", async () => {
+    const persisted = titleContext("persisted request", "persisted response");
+    const persistedContext = vi.fn().mockResolvedValue(persisted);
+    const service = titleService({ port: { persistedContext, generateTitle: vi.fn() } });
+
+    await expect(service.resolveContext("thread")).resolves.toEqual(persisted);
+    expect(persistedContext).toHaveBeenCalledWith("thread");
+  });
+
   it("prefers visible completed-turn context over completed summaries", () => {
     const service = titleService({
       visibleCompletedTurnContext: () => titleContext("visible turn", "visible answer"),
@@ -52,6 +62,38 @@ describe("ThreadTitleService", () => {
     expect(service.completedTurnContext("turn", { userText: "summary turn", assistantText: "summary answer" })).toEqual(
       titleContext("summary turn", "summary answer"),
     );
+  });
+
+  it("returns no completed-turn context when neither source is available", () => {
+    expect(titleService().completedTurnContext("turn", null)).toBeNull();
+  });
+
+  it("rejects generation immediately when the caller signal is already aborted", async () => {
+    const generateTitle = vi.fn().mockResolvedValue("Generated title");
+    const service = titleService({ port: { persistedContext: vi.fn(), generateTitle } });
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(service.generate(titleContext("request", "response"), controller.signal)).rejects.toThrow(
+      "Thread title generation cancelled.",
+    );
+    expect(generateTitle).not.toHaveBeenCalled();
+  });
+
+  it("propagates cancellation from an active caller signal", async () => {
+    const generation = deferred<string | null>();
+    const generateTitle = vi.fn().mockReturnValue(generation.promise);
+    const service = titleService({ port: { persistedContext: vi.fn(), generateTitle } });
+    const controller = new AbortController();
+
+    const pending = service.generate(titleContext("request", "response"), controller.signal);
+    await vi.waitFor(() => expect(generateTitle).toHaveBeenCalledOnce());
+    const linkedSignal = generateTitle.mock.calls[0]?.[1] as AbortSignal;
+    controller.abort();
+
+    expect(linkedSignal.aborted).toBe(true);
+    generation.resolve("Generated title");
+    await expect(pending).rejects.toThrow("Thread title generation cancelled.");
   });
 
   it("cancels stale title work and starts later work with a fresh signal", async () => {
