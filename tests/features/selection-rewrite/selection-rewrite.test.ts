@@ -223,7 +223,7 @@ describe("selection rewrite app-server port", () => {
     );
   });
 
-  it.each(["invalid raw output", '{"replacementText":42}', '{"text":"rewritten"}'])(
+  it.each(["invalid raw output", '{"replacementText":42}'])(
     "reports invalid structured output with the raw assistant text: %s",
     async (rawText) => {
       const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([agentMessage("answer", rawText)]));

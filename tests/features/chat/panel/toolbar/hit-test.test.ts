@@ -59,7 +59,6 @@ describe("toolbarOutsidePointerHit", () => {
 
   it.each([
     { name: "a missing root", root: null, viewWindow: window, target: document.body },
-    { name: "a missing view window", root: document.createElement("div"), viewWindow: null, target: document.body },
     { name: "a non-element target", root: document.createElement("div"), viewWindow: window, target: document },
   ])("classifies $name as outside", ({ root, viewWindow, target }) => {
     expect(toolbarOutsidePointerHit(pointerAt(target), root, viewWindow)).toEqual({

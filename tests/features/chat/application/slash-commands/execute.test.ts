@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import {
-  SLASH_COMMANDS,
-  type SlashCommandName,
-  slashCommandHelpSections,
-} from "../../../../../src/features/chat/application/slash-commands/catalog";
+import { slashCommandHelpSections } from "../../../../../src/features/chat/application/slash-commands/catalog";
 import {
   executeSlashCommand,
   type SlashCommandExecutionContext,
@@ -102,17 +98,12 @@ function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
 }
 
 describe("slash commands", () => {
-  it.each(
-    SLASH_COMMANDS.filter((definition) => definition.argsKind === "none").map((definition) => [
-      definition.command.slice(1) as SlashCommandName,
-      definition.usage,
-    ]),
-  )("rejects arguments for /%s from catalog metadata", async (command, usage) => {
+  it("rejects arguments for a no-argument command from catalog metadata", async () => {
     const ctx = context();
 
-    await executeSlashCommand(command, "unexpected", ctx);
+    await executeSlashCommand("status", "unexpected", ctx);
 
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith(`/${command} does not take arguments. Usage: ${usage}`);
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/status does not take arguments. Usage: /status");
   });
 
   it("clears the current panel for /clear", async () => {

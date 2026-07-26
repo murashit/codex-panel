@@ -57,6 +57,7 @@ describe("app-server thread settings", () => {
     expect(appServerRuntimeSettingsPatch({ permissions: ":workspace" })).toEqual({ permissions: ":workspace" });
   });
 
+  // Service-tier IDs are opaque here; the live app-server may canonicalize or omit them per model catalog.
   it.each(["fast", "standard", "priority", "default", "flex", "auto", "catalog-tier"])(
     "accepts non-empty service tier id %s from config and app-server reports",
     (serviceTier) => {

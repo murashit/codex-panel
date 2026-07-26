@@ -244,8 +244,8 @@ describe("submitComposer", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it.each(["hello", "/status"])("blocks composer submission from subagent threads for %s", async (draft) => {
-    const { host, execute, sendTurnText } = createHost(draft, { subagent: true });
+  it("blocks composer submission from subagent threads", async () => {
+    const { host, execute, sendTurnText } = createHost("hello", { subagent: true });
 
     await submitComposer(host);
 

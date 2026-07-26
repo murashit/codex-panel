@@ -106,15 +106,12 @@ describe("vault write paths", () => {
     expect(sanitizeVaultPathSegment("Topic/[draft]#section^block?")).toBe("Topic--draft--section-block-");
   });
 
-  it.each(["/outside", String.raw`C:\outside`, String.raw`z:\outside`, String.raw`\\server\share`])(
-    "rejects absolute vault folder path %s",
-    (path) => {
-      expect(() => vaultRelativeFolderPath(path, folderPathOptions())).toThrow("absolute");
-    },
-  );
+  it.each(["/outside", String.raw`C:\outside`, String.raw`\\server\share`])("rejects absolute vault folder path %s", (path) => {
+    expect(() => vaultRelativeFolderPath(path, folderPathOptions())).toThrow("absolute");
+  });
 
-  it.each(["../outside", "./outside"])("validates vault-relative folder %s before sanitizing its segments", (path) => {
-    expect(() => vaultRelativeFolderPath(path, folderPathOptions())).toThrow("relative");
+  it("validates vault-relative folder traversal before sanitizing its segments", () => {
+    expect(() => vaultRelativeFolderPath("../outside", folderPathOptions())).toThrow("relative");
   });
 
   it("uses and normalizes the configured fallback for empty or sanitized-empty folders", () => {

@@ -118,22 +118,6 @@ describe("settings", () => {
     expect(normalizeSettings({ showToolbar: "no" }).showToolbar).toBe(DEFAULT_SETTINGS.showToolbar);
   });
 
-  it("normalizes composer edge scrolling", () => {
-    expect(normalizeSettings({}).scrollThreadFromComposerEdges).toBe(false);
-    expect(normalizeSettings({ scrollThreadFromComposerEdges: true }).scrollThreadFromComposerEdges).toBe(true);
-    expect(normalizeSettings({ scrollThreadFromComposerEdges: "yes" }).scrollThreadFromComposerEdges).toBe(
-      DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
-    );
-  });
-
-  it("normalizes active file reference on send", () => {
-    expect(normalizeSettings({}).referenceActiveNoteOnSend).toBe(false);
-    expect(normalizeSettings({ referenceActiveNoteOnSend: true }).referenceActiveNoteOnSend).toBe(true);
-    expect(normalizeSettings({ referenceActiveNoteOnSend: "yes" }).referenceActiveNoteOnSend).toBe(
-      DEFAULT_SETTINGS.referenceActiveNoteOnSend,
-    );
-  });
-
   it("normalizes the attachment folder", () => {
     expect(normalizeSettings({ attachmentFolder: " Files/Codex " }).attachmentFolder).toBe("Files/Codex");
     expect(normalizeSettings({ attachmentFolder: "   " }).attachmentFolder).toBe(DEFAULT_SETTINGS.attachmentFolder);

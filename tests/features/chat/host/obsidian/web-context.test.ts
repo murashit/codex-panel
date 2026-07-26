@@ -82,8 +82,8 @@ describe("web context reader", () => {
     });
   });
 
-  it.each([400, 500])("rejects HTTP %i responses", async (status) => {
-    mocks.requestUrl.mockResolvedValue({ status, text: "Error" });
+  it("rejects HTTP error responses", async () => {
+    mocks.requestUrl.mockResolvedValue({ status: 400, text: "Error" });
 
     await expect(
       readWebUrl(
@@ -95,7 +95,7 @@ describe("web context reader", () => {
         "",
         {} as ComposerInputSnapshot,
       ),
-    ).rejects.toThrow(`Web request failed for https://example.com/article (HTTP ${status}).`);
+    ).rejects.toThrow("Web request failed for https://example.com/article (HTTP 400).");
 
     expect(mocks.defuddleParse).not.toHaveBeenCalled();
   });

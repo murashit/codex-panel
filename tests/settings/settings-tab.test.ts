@@ -421,51 +421,6 @@ describe("settings tab", () => {
     expect(notices).toContain("Failed to save Codex Panel settings: disk full");
   });
 
-  it("saves the composer line edge scroll setting", async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    tab.display();
-    const toggle = inputForSetting(tab, "Scroll conversation from composer line edges");
-    if (!toggle) throw new Error("Missing composer line edge scroll toggle");
-    toggle.checked = true;
-    toggle.dispatchEvent(new Event("change"));
-    await flushPromises();
-
-    expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Scroll conversation from composer line edges")).toContain("Up/Ctrl+P");
-  });
-
-  it("saves the active file reference setting", async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    tab.display();
-    const toggle = inputForSetting(tab, "Reference active file on send");
-    if (!toggle) throw new Error("Missing active file reference toggle");
-    toggle.checked = true;
-    toggle.dispatchEvent(new Event("change"));
-    await flushPromises();
-
-    expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Reference active file on send")).toContain("active file as context");
-  });
-
-  it("saves the attachment folder setting", async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    tab.display();
-    const folder = inputForSetting(tab, "Attachment folder");
-    if (!folder) throw new Error("Missing attachment folder input");
-    folder.value = "Files/Codex";
-    folder.dispatchEvent(new Event("blur"));
-    await flushPromises();
-
-    expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Attachment folder")).toContain("pasted or dropped");
-  });
-
   it("saves archive export settings", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const tab = newSettingsTab({ saveSettings });

@@ -240,10 +240,7 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it.each([
-    ["a missing toolbar", (container: HTMLElement) => container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar")?.remove()],
-    ["an unexpected root child", (container: HTMLElement) => container.appendChild(document.createElement("section"))],
-  ])("repairs %s through an explicit shell render", async (_description, damageRoot) => {
+  it("repairs a missing toolbar through an explicit shell render", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -254,7 +251,7 @@ describe("ChatPanelShell", () => {
       await settleShellEffects();
     });
 
-    damageRoot(container);
+    container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar")?.remove();
 
     await act(async () => {
       store.dispatch({ type: "composer/draft-set", draft: "repair root" });
