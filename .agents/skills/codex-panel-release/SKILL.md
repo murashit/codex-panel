@@ -14,6 +14,8 @@ description: Use when preparing, checking, committing, tagging, pushing, or repa
 - Treat generated release-note entries as search candidates, not evidence of user-facing behavior. Commit type and subject can both misclassify the audience or impact.
 - Distinguish behavior visible in Panel UI from hidden context, protocol, or agent-facing behavior. Describe the actual user benefit without implying a UI notification or control that does not exist.
 - Keep one short, public-facing `## Changes` section. Group related commits by behavior and omit internal or procedural detail.
+- Treat the lockfile as authoritative: run the preflight only after it has replaced `node_modules` with `npm ci --ignore-scripts`.
+- Keep the release commit limited to `chore(release): X.Y.Z`, version metadata, and `.github/release-notes/X.Y.Z.md`; formatting and generated changes must be separate earlier commits.
 
 ## Review And Release Procedure
 

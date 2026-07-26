@@ -57,6 +57,26 @@ function jjRevisionCount(revision) {
   return Number(run("jj", ["log", "-r", revision, "--count"], { capture: true }));
 }
 
+function assertReleaseCommit(packageVersion) {
+  const subject = run("git", ["show", "-s", "--format=%s", "main"], { capture: true });
+  if (subject !== `chore(release): ${packageVersion}`) {
+    fail(`main release commit must be chore(release): ${packageVersion}, got ${subject}`);
+  }
+
+  const changedPaths = run("git", ["diff", "--name-only", "main^", "main"], { capture: true }).split("\n").filter(Boolean);
+  const allowedPaths = new Set([
+    ".github/release-notes/" + packageVersion + ".md",
+    "manifest.json",
+    "package-lock.json",
+    "package.json",
+    "versions.json",
+  ]);
+  const unexpectedPaths = changedPaths.filter((changedPath) => !allowedPaths.has(changedPath));
+  if (unexpectedPaths.length > 0) {
+    fail(`release commit may only change version metadata and release notes\n${unexpectedPaths.join("\n")}`);
+  }
+}
+
 function assertJujutsuReleaseState(packageVersion) {
   const workingCopyDiff = run("jj", ["diff", "--summary", "-r", "@"], { capture: true });
   if (workingCopyDiff) fail(`Jujutsu working-copy commit must be empty before release preflight\n${workingCopyDiff}`);
@@ -82,15 +102,17 @@ if (maybeRun("jj", ["root"])) {
   assertGitReleaseState(packageVersion);
 }
 
+assertReleaseCommit(packageVersion);
+
 const versionKeys = Object.keys(JSON.parse(readFileSync("versions.json", "utf8")));
 const previousTag = versionKeys.at(-2);
 if (!previousTag) fail("versions.json must contain a release before the prepared version");
 run("git", ["rev-parse", "--verify", `refs/tags/${previousTag}`], { capture: true });
+run("npm", ["ci", "--ignore-scripts"]);
 run("npm", ["run", "commitlint", "--", "--from", previousTag, "--to", "main", "--verbose"]);
 run("npm", ["run", "release:check"]);
 run("npm", ["run", "api:baseline"]);
 run("npm", ["run", "generate:app-server-types:check"]);
-run("npm", ["ci", "--dry-run"]);
 run("npm", ["run", "check"]);
 
 console.log(`release preflight passed for ${packageVersion}`);
