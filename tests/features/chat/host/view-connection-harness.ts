@@ -738,18 +738,11 @@ export function chatViewRuntimeOwner(initialHost: CodexChatHost): TestChatViewRu
     attachChatView: (nextView) => {
       view = nextView;
       nextView.attachRuntime(host);
-      nextView.activateRuntime();
-    },
-    detachChatView: (nextView) => {
-      if (view !== nextView) return;
-      nextView.detachRuntime();
-      view = null;
     },
     replace: (nextHost) => {
       host = nextHost;
       view?.detachRuntime();
       view?.attachRuntime(host);
-      view?.activateRuntime();
     },
   };
 }

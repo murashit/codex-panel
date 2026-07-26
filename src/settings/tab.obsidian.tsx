@@ -578,7 +578,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         if (replacementDynamicData) this.dynamicSections.replaceDynamicData(replacementDynamicData);
       } catch (error) {
         this.settingsShellRevision += 1;
-        new Notice(`Failed to save Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);
+        new Notice(`Could not apply Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);
         return;
       }
     });

@@ -25,6 +25,7 @@ export default class CodexPanelPlugin extends Plugin {
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
     this.runtime.initialize();
+    this.runtime.reconnectWorkspaceViews();
 
     this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this.runtime));
     this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexTurnDiffView(leaf));

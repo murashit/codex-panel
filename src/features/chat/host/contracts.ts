@@ -111,12 +111,10 @@ export interface ChatPanelRuntimeSnapshot {
 
 export interface ChatViewRuntimeOwner {
   attachChatView(view: ChatRuntimeView): void;
-  detachChatView(view: ChatRuntimeView): void;
 }
 
 export interface ChatRuntimeView {
   attachRuntime(host: CodexChatHost): void;
-  activateRuntime(): void;
   detachRuntime(): void;
 }
 

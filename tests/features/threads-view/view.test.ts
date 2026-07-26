@@ -849,6 +849,18 @@ describe("CodexThreadsView", () => {
     expect(() => view.refreshLiveState()).not.toThrow();
     expect(() => view.refreshSettings()).not.toThrow();
   });
+
+  it("clears the runtime attachment when closing the session fails", async () => {
+    const view = await threadsView();
+    const session = (view as unknown as { session: { close(): void } }).session;
+    vi.spyOn(session, "close").mockImplementation(() => {
+      throw new Error("close failed");
+    });
+
+    expect(() => view.detachRuntime()).not.toThrow();
+    expect(() => view.refreshLiveState()).not.toThrow();
+    await expect(view.refresh()).resolves.toBeUndefined();
+  });
 });
 
 type ThreadRequestHandler = ReturnType<typeof vi.fn<(params: Record<string, unknown>) => unknown>>;
@@ -1010,10 +1022,6 @@ async function threadsView(host = threadsHost()) {
     {
       attachThreadsView: (runtimeView) => {
         runtimeView.attachRuntime(host);
-        runtimeView.activateRuntime();
-      },
-      detachThreadsView: (runtimeView) => {
-        runtimeView.detachRuntime();
       },
     },
   );

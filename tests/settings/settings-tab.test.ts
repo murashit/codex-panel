@@ -226,7 +226,7 @@ describe("settings tab", () => {
 
     expect(container.querySelector("input")).not.toBe(input);
     expect(container.querySelector("input")?.value).toBe(DEFAULT_SETTINGS.codexPath);
-    expect(notices).toContain("Failed to save Codex Panel settings: disk full");
+    expect(notices).toContain("Could not apply Codex Panel settings: disk full");
   });
 
   it("auto-loads dynamic sections once and keeps one global refresh button", async () => {
@@ -418,7 +418,7 @@ describe("settings tab", () => {
 
     expect(selectForSetting(tab, "Send shortcut")?.value).toBe("mod-enter");
     expect(inputForSetting(tab, "Reference active file on send")?.checked).toBe(false);
-    expect(notices).toContain("Failed to save Codex Panel settings: disk full");
+    expect(notices).toContain("Could not apply Codex Panel settings: disk full");
   });
 
   it("saves archive export settings", async () => {

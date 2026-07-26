@@ -264,9 +264,9 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     publishSettings: async (nextSettings) => {
       const previousSettings = { ...settings };
       await (options.saveSettings ?? (async () => undefined))(nextSettings);
-      const appServerContextReplaced = previousSettings.codexPath !== nextSettings.codexPath;
+      const codexPathChanged = previousSettings.codexPath !== nextSettings.codexPath;
       Object.assign(settings, nextSettings);
-      if (appServerContextReplaced && !options.dynamicData) {
+      if (codexPathChanged && !options.dynamicData) {
         dynamicData = createDynamicData();
       }
       if (
@@ -276,7 +276,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
         options.refreshChatViews?.();
       }
       if (previousSettings.archiveExportEnabled !== nextSettings.archiveExportEnabled) options.refreshThreadsViews?.();
-      return { replacementDynamicData: appServerContextReplaced ? dynamicData : null };
+      return { replacementDynamicData: codexPathChanged ? dynamicData : null };
     },
   };
   return host;

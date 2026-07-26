@@ -6,13 +6,11 @@ import { type ThreadsViewHost, ThreadsViewSession } from "./session";
 
 export interface ThreadsRuntimeView {
   attachRuntime(host: ThreadsViewHost): void;
-  activateRuntime(): void;
   detachRuntime(): void;
 }
 
 export interface ThreadsViewRuntimeOwner {
   attachThreadsView(view: ThreadsRuntimeView): void;
-  detachThreadsView(view: ThreadsRuntimeView): void;
 }
 
 export class CodexThreadsView extends ItemView {
@@ -31,36 +29,54 @@ export class CodexThreadsView extends ItemView {
   attachRuntime(plugin: ThreadsViewHost): void {
     if (this.session) throw new Error("Codex threads view is already attached to an execution runtime.");
     const owner = new Component();
-    this.addChild(owner);
-    const session = new ThreadsViewSession({
-      root: this.containerEl,
-      host: plugin,
-      registerPointerDown: (handler) => {
-        owner.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
-      },
-      archiveDestination: () => createObsidianVaultMarkdownDestination(this.app.vault),
-      vaultConfigDir: () => this.app.vault.configDir,
-      viewWindow: () => this.containerEl.doc.defaultView,
-    });
-    this.sessionOwner = owner;
-    this.session = session;
-  }
-
-  activateRuntime(): void {
-    if (this.opened) this.currentSession().open();
+    let session: ThreadsViewSession | null = null;
+    try {
+      this.addChild(owner);
+      session = new ThreadsViewSession({
+        root: this.containerEl,
+        host: plugin,
+        registerPointerDown: (handler) => {
+          owner.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
+        },
+        archiveDestination: () => createObsidianVaultMarkdownDestination(this.app.vault),
+        vaultConfigDir: () => this.app.vault.configDir,
+        viewWindow: () => this.containerEl.doc.defaultView,
+      });
+      this.sessionOwner = owner;
+      this.session = session;
+      if (this.opened) session.open();
+    } catch {
+      this.session = null;
+      this.sessionOwner = null;
+      try {
+        session?.close();
+      } catch {
+        // Preserve the attach error; the view remains detached for a later reload.
+      }
+      try {
+        this.removeChild(owner);
+      } catch {
+        // Leave the view detached for a later reload.
+      }
+    }
   }
 
   detachRuntime(): void {
-    if (!this.session) return;
-    this.session.close();
+    const session = this.session;
+    if (!session) return;
+    try {
+      session.close();
+    } catch {
+      // The session is detached even when its cleanup reports an error.
+    }
     this.session = null;
-    if (this.sessionOwner) this.removeChild(this.sessionOwner);
+    const owner = this.sessionOwner;
     this.sessionOwner = null;
-  }
-
-  private currentSession(): ThreadsViewSession {
-    if (!this.session) throw new Error("Codex threads view is not attached to an execution runtime.");
-    return this.session;
+    try {
+      if (owner) this.removeChild(owner);
+    } catch {
+      // The session is already detached; leave DOM cleanup to the owner lifecycle.
+    }
   }
 
   override getViewType(): string {
@@ -77,12 +93,12 @@ export class CodexThreadsView extends ItemView {
 
   override async onOpen(): Promise<void> {
     this.opened = true;
-    this.currentSession().open();
+    this.session?.open();
   }
 
   override async onClose(): Promise<void> {
     this.opened = false;
-    this.runtimeOwner.detachThreadsView(this);
+    this.detachRuntime();
   }
 
   refresh(): Promise<void> {

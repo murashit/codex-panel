@@ -34,43 +34,52 @@ export class CodexChatView extends ItemView {
   attachRuntime(plugin: CodexChatHost): void {
     if (this.session) throw new Error("Codex chat view is already attached to an execution runtime.");
     const owner = new Component();
-    this.addChild(owner);
-    const session = new ChatPanelSession(
-      {
-        obsidian: {
-          app: this.app,
-          owner,
-          viewId: this.viewId,
-          registerEvent: (eventRef) => {
-            owner.registerEvent(eventRef);
+    let session: ChatPanelSession | null = null;
+    try {
+      this.addChild(owner);
+      session = new ChatPanelSession(
+        {
+          obsidian: {
+            app: this.app,
+            owner,
+            viewId: this.viewId,
+            registerEvent: (eventRef) => {
+              owner.registerEvent(eventRef);
+            },
+            registerPointerDown: (handler) => {
+              owner.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
+            },
+            archiveDestination: () => createObsidianVaultMarkdownDestination(this.app.vault),
+            requestWorkspaceLayoutSave: () => {
+              void this.app.workspace.requestSaveLayout();
+            },
+            isForeground: () => this.app.workspace.getActiveViewOfType(CodexChatView) === this,
           },
-          registerPointerDown: (handler) => {
-            owner.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
+          plugin,
+          view: {
+            panelRoot: () => this.contentEl,
+            viewWindow: () => this.containerEl.doc.defaultView,
+            refreshTabHeader: () => {
+              this.refreshTabHeader();
+            },
           },
-          archiveDestination: () => createObsidianVaultMarkdownDestination(this.app.vault),
-          requestWorkspaceLayoutSave: () => {
-            void this.app.workspace.requestSaveLayout();
-          },
-          isForeground: () => this.app.workspace.getActiveViewOfType(CodexChatView) === this,
         },
-        plugin,
-        view: {
-          panelRoot: () => this.contentEl,
-          viewWindow: () => this.containerEl.doc.defaultView,
-          refreshTabHeader: () => {
-            this.refreshTabHeader();
-          },
-        },
-      },
-      this.runtimeSnapshot,
-    );
-    this.runtimeSnapshot = null;
-    this.sessionOwner = owner;
-    this.session = session;
-  }
-
-  activateRuntime(): void {
-    if (this.opened) this.surface.open();
+        this.runtimeSnapshot,
+      );
+      this.sessionOwner = owner;
+      this.session = session;
+      if (this.opened) session.open();
+      this.runtimeSnapshot = null;
+    } catch {
+      this.session = null;
+      this.sessionOwner = null;
+      if (session) void session.close().catch(() => undefined);
+      try {
+        this.removeChild(owner);
+      } catch {
+        // Leave the view detached for a later reload.
+      }
+    }
   }
 
   detachRuntime(): void {
@@ -78,14 +87,17 @@ export class CodexChatView extends ItemView {
     if (!session) return;
     try {
       this.runtimeSnapshot = session.runtimeSnapshot();
-    } finally {
-      this.session = null;
-      void session.close().catch(() => undefined);
-      try {
-        if (this.sessionOwner) this.removeChild(this.sessionOwner);
-      } finally {
-        this.sessionOwner = null;
-      }
+    } catch {
+      // Preserve the previous snapshot if collecting the latest one fails.
+    }
+    this.session = null;
+    void session.close().catch(() => undefined);
+    const owner = this.sessionOwner;
+    this.sessionOwner = null;
+    try {
+      if (owner) this.removeChild(owner);
+    } catch {
+      // The session is already detached; leave DOM cleanup to the owner lifecycle.
     }
   }
 
@@ -122,12 +134,12 @@ export class CodexChatView extends ItemView {
 
   override async onOpen(): Promise<void> {
     this.opened = true;
-    this.surface.open();
+    this.session?.open();
   }
 
   override async onClose(): Promise<void> {
     this.opened = false;
-    this.runtimeOwner.detachChatView(this);
+    this.detachRuntime();
   }
 
   private refreshTabHeader(): void {

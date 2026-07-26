@@ -107,10 +107,6 @@ export function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf
     {
       attachChatView: (runtimeView) => {
         runtimeView.attachRuntime(chatHostFixture());
-        runtimeView.activateRuntime();
-      },
-      detachChatView: (runtimeView) => {
-        runtimeView.detachRuntime();
       },
     },
   );

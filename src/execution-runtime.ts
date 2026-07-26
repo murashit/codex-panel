@@ -41,11 +41,6 @@ export interface CodexExecutionRuntimeOptions {
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
 }
 
-export interface ExecutionRuntimeViews {
-  readonly chat: readonly ChatRuntimeView[];
-  readonly threads: readonly ThreadsRuntimeView[];
-}
-
 export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly context: Readonly<AppServerExecutionContext>;
   private readonly appServerQueries: AppServerQueryCache;
@@ -60,8 +55,6 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly structuredTurnClients = new Set<EphemeralStructuredTurnClient>();
   private readonly structuredTurnOperations = new Set<AbortController>();
   private activeThreadPicker: ThreadPickerController | null = null;
-  private readonly chatViews = new Set<ChatRuntimeView>();
-  private readonly threadsViews = new Set<ThreadsRuntimeView>();
   private disposed = false;
 
   constructor(private readonly options: CodexExecutionRuntimeOptions) {
@@ -134,42 +127,12 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
 
   attachChatView(view: ChatRuntimeView): void {
     this.assertActive();
-    if (this.chatViews.has(view)) return;
-    this.chatViews.add(view);
     view.attachRuntime(this.chatHost());
-    view.activateRuntime();
-  }
-
-  detachChatView(view: ChatRuntimeView): void {
-    if (!this.chatViews.delete(view)) return;
-    view.detachRuntime();
   }
 
   attachThreadsView(view: ThreadsRuntimeView): void {
     this.assertActive();
-    if (this.threadsViews.has(view)) return;
-    this.threadsViews.add(view);
     view.attachRuntime(this.threadsHost());
-    view.activateRuntime();
-  }
-
-  detachThreadsView(view: ThreadsRuntimeView): void {
-    if (!this.threadsViews.delete(view)) return;
-    view.detachRuntime();
-  }
-
-  adoptViews(views: ExecutionRuntimeViews): void {
-    this.assertActive();
-    for (const view of views.chat) {
-      view.attachRuntime(this.chatHost());
-      view.activateRuntime();
-      this.chatViews.add(view);
-    }
-    for (const view of views.threads) {
-      view.attachRuntime(this.threadsHost());
-      view.activateRuntime();
-      this.threadsViews.add(view);
-    }
   }
 
   selectionRewritePort(): SelectionRewritePort {
@@ -196,22 +159,11 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.activeThreadPicker = picker;
   }
 
-  dispose(): ExecutionRuntimeViews {
-    if (this.disposed) return { chat: [], threads: [] };
+  dispose(): void {
+    if (this.disposed) return;
     this.disposed = true;
     this.threadAutoTitleWork?.dispose();
     this.threadAutoTitleWork = null;
-    const views: { chat: ChatRuntimeView[]; threads: ThreadsRuntimeView[] } = { chat: [], threads: [] };
-    for (const view of this.chatViews) {
-      view.detachRuntime();
-      views.chat.push(view);
-    }
-    for (const view of this.threadsViews) {
-      view.detachRuntime();
-      views.threads.push(view);
-    }
-    this.chatViews.clear();
-    this.threadsViews.clear();
     this.tryCleanup(() => {
       this.activeThreadPicker?.close();
     });
@@ -234,7 +186,6 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.tryCleanup(() => {
       this.appServerQueries.dispose();
     });
-    return views;
   }
 
   private async runWithAppServerClient<T>(

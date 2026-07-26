@@ -2,7 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CodexChatView } from "../src/features/chat/host/view.obsidian";
+import type { ChatRuntimeView } from "../src/features/chat/host/contracts";
+import { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import { waitForAsyncWork } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
 import { chatView, leaf, pluginWithLeaves, type TestLeaf } from "./support/plugin-fixtures";
@@ -47,13 +48,15 @@ describe("CodexPanelPlugin lifecycle", () => {
   });
 
   it("disposes execution-runtime views on unload", async () => {
-    const plugin = await pluginWithLeaves([]);
     const view = {
       attachRuntime: vi.fn(),
-      activateRuntime: vi.fn(),
       detachRuntime: vi.fn(),
     };
-    plugin.runtime.attachChatView(view);
+    const viewLeaf = leaf();
+    const runtimeView = Object.assign(Object.create(CodexChatView.prototype), view) as ChatRuntimeView;
+    viewLeaf.view = runtimeView;
+    const plugin = await pluginWithLeaves([viewLeaf]);
+    plugin.runtime.attachChatView(runtimeView);
 
     plugin.onunload();
 
@@ -61,10 +64,8 @@ describe("CodexPanelPlugin lifecycle", () => {
   });
 
   it("hydrates a restored panel when Obsidian activates its leaf", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const panelLeaf = leaf();
     panelLeaf.view = chatView(CodexChatView, panelLeaf);
-    const hydrate = vi.spyOn((panelLeaf.view as CodexChatView).surface, "hydrateRestoredThread").mockResolvedValue(undefined);
     const activeLeafHandlers: ((leaf: TestLeaf | null) => void)[] = [];
     const plugin = await pluginWithLeaves([panelLeaf]);
     (plugin.app.workspace.on as ReturnType<typeof vi.fn>).mockImplementation((name: string, handler: (leaf: TestLeaf | null) => void) => {
@@ -73,6 +74,7 @@ describe("CodexPanelPlugin lifecycle", () => {
     });
 
     await plugin.onload();
+    const hydrate = vi.spyOn((panelLeaf.view as CodexChatView).surface, "hydrateRestoredThread").mockResolvedValue(undefined);
     const handler = activeLeafHandlers.at(0);
     if (!handler) throw new Error("Expected active leaf handler to be registered.");
     handler(panelLeaf);
@@ -84,10 +86,8 @@ describe("CodexPanelPlugin lifecycle", () => {
 
   it("loads and hydrates the startup foreground panel", async () => {
     vi.useFakeTimers();
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const activeLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
     const view = chatView(CodexChatView, activeLeaf);
-    const hydrate = vi.spyOn(view.surface, "hydrateRestoredThread").mockResolvedValue(undefined);
     activeLeaf.loadIfDeferred.mockImplementation(async () => {
       activeLeaf.view = view;
     });
@@ -95,6 +95,7 @@ describe("CodexPanelPlugin lifecycle", () => {
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(activeLeaf);
 
     await plugin.onload();
+    const hydrate = vi.spyOn(view.surface, "hydrateRestoredThread").mockResolvedValue(undefined);
     await vi.advanceTimersByTimeAsync(0);
 
     await waitForAsyncWork(() => {

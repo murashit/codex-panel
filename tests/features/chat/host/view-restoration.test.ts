@@ -71,7 +71,7 @@ describe("CodexChatView workspace restoration", () => {
       throw new Error("snapshot failed");
     });
 
-    expect(() => view.detachRuntime()).toThrow("snapshot failed");
+    expect(() => view.detachRuntime()).not.toThrow();
     expect(close).toHaveBeenCalledOnce();
     expect(view.isRuntimeAttached()).toBe(false);
   });

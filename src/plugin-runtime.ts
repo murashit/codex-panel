@@ -1,5 +1,5 @@
 import type { App } from "obsidian";
-import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
+import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { CodexExecutionRuntime } from "./execution-runtime";
 import type {
   ChatRuntimeView,
@@ -7,6 +7,7 @@ import type {
   ChatViewLifecycleSurface,
   ChatViewRuntimeOwner,
 } from "./features/chat/host/contracts";
+import { CodexChatView } from "./features/chat/host/view.obsidian";
 import type { SelectionRewriteCommandController } from "./features/selection-rewrite/command.obsidian";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import type { ThreadFact } from "./features/threads/workflows/thread-facts";
@@ -49,10 +50,15 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     this.executionRuntime = this.createExecutionRuntime(this.options.settingsRef.settings.codexPath);
   }
 
+  reconnectWorkspaceViews(): void {
+    this.reattachWorkspaceViews(this.currentExecutionRuntime());
+  }
+
   reset(): void {
     this.selectionRewriteController?.closeAll();
     this.selectionRewriteController = null;
     const executionRuntime = this.executionRuntime;
+    if (executionRuntime) this.detachWorkspaceViews();
     this.executionRuntime = null;
     executionRuntime?.dispose();
     this.panels.reset();
@@ -62,16 +68,8 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     this.currentExecutionRuntime().attachChatView(view);
   }
 
-  detachChatView(view: ChatRuntimeView): void {
-    this.executionRuntime?.detachChatView(view);
-  }
-
   attachThreadsView(view: ThreadsRuntimeView): void {
     this.currentExecutionRuntime().attachThreadsView(view);
-  }
-
-  detachThreadsView(view: ThreadsRuntimeView): void {
-    this.executionRuntime?.detachThreadsView(view);
   }
 
   activeWorkspaceLeafChanged(leaf: Parameters<WorkspacePanelCoordinator["activeLeafChanged"]>[0]): void {
@@ -130,18 +128,22 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
 
   private async publishSettings(settings: CodexPanelSettings): Promise<{ replacementDynamicData: SettingsDynamicDataAccess | null }> {
     const previousSettings = { ...this.options.settingsRef.settings };
+    const previousRuntime = this.executionRuntime;
     await this.options.saveSettings(settings);
-    const appServerContextReplaced = previousSettings.codexPath !== settings.codexPath;
+    const codexPathChanged = previousSettings.codexPath !== settings.codexPath;
     let replacementDynamicData: SettingsDynamicDataAccess | null = null;
-    if (appServerContextReplaced) {
-      const nextRuntime = this.createExecutionRuntime(settings.codexPath);
+    if (codexPathChanged) {
+      if (!previousRuntime || this.executionRuntime !== previousRuntime) {
+        throw new Error("Codex execution runtime reset while replacing the execution runtime.");
+      }
       this.selectionRewriteController?.closeAll();
-      const previousRuntime = this.executionRuntime;
+      this.detachWorkspaceViews();
       this.executionRuntime = null;
-      const views = previousRuntime?.dispose() ?? { chat: [], threads: [] };
+      previousRuntime.dispose();
       Object.assign(this.options.settingsRef.settings, settings);
-      nextRuntime.adoptViews(views);
+      const nextRuntime = this.createExecutionRuntime(settings.codexPath);
       this.executionRuntime = nextRuntime;
+      this.reattachWorkspaceViews(nextRuntime);
       replacementDynamicData = nextRuntime.settingsDynamicData;
     } else {
       Object.assign(this.options.settingsRef.settings, settings);
@@ -230,6 +232,22 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     return this.options.app.workspace
       .getLeavesOfType(VIEW_TYPE_CODEX_THREADS)
       .flatMap((leaf) => (leaf.view instanceof CodexThreadsView ? [leaf.view] : []));
+  }
+
+  private chatRuntimeViews(): ChatRuntimeView[] {
+    return this.options.app.workspace
+      .getLeavesOfType(VIEW_TYPE_CODEX_PANEL)
+      .flatMap((leaf) => (leaf.view instanceof CodexChatView ? [leaf.view] : []));
+  }
+
+  private detachWorkspaceViews(): void {
+    for (const view of this.chatRuntimeViews()) view.detachRuntime();
+    for (const view of this.threadsViews()) view.detachRuntime();
+  }
+
+  private reattachWorkspaceViews(runtime: CodexExecutionRuntime): void {
+    for (const view of this.chatRuntimeViews()) runtime.attachChatView(view);
+    for (const view of this.threadsViews()) runtime.attachThreadsView(view);
   }
 
   private currentExecutionRuntime(): CodexExecutionRuntime {
