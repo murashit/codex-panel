@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
-import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
+import {
+  createServerDiagnostics,
+  diagnosticsWithToolInventory,
+  upsertMcpServerDiagnostic,
+} from "../../../../../src/domain/server/diagnostics";
+import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
 import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/panel/runtime/notices";
 import { chatStateFixture, chatStateWith, sharedResourcesForChatState } from "../../support/state";
 
@@ -172,6 +177,69 @@ describe("createChatPanelRuntimeNotices", () => {
       { key: "Sandbox", value: "(not reported)" },
       { key: "Codex network", value: "(not reported)" },
       { key: "Extra writable roots", value: "(not reported)" },
+    ]);
+  });
+
+  it("projects connection and tool inventory diagnostics into runtime notices", () => {
+    const inventory: ToolInventorySnapshot = {
+      checkedAt: 1,
+      plugins: [],
+      pluginMarketplaceErrors: [],
+      pluginsError: null,
+      mcpServers: [
+        {
+          name: "github",
+          authStatus: "oAuth",
+          toolCount: 1,
+          resourceCount: 0,
+          resourceTemplateCount: 0,
+        },
+      ],
+      mcpDiagnostics: [
+        {
+          name: "github",
+          startupStatus: "ready",
+          authStatus: "oAuth",
+          toolCount: 1,
+          message: null,
+        },
+      ],
+      mcpError: null,
+    };
+    const githubDiagnostic = inventory.mcpDiagnostics.at(0);
+    if (!githubDiagnostic) throw new Error("Expected MCP diagnostic fixture");
+    const diagnostics = upsertMcpServerDiagnostic(diagnosticsWithToolInventory(createServerDiagnostics(), inventory), githubDiagnostic);
+    const state = chatStateWith(chatStateFixture(), {
+      connection: {
+        initializeResponse: {
+          userAgent: "codex-cli/test",
+          codexHome: "/codex",
+          platformFamily: "unix",
+          platformOs: "macos",
+        },
+        serverDiagnostics: diagnostics,
+      },
+    });
+    const projection = createChatPanelRuntimeNotices({
+      state: () => state,
+      connected: () => true,
+      configuredCommand: () => "codex",
+      vaultPath: () => "/vault",
+      sharedResources: runtimeShared(state),
+    });
+
+    expect(projection.connectionDiagnosticDetails()[0]).toMatchObject({
+      title: "Process",
+      auditFacts: expect.arrayContaining([
+        { key: "connection", value: "connected" },
+        { key: "Codex App Server", value: "codex-cli/test" },
+      ]),
+    });
+    const toolSections = projection.toolInventoryDetails();
+    expect(toolSections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
+    expect(toolSections.slice(0, 2)).toEqual([
+      { title: "Plugins", auditFacts: [{ key: "Plugins", value: "(none)" }] },
+      { title: "Tool providers", auditFacts: [{ key: "github", value: "MCP server, ready, auth oAuth, 1 tool, 0 resources" }] },
     ]);
   });
 });

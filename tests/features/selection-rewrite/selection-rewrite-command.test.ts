@@ -63,7 +63,7 @@ describe("selection rewrite command", () => {
     Object.assign(view, { containerEl: { doc: document } });
     view.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });
 
-    const port: SelectionRewritePort = { generate: vi.fn() };
+    const port: SelectionRewritePort = { generate: async () => ({ replacementText: "" }) };
     const controller = registerSelectionRewriteCommand(plugin as never, port);
     expect(addedCommand.current).not.toBeNull();
     expect(addedCommand.current?.editorCheckCallback(true, editor, view)).toBe(true);
@@ -99,12 +99,12 @@ describe("selection rewrite command", () => {
     };
     const plugin = {
       settings: { sendShortcut: "enter" },
-      register: vi.fn(),
+      register: () => undefined,
       addCommand: vi.fn((command: { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean }) => {
         addedCommand.current = command;
       }),
     };
-    registerSelectionRewriteCommand(plugin as never, { generate: vi.fn() });
+    registerSelectionRewriteCommand(plugin as never, { generate: async () => ({ replacementText: "" }) });
     const editor = { getSelection: vi.fn(() => "   ") };
     const markdownView = new MarkdownView({} as never);
     markdownView.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });

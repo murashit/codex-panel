@@ -216,17 +216,17 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
   };
   const appServerQueries = {
     contextKey: () => settings.codexPath,
-    metadataSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
-    fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
-    refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
-    observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),
+    metadataSnapshot: () => options.modelsSnapshot ?? [],
+    fetchModels: options.fetchModels ?? (async () => options.modelsSnapshot ?? []),
+    refreshModels: options.refreshModels ?? (async () => options.modelsSnapshot ?? []),
+    observeModelsResult: options.observeModels ?? (() => () => undefined),
   };
   const threadCatalog = {
-    archivedThreadsSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
-    refreshArchivedThreads: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
-    observeArchivedThreadsResult: options.observeArchived ?? vi.fn(() => () => undefined),
+    archivedThreadsSnapshot: () => options.archivedSnapshot ?? null,
+    refreshArchivedThreads: options.refreshArchived ?? (async () => options.archivedThreads ?? defaultArchivedThreads),
+    observeArchivedThreadsResult: options.observeArchived ?? (() => () => undefined),
   };
-  const applyThreadFact = options.applyThreadFact ?? vi.fn();
+  const applyThreadFact = options.applyThreadFact ?? (() => undefined);
   const threadFacts = {
     apply: applyThreadFact,
     applyBatch: (facts: readonly ThreadFact[]) => {
@@ -263,7 +263,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     dynamicData,
     publishSettings: async (nextSettings) => {
       const previousSettings = { ...settings };
-      await (options.saveSettings ?? vi.fn().mockResolvedValue(undefined))(nextSettings);
+      await (options.saveSettings ?? (async () => undefined))(nextSettings);
       const appServerContextReplaced = previousSettings.codexPath !== nextSettings.codexPath;
       Object.assign(settings, nextSettings);
       if (appServerContextReplaced && !options.dynamicData) {

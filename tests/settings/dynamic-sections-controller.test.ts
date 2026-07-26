@@ -33,6 +33,8 @@ vi.mock("../../src/app-server/connection/short-lived-client", () => ({
 
 setSettingsShortLivedClientMock(withShortLivedAppServerClientMock);
 
+const noop = (): void => undefined;
+
 describe("SettingsDynamicSectionsController", () => {
   beforeEach(() => {
     withShortLivedAppServerClientMock.mockReset();
@@ -52,7 +54,7 @@ describe("SettingsDynamicSectionsController", () => {
           return () => undefined;
         },
       }),
-      { display, notify: vi.fn() },
+      { display, notify: noop },
     );
 
     controller.activate();
@@ -70,8 +72,8 @@ describe("SettingsDynamicSectionsController", () => {
     const refreshModels = vi.fn(() => firstModels.promise);
     const refreshArchived = vi.fn().mockResolvedValue([panelThread({ id: "thread-old", preview: "Old", archived: true })]);
     const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
-      display: vi.fn(),
-      notify: vi.fn(),
+      display: noop,
+      notify: noop,
     });
 
     const firstRefresh = controller.refreshDynamicSections();
@@ -97,7 +99,7 @@ describe("SettingsDynamicSectionsController", () => {
         refreshModels: vi.fn(() => models.promise),
         refreshArchived: vi.fn().mockResolvedValue([]),
       }),
-      { display, notify: vi.fn() },
+      { display, notify: noop },
     );
 
     const refresh = controller.refreshDynamicSections();
@@ -116,7 +118,7 @@ describe("SettingsDynamicSectionsController", () => {
     firstClient.requestHandlers["hooks/list"] = vi.fn(() => firstHooks.promise);
     const secondClient = settingsClient({ hooks: [hook({ key: "hook-after-reopen" })] });
     useShortLivedClients(firstClient, secondClient);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
+    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
 
     controller.activate();
     controller.maybeAutoLoadDynamicSections();
@@ -139,7 +141,7 @@ describe("SettingsDynamicSectionsController", () => {
     const client = settingsClient({ hooks: [hook({ key: "hook-after-write", trustStatus: "trusted" })] });
     client.requestHandlers["config/batchWrite"] = vi.fn(() => write.promise);
     useShortLivedClients(client);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
+    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
 
     controller.activate();
     const mutation = controller.trustHook(hook({ key: "hook-after-write", trustStatus: "untrusted" }));
@@ -162,7 +164,7 @@ describe("SettingsDynamicSectionsController", () => {
       hooks: [hook({ key: "hook-trusted", currentHash: "trusted-hash", trustStatus: "trusted" })],
     });
     useShortLivedClients(client);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
+    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
 
     await controller.trustHook(hook({ key: "hook-trusted", currentHash: "untrusted-hash", trustStatus: "untrusted" }));
 
@@ -180,7 +182,7 @@ describe("SettingsDynamicSectionsController", () => {
     useShortLivedClients(oldClient, newClient);
     const host = settingsTabHost();
     const notify = vi.fn();
-    const controller = new SettingsDynamicSectionsController(host, { display: vi.fn(), notify });
+    const controller = new SettingsDynamicSectionsController(host, { display: noop, notify });
     controller.activate();
 
     const oldMutation = controller.trustHook(hook({ key: "hook-old-context", trustStatus: "untrusted" }));
@@ -212,8 +214,8 @@ describe("SettingsDynamicSectionsController", () => {
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
     const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact, refreshArchived }), {
-      display: vi.fn(),
-      notify: vi.fn(),
+      display: noop,
+      notify: noop,
     });
 
     await controller.refreshDynamicSections();
@@ -247,8 +249,8 @@ describe("SettingsDynamicSectionsController", () => {
     const applyThreadFact = vi.fn();
     useShortLivedClients(restoreClient, deleteClient);
     const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact }), {
-      display: vi.fn(),
-      notify: vi.fn(),
+      display: noop,
+      notify: noop,
     });
 
     const restore = controller.restoreArchivedThread("thread-old");
@@ -282,7 +284,7 @@ describe("SettingsDynamicSectionsController", () => {
     useShortLivedClients(restoreClient);
     const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact }), {
       display,
-      notify: vi.fn(),
+      notify: noop,
     });
 
     const restore = controller.restoreArchivedThread("thread-old");
@@ -308,7 +310,7 @@ describe("SettingsDynamicSectionsController", () => {
     const applyThreadFact = vi.fn();
     useShortLivedClients(restoreClient);
     const host = settingsTabHost({ applyThreadFact });
-    const controller = new SettingsDynamicSectionsController(host, { display: vi.fn(), notify: vi.fn() });
+    const controller = new SettingsDynamicSectionsController(host, { display: noop, notify: noop });
 
     const restore = controller.restoreArchivedThread("thread-old");
     await flushPromises();
@@ -374,7 +376,7 @@ describe("SettingsDynamicSectionsController", () => {
           const snapshot = controllerRef.current?.snapshot();
           if (snapshot) snapshots.push(snapshot);
         },
-        notify: vi.fn(),
+        notify: noop,
       },
     );
     controllerRef.current = controller;
@@ -416,7 +418,7 @@ describe("SettingsDynamicSectionsController", () => {
           const snapshot = controllerRef.current?.snapshot();
           if (snapshot) snapshots.push(snapshot);
         },
-        notify: vi.fn(),
+        notify: noop,
       },
     );
     controllerRef.current = controller;

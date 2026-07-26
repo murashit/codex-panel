@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cloneServerDiagnostics,
   createServerDiagnostics,
   diagnosticProbeError,
   diagnosticProbeLabel,
   diagnosticProbeOk,
+  diagnosticsWithToolInventory,
   serverIdentity,
   serverPlatform,
   upsertMcpServerDiagnostic,
 } from "../../../src/domain/server/diagnostics";
 import type { ServerInitialization } from "../../../src/domain/server/initialization";
 import { mcpServerStatusSummariesFromStatuses } from "../../../src/domain/server/mcp-status";
+import type { ToolInventorySnapshot } from "../../../src/domain/server/tool-inventory";
 
 describe("server diagnostics", () => {
   it("formats initialize metadata", () => {
@@ -132,5 +135,57 @@ describe("server diagnostics", () => {
         codexAppIds: [],
       },
     ]);
+  });
+
+  it("clones tool inventory before publishing diagnostics snapshots", () => {
+    const source: ToolInventorySnapshot = {
+      checkedAt: 1,
+      plugins: [
+        {
+          id: "writer@local",
+          name: "writer",
+          displayName: "Writer",
+          marketplaceName: "local",
+          marketplacePath: "/marketplaces/local.json",
+          localVersion: "1.0.0",
+          installed: true,
+          enabled: true,
+          availability: "AVAILABLE",
+          source: "local",
+        },
+      ],
+      pluginMarketplaceErrors: [{ marketplacePath: "/marketplaces/remote.json", message: "offline" }],
+      pluginsError: null,
+      mcpServers: [
+        {
+          name: "codex_apps",
+          authStatus: "oAuth",
+          toolCount: 1,
+          resourceCount: 0,
+          resourceTemplateCount: 0,
+          codexAppIds: ["github"],
+        },
+      ],
+      mcpDiagnostics: [{ name: "codex_apps", startupStatus: "ready", authStatus: "oAuth", toolCount: 1, message: null }],
+      mcpError: null,
+    };
+
+    const cloned = cloneServerDiagnostics(diagnosticsWithToolInventory(createServerDiagnostics(), source)).toolInventory;
+    if (!cloned?.plugins || !cloned.mcpServers || !cloned.mcpDiagnostics) throw new Error("Expected cloned tool inventory");
+
+    expect(cloned).not.toBe(source);
+    expect(cloned.plugins).not.toBe(source.plugins);
+    expect(cloned.mcpServers).not.toBe(source.mcpServers);
+    expect(cloned.mcpServers[0]?.codexAppIds).not.toBe(source.mcpServers?.[0]?.codexAppIds);
+
+    const clonedPlugin = cloned.plugins.at(0);
+    const clonedServer = cloned.mcpServers.at(0);
+    if (!clonedPlugin || !clonedServer?.codexAppIds) throw new Error("Expected cloned entries");
+
+    (clonedPlugin as unknown as { name: string }).name = "changed";
+    (clonedServer as unknown as { codexAppIds: string[] }).codexAppIds.push("gmail");
+
+    expect(source.plugins?.[0]?.name).toBe("writer");
+    expect(source.mcpServers?.[0]?.codexAppIds).toEqual(["github"]);
   });
 });
