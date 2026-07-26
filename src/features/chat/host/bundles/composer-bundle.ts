@@ -50,24 +50,24 @@ export function createChatComposerController(
       new Notice(message);
     },
     sharedResources: {
-      runtimeConfigSnapshot: () => environment.plugin.appServerQueries.runtimeConfigSnapshot(),
-      rateLimitsSnapshot: () => environment.plugin.appServerQueries.rateLimitsSnapshot(),
-      modelsSnapshot: () => environment.plugin.appServerQueries.modelsSnapshot(),
-      skillsSnapshot: () => environment.plugin.appServerQueries.skillsSnapshot(),
-      permissionProfilesSnapshot: () => environment.plugin.appServerQueries.permissionProfilesSnapshot(),
+      runtimeConfigSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
+      rateLimitsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
+      modelsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("models"),
+      skillsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("skills"),
+      permissionProfilesSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("permissionProfiles"),
       activeThreadsSnapshot: () => environment.plugin.threadCatalog.activeThreadsSnapshot(),
       subscribe: (listener) => {
         const unsubscribers = [
-          environment.plugin.appServerQueries.observeRuntimeConfigResource(() => {
+          environment.plugin.appServerQueries.observeMetadataResource("runtimeConfig", () => {
             listener();
           }),
-          environment.plugin.appServerQueries.observeModelsResource(() => {
+          environment.plugin.appServerQueries.observeMetadataResource("models", () => {
             listener();
           }),
-          environment.plugin.appServerQueries.observeSkillsResource(() => {
+          environment.plugin.appServerQueries.observeMetadataResource("skills", () => {
             listener();
           }),
-          environment.plugin.appServerQueries.observePermissionProfilesResource(() => {
+          environment.plugin.appServerQueries.observeMetadataResource("permissionProfiles", () => {
             listener();
           }),
           environment.plugin.threadCatalog.observeActiveThreadsResult(() => {

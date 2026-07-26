@@ -2,18 +2,13 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
-import type { ModelMetadata, SkillMetadata } from "../../../domain/catalog/metadata";
+import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
-import type { RuntimeConfigSnapshot } from "../../../domain/runtime/config";
-import type { RateLimitSnapshot } from "../../../domain/runtime/metrics";
-import type { RuntimePermissionProfileSummary } from "../../../domain/runtime/permissions";
 import type { MetadataResourceDiagnostics } from "../../../domain/server/diagnostics";
 import type {
-  ModelsMetadataResource,
-  PermissionProfilesMetadataResource,
-  RateLimitsMetadataResource,
-  RuntimeConfigMetadataResource,
-  SkillsMetadataResource,
+  SharedServerMetadataResourceFor,
+  SharedServerMetadataResourceId,
+  SharedServerMetadataSnapshotValues,
 } from "../../../domain/server/metadata";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import type { ObservedResultListener } from "../../../shared/runtime/observed-result";
@@ -65,26 +60,16 @@ export interface WorkspacePanels {
 type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
 
 interface ChatAppServerQueries {
-  runtimeConfigSnapshot(): RuntimeConfigSnapshot | null;
-  skillsSnapshot(): readonly SkillMetadata[] | null;
-  permissionProfilesSnapshot(): readonly RuntimePermissionProfileSummary[] | null;
-  rateLimitsSnapshot(): RateLimitSnapshot | null | undefined;
+  metadataSnapshot<Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id];
   metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics;
   refreshAppServerMetadata(): Promise<void>;
   refreshSkills(): Promise<void>;
   refreshRateLimits(): Promise<void>;
-  observeRuntimeConfigResource(
-    listener: (resource: RuntimeConfigMetadataResource) => void,
+  observeMetadataResource<Id extends SharedServerMetadataResourceId>(
+    id: Id,
+    listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
     options?: { emitCurrent?: boolean },
   ): () => void;
-  observeModelsResource(listener: (resource: ModelsMetadataResource) => void, options?: { emitCurrent?: boolean }): () => void;
-  observeSkillsResource(listener: (resource: SkillsMetadataResource) => void, options?: { emitCurrent?: boolean }): () => void;
-  observePermissionProfilesResource(
-    listener: (resource: PermissionProfilesMetadataResource) => void,
-    options?: { emitCurrent?: boolean },
-  ): () => void;
-  observeRateLimitsResource(listener: (resource: RateLimitsMetadataResource) => void, options?: { emitCurrent?: boolean }): () => void;
-  modelsSnapshot(): readonly ModelMetadata[] | null;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;

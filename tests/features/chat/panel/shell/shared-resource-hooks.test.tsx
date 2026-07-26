@@ -31,7 +31,7 @@ describe("shared display resource hooks", () => {
     });
     expect(skillListeners.size).toBe(2);
     expect(threadListeners.size).toBe(2);
-    expect(queries.observeModelsResource).not.toHaveBeenCalled();
+    expect(queries.observeMetadataResource).not.toHaveBeenCalledWith("models", expect.anything());
 
     await act(async () => {
       for (const listener of threadListeners) listener(threadResult([thread("thread")]));
@@ -103,16 +103,14 @@ describe("shared display resource hooks", () => {
 
 function queriesWithSkills(skillListeners: Set<(resource: SkillsMetadataResource) => void>): ChatSharedDisplayQueries {
   return {
-    observeRuntimeConfigResource: vi.fn(() => () => undefined),
-    observeModelsResource: vi.fn(() => () => undefined),
-    observeSkillsResource: (listener) => {
-      skillListeners.add(listener);
+    observeMetadataResource: vi.fn((id, listener) => {
+      if (id !== "skills") return () => undefined;
+      const skillListener = listener as (resource: SkillsMetadataResource) => void;
+      skillListeners.add(skillListener);
       return () => {
-        skillListeners.delete(listener);
+        skillListeners.delete(skillListener);
       };
-    },
-    observePermissionProfilesResource: vi.fn(() => () => undefined),
-    observeRateLimitsResource: vi.fn(() => () => undefined),
+    }),
   };
 }
 

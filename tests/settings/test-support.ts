@@ -216,7 +216,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
   };
   const appServerQueries = {
     contextKey: () => settings.codexPath,
-    modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
+    metadataSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
     fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
     refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
     observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),

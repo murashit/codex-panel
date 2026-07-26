@@ -43,6 +43,13 @@ interface ChatPanelSessionRuntimeHost {
 
 export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
   const { environment, stateStore } = host;
+  const sharedResources = {
+    runtimeConfigSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
+    rateLimitsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
+    modelsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("models"),
+    skillsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("skills"),
+    metadataDiagnosticsSnapshot: () => environment.plugin.appServerQueries.metadataDiagnosticsSnapshot(),
+  };
   const localItemIds = createLocalIdSource();
   const resourceContext = environment.plugin.appServerContext;
   const connection = new ConnectionManager(resourceContext.codexPath, resourceContext.vaultPath, codexPanelAppServerInitializeParams());
@@ -105,7 +112,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     {
       stateStore,
       runtimeSettingsPort: appServer.runtimeSettings,
-      runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, environment.plugin.appServerQueries),
+      runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, sharedResources),
       collaborationModeLabel: () => {
         const runtime = stateStore.getState().runtime;
         return formatCollaborationModeLabel(
@@ -121,12 +128,12 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     connected: () => connection.isConnected(),
     configuredCommand: () => environment.plugin.appServerContext.codexPath,
     vaultPath: () => environment.plugin.appServerContext.vaultPath,
-    sharedResources: environment.plugin.appServerQueries,
+    sharedResources,
   });
   const threadStart = createThreadStartCommand({
     stateStore,
     effects: appServer.threadStart,
-    runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, environment.plugin.appServerQueries),
+    runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, sharedResources),
     recordStartedThread: (thread) => {
       environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });
     },

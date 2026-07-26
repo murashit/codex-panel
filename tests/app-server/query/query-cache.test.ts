@@ -520,7 +520,7 @@ describe("AppServerQueryCache", () => {
 
     cache.dispose();
 
-    expect(cache.modelsSnapshot()).toBeNull();
+    expect(cache.metadataSnapshot("models")).toBeNull();
     expect(() => cache.fetchModels()).toThrow(StaleExecutionRuntimeError);
     expect(listModels).toHaveBeenCalledOnce();
   });
@@ -552,11 +552,11 @@ describe("AppServerQueryCache", () => {
     });
 
     await cache.refreshAppServerMetadata();
-    expect(cache.skillsSnapshot()?.map((skill) => skill.name)).toEqual(["writer"]);
-    expect(cache.permissionProfilesSnapshot()?.map((profile) => profile.id)).toEqual([":workspace"]);
-    expect(cache.rateLimitsSnapshot()?.primary?.usedPercent).toBe(64);
+    expect(cache.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cache.metadataSnapshot("permissionProfiles")?.map((profile) => profile.id)).toEqual([":workspace"]);
+    expect(cache.metadataSnapshot("rateLimits")?.primary?.usedPercent).toBe(64);
     expect(cache.metadataDiagnosticsSnapshot().probes.models.status).toBe("ok");
-    expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-meta"]);
+    expect(cache.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-meta"]);
   });
 
   it("publishes each metadata resource without waiting for unrelated refreshes", async () => {
@@ -572,9 +572,9 @@ describe("AppServerQueryCache", () => {
     const modelsListener = vi.fn();
     const skillsListener = vi.fn();
     const unsubscribers = [
-      cache.observeRuntimeConfigResource(runtimeConfigListener, { emitCurrent: false }),
-      cache.observeModelsResource(modelsListener, { emitCurrent: false }),
-      cache.observeSkillsResource(skillsListener, { emitCurrent: false }),
+      cache.observeMetadataResource("runtimeConfig", runtimeConfigListener, { emitCurrent: false }),
+      cache.observeMetadataResource("models", modelsListener, { emitCurrent: false }),
+      cache.observeMetadataResource("skills", skillsListener, { emitCurrent: false }),
     ];
 
     const refresh = cache.refreshAppServerMetadata();
@@ -605,7 +605,7 @@ describe("AppServerQueryCache", () => {
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
     const listener = vi.fn();
-    const unsubscribe = cache.observeSkillsResource(listener, { emitCurrent: false });
+    const unsubscribe = cache.observeMetadataResource("skills", listener, { emitCurrent: false });
 
     await cache.refreshAppServerMetadata();
 
@@ -638,7 +638,7 @@ describe("AppServerQueryCache", () => {
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
     await expect(cache.refreshSkills()).rejects.toThrow("skills offline");
     const listener = vi.fn();
-    const unsubscribe = cache.observeSkillsResource(listener, { emitCurrent: false });
+    const unsubscribe = cache.observeMetadataResource("skills", listener, { emitCurrent: false });
 
     const refresh = cache.refreshSkills();
     await flushMicrotasks();
@@ -714,7 +714,7 @@ describe("AppServerQueryCache", () => {
     first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
     await Promise.all([fullRefresh, notificationRefresh]);
     expect(listSkills).toHaveBeenCalledOnce();
-    expect(cache.skillsSnapshot()?.map((skill) => skill.name)).toEqual(["old"]);
+    expect(cache.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["old"]);
   });
 
   it("coalesces repeated skills notifications", async () => {
@@ -722,7 +722,7 @@ describe("AppServerQueryCache", () => {
     const listSkills = vi.fn(() => first.promise);
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
     const listener = vi.fn();
-    const unsubscribe = cache.observeSkillsResource(listener, { emitCurrent: false });
+    const unsubscribe = cache.observeMetadataResource("skills", listener, { emitCurrent: false });
 
     const older = cache.refreshSkills();
     await flushMicrotasks();
@@ -757,7 +757,7 @@ describe("AppServerQueryCache", () => {
 
     skills.resolve({ data: [{ skills: [] }] });
     await expect(refresh).rejects.toThrow("config offline");
-    expect(cache.runtimeConfigSnapshot()).toBeNull();
+    expect(cache.metadataSnapshot("runtimeConfig")).toBeNull();
   });
 
   it("rejects runtime config refresh failures while preserving prior config and refreshed optional resources", async () => {
@@ -777,8 +777,8 @@ describe("AppServerQueryCache", () => {
 
     await expect(cache.refreshAppServerMetadata()).rejects.toThrow("config offline");
 
-    expect(cache.runtimeConfigSnapshot()).not.toBeNull();
-    expect(cache.skillsSnapshot()?.map((skill) => skill.name)).toEqual(["new"]);
+    expect(cache.metadataSnapshot("runtimeConfig")).not.toBeNull();
+    expect(cache.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["new"]);
   });
 
   it("shares in-flight model fetches between metadata and models queries", async () => {
@@ -804,7 +804,7 @@ describe("AppServerQueryCache", () => {
     await expect(modelsPromise).resolves.toMatchObject([{ model: "gpt-shared" }]);
     await expect(metadataPromise).resolves.toBeUndefined();
     expect(listModels).toHaveBeenCalledOnce();
-    expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-shared"]);
+    expect(cache.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-shared"]);
   });
 
   it("keeps query-cached models when app-server metadata model refresh fails", async () => {
@@ -823,7 +823,7 @@ describe("AppServerQueryCache", () => {
 
     await cache.refreshAppServerMetadata();
     expect(cache.metadataDiagnosticsSnapshot().probes.models.status).toBe("failed");
-    expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-cached"]);
+    expect(cache.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-cached"]);
   });
 
   it("keeps every last-known-good resource through the full metadata refresh path", async () => {
@@ -853,10 +853,10 @@ describe("AppServerQueryCache", () => {
     await cache.refreshAppServerMetadata();
 
     await cache.refreshAppServerMetadata();
-    expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-cached"]);
-    expect(cache.skillsSnapshot()?.map((skill) => skill.name)).toEqual(["cached-skill"]);
-    expect(cache.permissionProfilesSnapshot()?.map((profile) => profile.id)).toEqual([":cached"]);
-    expect(cache.rateLimitsSnapshot()?.primary?.usedPercent).toBe(17);
+    expect(cache.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-cached"]);
+    expect(cache.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["cached-skill"]);
+    expect(cache.metadataSnapshot("permissionProfiles")?.map((profile) => profile.id)).toEqual([":cached"]);
+    expect(cache.metadataSnapshot("rateLimits")?.primary?.usedPercent).toBe(17);
     expect(cache.metadataDiagnosticsSnapshot().probes).toMatchObject({
       models: { status: "failed" },
       skills: { status: "failed" },

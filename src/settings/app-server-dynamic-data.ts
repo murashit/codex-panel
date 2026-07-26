@@ -10,7 +10,7 @@ import type { ObservedResultListener } from "../shared/runtime/observed-result";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
 
 interface SettingsAppServerQueries {
-  modelsSnapshot(): readonly ModelMetadata[] | null;
+  metadataSnapshot(id: "models"): readonly ModelMetadata[] | null;
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
@@ -41,7 +41,7 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
     });
 
   return {
-    modelsSnapshot: () => options.appServerQueries.modelsSnapshot(),
+    modelsSnapshot: () => options.appServerQueries.metadataSnapshot("models"),
     observeModelsResult: (listener, observeOptions) => options.appServerQueries.observeModelsResult(listener, observeOptions),
     fetchModels: () => options.appServerQueries.fetchModels(),
     refreshModels: () => options.appServerQueries.refreshModels(),

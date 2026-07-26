@@ -8,11 +8,7 @@ export function chatSharedSourcesFixture(threads: readonly Thread[] = []): {
 } {
   return {
     appServerQueries: {
-      observeRuntimeConfigResource: () => () => undefined,
-      observeModelsResource: () => () => undefined,
-      observeSkillsResource: () => () => undefined,
-      observePermissionProfilesResource: () => () => undefined,
-      observeRateLimitsResource: () => () => undefined,
+      observeMetadataResource: () => () => undefined,
     },
     threadCatalog: {
       fetchActiveThreads: async () => threads,

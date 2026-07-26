@@ -7,23 +7,16 @@ import {
   type DiagnosticProbeResult,
   type MetadataResourceDiagnostics,
 } from "../../../../domain/server/diagnostics";
-import type {
-  ModelsMetadataResource,
-  PermissionProfilesMetadataResource,
-  RateLimitsMetadataResource,
-  RuntimeConfigMetadataResource,
-  SkillsMetadataResource,
-} from "../../../../domain/server/metadata";
+import type { SharedServerMetadataResourceFor, SharedServerMetadataResourceId } from "../../../../domain/server/metadata";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ObservedPaginatedResult } from "../../../../shared/runtime/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
 
 export interface ChatSharedDisplayQueries {
-  observeRuntimeConfigResource(listener: (resource: RuntimeConfigMetadataResource) => void): () => void;
-  observeModelsResource(listener: (resource: ModelsMetadataResource) => void): () => void;
-  observeSkillsResource(listener: (resource: SkillsMetadataResource) => void): () => void;
-  observePermissionProfilesResource(listener: (resource: PermissionProfilesMetadataResource) => void): () => void;
-  observeRateLimitsResource(listener: (resource: RateLimitsMetadataResource) => void): () => void;
+  observeMetadataResource<Id extends SharedServerMetadataResourceId>(
+    id: Id,
+    listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
+  ): () => void;
 }
 
 export interface ActiveThreadsDisplayResource {
@@ -71,7 +64,7 @@ export function useActiveThreadsResource(threadCatalog: ThreadCatalogPaginatedAc
 
 export function useRuntimeConfigResource(queries: ChatSharedDisplayQueries): RuntimeConfigSnapshot | null {
   return useObservedResource<RuntimeConfigSnapshot | null>(queries, null, (update) =>
-    queries.observeRuntimeConfigResource((resource) => {
+    queries.observeMetadataResource("runtimeConfig", (resource) => {
       if (resource.value !== undefined) update(() => resource.value ?? null);
     }),
   );
@@ -79,7 +72,7 @@ export function useRuntimeConfigResource(queries: ChatSharedDisplayQueries): Run
 
 export function useModelsResource(queries: ChatSharedDisplayQueries): MetadataDisplayResource<readonly ModelMetadata[]> {
   return useObservedResource(queries, INITIAL_MODELS, (update) =>
-    queries.observeModelsResource((resource) => {
+    queries.observeMetadataResource("models", (resource) => {
       update((current) => ({
         value: resource.value ?? current.value,
         probe: resource.probe,
@@ -90,7 +83,7 @@ export function useModelsResource(queries: ChatSharedDisplayQueries): MetadataDi
 
 export function useSkillsResource(queries: ChatSharedDisplayQueries): MetadataDisplayResource<readonly SkillMetadata[]> {
   return useObservedResource(queries, INITIAL_SKILLS, (update) =>
-    queries.observeSkillsResource((resource) => {
+    queries.observeMetadataResource("skills", (resource) => {
       update((current) => ({
         value: resource.value ?? current.value,
         probe: resource.probe,
@@ -101,7 +94,7 @@ export function useSkillsResource(queries: ChatSharedDisplayQueries): MetadataDi
 
 export function usePermissionProfilesProbe(queries: ChatSharedDisplayQueries): DiagnosticProbeResult {
   return useObservedResource(queries, INITIAL_METADATA_DIAGNOSTICS.probes.permissionProfiles, (update) =>
-    queries.observePermissionProfilesResource((resource) => {
+    queries.observeMetadataResource("permissionProfiles", (resource) => {
       update(() => resource.probe);
     }),
   );
@@ -109,7 +102,7 @@ export function usePermissionProfilesProbe(queries: ChatSharedDisplayQueries): D
 
 export function useRateLimitsResource(queries: ChatSharedDisplayQueries): MetadataDisplayResource<RateLimitSnapshot | null> {
   return useObservedResource(queries, INITIAL_RATE_LIMITS, (update) =>
-    queries.observeRateLimitsResource((resource) => {
+    queries.observeMetadataResource("rateLimits", (resource) => {
       update((current) => ({
         value: resource.value === undefined ? current.value : resource.value,
         probe: resource.probe,

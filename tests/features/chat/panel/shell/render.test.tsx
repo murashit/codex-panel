@@ -78,10 +78,12 @@ describe("ChatPanelShell", () => {
     document.body.appendChild(container);
     const props = shellProps(store);
     const skillListeners = new Set<(resource: SkillsMetadataResource) => void>();
-    props.appServerQueries.observeSkillsResource = (listener) => {
-      skillListeners.add(listener);
+    props.appServerQueries.observeMetadataResource = (id, listener) => {
+      if (id !== "skills") return () => undefined;
+      const skillListener = listener as (resource: SkillsMetadataResource) => void;
+      skillListeners.add(skillListener);
       return () => {
-        skillListeners.delete(listener);
+        skillListeners.delete(skillListener);
       };
     };
     const originalPresenter = props.parts.composer.presenter;

@@ -6,7 +6,12 @@ import { modelMetadataFromCatalogModels } from "../../../../src/app-server/proto
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
-import type { SharedServerMetadataResource } from "../../../../src/domain/server/metadata";
+import type {
+  SharedServerMetadataResource,
+  SharedServerMetadataResourceFor,
+  SharedServerMetadataResourceId,
+  SharedServerMetadataSnapshotValues,
+} from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadGoalCoordinator } from "../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
@@ -25,9 +30,9 @@ export interface TestCodexChatHost extends CodexChatHost {
 }
 interface SharedServerMetadataFixture {
   runtimeConfig: ReturnType<typeof runtimeConfigFixture> | null;
-  availableSkills: NonNullable<ReturnType<CodexChatHost["appServerQueries"]["skillsSnapshot"]>>;
-  availablePermissionProfiles: NonNullable<ReturnType<CodexChatHost["appServerQueries"]["permissionProfilesSnapshot"]>>;
-  rateLimit: ReturnType<CodexChatHost["appServerQueries"]["rateLimitsSnapshot"]>;
+  availableSkills: NonNullable<SharedServerMetadataSnapshotValues["skills"]>;
+  availablePermissionProfiles: NonNullable<SharedServerMetadataSnapshotValues["permissionProfiles"]>;
+  rateLimit: SharedServerMetadataSnapshotValues["rateLimits"];
   serverDiagnostics: ReturnType<CodexChatHost["appServerQueries"]["metadataDiagnosticsSnapshot"]>;
 }
 let CodexChatView: typeof import("../../../../src/features/chat/host/view.obsidian")["CodexChatView"];
@@ -423,7 +428,7 @@ export interface ChatHostFixtureOverrides {
   refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
   activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
   sharedMetadataSnapshot?: () => SharedServerMetadataFixture | null;
-  modelsSnapshot?: CodexChatHost["appServerQueries"]["modelsSnapshot"];
+  modelsSnapshot?: () => SharedServerMetadataSnapshotValues["models"];
   fetchModels?: CodexChatHost["appServerQueries"]["fetchModels"];
   refreshModels?: CodexChatHost["appServerQueries"]["refreshModels"];
   refreshAppServerMetadata?: CodexChatHost["appServerQueries"]["refreshAppServerMetadata"];
@@ -471,23 +476,47 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     }
     return nextMetadata;
   };
-  const observeMetadataResource = <Resource extends SharedServerMetadataResource>(
-    id: Resource["id"],
-    listener: (resource: Resource) => void,
-    current: () => Resource | undefined,
-    options: { emitCurrent?: boolean },
+  const currentMetadataResource = (id: SharedServerMetadataResourceId): SharedServerMetadataResource | undefined => {
+    if (id === "runtimeConfig") return metadata ? { id, value: metadata.runtimeConfig ?? undefined } : undefined;
+    if (id === "models") {
+      return models ? { id, value: models, probe: diagnosticProbeOk("models", `${String(models.length)} models`, Date.now()) } : undefined;
+    }
+    if (!metadata) return undefined;
+    if (id === "skills") return { id, value: metadata.availableSkills, probe: metadata.serverDiagnostics.probes.skills };
+    if (id === "permissionProfiles") {
+      return { id, value: metadata.availablePermissionProfiles, probe: metadata.serverDiagnostics.probes.permissionProfiles };
+    }
+    return { id, value: metadata.rateLimit, probe: metadata.serverDiagnostics.probes.rateLimits };
+  };
+  const observeMetadataResource = <Id extends SharedServerMetadataResourceId>(
+    id: Id,
+    listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
+    options: { emitCurrent?: boolean } = {},
   ): (() => void) => {
     const aggregateListener = (resource: SharedServerMetadataResource): void => {
-      if (resource.id === id) listener(resource as Resource);
+      if (resource.id === id) listener(resource as SharedServerMetadataResourceFor<Id>);
     };
     metadataResourceListeners.add(aggregateListener);
     if (options.emitCurrent ?? true) {
-      const resource = current();
-      if (resource) listener(resource);
+      const resource = currentMetadataResource(id);
+      if (resource) listener(resource as SharedServerMetadataResourceFor<Id>);
     }
     return () => {
       metadataResourceListeners.delete(aggregateListener);
     };
+  };
+  const metadataSnapshot = <Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id] => {
+    const value =
+      id === "runtimeConfig"
+        ? (metadata?.runtimeConfig ?? null)
+        : id === "models"
+          ? models
+          : id === "skills"
+            ? (metadata?.availableSkills ?? null)
+            : id === "permissionProfiles"
+              ? (metadata?.availablePermissionProfiles ?? null)
+              : metadata?.rateLimit;
+    return value as SharedServerMetadataSnapshotValues[Id];
   };
   const loadAppServerMetadata = async (reloadSkills = false): Promise<SharedServerMetadataFixture | null> => {
     const client = connectionMock.state.client as TestAppServerClient | null;
@@ -601,10 +630,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
     },
     appServerQueries: {
-      runtimeConfigSnapshot: vi.fn(() => metadata?.runtimeConfig ?? null),
-      skillsSnapshot: vi.fn(() => metadata?.availableSkills ?? null),
-      permissionProfilesSnapshot: vi.fn(() => metadata?.availablePermissionProfiles ?? null),
-      rateLimitsSnapshot: vi.fn(() => metadata?.rateLimit),
+      metadataSnapshot,
       metadataDiagnosticsSnapshot: vi.fn(() => metadata?.serverDiagnostics ?? createServerDiagnostics()),
       refreshAppServerMetadata:
         overrides.refreshAppServerMetadata ??
@@ -624,72 +650,9 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
           const nextMetadata = await loadAppServerMetadata();
           if (nextMetadata) applyMetadataToCache(nextMetadata);
         }),
-      modelsSnapshot: overrides.modelsSnapshot ?? vi.fn(() => models),
       fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
       refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
-      observeRuntimeConfigResource: (listener, options = {}) =>
-        observeMetadataResource(
-          "runtimeConfig",
-          listener,
-          () => (metadata ? { id: "runtimeConfig", value: metadata.runtimeConfig ?? undefined } : undefined),
-          options,
-        ),
-      observeModelsResource: (listener, options = {}) =>
-        observeMetadataResource(
-          "models",
-          listener,
-          () =>
-            models
-              ? {
-                  id: "models",
-                  value: models,
-                  probe: diagnosticProbeOk("models", `${String(models.length)} models`, Date.now()),
-                }
-              : undefined,
-          options,
-        ),
-      observeSkillsResource: (listener, options = {}) =>
-        observeMetadataResource(
-          "skills",
-          listener,
-          () =>
-            metadata
-              ? {
-                  id: "skills",
-                  value: metadata.availableSkills,
-                  probe: metadata.serverDiagnostics.probes.skills,
-                }
-              : undefined,
-          options,
-        ),
-      observePermissionProfilesResource: (listener, options = {}) =>
-        observeMetadataResource(
-          "permissionProfiles",
-          listener,
-          () =>
-            metadata
-              ? {
-                  id: "permissionProfiles",
-                  value: metadata.availablePermissionProfiles,
-                  probe: metadata.serverDiagnostics.probes.permissionProfiles,
-                }
-              : undefined,
-          options,
-        ),
-      observeRateLimitsResource: (listener, options = {}) =>
-        observeMetadataResource(
-          "rateLimits",
-          listener,
-          () =>
-            metadata
-              ? {
-                  id: "rateLimits",
-                  value: metadata.rateLimit,
-                  probe: metadata.serverDiagnostics.probes.rateLimits,
-                }
-              : undefined,
-          options,
-        ),
+      observeMetadataResource,
       observeModelsResult: (listener, options = {}) => {
         modelResultListeners.add(listener);
         if ((options.emitCurrent ?? true) && models) listener(queryResult(models));

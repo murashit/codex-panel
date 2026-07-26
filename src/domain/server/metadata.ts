@@ -27,8 +27,19 @@ export type SharedServerMetadataResource =
       readonly probe: DiagnosticProbeResult;
     };
 
-export type RuntimeConfigMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "runtimeConfig" }>;
-export type ModelsMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "models" }>;
-export type SkillsMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "skills" }>;
-export type PermissionProfilesMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "permissionProfiles" }>;
-export type RateLimitsMetadataResource = Extract<SharedServerMetadataResource, { readonly id: "rateLimits" }>;
+export type SharedServerMetadataResourceId = SharedServerMetadataResource["id"];
+
+export type SharedServerMetadataResourceFor<Id extends SharedServerMetadataResourceId> = Extract<
+  SharedServerMetadataResource,
+  { readonly id: Id }
+>;
+
+export interface SharedServerMetadataSnapshotValues {
+  readonly runtimeConfig: RuntimeConfigSnapshot | null;
+  readonly models: readonly ModelMetadata[] | null;
+  readonly skills: readonly SkillMetadata[] | null;
+  readonly permissionProfiles: readonly RuntimePermissionProfileSummary[] | null;
+  readonly rateLimits: RateLimitSnapshot | null | undefined;
+}
+
+export type SkillsMetadataResource = SharedServerMetadataResourceFor<"skills">;

@@ -82,9 +82,9 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       connected: () => connection.isConnected(),
       vaultPath: () => environment.plugin.appServerContext.vaultPath,
       configuredCommand: () => environment.plugin.appServerContext.codexPath,
-      runtimeConfig: () => environment.plugin.appServerQueries.runtimeConfigSnapshot(),
-      rateLimit: () => environment.plugin.appServerQueries.rateLimitsSnapshot(),
-      availableModels: () => environment.plugin.appServerQueries.modelsSnapshot() ?? [],
+      runtimeConfig: () => environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
+      rateLimit: () => environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
+      availableModels: () => environment.plugin.appServerQueries.metadataSnapshot("models") ?? [],
       metadataDiagnostics: () => environment.plugin.appServerQueries.metadataDiagnosticsSnapshot(),
     },
   });

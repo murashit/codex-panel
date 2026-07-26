@@ -136,10 +136,7 @@ describe("chat panel session runtime actions", () => {
         plugin: {
           threadCatalog: { observeActiveThreadsResult: vi.fn(() => unsubscribeThreads) },
           appServerQueries: {
-            observeRuntimeConfigResource: vi.fn(() => unsubscribeMetadata),
-            observeModelsResource: vi.fn(() => unsubscribeMetadata),
-            observeSkillsResource: vi.fn(() => unsubscribeMetadata),
-            observePermissionProfilesResource: vi.fn(() => unsubscribeMetadata),
+            observeMetadataResource: vi.fn(() => unsubscribeMetadata),
           },
         },
       },
@@ -330,22 +327,14 @@ describe("chat panel session runtime actions", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]> = {},
   ): ChatPanelEnvironment["plugin"]["appServerQueries"] {
     return {
-      runtimeConfigSnapshot: vi.fn(() => null),
-      skillsSnapshot: vi.fn(() => null),
-      permissionProfilesSnapshot: vi.fn(() => null),
-      rateLimitsSnapshot: vi.fn(() => undefined),
+      metadataSnapshot: vi.fn(() => null),
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
       refreshSkills: vi.fn().mockResolvedValue(undefined),
       refreshRateLimits: vi.fn().mockResolvedValue(undefined),
-      modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn().mockResolvedValue([]),
       refreshModels: vi.fn().mockResolvedValue([]),
-      observeRuntimeConfigResource: vi.fn(() => () => undefined),
-      observeModelsResource: vi.fn(() => () => undefined),
-      observeSkillsResource: vi.fn(() => () => undefined),
-      observePermissionProfilesResource: vi.fn(() => () => undefined),
-      observeRateLimitsResource: vi.fn(() => () => undefined),
+      observeMetadataResource: vi.fn(() => () => undefined),
       observeModelsResult: vi.fn(() => () => undefined),
       ...overrides,
     };

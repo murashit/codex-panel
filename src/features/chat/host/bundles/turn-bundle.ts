@@ -95,7 +95,11 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       stateStore: host.stateStore,
       localItemIds,
       connectionAvailable: () => appServer.connectionAvailable(),
-      sharedResources: host.environment.plugin.appServerQueries,
+      sharedResources: {
+        runtimeConfigSnapshot: () => host.environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
+        rateLimitsSnapshot: () => host.environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
+        modelsSnapshot: () => host.environment.plugin.appServerQueries.metadataSnapshot("models"),
+      },
       listedThreads: () => host.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
       turnPort: appServer.turn,
       referThread,

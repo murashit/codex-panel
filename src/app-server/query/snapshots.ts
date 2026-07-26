@@ -52,7 +52,7 @@ export function cloneSharedServerMetadataResource(resource: SharedServerMetadata
   }
 }
 
-function cloneRateLimitSnapshot(snapshot: RateLimitSnapshot): RateLimitSnapshot {
+export function cloneRateLimitSnapshot(snapshot: RateLimitSnapshot): RateLimitSnapshot {
   return {
     ...snapshot,
     primary: snapshot.primary ? { ...snapshot.primary } : null,
