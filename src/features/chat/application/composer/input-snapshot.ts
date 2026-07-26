@@ -1,7 +1,7 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
+import type { ThreadCommandTarget } from "../slash-commands/thread-arguments";
 import type { ComposerAttachment } from "./attachments";
 import type { ActiveNoteContextReference, ComposerContextReferences, SelectionContextReference } from "./context-references";
-import type { ThreadCommandTarget } from "./thread-title-argument";
 
 export interface ComposerInputSnapshot {
   readonly sourcePath: string;

@@ -9,6 +9,9 @@ import { threadDisplayTitle } from "../../../../domain/threads/title";
 import { modelOverrideMessage, permissionProfileOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import type { ThreadStreamAuditFact, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
+import type { ReconnectPanelOptions } from "../connection/reconnect-command";
+import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
 import {
   type SlashCommandName,
   type SlashCommandSubcommandDefinition,
@@ -16,11 +19,9 @@ import {
   slashCommandHelpSections,
   slashCommandSubcommandDefinition,
   slashCommandSubcommands,
-} from "../composer/slash-commands";
-import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
-import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCommand } from "../composer/thread-title-argument";
-import type { ReconnectPanelOptions } from "../connection/reconnect-command";
-import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
+} from "../slash-commands/catalog";
+import { parseWebCommandArgs } from "../slash-commands/parse";
+import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCommand } from "../slash-commands/thread-arguments";
 import type { GoalCommands } from "../threads/goal-commands";
 import type { ThreadCommands } from "../threads/thread-commands";
 
@@ -532,14 +533,6 @@ function parseThreadAndNameArgs(args: string): { threadQuery: string; text: stri
   if (!parsed) return null;
   const text = parsed.text.trim();
   return text ? { threadQuery: parsed.threadQuery, text } : null;
-}
-
-export function parseWebCommandArgs(args: string): { url: string; message: string } | null {
-  const match = /^(\S+)(?:\s+([\s\S]*\S))?\s*$/.exec(args);
-  if (!match) return null;
-  const url = match[1];
-  const message = match[2] ?? "";
-  return url !== undefined ? { url, message } : null;
 }
 
 function parseThreadOnlyArgs(args: string, options: { allowEmpty?: boolean } = {}): string | null {

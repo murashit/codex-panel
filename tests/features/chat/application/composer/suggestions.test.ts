@@ -8,12 +8,12 @@ import {
   composerSuggestionNavigationDirection,
   composerSuggestionSignature,
   nextComposerSuggestionIndex,
-  parseSlashCommand,
 } from "../../../../../src/features/chat/application/composer/suggestions";
 import {
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,
   type WikiLinkFileReferenceResolver,
 } from "../../../../../src/features/chat/application/composer/wikilink-context";
+import { parseSlashCommand } from "../../../../../src/features/chat/application/slash-commands/parse";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

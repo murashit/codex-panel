@@ -20,22 +20,22 @@ import {
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
-import { activePanelOperationForSlashCommandSuggestion } from "../../application/composer/slash-commands";
 import type { ComposerSubmissionClaim } from "../../application/composer/submission-claim";
+import type { ComposerSuggestion } from "../../application/composer/suggestion";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
-  type ComposerSuggestion,
   composerSuggestionNavigationDirection,
   nextComposerSuggestionIndex,
 } from "../../application/composer/suggestions";
-import { type ThreadCommandTarget, threadCommandTargetForDraft } from "../../application/composer/thread-title-argument";
 import {
   type PreparedComposerInput,
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,
 } from "../../application/composer/wikilink-context";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
+import { activePanelOperationForSlashCommandSuggestion } from "../../application/slash-commands/catalog";
+import { type ThreadCommandTarget, threadCommandTargetForDraft } from "../../application/slash-commands/thread-arguments";
 import {
   capturePanelTargetLease,
   type PanelTargetLease,

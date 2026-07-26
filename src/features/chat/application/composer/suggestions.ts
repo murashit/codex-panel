@@ -11,8 +11,14 @@ import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
 import { compareThreadSearchMatches, threadSearchMatches } from "../../../../domain/threads/search";
 import { threadCommandDisplayTitle } from "../../../../domain/threads/title";
+import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "../slash-commands/catalog";
 import {
-  type ActiveNoteContextReference,
+  partialThreadTitleQuery,
+  quotedThreadTitleArgument,
+  THREAD_TITLE_COMMANDS,
+  type ThreadTitleCommand,
+} from "../slash-commands/thread-arguments";
+import {
   activeNoteContextReferenceMarker,
   type ComposerContextReferences,
   formatComposerContextRange,
@@ -20,27 +26,7 @@ import {
   selectionContextReferenceMarker,
 } from "./context-references";
 import type { DailyNoteReferenceCandidate, NoteCandidate, NoteHeadingCandidate } from "./note-context";
-import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
-import {
-  partialThreadTitleQuery,
-  quotedThreadTitleArgument,
-  THREAD_TITLE_COMMANDS,
-  type ThreadCommandTarget,
-  type ThreadTitleCommand,
-} from "./thread-title-argument";
-
-export interface ComposerSuggestion {
-  display: string;
-  detail: string;
-  replacement: string;
-  start: number;
-  appendSpaceOnInsert?: boolean;
-  tabCursorOffset?: number;
-  suffixOnInsert?: string;
-  activeNoteContext?: ActiveNoteContextReference;
-  selectionContext?: SelectionContextReference;
-  threadCommandTarget?: ThreadCommandTarget;
-}
+import type { ComposerSuggestion } from "./suggestion";
 
 export interface ComposerSuggestionOptions {
   activeThreadId?: string | null;
@@ -85,14 +71,6 @@ const THREAD_COMMAND_SUGGESTION_POLICIES: Record<ThreadTitleCommand, ThreadComma
 
 const THREAD_SUGGESTION_COMMAND_PATTERN = new RegExp(`^/(${THREAD_TITLE_COMMANDS.join("|")})\\s+([^\\n]{0,120})$`);
 const SELECTION_SUGGESTION_PREVIEW_LIMIT = 500;
-
-export function parseSlashCommand(text: string): { command: SlashCommandName; args: string } | null {
-  const match = /^\/([A-Za-z-]+)(?:\s+([\s\S]*))?$/.exec(text);
-  if (!match) return null;
-  const command = match[1];
-  if (!command || !isSlashCommandName(command)) return null;
-  return { command, args: match.at(2)?.trim() ?? "" };
-}
 
 export function activeComposerSuggestions(
   beforeCursor: string,

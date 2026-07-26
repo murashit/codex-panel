@@ -5,7 +5,7 @@ import {
   type SlashCommandName,
   slashCommandHelpSections,
   slashCommandRequiresConnection,
-} from "../../../../../src/features/chat/application/composer/slash-commands";
+} from "../../../../../src/features/chat/application/slash-commands/catalog";
 
 describe("slash command catalog", () => {
   it("defines unique command names and usage rows", () => {

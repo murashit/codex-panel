@@ -4,10 +4,10 @@ import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
-import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
+import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "../slash-commands/catalog";
 import type { ChatStateStore } from "../state/store";
 import {
   executeSlashCommand as runSlashCommand,

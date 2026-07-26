@@ -1,13 +1,13 @@
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
-import { type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
-import { parseSlashCommand } from "../composer/suggestions";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
+import { type SlashCommandName, slashCommandRequiresConnection } from "../slash-commands/catalog";
+import { parseSlashCommand, parseWebCommandArgs } from "../slash-commands/parse";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { cancellablePendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
-import { parseWebCommandArgs, type SlashCommandExecutionResult } from "./slash-command-execution";
+import type { SlashCommandExecutionResult } from "./slash-command-execution";
 import { submissionStateSnapshot } from "./submission-state";
 import type { ChatTurnPort } from "./turn-port";
 import type { TurnSubmissionRequest } from "./turn-submission-command";

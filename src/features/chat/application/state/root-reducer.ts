@@ -27,7 +27,7 @@ import {
   setSelectedCollaborationModeRuntimeState,
 } from "../../domain/runtime/state";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
-import type { ComposerSuggestion } from "../composer/suggestions";
+import type { ComposerSuggestion } from "../composer/suggestion";
 import {
   type ChatRequestState,
   initialChatRequestState,

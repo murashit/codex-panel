@@ -6,7 +6,7 @@ import {
   SLASH_COMMANDS,
   type SlashCommandName,
   slashCommandHelpSections,
-} from "../../../../../src/features/chat/application/composer/slash-commands";
+} from "../../../../../src/features/chat/application/slash-commands/catalog";
 import {
   executeSlashCommand,
   type SlashCommandExecutionContext,

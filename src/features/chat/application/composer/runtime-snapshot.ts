@@ -1,6 +1,6 @@
+import type { ThreadCommandTarget } from "../slash-commands/thread-arguments";
 import type { ComposerAttachment } from "./attachments";
 import type { ActiveNoteContextReference, SelectionContextReference } from "./context-references";
-import type { ThreadCommandTarget } from "./thread-title-argument";
 
 export interface ComposerRuntimeSnapshot {
   readonly draft: string;
