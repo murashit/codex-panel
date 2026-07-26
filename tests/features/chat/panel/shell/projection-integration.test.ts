@@ -106,7 +106,6 @@ describe("chat panel projection integration", () => {
           threadId: "thread",
           draft: "Thread",
           autoName: { kind: "unavailable" },
-          saveToken: 1,
         },
       },
     });

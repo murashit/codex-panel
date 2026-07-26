@@ -12,7 +12,6 @@ describe("thread row core projection", () => {
         kind: "generating",
         draft: "Draft",
         autoName: { kind: "ready", context: { userRequest: "Request", assistantResponse: "Response" } },
-        generationToken: 1,
       },
       archiveConfirmActive: true,
       defaultArchiveSaveMarkdown: true,

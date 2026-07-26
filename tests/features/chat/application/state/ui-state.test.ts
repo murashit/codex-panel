@@ -41,7 +41,7 @@ describe("chat UI state", () => {
     });
   });
 
-  it("scopes rename generation callbacks to the active thread and generation", () => {
+  it("scopes rename generation state to the active thread", () => {
     let state = reduceUiSlice(initialUiState(), {
       type: "ui/rename-started",
       threadId: "thread",
@@ -56,19 +56,11 @@ describe("chat UI state", () => {
     state = reduceUiSlice(state, {
       type: "ui/rename-generation-started",
       threadId: "thread",
-      generationToken: 1,
     });
     state = reduceUiSlice(state, {
       type: "ui/rename-generation-succeeded",
       threadId: "other-thread",
-      generationToken: 1,
       draft: "Wrong thread",
-    });
-    state = reduceUiSlice(state, {
-      type: "ui/rename-generation-succeeded",
-      threadId: "thread",
-      generationToken: 2,
-      draft: "Wrong generation",
     });
     state = reduceUiSlice(state, {
       type: "ui/rename-draft-updated",
@@ -78,13 +70,11 @@ describe("chat UI state", () => {
     state = reduceUiSlice(state, {
       type: "ui/rename-generation-succeeded",
       threadId: "thread",
-      generationToken: 1,
       draft: "Generated title",
     });
     state = reduceUiSlice(state, {
       type: "ui/rename-generation-finished",
       threadId: "thread",
-      generationToken: 1,
     });
 
     expect(state.rename).toEqual({ kind: "editing", threadId: "thread", draft: "Generated title", autoName: { kind: "ready", context } });
