@@ -14,7 +14,7 @@ npm run test:mutation
 
 Use the Node.js version in `.node-version`.
 
-Use focused scripts while iterating. Use `npm run fix` for mechanical cleanup, review its diff, and run `npm run check` before handoff.
+Use focused scripts while iterating. Before handoff, run `npm run fix`, review its diff, and run the full `npm run check`; focused or ad hoc checks do not replace this standard sequence unless validation is explicitly scoped otherwise.
 
 Use `npm run test:coverage` to identify source modules and branches that lack exercised behavior. It reports every authored TypeScript source file, including files not imported by tests, while excluding generated app-server bindings. Open `coverage/index.html` to inspect line-level gaps. Coverage is diagnostic and has no pass/fail threshold; prioritize user-visible behavior and state-transition invariants rather than raising the aggregate percentage.
 
