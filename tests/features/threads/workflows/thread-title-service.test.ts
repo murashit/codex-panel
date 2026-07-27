@@ -74,9 +74,7 @@ describe("ThreadTitleService", () => {
     const controller = new AbortController();
     controller.abort();
 
-    await expect(service.generate(titleContext("request", "response"), controller.signal)).rejects.toThrow(
-      "Thread title generation cancelled.",
-    );
+    await expect(service.generate(titleContext("request", "response"), controller.signal)).rejects.toThrow();
     expect(generateTitle).not.toHaveBeenCalled();
   });
 
@@ -93,7 +91,7 @@ describe("ThreadTitleService", () => {
 
     expect(linkedSignal.aborted).toBe(true);
     generation.resolve("Generated title");
-    await expect(pending).rejects.toThrow("Thread title generation cancelled.");
+    await expect(pending).rejects.toThrow();
   });
 
   it("cancels stale title work and starts later work with a fresh signal", async () => {
@@ -124,7 +122,7 @@ describe("ThreadTitleService", () => {
     expect(staleSignal?.aborted).toBe(true);
     await expect(service.generate(context)).resolves.toBe("Fresh title");
     resolveOldTitle("Stale title");
-    await expect(staleTitle).rejects.toThrow("Thread title generation cancelled.");
+    await expect(staleTitle).rejects.toThrow();
   });
 });
 

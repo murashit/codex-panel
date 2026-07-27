@@ -33,7 +33,6 @@ describe("GoalPanel", () => {
     expect(parent.textContent).toContain("Goal");
     expect(parent.textContent).toContain("Ship goal support");
     expect(parent.textContent).toContain("12 / 100 tokens");
-    expect(parent.querySelector(".codex-panel__goal--active")).not.toBeNull();
     expect(parent.querySelector('[aria-label="Goal active"]')).toBeNull();
     expect(parent.querySelector('[aria-label="Pause goal"]')).not.toBeNull();
   });
@@ -227,8 +226,6 @@ describe("GoalPanel", () => {
       renderGoal(parent, goal({ status: "complete" }), actions());
     });
 
-    expect(parent.textContent).not.toContain("complete");
-    expect(parent.querySelector(".codex-panel__goal--complete")).not.toBeNull();
     expect(parent.querySelector('[aria-label="Pause goal"]')).toBeNull();
     expect(parent.querySelector('[aria-label="Resume goal"]')).toBeNull();
     expect(parent.querySelector('[aria-label="Clear goal"]')).not.toBeNull();

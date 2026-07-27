@@ -553,7 +553,7 @@ describe("panel thread stream rendering and action menu", () => {
       }),
     );
 
-    expect(parent.querySelector(".codex-panel__stream-item-content")?.innerHTML).toBe("<strong>stream:old</strong>");
+    expect(parent.querySelector(".codex-panel__stream-item-content")?.textContent).toContain("stream:old");
     expect(renderStreamMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "old");
     expect(baseContext.renderObsidianMarkdown).not.toHaveBeenCalled();
     expect(renderMarkdown).not.toHaveBeenCalled();

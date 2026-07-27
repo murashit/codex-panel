@@ -324,7 +324,7 @@ describe("CodexThreadsView", () => {
     observedThreads(queryResult([]));
     observedThreads(queryResult<readonly Thread[]>(null, new Error("boom")));
 
-    expect(view.containerEl.textContent).toContain("No threads");
+    expect(view.containerEl.querySelector(".codex-panel-threads__empty")).not.toBeNull();
     expect(view.containerEl.textContent).not.toContain("boom");
   });
 

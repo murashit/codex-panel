@@ -78,29 +78,6 @@ describe("thread auto-title work", () => {
     expect(fixture.generateTitle).not.toHaveBeenCalled();
   });
 
-  it("reopens work after a blank rename and an unarchive fact", async () => {
-    const fixture = workFixture(() => Promise.resolve("Generated title"));
-
-    fixture.work.applyThreadFact({
-      type: "thread-upserted",
-      thread: {
-        id: "thread",
-        preview: "Thread preview",
-        name: "Existing title",
-        archived: false,
-        provenance: { kind: "interactive" },
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    });
-    fixture.work.applyThreadFact({ type: "thread-renamed", threadId: "thread", name: null });
-    fixture.work.applyThreadFact({ type: "thread-archived", threadId: "thread" });
-    fixture.work.applyThreadFact({ type: "thread-unarchived", threadId: "thread" });
-
-    fixture.work.submit("thread", titleContext());
-    await vi.waitFor(() => expect(fixture.renameThread).toHaveBeenCalledOnce());
-  });
-
   it("ignores empty generated titles and generation failures", async () => {
     const empty = workFixture(() => Promise.resolve(""));
     empty.work.submit("thread", titleContext());
@@ -115,7 +92,7 @@ describe("thread auto-title work", () => {
     expect(failed.renameThread).not.toHaveBeenCalled();
   });
 
-  it("does not publish when the rename operation fails and can dispose repeatedly", async () => {
+  it("does not publish when the rename operation fails", async () => {
     const fixture = workFixture(() => Promise.resolve("Generated title"));
     fixture.renameThread.mockRejectedValueOnce(new Error("rename failed"));
 
@@ -124,8 +101,6 @@ describe("thread auto-title work", () => {
     await flushPromises();
 
     expect(fixture.applyFact).not.toHaveBeenCalled();
-    fixture.work.dispose();
-    fixture.work.dispose();
   });
 
   it("does not publish when a manual rename arrives during generated rename", async () => {

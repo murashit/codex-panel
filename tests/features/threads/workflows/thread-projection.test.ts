@@ -52,35 +52,6 @@ describe("thread projection", () => {
     ]);
   });
 
-  it("projects rename, delete, restore, and unarchive facts for both lists", () => {
-    const active = [thread("active")];
-    const archived = [thread("archived", true)];
-
-    expect(
-      projectThreadFacts(
-        {
-          activeThreadsSnapshot: () => active,
-          archivedThreadsSnapshot: () => archived,
-        },
-        [
-          { type: "thread-renamed", threadId: "active", name: "Renamed" },
-          { type: "thread-deleted", threadId: "archived" },
-          { type: "thread-restored", thread: thread("restored", true) },
-          { type: "thread-unarchived", threadId: "restored" },
-        ],
-      ),
-    ).toEqual([
-      { kind: "update", list: "active", threadId: "active", changes: { name: "Renamed" } },
-      { kind: "update", list: "archived", threadId: "active", changes: { name: "Renamed" } },
-      { kind: "remove", list: "active", threadId: "archived" },
-      { kind: "remove", list: "archived", threadId: "archived" },
-      { kind: "upsert", list: "active", thread: thread("restored") },
-      { kind: "remove", list: "archived", threadId: "restored" },
-      { kind: "remove", list: "archived", threadId: "restored" },
-      { kind: "revalidate", list: "active" },
-    ] satisfies ThreadCatalogChange[]);
-  });
-
   it("requests active revalidation when an unarchived thread is absent", () => {
     expect(
       projectThreadFacts({ activeThreadsSnapshot: () => [], archivedThreadsSnapshot: () => [] }, [

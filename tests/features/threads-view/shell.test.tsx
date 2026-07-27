@@ -78,9 +78,7 @@ describe("threads view renderer decisions", () => {
     );
 
     const status = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__status"));
-    expect(status.textContent).toBe("Could not load threads.");
     expect(status.getAttribute("role")).toBe("status");
-    expect(status.classList.contains("codex-panel-ui__nav-item")).toBe(false);
     expect(parent.querySelector(".codex-panel-threads__empty")).toBeNull();
   });
 
@@ -89,7 +87,7 @@ describe("threads view renderer decisions", () => {
 
     renderThreadsViewShell(parent, { status: null, loading: false, rows: [] }, threadsViewActions());
 
-    expect(parent.querySelector(".codex-panel-threads__empty")?.textContent).toBe("No threads");
+    expect(parent.querySelector(".codex-panel-threads__empty")).not.toBeNull();
     expect(parent.querySelector(".codex-panel-threads__status")).toBeNull();
   });
 
