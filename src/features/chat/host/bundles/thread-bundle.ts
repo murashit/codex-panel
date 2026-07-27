@@ -295,7 +295,7 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
     applyThreadFact: (fact) => {
       environment.plugin.threadFacts.apply(fact);
     },
-    threadHasPendingOrRunningPanel: (threadId) => environment.plugin.workspace.threadHasPendingOrRunningPanel(threadId),
+    threadPanelIsBusy: (threadId) => environment.plugin.workspace.threadPanelIsBusy(threadId),
   };
   const commands = createThreadCommands(threadCommandsHost);
   const toolbarPanelActions = createToolbarPanelActions({
@@ -368,6 +368,7 @@ function createSessionThreadLifecycle(
     },
     addSystemMessage: status.addSystemMessage,
     syncThreadGoal: (threadId) => goalSync.syncThreadGoal(threadId),
+    focusThreadInOpenView: (threadId) => host.environment.plugin.workspace.focusThreadInOpenView(threadId),
     recoverTokenUsageFromRollout: (path) =>
       recoverRolloutTokenUsage(path, (filePath, options) => appServer.readFileBase64(filePath, options)),
   });

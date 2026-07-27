@@ -56,13 +56,13 @@ Reads with different completeness requirements have separate lifecycles. Complet
 
 ## Interaction Principles
 
-Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent connection, thread, turn state, composer, and pending requests.
+Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent connection, turn state, composer, and pending requests. A persistent thread has one panel owner at a time; opening or resuming it from another panel focuses that owner instead of creating a second copy. Different threads remain independent and should not block one another.
 
-Long-running actions must preserve the user intent that started them. Panel-local results may affect a panel only while that intent still owns its target; Codex facts completed in the current app-server context remain shared truth even if the initiating panel has moved on.
+Long-running turn and lifecycle actions must preserve the state transition that they started. Panel navigation may complete in operation order rather than maintaining a general stale-intent protocol; it only needs to avoid applying results to a detached or replaced view. Codex facts completed in the current app-server context remain shared truth even if the initiating panel has moved on.
 
-Coordinate conflicting Panel work at the narrowest shared semantic owner. Independent panels should not block one another, and stale work started by this Panel must not overwrite newer Panel intent or committed shared results. Do not extend that ordering guarantee to independent clients; coalesce work only when replacement is part of the Panel operation's meaning.
+Coordinate conflicting Panel work at the narrowest shared semantic owner. Independent panels should not block one another; serialize same-thread panel opening because a persistent thread has one panel owner, while rare archive/rename races may fail. Do not extend that ordering guarantee to independent clients or turn progression.
 
-Foreground reveal and focus are the narrow workspace-wide exception: the latest user intent wins without serializing unrelated panel or app-server work. Cleanup obligations created by a committed state transition must survive the UI action that initiated them.
+Cleanup obligations created by a committed state transition must survive the UI action that initiated them.
 
 Prefer interface structure and state over explanatory copy. Add text only for irreducible information that materially helps users decide, act, or recover; do not expose implementation concepts merely to explain current behavior.
 

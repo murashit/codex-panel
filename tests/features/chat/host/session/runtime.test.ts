@@ -281,7 +281,7 @@ describe("chat panel session runtime actions", () => {
         workspace: {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
           openThreadInAvailableView: overrides.plugin?.workspace?.openThreadInAvailableView ?? vi.fn().mockResolvedValue(undefined),
-          threadHasPendingOrRunningPanel: vi.fn(() => false),
+          threadPanelIsBusy: vi.fn(() => false),
           focusThreadInOpenView: vi.fn().mockResolvedValue(false),
           openTurnDiff: vi.fn().mockResolvedValue(undefined),
           notifyPanelActivityChanged: vi.fn(),

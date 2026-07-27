@@ -624,7 +624,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       openThreadInAvailableView: overrides.openThreadInAvailableView ?? vi.fn(),
       openThreadFromPanel: overrides.openThreadFromPanel ?? vi.fn(),
       focusThreadInOpenView: overrides.focusThreadInOpenView ?? vi.fn().mockResolvedValue(false),
-      threadHasPendingOrRunningPanel: vi.fn(() => false),
+      threadPanelIsBusy: vi.fn(() => false),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
       notifyPanelActivityChanged: overrides.notifyPanelActivityChanged ?? vi.fn(),
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),

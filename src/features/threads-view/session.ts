@@ -365,7 +365,8 @@ export class ThreadsViewSession {
   }
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
-    if (this.host.openPanelActivities().some((activity) => activity.threadId === threadId && (activity.pending || activity.running))) {
+    const panelActivity = this.host.openPanelActivities().find((activity) => activity.threadId === threadId);
+    if (panelActivity?.pending || panelActivity?.running) {
       new Notice("Finish or interrupt the thread before archiving it.");
       return;
     }

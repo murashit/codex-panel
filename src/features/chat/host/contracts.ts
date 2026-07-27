@@ -51,7 +51,7 @@ export interface WorkspacePanels {
   openThreadInAvailableView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
   focusThreadInOpenView(threadId: string): Promise<boolean>;
-  threadHasPendingOrRunningPanel(threadId: string): boolean;
+  threadPanelIsBusy(threadId: string): boolean;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
   notifyPanelActivityChanged(): void;
   openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void>;

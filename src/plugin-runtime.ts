@@ -222,10 +222,9 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     }));
   }
 
-  private threadHasPendingOrRunningPanel(threadId: string): boolean {
-    return this.panels
-      .getOpenPanelSnapshots()
-      .some((snapshot) => snapshot.threadId === threadId && (snapshot.turnBusy || snapshot.pending));
+  private threadPanelIsBusy(threadId: string): boolean {
+    const snapshot = this.panels.getOpenPanelSnapshots().find((candidate) => candidate.threadId === threadId);
+    return Boolean(snapshot?.turnBusy || snapshot?.pending);
   }
 
   private threadsViews(): CodexThreadsView[] {
@@ -266,7 +265,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
         openThreadFromPanel: (threadId, originViewId, originSwitchable) =>
           this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
-        threadHasPendingOrRunningPanel: (threadId) => this.threadHasPendingOrRunningPanel(threadId),
+        threadPanelIsBusy: (threadId) => this.threadPanelIsBusy(threadId),
         openTurnDiff: (state) => this.openTurnDiff(state),
         openSideChat: (sourceThreadId, sourceThreadTitle) => this.panels.openSideChat(sourceThreadId, sourceThreadTitle),
         notifyPanelActivityChanged: () => {

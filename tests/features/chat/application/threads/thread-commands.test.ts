@@ -268,9 +268,9 @@ describe("thread management commands", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("rejects archiving a thread that is active in another panel", async () => {
+  it("rejects archiving a thread while its panel is busy", async () => {
     const host = hostMock({ items: [] });
-    vi.mocked(host.threadHasPendingOrRunningPanel).mockReturnValue(true);
+    vi.mocked(host.threadPanelIsBusy).mockReturnValue(true);
 
     await threadCommands(host).archiveThread("source");
 
@@ -919,7 +919,7 @@ function hostMock({
       return { adopted: true };
     }),
     applyThreadFact: vi.fn<ThreadCommandsHost["applyThreadFact"]>(),
-    threadHasPendingOrRunningPanel: vi.fn(() => false),
+    threadPanelIsBusy: vi.fn(() => false),
   };
 }
 

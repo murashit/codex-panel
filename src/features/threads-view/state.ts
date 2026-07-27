@@ -28,12 +28,6 @@ export interface ThreadsRowModel extends ThreadRowCoreProjection {
 export type ThreadsRenameState = ThreadRenameActiveState;
 export type ThreadsRenameLifecycleState = ThreadsRenameState | undefined;
 
-const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
-  pending: 2,
-  running: 1,
-  open: 0,
-};
-
 export function threadRows(
   threads: readonly Thread[],
   panelActivities: readonly ThreadsViewPanelActivity[],
@@ -45,11 +39,11 @@ export function threadRows(
   return [...threads]
     .sort((a, b) => threadRecencyAt(b) - threadRecencyAt(a))
     .map((thread) => {
-      const threadPanelActivities = panelActivitiesByThread.get(thread.id) ?? [];
-      const live = liveStateForPanelActivities(threadPanelActivities);
+      const threadPanelActivity = panelActivitiesByThread.get(thread.id);
+      const live = liveStateForPanelActivity(threadPanelActivity);
       const core = threadRowCoreProjection({
         thread,
-        selected: threadPanelActivities.some((activity) => activity.threadId !== null && activity.selected),
+        selected: threadPanelActivity?.selected ?? false,
         renameState: renameStates.get(thread.id),
         archiveConfirmActive: archiveConfirmThreadId === thread.id,
         defaultArchiveSaveMarkdown,
@@ -61,17 +55,9 @@ export function threadRows(
     });
 }
 
-function liveStateForPanelActivities(panelActivities: ThreadsViewPanelActivity[]): ThreadsLiveState | null {
-  const livePanelActivities = panelActivities.filter((activity) => activity.threadId !== null);
-  if (livePanelActivities.length === 0) return null;
-  const winner = [...livePanelActivities]
-    .sort((a, b) => STATUS_PRIORITY[panelActivityStatus(b)] - STATUS_PRIORITY[panelActivityStatus(a)])
-    .at(0);
-  if (!winner) return null;
-  const status = panelActivityStatus(winner);
-  return {
-    status,
-  };
+function liveStateForPanelActivity(activity: ThreadsViewPanelActivity | undefined): ThreadsLiveState | null {
+  if (!activity) return null;
+  return { status: panelActivityStatus(activity) };
 }
 
 export function transitionThreadsRenameState(
@@ -85,13 +71,11 @@ function activeThreadsRenameState(state: ThreadRenameLifecycleState): ThreadsRen
   return state.kind === "idle" ? undefined : state;
 }
 
-function panelActivitiesForThreads(panelActivities: readonly ThreadsViewPanelActivity[]): Map<string, ThreadsViewPanelActivity[]> {
-  const map = new Map<string, ThreadsViewPanelActivity[]>();
+function panelActivitiesForThreads(panelActivities: readonly ThreadsViewPanelActivity[]): Map<string, ThreadsViewPanelActivity> {
+  const map = new Map<string, ThreadsViewPanelActivity>();
   for (const activity of panelActivities) {
     if (!activity.threadId) continue;
-    const existing = map.get(activity.threadId) ?? [];
-    existing.push(activity);
-    map.set(activity.threadId, existing);
+    map.set(activity.threadId, activity);
   }
   return map;
 }

@@ -33,6 +33,7 @@ export interface ResumeCommandHost {
   recordResumedThread: (thread: Thread) => void;
   addSystemMessage: (text: string) => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
+  focusThreadInOpenView: (threadId: string) => Promise<boolean>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
 }
 
@@ -66,6 +67,9 @@ async function resumeThread(
   const initialPanelTarget = capturePanelTargetLease(host.stateStore.getState());
   let currentPanelTarget = initialPanelTarget;
   host.history.invalidate();
+  if (panelThreadId(host.stateStore.getState()) !== threadId && (await host.focusThreadInOpenView(threadId))) {
+    return false;
+  }
 
   try {
     if (!(await host.ensureConnected())) return false;

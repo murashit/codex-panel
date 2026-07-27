@@ -54,6 +54,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     recordResumedThread: vi.fn(),
     addSystemMessage: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
+    focusThreadInOpenView: vi.fn().mockResolvedValue(false),
     ...overrides,
     effects: overrides.effects ?? { resumeThread },
     ensureConnected: overrides.ensureConnected ?? vi.fn().mockResolvedValue(true),
@@ -70,6 +71,16 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
 }
 
 describe("ResumeCommand", () => {
+  it("focuses an existing owner instead of resuming in this panel", async () => {
+    const focusThreadInOpenView = vi.fn().mockResolvedValue(true);
+    const { commands, host, resumeThread } = createActions(undefined, { focusThreadInOpenView });
+
+    expect(await commands.resumeThread("thread")).toBe(false);
+    expect(focusThreadInOpenView).toHaveBeenCalledWith("thread");
+    expect(host.ensureConnected).not.toHaveBeenCalled();
+    expect(resumeThread).not.toHaveBeenCalled();
+  });
+
   it("resumes the thread and loads its latest history", async () => {
     const { commands, host, loadLatest, resumeThread, stateStore } = createActions();
 

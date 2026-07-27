@@ -37,6 +37,36 @@ describe("WorkspacePanelCoordinator", () => {
     ]);
   });
 
+  it("repairs duplicate restored thread panels before they become active", async () => {
+    const firstLeaf = leaf({ state: { threadId: "thread-1" } });
+    const duplicateLeaf = leaf({ state: { threadId: "thread-1" } });
+    const coordinator = panels(await pluginWithLeaves([firstLeaf, duplicateLeaf]));
+
+    expect(coordinator.getOpenPanelSnapshots()).toHaveLength(1);
+    expect(duplicateLeaf.setViewState).toHaveBeenCalledWith({
+      type: VIEW_TYPE_CODEX_PANEL,
+      state: { version: 1 },
+    });
+  });
+
+  it("detaches duplicate materialized thread panels while keeping the active owner", async () => {
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const firstLeaf = leaf();
+    firstLeaf.view = chatView(CodexChatView, firstLeaf);
+    vi.spyOn((firstLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "first", threadId: "thread-1" }),
+    );
+    const duplicateLeaf = leaf();
+    duplicateLeaf.view = chatView(CodexChatView, duplicateLeaf);
+    vi.spyOn((duplicateLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "duplicate", threadId: "thread-1" }),
+    );
+    const coordinator = panels(await pluginWithLeaves([firstLeaf, duplicateLeaf]));
+
+    expect(coordinator.getOpenPanelSnapshots()).toHaveLength(1);
+    expect(duplicateLeaf.detach).toHaveBeenCalledOnce();
+  });
+
   it("prefers an already open thread over an idle panel", async () => {
     const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const openLeaf = leaf();
@@ -53,6 +83,22 @@ describe("WorkspacePanelCoordinator", () => {
 
     expect(focus).toHaveBeenCalledWith("thread-1", { focus: false });
     expect(open).not.toHaveBeenCalled();
+  });
+
+  it("does not create a second panel when opening an already owned thread in a new view", async () => {
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const existingLeaf = leaf();
+    existingLeaf.view = chatView(CodexChatView, existingLeaf);
+    const existingView = existingLeaf.view as CodexChatView;
+    vi.spyOn(existingView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "existing", threadId: "thread-1" }));
+    const focus = vi.spyOn(existingView.surface, "focusThread").mockResolvedValue(undefined);
+    const plugin = await pluginWithLeaves([existingLeaf]);
+    const coordinator = panels(plugin);
+
+    await coordinator.openThreadInNewView("thread-1");
+
+    expect(focus).toHaveBeenCalledWith("thread-1", { focus: false });
+    expect(plugin.app.workspace.getRightLeaf).not.toHaveBeenCalled();
   });
 
   it("reuses only a genuinely idle empty panel", async () => {
@@ -113,60 +159,6 @@ describe("WorkspacePanelCoordinator", () => {
     expect(open).toHaveBeenCalledWith("selected-thread", { focus: false });
   });
 
-  it("does not let an older deferred-panel reveal start work after a newer intent", async () => {
-    const restoredLeaf = leaf({ state: { threadId: "restored-thread" } });
-    const plugin = await pluginWithLeaves([restoredLeaf]);
-    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(restoredLeaf);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
-    const view = chatView(CodexChatView, restoredLeaf);
-    const open = vi.spyOn(view.surface, "openThread").mockResolvedValue(undefined);
-    const firstReveal = deferred();
-    const secondReveal = deferred();
-    (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>)
-      .mockImplementationOnce(async () => {
-        await firstReveal.promise;
-        restoredLeaf.view = view;
-      })
-      .mockImplementationOnce(async () => {
-        await secondReveal.promise;
-        restoredLeaf.view = view;
-      });
-    const coordinator = panels(plugin);
-
-    const firstOpen = coordinator.openThreadInCurrentView("first");
-    const secondOpen = coordinator.openThreadInCurrentView("second");
-    secondReveal.resolve();
-    await vi.waitFor(() => expect(open).toHaveBeenCalledWith("second", { focus: false }));
-    firstReveal.resolve();
-    await Promise.all([firstOpen, secondOpen]);
-
-    expect(open).toHaveBeenCalledOnce();
-  });
-
-  it("invalidates deferred content intent when a newer operation sees the attached view", async () => {
-    const restoredLeaf = leaf({ state: { threadId: "restored-thread" } });
-    const plugin = await pluginWithLeaves([restoredLeaf]);
-    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(restoredLeaf);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
-    const view = chatView(CodexChatView, restoredLeaf);
-    const open = vi.spyOn(view.surface, "openThread").mockResolvedValue(undefined);
-    const firstReveal = deferred();
-    (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
-      restoredLeaf.view = view;
-      await firstReveal.promise;
-    });
-    const coordinator = panels(plugin);
-
-    const firstOpen = coordinator.openThreadInCurrentView("first");
-    await vi.waitFor(() => expect(restoredLeaf.view).toBe(view));
-    const secondOpen = coordinator.openThreadInCurrentView("second");
-    await vi.waitFor(() => expect(open).toHaveBeenCalledWith("second", { focus: false }));
-    firstReveal.resolve();
-    await Promise.all([firstOpen, secondOpen]);
-
-    expect(open).toHaveBeenCalledOnce();
-  });
-
   it("keeps deferred content work independent across different panels", async () => {
     const firstLeaf = leaf({ state: { threadId: "first" } });
     const secondLeaf = leaf({ state: { threadId: "second" } });
@@ -199,7 +191,7 @@ describe("WorkspacePanelCoordinator", () => {
 
     expect(firstFocusThread).toHaveBeenCalledWith("first", { focus: false });
     expect(secondFocusThread).toHaveBeenCalledWith("second", { focus: false });
-    expect(firstFocusComposer).not.toHaveBeenCalled();
+    expect(firstFocusComposer).toHaveBeenCalledOnce();
     expect(secondFocusComposer).toHaveBeenCalledOnce();
   });
 
@@ -255,7 +247,7 @@ describe("WorkspacePanelCoordinator", () => {
     expect(restoredLeaf.loadIfDeferred).toHaveBeenCalledOnce();
   });
 
-  it("lets independent new-panel requests both complete while only the latest focuses", async () => {
+  it("lets independent new-panel requests both complete", async () => {
     const firstLeaf = leaf();
     const secondLeaf = leaf();
     const leaves = [] as ReturnType<typeof leaf>[];
@@ -282,11 +274,40 @@ describe("WorkspacePanelCoordinator", () => {
 
     expect(firstOpen).toHaveBeenCalledWith("first", { focus: false });
     expect(secondOpen).toHaveBeenCalledWith("second", { focus: false });
-    expect(firstFocus).not.toHaveBeenCalled();
+    expect(firstFocus).toHaveBeenCalledOnce();
     expect(secondFocus).toHaveBeenCalledOnce();
   });
 
-  it("starts same-panel thread work in intent order before overlapping reveals settle", async () => {
+  it("serializes same-thread new-panel requests onto one owner", async () => {
+    const firstLeaf = leaf();
+    const secondLeaf = leaf();
+    const leaves = [] as ReturnType<typeof leaf>[];
+    const plugin = await pluginWithLeaves(leaves);
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(firstLeaf).mockReturnValueOnce(secondLeaf);
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const firstView = chatView(CodexChatView, firstLeaf);
+    const secondView = chatView(CodexChatView, secondLeaf);
+    vi.spyOn(firstView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "first", threadId: "same-thread" }));
+    const firstOpen = vi.spyOn(firstView.surface, "focusThread").mockResolvedValue(undefined);
+    const secondOpen = vi.spyOn(secondView.surface, "focusThread").mockResolvedValue(undefined);
+    firstLeaf.setViewState.mockImplementation(async () => {
+      firstLeaf.view = firstView;
+      leaves.push(firstLeaf);
+    });
+    secondLeaf.setViewState.mockImplementation(async () => {
+      secondLeaf.view = secondView;
+      leaves.push(secondLeaf);
+    });
+    const coordinator = panels(plugin);
+
+    await Promise.all([coordinator.openThreadInNewView("same-thread"), coordinator.openThreadInNewView("same-thread")]);
+
+    expect(firstOpen).toHaveBeenCalledWith("same-thread", { focus: false });
+    expect(secondOpen).not.toHaveBeenCalled();
+    expect(secondLeaf.setViewState).not.toHaveBeenCalled();
+  });
+
+  it("allows overlapping same-panel thread work to finish", async () => {
     const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const panelLeaf = leaf();
     panelLeaf.view = chatView(CodexChatView, panelLeaf);
@@ -313,7 +334,7 @@ describe("WorkspacePanelCoordinator", () => {
     firstReveal.resolve();
     await Promise.all([firstOpen, secondOpen]);
 
-    expect(focus).toHaveBeenCalledOnce();
+    expect(focus).toHaveBeenCalledTimes(2);
   });
 
   it("opens a thread in a new panel without a separate pre-connect", async () => {
