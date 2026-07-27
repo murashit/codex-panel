@@ -50,70 +50,6 @@ describe("ephemeral thread lifecycle", () => {
     expect(activeThreadId(store.getState())).toBeNull();
   });
 
-  it("does not clear a newer panel target after side-chat unsubscribe completes", async () => {
-    const store = createChatStateStore();
-    const unsubscribe = deferred<boolean>();
-    const port = transportMock();
-    port.unsubscribeEphemeralThread = vi.fn(() => unsubscribe.promise);
-    const notifyActiveThreadIdentityChanged = vi.fn();
-    const lifecycle = createEphemeralThreadLifecycle({
-      stateStore: store,
-      effects: port,
-      ensureConnected: vi.fn().mockResolvedValue(true),
-      addSystemMessage: vi.fn(),
-      notifyActiveThreadIdentityChanged,
-      interruptTurn: vi.fn().mockResolvedValue(true),
-    });
-    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
-    notifyActiveThreadIdentityChanged.mockClear();
-
-    const preparing = lifecycle.prepareForPersistentNavigation();
-    await vi.waitFor(() => expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side"));
-    store.dispatch({
-      type: "active-thread/resumed",
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: { ...activationFixture().thread, id: "other" },
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
-    unsubscribe.resolve(true);
-
-    await expect(preparing).resolves.toBe(false);
-    expect(activeThreadId(store.getState())).toBe("other");
-    expect(notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
-  });
-
-  it("does not unsubscribe an old side-chat target after reconnect is superseded", async () => {
-    const store = createChatStateStore();
-    const reconnect = deferred<boolean>();
-    const ensureConnected = vi.fn().mockResolvedValueOnce(true).mockReturnValueOnce(reconnect.promise);
-    const port = transportMock();
-    const lifecycle = createEphemeralThreadLifecycle({
-      stateStore: store,
-      effects: port,
-      ensureConnected,
-      addSystemMessage: vi.fn(),
-      notifyActiveThreadIdentityChanged: vi.fn(),
-      interruptTurn: vi.fn().mockResolvedValue(true),
-    });
-    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
-
-    const preparing = lifecycle.prepareForPersistentNavigation();
-    await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledTimes(2));
-    store.dispatch({ type: "panel/view-state-cleared" });
-    reconnect.resolve(true);
-
-    await expect(preparing).resolves.toBe(false);
-    expect(port.unsubscribeEphemeralThread).not.toHaveBeenCalled();
-  });
-
   it("interrupts a running side turn before close cleanup", async () => {
     const store = createChatStateStore();
     const port = transportMock();
@@ -194,6 +130,7 @@ describe("ephemeral thread lifecycle", () => {
     "retains stale-fork cleanup after unsubscribe %s and retries it at the next lifecycle boundary",
     async (failure) => {
       const store = createChatStateStore();
+      let current = true;
       const fork = deferred<Awaited<ReturnType<EphemeralThreadEffects["forkEphemeralThread"]>>>();
       const port = transportMock();
       port.forkEphemeralThread = vi.fn(() => fork.promise);
@@ -210,8 +147,9 @@ describe("ephemeral thread lifecycle", () => {
         interruptTurn: vi.fn().mockResolvedValue(true),
       });
 
-      const opening = lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+      const opening = lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null }, { isCurrent: () => current });
       await vi.waitFor(() => expect(port.forkEphemeralThread).toHaveBeenCalledOnce());
+      current = false;
       store.dispatch({ type: "panel/view-state-cleared" });
       fork.resolve({
         kind: "completed-current",

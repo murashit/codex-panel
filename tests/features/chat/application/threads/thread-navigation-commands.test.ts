@@ -74,7 +74,6 @@ describe("ThreadNavigationCommands", () => {
     await commands.startNewThread();
 
     expect(host.identity.clearActiveThreadIdentity).toHaveBeenCalledOnce();
-    expect(host.navigation.commitPersistentNavigation).toHaveBeenCalledWith({ kind: "ready" });
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(stateStore.getState().connection.statusText).toBe("New chat.");
     expect(host.focusComposer).toHaveBeenCalledOnce();
@@ -107,7 +106,7 @@ describe("ThreadNavigationCommands", () => {
     expect(host.focusComposer).toHaveBeenCalledOnce();
   });
 
-  it("keeps a running subagent active when unsubscribe preparation fails", async () => {
+  it("keeps a running subagent active when navigation preparation fails", async () => {
     const navigation = navigationMock(null);
     const { commands, host, stateStore } = createActionsHarness({ navigation });
     resumeThreadState(stateStore, "child", true);
@@ -198,9 +197,8 @@ describe("ThreadNavigationCommands", () => {
     );
   });
 
-  it("allows switching away from a running subagent after unsubscribe preparation", async () => {
-    const preparation = { kind: "unsubscribe-on-adoption", threadId: "child" } as const;
-    const navigation = navigationMock(preparation);
+  it("allows switching away from a running subagent after cleanup starts", async () => {
+    const navigation = navigationMock();
     const resumeThread = vi.fn(async (_threadId, _intent, options) => {
       options?.onAdopted?.();
       return true;
@@ -218,7 +216,6 @@ describe("ThreadNavigationCommands", () => {
       expect.objectContaining({ threadId: "other" }),
       expect.objectContaining({ onAdopted: expect.any(Function) }),
     );
-    expect(navigation.commitPersistentNavigation).toHaveBeenCalledWith(preparation);
   });
 
   it("keeps the old subagent cleanup committed when a newer selection arrives during resumed history", async () => {

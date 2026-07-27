@@ -66,7 +66,7 @@ Cleanup obligations created by a committed state transition must survive the UI 
 
 Prefer interface structure and state over explanatory copy. Add text only for irreducible information that materially helps users decide, act, or recover; do not expose implementation concepts merely to explain current behavior.
 
-Subagent threads opened from agent activity remain persistent and restorable but stay outside ordinary thread history. Use the app-server direct-input capability when available, falling back to read-only subagent panels for older servers, while preserving parent and agent provenance for other specialized behavior.
+Subagent threads opened from agent activity are temporary panels and stay outside ordinary thread history. They are not persisted as panel targets, and once navigation adopts another target, leaving one schedules best-effort unsubscribe cleanup with retry at later lifecycle boundaries. Use the app-server direct-input capability when available, falling back to read-only subagent panels for older servers, while preserving parent and agent provenance for activity rendering and panel policy.
 
 Mode-derived restrictions for the active panel thread must remain consistent across actions and UI. Keep connection state, turn busy state, and operations targeting another listed thread in their owning workflows.
 

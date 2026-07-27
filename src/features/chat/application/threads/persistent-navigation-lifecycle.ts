@@ -1,6 +1,5 @@
 import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { chatTurnBusy } from "../turns/turn-state";
 import type { EphemeralThreadLifecycle } from "./ephemeral-thread-lifecycle";
 
 export interface PersistentNavigationLifecycle {
@@ -48,6 +47,7 @@ export function createPersistentNavigationLifecycle(host: PersistentNavigationLi
   return {
     async prepareForPersistentNavigation(targetThreadId): Promise<PersistentNavigationPreparation | null> {
       retryPendingUnsubscribes();
+      if (targetThreadId !== null && pendingUnsubscribes.has(targetThreadId)) return null;
       const state = host.stateStore.getState();
       const active = activeThreadState(state);
       if (!active || active.id === targetThreadId) return { kind: "ready" };
@@ -55,7 +55,7 @@ export function createPersistentNavigationLifecycle(host: PersistentNavigationLi
       if (active.lifetime?.kind === "ephemeral") {
         return (await host.ephemeral.prepareForPersistentNavigation()) ? { kind: "ready" } : null;
       }
-      if (active.provenance?.kind !== "subagent" || !chatTurnBusy(state)) return { kind: "ready" };
+      if (active.provenance?.kind !== "subagent") return { kind: "ready" };
       return { kind: "unsubscribe-on-adoption", threadId: active.id };
     },
 

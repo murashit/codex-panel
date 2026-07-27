@@ -1,6 +1,12 @@
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
-import { activeThreadState, awaitingResumeThreadState, type ChatState, panelThreadId } from "../../application/state/root-reducer";
+import {
+  activeThreadState,
+  awaitingResumeThreadState,
+  type ChatState,
+  panelThreadId,
+  panelThreadProvenance,
+} from "../../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { chatTurnBusy } from "../../application/turns/turn-state";
@@ -59,6 +65,7 @@ export class ChatPanelSession implements ChatPanelHandle {
         ephemeralSource: { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle },
       };
     }
+    if (panelThreadProvenance(this.state)?.kind === "subagent") return { version: 1 };
     const threadId = this.panelThreadId();
     if (!threadId) return { version: 1 };
 
@@ -217,7 +224,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       const opened = await this.runtime.thread.ephemeral.open(input, {
         isCurrent: () => this.resumeWork.isCurrent(intent),
       });
-      if (!opened || !this.resumeWork.isCurrent(intent)) return false;
+      if (!opened) return false;
       if (options.focus !== false) this.focusComposer();
       return true;
     } finally {
