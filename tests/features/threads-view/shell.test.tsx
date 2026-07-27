@@ -91,6 +91,26 @@ describe("threads view renderer decisions", () => {
     expect(parent.querySelector(".codex-panel-threads__status")).toBeNull();
   });
 
+  it("uses one state row layout for loading and empty thread lists", () => {
+    const parent = document.createElement("div");
+
+    renderThreadsViewShell(
+      parent,
+      { status: { kind: "loading", message: "Loading threads..." }, loading: true, rows: [] },
+      threadsViewActions(),
+    );
+
+    const loading = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__state"));
+    expect(loading.classList.contains("codex-panel-threads__status")).toBe(true);
+    expect(loading.getAttribute("role")).toBe("status");
+
+    renderThreadsViewShell(parent, { status: null, loading: false, rows: [] }, threadsViewActions());
+
+    const empty = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__state"));
+    expect(empty.classList.contains("codex-panel-threads__empty")).toBe(true);
+    expect(empty.getAttribute("role")).toBeNull();
+  });
+
   it("prioritizes open panel live state per thread", () => {
     expect(
       threadRows(

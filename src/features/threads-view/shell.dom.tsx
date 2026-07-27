@@ -66,20 +66,7 @@ function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; ac
       </div>
       <div className="codex-panel-threads__list">
         {model.rows.length === 0 ? (
-          model.status ? (
-            <div
-              className={
-                model.status.kind === "error"
-                  ? "codex-panel-threads__status codex-panel-threads__status--error"
-                  : "codex-panel-threads__status"
-              }
-              role="status"
-            >
-              {model.status.message}
-            </div>
-          ) : (
-            <div className="codex-panel-threads__empty">No threads</div>
-          )
+          <ThreadsViewState status={model.status} />
         ) : (
           <>
             {model.rows.map((row) => (
@@ -99,6 +86,21 @@ function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; ac
         )}
       </div>
     </>
+  );
+}
+
+function ThreadsViewState({ status }: { status: ThreadsViewShellModel["status"] }): UiNode {
+  const className = [
+    "codex-panel-threads__state",
+    status ? "codex-panel-threads__status" : "codex-panel-threads__empty",
+    status?.kind === "error" ? "codex-panel-threads__status--error" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <div className={className} role={status ? "status" : undefined}>
+      {status?.message ?? "No threads"}
+    </div>
   );
 }
 

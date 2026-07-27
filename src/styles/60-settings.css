@@ -28,18 +28,22 @@
   overflow: auto;
 }
 
-.setting-item.codex-panel-settings__declarative-section-island {
+.codex-panel-settings .setting-items > .setting-item.codex-panel-settings__declarative-section-island {
   display: block;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-.setting-item.codex-panel-settings__declarative-section-island:empty {
+.codex-panel-settings .setting-items > .setting-item.codex-panel-settings__declarative-section-island:empty {
   display: none;
 }
 
 .codex-panel-settings__dynamic-section-heading + .codex-panel-settings__dynamic-list {
+  margin-top: 0;
+}
+
+.codex-panel-settings .setting-item.codex-panel-settings__declarative-section-island > .codex-panel-settings__dynamic-list {
   margin-top: 0;
 }
 

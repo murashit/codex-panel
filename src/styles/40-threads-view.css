@@ -6,28 +6,18 @@
   font-family: var(--font-interface);
 }
 
-.codex-panel-threads__status,
-.codex-panel-threads__empty {
-  color: var(--codex-panel-text-muted);
-  font-size: var(--font-ui-smaller);
-  line-height: var(--line-height-tight);
-}
-
-.codex-panel-threads__status {
-  padding: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
-  overflow-wrap: anywhere;
-}
-
-.codex-panel-threads__status--error {
-  color: var(--codex-panel-color-danger);
-}
-
-.codex-panel-threads__empty {
+.codex-panel-threads__state {
   box-sizing: border-box;
   min-height: var(--codex-panel-size-nav-item);
   padding: var(--nav-item-padding, var(--codex-panel-control-gap) var(--codex-panel-item-gap));
   color: var(--codex-panel-text-faint);
   font-size: var(--font-ui-small);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+.codex-panel-threads__status--error {
+  color: var(--codex-panel-color-danger);
 }
 
 .codex-panel-threads__toolbar {
@@ -150,7 +140,7 @@
 
 .codex-panel-threads__row:hover .codex-panel-threads__actions,
 .codex-panel-threads__row:focus-within .codex-panel-threads__actions {
-  gap: var(--codex-panel-item-gap);
+  gap: var(--codex-panel-panel-gap);
   width: auto;
   overflow: visible;
   pointer-events: auto;
@@ -180,7 +170,7 @@
 }
 
 .codex-panel-threads__rename-actions {
-  gap: var(--codex-panel-item-gap);
+  gap: var(--codex-panel-panel-gap);
   width: auto;
   overflow: visible;
   pointer-events: auto;
@@ -188,7 +178,7 @@
 }
 
 .codex-panel-threads__row--archive-confirming .codex-panel-threads__actions {
-  gap: var(--codex-panel-item-gap);
+  gap: var(--codex-panel-panel-gap);
   width: auto;
   overflow: visible;
   pointer-events: auto;
