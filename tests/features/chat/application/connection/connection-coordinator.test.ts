@@ -148,6 +148,33 @@ describe("ChatConnectionCoordinator", () => {
     expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
   });
 
+  it("refreshes diagnostics and active threads concurrently for the status panel", async () => {
+    const { coordinator, host, refreshServerDiagnostics } = createCoordinatorHarness({ connected: true });
+    const diagnostics = deferred<void>();
+    const threads = deferred<void>();
+    refreshServerDiagnostics.mockReturnValueOnce(diagnostics.promise);
+    vi.mocked(host.refreshSharedThreads).mockReturnValueOnce(threads.promise);
+
+    const refreshing = coordinator.refreshStatusPanel();
+    await Promise.resolve();
+
+    expect(refreshServerDiagnostics).toHaveBeenCalledOnce();
+    expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
+
+    diagnostics.resolve(undefined);
+    await Promise.resolve();
+    threads.resolve(undefined);
+    await refreshing;
+  });
+
+  it("refreshes active threads after status refresh establishes a connection", async () => {
+    const { coordinator, host } = createCoordinatorHarness();
+
+    await coordinator.refreshStatusPanel();
+
+    expect(host.refreshSharedThreads).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps the initialized connection usable when metadata hydration fails", async () => {
     const { coordinator, host, refreshAppServerMetadata, stateStore } = createCoordinatorHarness();
     refreshAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));

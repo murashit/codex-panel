@@ -142,12 +142,16 @@ async function refreshStatusPanel(
   host: ChatConnectionCoordinatorHost,
   coordinator: Pick<ChatConnectionCoordinator, "refreshActiveThreads" | "refreshDiagnostics">,
 ): Promise<void> {
-  try {
-    await coordinator.refreshDiagnostics();
-  } catch (error) {
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
+  const refreshDiagnostics = (): Promise<void> =>
+    coordinator.refreshDiagnostics().catch((error: unknown) => {
+      host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    });
+  if (!host.connection.isConnected()) {
+    await refreshDiagnostics();
+    await coordinator.refreshActiveThreads();
+    return;
   }
-  await coordinator.refreshActiveThreads();
+  await Promise.all([refreshDiagnostics(), coordinator.refreshActiveThreads()]);
 }
 
 async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale: () => boolean): Promise<void> {
