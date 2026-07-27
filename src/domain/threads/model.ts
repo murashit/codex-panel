@@ -26,6 +26,10 @@ export type ThreadProvenance =
       readonly agentRole: string | null;
     };
 
+export function isThreadVisibleInCatalog(thread: Pick<Thread, "provenance">): boolean {
+  return thread.provenance.kind === "interactive";
+}
+
 export function explicitThreadName(thread: Thread): string | null {
   return normalizeExplicitThreadName(thread.name);
 }

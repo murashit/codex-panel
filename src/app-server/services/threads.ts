@@ -144,10 +144,11 @@ export async function readThreadPage(
     ...options,
     archived,
   });
+  const threads = threadsFromThreadRecords(page.data, { archived });
   return {
-    threads: threadsFromThreadRecords(page.data, { archived }),
+    threads,
     nextCursor: page.nextCursor ?? null,
-    fetchedSize: page.data.length,
+    fetchedSize: threads.length,
   };
 }
 

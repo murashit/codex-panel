@@ -70,7 +70,10 @@ function finiteNumberOrNull(value: unknown): number | null {
 }
 
 export function threadsFromThreadRecords(threads: readonly ThreadRecord[], options: { archived?: boolean } = {}): Thread[] {
-  return threads.map((thread) => threadFromThreadRecord(thread, options));
+  return threads.flatMap((thread) => {
+    if (thread.ephemeral === true || threadProvenance(thread).kind === "subagent") return [];
+    return [threadFromThreadRecord(thread, options)];
+  });
 }
 
 function normalizeString(value: string): string {

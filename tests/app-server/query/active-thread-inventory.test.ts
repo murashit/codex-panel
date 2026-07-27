@@ -19,6 +19,12 @@ describe("active thread inventory", () => {
     expect(activeThreadsFromData(data)?.map((item) => item.id)).toEqual(["newer", "same", "older"]);
   });
 
+  it("keeps subagent threads out of the catalog inventory", () => {
+    expect(
+      activeThreadsFromData(inventory([page([thread("interactive", 2), subagent("child", 3)], null, 2)]))?.map((item) => item.id),
+    ).toEqual(["interactive"]);
+  });
+
   it("keeps the fetched recent window while retaining at least one thread", () => {
     expect(
       recentActiveThreadsFromData(inventory([page([thread("first", 5), thread("second", 4)], null, 1)]))?.map((item) => item.id),
@@ -111,5 +117,20 @@ function thread(id: string, recencyAt: number): Thread {
     updatedAt: 1,
     recencyAt,
     provenance: { kind: "interactive" },
+  };
+}
+
+function subagent(id: string, recencyAt: number): Thread {
+  return {
+    ...thread(id, recencyAt),
+    provenance: {
+      kind: "subagent",
+      subagentKind: "thread-spawn",
+      parentThreadId: "parent",
+      sessionId: null,
+      depth: 1,
+      agentNickname: null,
+      agentRole: null,
+    },
   };
 }

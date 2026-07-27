@@ -46,6 +46,28 @@ describe("app-server thread response adapters", () => {
     });
   });
 
+  it("excludes subagent and ephemeral records from thread lists", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({
+        data: [
+          { id: "interactive", preview: "Keep", name: null, createdAt: 1, updatedAt: 1 },
+          {
+            id: "child",
+            preview: "Hide",
+            name: null,
+            createdAt: 1,
+            updatedAt: 1,
+            parentThreadId: "parent",
+            source: { subAgent: { thread_spawn: { parent_thread_id: "parent" } } },
+          },
+          { id: "side", preview: "Hide", name: null, createdAt: 1, updatedAt: 1, ephemeral: true },
+        ],
+      }),
+    } as unknown as AppServerRequestClient;
+
+    await expect(listThreads(client, "/vault")).resolves.toMatchObject([{ id: "interactive" }]);
+  });
+
   it("preserves direct-input capability from app-server threads", () => {
     const thread = threadFromAppServerRecord({
       id: "thread",

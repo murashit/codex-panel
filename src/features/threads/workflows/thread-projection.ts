@@ -1,5 +1,5 @@
 import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../../domain/threads/catalog-read-model";
-import type { Thread } from "../../../domain/threads/model";
+import { isThreadVisibleInCatalog, type Thread } from "../../../domain/threads/model";
 import type { ThreadFact } from "./thread-facts";
 
 interface ThreadReadModelSnapshots {
@@ -28,7 +28,7 @@ function threadListChangesForFact(
 ): ThreadCatalogChange[] {
   switch (fact.type) {
     case "thread-upserted":
-      return [{ kind: "upsert", list: "active", thread: { ...fact.thread, archived: false } }];
+      return isThreadVisibleInCatalog(fact.thread) ? [{ kind: "upsert", list: "active", thread: { ...fact.thread, archived: false } }] : [];
     case "thread-renamed":
       return [
         { kind: "update", list: "active", threadId: fact.threadId, changes: { name: fact.name } },
@@ -49,10 +49,12 @@ function threadListChangesForFact(
         { kind: "remove", list: "archived", threadId: fact.threadId },
       ];
     case "thread-restored":
-      return [
-        { kind: "upsert", list: "active", thread: { ...fact.thread, archived: false } },
-        { kind: "remove", list: "archived", threadId: fact.thread.id },
-      ];
+      return isThreadVisibleInCatalog(fact.thread)
+        ? [
+            { kind: "upsert", list: "active", thread: { ...fact.thread, archived: false } },
+            { kind: "remove", list: "archived", threadId: fact.thread.id },
+          ]
+        : [];
     case "thread-unarchived": {
       const thread = threadById(snapshots.archived, fact.threadId);
       return [

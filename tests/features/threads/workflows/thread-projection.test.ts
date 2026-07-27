@@ -32,6 +32,15 @@ describe("thread projection", () => {
     expect(archived).toEqual([]);
   });
 
+  it("does not project subagent facts into the thread catalog", () => {
+    expect(
+      projectThreadFacts({ activeThreadsSnapshot: () => [], archivedThreadsSnapshot: () => [] }, [
+        { type: "thread-upserted", thread: subagent("child") },
+        { type: "thread-restored", thread: subagent("restored") },
+      ]),
+    ).toEqual([]);
+  });
+
   it("requests revalidation when a fact needs a record absent from the snapshot", () => {
     expect(
       projectThreadFacts({ activeThreadsSnapshot: () => null, archivedThreadsSnapshot: () => null }, [
@@ -104,5 +113,20 @@ function thread(id: string, archived = false): Thread {
     createdAt: 1,
     updatedAt: 1,
     provenance: { kind: "interactive" },
+  };
+}
+
+function subagent(id: string): Thread {
+  return {
+    ...thread(id),
+    provenance: {
+      kind: "subagent",
+      subagentKind: "thread-spawn",
+      parentThreadId: "parent",
+      sessionId: null,
+      depth: 1,
+      agentNickname: null,
+      agentRole: null,
+    },
   };
 }

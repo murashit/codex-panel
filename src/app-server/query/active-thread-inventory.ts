@@ -1,6 +1,6 @@
 import type { InfiniteData } from "@tanstack/query-core";
 import { type ThreadCatalogChange, threadCatalogEntryEqual } from "../../domain/threads/catalog-read-model";
-import { type Thread, threadRecencyAt } from "../../domain/threads/model";
+import { isThreadVisibleInCatalog, type Thread, threadRecencyAt } from "../../domain/threads/model";
 import type { ThreadPage } from "../services/threads";
 
 export type ActiveThreadCursor = string | null;
@@ -66,6 +66,7 @@ function threadCatalogUpdateChangesEntry(thread: Thread, change: Extract<ThreadC
 function orderedUniqueThreads(threads: readonly Thread[]): readonly Thread[] {
   const seen = new Set<string>();
   return threads
+    .filter((thread) => isThreadVisibleInCatalog(thread))
     .filter((thread) => {
       if (seen.has(thread.id)) return false;
       seen.add(thread.id);

@@ -1,4 +1,4 @@
-import type { Thread } from "./model";
+import { isThreadVisibleInCatalog, type Thread } from "./model";
 
 export type ThreadCatalogList = "active" | "archived";
 
@@ -18,6 +18,7 @@ export function applyThreadCatalogChange(snapshot: readonly Thread[] | null, cha
     case "revalidate":
       return snapshot;
     case "upsert": {
+      if (!isThreadVisibleInCatalog(change.thread)) return snapshot;
       if (!snapshot) return null;
       const index = snapshot.findIndex((thread) => thread.id === change.thread.id);
       if (index < 0) return [change.thread, ...snapshot];
