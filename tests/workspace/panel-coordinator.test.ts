@@ -28,6 +28,101 @@ describe("WorkspacePanelCoordinator", () => {
     expect(panelLeaf.loadIfDeferred).not.toHaveBeenCalled();
   });
 
+  it("creates and connects a side panel when no panel is available", async () => {
+    const leaves = [] as ReturnType<typeof leaf>[];
+    const plugin = await pluginWithLeaves(leaves);
+    const panelLeaf = leaf();
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const view = chatView(CodexChatView, panelLeaf);
+    panelLeaf.view = view;
+    const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
+    const focus = vi.spyOn(view.surface, "focusComposer");
+    (plugin.app.workspace.ensureSideLeaf as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      leaves.push(panelLeaf);
+      return panelLeaf;
+    });
+
+    const activated = await panels(plugin).activateView();
+
+    expect(activated).toBe(view);
+    expect(plugin.app.workspace.ensureSideLeaf).toHaveBeenCalledWith(VIEW_TYPE_CODEX_PANEL, "right", {
+      active: false,
+      reveal: false,
+    });
+    expect(connect).toHaveBeenCalledOnce();
+    expect(focus).toHaveBeenCalledWith({ force: true });
+  });
+
+  it("does not connect a panel that was replaced during reveal", async () => {
+    const leaves = [] as ReturnType<typeof leaf>[];
+    const plugin = await pluginWithLeaves(leaves);
+    const panelLeaf = leaf();
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const view = chatView(CodexChatView, panelLeaf);
+    panelLeaf.view = view;
+    const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
+    const focus = vi.spyOn(view.surface, "focusComposer");
+    (plugin.app.workspace.ensureSideLeaf as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      leaves.push(panelLeaf);
+      return panelLeaf;
+    });
+    (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      leaves.splice(0, 1);
+    });
+
+    await expect(panels(plugin).activateView()).resolves.toBeNull();
+
+    expect(connect).not.toHaveBeenCalled();
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it("supports creating an unfocused, disconnected panel with persisted state", async () => {
+    const leaves = [] as ReturnType<typeof leaf>[];
+    const plugin = await pluginWithLeaves(leaves);
+    const panelLeaf = leaf();
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const view = chatView(CodexChatView, panelLeaf);
+    const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
+    const focus = vi.spyOn(view.surface, "focusComposer");
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(panelLeaf);
+    panelLeaf.setViewState.mockImplementation(async () => {
+      panelLeaf.view = view;
+      leaves.push(panelLeaf);
+    });
+
+    await expect(
+      panels(plugin).activateNewView({ connect: false, focus: false, state: { version: 2, threadId: "thread-1" } }),
+    ).resolves.toBe(view);
+
+    expect(panelLeaf.setViewState).toHaveBeenCalledWith({
+      type: VIEW_TYPE_CODEX_PANEL,
+      active: false,
+      state: { version: 2, threadId: "thread-1" },
+    });
+    expect(connect).not.toHaveBeenCalled();
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates concurrent restored-panel loads for each leaf", async () => {
+    const firstLeaf = leaf({ state: { threadId: "first" } });
+    const secondLeaf = leaf({ state: { threadId: "second" } });
+    const firstLoad = deferred();
+    const secondLoad = deferred();
+    firstLeaf.loadIfDeferred.mockReturnValue(firstLoad.promise);
+    secondLeaf.loadIfDeferred.mockReturnValue(secondLoad.promise);
+    const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
+    const coordinator = panels(plugin);
+
+    coordinator.reconcileWorkspacePanels(null, { loadRestoredLeaves: true });
+    coordinator.reconcileWorkspacePanels(null, { loadRestoredLeaves: true });
+
+    expect(firstLeaf.loadIfDeferred).toHaveBeenCalledOnce();
+    expect(secondLeaf.loadIfDeferred).toHaveBeenCalledOnce();
+    firstLoad.resolve();
+    secondLoad.resolve();
+    await Promise.all([firstLoad.promise, secondLoad.promise]);
+  });
+
   it("includes deferred restored panels in snapshots", async () => {
     const restoredLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
     const coordinator = panels(await pluginWithLeaves([restoredLeaf]));

@@ -6,9 +6,10 @@ import type { ThreadPickerController } from "../src/features/thread-picker/modal
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import { StaleExecutionRuntimeError } from "../src/shared/runtime/execution-runtime-lifetime";
 
-const { openThreadPickerMock, withShortLivedAppServerClientMock } = vi.hoisted(() => ({
+const { openThreadPickerMock, withShortLivedAppServerClientMock, runEphemeralStructuredTurnMock } = vi.hoisted(() => ({
   openThreadPickerMock: vi.fn(),
   withShortLivedAppServerClientMock: vi.fn(),
+  runEphemeralStructuredTurnMock: vi.fn(),
 }));
 
 vi.mock("../src/features/thread-picker/modal.obsidian", () => ({
@@ -19,10 +20,16 @@ vi.mock("../src/app-server/connection/short-lived-client", () => ({
   withShortLivedAppServerClient: withShortLivedAppServerClientMock,
 }));
 
+vi.mock("../src/app-server/services/ephemeral-structured-turn", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/app-server/services/ephemeral-structured-turn")>()),
+  runEphemeralStructuredTurn: runEphemeralStructuredTurnMock,
+}));
+
 describe("CodexExecutionRuntime", () => {
   beforeEach(() => {
     openThreadPickerMock.mockReset();
     withShortLivedAppServerClientMock.mockReset();
+    runEphemeralStructuredTurnMock.mockReset();
   });
 
   describe("thread picker ownership", () => {
@@ -103,6 +110,59 @@ describe("CodexExecutionRuntime", () => {
     rejectOperation(new Error("Disconnected"));
 
     await expect(request).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+  });
+
+  it("disconnects a client created after the runtime is disposed", async () => {
+    let runtime!: CodexExecutionRuntime;
+    const client = { disconnect: vi.fn(), request: vi.fn() };
+    withShortLivedAppServerClientMock.mockImplementation(
+      async (
+        _codexPath: string,
+        _vaultPath: string,
+        _operation: unknown,
+        _options: unknown,
+        lifecycle: { created(appServerClient: typeof client): void },
+      ) => {
+        runtime.dispose();
+        lifecycle.created(client);
+      },
+    );
+    runtime = executionRuntime();
+
+    await expect(runtime.withClient(() => Promise.resolve("unused"))).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+
+    expect(client.disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("aborts an in-flight structured turn when the runtime is disposed", async () => {
+    runEphemeralStructuredTurnMock.mockImplementation(
+      ({ signal }: { signal?: AbortSignal }) =>
+        new Promise<never>((_resolve, reject) => {
+          const abort = () => reject(new Error("structured turn aborted"));
+          if (signal?.aborted) {
+            abort();
+            return;
+          }
+          signal?.addEventListener("abort", abort, { once: true });
+        }),
+    );
+    const runtime = executionRuntime();
+    const request = runtime.selectionRewritePort().generate({
+      prompt: "Rewrite this.",
+      runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
+      onActivity: vi.fn(),
+      onPreview: vi.fn(),
+      signal: new AbortController().signal,
+    });
+    await vi.waitFor(() => expect(runEphemeralStructuredTurnMock).toHaveBeenCalledOnce());
+
+    runtime.dispose();
+
+    await expect(request).rejects.toThrow("structured turn aborted");
+    expect(runEphemeralStructuredTurnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ codexPath: "codex", cwd: "/vault", prompt: "Rewrite this." }),
+      expect.anything(),
+    );
   });
 });
 
