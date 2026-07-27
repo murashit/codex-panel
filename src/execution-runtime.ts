@@ -288,11 +288,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       referenceActiveNoteOnSend: () => this.options.settings().referenceActiveNoteOnSend,
       attachmentFolder: () => this.options.settings().attachmentFolder,
       archiveExportEnabled: () => this.options.settings().archiveExportEnabled,
-      archiveExportSettings: () => ({
-        archiveExportFolderTemplate: this.options.settings().archiveExportFolderTemplate,
-        archiveExportFilenameTemplate: this.options.settings().archiveExportFilenameTemplate,
-        archiveExportTags: this.options.settings().archiveExportTags,
-      }),
+      archiveExportSettings: () => this.archiveExportSettings(),
       scrollThreadFromComposerEdges: () => this.options.settings().scrollThreadFromComposerEdges,
       sendShortcut: () => this.options.settings().sendShortcut,
       showToolbar: () => this.options.settings().showToolbar,
@@ -302,11 +298,16 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private threadsSettings(): ThreadsViewSettingsAccess {
     return {
       archiveExportEnabled: () => this.options.settings().archiveExportEnabled,
-      archiveExportSettings: () => ({
-        archiveExportFolderTemplate: this.options.settings().archiveExportFolderTemplate,
-        archiveExportFilenameTemplate: this.options.settings().archiveExportFilenameTemplate,
-        archiveExportTags: this.options.settings().archiveExportTags,
-      }),
+      archiveExportSettings: () => this.archiveExportSettings(),
+    };
+  }
+
+  private archiveExportSettings() {
+    const settings = this.options.settings();
+    return {
+      archiveExportFolderTemplate: settings.archiveExportFolderTemplate,
+      archiveExportFilenameTemplate: settings.archiveExportFilenameTemplate,
+      archiveExportTags: settings.archiveExportTags,
     };
   }
 }

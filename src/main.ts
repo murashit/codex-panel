@@ -36,14 +36,13 @@ export default class CodexPanelPlugin extends Plugin {
       }),
     );
 
-    this.addRibbonIcon("bot-message-square", "Open panel", () => {
-      void this.runtime.activatePanel().catch(reportCommandError);
-    });
+    const openPanel = () => void this.runtime.activatePanel().catch(reportCommandError);
+    this.addRibbonIcon("bot-message-square", "Open panel", openPanel);
 
     this.addCommand({
       id: "open-panel",
       name: "Open panel",
-      callback: () => void this.runtime.activatePanel().catch(reportCommandError),
+      callback: openPanel,
     });
 
     this.addCommand({

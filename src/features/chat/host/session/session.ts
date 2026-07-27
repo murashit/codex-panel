@@ -48,7 +48,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (this.pendingEphemeralSource || activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
       return "Side chat";
     }
-    return threadWindowTitle(this.panelThreadId(), this.sharedThreads(), this.restoredThreadTitle());
+    return threadWindowTitle(panelThreadId(this.state), this.sharedThreads(), this.restoredThreadTitle());
   }
 
   persistedState(): Record<string, unknown> {
@@ -66,7 +66,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       };
     }
     if (panelThreadProvenance(this.state)?.kind === "subagent") return { version: 1 };
-    const threadId = this.panelThreadId();
+    const threadId = panelThreadId(this.state);
     if (!threadId) return { version: 1 };
 
     const threadTitle = this.restoredThreadTitle() ?? this.activeThreadTitle();
@@ -147,7 +147,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async focusThread(threadId: string | null = null, options: { focus?: boolean } = {}): Promise<void> {
-    const restoredThread = this.restoredThread();
+    const restoredThread = awaitingResumeThreadState(this.state);
     const restoredThreadId = restoredThread?.threadId ?? null;
     if ((threadId && this.runtime.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
       await this.ensureRestoredThreadLoaded();
@@ -324,18 +324,10 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   private restoredThreadTitle(): string | null {
-    const restoredThread = this.restoredThread();
+    const restoredThread = awaitingResumeThreadState(this.state);
     if (!restoredThread) return null;
     const listedThread = this.sharedThreads().find((thread) => thread.id === restoredThread.threadId);
     return listedThread ? threadMeaningfulTitle(listedThread) : restoredThread.fallbackTitle;
-  }
-
-  private restoredThread(): ReturnType<typeof awaitingResumeThreadState> {
-    return awaitingResumeThreadState(this.state);
-  }
-
-  private panelThreadId(): string | null {
-    return panelThreadId(this.state);
   }
 
   private sharedThreads() {
