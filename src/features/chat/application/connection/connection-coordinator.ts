@@ -53,8 +53,8 @@ function handleChatConnectionExit(host: ChatConnectionExitHost): void {
 }
 
 export interface ChatConnectionCoordinator {
-  ensureInitialized(): Promise<void>;
   ensureConnected(): Promise<void>;
+  ensureHydrated(): Promise<void>;
   invalidate(): void;
   handleExit(): void;
   refreshActiveThreads(): Promise<void>;
@@ -87,13 +87,13 @@ export function createChatConnectionCoordinator(host: ChatConnectionCoordinatorH
     return active;
   };
   const coordinator: ChatConnectionCoordinator = {
-    ensureInitialized: async () => {
+    ensureConnected: async () => {
       if (!host.canConnect()) return;
       if (activeConnection) return activeConnection.initialization;
       if (host.connection.isConnected()) return;
       await startConnection().initialization;
     },
-    ensureConnected: async () => {
+    ensureHydrated: async () => {
       if (!host.canConnect()) return;
       if (activeConnection) return activeConnection.hydration;
       if (host.connection.isConnected()) return;
@@ -129,6 +129,10 @@ async function refreshDiagnostics(
   host.clearDeferredDiagnostics();
   await coordinator.ensureConnected();
   if (!host.connection.isConnected()) return;
+  await refreshConnectedDiagnostics(host);
+}
+
+async function refreshConnectedDiagnostics(host: ChatConnectionCoordinatorHost): Promise<void> {
   host.clearDeferredDiagnostics();
   const [metadataResult, diagnosticsResult] = await Promise.allSettled([
     host.metadataEffects.refreshAppServerMetadata(),
@@ -140,18 +144,16 @@ async function refreshDiagnostics(
 
 async function refreshStatusPanel(
   host: ChatConnectionCoordinatorHost,
-  coordinator: Pick<ChatConnectionCoordinator, "refreshActiveThreads" | "refreshDiagnostics">,
+  coordinator: Pick<ChatConnectionCoordinator, "ensureConnected">,
 ): Promise<void> {
+  host.clearDeferredDiagnostics();
+  await coordinator.ensureConnected();
+  if (!host.connection.isConnected()) return;
   const refreshDiagnostics = (): Promise<void> =>
-    coordinator.refreshDiagnostics().catch((error: unknown) => {
+    refreshConnectedDiagnostics(host).catch((error: unknown) => {
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     });
-  if (!host.connection.isConnected()) {
-    await refreshDiagnostics();
-    await coordinator.refreshActiveThreads();
-    return;
-  }
-  await Promise.all([refreshDiagnostics(), coordinator.refreshActiveThreads()]);
+  await Promise.all([refreshDiagnostics(), refreshActiveThreads(host)]);
 }
 
 async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale: () => boolean): Promise<void> {

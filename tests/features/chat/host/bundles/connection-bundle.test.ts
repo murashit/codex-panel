@@ -38,7 +38,7 @@ describe("connection bundle", () => {
     const fixture = connectionBundleFixture({
       readServerDiagnostics: vi.fn().mockRejectedValue(error),
     });
-    await fixture.bundle.connection.coordinator.ensureConnected();
+    await fixture.bundle.connection.coordinator.ensureHydrated();
 
     fixture.runScheduledDiagnostics();
     await vi.waitFor(() => {
@@ -49,7 +49,7 @@ describe("connection bundle", () => {
   it("does not run deferred diagnostics after disconnect", async () => {
     const readServerDiagnostics = vi.fn().mockResolvedValue(null);
     const fixture = connectionBundleFixture({ readServerDiagnostics });
-    await fixture.bundle.connection.coordinator.ensureConnected();
+    await fixture.bundle.connection.coordinator.ensureHydrated();
     fixture.setConnected(false);
 
     fixture.runScheduledDiagnostics();

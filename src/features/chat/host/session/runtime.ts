@@ -145,7 +145,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     appServer,
     localItemIds,
     ensureConnected,
-    ensureInitialized: () => connectionCoordinator.ensureInitialized(),
     status,
     threadStart,
     foundation: threadFoundation,

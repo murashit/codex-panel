@@ -205,7 +205,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async connect(): Promise<void> {
-    await this.runtime.connection.coordinator.ensureConnected();
+    await this.runtime.connection.coordinator.ensureHydrated();
   }
 
   async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
@@ -256,7 +256,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
     this.deferredTasks.scheduleAppServerWarmup(() => {
       if (!shouldWarmup() || this.closing) return;
-      void this.runtime.connection.coordinator.ensureConnected();
+      void this.runtime.connection.coordinator.ensureHydrated();
     });
   }
 

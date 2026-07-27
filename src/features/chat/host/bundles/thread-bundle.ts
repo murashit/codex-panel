@@ -78,7 +78,6 @@ interface ChatPanelThreadLifecycleInput {
   appServer: ChatAppServerGateway;
   localItemIds: LocalIdSource;
   ensureConnected: () => Promise<void>;
-  ensureInitialized: () => Promise<void>;
   status: ChatPanelThreadStatus;
   threadStart: ThreadStartCommand;
   foundation: ChatPanelThreadFoundation;
@@ -189,19 +188,10 @@ export function createThreadLifecycleBundle(
   host: ChatPanelThreadHost,
   input: ChatPanelThreadLifecycleInput,
 ): ChatPanelThreadLifecycleBundle {
-  const {
-    appServer,
-    localItemIds,
-    ensureConnected,
-    ensureInitialized,
-    status,
-    threadStart,
-    foundation,
-    notifyActiveThreadIdentityChanged,
-  } = input;
+  const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, notifyActiveThreadIdentityChanged } = input;
   const lifecycle = createSessionThreadLifecycle(host, {
     appServer,
-    ensureInitialized,
+    ensureConnected,
     status,
     goalSync: foundation.goalSync,
     autoTitleCoordinator: foundation.autoTitleCoordinator,
@@ -326,7 +316,7 @@ function createSessionThreadLifecycle(
   host: ChatPanelThreadHost,
   input: {
     appServer: ChatAppServerGateway;
-    ensureInitialized: () => Promise<void>;
+    ensureConnected: () => Promise<void>;
     status: ChatPanelThreadStatus;
     goalSync: ChatPanelGoalSync;
     autoTitleCoordinator: AutoTitleCoordinator;
@@ -337,7 +327,7 @@ function createSessionThreadLifecycle(
 ): ChatPanelThreadLifecycle {
   const {
     appServer,
-    ensureInitialized,
+    ensureConnected,
     status,
     goalSync,
     autoTitleCoordinator,
@@ -355,7 +345,7 @@ function createSessionThreadLifecycle(
     stateStore: host.stateStore,
     effects: appServer.threadResume,
     ensureConnected: async () => {
-      await ensureInitialized();
+      await ensureConnected();
       return appServer.connectionAvailable();
     },
     resumeWork: host.resumeWork,
