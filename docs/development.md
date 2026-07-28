@@ -18,7 +18,7 @@ Use focused scripts while iterating. Before handoff, run `npm run fix`, review i
 
 Use `npm run test:coverage` to identify source modules and branches that lack exercised behavior. It reports every authored TypeScript source file, including files not imported by tests, while excluding generated app-server bindings. Open `coverage/index.html` to inspect line-level gaps. Coverage is diagnostic and has no pass/fail threshold; prioritize user-visible behavior and state-transition invariants rather than raising the aggregate percentage.
 
-Use `npm run test:mutation` for an exploratory mutation test of domain-owned logic, app-server protocol normalization, thread-stream event mapping, and the chat root reducer. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run ignores expensive module-initialization mutants, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.
+Use `npm run test:mutation` for exploratory mutation testing of the correctness-critical logic selected in `stryker.config.mjs`; that configuration is the source of truth for mutation scope. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run skips static mutants to avoid costly module reinitialization, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.
 
 When reviewing tests, map each case to a reachable user action, external boundary, or distinct state transition. Keep representative coverage of normal workflows before adding variants; remove cases that only exercise test doubles, impossible configuration, duplicate ownership, or wording and internal shape without a durable contract.
 
@@ -34,10 +34,6 @@ fix: prevent manual titles from being overwritten
 Scopes are optional. Keep the description concise, and mark disruptive changes with the standard `!` or `BREAKING CHANGE:` form.
 
 CI checks commits introduced by pull requests and direct pushes; GitHub-generated pull-request merge commits are exempt. To check a range locally, run `npm run commitlint -- --from <base> --to <head> --verbose`.
-
-Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
-
-Grit policy cases protect matcher semantics rather than diagnostic wording, source locations, or the exact shape of Biome configuration. Cover each materially distinct matcher family and exemption, and change a case only when that policy's accepted or rejected source shape intentionally changes.
 
 ## Generated and Loaded Files
 
@@ -58,6 +54,10 @@ Do not hand-edit the bindings. `src/app-server/connection/compatibility.json` re
 ## Executable Policies
 
 Source placement, imports, DOM bridge suffixes, CSS constraints, and direct ambient effects in state, fact, and projection modules are defined by `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks. When intentionally changing a boundary, update the implementation, matcher, and policy tests together rather than preserving a documentation-only exception.
+
+Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
+
+Grit policy cases protect matcher semantics rather than diagnostic wording, source locations, or the exact shape of Biome configuration. Cover each materially distinct matcher family and exemption, and change a case only when that policy's accepted or rejected source shape intentionally changes.
 
 ## Naming Conventions
 
@@ -81,4 +81,4 @@ Obsidian runtime compatibility is declared through `manifest.json` and `versions
 
 Codex app-server compatibility is managed by CLI minor version. `src/app-server/connection/compatibility.json` is the source of truth for the exact generation patch and app-server capabilities; README displays that patch.
 
-Local compatibility work should run `npm run api:baseline` and `npm run generate:app-server-types:check`; CI runs the same verification with the recorded CLI.
+Local compatibility work should run `npm run api:baseline` and `npm run generate:app-server-types:check`; CI installs the recorded CLI and runs the same verification for compatibility-relevant changes.
