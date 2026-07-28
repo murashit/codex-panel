@@ -83,10 +83,10 @@ export const SLASH_COMMANDS = [
   },
   {
     command: "/btw",
-    usage: "/btw",
-    argsKind: "none",
+    usage: "/btw [message]",
+    argsKind: "optionalMessage",
     surface: "panelAction",
-    detail: "Open a temporary side chat.",
+    detail: "Open a temporary side chat, optionally with an initial message.",
   },
   {
     command: "/rollback",

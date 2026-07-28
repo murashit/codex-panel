@@ -121,7 +121,7 @@ export class WorkspacePanelCoordinator {
     });
   }
 
-  async openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void> {
+  async openSideChat(sourceThreadId: string, sourceThreadTitle: string | null, initialMessage?: string): Promise<void> {
     const view = await this.createNewViewNow({
       version: 2,
       ephemeralSource: { threadId: sourceThreadId, title: sourceThreadTitle },
@@ -130,7 +130,10 @@ export class WorkspacePanelCoordinator {
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return;
     const surface = workspacePanelSurface(view);
-    const opening = surface.openSideChat({ sourceThreadId, sourceThreadTitle }, { focus: false });
+    const opening = surface.openSideChat(
+      { sourceThreadId, sourceThreadTitle, ...(initialMessage ? { initialMessage } : {}) },
+      { focus: false },
+    );
     const revealing = this.revealForeground(leaf);
     const [opened] = await Promise.all([opening, revealing]);
     if (!opened || !this.panelStillOwnsView(leaf, view)) return;

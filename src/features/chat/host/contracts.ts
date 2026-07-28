@@ -54,7 +54,7 @@ export interface WorkspacePanels {
   threadPanelIsBusy(threadId: string): boolean;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
   notifyPanelActivityChanged(): void;
-  openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void>;
+  openSideChat(sourceThreadId: string, sourceThreadTitle: string | null, initialMessage?: string): Promise<void>;
 }
 
 type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
@@ -140,7 +140,7 @@ export interface ChatWorkspacePanelSurface {
   connect(): Promise<void>;
   startNewThread(options?: ChatWorkspacePanelOperationOptions): Promise<void>;
   openSideChat(
-    input: { sourceThreadId: string; sourceThreadTitle: string | null },
+    input: { sourceThreadId: string; sourceThreadTitle: string | null; initialMessage?: string },
     options?: ChatWorkspacePanelOperationOptions,
   ): Promise<boolean>;
 }

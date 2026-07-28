@@ -144,9 +144,9 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
         resetTurnPresence: (hadTurns) => {
           autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
         },
-        openSideChat: async (threadId) => {
+        openSideChat: async (threadId, message) => {
           const source = host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((thread) => thread.id === threadId);
-          await host.environment.plugin.workspace.openSideChat(threadId, source?.name ?? source?.preview ?? null);
+          await host.environment.plugin.workspace.openSideChat(threadId, source?.name ?? source?.preview ?? null, message);
         },
       },
       composer: {

@@ -329,6 +329,15 @@ describe("slash commands", () => {
     expect(openSideChat).toHaveBeenCalledWith("active-thread");
   });
 
+  it("passes an optional initial message to the side chat", async () => {
+    const openSideChat = vi.fn().mockResolvedValue(undefined);
+    const ctx = context({ activeThreadId: "active-thread", openSideChat });
+
+    await executeSlashCommand("btw", "Explain this briefly", ctx);
+
+    expect(openSideChat).toHaveBeenCalledWith("active-thread", "Explain this briefly");
+  });
+
   it("rolls back the active thread for /rollback", async () => {
     const ctx = context({ activeThreadId: "active-thread" });
 

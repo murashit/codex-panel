@@ -214,7 +214,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async openSideChat(
-    input: { sourceThreadId: string; sourceThreadTitle: string | null },
+    input: { sourceThreadId: string; sourceThreadTitle: string | null; initialMessage?: string },
     options: { focus?: boolean } = {},
   ): Promise<boolean> {
     const intent = this.resumeWork.begin(null);
@@ -226,6 +226,14 @@ export class ChatPanelSession implements ChatPanelHandle {
       });
       if (!opened) return false;
       if (options.focus !== false) this.focusComposer();
+      const initialMessage = input.initialMessage?.trim();
+      if (initialMessage) {
+        const sent = await this.runtime.turn.submissionCommands.sendTurnText({ text: initialMessage });
+        if (!sent) {
+          this.runtime.composer.controller.setDraft(initialMessage, { focus: true });
+          return false;
+        }
+      }
       return true;
     } finally {
       if (this.pendingEphemeralSource === pendingSource) {

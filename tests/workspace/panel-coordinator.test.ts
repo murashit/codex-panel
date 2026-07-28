@@ -529,7 +529,7 @@ describe("WorkspacePanelCoordinator", () => {
     const coordinator = panels(plugin);
 
     await coordinator.openNewPanel();
-    await coordinator.openSideChat("source", "Source thread");
+    await coordinator.openSideChat("source", "Source thread", "Explain this briefly");
 
     expect(connect).toHaveBeenCalledOnce();
     expect(sideLeaf.setViewState).toHaveBeenCalledWith({
@@ -537,7 +537,10 @@ describe("WorkspacePanelCoordinator", () => {
       active: false,
       state: { version: 2, ephemeralSource: { threadId: "source", title: "Source thread" } },
     });
-    expect(openSideChat).toHaveBeenCalledWith({ sourceThreadId: "source", sourceThreadTitle: "Source thread" }, { focus: false });
+    expect(openSideChat).toHaveBeenCalledWith(
+      { sourceThreadId: "source", sourceThreadTitle: "Source thread", initialMessage: "Explain this briefly" },
+      { focus: false },
+    );
   });
 });
 

@@ -282,6 +282,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     composer: {
       controller: composerController,
     },
+    turn,
     shell,
     commands,
     observers: {

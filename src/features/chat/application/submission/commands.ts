@@ -16,7 +16,7 @@ import type { ThreadStartOutcome } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
 import { type ComposerSubmitCommand, type ComposerSubmitCommandHost, submitComposer } from "./composer-submit-command";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
-import { createTurnSubmissionCommand } from "./turn-submission-command";
+import { createTurnSubmissionCommand, type TurnSubmissionRequest } from "./turn-submission-command";
 
 export interface SubmissionCommandsContext {
   stateStore: ChatStateStore;
@@ -46,7 +46,7 @@ export interface SubmissionCommandsContext {
     selectThread: (threadId: string, options?: { beforeActivate?: () => void }) => Promise<void>;
     notifyIdentityChanged: () => void;
     resetTurnPresence: (hadTurns: boolean) => void;
-    openSideChat?: (threadId: string) => Promise<void>;
+    openSideChat?: (threadId: string, message?: string) => Promise<void>;
   };
   composer: {
     prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
@@ -81,6 +81,7 @@ interface PlanImplementation {
 }
 
 export interface SubmissionCommands {
+  sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
   planImplementation: PlanImplementation;
   composerSubmit: ComposerSubmitCommand;
 }
@@ -168,6 +169,7 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
   };
 
   return {
+    sendTurnText: (request) => turnSubmissionCommand.sendTurnText(request),
     planImplementation: {
       implement: (itemId) => implementPlan(planImplementationHost, itemId),
     },

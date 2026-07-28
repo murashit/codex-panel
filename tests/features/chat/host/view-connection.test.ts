@@ -138,6 +138,51 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.surface.openPanelSnapshot().threadId).not.toBe("ephemeral-a");
   });
 
+  it("sends an initial message after opening a side chat", async () => {
+    const client = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    await view.surface.openSideChat({
+      sourceThreadId: "source",
+      sourceThreadTitle: "Source",
+      initialMessage: "Explain this briefly",
+    });
+
+    expect(client.request).toHaveBeenCalledWith(
+      "turn/start",
+      expect.objectContaining({
+        threadId: "side",
+        input: [expect.objectContaining({ type: "text", text: "Explain this briefly" })],
+      }),
+    );
+  });
+
+  it("restores an initial message to the composer when its first send fails", async () => {
+    const client = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
+      "turn/start": vi.fn().mockRejectedValue(new Error("offline")),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    await expect(
+      view.surface.openSideChat({
+        sourceThreadId: "source",
+        sourceThreadTitle: "Source",
+        initialMessage: "Explain this briefly",
+      }),
+    ).resolves.toBe(false);
+
+    expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Explain this briefly");
+  });
+
   it("publishes side-chat preparation as pending before the fork completes", async () => {
     const fork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
     const client = connectedClient({

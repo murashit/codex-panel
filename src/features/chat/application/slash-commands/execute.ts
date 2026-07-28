@@ -39,7 +39,7 @@ export interface SlashCommandExecutionPorts {
     renameThread: ThreadCommands["renameThread"];
   };
   reconnect: (options?: ReconnectPanelOptions) => Promise<void>;
-  openSideChat?: (threadId: string) => Promise<void>;
+  openSideChat?: (threadId: string, message?: string) => Promise<void>;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
   runtimeSettings: {
@@ -192,7 +192,8 @@ export async function executeSlashCommand(
         return;
       }
       context.submission.markAdopted();
-      await context.openSideChat(context.activeThreadId);
+      if (args) await context.openSideChat(context.activeThreadId, args);
+      else await context.openSideChat(context.activeThreadId);
       return;
     case "rollback":
       if (!context.activeThreadId) {
