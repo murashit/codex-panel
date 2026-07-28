@@ -21,6 +21,7 @@ import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { testFuzzyMatcher } from "../../application/composer/fuzzy-matcher.test-support";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -80,10 +81,11 @@ type ComposerControllerOptions = ConstructorParameters<typeof ChatComposerContro
 
 function defaultComposerAttachmentOptions(): Pick<
   ComposerControllerOptions,
-  "attachmentHandler" | "onAttachmentError" | "sharedResources"
+  "attachmentHandler" | "fuzzyMatcher" | "onAttachmentError" | "sharedResources"
 > {
   return {
     attachmentHandler: { saveFiles: async () => [] },
+    fuzzyMatcher: testFuzzyMatcher,
     onAttachmentError: vi.fn(),
     sharedResources: sharedResourcesFixture(),
   };

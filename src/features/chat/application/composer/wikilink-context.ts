@@ -1,4 +1,3 @@
-import { parseLinktext } from "obsidian";
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import {
   ACTIVE_FILE_REFERENCE_NAME,
@@ -246,11 +245,20 @@ function parseWikiLink(raw: string): ParsedWikiLink | null {
   const display = separator === -1 ? "" : trimmed.slice(separator + 1).trim();
   if (!linktext) return null;
 
-  const parsed = parseLinktext(linktext);
+  const parsed = parseWikiLinkTarget(linktext);
   const target = parsed.path.trim();
   const subpath = parsed.subpath.trim();
   if (!target) return null;
   return { raw, target, subpath, display };
+}
+
+function parseWikiLinkTarget(linktext: string): { path: string; subpath: string } {
+  const headingIndex = linktext.indexOf("#");
+  const blockIndex = linktext.indexOf("^");
+  const subpathStart = headingIndex === -1 ? blockIndex : blockIndex === -1 ? headingIndex : Math.min(headingIndex, blockIndex);
+  return subpathStart === -1
+    ? { path: linktext, subpath: "" }
+    : { path: linktext.slice(0, subpathStart), subpath: linktext.slice(subpathStart) };
 }
 
 function firstEnabledSkillByName(skills: readonly SkillMetadata[]): Map<string, SkillMetadata> {

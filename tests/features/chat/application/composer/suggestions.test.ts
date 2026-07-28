@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
 import {
-  activeComposerSuggestions,
+  activeComposerSuggestions as activeComposerSuggestionsWithMatcher,
   applyComposerSuggestionInsertion,
   composerSuggestionNavigationDirection,
   composerSuggestionSignature,
@@ -12,6 +12,24 @@ import {
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,
   type WikiLinkFileReferenceResolver,
 } from "../../../../../src/features/chat/application/composer/wikilink-context";
+import { testFuzzyMatcher } from "./fuzzy-matcher.test-support";
+
+type ActiveComposerSuggestionsArguments = Parameters<typeof activeComposerSuggestionsWithMatcher>;
+
+function activeComposerSuggestions(
+  beforeCursor: ActiveComposerSuggestionsArguments[0],
+  notes: ActiveComposerSuggestionsArguments[1],
+  skills: ActiveComposerSuggestionsArguments[2],
+  threads: ActiveComposerSuggestionsArguments[3] = [],
+  models: ActiveComposerSuggestionsArguments[4] = [],
+  currentModel: ActiveComposerSuggestionsArguments[5] = null,
+  options: Omit<ActiveComposerSuggestionsArguments[6], "fuzzyMatcher"> = {},
+): ReturnType<typeof activeComposerSuggestionsWithMatcher> {
+  return activeComposerSuggestionsWithMatcher(beforeCursor, notes, skills, threads, models, currentModel, {
+    ...options,
+    fuzzyMatcher: testFuzzyMatcher,
+  });
+}
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

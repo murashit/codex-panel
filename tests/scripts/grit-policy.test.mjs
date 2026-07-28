@@ -34,6 +34,20 @@ const policyCases = [
     "src/domain/example/value.ts",
     'import type { App } from "obsidian";',
     "export type Value = string;",
+    {
+      invalid: [
+        {
+          path: "src/features/chat/domain/example/value.ts",
+          source: 'import type { Store } from "../application/state/store";',
+        },
+      ],
+      valid: [
+        {
+          path: "src/features/chat/domain/example/value.ts",
+          source: 'import type { Item } from "../thread-stream/items";',
+        },
+      ],
+    },
   ),
   policyCase(
     "no-lower-level-feature-imports.grit",
@@ -46,6 +60,20 @@ const policyCases = [
     "src/app-server/protocol/escape.ts",
     'import type { Client } from "../connection/client";',
     "export type Value = string;",
+    {
+      invalid: [
+        {
+          path: "src/domain/example/value.ts",
+          source: 'import type { Client } from "../app-server/connection/client";',
+        },
+      ],
+      valid: [
+        {
+          path: "src/domain/example/value.ts",
+          source: 'import type { Item } from "./item";',
+        },
+      ],
+    },
   ),
   policyCase(
     "no-external-app-server-query-imports.grit",
@@ -100,6 +128,36 @@ const policyCases = [
     "src/features/chat/application/escape.ts",
     'import type { Host } from "../host/contracts";',
     'import type { Item } from "../domain/thread-stream/items";',
+    {
+      invalid: [
+        {
+          path: "src/features/chat/application/selection.ts",
+          source: 'import type { Selection } from "../../selection-rewrite/model";',
+        },
+        {
+          path: "src/features/chat/application/obsidian.ts",
+          source: 'import { Notice } from "obsidian";',
+        },
+        {
+          path: "src/features/chat/application/dynamic.ts",
+          source: 'export const load = () => import("obsidian");',
+        },
+      ],
+      valid: [
+        {
+          path: "src/features/chat/application/selection.ts",
+          source: 'import type { Selection } from "../domain/thread-stream/items";',
+        },
+        {
+          path: "src/features/chat/application/obsidian.ts",
+          source: 'import type { Item } from "../domain/thread-stream/items";',
+        },
+        {
+          path: "src/features/chat/application/dynamic.ts",
+          source: 'export const load = () => import("../domain/thread-stream/items");',
+        },
+      ],
+    },
   ),
   policyCase(
     "no-chat-app-server-outer-layer-imports.grit",

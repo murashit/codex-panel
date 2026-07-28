@@ -6,6 +6,7 @@ import { ChatComposerController } from "../../panel/composer/controller";
 import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream/scroll-binding";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
+import { obsidianFuzzyMatcher } from "../obsidian/fuzzy-search.obsidian";
 import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
 import { VaultNoteCandidateProvider } from "../obsidian/vault-note-candidate-provider.obsidian";
 
@@ -23,6 +24,7 @@ export function createChatComposerController(
 ): ChatComposerController {
   const { environment, stateStore } = host;
   return new ChatComposerController({
+    fuzzyMatcher: obsidianFuzzyMatcher,
     noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
     contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app),
     attachmentHandler: createVaultComposerAttachmentHandler({

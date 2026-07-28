@@ -18,6 +18,7 @@ import type { ChatThreadStreamDependencies } from "../../../../../src/features/c
 import type { ChatPanelToolbarDependencies } from "../../../../../src/features/chat/panel/toolbar/view-projection";
 import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { testFuzzyMatcher } from "../../application/composer/fuzzy-matcher.test-support";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 
 installObsidianDomShims();
@@ -131,6 +132,7 @@ describe("ChatPanelShell", () => {
     ];
     const parts = shellParts();
     parts.composer.presenter = new ChatComposerController({
+      fuzzyMatcher: testFuzzyMatcher,
       attachmentHandler: { saveFiles: async () => [] },
       onAttachmentError: vi.fn(),
       noteCandidateProvider: noteProvider({ candidates: () => notes }),

@@ -17,6 +17,7 @@ import {
   type SelectionContextReference,
   selectionContextReferenceMarker,
 } from "../../application/composer/context-references";
+import type { FuzzyMatcher } from "../../application/composer/fuzzy-search";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
@@ -65,6 +66,7 @@ import {
 import { type ChatPanelComposerRuntimeActions, projectChatPanelComposer } from "./view-projection";
 
 interface ChatComposerControllerOptions {
+  fuzzyMatcher: FuzzyMatcher;
   noteCandidateProvider: NoteCandidateProvider;
   contextReferenceProvider: ComposerContextReferenceProvider;
   attachmentHandler: ComposerAttachmentHandler;
@@ -520,6 +522,7 @@ export class ChatComposerController {
         dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: this.options.sharedResources.permissionProfilesSnapshot() ?? [],
         tagCandidates: () => this.options.noteCandidateProvider.tags(),
+        fuzzyMatcher: this.options.fuzzyMatcher,
       },
     );
   }

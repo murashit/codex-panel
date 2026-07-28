@@ -1,4 +1,3 @@
-import { prepareFuzzySearch, type SearchResult, sortSearchResults } from "obsidian";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import type { Thread } from "../../../../domain/threads/model";
@@ -11,6 +10,7 @@ import {
   type SelectionContextReference,
   selectionContextReferenceMarker,
 } from "./context-references";
+import type { FuzzyMatch, FuzzyMatcher } from "./fuzzy-search";
 import type { DailyNoteReferenceCandidate, NoteCandidate, NoteHeadingCandidate } from "./note-context";
 import type { ComposerSuggestion } from "./suggestion";
 
@@ -21,11 +21,12 @@ export interface ComposerSuggestionOptions {
   dailyNoteReferences?: readonly DailyNoteReferenceCandidate[] | (() => readonly DailyNoteReferenceCandidate[]);
   permissionProfiles?: readonly RuntimePermissionProfileSummary[];
   tagCandidates?: readonly string[] | (() => readonly string[]);
+  fuzzyMatcher: FuzzyMatcher;
 }
 
 interface NoteCandidateMatch {
   file: NoteCandidate;
-  match: SearchResult;
+  match: FuzzyMatch;
   mtime: number;
   basename: string;
   path: string;
@@ -40,7 +41,7 @@ export function activeComposerSuggestions(
   threads: readonly Thread[] = [],
   models: readonly ModelMetadata[] = [],
   currentModel: string | null = null,
-  options: ComposerSuggestionOptions = {},
+  options: ComposerSuggestionOptions,
 ): ComposerSuggestion[] {
   const slashCommandAvailable = options.slashCommandAvailable ?? (() => true);
   const slashSuggestions = activeSlashCommandSuggestions(
@@ -53,7 +54,7 @@ export function activeComposerSuggestions(
     slashCommandAvailable,
   );
   return (
-    activeWikiLinkSuggestions(beforeCursor, notes) ??
+    activeWikiLinkSuggestions(beforeCursor, notes, options.fuzzyMatcher) ??
     activeContextReferenceSuggestions(beforeCursor, options.contextReferences, options.dailyNoteReferences) ??
     activeTagSuggestions(beforeCursor, options.tagCandidates ?? []) ??
     slashSuggestions ??
@@ -151,13 +152,13 @@ export function composerSuggestionSignature(value: string, cursor: number): stri
   return `${value}\u0000${String(cursor)}`;
 }
 
-function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandidate[]): ComposerSuggestion[] | null {
+function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandidate[], fuzzyMatcher: FuzzyMatcher): ComposerSuggestion[] | null {
   const start = beforeCursor.lastIndexOf("[[");
   if (start === -1) return null;
 
   const queryText = beforeCursor.slice(start + 2);
   if (queryText.includes("]]") || queryText.includes("\n") || queryText.length > 120) return null;
-  return findWikiLinkSuggestions(queryText, start, notes);
+  return findWikiLinkSuggestions(queryText, start, notes, fuzzyMatcher);
 }
 
 function activeTagSuggestions(
@@ -215,12 +216,17 @@ function tagSuggestionScore(tag: string, query: string): number {
   return tag.startsWith(query) ? 0 : 1;
 }
 
-function findWikiLinkSuggestions(queryText: string, start: number, notes: NoteCandidate[]): ComposerSuggestion[] {
-  const headingCompletion = wikiLinkHeadingCompletion(queryText, start, notes);
+function findWikiLinkSuggestions(
+  queryText: string,
+  start: number,
+  notes: NoteCandidate[],
+  fuzzyMatcher: FuzzyMatcher,
+): ComposerSuggestion[] {
+  const headingCompletion = wikiLinkHeadingCompletion(queryText, start, notes, fuzzyMatcher);
   if (headingCompletion) return headingCompletion;
 
   const query = queryText.toLowerCase().trim();
-  const suggestions = query.length === 0 ? emptyWikiLinkSuggestions(notes) : fuzzyWikiLinkSuggestions(query, notes);
+  const suggestions = query.length === 0 ? emptyWikiLinkSuggestions(notes) : fuzzyWikiLinkSuggestions(query, notes, fuzzyMatcher);
 
   return suggestions.slice(0, 8).map(({ file }) => ({
     display: file.displayName,
@@ -231,7 +237,12 @@ function findWikiLinkSuggestions(queryText: string, start: number, notes: NoteCa
   }));
 }
 
-function wikiLinkHeadingCompletion(queryText: string, start: number, notes: NoteCandidate[]): ComposerSuggestion[] | null {
+function wikiLinkHeadingCompletion(
+  queryText: string,
+  start: number,
+  notes: NoteCandidate[],
+  fuzzyMatcher: FuzzyMatcher,
+): ComposerSuggestion[] | null {
   const blockIndex = queryText.indexOf("^");
   if (blockIndex !== -1) return [];
 
@@ -248,7 +259,8 @@ function wikiLinkHeadingCompletion(queryText: string, start: number, notes: Note
     .slice(headingSeparator + 1)
     .trim()
     .toLowerCase();
-  const headingMatches = query.length === 0 ? note.headings : fuzzyHeadingSuggestions(query, note.headings).map((item) => item.heading);
+  const headingMatches =
+    query.length === 0 ? note.headings : fuzzyHeadingSuggestions(query, note.headings, fuzzyMatcher).map((item) => item.heading);
   return headingMatches.slice(0, 8).map((heading) => ({
     display: heading.heading,
     detail: `${"#".repeat(heading.level)} ${note.path}`,
@@ -272,16 +284,17 @@ function wikiLinkTargetAliases(note: NoteCandidate): string[] {
 function fuzzyHeadingSuggestions(
   query: string,
   headings: readonly NoteHeadingCandidate[],
-): { heading: NoteHeadingCandidate; match: SearchResult }[] {
-  const search = prepareFuzzySearch(query);
+  fuzzyMatcher: FuzzyMatcher,
+): { heading: NoteHeadingCandidate; match: FuzzyMatch }[] {
+  const search = fuzzyMatcher.prepare(query);
   const results = headings
     .map((heading) => {
-      const match = search(heading.heading);
+      const match = search.match(heading.heading);
       return match ? { heading, match } : null;
     })
-    .filter((item): item is { heading: NoteHeadingCandidate; match: SearchResult } => item !== null);
+    .filter((item): item is { heading: NoteHeadingCandidate; match: FuzzyMatch } => item !== null);
 
-  sortSearchResults(results);
+  sortByFuzzyScore(results);
   return results;
 }
 
@@ -290,7 +303,7 @@ function emptyWikiLinkSuggestions(notes: NoteCandidate[]): NoteCandidateMatch[] 
     .filter((file) => file.recentIndex !== null)
     .map((file) => ({
       file,
-      match: { score: 0, matches: [] },
+      match: { score: 0 },
       mtime: -(file.recentIndex ?? 0),
       basename: file.basename,
       path: file.path,
@@ -298,27 +311,29 @@ function emptyWikiLinkSuggestions(notes: NoteCandidate[]): NoteCandidateMatch[] 
     .sort(compareWikiLinkSuggestionTiebreakers);
 }
 
-function fuzzyWikiLinkSuggestions(query: string, notes: NoteCandidate[]): NoteCandidateMatch[] {
-  const search = prepareFuzzySearch(query);
+function fuzzyWikiLinkSuggestions(query: string, notes: NoteCandidate[], fuzzyMatcher: FuzzyMatcher): NoteCandidateMatch[] {
+  const search = fuzzyMatcher.prepare(query);
   const results = notes
     .map((file) => {
-      const basenameMatch = search(file.basename);
-      const pathMatch = search(file.path);
+      const basenameMatch = search.match(file.basename);
+      const pathMatch = search.match(file.path);
       const match = bestSearchResult(basenameMatch, pathMatch);
       return match ? { file, match, mtime: file.mtime, basename: file.basename, path: file.path } : null;
     })
     .filter((item): item is NoteCandidateMatch => item !== null);
 
-  sortSearchResults(results);
+  sortByFuzzyScore(results);
   return results.sort(compareWikiLinkSuggestionTiebreakers);
 }
 
-function bestSearchResult(a: SearchResult | null, b: SearchResult | null): SearchResult | null {
+function bestSearchResult(a: FuzzyMatch | null, b: FuzzyMatch | null): FuzzyMatch | null {
   if (!a) return b;
   if (!b) return a;
-  const ranked = [{ match: a }, { match: b }];
-  sortSearchResults(ranked);
-  return ranked[0]?.match ?? a;
+  return a.score >= b.score ? a : b;
+}
+
+function sortByFuzzyScore(results: { match: FuzzyMatch }[]): void {
+  results.sort((a, b) => b.match.score - a.match.score);
 }
 
 function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCandidateMatch): number {
