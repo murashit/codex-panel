@@ -33,6 +33,41 @@ describe("connection bundle", () => {
     expect(responder.reject).not.toHaveBeenCalled();
   });
 
+  it("retains a responder when synchronous delivery throws", async () => {
+    const fixture = connectionBundleFixture();
+    await fixture.bundle.connection.coordinator.ensureConnected();
+    const responder = {
+      respond: vi.fn().mockImplementationOnce(() => {
+        throw new Error("transport busy");
+      }),
+      reject: vi.fn(),
+    };
+
+    fixture.connectionHandlers().onServerRequest(userInputRequest(1), responder);
+    fixture.bundle.inboundHandler.resolveUserInput(1, { note: "Continue" });
+    fixture.bundle.inboundHandler.resolveUserInput(1, { note: "Continue" });
+
+    expect(responder.respond).toHaveBeenCalledTimes(2);
+    expect(fixture.stateStore.getState().requests.pendingUserInputs).toEqual([]);
+  });
+
+  it("does not carry a completed approval decision across connection invalidation", async () => {
+    const fixture = connectionBundleFixture();
+    await fixture.bundle.connection.coordinator.ensureConnected();
+    const parentResponder = { respond: vi.fn(), reject: vi.fn() };
+    fixture.connectionHandlers().onServerRequest(commandApprovalRequest(1, "thread-active", "turn-active"), parentResponder);
+    fixture.bundle.inboundHandler.resolveApproval(1, "accept");
+
+    fixture.bundle.invalidateConnectionScope();
+    fixture.stateStore.dispatch({ type: "subagent-activity/tracked", threadId: "child", parentTurnId: "turn-active" });
+    fixture.stateStore.dispatch({ type: "subagent-activity/turn-started", threadId: "child", childTurnId: "child-turn" });
+    const childResponder = { respond: vi.fn(), reject: vi.fn() };
+    fixture.connectionHandlers().onServerRequest(commandApprovalRequest(2, "child", "child-turn"), childResponder);
+
+    expect(childResponder.respond).not.toHaveBeenCalled();
+    expect(fixture.stateStore.getState().requests.approvals).toHaveLength(1);
+  });
+
   it("reports deferred diagnostics failures as system messages", async () => {
     const error = new Error("diagnostics failed");
     const fixture = connectionBundleFixture({
@@ -123,6 +158,7 @@ function connectionBundleFixture(overrides: { readServerDiagnostics?: ReturnType
   } as unknown as ConnectionBundleInput;
   return {
     addSystemMessage,
+    stateStore,
     bundle: createConnectionBundle(host, input),
     connectionHandlers: () => {
       if (!handlers) throw new Error("Expected connection handlers.");
@@ -148,6 +184,32 @@ function userInputRequest(id: number): Extract<ServerRequest, { method: "item/to
       itemId: "input-1",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
       autoResolutionMs: null,
+    },
+  };
+}
+
+function commandApprovalRequest(
+  id: number,
+  threadId: string,
+  turnId: string,
+): Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }> {
+  return {
+    id,
+    method: "item/commandExecution/requestApproval",
+    params: {
+      command: "npm test",
+      cwd: "/vault",
+      threadId,
+      turnId,
+      itemId: "shared-command",
+      approvalId: null,
+      environmentId: null,
+      startedAtMs: 1,
+      reason: null,
+      commandActions: [],
+      proposedExecpolicyAmendment: null,
+      proposedNetworkPolicyAmendments: [],
+      availableDecisions: ["accept", "acceptForSession", "decline", "cancel"],
     },
   };
 }

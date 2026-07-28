@@ -75,30 +75,27 @@ interface ServerRequestResponderRegistry {
 
 function createServerRequestResponderRegistry(): ServerRequestResponderRegistry {
   const responders = new Map<RespondRequestId, AppServerServerRequestResponder>();
-  const take = (requestId: RespondRequestId): AppServerServerRequestResponder | null => {
-    const responder = responders.get(requestId) ?? null;
-    responders.delete(requestId);
-    return responder;
-  };
   return {
     remember: (requestId, responder) => {
       responders.set(requestId, responder);
     },
     respond: (requestId, result) => {
-      const responder = take(requestId);
+      const responder = responders.get(requestId) ?? null;
       if (!responder) return false;
       try {
         responder.respond(result);
+        responders.delete(requestId);
         return true;
       } catch {
         return false;
       }
     },
     reject: (requestId, code, message) => {
-      const responder = take(requestId);
+      const responder = responders.get(requestId) ?? null;
       if (!responder) return false;
       try {
         responder.reject(code, message);
+        responders.delete(requestId);
         return true;
       } catch {
         return false;
@@ -185,6 +182,7 @@ export function createConnectionBundle(
             inboundHandler.handleAppServerLog(message);
           },
           onExit: () => {
+            inboundHandler.clearServerRequests();
             serverRequestResponders.clear();
             diagnosticsCoordinator.invalidate();
             connectionCoordinator.handleExit();
@@ -234,6 +232,7 @@ export function createConnectionBundle(
     },
     inboundHandler,
     invalidateConnectionScope: () => {
+      inboundHandler.clearServerRequests();
       serverRequestResponders.clear();
       diagnosticsCoordinator.invalidate();
     },

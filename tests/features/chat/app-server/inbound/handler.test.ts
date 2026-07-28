@@ -1012,6 +1012,147 @@ describe("ChatInboundHandler", () => {
       );
     });
 
+    it("presents one parent-owned approval and answers both parent and tracked-child requests", () => {
+      const respondToServerRequest = vi.fn(() => true);
+      const rejectServerRequest = vi.fn(() => true);
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest, rejectServerRequest });
+      trackDirectSubagent(handler, "child", "child-turn");
+
+      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
+      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command"));
+
+      expect(rejectServerRequest).not.toHaveBeenCalled();
+      expect(handler.currentState().requests.approvals).toEqual([expect.objectContaining({ requestId: 51, turnId: "turn-active" })]);
+
+      handler.resolveApproval(51, "accept");
+
+      expect(respondToServerRequest).toHaveBeenNthCalledWith(1, 51, { decision: "accept" });
+      expect(respondToServerRequest).toHaveBeenNthCalledWith(2, 52, { decision: "accept" });
+      expect(handler.currentState().requests.approvals).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
+        kind: "approvalResult",
+        turnId: "turn-active",
+      });
+    });
+
+    it("applies a locked decision when the parent copy arrives after the child approval was answered", () => {
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
+      trackDirectSubagent(handler, "child", "child-turn");
+
+      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
+      handler.resolveApproval(51, "decline");
+      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command"));
+
+      expect(respondToServerRequest).toHaveBeenNthCalledWith(1, 51, { decision: "decline" });
+      expect(respondToServerRequest).toHaveBeenNthCalledWith(2, 52, { decision: "decline" });
+      expect(handler.currentState().requests.approvals).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toHaveLength(1);
+    });
+
+    it("settles the UI once and retries only an undelivered approval copy", () => {
+      const respondToServerRequest = vi
+        .fn<(requestId: string | number, response: unknown) => boolean>()
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false)
+        .mockReturnValueOnce(true);
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
+      trackDirectSubagent(handler, "child", "child-turn");
+      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
+      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command"));
+
+      handler.resolveApproval(51, "accept");
+
+      expect(handler.currentState().requests.approvals).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toHaveLength(1);
+
+      handler.handleNotification({
+        method: "thread/tokenUsage/updated",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          tokenUsage: {
+            total: {
+              inputTokens: 1,
+              cachedInputTokens: 0,
+              cacheWriteInputTokens: 0,
+              outputTokens: 1,
+              reasoningOutputTokens: 0,
+              totalTokens: 2,
+            },
+            last: {
+              inputTokens: 1,
+              cachedInputTokens: 0,
+              cacheWriteInputTokens: 0,
+              outputTokens: 1,
+              reasoningOutputTokens: 0,
+              totalTokens: 2,
+            },
+            modelContextWindow: 100,
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "thread/tokenUsage/updated" }>);
+
+      expect(respondToServerRequest.mock.calls.map(([requestId]) => requestId)).toEqual([51, 52, 52]);
+      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toHaveLength(1);
+    });
+
+    it("waits for both parent and child request-resolved notifications before clearing the approval", () => {
+      const handler = handlerForState(activeRunningState());
+      trackDirectSubagent(handler, "child", "child-turn");
+      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
+      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command"));
+
+      handler.handleNotification({
+        method: "serverRequest/resolved",
+        params: { threadId: "child", requestId: 51 },
+      } satisfies Extract<ServerNotification, { method: "serverRequest/resolved" }>);
+      expect(handler.currentState().requests.approvals).toHaveLength(1);
+
+      handler.handleNotification({
+        method: "serverRequest/resolved",
+        params: { threadId: "thread-active", requestId: 52 },
+      } satisfies Extract<ServerNotification, { method: "serverRequest/resolved" }>);
+
+      expect(handler.currentState().requests.approvals).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
+    });
+
+    it("clears a tracked-subagent approval when its parent turn completes first", () => {
+      const handler = handlerForState(activeRunningState());
+      trackDirectSubagent(handler, "child", "child-turn");
+      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
+
+      handler.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "completed",
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+            error: null,
+            itemsView: "full",
+            items: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+
+      expect(handler.currentState().requests.approvals).toEqual([]);
+    });
+
+    it("keeps different command approval callbacks separate", () => {
+      const handler = handlerForState(activeRunningState());
+      trackDirectSubagent(handler, "child", "child-turn");
+
+      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command", "child-callback"));
+      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command", "parent-callback"));
+
+      expect(handler.currentState().requests.approvals).toHaveLength(2);
+    });
+
     it("rejects delayed turn-scoped server requests after the active thread returns to idle", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
@@ -2127,6 +2268,57 @@ function mcpElicitationRequest(id: number): ServerRequest {
       requestedSchema: { type: "object", properties: {} },
     },
   };
+}
+
+function commandApprovalRequest(
+  id: number,
+  threadId: string,
+  turnId: string,
+  itemId: string,
+  approvalId: string | null = null,
+): ServerRequest {
+  return {
+    id,
+    method: "item/commandExecution/requestApproval",
+    params: {
+      command: "npm test",
+      cwd: "/tmp/project",
+      threadId,
+      turnId,
+      itemId,
+      approvalId,
+      environmentId: null,
+      startedAtMs: 1,
+      reason: null,
+      commandActions: [],
+      proposedExecpolicyAmendment: null,
+      proposedNetworkPolicyAmendments: [],
+      availableDecisions: ["accept", "acceptForSession", "decline", "cancel"],
+    },
+  };
+}
+
+function trackDirectSubagent(handler: TestChatInboundHandler, threadId: string, turnId: string): void {
+  handler.handleNotification({
+    method: "thread/started",
+    params: { thread: directSubagentThread(threadId, "thread-active") },
+  } satisfies Extract<ServerNotification, { method: "thread/started" }>);
+  handler.handleNotification({
+    method: "turn/started",
+    params: {
+      threadId,
+      turn: {
+        id: turnId,
+        status: "inProgress",
+        startedAt: 1,
+        completedAt: null,
+        durationMs: null,
+        error: null,
+        itemsView: "full",
+        items: [],
+      },
+    },
+  } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 }
 
 function appServerThread(id: string, cwd: string): ThreadStartedNotification["params"]["thread"] {

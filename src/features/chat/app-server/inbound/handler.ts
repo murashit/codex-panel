@@ -28,6 +28,12 @@ import {
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import { classifyAppServerLog } from "./app-server-logs";
+import {
+  type ApprovalRequestOwner,
+  type ApprovalResponseDelivery,
+  createApprovalRequestCoordinator,
+  isApprovalServerRequest,
+} from "./approval-request-coordinator";
 import { type ChatInboundEffect, planChatInboundNotification } from "./notification-plan";
 
 export interface ChatInboundHandlerEffects {
@@ -48,6 +54,7 @@ export interface ChatInboundHandler {
   resolveUserInput(requestId: PendingRequestId, answers: Record<string, string>): void;
   cancelUserInput(requestId: PendingRequestId): void;
   resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): void;
+  clearServerRequests(): void;
   addSystemMessage(text: string): void;
   addStructuredSystemMessage(text: string, details: ThreadStreamNoticeSection[]): void;
   addDedupedSystemMessage(text: string): void;
@@ -57,6 +64,7 @@ interface ChatInboundHandlerContext {
   store: ChatStateStore;
   effects: ChatInboundHandlerEffects;
   localItemIds: LocalIdSource;
+  approvalRequests: ReturnType<typeof createApprovalRequestCoordinator>;
 }
 
 export function createChatInboundHandler(
@@ -64,7 +72,12 @@ export function createChatInboundHandler(
   effects: ChatInboundHandlerEffects,
   localItemIds: LocalIdSource,
 ): ChatInboundHandler {
-  const context: ChatInboundHandlerContext = { store, effects, localItemIds };
+  const context: ChatInboundHandlerContext = {
+    store,
+    effects,
+    localItemIds,
+    approvalRequests: createApprovalRequestCoordinator(),
+  };
   return {
     handleNotification: (notification) => {
       handleNotification(context, notification);
@@ -87,6 +100,9 @@ export function createChatInboundHandler(
     resolveMcpElicitation: (requestId, action) => {
       resolveMcpElicitation(context, requestId, action);
     },
+    clearServerRequests: () => {
+      context.approvalRequests.clear();
+    },
     addSystemMessage: (text) => {
       addSystemMessage(context, text);
     },
@@ -108,21 +124,61 @@ function dispatch(context: ChatInboundHandlerContext, action: ChatAction): void 
 }
 
 function handleNotification(context: ChatInboundHandlerContext, notification: ServerNotification): void {
+  reconcileApprovalRequests(context);
+  flushAutomaticApprovalResponses(context);
+  if (notification.method === "serverRequest/resolved") {
+    const settlement = context.approvalRequests.markSettled(notification.params.requestId);
+    if (settlement) {
+      if (!settlement.uiResolved && settlement.allKnownEndpointsSettled) {
+        dispatch(context, { type: "request/resolved", requestId: settlement.logicalRequestId });
+      }
+      reconcileApprovalRequests(context);
+      return;
+    }
+  }
   if (notification.method === "thread/goal/updated" || notification.method === "thread/goal/cleared") {
     context.effects.observeThreadGoal(notification.params.threadId);
   }
   const plan = planChatInboundNotification(state(context), notification, (prefix) => localItemId(context, prefix));
   for (const action of plan.actions) dispatch(context, action);
   for (const effect of plan.effects) runInboundEffect(context, effect);
+  reconcileApprovalRequests(context);
 }
 
 function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
+  reconcileApprovalRequests(context);
+  flushAutomaticApprovalResponses(context);
   const current = state(context);
-  const route = routeServerRequest(request, { activeThreadId: activeThreadId(current), activeTurnId: activeTurnId(current) });
+  const activeScope = { activeThreadId: activeThreadId(current), activeTurnId: activeTurnId(current) };
+  let route = routeServerRequest(request, activeScope);
+  let approvalOwner: ApprovalRequestOwner = "active";
+  if (route.kind === "inactive") {
+    const trackedScope = trackedSubagentApprovalScope(current, request);
+    if (trackedScope) {
+      route = routeServerRequest(request, trackedScope);
+      approvalOwner = "tracked-subagent";
+    }
+  }
   switch (route.kind) {
-    case "approval":
-      dispatch(context, { type: "request/approval-queued", approval: route.approval });
+    case "approval": {
+      if (!isApprovalServerRequest(request)) {
+        rejectServerRequest(context, request, `Rejected unsupported app-server request: ${request.method}`);
+        return;
+      }
+      const parentTurnId = activeTurnId(current);
+      if (!parentTurnId) {
+        dispatch(context, { type: "request/approval-queued", approval: route.approval });
+        return;
+      }
+      const registration = context.approvalRequests.register(request, route.approval, approvalOwner, parentTurnId);
+      if (registration.kind === "new") {
+        const approval = approvalOwner === "tracked-subagent" ? { ...route.approval, turnId: parentTurnId } : route.approval;
+        dispatch(context, { type: "request/approval-queued", approval });
+      } else if (registration.kind === "answered") {
+        deliverApprovalResponses(context, registration.deliveries);
+      }
       return;
+    }
     case "userInput":
       dispatch(context, { type: "request/user-input-queued", input: route.input });
       return;
@@ -161,11 +217,66 @@ function handleAppServerLog(context: ChatInboundHandlerContext, message: string)
 function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: ApprovalAction): void {
   const approval = state(context).requests.approvals.find((item) => item.requestId === requestId) ?? null;
   if (!approval) return;
-  if (!context.effects.respondToServerRequest(approval.requestId, serverRequestApprovalResponse(approval, action))) {
+  const plan = context.approvalRequests.decide(approval.requestId, action);
+  if (!plan) {
+    if (!context.effects.respondToServerRequest(approval.requestId, serverRequestApprovalResponse(approval, action))) {
+      addSystemMessage(context, "Could not send approval response because Codex app-server is not connected.");
+      return;
+    }
+    dispatch(context, { type: "request/resolved", requestId: approval.requestId, resultItem: createApprovalResultItem(approval, action) });
+    return;
+  }
+  const delivered = deliverApprovalResponses(context, plan.deliveries);
+  if (!delivered) {
     addSystemMessage(context, "Could not send approval response because Codex app-server is not connected.");
     return;
   }
-  dispatch(context, { type: "request/resolved", requestId: approval.requestId, resultItem: createApprovalResultItem(approval, action) });
+  context.approvalRequests.markUiResolved(approval.requestId);
+  dispatch(context, {
+    type: "request/resolved",
+    requestId: approval.requestId,
+    resultItem: createApprovalResultItem(approval, plan.action),
+  });
+}
+
+function trackedSubagentApprovalScope(current: ChatState, request: ServerRequest): { activeThreadId: string; activeTurnId: string } | null {
+  if (!isApprovalServerRequest(request)) return null;
+  const parentTurnId = activeTurnId(current);
+  const tracked = current.subagentActivity.byThreadId.get(request.params.threadId);
+  if (
+    !parentTurnId ||
+    current.subagentActivity.parentTurnId !== parentTurnId ||
+    !tracked?.childTurnId ||
+    tracked.childTurnId !== request.params.turnId ||
+    tracked.executionState !== "running"
+  ) {
+    return null;
+  }
+  return { activeThreadId: tracked.threadId, activeTurnId: tracked.childTurnId };
+}
+
+function deliverApprovalResponses(context: ChatInboundHandlerContext, deliveries: readonly ApprovalResponseDelivery[]): boolean {
+  let delivered = false;
+  for (const delivery of deliveries) {
+    if (!context.effects.respondToServerRequest(delivery.requestId, delivery.response)) continue;
+    delivered = true;
+    context.approvalRequests.markSettled(delivery.requestId);
+  }
+  return delivered;
+}
+
+function flushAutomaticApprovalResponses(context: ChatInboundHandlerContext): void {
+  const deliveries = context.approvalRequests.automaticDeliveries();
+  if (deliveries.length > 0) deliverApprovalResponses(context, deliveries);
+}
+
+function reconcileApprovalRequests(context: ChatInboundHandlerContext): void {
+  const current = state(context);
+  const pendingApprovalIds = new Set(current.requests.approvals.map((approval) => approval.requestId));
+  const abandonedApprovalIds = context.approvalRequests.reconcile(activeTurnId(current), pendingApprovalIds);
+  for (const requestId of abandonedApprovalIds) {
+    if (pendingApprovalIds.has(requestId)) dispatch(context, { type: "request/resolved", requestId });
+  }
 }
 
 function resolveUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId, answers: Record<string, string>): void {
