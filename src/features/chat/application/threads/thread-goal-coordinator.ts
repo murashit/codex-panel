@@ -1,7 +1,7 @@
-import { createKeyedOperationQueue, type KeyedOperationQueue } from "../../../../shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/runtime/keyed-operation-coordinator";
 
 export interface ThreadGoalCoordinator {
-  readonly goalMutations: KeyedOperationQueue<string>;
+  readonly goalMutations: KeyedOperationCoordinator<string>;
   captureReadRevision(threadId: string): number;
   readRevisionIsCurrent(threadId: string, revision: number): boolean;
   markAuthoritativeObservation(threadId: string): void;
@@ -9,7 +9,7 @@ export interface ThreadGoalCoordinator {
 
 export function createThreadGoalCoordinator(): ThreadGoalCoordinator {
   const readRevisions = new Map<string, number>();
-  const goalMutations = createKeyedOperationQueue<string>();
+  const goalMutations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
   return {
     goalMutations,
     captureReadRevision: (threadId) => readRevisions.get(threadId) ?? 0,

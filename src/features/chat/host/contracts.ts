@@ -10,7 +10,7 @@ import type {
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
 } from "../../../domain/server/metadata";
-import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
+import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
 import type { ObservedResultListener } from "../../../shared/runtime/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
@@ -29,11 +29,12 @@ export interface CodexChatHost {
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadFacts: ThreadFactSink;
-  readonly threadNameMutations: KeyedOperationQueue<string>;
+  readonly threadLifecycleMutations: KeyedOperationCoordinator<string>;
+  readonly threadNameMutations: KeyedOperationCoordinator<string>;
   readonly threadTitlePort: ThreadTitlePort;
   readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;
   readonly threadGoalCoordinator: ThreadGoalCoordinator;
-  readonly runtimeSettingsCommitQueue: KeyedOperationQueue<string>;
+  readonly runtimeSettingsCommitQueue: KeyedOperationCoordinator<string>;
 }
 
 export interface ChatPanelSettingsAccess {

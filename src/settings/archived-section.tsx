@@ -109,6 +109,7 @@ function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedT
           icon="rotate-ccw"
           label="Restore thread"
           className="codex-panel-settings__archived-restore"
+          disabled={state.loading}
           onClick={() => {
             state.onRestore(thread.id);
           }}
@@ -118,6 +119,7 @@ function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedT
         icon={deleteConfirming ? "check" : "shredder"}
         label="Delete thread"
         className={deleteConfirming ? "codex-panel-settings__archived-delete-confirm" : "codex-panel-settings__archived-delete"}
+        disabled={state.loading}
         onClick={() => {
           if (deleteConfirming) {
             state.onDelete(thread.id);

@@ -11,7 +11,7 @@ import type { CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
-import { createKeyedOperationQueue } from "../../src/shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "../../src/shared/runtime/keyed-operation-coordinator";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
 
 export async function pluginWithLeaves(
@@ -129,14 +129,15 @@ function chatHostFixture(): CodexChatHost {
       withClient: vi.fn(() => Promise.reject(new Error("Unexpected app-server client request."))),
     },
     appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
-    threadNameMutations: createKeyedOperationQueue(),
+    threadNameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    threadLifecycleMutations: createKeyedOperationCoordinator({ whenBusy: "reject" }),
     threadTitlePort: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
     },
     threadAutoTitleWork: { submit: vi.fn() },
     threadGoalCoordinator: createThreadGoalCoordinator(),
-    runtimeSettingsCommitQueue: createKeyedOperationQueue(),
+    runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
     workspace: {
       openThreadInNewView: vi.fn(),

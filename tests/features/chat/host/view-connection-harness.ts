@@ -17,7 +17,7 @@ import { createThreadGoalCoordinator } from "../../../../src/features/chat/appli
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "../../../../src/shared/runtime/keyed-operation-coordinator";
 import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/shared/runtime/observed-result";
 import { notices } from "../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../support/dom";
@@ -610,14 +610,15 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       activeThreads = threads;
       emitActiveThreads();
     },
-    threadNameMutations: overrides.threadNameMutations ?? createKeyedOperationQueue(),
+    threadNameMutations: overrides.threadNameMutations ?? createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    threadLifecycleMutations: createKeyedOperationCoordinator({ whenBusy: "reject" }),
     threadTitlePort: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
     },
     threadAutoTitleWork: { submit: vi.fn() },
     threadGoalCoordinator: createThreadGoalCoordinator(),
-    runtimeSettingsCommitQueue: createKeyedOperationQueue(),
+    runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
     workspace: {
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),

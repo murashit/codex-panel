@@ -16,10 +16,10 @@ export function registerSelectionRewriteCommand(
   plugin: SelectionRewriteCommandHost,
   port: SelectionRewritePort,
 ): SelectionRewriteCommandController {
-  const activePopovers = new Set<SelectionRewritePopover>();
+  let activePopover: SelectionRewritePopover | null = null;
   const closeAll = (): void => {
-    for (const popover of activePopovers) popover.close();
-    activePopovers.clear();
+    activePopover?.close();
+    activePopover = null;
   };
 
   plugin.register(closeAll);
@@ -55,11 +55,11 @@ export function registerSelectionRewriteCommand(
         debugText: null,
       };
 
-      let popover: SelectionRewritePopover | null = null;
-      popover = new SelectionRewritePopover({
+      activePopover?.close();
+      const popover = new SelectionRewritePopover({
         editor,
         onClose: () => {
-          if (popover) activePopovers.delete(popover);
+          if (activePopover === popover) activePopover = null;
         },
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,
@@ -68,8 +68,8 @@ export function registerSelectionRewriteCommand(
         viewDocument,
         viewWindow,
       });
+      activePopover = popover;
       popover.open();
-      activePopovers.add(popover);
       return true;
     },
   });

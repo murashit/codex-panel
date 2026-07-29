@@ -4,7 +4,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import type { ChatSharedThreadSurface, ChatWorkspacePanelSnapshot, ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
 import { CodexChatView } from "../features/chat/host/view.obsidian";
 import { parseChatPanelViewState } from "../features/chat/host/view-state";
-import { createKeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "../shared/runtime/keyed-operation-coordinator";
 
 interface WorkspacePanelReconcileOptions {
   loadRestoredLeaves?: boolean;
@@ -25,7 +25,7 @@ export class WorkspacePanelCoordinator {
   private workspacePanelReconcileTimer: number | null = null;
   private lastFocusedPanelViewId: string | null = null;
   private readonly deferredLeafLoads = new WeakMap<WorkspaceLeaf, Promise<void>>();
-  private readonly threadPanelOperations = createKeyedOperationQueue<string>();
+  private readonly threadPanelOperations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
   private duplicatePanelLeaves = new WeakSet<WorkspaceLeaf>();
 
   constructor(private readonly options: WorkspacePanelCoordinatorOptions) {}

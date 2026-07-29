@@ -23,6 +23,7 @@ export interface ThreadsViewPanelActivity {
 
 export interface ThreadsRowModel extends ThreadRowCoreProjection {
   live: ThreadsLiveState | null;
+  lifecycleBusy: boolean;
 }
 
 export type ThreadsRenameState = ThreadRenameActiveState;
@@ -34,6 +35,7 @@ export function threadRows(
   renameStates: ReadonlyMap<string, ThreadsRenameState>,
   archiveConfirmThreadId: string | null = null,
   defaultArchiveSaveMarkdown = false,
+  lifecycleBusyThreadIds: ReadonlySet<string> = new Set(),
 ): ThreadsRowModel[] {
   const panelActivitiesByThread = panelActivitiesForThreads(panelActivities);
   return [...threads].sort(compareThreadsPinnedFirst).map((thread) => {
@@ -49,6 +51,7 @@ export function threadRows(
     return {
       ...core,
       live,
+      lifecycleBusy: lifecycleBusyThreadIds.has(thread.id),
     };
   });
 }

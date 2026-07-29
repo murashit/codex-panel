@@ -3,7 +3,7 @@ import type { Thread } from "../../domain/threads/model";
 import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
 import { DeferredTask } from "../../shared/runtime/deferred-task";
 import { isStaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
-import type { KeyedOperationQueue } from "../../shared/runtime/keyed-operation-queue";
+import type { KeyedOperationCoordinator } from "../../shared/runtime/keyed-operation-coordinator";
 import type { ObservedPaginatedResult } from "../../shared/runtime/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../shared/runtime/observed-result";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
@@ -20,7 +20,7 @@ export interface ThreadsViewHost {
   readonly vaultPath: string;
   readonly threadCatalog: ThreadsViewThreadCatalog;
   readonly threadFacts: ThreadFactSink;
-  readonly threadNameMutations: KeyedOperationQueue<string>;
+  readonly threadNameMutations: KeyedOperationCoordinator<string>;
   readonly threadMutationPort: ThreadMutationPort;
   readonly threadTitlePort: ThreadTitlePort;
   openNewPanel(): Promise<unknown>;
@@ -68,6 +68,7 @@ export class ThreadsViewSession {
   private readonly renameContextPreparations = new Map<string, ThreadTitleContextPreparation>();
   private readonly renameGenerations = new Map<string, ThreadTitleGeneration>();
   private readonly renameSaves = new Map<string, object>();
+  private readonly lifecycleBusyThreadIds = new Set<string>();
   private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
 
@@ -213,6 +214,7 @@ export class ThreadsViewSession {
           this.renameStates,
           this.archiveConfirmThreadId,
           this.host.settings.archiveExportEnabled(),
+          this.lifecycleBusyThreadIds,
         ),
       },
       {
@@ -376,12 +378,15 @@ export class ThreadsViewSession {
   }
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
+    if (this.lifecycleBusyThreadIds.has(threadId)) return;
     const panelActivity = this.host.openPanelActivities().find((activity) => activity.threadId === threadId);
     if (panelActivity?.pending || panelActivity?.running) {
       new Notice("Finish or interrupt the thread before archiving it.");
       return;
     }
     const viewLifetime = this.lifetime.signal();
+    this.lifecycleBusyThreadIds.add(threadId);
+    this.render();
     try {
       await this.mutations.archiveThread(threadId, {
         saveMarkdown,
@@ -392,6 +397,9 @@ export class ThreadsViewSession {
     } catch (error) {
       if (!this.lifetime.isCurrent(viewLifetime)) return;
       this.noticeError(error);
+    } finally {
+      this.lifecycleBusyThreadIds.delete(threadId);
+      if (this.lifetime.isCurrent(viewLifetime)) this.render();
     }
   }
 

@@ -1,5 +1,5 @@
 import type { ThreadTitleContext } from "../../../domain/threads/title-generation-model";
-import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
+import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
 import type { ThreadMutationPort, ThreadTitlePort } from "./ports";
 import type { ThreadFact, ThreadFactSink } from "./thread-facts";
 
@@ -12,7 +12,7 @@ export interface ThreadAutoTitleWork {
 interface ThreadAutoTitleWorkHost {
   titlePort: ThreadTitlePort;
   mutationPort: Pick<ThreadMutationPort, "renameThread">;
-  nameMutations: KeyedOperationQueue<string>;
+  nameMutations: KeyedOperationCoordinator<string>;
   facts: ThreadFactSink;
 }
 

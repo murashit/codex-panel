@@ -235,11 +235,10 @@ describe("SettingsDynamicSectionsController", () => {
     });
   });
 
-  it("serializes conflicting archived mutations and publishes their facts in order", async () => {
+  it("rejects a conflicting archived mutation while one is pending", async () => {
     const restoreResult = deferred<{ thread: ThreadRecord }>();
-    const deleteResult = deferred<unknown>();
     const restoreRequest = vi.fn(() => restoreResult.promise);
-    const deleteRequest = vi.fn(() => deleteResult.promise);
+    const deleteRequest = vi.fn().mockResolvedValue({});
     const restoreClient = settingsRequestClient({
       "thread/unarchive": restoreRequest,
     });
@@ -262,16 +261,11 @@ describe("SettingsDynamicSectionsController", () => {
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
 
     restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
-    await flushPromises();
-
-    expect(deleteRequest).toHaveBeenCalledOnce();
-    expect(applyThreadFact).toHaveBeenCalledTimes(1);
-
-    deleteResult.resolve({});
     await Promise.all([restore, deletion]);
 
-    expect(applyThreadFact.mock.calls.map(([event]) => event.type)).toEqual(["thread-restored", "thread-deleted"]);
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+    expect(deleteRequest).not.toHaveBeenCalled();
+    expect(applyThreadFact.mock.calls.map(([event]) => event.type)).toEqual(["thread-restored"]);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
   });
 
   it("publishes a completed archived mutation after the settings view is disposed", async () => {

@@ -85,11 +85,16 @@ describe("selection rewrite command", () => {
     expect(popoverMock.instances[0]?.open).toHaveBeenCalledOnce();
     expect(popoverMock.instances[0]?.options.port).toBe(port);
 
-    controller.closeAll();
+    expect(addedCommand.current?.editorCheckCallback(false, editor, view)).toBe(true);
+    expect(popoverMock.instances).toHaveLength(2);
     expect(popoverMock.instances[0]?.close).toHaveBeenCalledOnce();
+    expect(popoverMock.instances[1]?.open).toHaveBeenCalledOnce();
+
+    controller.closeAll();
+    expect(popoverMock.instances[1]?.close).toHaveBeenCalledOnce();
 
     cleanup.current?.();
-    expect(popoverMock.instances[0]?.close).toHaveBeenCalledOnce();
+    expect(popoverMock.instances[1]?.close).toHaveBeenCalledOnce();
   });
 
   it("keeps the command unavailable without a non-empty markdown selection", () => {

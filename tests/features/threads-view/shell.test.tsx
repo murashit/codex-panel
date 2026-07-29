@@ -43,6 +43,7 @@ function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
     threadId,
     title,
     live: null,
+    lifecycleBusy: false,
     selected: false,
     isPinned: false,
     rename: { active: false, draft: title, generating: false, saving: false, autoNameDisabled: true },

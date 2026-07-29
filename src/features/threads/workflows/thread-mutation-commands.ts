@@ -1,13 +1,13 @@
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../domain/threads/title";
-import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
+import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ThreadMutationPort } from "./ports";
 import type { ThreadFact, ThreadFactSink } from "./thread-facts";
 
 export interface ThreadMutationCommandsHost {
   port: ThreadMutationPort;
-  nameMutations: KeyedOperationQueue<string>;
+  nameMutations: KeyedOperationCoordinator<string>;
   archiveExport: {
     settings(): ArchiveExportSettings;
     enabled(): boolean;

@@ -10,7 +10,7 @@ import { createThreadGoalCoordinator } from "../../../../../src/features/chat/ap
 import { createThreadFoundation } from "../../../../../src/features/chat/host/bundles/thread-bundle";
 import { createThreadAutoTitleWork } from "../../../../../src/features/threads/workflows/thread-auto-title-work";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
-import { createKeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "../../../../../src/shared/runtime/keyed-operation-coordinator";
 import { deferred } from "../../../../support/async";
 import { chatPanelSettingsAccess } from "../../support/settings";
 
@@ -26,7 +26,7 @@ describe("chat thread foundation auto-title handoff", () => {
         generateTitle,
       },
       mutationPort: { renameThread },
-      nameMutations: createKeyedOperationQueue(),
+      nameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
       facts: { apply: vi.fn(), applyBatch: vi.fn() },
     });
     const foundation = createThreadFoundation(
@@ -48,7 +48,7 @@ describe("chat thread foundation auto-title handoff", () => {
               generateTitle: vi.fn(),
             },
             threadAutoTitleWork: sharedTitleWork,
-            threadNameMutations: createKeyedOperationQueue(),
+            threadNameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
             threadFacts: { apply: vi.fn(), applyBatch: vi.fn() },
             threadGoalCoordinator: createThreadGoalCoordinator(),
             threadCatalog: {

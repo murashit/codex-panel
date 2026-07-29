@@ -258,7 +258,7 @@ function ArchiveModeButton({
 }
 
 function threadArchiveDisabled(row: ThreadsRowModel): boolean {
-  return row.live?.status === "pending" || row.live?.status === "running";
+  return row.lifecycleBusy || row.live?.status === "pending" || row.live?.status === "running";
 }
 
 function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createThreadAutoTitleWork } from "../../../../src/features/threads/workflows/thread-auto-title-work";
-import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "../../../../src/shared/runtime/keyed-operation-coordinator";
 import { deferred } from "../../../support/async";
 
 describe("thread auto-title work", () => {
@@ -128,7 +128,7 @@ function workFixture(generate: () => Promise<string | null>) {
       generateTitle,
     },
     mutationPort: { renameThread },
-    nameMutations: createKeyedOperationQueue(),
+    nameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     facts: { apply: applyFact, applyBatch: vi.fn() },
   });
   return { work, generateTitle, renameThread, applyFact };

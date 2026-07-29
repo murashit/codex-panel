@@ -34,7 +34,6 @@ interface SettingsDynamicSectionsSnapshot {
 export class SettingsDynamicSectionsController {
   private readonly lifetime = new OwnerLifetime();
   private dynamicSectionsAutoLoadStarted = false;
-  private archivedThreadsOperationToken = 0;
   private hookMutationOperation: object | null = null;
 
   private archivedThreads: Thread[] = [];
@@ -68,7 +67,6 @@ export class SettingsDynamicSectionsController {
   replaceDynamicData(next: SettingsDynamicDataAccess): void {
     if (next === this.dynamicData) return;
     this.unsubscribe();
-    this.archivedThreadsOperationToken += 1;
     this.hookMutationOperation = null;
     this.dynamicData = next;
     this.dynamicSectionsAutoLoadStarted = false;
@@ -129,7 +127,6 @@ export class SettingsDynamicSectionsController {
     if (this.archivedThreadsLifecycle.kind === "loading") {
       this.archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
     }
-    this.archivedThreadsOperationToken += 1;
     this.unsubscribe();
   }
 
@@ -166,7 +163,6 @@ export class SettingsDynamicSectionsController {
     if (!this.lifetime.isCurrent(lifetime) || this.isLoading()) return;
     const dynamicData = this.dynamicData;
     this.dynamicSectionsAutoLoadStarted = true;
-    const archivedThreadsOperationToken = this.nextArchivedThreadsOperationToken();
     this.modelsLifecycle = settingsDynamicSectionLoading("Loading models...");
     this.archivedThreadsLifecycle = settingsDynamicSectionLoading("Loading archived threads...");
     this.hooksLifecycle = settingsDynamicSectionLoading("Loading hooks...");
@@ -199,9 +195,7 @@ export class SettingsDynamicSectionsController {
         this.hooksLifecycle = settingsDynamicSectionFailed(`Could not load hooks: ${errorMessage(hooksResult.reason)}`);
       }
 
-      if (this.isStaleArchivedThreadsOperation(archivedThreadsOperationToken)) {
-        // A newer archived threads operation owns this section.
-      } else if (archivedThreadsResult.status === "fulfilled") {
+      if (archivedThreadsResult.status === "fulfilled") {
         this.archivedThreads = [...archivedThreadsResult.value];
         this.archivedThreadsLoaded = true;
         this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(archivedThreadsStatus(archivedThreadsResult.value.length));
@@ -217,9 +211,7 @@ export class SettingsDynamicSectionsController {
       const message = errorMessage(error);
       this.modelsLifecycle = settingsDynamicSectionFailed(`Could not load models: ${message}`);
       this.hooksLifecycle = settingsDynamicSectionFailed(`Could not load hooks: ${message}`);
-      if (!this.isStaleArchivedThreadsOperation(archivedThreadsOperationToken)) {
-        this.archivedThreadsLifecycle = settingsDynamicSectionFailed(`Could not load archived threads: ${message}`);
-      }
+      this.archivedThreadsLifecycle = settingsDynamicSectionFailed(`Could not load archived threads: ${message}`);
     } finally {
       if (this.lifetime.isCurrent(lifetime) && this.dynamicDataIsCurrent(dynamicData)) {
         if (failedCount > 0) {
@@ -276,10 +268,9 @@ export class SettingsDynamicSectionsController {
       loadingStatus: "Loading archived threads...",
       failureStatus: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not restore archived Codex thread.",
-      operation: async (dynamicData, operationToken) => {
+      operation: async (dynamicData) => {
         const restoredThread = await dynamicData.restoreArchivedThread(threadId);
-        if (this.isStaleArchivedThreadsOperation(operationToken)) return;
-        this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(`Restored "${threadCommandDisplayTitle(restoredThread)}".`);
+        return `Restored "${threadCommandDisplayTitle(restoredThread)}".`;
       },
     });
   }
@@ -291,10 +282,9 @@ export class SettingsDynamicSectionsController {
       loadingStatus: "Loading archived threads...",
       failureStatus: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not delete archived Codex thread.",
-      operation: async (dynamicData, operationToken) => {
+      operation: async (dynamicData) => {
         await dynamicData.deleteArchivedThread(threadId);
-        if (this.isStaleArchivedThreadsOperation(operationToken)) return;
-        this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(`Deleted "${title}".`);
+        return `Deleted "${title}".`;
       },
     });
   }
@@ -350,35 +340,26 @@ export class SettingsDynamicSectionsController {
     loadingStatus: string;
     failureStatus: (error: unknown) => string;
     failureNotice: string;
-    operation: (dynamicData: SettingsDynamicDataAccess, operationToken: number) => Promise<void>;
+    operation: (dynamicData: SettingsDynamicDataAccess) => Promise<string>;
   }): Promise<void> {
     const lifetime = this.lifetime.signal();
-    if (!this.lifetime.isCurrent(lifetime)) return;
+    if (!this.lifetime.isCurrent(lifetime) || this.archivedThreadsLifecycle.kind === "loading") return;
     const dynamicData = this.dynamicData;
-    const operationToken = this.nextArchivedThreadsOperationToken();
-    const stale = (): boolean =>
-      !this.lifetime.isCurrent(lifetime) || !this.dynamicDataIsCurrent(dynamicData) || this.isStaleArchivedThreadsOperation(operationToken);
+    const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.dynamicDataIsCurrent(dynamicData);
 
     this.archivedThreadsLifecycle = settingsDynamicSectionLoading(options.loadingStatus);
     this.callbacks.display();
     try {
-      await options.operation(dynamicData, operationToken);
+      const successStatus = await options.operation(dynamicData);
+      if (!isCurrent()) return;
+      this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(successStatus);
     } catch (error) {
-      if (stale()) return;
+      if (!isCurrent()) return;
       this.archivedThreadsLifecycle = settingsDynamicSectionFailed(options.failureStatus(error));
       this.callbacks.notify(options.failureNotice);
     } finally {
-      if (!stale()) this.callbacks.display();
+      if (isCurrent()) this.callbacks.display();
     }
-  }
-
-  private nextArchivedThreadsOperationToken(): number {
-    this.archivedThreadsOperationToken += 1;
-    return this.archivedThreadsOperationToken;
-  }
-
-  private isStaleArchivedThreadsOperation(operationToken: number): boolean {
-    return operationToken !== this.archivedThreadsOperationToken;
   }
 
   private dynamicDataIsCurrent(dynamicData: SettingsDynamicDataAccess): boolean {

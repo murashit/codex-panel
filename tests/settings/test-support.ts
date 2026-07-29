@@ -12,6 +12,7 @@ import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data"
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
 import { StaleExecutionRuntimeError } from "../../src/shared/runtime/execution-runtime-lifetime";
+import { createKeyedOperationCoordinator } from "../../src/shared/runtime/keyed-operation-coordinator";
 
 type ShortLivedClientOperation = (
   codexPath: string,
@@ -256,6 +257,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       appServerQueries,
       threadCatalog,
       threadFacts,
+      threadLifecycleMutations: createKeyedOperationCoordinator({ whenBusy: "reject" }),
     });
   let dynamicData = options.dynamicData ?? createDynamicData();
   const host: CodexPanelSettingTabHost = {

@@ -5,7 +5,7 @@ import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer
 import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { ThreadCatalogArchivedReader } from "../features/threads/catalog/thread-catalog";
 import type { ThreadFactSink } from "../features/threads/workflows/thread-facts";
-import { createKeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
+import type { KeyedOperationCoordinator } from "../shared/runtime/keyed-operation-coordinator";
 import type { ObservedResultListener } from "../shared/runtime/observed-result";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
 
@@ -22,17 +22,14 @@ export interface SettingsAppServerDynamicDataOptions {
   appServerQueries: SettingsAppServerQueries;
   threadCatalog: ThreadCatalogArchivedReader;
   threadFacts: ThreadFactSink;
+  threadLifecycleMutations: KeyedOperationCoordinator<string>;
 }
 
 export function createSettingsAppServerDynamicData(options: SettingsAppServerDynamicDataOptions): SettingsDynamicDataAccess {
-  const archivedThreadMutations = createKeyedOperationQueue<string>();
   const withSettingsConnection = <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> =>
     options.clientAccess.withClient(operation, {
       serverRequests: { kind: "reject", message: "Codex Panel settings does not handle server requests." },
     });
-  const runArchivedThreadMutation = <T>(threadId: string, operation: () => Promise<T>): Promise<T> => {
-    return archivedThreadMutations.run(threadId, operation);
-  };
   const loadHooks = (client: AppServerClient): Promise<SettingsHookCatalog> => loadSettingsHookCatalog(client, options.vaultPath);
   const mutateHook = (hook: HookItem, mutation: (client: AppServerClient, hook: HookItem) => Promise<void>): Promise<SettingsHookCatalog> =>
     withSettingsConnection(async (client) => {
@@ -53,13 +50,13 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
     trustHook: (hook) => mutateHook(hook, trustHookItem),
     setHookEnabled: (hook, enabled) => mutateHook(hook, (client, item) => setHookItemEnabled(client, item, enabled)),
     restoreArchivedThread: (threadId) =>
-      runArchivedThreadMutation(threadId, async () => {
+      options.threadLifecycleMutations.run(threadId, async () => {
         const thread = await withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
         options.threadFacts.apply({ type: "thread-restored", thread });
         return thread;
       }),
     deleteArchivedThread: (threadId) =>
-      runArchivedThreadMutation(threadId, async () => {
+      options.threadLifecycleMutations.run(threadId, async () => {
         await withSettingsConnection((client) => deleteThread(client, threadId));
         options.threadFacts.apply({ type: "thread-deleted", threadId });
       }),

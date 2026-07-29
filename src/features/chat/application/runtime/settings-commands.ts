@@ -1,7 +1,7 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import { createKeyedOperationQueue, type KeyedOperationQueue } from "../../../../shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/runtime/keyed-operation-coordinator";
 import { type CollaborationModeSelection, nextCollaborationMode, type RequestedFastMode } from "../../domain/runtime/intent";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
@@ -33,7 +33,7 @@ export interface RuntimeSettingsCommandsHost {
 }
 
 interface RuntimeSettingsCommandsContext extends RuntimeSettingsCommandsHost {
-  threadCommits: KeyedOperationQueue<string>;
+  threadCommits: KeyedOperationCoordinator<string>;
 }
 
 interface RuntimeSettingsCommandScope {
@@ -65,7 +65,7 @@ export interface ChatRuntimeSettingsCommands {
 
 export function createChatRuntimeSettingsCommands(
   host: RuntimeSettingsCommandsHost,
-  threadCommits: KeyedOperationQueue<string> = createKeyedOperationQueue(),
+  threadCommits: KeyedOperationCoordinator<string> = createKeyedOperationCoordinator({ whenBusy: "queue" }),
 ): ChatRuntimeSettingsCommands {
   const context: RuntimeSettingsCommandsContext = { ...host, threadCommits };
   return {

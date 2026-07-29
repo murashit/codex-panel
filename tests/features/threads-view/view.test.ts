@@ -8,7 +8,7 @@ import { createThreadMutationAdapter, createThreadTitleAdapter } from "../../../
 import type { ThreadFactSink } from "../../../src/features/threads/workflows/thread-facts";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import { createKeyedOperationQueue } from "../../../src/shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "../../../src/shared/runtime/keyed-operation-coordinator";
 import type { ObservedPaginatedResult } from "../../../src/shared/runtime/observed-result";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
@@ -399,6 +399,9 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
     await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" }));
+    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.disabled).toBe(true);
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
+    expect(archiveThread).toHaveBeenCalledOnce();
 
     await view.onClose();
     archived.resolve({});
@@ -914,8 +917,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       }),
     },
     vaultPath: "/vault",
-    threadNameMutations: createKeyedOperationQueue(),
-    threadMutationPort: createThreadMutationAdapter(clientAccess),
+    threadNameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    threadMutationPort: createThreadMutationAdapter(clientAccess, createKeyedOperationCoordinator({ whenBusy: "reject" })),
     threadFacts: threadFactSink(applyThreadFact),
     threadTitlePort: createThreadTitleAdapter({
       clientAccess,

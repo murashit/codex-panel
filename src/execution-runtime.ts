@@ -27,7 +27,7 @@ import { createSettingsAppServerDynamicData } from "./settings/app-server-dynami
 import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
 import type { CodexPanelSettings } from "./settings/model";
 import { StaleExecutionRuntimeError } from "./shared/runtime/execution-runtime-lifetime";
-import { createKeyedOperationQueue } from "./shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "./shared/runtime/keyed-operation-coordinator";
 
 export interface CodexExecutionRuntimeOptions {
   app: App;
@@ -48,9 +48,10 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly threadFacts: ThreadFactSink;
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
-  private readonly threadNameMutations = createKeyedOperationQueue<string>();
+  private readonly threadNameMutations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+  private readonly threadLifecycleMutations = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
   private readonly threadGoalCoordinator = createThreadGoalCoordinator();
-  private readonly runtimeSettingsCommitQueue = createKeyedOperationQueue<string>();
+  private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
   private readonly shortLivedClients = new Set<AppServerClient>();
   private readonly structuredTurnClients = new Set<EphemeralStructuredTurnClient>();
   private readonly structuredTurnOperations = new Set<AbortController>();
@@ -74,7 +75,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     };
     this.threadAutoTitleWork = createThreadAutoTitleWork({
       titlePort: this.threadTitlePort(),
-      mutationPort: createThreadMutationAdapter(this),
+      mutationPort: createThreadMutationAdapter(this, this.threadLifecycleMutations),
       nameMutations: this.threadNameMutations,
       facts: this.threadFacts,
     });
@@ -84,6 +85,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFacts,
+      threadLifecycleMutations: this.threadLifecycleMutations,
     });
   }
 
@@ -98,6 +100,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFacts,
       threadNameMutations: this.threadNameMutations,
+      threadLifecycleMutations: this.threadLifecycleMutations,
       threadTitlePort: this.threadTitlePort(),
       threadAutoTitleWork: this.currentThreadAutoTitleWork(),
       threadGoalCoordinator: this.threadGoalCoordinator,
@@ -113,7 +116,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFacts,
       threadNameMutations: this.threadNameMutations,
-      threadMutationPort: createThreadMutationAdapter(this),
+      threadMutationPort: createThreadMutationAdapter(this, this.threadLifecycleMutations),
       threadTitlePort: this.threadTitlePort(),
       openNewPanel: () => this.options.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.options.openThreadInAvailableView(threadId),

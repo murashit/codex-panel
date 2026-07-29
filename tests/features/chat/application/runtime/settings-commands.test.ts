@@ -10,7 +10,10 @@ import type { ActiveThreadSettingsAppliedAction } from "../../../../../src/featu
 import { activeThreadId, type ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
-import { createKeyedOperationQueue, type KeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
+import {
+  createKeyedOperationCoordinator,
+  type KeyedOperationCoordinator,
+} from "../../../../../src/shared/runtime/keyed-operation-coordinator";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -533,7 +536,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const firstUpdate = deferred(true);
     const firstPort = settingsPortFixture({ updateThreadSettings: vi.fn(() => firstUpdate.promise) });
     const secondPort = settingsPortFixture();
-    const threadCommits = createKeyedOperationQueue<string>();
+    const threadCommits = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
     const firstCommands = runtimeCommandsFixture(firstStore, firstPort, [], threadCommits);
     const secondCommands = runtimeCommandsFixture(secondStore, secondPort, [], threadCommits);
 
@@ -571,7 +574,7 @@ describe("createChatRuntimeSettingsCommands", () => {
         return Promise.resolve(true);
       }),
     });
-    const threadCommits = createKeyedOperationQueue<string>();
+    const threadCommits = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
     const firstCommands = runtimeCommandsFixture(firstStore, firstPort, [], threadCommits);
     const secondCommands = runtimeCommandsFixture(secondStore, secondPort, [], threadCommits);
 
@@ -638,7 +641,7 @@ describe("createChatRuntimeSettingsCommands", () => {
         return Promise.resolve(true);
       }),
     });
-    const threadCommits = createKeyedOperationQueue<string>();
+    const threadCommits = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
     const firstCommands = runtimeCommandsFixture(firstStore, firstPort, [], threadCommits);
     const secondCommands = runtimeCommandsFixture(secondStore, secondPort, [], threadCommits);
 
@@ -730,7 +733,7 @@ function runtimeCommandsFixture(
   store: ReturnType<typeof createChatStateStore>,
   port: RuntimeSettingsPort,
   messages: string[],
-  threadCommits?: KeyedOperationQueue<string>,
+  threadCommits?: KeyedOperationCoordinator<string>,
   shared: RuntimeSnapshotFixtureShared = {},
 ): ChatRuntimeSettingsCommands {
   return createChatRuntimeSettingsCommands(

@@ -228,11 +228,13 @@ export function ObsidianExtraButton({
   icon,
   label,
   className,
+  disabled = false,
   onClick,
 }: {
   icon: string;
   label: string;
   className?: string;
+  disabled?: boolean;
   onClick: () => void;
 }): UiNode {
   const ref = useRef<HTMLSpanElement | null>(null);
@@ -265,6 +267,9 @@ export function ObsidianExtraButton({
     for (const classPart of classParts) button.extraSettingsEl.classList.add(classPart);
     classPartsRef.current = classParts;
   }, [className, icon, label]);
+  useLayoutEffect(() => {
+    buttonRef.current?.setDisabled(disabled);
+  }, [disabled]);
 
   return <span ref={ref} />;
 }

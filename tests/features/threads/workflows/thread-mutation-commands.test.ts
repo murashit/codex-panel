@@ -12,7 +12,7 @@ import {
   type ThreadMutationCommandsHost,
 } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "../../../../src/shared/runtime/keyed-operation-coordinator";
 import { deferred } from "../../../support/async";
 import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 
@@ -96,6 +96,25 @@ describe("ThreadMutationCommands", () => {
       type: "thread-archived",
       threadId: "thread",
     });
+  });
+
+  it("rejects a second archive for the same thread while the first is pending", async () => {
+    const archive = deferred<object>();
+    const client = clientMock();
+    client.request.mockImplementation(async (method: string) => {
+      if (method === "thread/archive") return archive.promise;
+      throw new Error(`Unexpected app-server request: ${method}`);
+    });
+    const { mutations, catalog } = operationsFixture({ client });
+
+    const first = mutations.archiveThread("thread");
+    await Promise.resolve();
+    await expect(mutations.archiveThread("thread")).rejects.toThrow("An operation is already in progress.");
+    expect(client.request).toHaveBeenCalledOnce();
+
+    archive.resolve({});
+    await first;
+    expect(catalog.apply).toHaveBeenCalledOnce();
   });
 
   it("announces archive target adoption immediately before publishing the archive fact", async () => {
@@ -270,16 +289,19 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
   };
   const notice = vi.fn();
   const host: ThreadMutationCommandsHost = {
-    port: createThreadMutationAdapter({
-      withClient: async (operation) => {
-        const client = currentClient() as AppServerClient | null;
-        if (!client) throw new Error("No current client.");
-        const result = await operation(client);
-        if ((currentClient() as AppServerClient | null) !== client) throw new Error("Client changed.");
-        return result;
+    port: createThreadMutationAdapter(
+      {
+        withClient: async (operation) => {
+          const client = currentClient() as AppServerClient | null;
+          if (!client) throw new Error("No current client.");
+          const result = await operation(client);
+          if ((currentClient() as AppServerClient | null) !== client) throw new Error("Client changed.");
+          return result;
+        },
       },
-    }),
-    nameMutations: createKeyedOperationQueue(),
+      createKeyedOperationCoordinator({ whenBusy: "reject" }),
+    ),
+    nameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     archiveExport: {
       settings: archiveExportSettings,
       enabled: () => false,

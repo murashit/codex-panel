@@ -109,7 +109,7 @@ interface ChatPanelThreadCommandBundle {
 export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPanelThreadFoundationInput): ChatPanelThreadFoundation {
   const { appServer, localItemIds, status } = input;
   const { environment, stateStore } = host;
-  const threadMutationPort = createThreadMutationAdapter(appServer.clientAccess);
+  const threadMutationPort = createThreadMutationAdapter(appServer.clientAccess, environment.plugin.threadLifecycleMutations);
   const titleService = createThreadTitleService({
     port: environment.plugin.threadTitlePort,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),

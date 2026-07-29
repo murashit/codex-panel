@@ -13,7 +13,7 @@ import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/panel/thread-stream/scroll-binding";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/model";
 import { StaleExecutionRuntimeError } from "../../../../../src/shared/runtime/execution-runtime-lifetime";
-import { createKeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
+import { createKeyedOperationCoordinator } from "../../../../../src/shared/runtime/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { chatPanelSettingsAccess } from "../../support/settings";
@@ -295,9 +295,10 @@ describe("chat panel session runtime actions", () => {
           apply: overrides.plugin?.threadFacts?.apply ?? vi.fn(),
           applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
-        threadNameMutations: createKeyedOperationQueue(),
+        threadNameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+        threadLifecycleMutations: createKeyedOperationCoordinator({ whenBusy: "reject" }),
         threadGoalCoordinator: createThreadGoalCoordinator(),
-        runtimeSettingsCommitQueue: createKeyedOperationQueue(),
+        runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
       },
       view: {
         panelRoot: () => panelRoot,
