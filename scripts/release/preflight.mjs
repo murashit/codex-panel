@@ -65,7 +65,7 @@ function assertReleaseCommit(packageVersion) {
 
   const changedPaths = run("git", ["diff", "--name-only", "main^", "main"], { capture: true }).split("\n").filter(Boolean);
   const allowedPaths = new Set([
-    ".github/release-notes/" + packageVersion + ".md",
+    `.github/release-notes/${packageVersion}.md`,
     "manifest.json",
     "package-lock.json",
     "package.json",
