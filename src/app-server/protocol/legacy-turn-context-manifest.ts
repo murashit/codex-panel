@@ -6,6 +6,8 @@ import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
  * Read-only compatibility for v2 metadata envelopes written by Codex Panel
  * versions that predate durable, human-readable references in message text.
  * Request construction must not import this module.
+ * Retain this read path until roughly three months after the last released
+ * Panel version capable of writing these envelopes.
  */
 
 const TURN_CONTEXT_MANIFEST_PREFIX = "[Codex Panel context v2]";

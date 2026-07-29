@@ -3,9 +3,10 @@ import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
 
 /*
  * Compatibility boundary for user messages persisted by old Codex Panel
- * versions. New request construction must not depend on this module. Once old
- * thread history no longer needs recovery, delete this file and its explicit
- * fallbacks in turn.ts.
+ * versions. New request construction must not depend on this module. Retain
+ * this compatibility until roughly three months after the last released Panel
+ * version capable of writing these envelopes; then delete this file and its
+ * explicit fallbacks in turn.ts.
  */
 
 function legacyPanelReferencedThreadFromPrompt(text: string): { text: string; reference: ReferencedThreadMetadata } | null {
