@@ -563,6 +563,18 @@ describe("AppServerQueryCache", () => {
     expect(listModels).toHaveBeenCalledOnce();
   });
 
+  it("rejects an in-flight metadata notification refresh as stale after disposal", async () => {
+    const response = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const cache = cacheWithRequestHandlers({ "skills/list": vi.fn(() => response.promise) });
+    const refresh = cache.refreshSkills();
+    await flushMicrotasks();
+
+    cache.dispose();
+
+    await expect(refresh).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+    response.resolve({ data: [{ skills: [catalogSkill("ignored")] }] });
+  });
+
   it("freezes its lease context before starting requests", async () => {
     const context = { codexPath: "codex-captured", vaultPath: "/vault" };
     const capturedContext = { ...context };
@@ -735,9 +747,13 @@ describe("AppServerQueryCache", () => {
     await Promise.all([first, second]);
   });
 
-  it("coalesces a skills notification with an in-flight full refresh", async () => {
-    const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const listSkills = vi.fn(() => first.promise);
+  it("refreshes skills after a notification invalidates an in-flight full refresh", async () => {
+    const stale = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const fresh = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const listSkills = vi
+      .fn()
+      .mockImplementationOnce(() => stale.promise)
+      .mockImplementationOnce(() => fresh.promise);
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
       "model/list": vi.fn().mockResolvedValue({ data: [] }),
@@ -749,15 +765,44 @@ describe("AppServerQueryCache", () => {
     const fullRefresh = cache.refreshAppServerMetadata();
     await flushMicrotasks();
     const notificationRefresh = cache.refreshSkills();
-    first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
+    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
+    expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: true });
+
+    stale.resolve({ data: [{ skills: [catalogSkill("old")] }] });
+    fresh.resolve({ data: [{ skills: [catalogSkill("new")] }] });
     await Promise.all([fullRefresh, notificationRefresh]);
-    expect(listSkills).toHaveBeenCalledOnce();
-    expect(cache.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["old"]);
+    expect(cache.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["new"]);
   });
 
-  it("coalesces repeated skills notifications", async () => {
+  it("keeps a full refresh from overtaking a skills notification refresh", async () => {
+    const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const listSkills = vi.fn(() => skills.promise);
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockResolvedValue({ data: [] }),
+      "skills/list": listSkills,
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+
+    const notificationRefresh = cache.refreshSkills();
+    const fullRefresh = cache.refreshAppServerMetadata();
+    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledOnce());
+    expect(listSkills).toHaveBeenCalledWith({ cwds: ["/vault"], forceReload: true });
+    skills.resolve({ data: [{ skills: [catalogSkill("new")] }] });
+
+    await Promise.all([notificationRefresh, fullRefresh]);
+    expect(listSkills).toHaveBeenCalledOnce();
+    expect(cache.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["new"]);
+  });
+
+  it("coalesces repeated skills notifications into a trailing refresh", async () => {
     const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const listSkills = vi.fn(() => first.promise);
+    const second = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const listSkills = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
     const listener = vi.fn();
     const unsubscribe = cache.observeMetadataResource("skills", listener, { emitCurrent: false });
@@ -766,15 +811,45 @@ describe("AppServerQueryCache", () => {
     await flushMicrotasks();
     const newer = cache.refreshSkills();
     first.resolve({ data: [{ skills: [catalogSkill("stale")] }] });
+    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
+    second.resolve({ data: [{ skills: [catalogSkill("latest")] }] });
 
     await expect(Promise.all([older, newer])).resolves.toEqual([undefined, undefined]);
     expect(listener).toHaveBeenLastCalledWith({
       id: "skills",
-      value: [expect.objectContaining({ name: "stale" })],
+      value: [expect.objectContaining({ name: "latest" })],
       probe: expect.objectContaining({ status: "ok" }),
     });
-    expect(listSkills).toHaveBeenCalledOnce();
+    expect(listSkills).toHaveBeenNthCalledWith(1, { cwds: ["/vault"], forceReload: true });
+    expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: true });
     unsubscribe();
+  });
+
+  it("refreshes rate limits after a notification invalidates an in-flight full refresh", async () => {
+    const stale = deferred<{ rateLimits: RateLimitSnapshot; rateLimitsByLimitId: null }>();
+    const fresh = deferred<{ rateLimits: RateLimitSnapshot; rateLimitsByLimitId: null }>();
+    const readRateLimits = vi
+      .fn()
+      .mockImplementationOnce(() => stale.promise)
+      .mockImplementationOnce(() => fresh.promise);
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockResolvedValue({ data: [] }),
+      "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "account/rateLimits/read": readRateLimits,
+    });
+
+    const fullRefresh = cache.refreshAppServerMetadata();
+    await flushMicrotasks();
+    const notificationRefresh = cache.refreshRateLimits();
+    await vi.waitFor(() => expect(readRateLimits).toHaveBeenCalledTimes(2));
+
+    stale.resolve({ rateLimits: appServerRateLimit(17), rateLimitsByLimitId: null });
+    fresh.resolve({ rateLimits: appServerRateLimit(64), rateLimitsByLimitId: null });
+    await Promise.all([fullRefresh, notificationRefresh]);
+
+    expect(cache.metadataSnapshot("rateLimits")?.primary?.usedPercent).toBe(64);
   });
 
   it("rejects an initial metadata refresh when runtime config fails after optional resources settle", async () => {

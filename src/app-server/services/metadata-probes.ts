@@ -16,9 +16,13 @@ export type SkillMetadataProbeResult = MetadataProbeResult<SkillMetadata[], "ski
 export type PermissionProfileMetadataProbeResult = MetadataProbeResult<RuntimePermissionProfileSummary[], "permissionProfiles">;
 export type RateLimitMetadataProbeResult = MetadataProbeResult<RateLimitSnapshot | null, "rateLimits">;
 
-export async function readSkillMetadataProbe(client: AppServerRequestClient, vaultPath: string): Promise<SkillMetadataProbeResult> {
+export async function readSkillMetadataProbe(
+  client: AppServerRequestClient,
+  vaultPath: string,
+  options: { forceReload?: boolean } = {},
+): Promise<SkillMetadataProbeResult> {
   try {
-    const catalog = await listSkillCatalog(client, vaultPath);
+    const catalog = await listSkillCatalog(client, vaultPath, options);
     return { value: catalog.skills, probe: diagnosticProbeOk("skills", `${String(catalog.totalCount)} skills`, Date.now()) };
   } catch (error) {
     return { value: [], probe: diagnosticProbeError("skills", error, Date.now()) };
