@@ -2,11 +2,12 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
+import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import { CodexThreadsView } from "../src/features/threads-view/view.obsidian";
+import { CodexTurnDiffView } from "../src/features/turn-diff/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
 import { deferred } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
@@ -71,6 +72,54 @@ describe("CodexPanelPlugin runtime integration", () => {
   beforeEach(() => {
     vi.useRealTimers();
     withShortLivedAppServerClientMock.mockReset();
+  });
+
+  it("creates and loads a turn diff leaf before publishing its session payload", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const diffLeaf = leaf();
+    const events: string[] = [];
+    const setDiffPayload = vi.spyOn(CodexTurnDiffView.prototype, "setDiffPayload").mockImplementation(() => {
+      events.push("payload");
+    });
+    diffLeaf.setViewState.mockImplementation(async () => {
+      diffLeaf.view = new CodexTurnDiffView({ ...diffLeaf, containerEl: document.createElement("div") } as never);
+    });
+    diffLeaf.loadIfDeferred.mockImplementation(async () => {
+      events.push("load");
+    });
+    const getLeaf = vi.fn(() => diffLeaf);
+    Object.assign(plugin.app.workspace, { getLeaf });
+    const payload = { threadId: "thread", turnId: "turn", files: ["Note.md"], diff: "@@\n-old\n+new" };
+
+    await currentChatHost(plugin).workspace.openTurnDiff(payload);
+
+    expect(getLeaf).toHaveBeenCalledWith("tab");
+    expect(diffLeaf.setViewState).toHaveBeenCalledWith({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true });
+    expect(events).toEqual(["load", "payload"]);
+    expect(setDiffPayload).toHaveBeenCalledWith(payload);
+    expect(plugin.app.workspace.revealLeaf).toHaveBeenCalledWith(diffLeaf);
+  });
+
+  it("loads a reused turn diff leaf before replacing its session payload", async () => {
+    const diffLeaf = leaf();
+    const diffView = new CodexTurnDiffView({ ...diffLeaf, containerEl: document.createElement("div") } as never);
+    diffLeaf.view = diffView;
+    const plugin = await pluginWithLeaves([], { turnDiffLeaves: [diffLeaf] });
+    const events: string[] = [];
+    diffLeaf.loadIfDeferred.mockImplementation(async () => {
+      events.push("load");
+    });
+    const setDiffPayload = vi.spyOn(diffView, "setDiffPayload").mockImplementation(() => {
+      events.push("payload");
+    });
+    const payload = { threadId: "thread", turnId: "turn", files: ["Note.md"], diff: "@@\n-old\n+new" };
+
+    await currentChatHost(plugin).workspace.openTurnDiff(payload);
+
+    expect(diffLeaf.setViewState).not.toHaveBeenCalled();
+    expect(events).toEqual(["load", "payload"]);
+    expect(setDiffPayload).toHaveBeenCalledWith(payload);
+    expect(plugin.app.workspace.revealLeaf).toHaveBeenCalledWith(diffLeaf);
   });
 
   it("applies known archive mutations to open chat surfaces", async () => {

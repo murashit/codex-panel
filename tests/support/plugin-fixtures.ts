@@ -3,7 +3,7 @@
 import { FileSystemAdapter } from "obsidian";
 import { vi } from "vitest";
 
-import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../../src/constants";
+import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "../../src/constants";
 import { createServerDiagnostics } from "../../src/domain/server/diagnostics";
 import type { Thread } from "../../src/domain/threads/model";
 import { createThreadGoalCoordinator } from "../../src/features/chat/application/threads/thread-goal-coordinator";
@@ -14,7 +14,10 @@ import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/mo
 import { createKeyedOperationQueue } from "../../src/shared/runtime/keyed-operation-queue";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
 
-export async function pluginWithLeaves(leaves: TestLeaf[], options: { threadsLeaves?: TestLeaf[] } = {}): Promise<CodexPanelPlugin> {
+export async function pluginWithLeaves(
+  leaves: TestLeaf[],
+  options: { threadsLeaves?: TestLeaf[]; turnDiffLeaves?: TestLeaf[] } = {},
+): Promise<CodexPanelPlugin> {
   const { default: CodexPanelPlugin } = await import("../../src/main");
   const adapter = new FileSystemAdapter();
   vi.spyOn(adapter, "getBasePath").mockReturnValue("/vault");
@@ -25,6 +28,7 @@ export async function pluginWithLeaves(leaves: TestLeaf[], options: { threadsLea
         getLeavesOfType: vi.fn((type: string) => {
           if (type === VIEW_TYPE_CODEX_PANEL) return leaves;
           if (type === VIEW_TYPE_CODEX_THREADS) return options.threadsLeaves ?? [];
+          if (type === VIEW_TYPE_CODEX_TURN_DIFF) return options.turnDiffLeaves ?? [];
           return [];
         }),
         revealLeaf: vi.fn().mockResolvedValue(undefined),

@@ -4,40 +4,19 @@ import { shortThreadId } from "../../domain/threads/id";
 import { renderUiRoot } from "../../shared/dom/preact-root.dom";
 import { IconButton } from "../../shared/obsidian/components.obsidian";
 import { UnifiedDiffView } from "../../shared/ui/diff-view";
-import type { PersistedTurnDiffViewState, TurnDiffViewState } from "./model";
+import type { TurnDiffViewState } from "./model";
 
 export interface TurnDiffViewActions {
   copyDiff?: () => void;
 }
 
-export function renderTurnDiffView(
-  parent: HTMLElement,
-  state: TurnDiffViewState | null,
-  actions: TurnDiffViewActions = {},
-  metadata: PersistedTurnDiffViewState | null = null,
-): void {
+export function renderTurnDiffView(parent: HTMLElement, state: TurnDiffViewState | null, actions: TurnDiffViewActions = {}): void {
   parent.addClass("codex-panel-turn-diff");
-  renderUiRoot(parent, <TurnDiffView state={state} actions={actions} metadata={metadata} />);
+  renderUiRoot(parent, <TurnDiffView state={state} actions={actions} />);
 }
 
-function TurnDiffView({
-  state,
-  actions,
-  metadata,
-}: {
-  state: TurnDiffViewState | null;
-  actions: TurnDiffViewActions;
-  metadata: PersistedTurnDiffViewState | null;
-}): UiNode {
+function TurnDiffView({ state, actions }: { state: TurnDiffViewState | null; actions: TurnDiffViewActions }): UiNode {
   if (!state) {
-    if (metadata) {
-      return (
-        <>
-          <TurnDiffHeader state={metadata} copyDiff={null} />
-          <div className="codex-panel-turn-diff__empty">Turn diff is no longer available.</div>
-        </>
-      );
-    }
     return <div className="codex-panel-turn-diff__empty">No turn diff selected.</div>;
   }
 
@@ -50,13 +29,7 @@ function TurnDiffView({
   );
 }
 
-function TurnDiffHeader({
-  state,
-  copyDiff,
-}: {
-  state: PersistedTurnDiffViewState;
-  copyDiff: TurnDiffViewActions["copyDiff"] | null;
-}): UiNode {
+function TurnDiffHeader({ state, copyDiff }: { state: TurnDiffViewState; copyDiff: TurnDiffViewActions["copyDiff"] | null }): UiNode {
   return (
     <div className="codex-panel-turn-diff__header">
       <div className="codex-panel-turn-diff__title-block">

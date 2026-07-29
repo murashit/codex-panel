@@ -35,6 +35,16 @@ describe("CodexPanelPlugin lifecycle", () => {
     expect(secondLeaf.loadIfDeferred).toHaveBeenCalledOnce();
   });
 
+  it("discards turn diff leaves on plugin load because their payloads do not survive reloads", async () => {
+    const turnDiffLeaf = leaf();
+    const plugin = await pluginWithLeaves([], { turnDiffLeaves: [turnDiffLeaf] });
+
+    await plugin.onload();
+
+    expect(turnDiffLeaf.detach).toHaveBeenCalledOnce();
+    expect(turnDiffLeaf.loadIfDeferred).not.toHaveBeenCalled();
+  });
+
   it("cancels pending workspace reconciliation on unload", async () => {
     vi.useFakeTimers();
     const panelLeaf = leaf();

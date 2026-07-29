@@ -13,7 +13,7 @@ import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import type { ThreadFact } from "./features/threads/workflows/thread-facts";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
-import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/turn-diff/model";
+import type { TurnDiffViewState } from "./features/turn-diff/model";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
 import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "./settings/host";
@@ -158,7 +158,9 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   private async openTurnDiff(state: TurnDiffViewState): Promise<void> {
     const existing = this.options.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF).at(0);
     const leaf = existing ?? this.options.app.workspace.getLeaf("tab");
-    await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true, state: { ...persistedTurnDiffViewState(state) } });
+    if (!existing) {
+      await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true });
+    }
     await leaf.loadIfDeferred();
     if (leaf.view instanceof CodexTurnDiffView) {
       leaf.view.setDiffPayload(state);

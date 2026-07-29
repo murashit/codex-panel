@@ -3,7 +3,6 @@
 import type { WorkspaceLeaf } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { isPersistedTurnDiffViewState, persistedTurnDiffViewState } from "../../../src/features/turn-diff/model";
 import { renderTurnDiffView } from "../../../src/features/turn-diff/render.dom";
 import { CodexTurnDiffView } from "../../../src/features/turn-diff/view.obsidian";
 import { installObsidianDomShims } from "../../support/dom";
@@ -140,103 +139,18 @@ describe("turn diff view decisions", () => {
     expect(parent.querySelector(".codex-panel-diff__word")).toBeNull();
   });
 
-  it("keeps unified diff text out of persisted turn diff view state", () => {
-    const persisted = persistedTurnDiffViewState({
-      threadId: "thread",
-      turnId: "turn",
-      files: ["src/main.ts"],
-      diff: "@@\n-old\n+new",
-    });
-
-    expect(persisted).toEqual({
-      threadId: "thread",
-      turnId: "turn",
-      files: ["src/main.ts"],
-    });
-    expect(persisted).not.toHaveProperty("diff");
-  });
-
-  it.each([
-    {
-      name: "a complete current state",
-      value: { threadId: "thread", turnId: "turn", files: ["src/main.ts"] },
-      valid: true,
-    },
-    { name: "null", value: null, valid: false },
-    {
-      name: "a missing turn id",
-      value: { threadId: "thread", cwd: "/vault/project", files: ["src/main.ts"] },
-      valid: false,
-    },
-    {
-      name: "a non-array file list",
-      value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: "src/main.ts" },
-      valid: false,
-    },
-    {
-      name: "a file list containing a non-string value",
-      value: { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts", 42] },
-      valid: false,
-    },
-  ])("classifies $name as persisted state: $valid", ({ value, valid }) => {
-    expect(isPersistedTurnDiffViewState(value)).toBe(valid);
-  });
-
-  it("renders restored turn diff metadata without unavailable diff text", () => {
-    const parent = document.createElement("div");
-
-    renderTurnDiffView(parent, null, {}, { threadId: "thread", turnId: "turn", files: ["src/main.ts"] });
-
-    expect(parent.querySelector(".codex-panel-turn-diff__meta")?.textContent).toContain("thread / turn");
-    expect(parent.textContent).toContain("Turn diff is no longer available.");
-    expect(parent.querySelector(".codex-panel-turn-diff__copy")).toBeNull();
-    expect(parent.querySelector(".codex-panel-turn-diff__diff")).toBeNull();
-  });
-
-  it("restores only persisted metadata and clears an in-memory diff payload", async () => {
+  it("does not persist the session-only diff payload in view state", () => {
     const containerEl = document.createElement("div");
     const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
     view.setDiffPayload({
-      threadId: "live-thread",
-      turnId: "live-turn",
-      files: ["src/live.ts"],
+      threadId: "thread",
+      turnId: "turn",
+      files: ["src/main.ts"],
       diff: "@@\n-old\n+new",
     });
 
-    await view.setState(
-      {
-        threadId: "restored-thread",
-        turnId: "restored-turn",
-        files: ["src/restored.ts"],
-      },
-      {} as never,
-    );
-
-    expect(view.getState()).toEqual({
-      threadId: "restored-thread",
-      turnId: "restored-turn",
-      files: ["src/restored.ts"],
-    });
-    expect(view.contentEl.textContent).toContain("Turn diff is no longer available.");
-    expect(view.contentEl.textContent).not.toContain("old");
-    expect(view.contentEl.querySelector(".codex-panel-turn-diff__copy")).toBeNull();
-  });
-
-  it("rejects invalid restored metadata instead of showing a partial turn identity", async () => {
-    const containerEl = document.createElement("div");
-    const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
-
-    await view.setState(
-      {
-        threadId: "thread",
-        turnId: "turn",
-        files: ["src/main.ts", 42],
-      },
-      {} as never,
-    );
-
     expect(view.getState()).toEqual({});
-    expect(view.contentEl.textContent).toBe("No turn diff selected.");
+    expect(view.contentEl.textContent).toContain("old");
   });
 
   it("copies the current in-memory diff from the view action", async () => {

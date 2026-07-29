@@ -30,6 +30,8 @@ export default class CodexPanelPlugin extends Plugin {
     this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this.runtime));
     this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexTurnDiffView(leaf));
     this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this.runtime));
+    // Turn diff payloads are session-only. A plugin reload cannot recover them.
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF)) leaf.detach();
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
         this.runtime.activeWorkspaceLeafChanged(leaf);
