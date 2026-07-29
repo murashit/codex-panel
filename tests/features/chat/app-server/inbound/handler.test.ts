@@ -2330,6 +2330,7 @@ function appServerThread(id: string, cwd: string): ThreadStartedNotification["pa
     parentThreadId: null,
     preview: "",
     ephemeral: false,
+    isPinned: false,
     historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 0,

@@ -462,6 +462,7 @@ function thread(id: string): AppServerThread {
     parentThreadId: null,
     preview: "",
     ephemeral: true,
+    isPinned: false,
     historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 1,

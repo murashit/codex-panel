@@ -768,6 +768,7 @@ function threadSnapshot(id: string): Extract<ServerNotification, { method: "thre
     parentThreadId: null,
     preview: "Preview",
     ephemeral: false,
+    isPinned: false,
     historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 1,

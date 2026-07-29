@@ -241,6 +241,8 @@ function commandItem(id: string): TurnItem {
   return {
     type: "commandExecution",
     id,
+    pluginId: null,
+    scriptPath: null,
     command: "npm test",
     cwd: "/vault",
     processId: null,

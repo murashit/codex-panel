@@ -259,7 +259,7 @@ function skillFixture(): SkillMetadata {
     name: "writer",
     description: "Write notes",
     shortDescription: "Write",
-    interface: { shortDescription: "Draft" },
+    interface: { shortDescription: "Draft", iconSmallUrl: null, iconLargeUrl: null },
     path: "/skills/writer",
     scope: "repo",
     enabled: true,
