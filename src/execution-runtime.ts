@@ -4,7 +4,9 @@ import type { AppServerClient } from "./app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
 import type { AppServerExecutionContext } from "./app-server/connection/execution-context";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
-import { AppServerQueryCache } from "./app-server/query/cache";
+import { AppServerMetadataQueries } from "./app-server/query/metadata-queries";
+import { AppServerQueryScope } from "./app-server/query/query-scope";
+import { AppServerThreadCatalog } from "./app-server/query/thread-catalog-queries";
 import {
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnRunner,
@@ -43,7 +45,8 @@ export interface CodexExecutionRuntimeOptions {
 
 export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly context: Readonly<AppServerExecutionContext>;
-  private readonly appServerQueries: AppServerQueryCache;
+  private readonly queryScope: AppServerQueryScope;
+  private readonly appServerQueries: AppServerMetadataQueries;
   private readonly threadCatalog: ThreadCatalog;
   private readonly threadFacts: ThreadFactSink;
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
@@ -60,8 +63,9 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
 
   constructor(private readonly options: CodexExecutionRuntimeOptions) {
     this.context = Object.freeze({ ...options.context });
-    this.appServerQueries = new AppServerQueryCache(this.context, this);
-    this.threadCatalog = this.appServerQueries;
+    this.queryScope = new AppServerQueryScope(this.context, this);
+    this.appServerQueries = new AppServerMetadataQueries(this.queryScope);
+    this.threadCatalog = new AppServerThreadCatalog(this.queryScope);
     const applyThreadFacts = (facts: readonly ThreadFact[]): void => {
       for (const fact of facts) this.threadAutoTitleWork?.applyThreadFact(fact);
       this.threadCatalog.applyThreadCatalogChanges(projectThreadFacts(this.threadCatalog, facts));
@@ -187,7 +191,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       });
     this.shortLivedClients.clear();
     this.tryCleanup(() => {
-      this.appServerQueries.dispose();
+      this.queryScope.dispose();
     });
   }
 
