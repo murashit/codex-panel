@@ -201,6 +201,8 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       case "thread-renamed":
         this.applyThreadRenamed(fact.threadId, fact.name);
         return;
+      case "thread-pinned":
+        return;
       default:
         return;
     }

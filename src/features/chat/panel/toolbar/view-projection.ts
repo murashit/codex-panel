@@ -1,4 +1,4 @@
-import type { Thread } from "../../../../domain/threads/model";
+import { compareThreadsPinnedFirst, type Thread } from "../../../../domain/threads/model";
 import { threadRowCoreProjection } from "../../../threads/list/row-projection";
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
 import type { ToolbarThreadRow, ToolbarViewModel } from "../../ui/toolbar-model";
@@ -86,7 +86,7 @@ function toolbarThreadRows(input: {
   archiveExportEnabled: boolean;
   renameState: ChatPanelToolbarModel["rename"];
 }): ToolbarThreadRow[] {
-  return input.threads.map((thread) => {
+  return [...input.threads].sort(compareThreadsPinnedFirst).map((thread) => {
     const threadId = thread.id;
     const core = threadRowCoreProjection({
       thread,
@@ -99,6 +99,7 @@ function toolbarThreadRows(input: {
       title: core.title,
       threadId: core.threadId,
       selected: core.selected,
+      isPinned: core.isPinned,
       renameDisabled: input.renameState.kind === "saving",
       archiveDisabled: input.turnBusy,
       archiveConfirm: core.archiveConfirm,

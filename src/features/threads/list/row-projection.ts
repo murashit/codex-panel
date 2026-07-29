@@ -19,6 +19,7 @@ export interface ThreadRowCoreProjection {
   readonly threadId: string;
   readonly title: string;
   readonly selected: boolean;
+  readonly isPinned: boolean;
   readonly rename: ThreadRowCoreRenameProjection;
   readonly archiveConfirm: ThreadRowCoreArchiveConfirmProjection;
 }
@@ -35,6 +36,7 @@ export function threadRowCoreProjection(input: {
     threadId: input.thread.id,
     title: threadDisplayTitle(input.thread),
     selected: input.selected,
+    isPinned: input.thread.isPinned === true,
     rename: {
       active: rename !== undefined,
       draft: rename?.draft ?? threadRenameDraftTitle(input.thread),

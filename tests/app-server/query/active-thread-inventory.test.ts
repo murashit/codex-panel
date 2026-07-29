@@ -19,6 +19,13 @@ describe("active thread inventory", () => {
     expect(activeThreadsFromData(data)?.map((item) => item.id)).toEqual(["newer", "same", "older"]);
   });
 
+  it("keeps pinned threads before newer unpinned threads", () => {
+    const pinned = { ...thread("pinned", 1), isPinned: true };
+    const data = inventory([page([thread("recent", 10), pinned], null, 2)]);
+
+    expect(activeThreadsFromData(data)?.map((item) => item.id)).toEqual(["pinned", "recent"]);
+  });
+
   it("keeps subagent threads out of the catalog inventory", () => {
     expect(
       activeThreadsFromData(inventory([page([thread("interactive", 2), subagent("child", 3)], null, 2)]))?.map((item) => item.id),

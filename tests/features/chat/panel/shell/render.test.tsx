@@ -483,6 +483,7 @@ function toolbarActionsFixture(): ChatPanelShellParts["toolbar"]["actions"] {
     threads: {
       loadMore: vi.fn(),
       resume: vi.fn(),
+      setPinned: vi.fn(),
       archive: {
         start: vi.fn(),
         confirm: vi.fn(),

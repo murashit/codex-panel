@@ -484,9 +484,24 @@ export class AppServerQueryCache {
       queryKey: ACTIVE_THREADS_QUERY_KEY,
       queryFn: async ({ pageParam, signal }) => {
         signal.throwIfAborted();
-        const page = await this.runWithClient((client) =>
-          readThreadPage(client, this.context.vaultPath, { cursor: pageParam, archived: false }),
-        );
+        const page = await this.runWithClient(async (client) => {
+          if (pageParam !== null) {
+            return readThreadPage(client, this.context.vaultPath, {
+              cursor: pageParam,
+              archived: false,
+              isPinned: false,
+            });
+          }
+          const [pinnedThreads, unpinnedPage] = await Promise.all([
+            listThreads(client, this.context.vaultPath, { archived: false, isPinned: true, signal }),
+            readThreadPage(client, this.context.vaultPath, { archived: false, isPinned: false }),
+          ]);
+          return {
+            ...unpinnedPage,
+            threads: [...pinnedThreads, ...unpinnedPage.threads],
+            fetchedSize: pinnedThreads.length + unpinnedPage.fetchedSize,
+          };
+        });
         signal.throwIfAborted();
         return page;
       },

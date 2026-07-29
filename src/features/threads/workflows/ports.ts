@@ -3,6 +3,7 @@ import type { ThreadTitleContext } from "../../../domain/threads/title-generatio
 
 export interface ThreadMutationPort {
   renameThread(threadId: string, name: string): Promise<void>;
+  setThreadPinned(threadId: string, isPinned: boolean): Promise<void>;
   archiveThread(threadId: string, prepare?: (thread: ArchiveThreadInput) => Promise<string | null>): Promise<string | null>;
 }
 

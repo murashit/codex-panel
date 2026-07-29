@@ -19,6 +19,7 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
     preview: normalizeString(thread.preview),
     name: thread.name === null ? null : normalizeString(thread.name),
     archived: options.archived ?? false,
+    ...(thread.isPinned === true ? { isPinned: true } : {}),
     createdAt: finiteTimestamp(thread.createdAt),
     updatedAt: finiteTimestamp(thread.updatedAt),
     canAcceptDirectInput: typeof thread.canAcceptDirectInput === "boolean" ? thread.canAcceptDirectInput : null,

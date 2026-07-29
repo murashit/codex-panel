@@ -44,6 +44,7 @@ function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
     title,
     live: null,
     selected: false,
+    isPinned: false,
     rename: { active: false, draft: title, generating: false, saving: false, autoNameDisabled: true },
     archiveConfirm: { active: false, defaultSaveMarkdown: false },
     ...overrides,
@@ -62,6 +63,7 @@ function threadsViewActions() {
     cancelRename: vi.fn(),
     cancelAutoName: vi.fn(),
     autoNameThread: vi.fn(),
+    setThreadPinned: vi.fn(),
     startArchive: vi.fn(),
     archiveThread: vi.fn(),
   };
@@ -170,6 +172,25 @@ describe("threads view renderer decisions", () => {
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).not.toBeNull();
     main.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");
+  });
+
+  it("groups mixed pinned rows and routes the rightmost star action", () => {
+    const parent = document.createElement("div");
+    const actions = threadsViewActions();
+    const rows = [
+      rowFixture({ threadId: "pinned", title: "Pinned thread", isPinned: true }),
+      rowFixture({ threadId: "recent", title: "Recent thread" }),
+    ];
+
+    renderThreadsViewShell(parent, { status: null, loading: false, rows }, actions);
+
+    expect(parent.querySelector(".codex-panel-threads__group-divider")).not.toBeNull();
+    const firstRowActions = expectPresent(parent.querySelector(".codex-panel-threads__actions"));
+    const buttons = [...firstRowActions.querySelectorAll<HTMLButtonElement>("button")];
+    expect(buttons.at(-1)?.getAttribute("aria-label")).toBe("Unpin thread");
+    expect(buttons.at(-1)?.getAttribute("aria-pressed")).toBe("true");
+    buttons.at(-1)?.click();
+    expect(actions.setThreadPinned).toHaveBeenCalledWith("pinned", false);
   });
 
   it("renders threads view archive confirmation with the default action on the right", () => {

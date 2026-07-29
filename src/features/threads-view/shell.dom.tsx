@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { renderUiRoot, unmountUiRoot } from "../../shared/dom/preact-root.dom";
 import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../shared/obsidian/components.obsidian";
+import { pinnedThreadGroups } from "../threads/list/pinned-groups";
 import type { ThreadsRowModel } from "./state";
 
 type ButtonProps = ButtonHTMLAttributes & {
@@ -27,6 +28,7 @@ export interface ThreadsViewShellActions {
   cancelRename: (threadId: string) => void;
   cancelAutoName: (threadId: string) => void;
   autoNameThread: (threadId: string) => void;
+  setThreadPinned: (threadId: string, isPinned: boolean) => void;
   startArchive: (threadId: string) => void;
   archiveThread: (threadId: string, saveMarkdown: boolean) => void;
 }
@@ -56,6 +58,7 @@ function focusThreadsRenameInput(input: HTMLInputElement | null): void {
 }
 
 function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; actions: ThreadsViewShellActions }): UiNode {
+  const groups = pinnedThreadGroups(model.rows);
   return (
     <>
       <div className="nav-header codex-panel-threads__toolbar">
@@ -69,9 +72,19 @@ function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; ac
           <ThreadsViewState status={model.status} />
         ) : (
           <>
-            {model.rows.map((row) => (
-              <ThreadRow key={row.threadId} row={row} actions={actions} />
-            ))}
+            {groups.separated ? (
+              <>
+                {groups.pinned.map((row) => (
+                  <ThreadRow key={row.threadId} row={row} actions={actions} />
+                ))}
+                <hr className="codex-panel-threads__group-divider" />
+                {groups.unpinned.map((row) => (
+                  <ThreadRow key={row.threadId} row={row} actions={actions} />
+                ))}
+              </>
+            ) : (
+              model.rows.map((row) => <ThreadRow key={row.threadId} row={row} actions={actions} />)
+            )}
             {model.hasMore ? (
               <button
                 type="button"
@@ -156,10 +169,32 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
               />
             ) : null}
             <ArchiveControls row={row} archiveConfirm={archiveConfirm} actions={actions} />
+            {!archiveConfirm.active ? <PinThreadButton row={row} actions={actions} /> : null}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+function PinThreadButton({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewShellActions }): UiNode {
+  return (
+    <ThreadsRowButton
+      icon="star"
+      label={row.isPinned ? "Unpin thread" : "Pin thread"}
+      className={[
+        "codex-panel-threads__row-button",
+        "codex-panel-threads__pin-button",
+        row.isPinned ? "codex-panel-threads__pin-button--pinned" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-pressed={row.isPinned}
+      onClick={(event) => {
+        event.stopPropagation();
+        actions.setThreadPinned(row.threadId, !row.isPinned);
+      }}
+    />
   );
 }
 

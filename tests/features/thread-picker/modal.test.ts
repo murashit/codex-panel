@@ -31,6 +31,16 @@ describe("threadPickerSuggestions", () => {
     expect(suggestions.map((item) => item.thread.id)).toEqual(["recent", "updated-newer"]);
   });
 
+  it("places pinned threads first only for empty queries", async () => {
+    const modal = await openedThreadPicker([
+      thread({ id: "recent", name: "Recent target", recencyAt: 30 }),
+      thread({ id: "pinned", name: "Pinned unrelated", recencyAt: 10, isPinned: true }),
+    ]);
+
+    expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["pinned", "recent"]);
+    expect((await modal.getSuggestions("target")).map((item) => item.thread.id)).toEqual(["recent"]);
+  });
+
   it("returns every matching thread", async () => {
     const modal = await openedThreadPicker(
       Array.from({ length: 25 }, (_, index) => thread({ id: `thread-${String(index + 1)}`, name: "Match" })),
@@ -277,6 +287,7 @@ function thread(options: Partial<Thread> & { id: string }): Thread {
     createdAt: options.createdAt ?? 1,
     updatedAt: options.updatedAt ?? 1,
     ...(options.recencyAt === undefined ? {} : { recencyAt: options.recencyAt }),
+    ...(options.isPinned === undefined ? {} : { isPinned: options.isPinned }),
     name: options.name ?? null,
     archived: false,
     provenance: options.provenance ?? { kind: "interactive" },

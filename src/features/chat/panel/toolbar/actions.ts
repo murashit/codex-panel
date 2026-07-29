@@ -166,6 +166,9 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
       resume: (threadId) => {
         void deps.navigation.selectThreadFromToolbar(threadId);
       },
+      setPinned: (threadId, isPinned) => {
+        void deps.threadCommands.setThreadPinned(threadId, isPinned);
+      },
       archive: {
         start: (threadId) => {
           deps.toolbarPanel.startArchive(threadId);

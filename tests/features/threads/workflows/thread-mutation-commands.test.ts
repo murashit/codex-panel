@@ -44,6 +44,15 @@ describe("ThreadMutationCommands", () => {
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
+  it("pins a thread and notifies shared surfaces after success", async () => {
+    const { mutations, client, catalog } = operationsFixture();
+
+    await mutations.setThreadPinned("thread", true);
+
+    expect(client?.request).toHaveBeenCalledWith("thread/metadata/update", { threadId: "thread", isPinned: true });
+    expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: true });
+  });
+
   it("serializes successive names for the same thread", async () => {
     const generatedSave = deferred<object>();
     const client = clientMock();
@@ -299,6 +308,7 @@ function clientMock() {
   return {
     request: vi.fn((method: string, params: { threadId: string; name?: string }) => {
       if (method === "thread/name/set") return Promise.resolve({ threadId: params.threadId, name: params.name });
+      if (method === "thread/metadata/update") return Promise.resolve({});
       if (method === "thread/read") return Promise.resolve({ thread: archivedThread() });
       if (method === "thread/archive") return Promise.resolve({});
       throw new Error(`Unexpected app-server request: ${method}`);

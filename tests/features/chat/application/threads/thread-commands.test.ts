@@ -23,6 +23,7 @@ interface ThreadCommandEffectsMock {
 interface ThreadMutationCommandsMock {
   archiveThread: Mock<ThreadCommandsHost["mutations"]["archiveThread"]>;
   renameThread: Mock<ThreadCommandsHost["mutations"]["renameThread"]>;
+  setThreadPinned: Mock<ThreadCommandsHost["mutations"]["setThreadPinned"]>;
 }
 
 type ThreadCommandsHostMock = Omit<
@@ -497,6 +498,14 @@ describe("thread management commands", () => {
     expect(host.mutations.renameThread).toHaveBeenCalledWith("thread", " Slash   command title ");
   });
 
+  it("delegates pinned state updates", async () => {
+    const host = hostMock({ items: [] });
+
+    await threadCommands(host).setThreadPinned("thread", true);
+
+    expect(host.mutations.setThreadPinned).toHaveBeenCalledWith("thread", true);
+  });
+
   it("returns false when thread mutations reject a rename", async () => {
     const host = hostMock({
       items: [],
@@ -902,6 +911,7 @@ function hostMock({
   const mutations: ThreadMutationCommandsMock = {
     archiveThread: vi.fn<ThreadCommandsHost["mutations"]["archiveThread"]>().mockResolvedValue(true),
     renameThread: vi.fn<ThreadCommandsHost["mutations"]["renameThread"]>().mockResolvedValue(true),
+    setThreadPinned: vi.fn<ThreadCommandsHost["mutations"]["setThreadPinned"]>().mockResolvedValue(undefined),
     ...mutationOverrides,
   };
   return {

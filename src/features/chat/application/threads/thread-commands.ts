@@ -64,6 +64,7 @@ interface ThreadUpsertFact {
 
 interface ThreadManagementMutations {
   renameThread(threadId: string, value: string): Promise<boolean>;
+  setThreadPinned(threadId: string, isPinned: boolean): Promise<void>;
   archiveThread(
     threadId: string,
     options?: { saveMarkdown?: boolean; beforePublish?: () => void; additionalFacts?: readonly ThreadUpsertFact[] },
@@ -74,6 +75,7 @@ export interface ThreadCommands {
   compactActiveThread: () => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string, saveMarkdown?: boolean, beforeUnavailable?: () => void) => Promise<void>;
+  setThreadPinned: (threadId: string, isPinned: boolean) => Promise<void>;
   forkThread: (threadId: string) => Promise<void>;
   forkThreadFromTurn: (threadId: string, turnId: string | null, archiveSource: boolean) => Promise<void>;
   renameThread: (threadId: string, name: string) => Promise<boolean>;
@@ -92,6 +94,7 @@ export function createThreadCommands(host: ThreadCommandsHost): ThreadCommands {
     compactActiveThread: () => compactActiveThread(host),
     compactThread: (threadId) => compactThread(host, threadId),
     archiveThread: (threadId, saveMarkdown, beforeUnavailable) => archiveThread(host, threadId, saveMarkdown, beforeUnavailable),
+    setThreadPinned: (threadId, isPinned) => setThreadPinned(host, threadId, isPinned),
     forkThread: (threadId) => forkThread(host, threadId),
     forkThreadFromTurn: (threadId, turnId, archiveSource) => forkThreadFromTurn(host, threadId, turnId, archiveSource),
     renameThread: (threadId, name) => renameThread(host, threadId, name),
@@ -240,6 +243,14 @@ async function renameThread(host: ThreadCommandsHost, threadId: string, value: s
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return false;
+  }
+}
+
+async function setThreadPinned(host: ThreadCommandsHost, threadId: string, isPinned: boolean): Promise<void> {
+  try {
+    await host.mutations.setThreadPinned(threadId, isPinned);
+  } catch (error) {
+    host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
 }
 

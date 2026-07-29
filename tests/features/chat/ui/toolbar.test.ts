@@ -320,6 +320,48 @@ describe("Toolbar decisions", () => {
     parent.remove();
   });
 
+  it("groups mixed pinned threads and routes the rightmost star action", () => {
+    const parent = document.createElement("div");
+    const setPinnedThread = vi.fn();
+
+    mountToolbar(
+      parent,
+      toolbarModel({
+        openPanel: "history",
+        threads: [
+          {
+            title: "Pinned",
+            threadId: "pinned",
+            selected: false,
+            isPinned: true,
+            renameDisabled: false,
+            archiveDisabled: false,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
+            rename: null,
+          },
+          {
+            title: "Recent",
+            threadId: "recent",
+            selected: false,
+            renameDisabled: false,
+            archiveDisabled: false,
+            archiveConfirm: { active: false, defaultSaveMarkdown: false },
+            rename: null,
+          },
+        ],
+      }),
+      toolbarActions({ setPinnedThread }),
+    );
+
+    expect(parent.querySelector(".codex-panel__thread-group-divider")).not.toBeNull();
+    const firstRow = expectPresent(parent.querySelector(".codex-panel__thread-row"));
+    const actions = [...firstRow.querySelectorAll<HTMLButtonElement>(".codex-panel__thread-action")];
+    expect(actions.at(-1)?.getAttribute("aria-label")).toBe("Unpin thread");
+    expect(actions.at(-1)?.getAttribute("aria-pressed")).toBe("true");
+    actions.at(-1)?.click();
+    expect(setPinnedThread).toHaveBeenCalledWith("pinned", false);
+  });
+
   it("disables the rename draft and exposes auto-name cancellation while loading", () => {
     const parent = document.createElement("div");
     document.body.append(parent);
@@ -620,6 +662,7 @@ interface ToolbarActionOverrides {
   cancelRenameThread?: (threadId: string) => void;
   cancelAutoName?: (threadId: string) => void;
   autoNameThread?: (threadId: string) => void;
+  setPinnedThread?: (threadId: string, isPinned: boolean) => void;
 }
 
 function toolbarActions(overrides: ToolbarActionOverrides = {}): ToolbarActions {
@@ -643,6 +686,7 @@ function toolbarActions(overrides: ToolbarActionOverrides = {}): ToolbarActions 
     threads: {
       loadMore: overrides.loadMoreThreads ?? vi.fn(),
       resume: overrides.resumeThread ?? vi.fn(),
+      setPinned: overrides.setPinnedThread ?? vi.fn(),
       archive: {
         start: overrides.startArchiveThread ?? vi.fn(),
         confirm: overrides.archiveThread ?? vi.fn(),

@@ -53,6 +53,7 @@ export interface AppServerStartEphemeralThreadOptions {
 
 export interface AppServerThreadListOptions {
   archived?: boolean;
+  isPinned?: boolean;
   cursor?: string | null;
   limit?: number | null;
 }
@@ -108,7 +109,7 @@ export function resumeThread(
 export async function listThreads(
   client: AppServerRequestClient,
   cwd: string,
-  options: { archived?: boolean; signal?: AbortSignal } = {},
+  options: { archived?: boolean; isPinned?: boolean; signal?: AbortSignal } = {},
 ): Promise<Thread[]> {
   const archived = options.archived ?? false;
   const threads: Thread[] = [];
@@ -119,6 +120,7 @@ export async function listThreads(
     options.signal?.throwIfAborted();
     const page = await readThreadPage(client, cwd, {
       archived,
+      ...(options.isPinned === undefined ? {} : { isPinned: options.isPinned }),
       cursor,
     });
     threads.push(...page.threads);
@@ -366,6 +368,10 @@ export async function renameThread(client: AppServerRequestClient, threadId: str
   await client.request("thread/name/set", { threadId, name });
 }
 
+export async function setThreadPinned(client: AppServerRequestClient, threadId: string, isPinned: boolean): Promise<void> {
+  await client.request("thread/metadata/update", { threadId, isPinned });
+}
+
 export async function updateThreadSettings(
   client: AppServerRequestClient,
   threadId: string,
@@ -397,6 +403,7 @@ function readThreadRecordPage(client: AppServerRequestClient, cwd: string, optio
     ...(options.cursor ? { cursor: options.cursor } : {}),
     ...(options.limit === undefined ? {} : { limit: options.limit }),
     archived: options.archived ?? false,
+    ...(options.isPinned === undefined ? {} : { isPinned: options.isPinned }),
     sortKey: "recency_at",
     sortDirection: "desc",
   });

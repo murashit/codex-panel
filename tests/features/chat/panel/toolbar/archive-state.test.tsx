@@ -137,6 +137,7 @@ function shellParts(
         threads: {
           loadMore: vi.fn(),
           resume: vi.fn(),
+          setPinned: vi.fn(),
           archive: {
             start: (threadId) => {
               toolbarPanelActions.startArchive(threadId);

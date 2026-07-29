@@ -13,6 +13,7 @@ export interface ToolbarThreadRow {
   title: string;
   threadId: string;
   selected: boolean;
+  isPinned?: boolean;
   renameDisabled: boolean;
   archiveDisabled: boolean;
   archiveConfirm: { active: boolean; defaultSaveMarkdown: boolean };

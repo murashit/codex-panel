@@ -234,6 +234,7 @@ export class ThreadsViewSession {
           this.cancelAutoName(threadId);
         },
         autoNameThread: (threadId) => void this.autoNameThread(threadId),
+        setThreadPinned: (threadId, isPinned) => void this.setThreadPinned(threadId, isPinned),
         startArchive: (threadId) => {
           this.startArchive(threadId);
         },
@@ -355,6 +356,16 @@ export class ThreadsViewSession {
   private startArchive(threadId: string): void {
     this.archiveConfirmThreadId = threadId;
     this.render();
+  }
+
+  private async setThreadPinned(threadId: string, isPinned: boolean): Promise<void> {
+    const viewLifetime = this.lifetime.signal();
+    try {
+      await this.mutations.setThreadPinned(threadId, isPinned);
+    } catch (error) {
+      if (!this.lifetime.isCurrent(viewLifetime)) return;
+      this.noticeError(error);
+    }
   }
 
   private cancelArchiveConfirmOnOutsidePointer(event: PointerEvent): void {

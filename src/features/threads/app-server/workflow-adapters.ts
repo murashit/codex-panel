@@ -6,6 +6,7 @@ import {
   readCompletedTurnTranscriptSummariesPage,
   readThreadForArchiveExport,
   renameThread,
+  setThreadPinned,
 } from "../../../app-server/services/threads";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { findThreadTitleContext } from "../../../domain/threads/title-generation-model";
@@ -14,6 +15,7 @@ import type { ThreadMutationPort, ThreadTitlePort } from "../workflows/ports";
 export function createThreadMutationAdapter(clientAccess: AppServerClientAccess): ThreadMutationPort {
   return {
     renameThread: (threadId, name) => clientAccess.withClient((client) => renameThread(client, threadId, name)),
+    setThreadPinned: (threadId, isPinned) => clientAccess.withClient((client) => setThreadPinned(client, threadId, isPinned)),
     archiveThread: (threadId, prepare) =>
       clientAccess.withClient(async (client) => {
         const prepared = prepare ? await prepare(await readThreadForArchiveExport(client, threadId)) : null;

@@ -115,6 +115,26 @@ describe("createToolbarPanelActions", () => {
     expect(startEditingCurrent).toHaveBeenCalledOnce();
   });
 
+  it("delegates pinned state updates from the thread list", () => {
+    const setThreadPinned = vi.fn().mockResolvedValue(undefined);
+    const actions = createToolbarUiActions({
+      connectionCoordinator: {} as never,
+      reconnectCommand: vi.fn(),
+      threadCommands: { setThreadPinned } as never,
+      goals: {} as never,
+      toolbarPanel: {} as never,
+      rename: {} as never,
+      navigation: {} as never,
+      loadMoreThreads: async () => [],
+      openSideChat: vi.fn(),
+      debugDetails: debugDetailsFixture(),
+    });
+
+    actions.threads.setPinned("thread", true);
+
+    expect(setThreadPinned).toHaveBeenCalledWith("thread", true);
+  });
+
   it("copies debug details from the latest state at invocation time", () => {
     const stateStore = createChatStateStore();
     const actions = createToolbarUiActions({

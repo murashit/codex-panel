@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../../shared/obsidian/components.obsidian";
+import { pinnedThreadGroups } from "../../threads/list/pinned-groups";
 import { focusToolbarRenameInput } from "./toolbar.dom";
 import type { RateLimitSummary, ToolbarStatusRow, ToolbarStatusSection, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
 
@@ -30,6 +31,7 @@ interface ToolbarStatusActions {
 interface ToolbarThreadActions {
   loadMore: () => void;
   resume: (threadId: string) => void;
+  setPinned: (threadId: string, isPinned: boolean) => void;
   archive: {
     start: (threadId: string) => void;
     confirm: (threadId: string, saveMarkdown: boolean) => void;
@@ -308,11 +310,22 @@ function ThreadList({
       </div>
     );
   }
+  const groups = pinnedThreadGroups(threads);
   return (
     <div className="codex-panel__threads">
-      {threads.map((thread) => (
-        <ThreadListRow key={thread.threadId} thread={thread} actions={actions} />
-      ))}
+      {groups.separated ? (
+        <>
+          {groups.pinned.map((thread) => (
+            <ThreadListRow key={thread.threadId} thread={thread} actions={actions} />
+          ))}
+          <hr className="codex-panel__thread-group-divider" />
+          {groups.unpinned.map((thread) => (
+            <ThreadListRow key={thread.threadId} thread={thread} actions={actions} />
+          ))}
+        </>
+      ) : (
+        threads.map((thread) => <ThreadListRow key={thread.threadId} thread={thread} actions={actions} />)
+      )}
       {error ? (
         <div className="codex-panel__thread-list-status codex-panel__thread-list-status--error" role="status">
           {error}
@@ -359,22 +372,46 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
               actions.resume(thread.threadId);
             }}
           />
-          {!archiveConfirm.active ? (
-            <ToolbarRowActionButton
-              icon="pencil"
-              label="Rename thread"
-              className="codex-panel__thread-action"
-              disabled={thread.renameDisabled}
-              onClick={(event) => {
-                event.stopPropagation();
-                actions.rename.start(thread.threadId);
-              }}
-            />
-          ) : null}
-          <ArchiveControls thread={thread} actions={actions} />
+          <div className="codex-panel__thread-actions">
+            {!archiveConfirm.active ? (
+              <ToolbarRowActionButton
+                icon="pencil"
+                label="Rename thread"
+                className="codex-panel__thread-action"
+                disabled={thread.renameDisabled}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  actions.rename.start(thread.threadId);
+                }}
+              />
+            ) : null}
+            <ArchiveControls thread={thread} actions={actions} />
+            {!archiveConfirm.active ? <PinThreadButton thread={thread} actions={actions} /> : null}
+          </div>
         </>
       )}
     </div>
+  );
+}
+
+function PinThreadButton({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
+  return (
+    <ToolbarRowActionButton
+      icon="star"
+      label={thread.isPinned === true ? "Unpin thread" : "Pin thread"}
+      className={[
+        "codex-panel__thread-action",
+        "codex-panel__thread-pin",
+        thread.isPinned === true ? "codex-panel__thread-pin--pinned" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-pressed={thread.isPinned === true}
+      onClick={(event) => {
+        event.stopPropagation();
+        actions.setPinned(thread.threadId, thread.isPinned !== true);
+      }}
+    />
   );
 }
 

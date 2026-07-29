@@ -32,9 +32,17 @@ describe("AppServerQueryCache", () => {
     context.vaultPath = "/vault-b";
     await cache.fetchActiveThreads();
 
-    expect(request).toHaveBeenCalledWith("thread/list", {
+    expect(request).toHaveBeenNthCalledWith(1, "thread/list", {
       cwd: "/vault-a",
       archived: false,
+      isPinned: true,
+      sortKey: "recency_at",
+      sortDirection: "desc",
+    });
+    expect(request).toHaveBeenNthCalledWith(2, "thread/list", {
+      cwd: "/vault-a",
+      archived: false,
+      isPinned: false,
       sortKey: "recency_at",
       sortDirection: "desc",
     });
@@ -161,6 +169,36 @@ describe("AppServerQueryCache", () => {
       sortKey: "recency_at",
       sortDirection: "desc",
     });
+  });
+
+  it("loads every pinned thread before paginating unpinned history", async () => {
+    const listThreads = vi.fn((params: unknown) => {
+      const request = params as { isPinned?: boolean; cursor?: string };
+      if (request.isPinned === true) {
+        return request.cursor === "pinned-page-2"
+          ? Promise.resolve({ data: [{ ...thread("older-pinned"), isPinned: true }], nextCursor: null })
+          : Promise.resolve({ data: [{ ...thread("pinned"), isPinned: true }], nextCursor: "pinned-page-2" });
+      }
+      if (request.cursor === "page-2") return Promise.resolve({ data: [thread("older")], nextCursor: null });
+      return Promise.resolve({ data: [thread("recent")], nextCursor: "page-2" });
+    });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads }, cacheContext(), { exposePinnedFilters: true });
+
+    await expect(cache.refreshActiveThreads()).resolves.toMatchObject([
+      { id: "pinned", isPinned: true },
+      { id: "older-pinned", isPinned: true },
+      { id: "recent" },
+    ]);
+    await expect(cache.loadMoreActiveThreads()).resolves.toMatchObject([
+      { id: "pinned", isPinned: true },
+      { id: "older-pinned", isPinned: true },
+      { id: "recent" },
+      { id: "older" },
+    ]);
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ isPinned: true }));
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ isPinned: true, cursor: "pinned-page-2" }));
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ isPinned: false }));
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ isPinned: false, cursor: "page-2" }));
   });
 
   it("moves an opened older thread to the front without discarding loaded history", async () => {
@@ -895,8 +933,9 @@ function cacheWithThreads(
   return new AppServerQueryCache(context, {
     withClient: async (operation) => {
       return operation({
-        request: async (method: string, params: { archived?: boolean }) => {
+        request: async (method: string, params: { archived?: boolean; isPinned?: boolean }) => {
           if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
+          if ("isPinned" in params && params.isPinned === true) return { data: [], nextCursor: null };
           return {
             data: await fetchThreads(runtimeContext, params.archived ?? false),
             nextCursor: null,
@@ -910,11 +949,20 @@ function cacheWithThreads(
 function cacheWithRequestHandlers(
   handlers: Record<string, (params: unknown) => Promise<unknown>>,
   context: AppServerExecutionContext = cacheContext(),
+  options: { exposePinnedFilters?: boolean } = {},
 ): AppServerQueryCache {
   const requestClient = {
     request: async (method: string, params: unknown) => {
       const handler = handlers[method];
       if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
+      if (method === "thread/list" && !options.exposePinnedFilters && params && typeof params === "object") {
+        const threadListParams = params as Record<string, unknown>;
+        if (threadListParams["isPinned"] === true) return { data: [], nextCursor: null };
+        if (threadListParams["isPinned"] === false) {
+          const { isPinned: _, ...legacyParams } = threadListParams;
+          return handler(legacyParams);
+        }
+      }
       return handler(params);
     },
   };

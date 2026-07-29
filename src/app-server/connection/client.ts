@@ -28,6 +28,7 @@ import type { ThreadGoalSetResponse } from "../../generated/app-server/v2/Thread
 import type { ThreadInjectItemsResponse } from "../../generated/app-server/v2/ThreadInjectItemsResponse";
 import type { ThreadItemsListResponse } from "../../generated/app-server/v2/ThreadItemsListResponse";
 import type { ThreadListResponse } from "../../generated/app-server/v2/ThreadListResponse";
+import type { ThreadMetadataUpdateResponse } from "../../generated/app-server/v2/ThreadMetadataUpdateResponse";
 import type { ThreadReadResponse } from "../../generated/app-server/v2/ThreadReadResponse";
 import type { ThreadResumeResponse } from "../../generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadSetNameResponse } from "../../generated/app-server/v2/ThreadSetNameResponse";
@@ -81,6 +82,7 @@ export interface ClientResponseByMethod {
   "thread/goal/clear": ThreadGoalClearResponse;
   "thread/inject_items": ThreadInjectItemsResponse;
   "thread/list": ThreadListResponse;
+  "thread/metadata/update": ThreadMetadataUpdateResponse;
   "thread/read": ThreadReadResponse;
   "thread/archive": ThreadArchiveResponse;
   "thread/delete": ThreadDeleteResponse;

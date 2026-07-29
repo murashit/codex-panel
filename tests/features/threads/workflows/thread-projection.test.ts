@@ -63,6 +63,17 @@ describe("thread projection", () => {
     ] satisfies ThreadCatalogChange[]);
   });
 
+  it("projects pinned state into active and archived snapshots", () => {
+    expect(
+      projectThreadFacts({ activeThreadsSnapshot: () => [thread("thread")], archivedThreadsSnapshot: () => [] }, [
+        { type: "thread-pinned", threadId: "thread", isPinned: true },
+      ]),
+    ).toEqual([
+      { kind: "update", list: "active", threadId: "thread", changes: { isPinned: true } },
+      { kind: "update", list: "archived", threadId: "thread", changes: { isPinned: true } },
+    ] satisfies ThreadCatalogChange[]);
+  });
+
   it("moves an existing archived thread into the active list when unarchived", () => {
     expect(
       projectThreadFacts({ activeThreadsSnapshot: () => [], archivedThreadsSnapshot: () => [thread("archived", true)] }, [

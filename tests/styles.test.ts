@@ -33,4 +33,27 @@ describe("panel CSS layout invariants", () => {
     expect(threadStream).toContain("overflow-y: auto");
     expect(threadStream).not.toMatch(/^\s+height:/m);
   });
+
+  it.each([
+    {
+      row: ".codex-panel__thread-row",
+      activeRow: ".codex-panel__thread-row:hover,\n.codex-panel__thread-row:focus-within",
+      actions: ".codex-panel__thread-actions",
+      activeActions:
+        ".codex-panel__thread-row:hover .codex-panel__thread-actions,\n.codex-panel__thread-row:focus-within .codex-panel__thread-actions,\n.codex-panel__thread-row--archive-confirming .codex-panel__thread-actions",
+    },
+    {
+      row: ".codex-panel-threads__row",
+      activeRow: ".codex-panel-threads__row:hover,\n.codex-panel-threads__row:focus-within",
+      actions: ".codex-panel-threads__actions",
+      activeActions:
+        ".codex-panel-threads__row:hover .codex-panel-threads__actions,\n.codex-panel-threads__row:focus-within .codex-panel-threads__actions",
+    },
+  ])("shrinks $row titles only while row actions are visible", ({ row, activeRow, actions, activeActions }) => {
+    expect(ruleBody(row)).toContain("grid-template-columns: minmax(0, 1fr) 0");
+    expect(ruleBody(activeRow)).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(ruleBody(actions)).toContain("width: 0");
+    expect(ruleBody(actions)).not.toMatch(/^\s+(?:position:\s*absolute|background:)/m);
+    expect(ruleBody(activeActions)).toContain("width: auto");
+  });
 });

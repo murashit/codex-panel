@@ -254,6 +254,7 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
     stateStore,
     mutations: {
       renameThread: (threadId, value) => foundation.threadMutations.renameThread(threadId, value),
+      setThreadPinned: (threadId, isPinned) => foundation.threadMutations.setThreadPinned(threadId, isPinned),
       archiveThread: async (threadId, options) => {
         await foundation.threadMutations.archiveThread(threadId, options);
         return true;

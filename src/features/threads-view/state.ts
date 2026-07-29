@@ -1,4 +1,4 @@
-import { type Thread, threadRecencyAt } from "../../domain/threads/model";
+import { compareThreadsPinnedFirst, type Thread } from "../../domain/threads/model";
 import {
   initialThreadRenameLifecycleState,
   type ThreadRenameActiveState,
@@ -36,23 +36,21 @@ export function threadRows(
   defaultArchiveSaveMarkdown = false,
 ): ThreadsRowModel[] {
   const panelActivitiesByThread = panelActivitiesForThreads(panelActivities);
-  return [...threads]
-    .sort((a, b) => threadRecencyAt(b) - threadRecencyAt(a))
-    .map((thread) => {
-      const threadPanelActivity = panelActivitiesByThread.get(thread.id);
-      const live = liveStateForPanelActivity(threadPanelActivity);
-      const core = threadRowCoreProjection({
-        thread,
-        selected: threadPanelActivity?.selected ?? false,
-        renameState: renameStates.get(thread.id),
-        archiveConfirmActive: archiveConfirmThreadId === thread.id,
-        defaultArchiveSaveMarkdown,
-      });
-      return {
-        ...core,
-        live,
-      };
+  return [...threads].sort(compareThreadsPinnedFirst).map((thread) => {
+    const threadPanelActivity = panelActivitiesByThread.get(thread.id);
+    const live = liveStateForPanelActivity(threadPanelActivity);
+    const core = threadRowCoreProjection({
+      thread,
+      selected: threadPanelActivity?.selected ?? false,
+      renameState: renameStates.get(thread.id),
+      archiveConfirmActive: archiveConfirmThreadId === thread.id,
+      defaultArchiveSaveMarkdown,
     });
+    return {
+      ...core,
+      live,
+    };
+  });
 }
 
 function liveStateForPanelActivity(activity: ThreadsViewPanelActivity | undefined): ThreadsLiveState | null {

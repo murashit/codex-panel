@@ -9,7 +9,7 @@ export type ThreadCatalogChange =
       readonly kind: "update";
       readonly list: ThreadCatalogList;
       readonly threadId: string;
-      readonly changes: Partial<Pick<Thread, "name" | "recencyAt">>;
+      readonly changes: Partial<Pick<Thread, "name" | "isPinned" | "recencyAt">>;
     }
   | { readonly kind: "revalidate"; readonly list: ThreadCatalogList };
 
@@ -45,6 +45,7 @@ export function threadCatalogEntryEqual(left: Thread | undefined, right: Thread)
     left.preview === right.preview &&
     left.name === right.name &&
     left.archived === right.archived &&
+    (left.isPinned === true) === (right.isPinned === true) &&
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt &&
     left.recencyAt === right.recencyAt &&
@@ -53,9 +54,10 @@ export function threadCatalogEntryEqual(left: Thread | undefined, right: Thread)
   );
 }
 
-function threadCatalogUpdateEqual(thread: Thread, changes: Partial<Pick<Thread, "name" | "recencyAt">>): boolean {
+function threadCatalogUpdateEqual(thread: Thread, changes: Partial<Pick<Thread, "name" | "isPinned" | "recencyAt">>): boolean {
   return (
     (!Object.hasOwn(changes, "name") || changes.name === thread.name) &&
+    (!Object.hasOwn(changes, "isPinned") || (changes.isPinned === true) === (thread.isPinned === true)) &&
     (!Object.hasOwn(changes, "recencyAt") || changes.recencyAt === thread.recencyAt)
   );
 }

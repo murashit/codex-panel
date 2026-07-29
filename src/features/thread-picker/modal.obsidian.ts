@@ -1,7 +1,7 @@
 import { type App, Notice, Platform, SuggestModal } from "obsidian";
 import { shortThreadId } from "../../domain/threads/id";
 import type { Thread } from "../../domain/threads/model";
-import { threadSearchMatches } from "../../domain/threads/search";
+import { compareThreadSearchMatches, threadSearchMatches } from "../../domain/threads/search";
 import type { ThreadCatalogPaginatedActiveReader, ThreadCatalogSearchReader } from "../threads/catalog/thread-catalog";
 
 export interface ThreadPickerHost {
@@ -61,7 +61,14 @@ export function openThreadPicker(host: ThreadPickerHost, onClosed: () => void): 
 }
 
 function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {
-  return threadSearchMatches(threads, queryText).map(({ thread, title }) => ({
+  const matches = threadSearchMatches(threads, queryText);
+  if (queryText.trim().length === 0) {
+    matches.sort(
+      (left, right) =>
+        Number(right.thread.isPinned === true) - Number(left.thread.isPinned === true) || compareThreadSearchMatches(left, right),
+    );
+  }
+  return matches.map(({ thread, title }) => ({
     thread,
     title,
   }));

@@ -1,6 +1,6 @@
 import type { InfiniteData } from "@tanstack/query-core";
 import { type ThreadCatalogChange, threadCatalogEntryEqual } from "../../domain/threads/catalog-read-model";
-import { isThreadVisibleInCatalog, type Thread, threadRecencyAt } from "../../domain/threads/model";
+import { compareThreadsPinnedFirst, isThreadVisibleInCatalog, type Thread } from "../../domain/threads/model";
 import type { ThreadPage } from "../services/threads";
 
 export type ActiveThreadCursor = string | null;
@@ -59,6 +59,7 @@ function threadCatalogUpdateChangesEntry(thread: Thread, change: Extract<ThreadC
   if (thread.id !== change.threadId) return false;
   return (
     (Object.hasOwn(change.changes, "name") && thread.name !== change.changes.name) ||
+    (Object.hasOwn(change.changes, "isPinned") && (thread.isPinned === true) !== (change.changes.isPinned === true)) ||
     (Object.hasOwn(change.changes, "recencyAt") && thread.recencyAt !== change.changes.recencyAt)
   );
 }
@@ -73,6 +74,6 @@ function orderedUniqueThreads(threads: readonly Thread[]): readonly Thread[] {
       return true;
     })
     .map((thread, index) => ({ thread, index }))
-    .sort((left, right) => threadRecencyAt(right.thread) - threadRecencyAt(left.thread) || left.index - right.index)
+    .sort((left, right) => compareThreadsPinnedFirst(left.thread, right.thread) || left.index - right.index)
     .map(({ thread }) => thread);
 }

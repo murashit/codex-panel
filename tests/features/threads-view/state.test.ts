@@ -48,6 +48,16 @@ describe("threads view rename state", () => {
     expect(rows.map((row) => row.threadId)).toEqual(["recent", "updated-newer"]);
   });
 
+  it("orders pinned rows before newer unpinned rows", () => {
+    const rows = threadRows(
+      [thread({ id: "recent", recencyAt: 30 }), thread({ id: "pinned", recencyAt: 10, isPinned: true })],
+      [],
+      new Map(),
+    );
+
+    expect(rows.map((row) => row.threadId)).toEqual(["pinned", "recent"]);
+  });
+
   it("treats pending MCP elicitations as pending live state", () => {
     const rows = threadRows([thread()], [panelActivity({ pending: true })], new Map());
 

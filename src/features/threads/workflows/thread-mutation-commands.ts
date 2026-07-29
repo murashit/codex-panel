@@ -37,12 +37,14 @@ interface RenameThreadOptions {
 
 export interface ThreadMutationCommands {
   renameThread(threadId: string, value: string, options?: RenameThreadOptions): Promise<boolean>;
+  setThreadPinned(threadId: string, isPinned: boolean): Promise<void>;
   archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult>;
 }
 
 export function createThreadMutationCommands(host: ThreadMutationCommandsHost): ThreadMutationCommands {
   return {
     renameThread: (threadId, value, options) => renameThread(host, threadId, value, options),
+    setThreadPinned: (threadId, isPinned) => setThreadPinned(host, threadId, isPinned),
     archiveThread: (threadId, options) => archiveThread(host, threadId, options),
   };
 }
@@ -63,6 +65,11 @@ async function renameThread(
     }
     return true;
   });
+}
+
+async function setThreadPinned(host: ThreadMutationCommandsHost, threadId: string, isPinned: boolean): Promise<void> {
+  await host.port.setThreadPinned(threadId, isPinned);
+  host.facts.apply({ type: "thread-pinned", threadId, isPinned });
 }
 
 async function archiveThread(

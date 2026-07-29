@@ -3,6 +3,7 @@ export interface Thread {
   readonly preview: string;
   readonly name: string | null;
   readonly archived: boolean;
+  readonly isPinned?: boolean;
   readonly createdAt: number;
   readonly updatedAt: number;
   readonly recencyAt?: number | null;
@@ -47,4 +48,8 @@ export function upsertThread(threads: readonly Thread[], thread: Thread): Thread
 
 export function threadRecencyAt(thread: Thread): number {
   return thread.recencyAt ?? thread.updatedAt;
+}
+
+export function compareThreadsPinnedFirst(left: Thread, right: Thread): number {
+  return Number(right.isPinned === true) - Number(left.isPinned === true) || threadRecencyAt(right) - threadRecencyAt(left);
 }
