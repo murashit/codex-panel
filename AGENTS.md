@@ -2,11 +2,10 @@ This repository contains the Codex Panel Obsidian plugin.
 
 ## Working Principles
 
-- Start from evidence. Reproduce defects before fixing them, using the cheapest deterministic layer that exercises the suspected cause. A reliable automated reproduction is sufficient unless material environment-specific behavior remains outside that test. For product changes, reconstruct the current workflow, user need, alternatives, and losses before deciding what should change. Treat theoretical failure modes and reviewer agreement as hypotheses, not evidence of meaningful user or operational harm.
-- Use design documents as context, not as a substitute for current behavior and user expectations. Prefer coherent user-facing behavior and clear ownership, and remove needless abstraction or obsolete compatibility instead of preserving it by default.
-- Treat implementation, tests, documentation, lint policy, and final history as one deliverable: inspect each for drift, but update only the durable contracts that changed. Documentation should record user-facing behavior, long-term design, or reusable workflow; do not add it merely to narrate an implementation change or duplicate tests and tooling. If a detail is readily derivable from current code and likely to drift, leave it in code or tests instead. Stale or speculative documentation is a defect with operational cost: correct or remove it when it is within the task's scope, but do not create new documentation solely because an implementation changed without altering a durable contract.
-- Treat review findings as evidence about the design, not as a patch list. Before editing, identify the violated invariant and its owning boundary; when multiple findings share a cause or expose misplaced ownership, reconsider the design and replace the local patch rather than stacking compensating fixes. Keep a local fix only when the cause and consequences are genuinely local.
-- Parallelize only substantial concerns that can be implemented and tested independently with little shared-file contention. Keep small, tightly coupled, sequential, or coordination-heavy work together.
+- Ground decisions in current behavior, user needs, and authoritative boundary contracts. Treat documentation, tests, theory, and reviewer agreement as inputs—not substitutes—for evidence.
+- Prefer the smallest coherent user-facing model with clear semantic ownership over preserving existing work. Treat review findings and edge cases as reasons to reopen the design, and make them ordinary consequences of the model rather than exceptions preserved by compensating patches.
+- Keep the Panel thin. Remove needless abstraction, duplicated ownership, and obsolete compatibility instead of preserving them through local complexity.
+- Treat implementation, tests, documentation, policy, and final history as one reviewable deliverable, and keep only artifacts that express durable behavior or constraints.
 
 ## What To Read
 
@@ -18,6 +17,10 @@ This repository contains the Codex Panel Obsidian plugin.
 
 ## Changes And Validation
 
+- Reproduce defects at the cheapest deterministic layer that exercises the suspected cause. Use live Obsidian validation only when material integration behavior remains outside automation.
+- Before fixing a review finding, identify the violated invariant and its semantic owner; reconsider the model when the cause or consequences are not genuinely local.
+- Document durable user behavior, design, or reusable workflow—not implementation narration that is readily derived from code and likely to drift.
+- Parallelize only substantial independent concerns with little shared-file contention; keep tightly coupled work together.
 - Jujutsu is the recommended local change-management workflow when available. Make each final change a coherent review unit with an honest description.
 - Before publishing, inspect and reorganize the graph when needed rather than preserving implementation chronology: normally fold corrective follow-ups into the concern they complete, split mixed changes, and keep a follow-up separate only when it remains meaningful on its own.
 - Use Conventional Commits for new commits and follow `docs/development.md` for repository rules and validation. Re-run relevant validation after history edits and before handoff or publication.
