@@ -64,7 +64,7 @@ function threadStreamViewBlockFromLayoutBlock(
 ): ThreadStreamViewBlock {
   if (block.type === "item") {
     return {
-      key: `item:${block.item.id}`,
+      key: threadStreamItemViewKey(block.item),
       ...threadStreamRenderedItemView(block.classification, input, block.annotations),
     };
   }
@@ -76,6 +76,12 @@ function threadStreamViewBlockFromLayoutBlock(
     summary: block.summary,
     items: block.items.map((activity) => threadStreamActivityItemView(activity, input)),
   };
+}
+
+function threadStreamItemViewKey(item: ThreadStreamItem): string {
+  return `item:${
+    item.kind === "dialogue" && item.role === "user" && item.clientId ? `${item.turnId ?? "unscoped"}:${item.clientId}` : item.id
+  }`;
 }
 
 function activeTurnViewBlocks(input: ThreadStreamBlockProjectionInput): readonly ThreadStreamViewBlock[] {

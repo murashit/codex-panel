@@ -29,7 +29,7 @@ export interface JsonRpcClientOptions extends JsonRpcClientHandlers {
   send(message: RpcOutboundMessage): void;
 }
 
-class AppServerRpcError extends Error {
+export class AppServerRpcError extends Error {
   readonly code?: number;
   readonly data?: unknown;
   readonly method: ClientRequestMethod;

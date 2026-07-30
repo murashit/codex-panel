@@ -50,10 +50,10 @@ describe("chatReducer", () => {
       action: { type: "web-submission/failed", submissionId: "older-web" },
     },
     {
-      label: "adopt",
+      label: "queue steer",
       phase: "committed",
       action: {
-        type: "web-submission/steer-adopted",
+        type: "web-submission/steer-pending",
         submissionId: "older-web",
         item: pendingWebSubmission("adopted-web").item,
       },
@@ -88,10 +88,10 @@ describe("chatReducer", () => {
       action: { type: "web-submission/failed", submissionId: "current-web" },
     },
     {
-      label: "adopt a cancellable steer",
+      label: "queue a cancellable steer",
       phase: "cancellable",
       action: {
-        type: "web-submission/steer-adopted",
+        type: "web-submission/steer-pending",
         submissionId: "current-web",
         item: pendingWebSubmission("adopted-web").item,
       },
@@ -105,33 +105,8 @@ describe("chatReducer", () => {
     expect(chatReducer(state, action)).toBe(state);
   });
 
-  it("adopts steer metadata only onto the matching user dialogue", () => {
-    const assistantWithMatchingClientId = {
-      id: "assistant",
-      kind: "dialogue",
-      dialogueKind: "assistantResponse",
-      role: "assistant",
-      text: "assistant",
-      dialogueState: "completed",
-      clientId: "local-steer",
-    } satisfies ThreadStreamItem;
-    const mismatchedUser = {
-      id: "mismatched-user",
-      kind: "dialogue",
-      dialogueKind: "user",
-      role: "user",
-      text: "other",
-      clientId: "other-client",
-    } satisfies ThreadStreamItem;
-    const matchingUser = {
-      id: "matching-user",
-      kind: "dialogue",
-      dialogueKind: "user",
-      role: "user",
-      text: "steer",
-      clientId: "local-steer",
-    } satisfies ThreadStreamItem;
-    let state = withChatStateThreadStreamItems(chatStateFixture(), [assistantWithMatchingClientId, mismatchedUser, matchingUser]);
+  it("moves a committed web submission into the pending steer projection", () => {
+    let state = chatStateFixture();
     state = chatReducer(state, {
       type: "web-submission/pending",
       submission: pendingWebSubmission("current-web", "committed"),
@@ -150,22 +125,14 @@ describe("chatReducer", () => {
     };
 
     const next = chatReducer(state, {
-      type: "web-submission/steer-adopted",
+      type: "web-submission/steer-pending",
       submissionId: "current-web",
       item: adoptedItem,
     });
 
     expect(next.pendingSubmission).toBeNull();
-    expect(chatStateThreadStreamItems(next)).toEqual([
-      assistantWithMatchingClientId,
-      mismatchedUser,
-      {
-        ...matchingUser,
-        contextAttachments: adoptedItem.contextAttachments,
-        referencedFiles: adoptedItem.referencedFiles,
-        referencedThread: adoptedItem.referencedThread,
-      },
-    ]);
+    expect(chatStateThreadStreamItems(next)).toEqual([]);
+    expect(next.threadStream.pendingSteers).toEqual([adoptedItem]);
   });
 
   it("clears panel-scoped diagnostics on disconnect without owning shared resources", () => {

@@ -135,6 +135,7 @@ export function turnRuntimeFactsFromNotification(
           threadId: notification.params.threadId,
           turnId: notification.params.turn.id,
           status: notification.params.turn.status,
+          itemsView: notification.params.turn.itemsView,
           completedItems: threadStreamItemsFromTurns([notification.params.turn]),
           completedTurnTranscriptSummary: completedTurnTranscriptSummaryFromAppServerTurn(notification.params.turn),
         },
@@ -154,6 +155,10 @@ export function turnRuntimeFactsFromNotification(
 }
 
 function startedItemFacts(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeFact[] {
+  if (item.type === "userMessage") {
+    const streamItem = threadStreamItemFromTurnItem(item, turnId);
+    return streamItem?.kind === "dialogue" ? [{ type: "userMessageObserved", item: streamItem }] : [];
+  }
   if (shouldSuppressLifecycleItem(item)) return [];
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
   return streamItem ? [{ type: "itemUpserted", item: streamItem }] : [];

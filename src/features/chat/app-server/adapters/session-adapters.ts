@@ -1,4 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
+import { AppServerRpcError } from "../../../../app-server/connection/json-rpc-client";
 import type { AppServerRequestClient } from "../../../../app-server/services/request-client";
 import {
   clearThreadGoal,
@@ -101,10 +102,25 @@ function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
         });
         return { turnId: response.turn.id };
       }),
-    steerTurn: (request) =>
-      runCurrentChatAppServerEffect(host, async (client) => {
-        await steerTurn(client, request.threadId, request.turnId, request.input, request.clientUserMessageId);
-      }),
+    steerTurn: async (request) => {
+      const client = host.currentClient();
+      if (!client) return { kind: "not-started" };
+      const dispatch = steerTurn(client, request.threadId, request.turnId, request.input, request.clientUserMessageId);
+      if (dispatch.kind === "not-dispatched") {
+        return chatAppServerClientIsStale(host, client)
+          ? { kind: "completed-stale", value: undefined }
+          : { kind: "failed", error: dispatch.error };
+      }
+      try {
+        await dispatch.completion;
+      } catch (error) {
+        if (chatAppServerClientIsStale(host, client)) return { kind: "completed-stale", value: undefined };
+        return error instanceof AppServerRpcError ? { kind: "failed", error } : { kind: "delivery-unknown", error };
+      }
+      return chatAppServerClientIsStale(host, client)
+        ? { kind: "completed-stale", value: undefined }
+        : { kind: "completed-current", value: undefined };
+    },
     interruptTurn: async (threadId, turnId) => {
       const interrupted = await withCurrentChatAppServerClient(host, async (client) => {
         await interruptTurn(client, threadId, turnId);

@@ -165,6 +165,8 @@ function subagentActivityActionsFromRuntimeFact(
           advance: notificationMethod === "item/started" || notificationMethod === "turn/plan/updated",
         },
       ];
+    case "userMessageObserved":
+      return [];
     case "itemCompleted":
       return [{ type: "subagent-activity/item-observed", threadId, item: fact.item, advance: false }];
     case "assistantDelta":

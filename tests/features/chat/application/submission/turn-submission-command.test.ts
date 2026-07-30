@@ -452,7 +452,7 @@ describe("TurnSubmissionCommand", () => {
     expect(host.setDraft).not.toHaveBeenCalled();
   });
 
-  it("commits a pending web import before steering and lets the late result adopt it", async () => {
+  it("moves a pending web import into the steer queue before the RPC settles", async () => {
     const steering = deferred<EffectOutcome<void>>();
     const { host, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
@@ -478,14 +478,18 @@ describe("TurnSubmissionCommand", () => {
     });
     await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
 
-    expect(stateStore.getState().pendingSubmission?.phase).toBe("committed");
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    expect(stateStore.getState().threadStream.pendingSteers).toEqual([
+      expect.objectContaining({ id: pending.id, clientId: expect.stringMatching(/^local-steer-/), turnId: "turn" }),
+    ]);
     stateStore.dispatch({ type: "web-submission/cancelled", submissionId: pending.id });
-    expect(stateStore.getState().pendingSubmission?.phase).toBe("committed");
+    expect(stateStore.getState().threadStream.pendingSteers).toHaveLength(1);
 
     steering.resolve(completedCurrent(undefined));
     await expect(submitting).resolves.toBe(true);
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(chatStateThreadStreamItems(stateStore.getState())[0]).toMatchObject({ id: pending.id, turnId: "turn" });
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+    expect(stateStore.getState().threadStream.pendingSteers[0]).toMatchObject({ id: pending.id, turnId: "turn" });
   });
 
   it("cleans up and restores a committed pending web steer when the RPC fails", async () => {
@@ -755,11 +759,10 @@ describe("TurnSubmissionCommand", () => {
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
     const localSteerId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
-    expect(
-      chatStateThreadStreamItems(stateStore.getState()).some(
-        (item) => item.kind === "dialogue" && item.id === localSteerId && item.text === "follow up",
-      ),
-    ).toBe(true);
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+    expect(stateStore.getState().threadStream.pendingSteers).toEqual([
+      expect.objectContaining({ id: localSteerId, clientId: localSteerId, text: "follow up", turnId: "turn" }),
+    ]);
   });
 
   it("does not clear a newer composer draft when steering with a claimed submission", async () => {
@@ -785,40 +788,7 @@ describe("TurnSubmissionCommand", () => {
     expect(settle).toHaveBeenCalledWith("accepted");
   });
 
-  it("replaces a pending web submission after steering succeeds", async () => {
-    const { host, stateStore } = createHost();
-    resumeThread(stateStore);
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-    if (!pending) throw new Error("Expected pending web submission");
-    stateStore.dispatch({
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: "thread",
-        phase: "cancellable",
-      },
-    });
-    const commands = createTurnSubmissionCommand(host);
-
-    await commands.sendTurnText({
-      text: "https://example.com/ summarize",
-      codexInputOverride: textInput("https://example.com/ summarize"),
-      pendingSubmissionId: pending.id,
-    });
-
-    const dialogues = chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "dialogue");
-    expect(dialogues).toHaveLength(1);
-    expect(dialogues[0]).toMatchObject({
-      id: pending.id,
-      clientId: expect.stringMatching(/^local-steer-/),
-      text: "https://example.com/ summarize",
-      turnId: "turn",
-    });
-  });
-
-  it("adopts a successful pending web steer after the active turn completes", async () => {
+  it("commits a successful pending web steer when its user message arrives before the RPC settles", async () => {
     const { host, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
@@ -853,22 +823,21 @@ describe("TurnSubmissionCommand", () => {
     });
     await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
     const clientId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
+    expect(stateStore.getState().threadStream.pendingSteers).toEqual([
+      expect.objectContaining({ id: pending.id, clientId, text: pending.text }),
+    ]);
     stateStore.dispatch({
-      type: "turn/completed",
-      turnId: "turn",
-      status: "completed",
-      items: [
-        {
-          id: "server-user",
-          kind: "dialogue",
-          dialogueKind: "user",
-          role: "user",
-          text: pending.text,
-          copyText: pending.text,
-          turnId: "turn",
-          clientId,
-        },
-      ],
+      type: "thread-stream/pending-steer-committed",
+      item: {
+        id: "server-user",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: pending.text,
+        copyText: pending.text,
+        turnId: "turn",
+        clientId,
+      },
     });
     steering.resolve(completedCurrent(undefined));
 
@@ -881,6 +850,84 @@ describe("TurnSubmissionCommand", () => {
         contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
       }),
     ]);
+  });
+
+  it("keeps an indeterminate steer pending so a later user-message observation can commit it", async () => {
+    const { host, stateStore, steerTurn } = createHost();
+    resumeThread(stateStore);
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    steerTurn.mockResolvedValue({ kind: "delivery-unknown", error: new Error("connection closed") });
+    const commands = createTurnSubmissionCommand(host);
+
+    await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(true);
+    const clientId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
+    expect(stateStore.getState().threadStream.pendingSteers).toEqual([expect.objectContaining({ clientId })]);
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+
+    stateStore.dispatch({
+      type: "thread-stream/pending-steer-committed",
+      item: {
+        id: "server-user",
+        clientId,
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "follow up",
+        turnId: "turn",
+      },
+    });
+
+    expect(stateStore.getState().threadStream.pendingSteers).toEqual([]);
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([expect.objectContaining({ id: "server-user", clientId })]);
+  });
+
+  it("removes and reports a steer explicitly rejected by app-server", async () => {
+    const { host, stateStore, steerTurn } = createHost();
+    resumeThread(stateStore);
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    steerTurn.mockResolvedValue({ kind: "failed", error: new Error("cannot steer this turn") });
+    const commands = createTurnSubmissionCommand(host);
+
+    await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
+
+    expect(stateStore.getState().threadStream.pendingSteers).toEqual([]);
+    expect(host.addSystemMessage).toHaveBeenCalledWith("cannot steer this turn");
+  });
+
+  it("does not publish a steer rejection into a newly selected thread", async () => {
+    const { host, stateStore, steerTurn } = createHost();
+    resumeThread(stateStore, undefined, "first");
+    stateStore.dispatch({ type: "turn/started", threadId: "first", turnId: "turn" });
+    steerTurn.mockImplementation(async () => {
+      resumeThread(stateStore, undefined, "second");
+      return { kind: "failed", error: new Error("first thread rejected the steer") };
+    });
+    const commands = createTurnSubmissionCommand(host);
+
+    await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
+
+    expect(activeThreadId(stateStore.getState())).toBe("second");
+    expect(stateStore.getState().threadStream.pendingSteers).toEqual([]);
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not publish a steer rejection after the same thread and turn are re-owned", async () => {
+    const { host, stateStore, steerTurn } = createHost();
+    resumeThread(stateStore);
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    steerTurn.mockImplementation(async () => {
+      stateStore.dispatch({ type: "active-thread/cleared" });
+      resumeThread(stateStore);
+      stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+      return { kind: "failed", error: new Error("old ownership rejected the steer") };
+    });
+    const commands = createTurnSubmissionCommand(host);
+
+    await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
+
+    expect(activeThreadId(stateStore.getState())).toBe("thread");
+    expect(stateStore.getState().threadStream.pendingSteers).toEqual([]);
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("reports busy turns that cannot be steered", async () => {
@@ -1014,23 +1061,6 @@ describe("TurnSubmissionCommand", () => {
 
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(true);
 
-    expect(host.setDraft).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).not.toHaveBeenCalled();
-  });
-
-  it("does not restore stale steer drafts or report stale steer failures after the active turn changes", async () => {
-    const { host, startTurn, stateStore, steerTurn } = createHost();
-    resumeThread(stateStore);
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    steerTurn.mockImplementation(async () => {
-      stateStore.dispatch({ type: "active-thread/cleared" });
-      throw new Error("offline");
-    });
-    const commands = createTurnSubmissionCommand(host);
-
-    await commands.sendTurnText({ text: "follow up" });
-
-    expect(startTurn).not.toHaveBeenCalled();
     expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });

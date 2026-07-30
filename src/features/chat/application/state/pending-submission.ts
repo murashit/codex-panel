@@ -12,7 +12,7 @@ export type PendingSubmissionAction =
   | { type: "web-submission/committed"; submissionId: string }
   | { type: "web-submission/cancelled"; submissionId: string }
   | { type: "web-submission/failed"; submissionId: string }
-  | { type: "web-submission/steer-adopted"; submissionId: string; item: ThreadStreamDialogueItem };
+  | { type: "web-submission/steer-pending"; submissionId: string; item: ThreadStreamDialogueItem };
 
 export function pendingSubmissionMatches(
   state: {

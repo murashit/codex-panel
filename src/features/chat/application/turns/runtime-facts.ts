@@ -1,6 +1,6 @@
 import type { PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
-import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 
 type TurnRuntimeTextItemKind = "tool" | "hook" | "reasoning";
 type TurnRuntimeOutputItemKind = "command" | "fileChange";
@@ -47,6 +47,10 @@ export type TurnRuntimeFact =
       item: ThreadStreamItem;
     }
   | {
+      type: "userMessageObserved";
+      item: ThreadStreamDialogueItem;
+    }
+  | {
       type: "itemCompleted";
       turnId: string;
       item: ThreadStreamItem;
@@ -65,6 +69,7 @@ export type TurnRuntimeFact =
       threadId: string;
       turnId: string;
       status: string;
+      itemsView: "notLoaded" | "summary" | "full";
       completedItems: readonly ThreadStreamItem[];
       completedTurnTranscriptSummary: TurnTranscriptSummary | null;
     }

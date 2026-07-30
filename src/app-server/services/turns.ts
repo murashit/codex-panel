@@ -27,6 +27,10 @@ export interface AppServerStartStructuredTurnOptions {
   runtime?: AppServerTurnRuntimeOverrides;
 }
 
+export type AppServerSteerDispatch =
+  | { readonly kind: "dispatched"; readonly completion: Promise<unknown> }
+  | { readonly kind: "not-dispatched"; readonly error: unknown };
+
 export function startTurn(
   client: AppServerRequestClient,
   options: AppServerStartTurnOptions,
@@ -71,15 +75,22 @@ export function steerTurn(
   expectedTurnId: string,
   input: string | CodexInput,
   clientUserMessageId?: string | null,
-): Promise<unknown> {
-  const prepared = toTurnInput(input, contextSubmissionId(clientUserMessageId, "steer"));
-  return client.request("turn/steer", {
-    threadId,
-    expectedTurnId,
-    input: prepared.input,
-    ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
-    ...(prepared.additionalContext !== undefined ? { additionalContext: prepared.additionalContext } : {}),
-  });
+): AppServerSteerDispatch {
+  try {
+    const prepared = toTurnInput(input, contextSubmissionId(clientUserMessageId, "steer"));
+    return {
+      kind: "dispatched",
+      completion: client.request("turn/steer", {
+        threadId,
+        expectedTurnId,
+        input: prepared.input,
+        ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
+        ...(prepared.additionalContext !== undefined ? { additionalContext: prepared.additionalContext } : {}),
+      }),
+    };
+  } catch (error) {
+    return { kind: "not-dispatched", error };
+  }
 }
 
 export function interruptTurn(client: AppServerRequestClient, threadId: string, turnId: string): Promise<unknown> {

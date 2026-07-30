@@ -1576,6 +1576,20 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/reasoning/summaryTextDelta" }>);
       handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "child",
+          turnId: "child-turn",
+          startedAtMs: 1,
+          item: {
+            type: "userMessage",
+            id: "child-user",
+            clientId: "child-client",
+            content: [{ type: "text", text: "child prompt", text_elements: [] }],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "item/started" }>);
+      handler.handleNotification({
         method: "item/reasoning/summaryTextDelta",
         params: {
           threadId: "unrelated",
@@ -1680,8 +1694,64 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
-    it("keeps the observed steer message order when completed turns reconcile by client id", () => {
-      let state = activeRunningState();
+    it("moves a pending steer into canonical order when its user message starts", () => {
+      let state = chatReducer(activeRunningState(), {
+        type: "thread-stream/pending-steer-added",
+        item: {
+          id: "local-steer",
+          clientId: "local-steer",
+          kind: "dialogue",
+          dialogueKind: "user",
+          role: "user",
+          text: "follow up",
+          turnId: "turn-active",
+        },
+      });
+      state = withChatStateThreadStreamItems(state, [
+        {
+          id: "assistant",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
+          role: "assistant",
+          text: "working",
+          turnId: "turn-active",
+        },
+      ]);
+      const handler = handlerForState(state);
+
+      handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          startedAtMs: 1,
+          item: {
+            type: "userMessage",
+            id: "server-steer",
+            clientId: "local-steer",
+            content: [{ type: "text", text: "follow up", text_elements: [] }],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "item/started" }>);
+
+      expect(handler.currentState().threadStream.pendingSteers).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["assistant", "server-steer"]);
+    });
+
+    it("keeps an observed steer canonical when the normal completion summary arrives", () => {
+      let state = chatReducer(activeRunningState(), {
+        type: "thread-stream/pending-steer-added",
+        item: {
+          id: "local-steer-1",
+          clientId: "local-steer-1",
+          kind: "dialogue",
+          dialogueKind: "user",
+          role: "user",
+          text: "steer",
+          turnId: "turn-active",
+        },
+      });
       state = withChatStateThreadStreamItems(state, [
         { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "start", turnId: "turn-active" },
         {
@@ -1694,10 +1764,23 @@ describe("ChatInboundHandler", () => {
           text: "first partial",
           turnId: "turn-active",
         },
-        { id: "local-steer-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "steer", turnId: "turn-active" },
       ]);
       const handler = handlerForState(state);
 
+      handler.handleNotification({
+        method: "item/started",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          startedAtMs: 1,
+          item: {
+            type: "userMessage",
+            id: "server-steer",
+            clientId: "local-steer-1",
+            content: [{ type: "text", text: "steer", text_elements: [] }],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "item/started" }>);
       handler.handleNotification({
         method: "turn/completed",
         params: {
@@ -1709,23 +1792,24 @@ describe("ChatInboundHandler", () => {
             startedAt: null,
             completedAt: null,
             durationMs: null,
-            itemsView: "full",
-            items: [
-              { type: "userMessage", id: "u1", clientId: "local-user-1", content: [{ type: "text", text: "start", text_elements: [] }] },
-              { type: "agentMessage", id: "a1", text: "first done", phase: "final_answer", memoryCitation: null },
-              { type: "userMessage", id: "u2", clientId: "local-steer-1", content: [{ type: "text", text: "steer", text_elements: [] }] },
-              { type: "agentMessage", id: "a2", text: "second done", phase: "final_answer", memoryCitation: null },
-            ],
+            itemsView: "summary",
+            items: [{ type: "agentMessage", id: "a2", text: "second done", phase: "final_answer", memoryCitation: null }],
           },
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["u1", "a1", "u2", "a2"]);
+      expect(handler.currentState().threadStream.pendingSteers).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual([
+        "local-user-1",
+        "a1",
+        "server-steer",
+        "a2",
+      ]);
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "start" }),
-          expect.objectContaining({ id: "a1", text: "first done" }),
-          expect.objectContaining({ id: "u2", clientId: "local-steer-1", text: "steer" }),
+          expect.objectContaining({ id: "local-user-1", text: "start" }),
+          expect.objectContaining({ id: "a1", text: "first partial" }),
+          expect.objectContaining({ id: "server-steer", clientId: "local-steer-1", text: "steer" }),
           expect.objectContaining({ id: "a2", text: "second done" }),
         ]),
       );

@@ -14,7 +14,40 @@ describe("app-server turn runtime fact adapter", () => {
     expect(facts).toEqual([{ type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true }]);
   });
 
-  it("maps completed turns to completed turn snapshots", () => {
+  it("maps observed user messages to a reconciliation fact", () => {
+    const notification = {
+      method: "item/started",
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        startedAtMs: 1,
+        item: {
+          type: "userMessage",
+          id: "server-steer",
+          clientId: "local-steer",
+          content: [{ type: "text", text: "follow up", text_elements: [] }],
+        },
+      },
+    } satisfies Extract<ServerNotification, { method: "item/started" }>;
+
+    const facts = turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`);
+
+    expect(facts).toEqual([
+      {
+        type: "userMessageObserved",
+        item: expect.objectContaining({
+          id: "server-steer",
+          clientId: "local-steer",
+          kind: "dialogue",
+          role: "user",
+          text: "follow up",
+          turnId: "turn-active",
+        }),
+      },
+    ]);
+  });
+
+  it("preserves the normal completed-turn summary contract", () => {
     const notification = {
       method: "turn/completed",
       params: {
@@ -26,11 +59,8 @@ describe("app-server turn runtime fact adapter", () => {
           startedAt: 1,
           completedAt: 2,
           durationMs: 1,
-          itemsView: "full",
-          items: [
-            { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
-          ],
+          itemsView: "summary",
+          items: [{ type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null }],
         },
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;
@@ -43,14 +73,12 @@ describe("app-server turn runtime fact adapter", () => {
         threadId: "thread-active",
         turnId: "turn-active",
         status: "completed",
-        completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
+        itemsView: "summary",
+        completedTurnTranscriptSummary: null,
       }),
     ]);
     expect(facts[0]).toMatchObject({
-      completedItems: [
-        expect.objectContaining({ id: "u1", kind: "dialogue", role: "user", text: "hello" }),
-        expect.objectContaining({ id: "a1", kind: "dialogue", role: "assistant", text: "done" }),
-      ],
+      completedItems: [expect.objectContaining({ id: "a1", kind: "dialogue", role: "assistant", text: "done" })],
     });
   });
 

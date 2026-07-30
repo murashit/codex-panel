@@ -26,7 +26,7 @@ import {
   resetReasoningEffortToConfigRuntimeState,
   setSelectedCollaborationModeRuntimeState,
 } from "../../domain/runtime/state";
-import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import type { ComposerSuggestion } from "../composer/suggestion";
 import {
   type ChatRequestState,
@@ -322,7 +322,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "web-submission/committed":
     case "web-submission/cancelled":
     case "web-submission/failed":
-    case "web-submission/steer-adopted":
+    case "web-submission/steer-pending":
       return reduceChatTransition(state, action);
     default:
       return reduceChatSlices(state, action);
@@ -380,33 +380,13 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
       return state.pendingSubmission?.id === action.submissionId && state.pendingSubmission.phase === "committed"
         ? patchObject(state, { pendingSubmission: null })
         : state;
-    case "web-submission/steer-adopted":
+    case "web-submission/steer-pending":
       if (state.pendingSubmission?.id !== action.submissionId || state.pendingSubmission.phase !== "committed") return state;
       return patchObject(state, {
         pendingSubmission: null,
-        threadStream: adoptPendingSteerItem(state.threadStream, action.item),
+        threadStream: reduceThreadStreamSlice(state.threadStream, { type: "thread-stream/pending-steer-added", item: action.item }),
       });
   }
-}
-
-function adoptPendingSteerItem(state: ChatThreadStreamState, item: ThreadStreamDialogueItem): ChatThreadStreamState {
-  if (!item.clientId) {
-    return reduceThreadStreamSlice(state, { type: "thread-stream/item-added", item });
-  }
-  const matchedIndex = state.stableItems.findIndex(
-    (current) => current.kind === "dialogue" && current.role === "user" && current.clientId === item.clientId,
-  );
-  if (matchedIndex === -1) return reduceThreadStreamSlice(state, { type: "thread-stream/item-added", item });
-  const current = state.stableItems[matchedIndex];
-  if (current?.kind !== "dialogue") return state;
-  const stableItems = [...state.stableItems];
-  stableItems[matchedIndex] = {
-    ...current,
-    ...(item.contextAttachments ? { contextAttachments: item.contextAttachments } : {}),
-    ...(item.referencedFiles ? { referencedFiles: item.referencedFiles } : {}),
-    ...(item.referencedThread ? { referencedThread: item.referencedThread } : {}),
-  };
-  return { ...state, stableItems };
 }
 
 function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThreadResumedAction): ChatState {
@@ -540,7 +520,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   if (lifecycle === state.turn.lifecycle) return state;
   return patchObject(state, {
     turn: { lifecycle },
-    threadStream: threadStreamWithItems(state.threadStream, action.items),
+    threadStream: threadStreamWithItems(state.threadStream, action.items, { pendingSteers: [] }),
     subagentActivity: initialSubagentActivityState(),
     connection: { ...state.connection, statusText: `Turn ${action.status}.` },
   });
@@ -617,7 +597,7 @@ function clearTurnScopedState(state: ChatState): ChatState {
     turn: {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
     },
-    threadStream: threadStreamWithItems(state.threadStream, threadStreamItems(state.threadStream)),
+    threadStream: threadStreamWithItems(state.threadStream, threadStreamItems(state.threadStream), { pendingSteers: [] }),
     subagentActivity: initialSubagentActivityState(),
     requests: initialChatRequestState(),
     ui: clearAllRequestDisclosures(state.ui),

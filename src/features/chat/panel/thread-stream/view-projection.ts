@@ -6,6 +6,7 @@ import {
   type ThreadStreamRollbackCandidate,
   threadStreamActiveItems,
   threadStreamItems,
+  threadStreamPendingSteers,
   threadStreamRollbackCandidateFromItems,
   threadStreamStableItems,
 } from "../../application/state/thread-stream";
@@ -119,14 +120,15 @@ function threadStreamStateProjection(
   dependencies: ChatThreadStreamDependencies,
 ): ThreadStreamStateProjection {
   const canonicalItems = threadStreamItems(model.threadStream);
+  const pendingSteers = threadStreamPendingSteers(model.threadStream);
   const stableItemsRaw = model.threadStream.activeSegment
     ? threadStreamStableItems(model.threadStream)
-    : appendPendingSubmission(threadStreamStableItems(model.threadStream), model.pendingSubmission);
+    : appendPendingDisplayItems(threadStreamStableItems(model.threadStream), pendingSteers, model.pendingSubmission);
   const activeItemsRaw = model.threadStream.activeSegment
-    ? appendPendingSubmission(threadStreamActiveItems(model.threadStream), model.pendingSubmission)
+    ? appendPendingDisplayItems(threadStreamActiveItems(model.threadStream), pendingSteers, model.pendingSubmission)
     : threadStreamActiveItems(model.threadStream);
   const titleByThreadId = new Map(model.threads.map((thread) => [thread.id, threadDisplayTitle(thread)] as const));
-  const items = resolvedReferenceTitles(appendPendingSubmission(canonicalItems, model.pendingSubmission), titleByThreadId);
+  const items = resolvedReferenceTitles(appendPendingDisplayItems(canonicalItems, pendingSteers, model.pendingSubmission), titleByThreadId);
   const stableItems = resolvedReferenceTitles(stableItemsRaw, titleByThreadId);
   const activeItems = resolvedReferenceTitles(activeItemsRaw, titleByThreadId);
   const disclosures = {
@@ -191,11 +193,13 @@ function resolvedReferenceTitles(
   });
 }
 
-function appendPendingSubmission(
+function appendPendingDisplayItems(
   items: readonly ThreadStreamItem[],
+  pendingSteers: readonly ThreadStreamItem[],
   pendingSubmission: ChatPanelThreadStreamModel["pendingSubmission"],
 ): readonly ThreadStreamItem[] {
-  return pendingSubmission ? [...items, pendingSubmission.item] : items;
+  if (pendingSteers.length === 0 && !pendingSubmission) return items;
+  return [...items, ...pendingSteers, ...(pendingSubmission ? [pendingSubmission.item] : [])];
 }
 
 function textActionTargetsForThreadStreamItems(

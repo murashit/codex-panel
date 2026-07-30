@@ -2,7 +2,7 @@ import { reconcileCompletedTurnItems } from "../../domain/thread-stream/complete
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { attachHookRunsToTurn, completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import { type ChatAction, type ChatState, chatReducer } from "../state/root-reducer";
-import { threadStreamItems } from "../state/thread-stream";
+import { threadStreamItems, threadStreamPendingSteers } from "../state/thread-stream";
 import type { TurnRuntimeFact } from "./runtime-facts";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "./turn-state";
 
@@ -80,6 +80,10 @@ function projectTurnRuntimeFact(state: ChatState, fact: TurnRuntimeFact): TurnRu
       });
     case "itemUpserted":
       return actionProjection({ type: "thread-stream/item-upserted", item: fact.item });
+    case "userMessageObserved":
+      return fact.item.clientId && threadStreamPendingSteers(state.threadStream).some((pending) => pending.clientId === fact.item.clientId)
+        ? actionProjection({ type: "thread-stream/pending-steer-committed", item: fact.item })
+        : EMPTY_PROJECTION;
     case "itemCompleted":
       return completedItemProjection(fact.item, fact.turnId);
     case "autoReviewUpdated":
@@ -117,20 +121,18 @@ function turnStartedProjection(state: ChatState, fact: Extract<TurnRuntimeFact, 
 
 function turnCompletedProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "turnCompleted" }>): TurnRuntimeProjection {
   if (activeTurnId(state) !== fact.turnId) return EMPTY_PROJECTION;
+  const reconciledItems = reconcileCompletedTurnItems({
+    currentItems: threadStreamItems(state.threadStream),
+    completedTurnId: fact.turnId,
+    turnItems: fact.itemsView === "notLoaded" ? [] : fact.completedItems,
+  });
   return {
     actions: [
       {
         type: "turn/completed",
         turnId: fact.turnId,
         status: fact.status,
-        items: completeReasoningItems(
-          reconcileCompletedTurnItems({
-            currentItems: threadStreamItems(state.threadStream),
-            completedTurnId: fact.turnId,
-            turnItems: fact.completedItems,
-          }),
-          fact.turnId,
-        ),
+        items: completeReasoningItems(reconciledItems, fact.turnId),
       },
     ],
     outcomes: [

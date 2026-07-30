@@ -20,6 +20,7 @@ interface ChatThreadStreamActiveSegment {
 export interface ChatThreadStreamState {
   readonly stableItems: readonly ThreadStreamItem[];
   readonly activeSegment: ChatThreadStreamActiveSegment | null;
+  readonly pendingSteers: readonly ThreadStreamDialogueItem[];
   readonly turnDiffs: ReadonlyMap<string, string>;
   readonly historyCursor: string | null;
   readonly loadingHistory: boolean;
@@ -44,6 +45,9 @@ export type ThreadStreamAction =
       loadingHistory?: boolean;
     }
   | { type: "thread-stream/item-upserted"; item: ThreadStreamItem }
+  | { type: "thread-stream/pending-steer-added"; item: ThreadStreamDialogueItem }
+  | { type: "thread-stream/pending-steer-removed"; clientId: string }
+  | { type: "thread-stream/pending-steer-committed"; item: ThreadStreamDialogueItem }
   | { type: "thread-stream/reasoning-completed"; turnId: string }
   | { type: "thread-stream/assistant-delta-appended"; itemId: string; turnId: string; delta: string; completeReasoning?: boolean }
   | { type: "thread-stream/plan-delta-appended"; itemId: string; turnId: string; delta: string }
@@ -80,6 +84,9 @@ export function isThreadStreamAction(action: { type: string }): action is Thread
     case "thread-stream/history-loading-set":
     case "thread-stream/items-replaced":
     case "thread-stream/item-upserted":
+    case "thread-stream/pending-steer-added":
+    case "thread-stream/pending-steer-removed":
+    case "thread-stream/pending-steer-committed":
     case "thread-stream/reasoning-completed":
     case "thread-stream/assistant-delta-appended":
     case "thread-stream/plan-delta-appended":
@@ -97,6 +104,7 @@ export function initialChatThreadStreamState(items: readonly ThreadStreamItem[] 
   return {
     stableItems: items,
     activeSegment: null,
+    pendingSteers: [],
     turnDiffs: new Map(),
     historyCursor: null,
     loadingHistory: false,
@@ -115,6 +123,10 @@ export function threadStreamStableItems(state: Pick<ChatThreadStreamState, "stab
 
 export function threadStreamActiveItems(state: Pick<ChatThreadStreamState, "activeSegment">): readonly ThreadStreamItem[] {
   return state.activeSegment?.items ?? [];
+}
+
+export function threadStreamPendingSteers(state: Pick<ChatThreadStreamState, "pendingSteers">): readonly ThreadStreamDialogueItem[] {
+  return state.pendingSteers;
 }
 
 export function threadStreamIsEmpty(state: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">): boolean {
@@ -153,7 +165,7 @@ export function threadStreamRollbackCandidateFromItems(items: readonly ThreadStr
 export function threadStreamWithItems(
   state: ChatThreadStreamState,
   items: readonly ThreadStreamItem[],
-  patch: Partial<Pick<ChatThreadStreamState, "historyCursor" | "loadingHistory">> = {},
+  patch: Partial<Pick<ChatThreadStreamState, "historyCursor" | "loadingHistory" | "pendingSteers">> = {},
 ): ChatThreadStreamState {
   return patchObject(state, {
     stableItems: items,
@@ -172,6 +184,7 @@ export function threadStreamWithActiveTurnItems(
   return patchObject(state, {
     stableItems,
     activeSegment: activeSegmentFromItems(turnId, activeItems),
+    pendingSteers: state.pendingSteers.filter((item) => item.turnId === turnId),
   });
 }
 
@@ -180,7 +193,10 @@ export function threadStreamStartActiveSegment(
   turnId: string | null,
   items: readonly ThreadStreamItem[],
 ): ChatThreadStreamState {
-  return patchObject(state, { activeSegment: activeSegmentFromItems(turnId, items) });
+  return patchObject(state, {
+    activeSegment: activeSegmentFromItems(turnId, items),
+    pendingSteers: state.pendingSteers.filter((item) => !turnId || item.turnId === turnId),
+  });
 }
 
 export function reduceThreadStreamSlice(state: ChatThreadStreamState, action: ThreadStreamAction): ChatThreadStreamState {
@@ -203,6 +219,15 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamState, action: Th
       return patchObject(state, { loadingHistory: action.loading });
     case "thread-stream/item-upserted":
       return upsertThreadStreamItem(state, action.item);
+    case "thread-stream/pending-steer-added":
+      if (!action.item.clientId) return state;
+      return state.pendingSteers.some((item) => item.clientId === action.item.clientId)
+        ? state
+        : patchObject(state, { pendingSteers: [...state.pendingSteers, action.item] });
+    case "thread-stream/pending-steer-removed":
+      return removePendingSteer(state, action.clientId);
+    case "thread-stream/pending-steer-committed":
+      return commitPendingSteer(state, action.item);
     case "thread-stream/reasoning-completed":
       return completeReasoningInThreadStream(state, action.turnId);
     case "thread-stream/assistant-delta-appended":
@@ -220,6 +245,33 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamState, action: Th
         turnDiffs: updatedTurnDiffs(state.turnDiffs, action.turnId, action.diff),
       });
   }
+}
+
+function removePendingSteer(state: ChatThreadStreamState, clientId: string): ChatThreadStreamState {
+  const pendingSteers = state.pendingSteers.filter((item) => item.clientId !== clientId);
+  return pendingSteers.length === state.pendingSteers.length ? state : patchObject(state, { pendingSteers });
+}
+
+function commitPendingSteer(state: ChatThreadStreamState, item: ThreadStreamDialogueItem): ChatThreadStreamState {
+  if (!item.clientId) return state;
+  const pending = state.pendingSteers.find(
+    (candidate) => candidate.clientId === item.clientId && (!candidate.turnId || !item.turnId || candidate.turnId === item.turnId),
+  );
+  if (!pending) return state;
+  const committed = {
+    ...item,
+    ...(pending.contextAttachments ? { contextAttachments: pending.contextAttachments } : {}),
+    ...(pending.referencedFiles ? { referencedFiles: pending.referencedFiles } : {}),
+    ...(pending.referencedThread
+      ? {
+          referencedThread: item.referencedThread
+            ? { ...item.referencedThread, title: pending.referencedThread.title }
+            : pending.referencedThread,
+        }
+      : {}),
+  };
+  const withoutPending = removePendingSteer(state, item.clientId);
+  return patchObject(withoutPending, appendThreadStreamItemPatch(withoutPending, committed));
 }
 
 function appendThreadStreamItemPatch(state: ChatThreadStreamState, item: ThreadStreamItem): Partial<ChatThreadStreamState> {

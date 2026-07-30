@@ -113,7 +113,7 @@ async function sendTurnText(
         if (pendingRequestIsCurrent(host, request)) host.addSystemMessage(plan.message);
         return false;
       case "steer":
-        return await steerCurrentTurn(host, localItemIds, plan, prepared, request);
+        return await steerCurrentTurn(host, localItemIds, plan, prepared, request, panelTarget);
       case "start-thread-then-turn":
         if (!commitPendingRequest(host, request)) return false;
         request.submissionClaim?.markAdopted();
@@ -270,52 +270,63 @@ async function steerCurrentTurn(
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
   prepared: { text: string; input: CodexInput },
   request: TurnSubmissionRequest,
+  panelTarget: PanelTargetLease,
 ): Promise<boolean> {
   if (!pendingRequestIsCurrent(host, request)) return false;
   if (!commitPendingRequest(host, request)) return false;
   request.submissionClaim?.markAdopted();
   const localSteerId = localItemIds.next("local-steer");
+  const item = localUserDialogueItemFromInput({
+    id: request.pendingSubmissionId ?? localSteerId,
+    clientId: localSteerId,
+    interaction: "steer",
+    text: prepared.text,
+    turnId: plan.turnId,
+    codexInput: prepared.input,
+  });
+  host.stateStore.dispatch(
+    request.pendingSubmissionId
+      ? { type: "web-submission/steer-pending", submissionId: request.pendingSubmissionId, item }
+      : { type: "thread-stream/pending-steer-added", item },
+  );
+  if (!host.stateStore.getState().threadStream.pendingSteers.some((pending) => pending.clientId === localSteerId)) return false;
 
-  try {
-    const outcome = await host.turnPort.steerTurn({
-      threadId: plan.threadId,
-      turnId: plan.turnId,
-      input: prepared.input,
-      clientUserMessageId: localSteerId,
-    });
-    if (outcome.kind === "not-started") {
-      if (pendingRequestIsCurrent(host, request)) {
-        failPendingRequest(host, request);
-      }
-      return false;
-    }
-    if (outcome.kind === "completed-stale") return true;
-    const currentTurn = isCurrentTurn(host, plan.threadId, plan.turnId);
-    if (!pendingRequestIsCurrent(host, request) || (!currentTurn && !request.pendingSubmissionId)) return true;
-    const item = localUserDialogueItemFromInput({
-      id: request.pendingSubmissionId ?? localSteerId,
-      ...(request.pendingSubmissionId ? { clientId: localSteerId, interaction: "steer" as const } : {}),
-      text: prepared.text,
-      turnId: plan.turnId,
-      codexInput: prepared.input,
-    });
-    host.stateStore.dispatch(
-      request.pendingSubmissionId
-        ? { type: "web-submission/steer-adopted", submissionId: request.pendingSubmissionId, item }
-        : { type: "thread-stream/item-added", item },
-    );
-    if (currentTurn) host.setStatus(STATUS_STEERED_CURRENT_TURN);
-    return true;
-  } catch (error) {
-    if (
-      isCurrentTurn(host, plan.threadId, plan.turnId) ||
-      (request.pendingSubmissionId !== undefined && pendingRequestIsCurrent(host, request))
-    ) {
+  const outcome = await host.turnPort.steerTurn({
+    threadId: plan.threadId,
+    turnId: plan.turnId,
+    input: prepared.input,
+    clientUserMessageId: localSteerId,
+  });
+  if (outcome.kind === "not-started") {
+    host.stateStore.dispatch({ type: "thread-stream/pending-steer-removed", clientId: localSteerId });
+    if (pendingRequestIsCurrent(host, request)) {
       failPendingRequest(host, request);
-      host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     return false;
   }
+  if (outcome.kind === "delivery-unknown") return true;
+  if (outcome.kind === "failed") {
+    const targetIsCurrent = steerTargetIsCurrent(host, plan, panelTarget);
+    host.stateStore.dispatch({ type: "thread-stream/pending-steer-removed", clientId: localSteerId });
+    if (targetIsCurrent) {
+      failPendingRequest(host, request);
+      host.addSystemMessage(outcome.error instanceof Error ? outcome.error.message : String(outcome.error));
+    }
+    return false;
+  }
+  if (outcome.kind === "completed-stale") return true;
+  const targetIsCurrent = steerTargetIsCurrent(host, plan, panelTarget);
+  if (!targetIsCurrent && !request.pendingSubmissionId) return true;
+  if (targetIsCurrent) host.setStatus(STATUS_STEERED_CURRENT_TURN);
+  return true;
+}
+
+function steerTargetIsCurrent(
+  host: TurnSubmissionCommandHost,
+  plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
+  panelTarget: PanelTargetLease,
+): boolean {
+  return panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) && isCurrentTurn(host, plan.threadId, plan.turnId);
 }
 
 function isCurrentTurn(host: TurnSubmissionCommandHost, threadId: string, turnId: string): boolean {

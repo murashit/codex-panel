@@ -36,6 +36,7 @@ describe("TurnRuntimeFact projection", () => {
         threadId: "thread-active",
         turnId: "turn-active",
         status: "completed",
+        itemsView: "full",
         completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
         completedItems: [
           {
@@ -74,6 +75,138 @@ describe("TurnRuntimeFact projection", () => {
         completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
       },
     ]);
+  });
+
+  it("commits only the pending steer matched by an observed user-message client id", () => {
+    let state = activeRunningState();
+    state = chatReducer(state, {
+      type: "thread-stream/pending-steer-added",
+      item: {
+        id: "local-steer",
+        clientId: "local-steer",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "follow up",
+        turnId: "turn-active",
+        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      },
+    });
+
+    const projection = projectTurnRuntimeFacts(state, [
+      {
+        type: "userMessageObserved",
+        item: {
+          id: "server-steer",
+          clientId: "local-steer",
+          sourceItemId: "server-steer",
+          kind: "dialogue",
+          dialogueKind: "user",
+          role: "user",
+          text: "follow up",
+          turnId: "turn-active",
+        },
+      },
+    ]);
+    const next = applyActions(state, projection.actions);
+
+    expect(next.threadStream.pendingSteers).toEqual([]);
+    expect(chatStateThreadStreamItems(next)).toEqual([
+      expect.objectContaining({
+        id: "server-steer",
+        clientId: "local-steer",
+        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      }),
+    ]);
+  });
+
+  it("treats normal completion items as a summary and clears pending separately", () => {
+    let state = activeRunningState();
+    state = withChatStateThreadStreamItems(state, [
+      {
+        id: "before",
+        sourceItemId: "before",
+        kind: "dialogue",
+        dialogueKind: "assistantResponse",
+        role: "assistant",
+        text: "before",
+        dialogueState: "completed",
+        turnId: "turn-active",
+      },
+    ]);
+    state = chatReducer(state, {
+      type: "thread-stream/pending-steer-added",
+      item: {
+        id: "local-steer",
+        clientId: "local-steer",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "follow up",
+        turnId: "turn-active",
+      },
+    });
+
+    const projection = projectTurnRuntimeFacts(state, [
+      {
+        type: "turnCompleted",
+        threadId: "thread-active",
+        turnId: "turn-active",
+        status: "completed",
+        itemsView: "summary",
+        completedTurnTranscriptSummary: { userText: null, assistantText: "done" },
+        completedItems: [
+          {
+            id: "assistant",
+            sourceItemId: "assistant",
+            kind: "dialogue",
+            dialogueKind: "assistantResponse",
+            role: "assistant",
+            text: "done",
+            dialogueState: "completed",
+            turnId: "turn-active",
+          },
+        ],
+      },
+    ]);
+    const next = applyActions(state, projection.actions);
+
+    expect(next.threadStream.pendingSteers).toEqual([]);
+    expect(chatStateThreadStreamItems(next)).toEqual([
+      expect.objectContaining({ id: "before" }),
+      expect.objectContaining({ id: "assistant" }),
+    ]);
+  });
+
+  it("clears pending steers when a terminal fact has no item payload", () => {
+    let state = activeRunningState();
+    state = chatReducer(state, {
+      type: "thread-stream/pending-steer-added",
+      item: {
+        id: "local-steer",
+        clientId: "local-steer",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "follow up",
+        turnId: "turn-active",
+      },
+    });
+
+    const projection = projectTurnRuntimeFacts(state, [
+      {
+        type: "turnCompleted",
+        threadId: "thread-active",
+        turnId: "turn-active",
+        status: "interrupted",
+        itemsView: "notLoaded",
+        completedTurnTranscriptSummary: null,
+        completedItems: [],
+      },
+    ]);
+    const next = applyActions(state, projection.actions);
+
+    expect(next.threadStream.pendingSteers).toEqual([]);
   });
 
   it("upserts structured auto-review results without dropping unrelated stream items", () => {

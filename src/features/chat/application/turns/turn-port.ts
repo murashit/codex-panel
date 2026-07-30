@@ -18,9 +18,14 @@ interface ChatTurnSteerRequest {
   clientUserMessageId: string;
 }
 
+type ChatTurnSteerOutcome =
+  | EffectOutcome<void>
+  | { readonly kind: "failed"; readonly error: unknown }
+  | { readonly kind: "delivery-unknown"; readonly error: unknown };
+
 export interface ChatTurnPort {
   ensureConnected(): Promise<boolean>;
   startTurn(request: ChatTurnStartRequest): Promise<EffectOutcome<ChatTurnStartResult>>;
-  steerTurn(request: ChatTurnSteerRequest): Promise<EffectOutcome<void>>;
+  steerTurn(request: ChatTurnSteerRequest): Promise<ChatTurnSteerOutcome>;
   interruptTurn(threadId: string, turnId: string): Promise<boolean>;
 }

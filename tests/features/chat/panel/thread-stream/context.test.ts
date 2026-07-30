@@ -170,6 +170,44 @@ describe("thread stream surface", () => {
     expect(JSON.stringify(projection.blocks)).toContain(pending.id);
   });
 
+  it("keeps pending steers at the active transcript tail", () => {
+    let state = chatStateWith(chatStateFixture(), {
+      activeThread: { id: "thread" },
+      turn: { lifecycle: { kind: "running", turnId: "turn" } },
+    });
+    state = withChatStateThreadStreamItems(state, [
+      { id: "prompt", kind: "dialogue", dialogueKind: "user", role: "user", text: "start", turnId: "turn" },
+      {
+        id: "assistant",
+        kind: "dialogue",
+        dialogueKind: "assistantResponse",
+        dialogueState: "completed",
+        role: "assistant",
+        text: "working",
+        turnId: "turn",
+      },
+    ]);
+    state = chatReducer(state, {
+      type: "thread-stream/pending-steer-added",
+      item: {
+        id: "pending-display",
+        clientId: "local-steer",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "follow up",
+        turnId: "turn",
+      },
+    });
+
+    const projection = projectThreadStream(
+      threadStreamModelFromChatState(state),
+      testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
+    );
+
+    expect(projection.blocks.map((block) => block.key)).toEqual(["item:prompt", "item:assistant", "item:turn:local-steer"]);
+  });
+
   it("normalizes rendered internal links that point at absolute vault paths", async () => {
     const openLinkText = vi.fn();
     const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault", ["docs/Guide.md"]);

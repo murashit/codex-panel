@@ -67,6 +67,31 @@ describe("thread stream presentation blocks", () => {
     expect(blocks.map((block) => block.key)).toEqual(["item:u1", "item:agent", "live-agents:turn", "live-task:task", "pending-requests"]);
   });
 
+  it("uses the client message id as the stable user-dialogue view key", () => {
+    const blocks = threadStreamViewBlocks(
+      blockInput({
+        activeThreadId: "thread",
+        activeTurnId: "turn",
+        historyCursor: null,
+        loadingHistory: false,
+        items: [
+          {
+            id: "server-user",
+            clientId: "local-steer",
+            kind: "dialogue",
+            dialogueKind: "user",
+            role: "user",
+            text: "run",
+            turnId: "turn",
+          },
+        ],
+        workspaceRoot: "/vault",
+      }),
+    );
+
+    expect(blocks.map((block) => block.key)).toEqual(["item:turn:local-steer"]);
+  });
+
   it("renders unknown item kinds as generic status updates", () => {
     const blocks = threadStreamViewBlocks(
       blockInput({

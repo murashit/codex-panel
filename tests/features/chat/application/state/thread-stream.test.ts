@@ -38,6 +38,108 @@ describe("thread stream state", () => {
     expect(threadStreamItems(next)).toEqual([history, expect.objectContaining({ id: "assistant", text: "hello", turnId: "turn" })]);
   });
 
+  it("keeps pending steers outside canonical stream items until the server observes them", () => {
+    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", [dialogueItem("prompt")]);
+    const pending = {
+      id: "local-steer",
+      clientId: "local-steer",
+      kind: "dialogue",
+      dialogueKind: "user",
+      role: "user",
+      text: "follow up",
+      turnId: "turn",
+      referencedFiles: [{ name: "Note", path: "Note.md" }],
+    } satisfies Extract<ThreadStreamItem, { dialogueKind: "user" }>;
+    state = reduceThreadStreamSlice(state, { type: "thread-stream/pending-steer-added", item: pending });
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/assistant-delta-appended",
+      itemId: "assistant",
+      turnId: "turn",
+      delta: "working",
+    });
+
+    expect(threadStreamItems(state).map((item) => item.id)).toEqual(["prompt", "assistant"]);
+    expect(state.pendingSteers).toEqual([pending]);
+
+    const committed = reduceThreadStreamSlice(state, {
+      type: "thread-stream/pending-steer-committed",
+      item: {
+        id: "server-steer",
+        clientId: "local-steer",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "follow up",
+        turnId: "turn",
+      },
+    });
+
+    expect(committed.pendingSteers).toEqual([]);
+    expect(threadStreamItems(committed)).toEqual([
+      expect.objectContaining({ id: "prompt" }),
+      expect.objectContaining({ id: "assistant" }),
+      expect.objectContaining({
+        id: "server-steer",
+        clientId: "local-steer",
+        referencedFiles: [{ name: "Note", path: "Note.md" }],
+      }),
+    ]);
+  });
+
+  it("does not carry pending steers into a different active turn", () => {
+    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn-old", []);
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/pending-steer-added",
+      item: {
+        id: "local-steer",
+        clientId: "local-steer",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "follow up",
+        turnId: "turn-old",
+      },
+    });
+
+    const next = threadStreamStartActiveSegment(state, "turn-new", []);
+
+    expect(next.pendingSteers).toEqual([]);
+  });
+
+  it("commits one pending steer without disturbing the remaining FIFO order", () => {
+    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", []);
+    for (const clientId of ["first", "second", "third"]) {
+      state = reduceThreadStreamSlice(state, {
+        type: "thread-stream/pending-steer-added",
+        item: {
+          id: clientId,
+          clientId,
+          kind: "dialogue",
+          dialogueKind: "user",
+          role: "user",
+          text: clientId,
+          turnId: "turn",
+        },
+      });
+    }
+
+    const next = reduceThreadStreamSlice(state, {
+      type: "thread-stream/pending-steer-committed",
+      item: {
+        id: "server-second",
+        clientId: "second",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "second",
+        turnId: "turn",
+      },
+    });
+
+    expect(next.pendingSteers.map((item) => item.clientId)).toEqual(["first", "third"]);
+    expect(threadStreamItems(next).map((item) => item.id)).toEqual(["server-second"]);
+  });
+
   it("updates repeated output by source item id without exposing the private index", () => {
     let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", []);
     state = reduceThreadStreamSlice(state, {
