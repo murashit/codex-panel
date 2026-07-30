@@ -225,8 +225,8 @@ function ArchiveControls({
   const defaultSaveMarkdown = archiveConfirm.defaultSaveMarkdown;
   return (
     <>
-      <ArchiveModeButton row={row} saveMarkdown={!defaultSaveMarkdown} primary={false} actions={actions} />
       <ArchiveModeButton row={row} saveMarkdown={defaultSaveMarkdown} primary={true} actions={actions} />
+      <ArchiveModeButton row={row} saveMarkdown={!defaultSaveMarkdown} primary={false} actions={actions} />
     </>
   );
 }

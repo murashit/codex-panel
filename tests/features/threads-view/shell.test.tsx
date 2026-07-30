@@ -194,7 +194,7 @@ describe("threads view renderer decisions", () => {
     expect(actions.setThreadPinned).toHaveBeenCalledWith("pinned", false);
   });
 
-  it("renders threads view archive confirmation with the default action on the right", () => {
+  it("renders threads view archive confirmation with the default action in the original position", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
     const row = rowFixture({
@@ -204,18 +204,17 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
 
     const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__archive-confirm"));
-    const archiveButtons = [
-      ...confirm.querySelectorAll<HTMLButtonElement>(".codex-panel-threads__archive-alternate, .codex-panel-threads__archive-default"),
-    ];
-    expect(archiveButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
-      "Save and archive thread",
-      "Archive thread without saving",
-    ]);
+    const archiveActions = confirm;
+    const defaultArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-default"));
+    const alternateArchiveButton = expectPresent(
+      archiveActions.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-alternate"),
+    );
+    expect(archiveActions.firstElementChild).toBe(defaultArchiveButton);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
-    archiveButtons[0]?.click();
-    expect(actions.archiveThread).toHaveBeenCalledWith("thread", true);
-    archiveButtons[1]?.click();
+    defaultArchiveButton.click();
     expect(actions.archiveThread).toHaveBeenCalledWith("thread", false);
+    alternateArchiveButton.click();
+    expect(actions.archiveThread).toHaveBeenCalledWith("thread", true);
   });
 
   it("starts threads view archive confirmation before archiving", () => {

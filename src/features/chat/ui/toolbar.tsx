@@ -434,8 +434,8 @@ function ArchiveControls({ thread, actions }: { thread: ToolbarThreadRow; action
   const defaultSaveMarkdown = archiveConfirm.defaultSaveMarkdown;
   return (
     <>
-      <ArchiveModeButton thread={thread} saveMarkdown={!defaultSaveMarkdown} primary={false} actions={actions} />
       <ArchiveModeButton thread={thread} saveMarkdown={defaultSaveMarkdown} primary={true} actions={actions} />
+      <ArchiveModeButton thread={thread} saveMarkdown={!defaultSaveMarkdown} primary={false} actions={actions} />
     </>
   );
 }

@@ -482,7 +482,7 @@ describe("Toolbar decisions", () => {
     expect(autoNameThread).not.toHaveBeenCalled();
   });
 
-  it("renders toolbar archive confirmation with the default action on the right", () => {
+  it("renders toolbar archive confirmation with the default action in the original position", () => {
     const parent = document.createElement("div");
     const startArchiveThread = vi.fn();
     const archiveThread = vi.fn();
@@ -507,18 +507,15 @@ describe("Toolbar decisions", () => {
     );
 
     const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__archive-confirm"));
-    const archiveButtons = [
-      ...confirm.querySelectorAll<HTMLButtonElement>(".codex-panel__archive-alternate, .codex-panel__archive-default"),
-    ];
-    expect(archiveButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
-      "Archive thread without saving",
-      "Save and archive thread",
-    ]);
+    const archiveActions = expectPresent(confirm.querySelector<HTMLElement>(".codex-panel__thread-actions"));
+    const defaultArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel__archive-default"));
+    const alternateArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel__archive-alternate"));
+    expect(archiveActions.firstElementChild).toBe(defaultArchiveButton);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
-    archiveButtons[0]?.click();
-    expect(archiveThread).toHaveBeenCalledWith("thread", false);
-    archiveButtons[1]?.click();
+    defaultArchiveButton.click();
     expect(archiveThread).toHaveBeenCalledWith("thread", true);
+    alternateArchiveButton.click();
+    expect(archiveThread).toHaveBeenCalledWith("thread", false);
     expect(startArchiveThread).not.toHaveBeenCalled();
   });
 
