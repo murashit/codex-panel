@@ -31,6 +31,22 @@ description: Use when preparing, checking, committing, tagging, pushing, or repa
 6. Ask once for approval of the version, final bullets, and included range before committing. If the user approves subject to a concrete wording correction, apply it and continue without another approval unless the correction makes scope, version, or meaning ambiguous.
 7. After approval, follow `docs/release.md` through preflight, tag, and push. Let GitHub Actions create or update the GitHub Release, then verify the workflow and expected assets.
 
+## Release-note style
+
+Use the recent release notes as a consistency check, not as a source of commit-by-commit wording. Before drafting, read the latest 20–30 files:
+
+```sh
+for file in $(rg --files .github/release-notes | sort -V | tail -n 30); do
+  sed -n '1,120p' "$file"
+done
+```
+
+Write a short, user-facing `## Changes` section with 1–5 bullets. Keep each bullet to one sentence, start with a direct present-tense verb (`Add`, `Improve`, `Fix`, `Prevent`, `Keep`, or `Update`), and end it with a period. Describe the visible outcome and the affected workflow in plain English; combine related fixes into one outcome when useful.
+
+Omit implementation mechanics and internal work such as query/cache layers, coordinators, invalidation notifications, DOM order, refactors, tests, and release plumbing. Mention a protocol or compatibility detail only when it changes what users can run or do. Prefer concrete product terms such as thread lists, chat panels, settings, archived threads, the composer, and diff views. Do not claim a notification, control, or user-facing behavior that the implementation does not provide.
+
+Before committing, read the notes as a user: remove details that explain how the change works rather than why it matters, check that every bullet is supported by the audited diff and tests, and confirm there is only one `## Changes` heading.
+
 ## Failure Handling
 
 - If the tag-triggered workflow fails before GitHub Release creation, use the repair procedure in `docs/release.md`.
