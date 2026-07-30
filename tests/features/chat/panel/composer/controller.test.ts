@@ -764,6 +764,31 @@ describe("ChatComposerController", () => {
     expect(controller.captureInputSnapshot().attachments).toEqual([attachmentFixture("first")]);
   });
 
+  it("prunes captured note context when an attachment replaces its draft marker", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const activeNote = { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" };
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    controller.restoreRuntimeSnapshot({
+      draft: "[[Alpha]] after",
+      attachments: [],
+      activeNoteSnapshots: [activeNote],
+      selectionSnapshots: [],
+      threadCommandTarget: null,
+    });
+    renderShell();
+    composer(parent).setSelectionRange(0, "[[Alpha]]".length);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
+
+    saved.resolve([attachmentFixture("first")]);
+    await flushComposerAttachment();
+
+    expect(controller.captureInputSnapshot().activeNoteSnapshots).toEqual([]);
+  });
+
   it("inserts multiple transfers that began at the same draft anchor", async () => {
     const first = deferred<ComposerAttachment[]>();
     const second = deferred<ComposerAttachment[]>();
