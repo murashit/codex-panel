@@ -50,11 +50,10 @@ export class WorkspacePanelCoordinator {
     });
     if (!isAttachedChatView(leaf.view)) return null;
     const view = leaf.view;
-    await this.revealForeground(leaf);
-    if (!this.panelStillOwnsView(leaf, view)) return null;
+    if (!(await this.revealAndVerifyPanel(leaf, view))) return null;
     const surface = workspacePanelSurface(view);
     await surface.connect();
-    if (focus) surface.focusComposer({ force: true });
+    if (focus) this.focusOwnedPanel(leaf, view);
     return view;
   }
 
@@ -70,7 +69,7 @@ export class WorkspacePanelCoordinator {
       const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
       if (!leaf) return;
       await workspacePanelSurface(view).startNewThread({ focus: false });
-      if (this.panelStillOwnsView(leaf, view)) workspacePanelSurface(view).focusComposer({ force: true });
+      this.focusOwnedPanel(leaf, view);
       return;
     }
 
@@ -96,12 +95,11 @@ export class WorkspacePanelCoordinator {
     if (!view) return null;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return null;
-    await this.revealForeground(leaf);
-    if (!this.panelStillOwnsView(leaf, view)) return null;
+    if (!(await this.revealAndVerifyPanel(leaf, view))) return null;
     const surface = workspacePanelSurface(view);
     if (options.connect !== false) await surface.connect();
     if (options.focus === false) return view;
-    surface.focusComposer({ force: true });
+    this.focusOwnedPanel(leaf, view);
     return view;
   }
 
@@ -134,10 +132,7 @@ export class WorkspacePanelCoordinator {
       { sourceThreadId, sourceThreadTitle, ...(initialMessage ? { initialMessage } : {}) },
       { focus: false },
     );
-    const revealing = this.revealForeground(leaf);
-    const [opened] = await Promise.all([opening, revealing]);
-    if (!opened || !this.panelStillOwnsView(leaf, view)) return;
-    surface.focusComposer({ force: true });
+    await this.completePanelOperation(leaf, view, opening);
   }
 
   async openNewPanel(): Promise<void> {
@@ -197,11 +192,7 @@ export class WorkspacePanelCoordinator {
       const view = leaf.view;
       const surface = workspacePanelSurface(view);
       const focusing = surface.focusThread(threadId, { focus: false });
-      const revealing = this.revealForeground(leaf);
-      await Promise.all([focusing, revealing]);
-      if (!this.panelStillOwnsView(leaf, view)) return false;
-      surface.focusComposer({ force: true });
-      return true;
+      return this.completePanelOperation(leaf, view, focusing);
     }
     return false;
   }
@@ -418,14 +409,14 @@ export class WorkspacePanelCoordinator {
   }
 
   private async activatePanelLeaf(leaf: WorkspaceLeaf, focus: boolean): Promise<CodexChatView | null> {
-    await this.revealForeground(leaf);
+    await this.options.app.workspace.revealLeaf(leaf);
     if (!isAttachedChatView(leaf.view)) return this.activateNewViewNow({ focus });
     const view = leaf.view;
     if (!this.panelStillOwnsView(leaf, view)) return null;
     const surface = workspacePanelSurface(view);
     await surface.connect();
     await surface.focusThread(null, { focus: false });
-    if (focus && this.panelStillOwnsView(leaf, view)) surface.focusComposer({ force: true });
+    if (focus) this.focusOwnedPanel(leaf, view);
     return view;
   }
 
@@ -434,7 +425,7 @@ export class WorkspacePanelCoordinator {
     const wasDeferred = !isAttachedChatView(leaf.view);
     const existingThreadId = wasDeferred ? restoredThreadId(leaf) : null;
     if (wasDeferred) {
-      await this.revealForeground(leaf);
+      await this.options.app.workspace.revealLeaf(leaf);
       if (!isAttachedChatView(leaf.view)) return false;
     }
     if (!isAttachedChatView(leaf.view)) return false;
@@ -444,10 +435,7 @@ export class WorkspacePanelCoordinator {
     const currentThreadId = existingThreadId ?? surface.openPanelSnapshot().threadId;
     const opening =
       currentThreadId === threadId ? surface.focusThread(threadId, { focus: false }) : surface.openThread(threadId, { focus: false });
-    await Promise.all([opening, wasDeferred ? Promise.resolve() : this.revealForeground(leaf)]);
-    if (!this.panelStillOwnsView(leaf, view)) return false;
-    surface.focusComposer({ force: true });
-    return true;
+    return this.completePanelOperation(leaf, view, opening, { reveal: !wasDeferred });
   }
 
   private async openThreadInNewViewNow(threadId: string): Promise<boolean> {
@@ -457,28 +445,41 @@ export class WorkspacePanelCoordinator {
     if (!leaf) return false;
     const surface = workspacePanelSurface(view);
     const opening = surface.focusThread(threadId, { focus: false });
-    const revealing = this.revealForeground(leaf);
-    await Promise.all([opening, revealing]);
-    if (!this.panelStillOwnsView(leaf, view)) return false;
-    surface.focusComposer({ force: true });
-    return true;
+    return this.completePanelOperation(leaf, view, opening);
   }
 
   private async startNewChatInView(leaf: WorkspaceLeaf, view: CodexChatView): Promise<void> {
     const surface = workspacePanelSurface(view);
     const starting = surface.startNewThread({ focus: false });
-    const revealing = this.revealForeground(leaf);
-    await Promise.all([starting, revealing]);
-    if (!this.panelStillOwnsView(leaf, view)) return;
-    surface.focusComposer({ force: true });
+    await this.completePanelOperation(leaf, view, starting);
   }
 
   private panelStillOwnsView(leaf: WorkspaceLeaf, view: CodexChatView): boolean {
     return this.panelLeaves().includes(leaf) && leaf.view === view && isAttachedChatView(leaf.view);
   }
 
-  private async revealForeground(leaf: WorkspaceLeaf): Promise<void> {
+  private async revealAndVerifyPanel(leaf: WorkspaceLeaf, view: CodexChatView): Promise<boolean> {
     await this.options.app.workspace.revealLeaf(leaf);
+    return this.panelStillOwnsView(leaf, view);
+  }
+
+  private focusOwnedPanel(leaf: WorkspaceLeaf, view: CodexChatView): boolean {
+    if (!this.panelStillOwnsView(leaf, view)) return false;
+    workspacePanelSurface(view).focusComposer({ force: true });
+    return true;
+  }
+
+  private async completePanelOperation(
+    leaf: WorkspaceLeaf,
+    view: CodexChatView,
+    operation: Promise<void> | Promise<boolean>,
+    options: { reveal?: boolean } = {},
+  ): Promise<boolean> {
+    const [completed, ownsPanel] = await Promise.all([
+      operation,
+      options.reveal === false ? Promise.resolve(true) : this.revealAndVerifyPanel(leaf, view),
+    ]);
+    return completed !== false && ownsPanel && this.focusOwnedPanel(leaf, view);
   }
 
   private ensureInitialFocusedPanel(leaves: readonly WorkspaceLeaf[]): void {
