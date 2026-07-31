@@ -40,16 +40,16 @@ interface SettingsTabShellActions {
 
 interface SettingsTabShellProps {
   introText: string;
-  dynamicSectionsLoading: boolean;
+  dynamicSectionsRefreshDisabled: boolean;
   panel: SettingsTabPanelState;
   sections: SettingsSectionsState;
   actions: SettingsTabShellActions;
 }
 
-export function SettingsTabShell({ introText, dynamicSectionsLoading, panel, sections, actions }: SettingsTabShellProps): UiNode {
+export function SettingsTabShell({ introText, dynamicSectionsRefreshDisabled, panel, sections, actions }: SettingsTabShellProps): UiNode {
   return (
     <>
-      <SettingsHeader introText={introText} loading={dynamicSectionsLoading} onRefresh={actions.refreshDynamicSections} />
+      <SettingsHeader introText={introText} refreshDisabled={dynamicSectionsRefreshDisabled} onRefresh={actions.refreshDynamicSections} />
       <GeneralSettingsSection panel={panel} actions={actions} />
       <HelperSettingsSection state={sections.helper} />
       <ComposerSettingsSection panel={panel} actions={actions} />
@@ -59,7 +59,15 @@ export function SettingsTabShell({ introText, dynamicSectionsLoading, panel, sec
   );
 }
 
-function SettingsHeader({ introText, loading, onRefresh }: { introText: string; loading: boolean; onRefresh: () => void }): UiNode {
+function SettingsHeader({
+  introText,
+  refreshDisabled,
+  onRefresh,
+}: {
+  introText: string;
+  refreshDisabled: boolean;
+  onRefresh: () => void;
+}): UiNode {
   return (
     <div className="setting-item setting-item-heading codex-panel-settings__header">
       <div className="setting-item-info">
@@ -68,9 +76,9 @@ function SettingsHeader({ introText, loading, onRefresh }: { introText: string; 
       <div className="setting-item-control">
         <IconButton
           icon="refresh-cw"
-          label={loading ? "Refreshing Codex details" : "Refresh Codex details"}
+          label={refreshDisabled ? "Refreshing Codex details" : "Refresh Codex details"}
           className="clickable-icon codex-panel-settings__refresh-button"
-          disabled={loading}
+          disabled={refreshDisabled}
           onClick={onRefresh}
         />
       </div>

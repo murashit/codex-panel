@@ -65,30 +65,38 @@ describe("SettingsDynamicSectionsController", () => {
     expect(display).toHaveBeenCalledOnce();
   });
 
-  it("ignores duplicate dynamic section refreshes while one is loading", async () => {
+  it("deduplicates a loading section without blocking completed section refreshes", async () => {
     const firstModels = deferred<ModelMetadata[]>();
     const firstClient = settingsClient();
     useShortLivedClients(firstClient);
     const refreshModels = vi.fn(() => firstModels.promise);
-    const refreshArchived = vi.fn().mockResolvedValue([panelThread({ id: "thread-old", preview: "Old", archived: true })]);
+    const refreshArchived = vi
+      .fn()
+      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old", archived: true })])
+      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New", archived: true })]);
     const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
       display: noop,
       notify: noop,
     });
 
     const firstRefresh = controller.refreshDynamicSections();
+    expect(controller.canRefreshDynamicSections()).toBe(false);
     await flushPromises();
+    expect(controller.canRefreshDynamicSections()).toBe(true);
+    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Old"]);
     await controller.refreshDynamicSections();
 
     expect(refreshModels).toHaveBeenCalledOnce();
-    expect(refreshArchived).toHaveBeenCalledOnce();
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+    expect(refreshArchived).toHaveBeenCalledTimes(2);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+    expect(controller.snapshot().modelsLifecycle.kind).toBe("loading");
+    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
 
     firstModels.resolve(modelMetadataFromCatalogModels([model("gpt-old")]));
     await firstRefresh;
 
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-old"]);
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Old"]);
+    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
   });
 
   it("does not display dynamic refresh results after disposal", async () => {
@@ -200,20 +208,24 @@ describe("SettingsDynamicSectionsController", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
-  it("ignores refresh requests while an archived thread operation is loading", async () => {
+  it("refreshes models and hooks while an archived thread operation is loading", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
     const applyThreadFact = vi.fn();
-    const initialClient = settingsClient();
+    const initialClient = settingsClient({ hooks: [hook({ key: "hook-old" })] });
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => staleRestore.promise),
     });
-    const newerClient = settingsClient();
+    const newerClient = settingsClient({ hooks: [hook({ key: "hook-new" })] });
     useShortLivedClients(initialClient, restoreClient, newerClient);
     const refreshArchived = vi
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact, refreshArchived }), {
+    const refreshModels = vi
+      .fn()
+      .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-old")]))
+      .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-new")]));
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact, refreshArchived, refreshModels }), {
       display: noop,
       notify: noop,
     });
@@ -221,9 +233,14 @@ describe("SettingsDynamicSectionsController", () => {
     await controller.refreshDynamicSections();
     const restore = controller.restoreArchivedThread("thread-old");
     await flushPromises();
+    expect(controller.canRefreshDynamicSections()).toBe(true);
     await controller.refreshDynamicSections();
 
     expect(refreshArchived).toHaveBeenCalledOnce();
+    expect(refreshModels).toHaveBeenCalledTimes(2);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(3);
+    expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
+    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new" })]);
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Old archived"]);
 
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });

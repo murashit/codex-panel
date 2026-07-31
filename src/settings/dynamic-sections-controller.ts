@@ -18,6 +18,16 @@ type SettingsDynamicSectionLifecycleState =
   | { kind: "loaded"; status: string }
   | { kind: "failed"; status: string };
 
+type SettingsDynamicSectionLifecycleKey = "modelsLifecycle" | "hooksLifecycle" | "archivedThreadsLifecycle";
+
+interface SettingsDynamicSectionRefreshSpec<T> {
+  lifecycle: SettingsDynamicSectionLifecycleKey;
+  loadingStatus: string;
+  load: (dynamicData: SettingsDynamicDataAccess) => Promise<T>;
+  commit: (value: T) => string;
+  failureStatus: (error: unknown) => string;
+}
+
 interface SettingsDynamicSectionsSnapshot {
   archivedThreads: readonly Thread[];
   archivedThreadsLifecycle: SettingsDynamicSectionLifecycleState;
@@ -112,7 +122,7 @@ export class SettingsDynamicSectionsController {
   }
 
   maybeAutoLoadDynamicSections(): void {
-    if (this.dynamicSectionsAutoLoadStarted || this.isLoading()) return;
+    if (this.dynamicSectionsAutoLoadStarted) return;
     this.dynamicSectionsAutoLoadStarted = true;
     void this.refreshDynamicSections({ forceModels: false });
   }
@@ -160,71 +170,61 @@ export class SettingsDynamicSectionsController {
 
   async refreshDynamicSections(options: { forceModels?: boolean } = {}): Promise<void> {
     const lifetime = this.lifetime.signal();
-    if (!this.lifetime.isCurrent(lifetime) || this.isLoading()) return;
-    const dynamicData = this.dynamicData;
+    if (!this.lifetime.isCurrent(lifetime)) return;
     this.dynamicSectionsAutoLoadStarted = true;
-    this.modelsLifecycle = settingsDynamicSectionLoading("Loading models...");
-    this.archivedThreadsLifecycle = settingsDynamicSectionLoading("Loading archived threads...");
-    this.hooksLifecycle = settingsDynamicSectionLoading("Loading hooks...");
-    this.callbacks.display();
-
-    let failedCount = 0;
-    try {
-      const [modelsResult, hooksResult, archivedThreadsResult] = await Promise.allSettled([
-        options.forceModels === false ? dynamicData.fetchModels() : dynamicData.refreshModels(),
-        dynamicData.refreshHooks(),
-        dynamicData.refreshArchivedThreads(),
-      ] as const);
-      if (!this.lifetime.isCurrent(lifetime) || !this.dynamicDataIsCurrent(dynamicData)) return;
-
-      if (modelsResult.status === "fulfilled") {
-        this.models = [...modelsResult.value];
-        this.modelsLifecycle = settingsDynamicSectionLoaded(
-          `Loaded ${String(modelsResult.value.length)} model${modelsResult.value.length === 1 ? "" : "s"}.`,
-        );
-      } else {
-        failedCount += 1;
-        this.modelsLifecycle = settingsDynamicSectionFailed(`Could not load models: ${errorMessage(modelsResult.reason)}`);
-      }
-
-      if (hooksResult.status === "fulfilled") {
-        this.receiveHookCatalog(hooksResult.value);
-        this.hooksLifecycle = settingsDynamicSectionLoaded(hooksResult.value.status);
-      } else {
-        failedCount += 1;
-        this.hooksLifecycle = settingsDynamicSectionFailed(`Could not load hooks: ${errorMessage(hooksResult.reason)}`);
-      }
-
-      if (archivedThreadsResult.status === "fulfilled") {
-        this.archivedThreads = [...archivedThreadsResult.value];
-        this.archivedThreadsLoaded = true;
-        this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(archivedThreadsStatus(archivedThreadsResult.value.length));
-      } else {
-        failedCount += 1;
-        this.archivedThreadsLifecycle = settingsDynamicSectionFailed(
-          `Could not load archived threads: ${errorMessage(archivedThreadsResult.reason)}`,
-        );
-      }
-    } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime) || !this.dynamicDataIsCurrent(dynamicData)) return;
-      failedCount = 3;
-      const message = errorMessage(error);
-      this.modelsLifecycle = settingsDynamicSectionFailed(`Could not load models: ${message}`);
-      this.hooksLifecycle = settingsDynamicSectionFailed(`Could not load hooks: ${message}`);
-      this.archivedThreadsLifecycle = settingsDynamicSectionFailed(`Could not load archived threads: ${message}`);
-    } finally {
-      if (this.lifetime.isCurrent(lifetime) && this.dynamicDataIsCurrent(dynamicData)) {
-        if (failedCount > 0) {
-          this.callbacks.notify("Could not refresh all Codex details.");
-        }
-        this.callbacks.display();
-      }
-    }
+    let failureNotified = false;
+    const notifyFailure = (): void => {
+      if (failureNotified || !this.lifetime.isCurrent(lifetime)) return;
+      failureNotified = true;
+      this.callbacks.notify("Could not refresh all Codex details.");
+    };
+    await Promise.all([
+      this.refreshSection(
+        {
+          lifecycle: "modelsLifecycle",
+          loadingStatus: "Loading models...",
+          load: (dynamicData) => (options.forceModels === false ? dynamicData.fetchModels() : dynamicData.refreshModels()),
+          commit: (models) => {
+            this.models = [...models];
+            return `Loaded ${String(models.length)} model${models.length === 1 ? "" : "s"}.`;
+          },
+          failureStatus: (error) => `Could not load models: ${errorMessage(error)}`,
+        },
+        notifyFailure,
+      ),
+      this.refreshSection(
+        {
+          lifecycle: "hooksLifecycle",
+          loadingStatus: "Loading hooks...",
+          load: (dynamicData) => dynamicData.refreshHooks(),
+          commit: (catalog) => {
+            this.receiveHookCatalog(catalog);
+            return catalog.status;
+          },
+          failureStatus: (error) => `Could not load hooks: ${errorMessage(error)}`,
+        },
+        notifyFailure,
+      ),
+      this.refreshSection(
+        {
+          lifecycle: "archivedThreadsLifecycle",
+          loadingStatus: "Loading archived threads...",
+          load: (dynamicData) => dynamicData.refreshArchivedThreads(),
+          commit: (archivedThreads) => {
+            this.archivedThreads = [...archivedThreads];
+            this.archivedThreadsLoaded = true;
+            return archivedThreadsStatus(archivedThreads.length);
+          },
+          failureStatus: (error) => `Could not load archived threads: ${errorMessage(error)}`,
+        },
+        notifyFailure,
+      ),
+    ]);
   }
 
-  isLoading(): boolean {
+  canRefreshDynamicSections(): boolean {
     return (
-      this.modelsLifecycle.kind === "loading" || this.hooksLifecycle.kind === "loading" || this.archivedThreadsLifecycle.kind === "loading"
+      this.modelsLifecycle.kind !== "loading" || this.hooksLifecycle.kind !== "loading" || this.archivedThreadsLifecycle.kind !== "loading"
     );
   }
 
@@ -313,6 +313,7 @@ export class SettingsDynamicSectionsController {
     successStatus: string;
     operation: (dynamicData: SettingsDynamicDataAccess) => Promise<SettingsHookCatalog>;
   }): Promise<void> {
+    if (this.hooksLifecycle.kind === "loading") return;
     const dynamicData = this.dynamicData;
     const operation = {};
     this.hookMutationOperation = operation;
@@ -359,6 +360,27 @@ export class SettingsDynamicSectionsController {
       this.callbacks.notify(options.failureNotice);
     } finally {
       if (isCurrent()) this.callbacks.display();
+    }
+  }
+
+  private async refreshSection<T>(spec: SettingsDynamicSectionRefreshSpec<T>, notifyFailure: () => void): Promise<void> {
+    const lifetime = this.lifetime.signal();
+    if (!this.lifetime.isCurrent(lifetime) || this[spec.lifecycle].kind === "loading") return;
+    const dynamicData = this.dynamicData;
+    const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.dynamicDataIsCurrent(dynamicData);
+
+    this[spec.lifecycle] = settingsDynamicSectionLoading(spec.loadingStatus);
+    this.callbacks.display();
+    try {
+      const value = await spec.load(dynamicData);
+      if (!isCurrent()) return;
+      this[spec.lifecycle] = settingsDynamicSectionLoaded(spec.commit(value));
+      this.callbacks.display();
+    } catch (error) {
+      if (!isCurrent()) return;
+      this[spec.lifecycle] = settingsDynamicSectionFailed(spec.failureStatus(error));
+      this.callbacks.display();
+      notifyFailure();
     }
   }
 

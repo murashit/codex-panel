@@ -74,9 +74,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           this.renderDeclarativeControl(setting, () => (
             <IconButton
               icon="refresh-cw"
-              label={this.dynamicSections.isLoading() ? "Refreshing Codex details" : "Refresh Codex details"}
+              label={this.dynamicSections.canRefreshDynamicSections() ? "Refresh Codex details" : "Refreshing Codex details"}
               className="clickable-icon codex-panel-settings__refresh-button"
-              disabled={this.dynamicSections.isLoading()}
+              disabled={!this.dynamicSections.canRefreshDynamicSections()}
               onClick={() => void this.dynamicSections.refreshDynamicSections()}
             />
           )),
@@ -371,7 +371,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       <SettingsTabShell
         key={this.settingsShellRevision}
         introText={SETTINGS_INTRO_TEXT}
-        dynamicSectionsLoading={this.dynamicSections.isLoading()}
+        dynamicSectionsRefreshDisabled={!this.dynamicSections.canRefreshDynamicSections()}
         panel={{
           codexPath: this.plugin.settings.codexPath,
           showToolbar: this.plugin.settings.showToolbar,
