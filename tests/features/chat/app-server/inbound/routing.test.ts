@@ -60,16 +60,6 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, "inactive", { activeThreadId: "thread-active", activeTurnId: "turn-other" });
   });
 
-  it("routes thread-started notifications for lifecycle activity", () => {
-    const notification = {
-      method: "thread/started",
-      params: { thread: threadSnapshot("thread-active") },
-    } satisfies Extract<ServerNotification, { method: "thread/started" }>;
-
-    expectNotificationRouteKind(notification, "threadLifecycle");
-    expectNotificationRouteKind(notification, "threadLifecycle", { activeThreadId: "thread-other", activeTurnId: "turn-active" });
-  });
-
   it("does not turn live turn-start state into thread catalog work", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
@@ -158,13 +148,31 @@ describe("chat inbound routing", () => {
     expectRequestRouteKind(request, "inactive", idleActiveThreadScope);
   });
 
-  it("routes thread catalog notifications even when another thread is active", () => {
-    expectNotificationRouteKind({ method: "thread/archived", params: { threadId: "thread-other" } }, "threadLifecycle");
-    expectNotificationRouteKind(
+  it("delivers all thread catalog notifications outside the active scope", () => {
+    const notifications = [
+      { method: "thread/started", params: { thread: threadSnapshot("thread-other") } },
+      { method: "thread/archived", params: { threadId: "thread-other" } },
+      { method: "thread/deleted", params: { threadId: "thread-other" } },
+      { method: "thread/unarchived", params: { threadId: "thread-other" } },
       { method: "thread/name/updated", params: { threadId: "thread-other", threadName: "Renamed" } },
-      "threadLifecycle",
-    );
-    expectNotificationRouteKind({ method: "thread/unarchived", params: { threadId: "thread-other" } }, "threadLifecycle");
+    ] satisfies ServerNotification[];
+
+    for (const notification of notifications) {
+      expectNotificationRouteKind(notification, "threadLifecycle");
+    }
+  });
+
+  it("preserves thread catalog routing for malformed thread-started payloads", () => {
+    // This deliberately crosses the runtime boundary: the app-server payload is malformed, but catalog routing does not need its scope.
+    const malformedNotification = {
+      method: "thread/started",
+      params: {},
+    } as unknown as ServerNotification;
+
+    expect(routeServerNotification(malformedNotification, activeScope)).toEqual({
+      kind: "threadLifecycle",
+      notification: malformedNotification,
+    });
   });
 
   it("keeps active-thread, broadcast, and targeted-thread notification routing distinct", () => {

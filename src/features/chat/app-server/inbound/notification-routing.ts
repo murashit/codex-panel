@@ -9,12 +9,28 @@ import {
 
 type ServerNotificationMethod = ServerNotification["method"];
 type RoutedNotification<M extends ServerNotificationMethod> = Extract<ServerNotification, { method: M }>;
-export type StreamUpdateNotification = RoutedNotification<StreamUpdateNotificationMethod>;
-export type TurnLifecycleNotification = RoutedNotification<TurnLifecycleNotificationMethod>;
-export type ThreadLifecycleNotification = RoutedNotification<ThreadLifecycleNotificationMethod>;
-type RequestResolvedNotification = RoutedNotification<"serverRequest/resolved">;
-export type DiagnosticStatusNotification = RoutedNotification<DiagnosticStatusNotificationMethod>;
-export type UserVisibleNoticeNotification = RoutedNotification<UserVisibleNoticeNotificationMethod>;
+type NotificationRouteKind =
+  | "streamUpdate"
+  | "turnLifecycle"
+  | "threadLifecycle"
+  | "requestResolved"
+  | "diagnosticStatus"
+  | "userVisibleNotice"
+  | "ignored";
+type NotificationDescriptor<M extends ServerNotificationMethod> =
+  | {
+      readonly kind: NotificationRouteKind;
+      readonly delivery: "activeScope";
+      readonly scope: (notification: RoutedNotification<M>) => AppServerRouteScope;
+    }
+  | {
+      readonly kind: NotificationRouteKind;
+      readonly delivery: "threadCatalog";
+      readonly scope: null;
+    };
+type NotificationRegistry = Partial<{
+  [Method in ServerNotificationMethod]: NotificationDescriptor<Method>;
+}>;
 
 export type ServerNotificationRoute =
   | { kind: "streamUpdate"; notification: StreamUpdateNotification }
@@ -27,215 +43,180 @@ export type ServerNotificationRoute =
   | { kind: "unhandled"; notification: ServerNotification }
   | { kind: "inactive"; notification: ServerNotification; scope: AppServerRouteScope };
 
-type ServerNotificationScopeExtractors = Partial<{
-  [Method in ServerNotificationMethod]: (notification: Extract<ServerNotification, { method: Method }>) => AppServerRouteScope;
-}>;
+const ACTIVE_SCOPE_DELIVERY: { readonly delivery: "activeScope" } = { delivery: "activeScope" };
+const THREAD_CATALOG_DELIVERY = { delivery: "threadCatalog", scope: null } as const;
 
-const GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS = [
-  "thread/started",
-  "thread/archived",
-  "thread/deleted",
-  "thread/unarchived",
-  "thread/name/updated",
-] as const;
+const SERVER_NOTIFICATION_REGISTRY = {
+  "thread/started": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
+  "thread/archived": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
+  "thread/deleted": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
+  "thread/unarchived": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
+  "thread/name/updated": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
+  "thread/goal/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadTurnNotificationScope },
+  "thread/goal/cleared": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadOnlyNotificationScope },
+  "thread/settings/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadOnlyNotificationScope },
 
-const STREAM_UPDATE_NOTIFICATION_METHODS = [
-  "item/agentMessage/delta",
-  "item/plan/delta",
-  "turn/plan/updated",
-  "item/reasoning/summaryTextDelta",
-  "item/reasoning/textDelta",
-  "item/reasoning/summaryPartAdded",
-  "item/started",
-  "item/completed",
-  "item/commandExecution/outputDelta",
-  "item/fileChange/patchUpdated",
-  "turn/diff/updated",
-  "hook/started",
-  "hook/completed",
-  "item/mcpToolCall/progress",
-  "item/autoApprovalReview/started",
-  "item/autoApprovalReview/completed",
-  "guardianWarning",
-] as const;
+  "item/agentMessage/delta": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/plan/delta": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "turn/plan/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/reasoning/summaryTextDelta": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/reasoning/textDelta": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/reasoning/summaryPartAdded": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/commandExecution/outputDelta": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/fileChange/patchUpdated": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "turn/diff/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "hook/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "hook/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/mcpToolCall/progress": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/autoApprovalReview/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "item/autoApprovalReview/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  guardianWarning: { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadOnlyNotificationScope },
 
-type StreamUpdateNotificationMethod = (typeof STREAM_UPDATE_NOTIFICATION_METHODS)[number];
+  "turn/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "turnLifecycle", scope: turnNotificationScope },
+  "turn/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "turnLifecycle", scope: turnNotificationScope },
 
-const TURN_LIFECYCLE_NOTIFICATION_METHODS = ["turn/started", "turn/completed"] as const;
+  "serverRequest/resolved": { ...ACTIVE_SCOPE_DELIVERY, kind: "requestResolved", scope: threadOnlyNotificationScope },
 
-type TurnLifecycleNotificationMethod = (typeof TURN_LIFECYCLE_NOTIFICATION_METHODS)[number];
+  "thread/tokenUsage/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: threadTurnNotificationScope },
+  "account/rateLimits/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
+  "skills/changed": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
+  "app/list/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
+  "mcpServer/oauthLogin/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
+  "mcpServer/startupStatus/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: threadOnlyNotificationScope },
 
-const THREAD_LIFECYCLE_NOTIFICATION_METHODS = [
-  "thread/started",
-  "thread/archived",
-  "thread/deleted",
-  "thread/unarchived",
-  "thread/name/updated",
-  "thread/goal/updated",
-  "thread/goal/cleared",
-  "thread/settings/updated",
-] as const;
+  "model/rerouted": { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: threadTurnNotificationScope },
+  deprecationNotice: { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: unscopedNotificationScope },
+  error: { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: threadTurnNotificationScope },
+  warning: { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: threadOnlyNotificationScope },
+  configWarning: { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: unscopedNotificationScope },
+  "windows/worldWritableWarning": { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: unscopedNotificationScope },
+  "windowsSandbox/setupCompleted": { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: unscopedNotificationScope },
 
-type ThreadLifecycleNotificationMethod = (typeof THREAD_LIFECYCLE_NOTIFICATION_METHODS)[number];
+  "thread/status/changed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/closed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "rawResponseItem/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
+  "rawResponse/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
+  "thread/environment/connected": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/environment/disconnected": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "command/exec/outputDelta": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "process/outputDelta": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "process/exited": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "item/commandExecution/terminalInteraction": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
+  "account/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "remoteControl/status/changed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "externalAgentConfig/import/progress": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "externalAgentConfig/import/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "fs/changed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "model/verification": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
+  "turn/moderationMetadata": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
+  "model/safetyBuffering/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
+  "fuzzyFileSearch/sessionUpdated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "fuzzyFileSearch/sessionCompleted": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+  "thread/realtime/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/realtime/itemAdded": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/realtime/transcript/delta": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/realtime/transcript/done": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/realtime/outputAudio/delta": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/realtime/sdp": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/realtime/error": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "thread/realtime/closed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
+  "account/login/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
+} satisfies NotificationRegistry;
 
-const DIAGNOSTIC_STATUS_NOTIFICATION_METHODS = [
-  "thread/tokenUsage/updated",
-  "account/rateLimits/updated",
-  "skills/changed",
-  "app/list/updated",
-  "mcpServer/oauthLogin/completed",
-  "mcpServer/startupStatus/updated",
-] as const;
+type RegisteredNotificationMethod = keyof typeof SERVER_NOTIFICATION_REGISTRY & ServerNotificationMethod;
+type MethodsForKind<Kind extends NotificationRouteKind> = {
+  [Method in RegisteredNotificationMethod]: (typeof SERVER_NOTIFICATION_REGISTRY)[Method] extends { readonly kind: Kind } ? Method : never;
+}[RegisteredNotificationMethod];
+type NotificationForKind<Kind extends NotificationRouteKind> = RoutedNotification<Extract<MethodsForKind<Kind>, ServerNotificationMethod>>;
+type RegisteredNotification = {
+  [Method in RegisteredNotificationMethod]: {
+    readonly kind: (typeof SERVER_NOTIFICATION_REGISTRY)[Method]["kind"];
+    readonly delivery: (typeof SERVER_NOTIFICATION_REGISTRY)[Method]["delivery"];
+    readonly notification: RoutedNotification<Method>;
+    readonly scope: (typeof SERVER_NOTIFICATION_REGISTRY)[Method] extends { readonly delivery: "threadCatalog" }
+      ? null
+      : AppServerRouteScope;
+  };
+}[RegisteredNotificationMethod];
 
-type DiagnosticStatusNotificationMethod = (typeof DIAGNOSTIC_STATUS_NOTIFICATION_METHODS)[number];
-
-const USER_VISIBLE_NOTICE_NOTIFICATION_METHODS = [
-  "model/rerouted",
-  "deprecationNotice",
-  "error",
-  "warning",
-  "configWarning",
-  "windows/worldWritableWarning",
-  "windowsSandbox/setupCompleted",
-] as const;
-
-type UserVisibleNoticeNotificationMethod = (typeof USER_VISIBLE_NOTICE_NOTIFICATION_METHODS)[number];
-
-const IGNORED_SERVER_NOTIFICATION_METHODS = [
-  "thread/status/changed",
-  "thread/closed",
-  "rawResponseItem/completed",
-  "rawResponse/completed",
-  "thread/environment/connected",
-  "thread/environment/disconnected",
-  "command/exec/outputDelta",
-  "process/outputDelta",
-  "process/exited",
-  "item/commandExecution/terminalInteraction",
-  "account/updated",
-  "remoteControl/status/changed",
-  "externalAgentConfig/import/progress",
-  "externalAgentConfig/import/completed",
-  "fs/changed",
-  "model/verification",
-  "turn/moderationMetadata",
-  "model/safetyBuffering/updated",
-  "fuzzyFileSearch/sessionUpdated",
-  "fuzzyFileSearch/sessionCompleted",
-  "thread/realtime/started",
-  "thread/realtime/itemAdded",
-  "thread/realtime/transcript/delta",
-  "thread/realtime/transcript/done",
-  "thread/realtime/outputAudio/delta",
-  "thread/realtime/sdp",
-  "thread/realtime/error",
-  "thread/realtime/closed",
-  "account/login/completed",
-] as const satisfies readonly ServerNotificationMethod[];
-
-type IgnoredServerNotificationMethod = (typeof IGNORED_SERVER_NOTIFICATION_METHODS)[number];
-
-const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = {
-  error: threadTurnNotificationScope,
-  "thread/started": threadStartedNotificationScope,
-  "thread/status/changed": threadOnlyNotificationScope,
-  "thread/archived": threadOnlyNotificationScope,
-  "thread/deleted": threadOnlyNotificationScope,
-  "thread/unarchived": threadOnlyNotificationScope,
-  "thread/closed": threadOnlyNotificationScope,
-  "skills/changed": unscopedNotificationScope,
-  "thread/name/updated": threadOnlyNotificationScope,
-  "thread/goal/updated": threadTurnNotificationScope,
-  "thread/goal/cleared": threadOnlyNotificationScope,
-  "thread/settings/updated": threadOnlyNotificationScope,
-  "thread/tokenUsage/updated": threadTurnNotificationScope,
-  "turn/started": turnNotificationScope,
-  "hook/started": threadTurnNotificationScope,
-  "turn/completed": turnNotificationScope,
-  "hook/completed": threadTurnNotificationScope,
-  "turn/diff/updated": threadTurnNotificationScope,
-  "turn/plan/updated": threadTurnNotificationScope,
-  "item/started": threadTurnNotificationScope,
-  "item/autoApprovalReview/started": threadTurnNotificationScope,
-  "item/autoApprovalReview/completed": threadTurnNotificationScope,
-  "item/completed": threadTurnNotificationScope,
-  "rawResponseItem/completed": threadTurnNotificationScope,
-  "rawResponse/completed": threadTurnNotificationScope,
-  "item/agentMessage/delta": threadTurnNotificationScope,
-  "item/plan/delta": threadTurnNotificationScope,
-  "command/exec/outputDelta": unscopedNotificationScope,
-  "process/outputDelta": unscopedNotificationScope,
-  "process/exited": unscopedNotificationScope,
-  "item/commandExecution/outputDelta": threadTurnNotificationScope,
-  "item/commandExecution/terminalInteraction": threadTurnNotificationScope,
-  "item/fileChange/patchUpdated": threadTurnNotificationScope,
-  "serverRequest/resolved": threadOnlyNotificationScope,
-  "item/mcpToolCall/progress": threadTurnNotificationScope,
-  "mcpServer/oauthLogin/completed": unscopedNotificationScope,
-  "mcpServer/startupStatus/updated": threadOnlyNotificationScope,
-  "account/updated": unscopedNotificationScope,
-  "account/rateLimits/updated": unscopedNotificationScope,
-  "app/list/updated": unscopedNotificationScope,
-  "remoteControl/status/changed": unscopedNotificationScope,
-  "externalAgentConfig/import/progress": unscopedNotificationScope,
-  "externalAgentConfig/import/completed": unscopedNotificationScope,
-  "fs/changed": unscopedNotificationScope,
-  "item/reasoning/summaryTextDelta": threadTurnNotificationScope,
-  "item/reasoning/summaryPartAdded": threadTurnNotificationScope,
-  "item/reasoning/textDelta": threadTurnNotificationScope,
-  "model/rerouted": threadTurnNotificationScope,
-  "model/verification": threadTurnNotificationScope,
-  "turn/moderationMetadata": threadTurnNotificationScope,
-  "model/safetyBuffering/updated": threadTurnNotificationScope,
-  warning: threadOnlyNotificationScope,
-  guardianWarning: threadOnlyNotificationScope,
-  deprecationNotice: unscopedNotificationScope,
-  configWarning: unscopedNotificationScope,
-  "fuzzyFileSearch/sessionUpdated": unscopedNotificationScope,
-  "fuzzyFileSearch/sessionCompleted": unscopedNotificationScope,
-  "thread/realtime/started": threadOnlyNotificationScope,
-  "thread/realtime/itemAdded": threadOnlyNotificationScope,
-  "thread/realtime/transcript/delta": threadOnlyNotificationScope,
-  "thread/realtime/transcript/done": threadOnlyNotificationScope,
-  "thread/realtime/outputAudio/delta": threadOnlyNotificationScope,
-  "thread/realtime/sdp": threadOnlyNotificationScope,
-  "thread/realtime/error": threadOnlyNotificationScope,
-  "thread/realtime/closed": threadOnlyNotificationScope,
-  "windows/worldWritableWarning": unscopedNotificationScope,
-  "windowsSandbox/setupCompleted": unscopedNotificationScope,
-  "account/login/completed": unscopedNotificationScope,
-  "thread/environment/connected": threadOnlyNotificationScope,
-  "thread/environment/disconnected": threadOnlyNotificationScope,
-};
+export type StreamUpdateNotification = NotificationForKind<"streamUpdate">;
+export type TurnLifecycleNotification = NotificationForKind<"turnLifecycle">;
+export type ThreadLifecycleNotification = NotificationForKind<"threadLifecycle">;
+type RequestResolvedNotification = NotificationForKind<"requestResolved">;
+export type DiagnosticStatusNotification = NotificationForKind<"diagnosticStatus">;
+export type UserVisibleNoticeNotification = NotificationForKind<"userVisibleNotice">;
 
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {
-  if (isThreadCatalogNotification(notification)) return { kind: "threadLifecycle", notification };
-  const routeScope = serverNotificationScope(notification);
-  if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
-  if (isIdleThreadStreamUpdate(notification, routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
+  const registered = registeredNotification(notification);
+  if (registered === null) {
+    const routeScope = fallbackAppServerRouteScope(notification);
+    if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
+    return { kind: "unhandled", notification };
+  }
 
-  if (isStreamUpdateNotification(notification)) return { kind: "streamUpdate", notification };
-  if (isTurnLifecycleNotification(notification)) return { kind: "turnLifecycle", notification };
-  if (isThreadLifecycleNotification(notification)) return { kind: "threadLifecycle", notification };
-  if (notification.method === "serverRequest/resolved") return { kind: "requestResolved", notification };
-  if (isDiagnosticStatusNotification(notification)) return { kind: "diagnosticStatus", notification };
-  if (isUserVisibleNoticeNotification(notification)) return { kind: "userVisibleNotice", notification };
-  if (isIgnoredServerNotification(notification)) return { kind: "ignored", notification };
-  return { kind: "unhandled", notification };
+  switch (registered.delivery) {
+    case "threadCatalog":
+      return routeNotification(registered);
+    case "activeScope": {
+      const routeScope = registered.scope;
+      if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
+      if (isTurnScopedAppServerRouteForIdleActiveThread(routeScope, scope) && registered.kind === "streamUpdate") {
+        return { kind: "inactive", notification, scope: routeScope };
+      }
+
+      return routeNotification(registered);
+    }
+    default:
+      throw new Error("Unhandled server notification delivery policy");
+  }
 }
 
-function serverNotificationScope(notification: ServerNotification): AppServerRouteScope {
-  if (!isServerNotification(notification)) return fallbackAppServerRouteScope(notification);
-  const extractor = SERVER_NOTIFICATION_SCOPE_EXTRACTORS[notification.method] as (notification: ServerNotification) => AppServerRouteScope;
-  return extractor(notification);
+function routeNotification(notification: RegisteredNotification): ServerNotificationRoute {
+  switch (notification.kind) {
+    case "streamUpdate":
+      return { kind: notification.kind, notification: notification.notification };
+    case "turnLifecycle":
+      return { kind: notification.kind, notification: notification.notification };
+    case "threadLifecycle":
+      return { kind: notification.kind, notification: notification.notification };
+    case "requestResolved":
+      return { kind: notification.kind, notification: notification.notification };
+    case "diagnosticStatus":
+      return { kind: notification.kind, notification: notification.notification };
+    case "userVisibleNotice":
+      return { kind: notification.kind, notification: notification.notification };
+    case "ignored":
+      return { kind: notification.kind, notification: notification.notification };
+    default:
+      throw new Error("Unhandled server notification route kind");
+  }
 }
 
-function isServerNotification(notification: ServerNotification): boolean {
-  return Object.hasOwn(SERVER_NOTIFICATION_SCOPE_EXTRACTORS, notification.method);
+function registeredNotification<M extends ServerNotificationMethod>(notification: RoutedNotification<M>): RegisteredNotification | null {
+  if (!isRegisteredNotificationMethod(notification.method)) return null;
+  // Registry membership guarantees method -> descriptor -> payload correlation; these assertions restore it after indexed lookup and mapped-union construction.
+  const descriptor = SERVER_NOTIFICATION_REGISTRY[notification.method] as NotificationDescriptor<M>;
+  if (descriptor.delivery === "threadCatalog") {
+    return {
+      kind: descriptor.kind,
+      delivery: descriptor.delivery,
+      notification,
+      scope: null,
+    } as RegisteredNotification;
+  }
+
+  return {
+    kind: descriptor.kind,
+    delivery: descriptor.delivery,
+    notification,
+    scope: descriptor.scope(notification),
+  } as RegisteredNotification;
 }
 
-function threadStartedNotificationScope(notification: { params: { thread: { id: string } } }): AppServerRouteScope {
-  return { threadId: notification.params.thread.id, turnId: null };
+function isRegisteredNotificationMethod(method: ServerNotificationMethod): method is RegisteredNotificationMethod {
+  return Object.hasOwn(SERVER_NOTIFICATION_REGISTRY, method);
 }
 
 function turnNotificationScope(notification: { params: { threadId: string; turn: { id: string } } }): AppServerRouteScope {
@@ -252,42 +233,4 @@ function threadOnlyNotificationScope(notification: { params: { threadId: string 
 
 function unscopedNotificationScope(): AppServerRouteScope {
   return { threadId: null, turnId: null };
-}
-
-function isThreadCatalogNotification(notification: ServerNotification): notification is ThreadLifecycleNotification {
-  return notificationMethodIn(notification.method, GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS);
-}
-
-function isStreamUpdateNotification(notification: ServerNotification): notification is StreamUpdateNotification {
-  return notificationMethodIn(notification.method, STREAM_UPDATE_NOTIFICATION_METHODS);
-}
-
-function isIdleThreadStreamUpdate(notification: ServerNotification, routeScope: AppServerRouteScope, scope: ActiveRouteScope): boolean {
-  return isTurnScopedAppServerRouteForIdleActiveThread(routeScope, scope) && isStreamUpdateNotification(notification);
-}
-
-function isTurnLifecycleNotification(notification: ServerNotification): notification is TurnLifecycleNotification {
-  return notificationMethodIn(notification.method, TURN_LIFECYCLE_NOTIFICATION_METHODS);
-}
-
-function isThreadLifecycleNotification(notification: ServerNotification): notification is ThreadLifecycleNotification {
-  return notificationMethodIn(notification.method, THREAD_LIFECYCLE_NOTIFICATION_METHODS);
-}
-
-function isDiagnosticStatusNotification(notification: ServerNotification): notification is DiagnosticStatusNotification {
-  return notificationMethodIn(notification.method, DIAGNOSTIC_STATUS_NOTIFICATION_METHODS);
-}
-
-function isUserVisibleNoticeNotification(notification: ServerNotification): notification is UserVisibleNoticeNotification {
-  return notificationMethodIn(notification.method, USER_VISIBLE_NOTICE_NOTIFICATION_METHODS);
-}
-
-function isIgnoredServerNotification(
-  notification: ServerNotification,
-): notification is RoutedNotification<IgnoredServerNotificationMethod> {
-  return notificationMethodIn(notification.method, IGNORED_SERVER_NOTIFICATION_METHODS);
-}
-
-function notificationMethodIn<M extends ServerNotificationMethod>(method: ServerNotificationMethod, methods: readonly M[]): method is M {
-  return (methods as readonly ServerNotificationMethod[]).includes(method);
 }
