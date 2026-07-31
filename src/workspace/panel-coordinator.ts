@@ -434,7 +434,9 @@ export class WorkspacePanelCoordinator {
     const surface = workspacePanelSurface(view);
     const currentThreadId = existingThreadId ?? surface.openPanelSnapshot().threadId;
     const opening =
-      currentThreadId === threadId ? surface.focusThread(threadId, { focus: false }) : surface.openThread(threadId, { focus: false });
+      currentThreadId === threadId
+        ? surface.focusThread(threadId, { focus: false, ownerResolved: true })
+        : surface.openThread(threadId, { focus: false, ownerResolved: true });
     return this.completePanelOperation(leaf, view, opening, { reveal: !wasDeferred });
   }
 
@@ -444,7 +446,7 @@ export class WorkspacePanelCoordinator {
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return false;
     const surface = workspacePanelSurface(view);
-    const opening = surface.focusThread(threadId, { focus: false });
+    const opening = surface.focusThread(threadId, { focus: false, ownerResolved: true });
     return this.completePanelOperation(leaf, view, opening);
   }
 

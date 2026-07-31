@@ -34,6 +34,19 @@ describe("CodexChatView thread state", () => {
     expect(requestSaveLayout).toHaveBeenCalledTimes(1);
   });
 
+  it("uses workspace-resolved ownership without looking up another panel owner", async () => {
+    const focusThreadInOpenView = vi.fn().mockResolvedValue(true);
+    const client = connectedClient();
+    connectionMockState().client = client;
+    const view = await chatView({ host: chatHost({ focusThreadInOpenView }) });
+
+    await view.surface.openThread("thread-1", { ownerResolved: true });
+
+    expect(focusThreadInOpenView).not.toHaveBeenCalled();
+    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1" }));
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
+  });
+
   it("does not persist a temporary subagent panel target", async () => {
     const client = connectedClient({
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("child", { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" })),

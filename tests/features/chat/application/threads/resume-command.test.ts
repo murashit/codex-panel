@@ -81,6 +81,16 @@ describe("ResumeCommand", () => {
     expect(resumeThread).not.toHaveBeenCalled();
   });
 
+  it("resumes directly after the workspace coordinator resolves thread ownership", async () => {
+    const focusThreadInOpenView = vi.fn().mockResolvedValue(true);
+    const { commands, host, resumeThread } = createActions(undefined, { focusThreadInOpenView });
+
+    expect(await commands.resumeThread("thread", undefined, { ownerResolved: true })).toBe(true);
+    expect(focusThreadInOpenView).not.toHaveBeenCalled();
+    expect(host.ensureConnected).toHaveBeenCalledOnce();
+    expect(resumeThread).toHaveBeenCalledWith("thread");
+  });
+
   it("resumes the thread and loads its latest history", async () => {
     const { commands, host, loadLatest, resumeThread, stateStore } = createActions();
 

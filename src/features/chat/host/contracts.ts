@@ -132,10 +132,14 @@ interface ChatWorkspacePanelOperationOptions {
   focus?: boolean;
 }
 
+interface ChatWorkspaceThreadOperationOptions extends ChatWorkspacePanelOperationOptions {
+  ownerResolved?: boolean;
+}
+
 export interface ChatWorkspacePanelSurface {
   openPanelSnapshot(): ChatWorkspacePanelSnapshot;
-  openThread(threadId: string, options?: ChatWorkspacePanelOperationOptions): Promise<void>;
-  focusThread(threadId?: string | null, options?: ChatWorkspacePanelOperationOptions): Promise<void>;
+  openThread(threadId: string, options?: ChatWorkspaceThreadOperationOptions): Promise<void>;
+  focusThread(threadId?: string | null, options?: ChatWorkspaceThreadOperationOptions): Promise<void>;
   hydrateRestoredThread(): Promise<void>;
   focusComposer(options?: { force?: boolean }): void;
   connect(): Promise<void>;

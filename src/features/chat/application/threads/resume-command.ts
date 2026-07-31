@@ -45,6 +45,7 @@ export interface ResumeCommand {
 export interface ResumeThreadOptions {
   beforeActivate?: () => void;
   onAdopted?: () => void;
+  ownerResolved?: boolean;
 }
 
 export function createResumeCommand(host: ResumeCommandHost): ResumeCommand {
@@ -68,7 +69,7 @@ async function resumeThread(
   const initialPanelTarget = capturePanelTargetLease(host.stateStore.getState());
   let currentPanelTarget = initialPanelTarget;
   host.history.invalidate();
-  if (panelThreadId(host.stateStore.getState()) !== threadId && (await host.focusThreadInOpenView(threadId))) {
+  if (!options?.ownerResolved && panelThreadId(host.stateStore.getState()) !== threadId && (await host.focusThreadInOpenView(threadId))) {
     return false;
   }
 

@@ -176,7 +176,7 @@ describe("WorkspacePanelCoordinator", () => {
 
     await panels(await pluginWithLeaves([openLeaf, emptyLeaf])).openThreadInAvailableView("thread-1");
 
-    expect(focus).toHaveBeenCalledWith("thread-1", { focus: false });
+    expect(focus).toHaveBeenCalledWith("thread-1", { focus: false, ownerResolved: true });
     expect(open).not.toHaveBeenCalled();
   });
 
@@ -192,7 +192,7 @@ describe("WorkspacePanelCoordinator", () => {
 
     await coordinator.openThreadInNewView("thread-1");
 
-    expect(focus).toHaveBeenCalledWith("thread-1", { focus: false });
+    expect(focus).toHaveBeenCalledWith("thread-1", { focus: false, ownerResolved: true });
     expect(plugin.app.workspace.getRightLeaf).not.toHaveBeenCalled();
   });
 
@@ -214,7 +214,23 @@ describe("WorkspacePanelCoordinator", () => {
     await panels(await pluginWithLeaves([pendingLeaf, emptyLeaf])).openThreadInAvailableView("thread-1");
 
     expect(pendingOpen).not.toHaveBeenCalled();
-    expect(emptyOpen).toHaveBeenCalledWith("thread-1", { focus: false });
+    expect(emptyOpen).toHaveBeenCalledWith("thread-1", { focus: false, ownerResolved: true });
+  });
+
+  it("does not re-enter the same thread operation after choosing an idle panel owner", async () => {
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const emptyLeaf = leaf();
+    emptyLeaf.view = chatView(CodexChatView, emptyLeaf);
+    const plugin = await pluginWithLeaves([emptyLeaf]);
+    const coordinator = panels(plugin);
+    const open = vi.spyOn((emptyLeaf.view as CodexChatView).surface, "openThread");
+    open.mockImplementation(async (threadId, options) => {
+      if (!options?.ownerResolved) await coordinator.focusThreadInOpenView(threadId);
+    });
+
+    await coordinator.openThreadInAvailableView("thread-1");
+
+    expect(open).toHaveBeenCalledWith("thread-1", { focus: false, ownerResolved: true });
   });
 
   it("uses a switchable origin before another empty panel", async () => {
@@ -234,7 +250,7 @@ describe("WorkspacePanelCoordinator", () => {
 
     await panels(await pluginWithLeaves([originLeaf, emptyLeaf])).openThreadFromPanel("target", "origin", true);
 
-    expect(originOpen).toHaveBeenCalledWith("target", { focus: false });
+    expect(originOpen).toHaveBeenCalledWith("target", { focus: false, ownerResolved: true });
     expect(emptyOpen).not.toHaveBeenCalled();
   });
 
@@ -251,7 +267,7 @@ describe("WorkspacePanelCoordinator", () => {
 
     await panels(plugin).openThreadInCurrentView("selected-thread");
 
-    expect(open).toHaveBeenCalledWith("selected-thread", { focus: false });
+    expect(open).toHaveBeenCalledWith("selected-thread", { focus: false, ownerResolved: true });
   });
 
   it("keeps deferred content work independent across different panels", async () => {
@@ -284,8 +300,8 @@ describe("WorkspacePanelCoordinator", () => {
     firstReveal.resolve();
     await Promise.all([firstOpen, secondOpen]);
 
-    expect(firstFocusThread).toHaveBeenCalledWith("first", { focus: false });
-    expect(secondFocusThread).toHaveBeenCalledWith("second", { focus: false });
+    expect(firstFocusThread).toHaveBeenCalledWith("first", { focus: false, ownerResolved: true });
+    expect(secondFocusThread).toHaveBeenCalledWith("second", { focus: false, ownerResolved: true });
     expect(firstFocusComposer).toHaveBeenCalledOnce();
     expect(secondFocusComposer).toHaveBeenCalledOnce();
   });
@@ -367,8 +383,8 @@ describe("WorkspacePanelCoordinator", () => {
 
     await Promise.all([coordinator.openThreadInNewView("first"), coordinator.openThreadInNewView("second")]);
 
-    expect(firstOpen).toHaveBeenCalledWith("first", { focus: false });
-    expect(secondOpen).toHaveBeenCalledWith("second", { focus: false });
+    expect(firstOpen).toHaveBeenCalledWith("first", { focus: false, ownerResolved: true });
+    expect(secondOpen).toHaveBeenCalledWith("second", { focus: false, ownerResolved: true });
     expect(firstFocus).toHaveBeenCalledOnce();
     expect(secondFocus).toHaveBeenCalledOnce();
   });
@@ -398,7 +414,7 @@ describe("WorkspacePanelCoordinator", () => {
     const getRightLeaf = plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>;
 
     const firstRequest = coordinator.openThreadInNewView("same-thread");
-    await vi.waitFor(() => expect(firstOpen).toHaveBeenCalledWith("same-thread", { focus: false }));
+    await vi.waitFor(() => expect(firstOpen).toHaveBeenCalledWith("same-thread", { focus: false, ownerResolved: true }));
     const secondRequest = coordinator.openThreadInNewView("same-thread");
 
     expect(firstOpen).toHaveBeenCalledOnce();
@@ -434,8 +450,8 @@ describe("WorkspacePanelCoordinator", () => {
     const firstOpen = coordinator.openThreadInCurrentView("first");
     const secondOpen = coordinator.openThreadInCurrentView("second");
     await vi.waitFor(() => {
-      expect(open).toHaveBeenNthCalledWith(1, "first", { focus: false });
-      expect(open).toHaveBeenNthCalledWith(2, "second", { focus: false });
+      expect(open).toHaveBeenNthCalledWith(1, "first", { focus: false, ownerResolved: true });
+      expect(open).toHaveBeenNthCalledWith(2, "second", { focus: false, ownerResolved: true });
     });
     secondReveal.resolve();
     coordinator.activeLeafChanged(panelLeaf as never);
@@ -463,7 +479,7 @@ describe("WorkspacePanelCoordinator", () => {
     const coordinator = panels(plugin);
 
     const request = coordinator.openThreadInCurrentView("target");
-    await vi.waitFor(() => expect(open).toHaveBeenCalledWith("target", { focus: false }));
+    await vi.waitFor(() => expect(open).toHaveBeenCalledWith("target", { focus: false, ownerResolved: true }));
     operation.resolve();
     await operation.promise;
     panelLeaf.view = replacementView;
@@ -488,7 +504,7 @@ describe("WorkspacePanelCoordinator", () => {
     const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
     const open = vi.spyOn(view.surface, "focusThread").mockResolvedValue(undefined);
     (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-      expect(open).toHaveBeenCalledWith("thread-1", { focus: false });
+      expect(open).toHaveBeenCalledWith("thread-1", { focus: false, ownerResolved: true });
     });
 
     await panels(plugin).openThreadInNewView("thread-1");
@@ -499,7 +515,7 @@ describe("WorkspacePanelCoordinator", () => {
       active: false,
       state: { version: 1, threadId: "thread-1" },
     });
-    expect(open).toHaveBeenCalledWith("thread-1", { focus: false });
+    expect(open).toHaveBeenCalledWith("thread-1", { focus: false, ownerResolved: true });
   });
 
   it("reveals a pending side chat immediately without focusing it when creation fails", async () => {

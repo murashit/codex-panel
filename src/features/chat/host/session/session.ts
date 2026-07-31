@@ -129,13 +129,14 @@ export class ChatPanelSession implements ChatPanelHandle {
     };
   }
 
-  async openThread(threadId: string, options: { focus?: boolean } = {}): Promise<void> {
+  async openThread(threadId: string, options: { focus?: boolean; ownerResolved?: boolean } = {}): Promise<void> {
     this.clearPendingEphemeralIntent();
     const intent = this.resumeWork.begin(threadId);
     const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
     if (!preparation || !this.resumeWork.isCurrent(intent)) return;
     if (
       !(await this.runtime.thread.resume.resumeThread(threadId, intent, {
+        ...(options.ownerResolved ? { ownerResolved: true } : {}),
         onAdopted: () => {
           this.runtime.thread.navigation.commitPersistentNavigation(preparation);
         },
@@ -146,11 +147,11 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (options.focus !== false) this.focusComposer();
   }
 
-  async focusThread(threadId: string | null = null, options: { focus?: boolean } = {}): Promise<void> {
+  async focusThread(threadId: string | null = null, options: { focus?: boolean; ownerResolved?: boolean } = {}): Promise<void> {
     const restoredThread = awaitingResumeThreadState(this.state);
     const restoredThreadId = restoredThread?.threadId ?? null;
     if ((threadId && this.runtime.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
-      await this.ensureRestoredThreadLoaded();
+      await this.ensureRestoredThreadLoaded(options.ownerResolved ? { ownerResolved: true } : undefined);
     }
     if (options.focus !== false) this.focusComposer();
   }
@@ -342,9 +343,9 @@ export class ChatPanelSession implements ChatPanelHandle {
     return this.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [];
   }
 
-  private ensureRestoredThreadLoaded(): Promise<boolean> {
+  private ensureRestoredThreadLoaded(options: { ownerResolved?: boolean } = {}): Promise<boolean> {
     return this.runtime.thread.restoration.ensureLoaded(async (threadId) => {
-      await this.runtime.thread.resume.resumeThread(threadId);
+      await this.runtime.thread.resume.resumeThread(threadId, undefined, options.ownerResolved ? { ownerResolved: true } : undefined);
     });
   }
 
