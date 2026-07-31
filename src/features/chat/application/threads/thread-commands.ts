@@ -3,6 +3,7 @@ import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../do
 import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
 import type { Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
+import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { type EffectOutcome, effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { chatThreadStreamViewState } from "../state/active-turn";
@@ -51,7 +52,7 @@ export interface ThreadCommandsHost {
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<void>;
-  openThreadInCurrentPanel: (threadId: string, onAdopted: () => void, beforeActivate?: () => void) => Promise<CurrentPanelAdoption>;
+  openThreadInCurrentPanel: (threadId: string) => Promise<CurrentPanelAdoption>;
   applyThreadFact: (fact: ThreadUpsertFact) => void;
   threadPanelIsBusy: (threadId: string) => boolean;
 }
@@ -80,7 +81,7 @@ export interface ThreadCommands {
   forkThread: (threadId: string) => Promise<void>;
   forkThreadFromTurn: (threadId: string, turnId: string | null, archiveSource: boolean) => Promise<void>;
   renameThread: (threadId: string, name: string) => Promise<boolean>;
-  rollbackThread: (threadId: string, options?: { adoptPanelTarget?: (replacementDraft: string) => void }) => Promise<void>;
+  rollbackThread: (threadId: string, options?: { adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"] }) => Promise<void>;
 }
 
 interface ThreadCommandPanelScope {
@@ -207,7 +208,7 @@ async function forkThreadFromTurn(
     if (archiveSource) {
       let adoption: CurrentPanelAdoption;
       try {
-        adoption = await host.openThreadInCurrentPanel(forkedThreadId, () => undefined);
+        adoption = await host.openThreadInCurrentPanel(forkedThreadId);
       } catch (error) {
         host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
         if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
@@ -263,7 +264,7 @@ async function setThreadPinned(host: ThreadCommandsHost, threadId: string, isPin
 async function rollbackThread(
   host: ThreadCommandsHost,
   threadId: string,
-  options: { adoptPanelTarget?: (replacementDraft: string) => void } = {},
+  options: { adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"] } = {},
 ): Promise<void> {
   if (activePanelOperationBlocked(host, threadId, "rollback")) return;
   if (chatTurnBusy(threadCommandState(host).activeTurn)) {
@@ -307,16 +308,10 @@ async function rollbackThread(
       host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       return;
     }
-    const onAdopted = () => {
-      if (!options.adoptPanelTarget) host.setComposerText(candidate.text);
-    };
     let adoption: CurrentPanelAdoption;
     try {
-      adoption = options.adoptPanelTarget
-        ? await host.openThreadInCurrentPanel(forkedThread.id, onAdopted, () => {
-            options.adoptPanelTarget?.(candidate.text);
-          })
-        : await host.openThreadInCurrentPanel(forkedThread.id, onAdopted);
+      options.adoptPanelTarget?.(forkedThread.id, candidate.text);
+      adoption = await host.openThreadInCurrentPanel(forkedThread.id);
     } catch (error) {
       host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       throw error;
@@ -329,6 +324,7 @@ async function rollbackThread(
       }
       return;
     }
+    if (!options.adoptPanelTarget) host.setComposerText(candidate.text);
     if (activeThreadId(threadCommandState(host)) === forkedThread.id) {
       host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
       host.setStatus(STATUS_ROLLBACK_COMPLETE);

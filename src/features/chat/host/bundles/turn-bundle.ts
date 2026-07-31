@@ -136,7 +136,8 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       thread: {
         ensureRestoredThreadLoaded: () =>
           threadLifecycle.restoration.ensureLoaded(async (threadId) => {
-            await threadLifecycle.resume.resumeThread(threadId);
+            const activation = await threadLifecycle.resume.resumeThread(threadId);
+            await activation?.hydrate();
           }),
         startNewThread: () => navigation.startNewThread(),
         selectThread: (threadId) => navigation.selectThread(threadId),

@@ -57,7 +57,9 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
         serviceTier: null,
         approvalsReviewer: null,
       });
-      return true;
+      return {
+        hydrate: vi.fn().mockResolvedValue(true),
+      };
     }),
     addSystemMessage: vi.fn(),
     ...overrides,

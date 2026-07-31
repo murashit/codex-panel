@@ -5,7 +5,7 @@ import { type EffectOutcome, effectCompletedInCurrentContext } from "../effect-o
 import { resumedThreadAction } from "../state/actions";
 import { chatThreadStreamViewState } from "../state/active-turn";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { activeThreadState, panelThreadId } from "../state/root-reducer";
+import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import type { HistoryController, ThreadHistoryPage } from "./history-controller";
@@ -34,74 +34,81 @@ export interface ResumeCommandHost {
   recordResumedThread: (thread: Thread) => void;
   addSystemMessage: (text: string) => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
-  focusThreadInOpenView: (threadId: string) => Promise<boolean>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
 }
 
 export interface ResumeCommand {
-  resumeThread(threadId: string, intent?: ActiveChatResume, options?: ResumeThreadOptions): Promise<boolean>;
+  resumeThread(threadId: string, intent?: ActiveChatResume): Promise<ThreadResumeActivation | null>;
 }
 
-export interface ResumeThreadOptions {
-  beforeActivate?: () => void;
-  onAdopted?: () => void;
-  ownerResolved?: boolean;
+export interface ThreadResumeActivation {
+  hydrate(): Promise<boolean>;
 }
 
 export function createResumeCommand(host: ResumeCommandHost): ResumeCommand {
   return {
-    resumeThread: (threadId, intent, options) => resumeThread(host, threadId, intent, options),
+    resumeThread: (threadId, intent) => resumeThread(host, threadId, intent),
   };
 }
 
-async function resumeThread(
-  host: ResumeCommandHost,
-  threadId: string,
-  intent?: ActiveChatResume,
-  options?: ResumeThreadOptions,
-): Promise<boolean> {
+async function resumeThread(host: ResumeCommandHost, threadId: string, intent?: ActiveChatResume): Promise<ThreadResumeActivation | null> {
   if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
     host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
-    return false;
+    return null;
   }
   const resume = intent ?? host.resumeWork.begin(threadId);
-  if (resume.threadId !== threadId || host.resumeWork.isStale(resume)) return false;
+  if (resume.threadId !== threadId || host.resumeWork.isStale(resume)) return null;
   const initialPanelTarget = capturePanelTargetLease(host.stateStore.getState());
-  let currentPanelTarget = initialPanelTarget;
   host.history.invalidate();
-  if (!options?.ownerResolved && panelThreadId(host.stateStore.getState()) !== threadId && (await host.focusThreadInOpenView(threadId))) {
-    return false;
-  }
 
   try {
-    if (!(await host.ensureConnected())) return false;
-    if (isStaleResume(host, resume, initialPanelTarget)) return false;
+    if (!(await host.ensureConnected())) return null;
+    if (isStaleResume(host, resume, initialPanelTarget)) return null;
     const effect = await host.effects.resumeThread(threadId);
-    if (!effectCompletedInCurrentContext(effect)) return false;
+    if (!effectCompletedInCurrentContext(effect)) return null;
     host.recordResumedThread(effect.value.activation.thread);
-    if (isStaleResume(host, resume, initialPanelTarget)) return false;
-    if (panelThreadId(host.stateStore.getState()) !== effect.value.activation.thread.id) options?.beforeActivate?.();
+    if (isStaleResume(host, resume, initialPanelTarget)) return null;
     const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);
-    if (!adoptedPanelTarget) return false;
-    currentPanelTarget = adoptedPanelTarget;
-    options?.onAdopted?.();
-    recoverResumedThreadTokenUsage(host, effect.value.activation.thread.id, effect.value.rolloutPath, resume, adoptedPanelTarget);
-    if (effect.value.initialHistoryPage) {
-      host.history.applyLatestPage(effect.value.activation.thread.id, effect.value.initialHistoryPage);
+    if (!adoptedPanelTarget) return null;
+    let hydration: Promise<boolean> | null = null;
+    return {
+      hydrate: () => {
+        hydration ??= hydrateResumedThread(host, effect.value, resume, adoptedPanelTarget);
+        return hydration;
+      },
+    };
+  } catch (error) {
+    if (isStaleResume(host, resume, initialPanelTarget)) return null;
+    host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+async function hydrateResumedThread(
+  host: ResumeCommandHost,
+  response: ThreadResumeSnapshot,
+  resume: ActiveChatResume,
+  panelTarget: PanelTargetLease,
+): Promise<boolean> {
+  try {
+    if (isStaleResume(host, resume, panelTarget)) return false;
+    recoverResumedThreadTokenUsage(host, response.activation.thread.id, response.rolloutPath, resume, panelTarget);
+    if (response.initialHistoryPage) {
+      host.history.applyLatestPage(response.activation.thread.id, response.initialHistoryPage);
     } else {
-      await host.history.loadLatest(effect.value.activation.thread.id);
+      await host.history.loadLatest(response.activation.thread.id);
     }
-    if (isStaleResume(host, resume, adoptedPanelTarget)) return false;
-    await host.syncThreadGoal(effect.value.activation.thread.id);
-    if (isStaleResume(host, resume, adoptedPanelTarget)) return false;
+    if (isStaleResume(host, resume, panelTarget)) return false;
+    await host.syncThreadGoal(response.activation.thread.id);
+    if (isStaleResume(host, resume, panelTarget)) return false;
     const state = host.stateStore.getState();
     const renderFallbackMessage = threadStreamIsEmpty(chatThreadStreamViewState(state.threadStream, state.activeTurn));
     if (renderFallbackMessage) {
-      host.addSystemMessage(`Resumed thread ${effect.value.activation.thread.id}`);
+      host.addSystemMessage(`Resumed thread ${response.activation.thread.id}`);
     }
     return true;
   } catch (error) {
-    if (isStaleResume(host, resume, currentPanelTarget)) return false;
+    if (isStaleResume(host, resume, panelTarget)) return false;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return false;
   }

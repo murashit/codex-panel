@@ -36,9 +36,10 @@ describe("thread start commands", () => {
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
 
-  it("announces an owned target adoption immediately before activation", async () => {
+  it("identifies the created target before activating it", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const beforeActivate = vi.fn(() => {
+    const adoptPanelTarget = vi.fn((threadId: string | null) => {
+      expect(threadId).toBe("started");
       expect(activeThreadId(stateStore.getState())).toBeNull();
     });
     const commands = createThreadStartCommand({
@@ -51,9 +52,9 @@ describe("thread start commands", () => {
       syncThreadGoal: vi.fn(),
     });
 
-    await commands.startThread("first prompt", { beforeActivate });
+    await commands.startThread("first prompt", { adoptPanelTarget });
 
-    expect(beforeActivate).toHaveBeenCalledOnce();
+    expect(adoptPanelTarget).toHaveBeenCalledOnce();
     expect(activeThreadId(stateStore.getState())).toBe("started");
   });
 

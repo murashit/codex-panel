@@ -343,6 +343,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const runtimeView = Object.assign(Object.create(CodexChatView.prototype), {
       attachRuntime,
       detachRuntime,
+      isRuntimeAttached: () => false,
     }) as ChatRuntimeView;
     const runtimeLeaf = leaf();
     runtimeLeaf.view = runtimeView;

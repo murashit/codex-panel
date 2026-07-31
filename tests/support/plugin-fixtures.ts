@@ -143,7 +143,6 @@ function chatHostFixture(): CodexChatHost {
       openThreadInNewView: vi.fn(),
       openThreadInAvailableView: vi.fn(),
       openThreadFromPanel: vi.fn(),
-      focusThreadInOpenView: vi.fn(),
       threadPanelIsBusy: vi.fn(() => false),
       openTurnDiff: vi.fn(),
       notifyPanelActivityChanged: vi.fn(),

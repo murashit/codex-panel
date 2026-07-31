@@ -7,6 +7,7 @@ import { createThreadTitleService, type ThreadTitleService } from "../../../thre
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { chatThreadStreamViewState } from "../../application/state/active-turn";
+import { activeThreadId } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
@@ -99,6 +100,7 @@ interface ChatPanelThreadCommandInput {
   lifecycle: ChatPanelThreadLifecycleBundle;
   notifyActiveThreadIdentityChanged: () => void;
   navigation: PersistentNavigationLifecycle;
+  activatePersistentThread: (threadId: string) => Promise<void>;
 }
 
 interface ChatPanelThreadCommandBundle {
@@ -220,7 +222,8 @@ export function createThreadLifecycleBundle(
       startThread: (preview, options) => threadStart.startThread(preview, options),
       ensureRestoredThreadLoaded: () =>
         lifecycle.restoration.ensureLoaded(async (threadId) => {
-          await lifecycle.resume.resumeThread(threadId);
+          const activation = await lifecycle.resume.resumeThread(threadId);
+          await activation?.hydrate();
         }),
       startEditingGoal: goalEditor.startEditing,
       addSystemMessage: (text) => {
@@ -277,17 +280,9 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
       composerController.setDraft(text, { focus: true });
     },
     openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
-    openThreadInCurrentPanel: async (threadId, onAdopted, beforeActivate) => {
-      const adoption = { completed: false };
-      await lifecycle.resume.resumeThread(threadId, undefined, {
-        ...(beforeActivate ? { beforeActivate } : {}),
-        onAdopted: () => {
-          adoption.completed = true;
-          onAdopted();
-        },
-      });
-      if (adoption.completed) return { adopted: true };
-      return { adopted: false };
+    openThreadInCurrentPanel: async (threadId) => {
+      await input.activatePersistentThread(threadId);
+      return { adopted: activeThreadId(stateStore.getState()) === threadId };
     },
     applyThreadFact: (fact) => {
       environment.plugin.threadFacts.apply(fact);
@@ -305,10 +300,8 @@ export function createThreadCommandBundle(host: ChatPanelThreadHost, input: Chat
     closeForThreadSelection: () => {
       toolbarPanelActions.closeForThreadSelection();
     },
-    focusThreadInOpenView: (threadId) => environment.plugin.workspace.focusThreadInOpenView(threadId),
-    openThreadFromHistory: (threadId, originSwitchable) =>
+    openThreadFromPanel: (threadId, originSwitchable) =>
       environment.plugin.workspace.openThreadFromPanel(threadId, environment.obsidian.viewId, originSwitchable),
-    resumeThread: (threadId, intent, options) => lifecycle.resume.resumeThread(threadId, intent, options),
     resumeWork: host.resumeWork,
     addSystemMessage: status.addSystemMessage,
     focusComposer: () => {
@@ -365,7 +358,6 @@ function createSessionThreadLifecycle(
     },
     addSystemMessage: status.addSystemMessage,
     syncThreadGoal: (threadId) => goalSync.syncThreadGoal(threadId),
-    focusThreadInOpenView: (threadId) => host.environment.plugin.workspace.focusThreadInOpenView(threadId),
     recoverTokenUsageFromRollout: (path) =>
       recoverRolloutTokenUsage(path, (filePath, options) => appServer.readFileBase64(filePath, options)),
   });

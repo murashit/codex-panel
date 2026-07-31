@@ -199,7 +199,7 @@ describe("ChatComposerController", () => {
     controller.setDraft("/clear");
     const execute = vi.fn(async (_command, _args, _snapshot, submission) => {
       controller.setDraft("next message");
-      submission.adoptPanelTarget();
+      submission.adoptPanelTarget("started");
       resumeComposerThread(stateStore, "started");
       return undefined;
     });
@@ -221,6 +221,23 @@ describe("ChatComposerController", () => {
     expect(controller.isSubmissionPreparing()).toBe(false);
   });
 
+  it("does not carry an adopted submission into an unexpected panel target", () => {
+    const stateStore = createChatStateStore();
+    resumeComposerThread(stateStore, "source");
+    const { controller } = composerControllerFixture({ stateStore });
+    controller.setDraft("/resume intended");
+    const claim = controller.claimSubmission();
+    controller.setDraft("source draft");
+    claim?.adoptPanelTarget("intended");
+
+    resumeComposerThread(stateStore, "other");
+
+    expect(stateStore.getState().composer.draft).toBe("");
+    expect(controller.isSubmissionPreparing()).toBe(false);
+    claim?.settle("failed");
+    expect(stateStore.getState().composer.draft).toBe("");
+  });
+
   it("places a rollback replacement before the next draft across its adopted target", () => {
     const stateStore = createChatStateStore();
     resumeComposerThread(stateStore, "source");
@@ -228,7 +245,7 @@ describe("ChatComposerController", () => {
     controller.setDraft("/rollback");
     const claim = controller.claimSubmission();
     controller.setDraft("next message");
-    claim?.adoptPanelTarget("rolled back prompt");
+    claim?.adoptPanelTarget("rolled-back", "rolled back prompt");
 
     resumeComposerThread(stateStore, "rolled-back");
 

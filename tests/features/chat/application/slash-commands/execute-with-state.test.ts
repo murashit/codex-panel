@@ -87,9 +87,7 @@ describe("executePanelSlashCommand", () => {
   it("executes slash commands against the current chat state", async () => {
     const { host } = createHost();
     const adoptPanelTarget = vi.fn();
-    host.startNewThread = vi.fn(async (options) => {
-      options?.beforeActivate?.();
-    });
+    host.startNewThread = vi.fn().mockResolvedValue(undefined);
 
     const result = await executePanelSlashCommand(host, "clear", "", undefined, {
       isCurrent: () => true,
@@ -129,7 +127,7 @@ describe("executePanelSlashCommand", () => {
 
     await executePanelSlashCommand(host, "goal", "set Ship this");
 
-    expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this", { beforeActivate: expect.any(Function) });
+    expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this", expect.any(Function));
     expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
   });
 

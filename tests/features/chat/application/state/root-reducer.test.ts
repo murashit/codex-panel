@@ -33,6 +33,18 @@ describe("chatReducer", () => {
     expect(cleared.composer.draft).toBe("");
   });
 
+  it("keeps the panel draft when its restored thread resumes", () => {
+    let state = chatReducer(chatStateFixture({ activeThread: { id: "thread-1" } }), {
+      type: "composer/draft-set",
+      draft: "Continue here",
+    });
+    state = chatReducer(state, { type: "connection/scoped-cleared" });
+
+    const resumed = chatReducer(state, resumedThreadAction("thread-1"));
+
+    expect(resumed.composer.draft).toBe("Continue here");
+  });
+
   it.each([
     {
       label: "commit",

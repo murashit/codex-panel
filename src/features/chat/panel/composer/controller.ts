@@ -38,7 +38,7 @@ import {
   panelTargetLeaseIsCurrent,
   panelTargetLeasesMatch,
 } from "../../application/state/panel-target";
-import { activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
+import { activeThreadState, type ChatAction, type ChatState, panelThreadId } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer";
@@ -92,7 +92,7 @@ interface ActiveComposerSubmissionClaim {
   readonly claim: ComposerSubmissionClaim;
   panelTarget: PanelTargetLease;
   phase: "preflight" | "adopted";
-  targetAdoption: { replacementDraft?: string } | null;
+  targetAdoption: { targetThreadId: string | null; replacementDraft?: string } | null;
 }
 
 function composerCanInterrupt(model: ChatPanelComposerModel): boolean {
@@ -269,10 +269,11 @@ export class ChatComposerController {
         if (settled || this.activeSubmissionClaim?.claim !== claim) return;
         this.activeSubmissionClaim.phase = "adopted";
       },
-      adoptPanelTarget: (replacementDraft) => {
+      adoptPanelTarget: (targetThreadId, replacementDraft) => {
         if (settled || this.activeSubmissionClaim?.claim !== claim) return;
         this.activeSubmissionClaim.phase = "adopted";
-        this.activeSubmissionClaim.targetAdoption = replacementDraft === undefined ? {} : { replacementDraft };
+        this.activeSubmissionClaim.targetAdoption =
+          replacementDraft === undefined ? { targetThreadId } : { targetThreadId, replacementDraft };
       },
       settle: (outcome, replacementDraft) => {
         if (settled) return;
@@ -414,7 +415,7 @@ export class ChatComposerController {
     this.observedPanelTarget = panelTarget;
     this.observedDraft = state.composer.draft;
 
-    if (activeClaim?.targetAdoption) {
+    if (activeClaim?.targetAdoption?.targetThreadId === panelThreadId(state)) {
       activeClaim.panelTarget = panelTarget;
       const { replacementDraft } = activeClaim.targetAdoption;
       activeClaim.targetAdoption = null;

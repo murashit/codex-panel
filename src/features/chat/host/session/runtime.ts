@@ -39,6 +39,7 @@ interface ChatPanelSessionRuntimeHost {
   resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
+  activatePersistentThread: (threadId: string) => Promise<void>;
 }
 
 export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
@@ -179,6 +180,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     lifecycle: threadLifecycle,
     notifyActiveThreadIdentityChanged,
     navigation,
+    activatePersistentThread: host.activatePersistentThread,
   });
   const reconnectHost = {
     stateStore,

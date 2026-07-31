@@ -251,6 +251,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   private reattachWorkspaceViews(runtime: CodexExecutionRuntime): void {
     for (const view of this.chatRuntimeViews()) runtime.attachChatView(view);
     for (const view of this.threadsViews()) runtime.attachThreadsView(view);
+    this.panels.scheduleWorkspacePanelReconcile();
   }
 
   private currentExecutionRuntime(): CodexExecutionRuntime {
@@ -268,7 +269,6 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
         openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
         openThreadFromPanel: (threadId, originViewId, originSwitchable) =>
           this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
-        focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
         threadPanelIsBusy: (threadId) => this.threadPanelIsBusy(threadId),
         openTurnDiff: (state) => this.openTurnDiff(state),
         openSideChat: (sourceThreadId, sourceThreadTitle, initialMessage) =>

@@ -114,7 +114,7 @@ describe("CodexChatView workspace restoration", () => {
     expect(requestMethods(client)).not.toContain("thread/resume");
     expect(requestMethods(client)).not.toContain("thread/turns/list");
 
-    await view.surface.focusThread("thread-1");
+    await view.surface.activateThread("thread-1");
 
     expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
     expect(client.request).toHaveBeenCalledWith(
@@ -129,7 +129,7 @@ describe("CodexChatView workspace restoration", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.surface.openThread("thread-1");
+    await view.surface.activateThread("thread-1");
     view.surface.setComposerText("stale draft");
 
     await view.setState({ threadId: "thread-2", threadTitle: "Restored thread 2" }, {} as never);
@@ -216,7 +216,7 @@ describe("CodexChatView workspace restoration", () => {
     await view.onOpen();
 
     expect(requestMethods(client)).not.toContain("thread/resume");
-    await view.surface.focusThread("thread-1");
+    await view.surface.activateThread("thread-1");
 
     expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
     expect(client.request).toHaveBeenCalledWith(
@@ -235,13 +235,13 @@ describe("CodexChatView workspace restoration", () => {
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await view.onOpen();
-    const firstHydration = view.surface.focusThread("thread-1");
+    const firstHydration = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
       expectRequestTimes(client, "thread/resume", 1);
     });
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
-    const secondHydration = view.surface.focusThread("thread-1");
+    const secondHydration = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
       expectRequestTimes(client, "thread/resume", 2);
     });
@@ -300,7 +300,7 @@ describe("CodexChatView workspace restoration", () => {
     await view.onOpen();
     expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
 
-    await view.surface.openThread("thread-1");
+    await view.surface.activateThread("thread-1");
     notifyPanelActivityChanged.mockClear();
 
     view.surface.setComposerText("hello");

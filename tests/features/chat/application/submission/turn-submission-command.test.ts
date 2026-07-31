@@ -49,7 +49,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     },
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
     startThread: vi.fn().mockImplementation(async (_preview, options) => {
-      options?.beforeActivate?.();
+      options?.adoptPanelTarget?.("thread");
       resumeThread(stateStore, options?.preservePendingSubmissionId);
       return { kind: "created-activated", threadId: "thread" };
     }),
@@ -266,7 +266,6 @@ describe("TurnSubmissionCommand", () => {
 
   it("hands an owned first-turn claim across the thread activation boundary", async () => {
     const { host } = createHost();
-    const markAdopted = vi.fn();
     const adoptPanelTarget = vi.fn();
 
     await createTurnSubmissionCommand(host).sendTurnText({
@@ -275,14 +274,13 @@ describe("TurnSubmissionCommand", () => {
         text: "first message",
         inputSnapshot: {} as never,
         isCurrent: vi.fn(() => true),
-        markAdopted,
+        markAdopted: vi.fn(),
         adoptPanelTarget,
         settle: vi.fn(),
       },
     });
 
-    expect(markAdopted).toHaveBeenCalled();
-    expect(adoptPanelTarget).toHaveBeenCalledOnce();
+    expect(adoptPanelTarget).toHaveBeenCalledWith("thread");
   });
 
   it("replaces a pending web submission when starting a turn", async () => {

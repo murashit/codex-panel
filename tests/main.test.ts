@@ -84,7 +84,7 @@ describe("CodexPanelPlugin lifecycle", () => {
     });
 
     await plugin.onload();
-    const hydrate = vi.spyOn((panelLeaf.view as CodexChatView).surface, "hydrateRestoredThread").mockResolvedValue(undefined);
+    const hydrate = vi.spyOn((panelLeaf.view as CodexChatView).surface, "activateThread").mockResolvedValue(undefined);
     const handler = activeLeafHandlers.at(0);
     if (!handler) throw new Error("Expected active leaf handler to be registered.");
     handler(panelLeaf);
@@ -105,12 +105,51 @@ describe("CodexPanelPlugin lifecycle", () => {
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(activeLeaf);
 
     await plugin.onload();
-    const hydrate = vi.spyOn(view.surface, "hydrateRestoredThread").mockResolvedValue(undefined);
+    const hydrate = vi.spyOn(view.surface, "activateThread").mockResolvedValue(undefined);
     await vi.advanceTimersByTimeAsync(0);
 
     await waitForAsyncWork(() => {
       expect(activeLeaf.loadIfDeferred).toHaveBeenCalledOnce();
       expect(hydrate).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("repairs duplicate reattached thread panels before hydrating the owner", async () => {
+    vi.useFakeTimers();
+    const firstLeaf = leaf();
+    const duplicateLeaf = leaf();
+    const firstView = chatView(CodexChatView, firstLeaf);
+    const duplicateView = chatView(CodexChatView, duplicateLeaf);
+    firstLeaf.view = firstView;
+    duplicateLeaf.view = duplicateView;
+    const plugin = await pluginWithLeaves([firstLeaf, duplicateLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(firstLeaf);
+
+    await plugin.onload();
+    vi.spyOn(firstView.surface, "openPanelSnapshot").mockReturnValue({
+      viewId: "first",
+      threadId: "thread-1",
+      turnBusy: false,
+      pending: false,
+      hasComposerDraft: false,
+      connected: false,
+    });
+    vi.spyOn(duplicateView.surface, "openPanelSnapshot").mockReturnValue({
+      viewId: "duplicate",
+      threadId: "thread-1",
+      turnBusy: false,
+      pending: false,
+      hasComposerDraft: false,
+      connected: false,
+    });
+    const firstHydrate = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(undefined);
+    const duplicateHydrate = vi.spyOn(duplicateView.surface, "activateThread").mockResolvedValue(undefined);
+    await vi.advanceTimersByTimeAsync(0);
+
+    await waitForAsyncWork(() => {
+      expect(firstHydrate).toHaveBeenCalledOnce();
+      expect(duplicateLeaf.detach).toHaveBeenCalledOnce();
+      expect(duplicateHydrate).not.toHaveBeenCalled();
     });
   });
 });

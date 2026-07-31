@@ -4,7 +4,7 @@ import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/metrics
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import type { HistoryController, ThreadHistoryPage } from "../../../../../src/features/chat/application/threads/history-controller";
+import { HistoryController, type ThreadHistoryPage } from "../../../../../src/features/chat/application/threads/history-controller";
 import {
   createResumeCommand,
   type ResumeCommandHost,
@@ -54,7 +54,6 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     recordResumedThread: vi.fn(),
     addSystemMessage: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
-    focusThreadInOpenView: vi.fn().mockResolvedValue(false),
     ...overrides,
     effects: overrides.effects ?? { resumeThread },
     ensureConnected: overrides.ensureConnected ?? vi.fn().mockResolvedValue(true),
@@ -71,30 +70,11 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
 }
 
 describe("ResumeCommand", () => {
-  it("focuses an existing owner instead of resuming in this panel", async () => {
-    const focusThreadInOpenView = vi.fn().mockResolvedValue(true);
-    const { commands, host, resumeThread } = createActions(undefined, { focusThreadInOpenView });
-
-    expect(await commands.resumeThread("thread")).toBe(false);
-    expect(focusThreadInOpenView).toHaveBeenCalledWith("thread");
-    expect(host.ensureConnected).not.toHaveBeenCalled();
-    expect(resumeThread).not.toHaveBeenCalled();
-  });
-
-  it("resumes directly after the workspace coordinator resolves thread ownership", async () => {
-    const focusThreadInOpenView = vi.fn().mockResolvedValue(true);
-    const { commands, host, resumeThread } = createActions(undefined, { focusThreadInOpenView });
-
-    expect(await commands.resumeThread("thread", undefined, { ownerResolved: true })).toBe(true);
-    expect(focusThreadInOpenView).not.toHaveBeenCalled();
-    expect(host.ensureConnected).toHaveBeenCalledOnce();
-    expect(resumeThread).toHaveBeenCalledWith("thread");
-  });
-
   it("resumes the thread and loads its latest history", async () => {
     const { commands, host, loadLatest, resumeThread, stateStore } = createActions();
 
-    await commands.resumeThread("thread");
+    const resumed = await commands.resumeThread("thread");
+    await resumed?.hydrate();
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
     expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
@@ -110,34 +90,25 @@ describe("ResumeCommand", () => {
     const response = activation("thread", { initialHistoryPage });
     const { commands, applyLatestPage, loadLatest } = createActions(response);
 
-    await commands.resumeThread("thread");
+    const resumed = await commands.resumeThread("thread");
+    await resumed?.hydrate();
 
     expect(applyLatestPage).toHaveBeenCalledWith("thread", initialHistoryPage);
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
-  it("commits target adoption before waiting for history hydration", async () => {
-    const history = deferred<void>();
-    const onAdopted = vi.fn();
-    const { commands, loadLatest } = createActions(undefined, {
-      history: {
-        loadLatest: vi.fn(() => history.promise),
-        applyLatestPage: vi.fn(),
-        invalidate: vi.fn(),
-      } as unknown as HistoryController,
+  it("does not publish completion work after its activation is superseded", async () => {
+    const { commands, host, stateStore } = createActions();
+    host.history = new HistoryController({
+      stateStore,
+      source: { readHistoryPage: vi.fn().mockResolvedValue(historyPage([message("stale", "stale", "assistant")], null)) },
+      addSystemMessage: host.addSystemMessage,
+      showLatestPageAtBottom: vi.fn(),
+      setThreadTurnPresence: vi.fn(),
     });
-
-    const resuming = commands.resumeThread("thread", undefined, { onAdopted });
-    await vi.waitFor(() => expect(onAdopted).toHaveBeenCalledOnce());
-
-    expect(loadLatest).not.toHaveBeenCalled();
-    history.resolveAndFlush(undefined);
-    await expect(resuming).resolves.toBe(true);
-  });
-
-  it("announces target adoption only when resume changes the panel target", async () => {
-    const sameTarget = createActions(activation("thread"));
-    sameTarget.stateStore.dispatch({
+    const activation = await commands.resumeThread("thread");
+    host.resumeWork.begin("other");
+    stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
@@ -145,24 +116,18 @@ describe("ResumeCommand", () => {
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
-      thread: panelThread("thread"),
+      thread: panelThread("other"),
       model: null,
       reasoningEffort: null,
       serviceTier: null,
       approvalsReviewer: null,
     });
-    const sameTargetBeforeActivate = vi.fn();
+    const streamBeforeHydration = stateStore.getState().threadStream;
 
-    await sameTarget.commands.resumeThread("thread", undefined, { beforeActivate: sameTargetBeforeActivate });
+    await expect(activation?.hydrate()).resolves.toBe(false);
 
-    expect(sameTargetBeforeActivate).not.toHaveBeenCalled();
-
-    const differentTarget = createActions(activation("other"));
-    const differentTargetBeforeActivate = vi.fn();
-
-    await differentTarget.commands.resumeThread("other", undefined, { beforeActivate: differentTargetBeforeActivate });
-
-    expect(differentTargetBeforeActivate).toHaveBeenCalledOnce();
+    expect(stateStore.getState().threadStream).toEqual(streamBeforeHydration);
+    expect(host.syncThreadGoal).not.toHaveBeenCalled();
   });
 
   it("does not change active thread when the resume port has no snapshot", async () => {
@@ -190,9 +155,11 @@ describe("ResumeCommand", () => {
 
     const firstResume = commands.resumeThread("first");
     await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
-    await expect(commands.resumeThread("second")).resolves.toBe(true);
+    const secondResume = await commands.resumeThread("second");
+    expect(secondResume).not.toBeNull();
+    await expect(secondResume?.hydrate()).resolves.toBe(true);
     await firstConnection.resolveAndFlush(true);
-    await expect(firstResume).resolves.toBe(false);
+    await expect(firstResume).resolves.toBeNull();
 
     expect(resumeThread).toHaveBeenCalledOnce();
     expect(resumeThread).toHaveBeenCalledWith("second");
@@ -229,7 +196,8 @@ describe("ResumeCommand", () => {
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
     const { commands, loadLatest, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await commands.resumeThread("thread");
+    const resumed = await commands.resumeThread("thread");
+    await resumed?.hydrate();
 
     expect(recoverTokenUsageFromRollout).toHaveBeenCalledWith("/tmp/rollout.jsonl");
     expect(loadLatest).toHaveBeenCalledWith("thread");
@@ -247,7 +215,8 @@ describe("ResumeCommand", () => {
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
     const { commands, stateStore } = createActions(first, { recoverTokenUsageFromRollout });
 
-    await commands.resumeThread("thread");
+    const resumed = await commands.resumeThread("thread");
+    await resumed?.hydrate();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -275,7 +244,8 @@ describe("ResumeCommand", () => {
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
     const { commands, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await commands.resumeThread("thread");
+    const resumed = await commands.resumeThread("thread");
+    await resumed?.hydrate();
     stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage: tokenUsageFixture(99) });
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
@@ -288,7 +258,8 @@ describe("ResumeCommand", () => {
     const recoverTokenUsageFromRollout = vi.fn().mockRejectedValue(new Error("read failed"));
     const { commands, host, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await commands.resumeThread("thread");
+    const resumed = await commands.resumeThread("thread");
+    await resumed?.hydrate();
     await Promise.resolve();
 
     expect(activeThreadState(stateStore.getState())?.tokenUsage).toBeNull();

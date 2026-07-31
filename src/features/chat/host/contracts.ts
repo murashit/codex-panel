@@ -51,7 +51,6 @@ export interface WorkspacePanels {
   openThreadInNewView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
-  focusThreadInOpenView(threadId: string): Promise<boolean>;
   threadPanelIsBusy(threadId: string): boolean;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
   notifyPanelActivityChanged(): void;
@@ -132,15 +131,9 @@ interface ChatWorkspacePanelOperationOptions {
   focus?: boolean;
 }
 
-interface ChatWorkspaceThreadOperationOptions extends ChatWorkspacePanelOperationOptions {
-  ownerResolved?: boolean;
-}
-
 export interface ChatWorkspacePanelSurface {
   openPanelSnapshot(): ChatWorkspacePanelSnapshot;
-  openThread(threadId: string, options?: ChatWorkspaceThreadOperationOptions): Promise<void>;
-  focusThread(threadId?: string | null, options?: ChatWorkspaceThreadOperationOptions): Promise<void>;
-  hydrateRestoredThread(): Promise<void>;
+  activateThread(threadId?: string, options?: ChatWorkspacePanelOperationOptions): Promise<void>;
   focusComposer(options?: { force?: boolean }): void;
   connect(): Promise<void>;
   startNewThread(options?: ChatWorkspacePanelOperationOptions): Promise<void>;

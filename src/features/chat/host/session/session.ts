@@ -29,6 +29,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   private observedPanelActivity: PanelActivity | null = null;
   private unsubscribePanelActivity: (() => void) | null = null;
   private pendingRuntimeRestore: ChatPanelRuntimeSnapshot | null;
+  private pendingPersistentActivation: { threadId: string; promise: Promise<boolean> } | null = null;
   private pendingEphemeralSource: { threadId: string; title: string | null } | null = null;
 
   constructor(
@@ -40,7 +41,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.runtime = this.createSessionRuntime();
     if (snapshot) {
       this.applyViewState(snapshot.viewState);
-      if (!snapshot.ephemeralSource) this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
     }
   }
 
@@ -79,7 +79,9 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   applyViewState(state: unknown): void {
     const restoredState = parseChatPanelViewState(state);
+    this.reconcilePendingPersistentRuntimeTarget(restoredState.kind === "thread" ? restoredState.threadId : null);
     this.runtime.commands.invalidateThreadWork();
+    this.pendingPersistentActivation = null;
     this.clearPendingEphemeralIntent();
     if (restoredState.kind === "thread") {
       this.stateStore.dispatch({
@@ -102,7 +104,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   runtimeSnapshot(): ChatPanelRuntimeSnapshot {
     const lifetime = activeThreadState(this.state)?.lifetime;
-    const composer = this.runtime.composer.controller.runtimeSnapshot();
+    const composer = this.pendingRuntimeRestore?.composer ?? this.runtime.composer.controller.runtimeSnapshot();
     return {
       viewState: this.persistedState(),
       composer,
@@ -129,35 +131,62 @@ export class ChatPanelSession implements ChatPanelHandle {
     };
   }
 
-  async openThread(threadId: string, options: { focus?: boolean; ownerResolved?: boolean } = {}): Promise<void> {
-    this.clearPendingEphemeralIntent();
-    const intent = this.resumeWork.begin(threadId);
-    const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
-    if (!preparation || !this.resumeWork.isCurrent(intent)) return;
-    if (
-      !(await this.runtime.thread.resume.resumeThread(threadId, intent, {
-        ...(options.ownerResolved ? { ownerResolved: true } : {}),
-        onAdopted: () => {
-          this.runtime.thread.navigation.commitPersistentNavigation(preparation);
-        },
-      })) ||
-      !this.resumeWork.isCurrent(intent)
-    )
-      return;
-    if (options.focus !== false) this.focusComposer();
-  }
-
-  async focusThread(threadId: string | null = null, options: { focus?: boolean; ownerResolved?: boolean } = {}): Promise<void> {
+  async activateThread(threadId?: string, options: { focus?: boolean } = {}): Promise<void> {
     const restoredThread = awaitingResumeThreadState(this.state);
     const restoredThreadId = restoredThread?.threadId ?? null;
-    if ((threadId && this.runtime.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
-      await this.ensureRestoredThreadLoaded(options.ownerResolved ? { ownerResolved: true } : undefined);
+    const targetThreadId = threadId ?? restoredThreadId;
+    if (!targetThreadId) {
+      if (options.focus !== false) this.focusComposer();
+      return;
     }
-    if (options.focus !== false) this.focusComposer();
+
+    this.clearPendingEphemeralIntent();
+    const pending = this.pendingPersistentActivation;
+    if (pending?.threadId === targetThreadId) {
+      const activated = await pending.promise;
+      if (activated && options.focus !== false) this.focusComposer();
+      return;
+    }
+    if (threadId === undefined && pending) {
+      if (options.focus !== false) this.focusComposer();
+      return;
+    }
+    if (activeThreadState(this.state)?.id === targetThreadId) {
+      if (pending) {
+        this.resumeWork.begin(targetThreadId);
+        this.pendingPersistentActivation = null;
+      }
+      if (options.focus !== false) this.focusComposer();
+      return;
+    }
+
+    const activation = {
+      threadId: targetThreadId,
+      promise: this.activatePersistentThread(targetThreadId),
+    };
+    this.pendingPersistentActivation = activation;
+    let activated: boolean;
+    try {
+      activated = await activation.promise;
+    } finally {
+      if (this.pendingPersistentActivation === activation) this.pendingPersistentActivation = null;
+    }
+    if (activated && options.focus !== false) this.focusComposer();
   }
 
-  async hydrateRestoredThread(): Promise<void> {
-    await this.ensureRestoredThreadLoaded();
+  private async activatePersistentThread(threadId: string): Promise<boolean> {
+    if (this.runtime.thread.restoration.isPending(threadId)) {
+      return this.ensureRestoredThreadLoaded();
+    }
+    const intent = this.resumeWork.begin(threadId);
+    const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
+    if (!preparation || !this.resumeWork.isCurrent(intent)) return false;
+    const activation = await this.runtime.thread.resume.resumeThread(threadId, intent);
+    if (!activation) return false;
+    this.reconcilePendingPersistentRuntimeTarget(threadId);
+    this.runtime.thread.navigation.commitPersistentNavigation(preparation);
+    if (!(await activation.hydrate()) || !this.resumeWork.isCurrent(intent)) return false;
+    return true;
   }
 
   focusComposer(options: { force?: boolean } = {}): void {
@@ -212,6 +241,10 @@ export class ChatPanelSession implements ChatPanelHandle {
   async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
     this.clearPendingEphemeralIntent();
     await this.runtime.commands.startNewThread(options);
+    if (panelThreadId(this.state) === null) {
+      this.pendingPersistentActivation = null;
+      this.reconcilePendingPersistentRuntimeTarget(null);
+    }
   }
 
   async openSideChat(
@@ -219,6 +252,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     options: { focus?: boolean } = {},
   ): Promise<boolean> {
     const intent = this.resumeWork.begin(null);
+    this.pendingPersistentActivation = null;
     const pendingSource = { threadId: input.sourceThreadId, title: input.sourceThreadTitle };
     this.setPendingEphemeralSource(pendingSource);
     try {
@@ -226,6 +260,7 @@ export class ChatPanelSession implements ChatPanelHandle {
         isCurrent: () => this.resumeWork.isCurrent(intent),
       });
       if (!opened) return false;
+      this.reconcilePendingPersistentRuntimeTarget(null);
       if (options.focus !== false) this.focusComposer();
       const initialMessage = input.initialMessage?.trim();
       if (initialMessage) {
@@ -285,9 +320,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       });
       return;
     }
-    if (parseChatPanelViewState(snapshot.viewState).kind === "thread") {
-      void this.ensureRestoredThreadLoaded();
-    }
+    this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
   }
 
   private viewWindow(): Window {
@@ -343,10 +376,19 @@ export class ChatPanelSession implements ChatPanelHandle {
     return this.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [];
   }
 
-  private ensureRestoredThreadLoaded(options: { ownerResolved?: boolean } = {}): Promise<boolean> {
+  private async ensureRestoredThreadLoaded(): Promise<boolean> {
     return this.runtime.thread.restoration.ensureLoaded(async (threadId) => {
-      await this.runtime.thread.resume.resumeThread(threadId, undefined, options.ownerResolved ? { ownerResolved: true } : undefined);
+      const activation = await this.runtime.thread.resume.resumeThread(threadId);
+      await activation?.hydrate();
     });
+  }
+
+  private reconcilePendingPersistentRuntimeTarget(threadId: string | null): void {
+    const snapshot = this.pendingRuntimeRestore;
+    if (!snapshot || snapshot.ephemeralSource) return;
+    const restoredViewState = parseChatPanelViewState(snapshot.viewState);
+    const restoredThreadId = restoredViewState.kind === "thread" ? restoredViewState.threadId : null;
+    if (restoredThreadId !== threadId) this.pendingRuntimeRestore = null;
   }
 
   private createSessionRuntime(): ReturnType<typeof createChatPanelSessionRuntime> {
@@ -357,6 +399,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
+      activatePersistentThread: (threadId) => this.activateThread(threadId, { focus: false }),
     });
   }
 }

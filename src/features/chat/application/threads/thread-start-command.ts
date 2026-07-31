@@ -4,6 +4,7 @@ import type { ThreadActivationSnapshot } from "../../../../domain/threads/activa
 import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
+import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { type EffectOutcome, effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -36,7 +37,11 @@ export interface ThreadStartCommandHost {
 export interface ThreadStartCommand {
   startThread: (
     preview?: string,
-    options?: { syncGoal?: boolean; preservePendingSubmissionId?: string; beforeActivate?: () => void },
+    options?: {
+      syncGoal?: boolean;
+      preservePendingSubmissionId?: string;
+      adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
+    },
   ) => Promise<ThreadStartOutcome>;
 }
 
@@ -49,7 +54,11 @@ export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadSt
 async function startThread(
   host: ThreadStartCommandHost,
   preview?: string,
-  options: { syncGoal?: boolean; preservePendingSubmissionId?: string; beforeActivate?: () => void } = {},
+  options: {
+    syncGoal?: boolean;
+    preservePendingSubmissionId?: string;
+    adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
+  } = {},
 ): Promise<ThreadStartOutcome> {
   const requestState = host.stateStore.getState();
   const panelTarget = capturePanelTargetLease(requestState);
@@ -91,7 +100,7 @@ async function startThread(
     expectedPanelTargetRevision: panelTarget.revision,
     ...(options.preservePendingSubmissionId ? { preservePendingSubmissionId: options.preservePendingSubmissionId } : {}),
   });
-  options.beforeActivate?.();
+  options.adoptPanelTarget?.(action.thread.id);
   const applied = host.stateStore.dispatch(action);
   if (activeThreadId(applied) !== action.thread.id) {
     return { kind: "created-not-activated", threadId: action.thread.id };

@@ -1,6 +1,7 @@
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, activeThreadState, type ChatConnectionPhase, panelThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import type { ThreadResumeActivation } from "../threads/resume-command";
 
 const STATUS_RECONNECTING = "Reconnecting...";
 
@@ -10,7 +11,7 @@ export interface ChatReconnectCommandHost {
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
   ensureConnected: () => Promise<void>;
   isConnected: () => boolean;
-  resumeThread: (threadId: string) => Promise<boolean>;
+  resumeThread: (threadId: string) => Promise<ThreadResumeActivation | null>;
   addSystemMessage: (text: string) => void;
 }
 
@@ -47,7 +48,8 @@ async function reconnectPanel(host: ChatReconnectCommandHost, options: Reconnect
   if (!host.isConnected() || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
   if (!threadId) return true;
   try {
-    if (!(await host.resumeThread(threadId))) return false;
+    const activation = await host.resumeThread(threadId);
+    if (!activation || !(await activation.hydrate())) return false;
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
     return activeThreadId(host.stateStore.getState()) === threadId;
   } catch (error) {

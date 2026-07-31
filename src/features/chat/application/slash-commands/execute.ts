@@ -28,9 +28,9 @@ import { parseThreadTitleArgument, type ThreadCommandTarget, type ThreadTitleCom
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
 export interface SlashCommandExecutionPorts {
-  startNewThread: (options?: { beforeActivate?: () => void }) => Promise<void>;
-  startThreadForGoal: (objective: string, options?: { beforeActivate?: () => void }) => Promise<string | null>;
-  resumeThread: (threadId: string, options?: { beforeActivate?: () => void }) => Promise<void>;
+  startNewThread: () => Promise<void>;
+  startThreadForGoal: (objective: string, adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"]) => Promise<string | null>;
+  resumeThread: (threadId: string) => Promise<void>;
   threadCommands: {
     forkThread: ThreadCommands["forkThread"];
     rollbackThread: ThreadCommands["rollbackThread"];
@@ -107,10 +107,8 @@ export async function executeSlashCommand(
 
   switch (command) {
     case "clear":
-      context.submission.markAdopted();
-      await context.startNewThread({
-        beforeActivate: context.submission.adoptPanelTarget,
-      });
+      context.submission.adoptPanelTarget(null);
+      await context.startNewThread();
       return;
     case "resume": {
       const query = parseThreadOnlyArgs(args, { allowEmpty: true });
@@ -123,16 +121,16 @@ export async function executeSlashCommand(
         context.addSystemMessage(thread.message);
         return;
       }
-      context.submission.markAdopted();
-      await context.resumeThread(thread.thread.id, {
-        beforeActivate: context.submission.adoptPanelTarget,
-      });
+      context.submission.adoptPanelTarget(thread.thread.id);
+      await context.resumeThread(thread.thread.id);
       return;
     }
     case "reconnect":
       context.submission.markAdopted();
       await context.reconnect({
-        beforeTargetReset: context.submission.adoptPanelTarget,
+        beforeTargetReset: () => {
+          context.submission.adoptPanelTarget(null);
+        },
       });
       return;
     case "refer": {
@@ -228,7 +226,11 @@ export async function executeSlashCommand(
       await context.threadCommands.archiveThread(
         thread.thread.id,
         undefined,
-        thread.thread.id === context.activeThreadId ? context.submission.adoptPanelTarget : undefined,
+        thread.thread.id === context.activeThreadId
+          ? () => {
+              context.submission.adoptPanelTarget(null);
+            }
+          : undefined,
       );
       return;
     }
@@ -396,12 +398,10 @@ async function executeGoalCommand(args: string, context: SlashCommandExecutionCo
   }
   const goal = context.goals.activeGoal();
   if (parsed.kind === "set") {
-    context.submission.markAdopted();
-    const threadId =
-      context.activeThreadId ??
-      (await context.startThreadForGoal(parsed.objective, {
-        beforeActivate: context.submission.adoptPanelTarget,
-      }));
+    if (context.activeThreadId) {
+      context.submission.markAdopted();
+    }
+    const threadId = context.activeThreadId ?? (await context.startThreadForGoal(parsed.objective, context.submission.adoptPanelTarget));
     if (!threadId) {
       context.addSystemMessage("No active thread for goal management.");
       return;

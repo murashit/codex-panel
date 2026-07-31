@@ -437,7 +437,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
         ? { ...state.pendingSubmission, targetThreadId: action.thread.id }
         : null,
     requests: initialChatRequestState(),
-    composer: initialComposerState(),
+    composer: panelThreadId(state) === action.thread.id ? state.composer : initialComposerState(),
     ui: initialUiState(),
   });
 }

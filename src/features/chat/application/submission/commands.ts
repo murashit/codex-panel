@@ -2,7 +2,7 @@ import type { CodexInput } from "../../../../domain/chat/input";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
-import type { ComposerSubmissionClaim } from "../composer/submission-claim";
+import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
@@ -42,8 +42,8 @@ export interface SubmissionCommandsContext {
   };
   thread: {
     ensureRestoredThreadLoaded: () => Promise<boolean>;
-    startNewThread: (options?: { beforeActivate?: () => void }) => Promise<void>;
-    selectThread: (threadId: string, options?: { beforeActivate?: () => void }) => Promise<void>;
+    startNewThread: () => Promise<void>;
+    selectThread: (threadId: string) => Promise<void>;
     notifyIdentityChanged: () => void;
     resetTurnPresence: (hadTurns: boolean) => void;
     openSideChat?: (threadId: string, message?: string) => Promise<void>;
@@ -72,7 +72,11 @@ export interface SubmissionCommandsRefs {
 interface SubmissionThreadStarter {
   startThread: (
     preview?: string,
-    options?: { syncGoal?: boolean; preservePendingSubmissionId?: string; beforeActivate?: () => void },
+    options?: {
+      syncGoal?: boolean;
+      preservePendingSubmissionId?: string;
+      adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
+    },
   ) => Promise<ThreadStartOutcome>;
 }
 
@@ -110,8 +114,8 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
     referThread,
     readWebUrl,
     startNewThread: thread.startNewThread,
-    startThreadForGoal: (objective, options) =>
-      startThreadForGoal(refs.threadStartCommand, objective, status.addSystemMessage, options?.beforeActivate),
+    startThreadForGoal: (objective, adoptPanelTarget) =>
+      startThreadForGoal(refs.threadStartCommand, objective, status.addSystemMessage, adoptPanelTarget),
     resumeThread: thread.selectThread,
     threadCommands: refs.threadCommands,
     reconnect: refs.reconnectCommand,
@@ -183,11 +187,11 @@ async function startThreadForGoal(
   starter: SubmissionThreadStarter,
   objective: string,
   addSystemMessage: (message: string) => void,
-  beforeActivate?: () => void,
+  adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"],
 ): Promise<string | null> {
   const outcome = await starter.startThread(objective, {
     syncGoal: false,
-    ...(beforeActivate ? { beforeActivate } : {}),
+    ...(adoptPanelTarget ? { adoptPanelTarget } : {}),
   });
   if (outcome.kind === "created-not-activated") {
     addSystemMessage(

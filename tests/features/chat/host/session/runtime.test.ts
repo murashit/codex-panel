@@ -117,7 +117,9 @@ describe("chat panel session runtime actions", () => {
     });
     vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockResolvedValue(undefined);
     vi.spyOn(runtime.connection.manager, "isConnected").mockReturnValue(true);
-    const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue(true);
+    const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue({
+      hydrate: vi.fn().mockResolvedValue(true),
+    });
 
     runtime.shell.parts.toolbar.actions.status.connect();
 
@@ -208,6 +210,7 @@ describe("chat panel session runtime actions", () => {
       resumeWork,
       threadStreamScrollBinding,
       getClosing: () => false,
+      activatePersistentThread: vi.fn().mockResolvedValue(undefined),
     });
     return { runtime, stateStore, resumeWork, deferredTasks, threadStreamScrollBinding };
   }
@@ -282,7 +285,6 @@ describe("chat panel session runtime actions", () => {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
           openThreadInAvailableView: overrides.plugin?.workspace?.openThreadInAvailableView ?? vi.fn().mockResolvedValue(undefined),
           threadPanelIsBusy: vi.fn(() => false),
-          focusThreadInOpenView: vi.fn().mockResolvedValue(false),
           openTurnDiff: vi.fn().mockResolvedValue(undefined),
           notifyPanelActivityChanged: vi.fn(),
           ...overrides.plugin?.workspace,

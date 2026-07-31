@@ -121,7 +121,8 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", "", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("latest", { beforeActivate: expect.any(Function) });
+    expect(ctx.submission.adoptPanelTarget).toHaveBeenCalledOnce();
+    expect(ctx.resumeThread).toHaveBeenCalledWith("latest");
   });
 
   it("reconnects the panel for /reconnect", async () => {
@@ -139,7 +140,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", "Beta", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-beta", { beforeActivate: expect.any(Function) });
+    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-beta");
 
     await executeSlashCommand("resume", "thread-alpha", ctx);
     expect(ctx.resumeThread).toHaveBeenCalledOnce();
@@ -158,7 +159,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", `"${completedTitle}"`, ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("target", { beforeActivate: expect.any(Function) });
+    expect(ctx.resumeThread).toHaveBeenCalledWith("target");
 
     const directInput = context({ listedThreads: [other, target] });
     await executeSlashCommand("resume", `"${completedTitle}"`, directInput);
@@ -173,7 +174,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", "Draft", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha", { beforeActivate: expect.any(Function) });
+    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha");
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -184,7 +185,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("resume", "alpha", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha", { beforeActivate: expect.any(Function) });
+    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha");
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Multiple matching threads: Alpha plan (thread-a), Older Alpha plan (thread-b)");
   });
 
@@ -466,7 +467,8 @@ describe("slash commands", () => {
 
     await executeSlashCommand("goal", "set Ship this", ctx);
 
-    expect(ctx.startThreadForGoal).toHaveBeenCalledWith("Ship this", { beforeActivate: expect.any(Function) });
+    expect(ctx.submission.adoptPanelTarget).not.toHaveBeenCalled();
+    expect(ctx.startThreadForGoal).toHaveBeenCalledWith("Ship this", ctx.submission.adoptPanelTarget);
     expect(ctx.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("No active thread for goal management.");
   });

@@ -323,7 +323,7 @@ describe("thread management commands", () => {
       position: { kind: "through-turn", turnId: "turn-3" },
     });
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.mutations.archiveThread));
     expect(host.applyThreadFact).not.toHaveBeenCalled();
   });
@@ -340,7 +340,7 @@ describe("thread management commands", () => {
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
     expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
     expect(host.addSystemMessage).toHaveBeenCalledWith("Forked the thread, but could not archive the previous version: archive failed");
@@ -449,7 +449,7 @@ describe("thread management commands", () => {
     archive.resolve(true);
     await pendingFork;
 
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
   });
 
@@ -551,7 +551,7 @@ describe("thread management commands", () => {
       deferGoalContinuation: true,
       runtime: { reasoningEffort: null, serviceTier: null },
     });
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Function));
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(host.setComposerText).toHaveBeenCalledWith("three");
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions(false));
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.mutations.archiveThread));
@@ -630,9 +630,8 @@ describe("thread management commands", () => {
 
   it("commits rollback cleanup from the adoption result", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    host.openThreadInCurrentPanel.mockImplementation(async (threadId, onAdopted) => {
+    host.openThreadInCurrentPanel.mockImplementation(async (threadId) => {
       adoptThread(host, threadId);
-      onAdopted();
       return { adopted: true };
     });
 
@@ -648,16 +647,14 @@ describe("thread management commands", () => {
     const adoptPanelTarget = vi.fn(() => {
       expect(activeThreadId(host.stateStore.getState())).toBe("source");
     });
-    host.openThreadInCurrentPanel.mockImplementation(async (threadId, onAdopted, beforeActivate) => {
-      beforeActivate?.();
+    host.openThreadInCurrentPanel.mockImplementation(async (threadId) => {
       adoptThread(host, threadId);
-      onAdopted();
       return { adopted: true };
     });
 
     await threadCommands(host).rollbackThread("source", { adoptPanelTarget });
 
-    expect(adoptPanelTarget).toHaveBeenCalledWith("three");
+    expect(adoptPanelTarget).toHaveBeenCalledWith("forked", "three");
     expect(host.setComposerText).not.toHaveBeenCalled();
   });
 
@@ -923,9 +920,8 @@ function hostMock({
     setStatus: vi.fn<ThreadCommandsHost["setStatus"]>(),
     setComposerText: vi.fn<ThreadCommandsHost["setComposerText"]>(),
     openThreadInNewView: vi.fn<ThreadCommandsHost["openThreadInNewView"]>().mockResolvedValue(undefined),
-    openThreadInCurrentPanel: vi.fn<ThreadCommandsHost["openThreadInCurrentPanel"]>().mockImplementation(async (threadId, onAdopted) => {
+    openThreadInCurrentPanel: vi.fn<ThreadCommandsHost["openThreadInCurrentPanel"]>().mockImplementation(async (threadId) => {
       adoptThread({ stateStore }, threadId);
-      onAdopted();
       return { adopted: true };
     }),
     applyThreadFact: vi.fn<ThreadCommandsHost["applyThreadFact"]>(),

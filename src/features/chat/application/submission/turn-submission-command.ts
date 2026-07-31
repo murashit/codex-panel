@@ -1,6 +1,6 @@
 import { type CodexInput, codexTextInput } from "../../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
-import type { ComposerSubmissionClaim } from "../composer/submission-claim";
+import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -27,7 +27,10 @@ export interface TurnSubmissionCommandHost {
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startThread: (
     preview?: string,
-    options?: { preservePendingSubmissionId?: string; beforeActivate?: () => void },
+    options?: {
+      preservePendingSubmissionId?: string;
+      adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
+    },
   ) => Promise<ThreadStartOutcome>;
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
@@ -116,7 +119,6 @@ async function sendTurnText(
         return await steerCurrentTurn(host, localItemIds, plan, prepared, request, panelTarget);
       case "start-thread-then-turn":
         if (!commitPendingRequest(host, request)) return false;
-        request.submissionClaim?.markAdopted();
         {
           const started = await startThreadForTurn(
             host,
@@ -251,11 +253,11 @@ async function startThreadForTurn(
   host: TurnSubmissionCommandHost,
   text: string,
   pendingSubmissionId?: string,
-  beforeActivate?: () => void,
+  adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"],
 ): Promise<ThreadStartOutcome> {
   const options = {
     ...(pendingSubmissionId ? { preservePendingSubmissionId: pendingSubmissionId } : {}),
-    ...(beforeActivate ? { beforeActivate } : {}),
+    ...(adoptPanelTarget ? { adoptPanelTarget } : {}),
   };
   const started = Object.keys(options).length > 0 ? await host.startThread(text, options) : await host.startThread(text);
   if (started.kind !== "created-activated") return started;

@@ -145,10 +145,11 @@ export class WorkspacePanelCoordinator {
 
   async openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void> {
     await this.runThreadPanelOperation(threadId, () => {
+      const origin = this.findPanelLeafByViewId(originViewId);
       const target =
         this.findOpenThreadPanelLeaf(threadId) ??
         this.findRestoredThreadPanelLeaf(threadId) ??
-        (originSwitchable ? this.findPanelLeafByViewId(originViewId) : null) ??
+        (originSwitchable ? origin : null) ??
         this.findIdleEmptyThreadPanelLeaf();
       return this.openThreadAtLeaf(target, threadId);
     });
@@ -158,14 +159,6 @@ export class WorkspacePanelCoordinator {
     await this.runThreadPanelOperation(threadId, () => {
       const target =
         this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId) ?? this.findCurrentThreadPanelLeaf();
-      return this.openThreadAtLeaf(target, threadId);
-    });
-  }
-
-  async focusThreadInOpenView(threadId: string): Promise<boolean> {
-    return this.runThreadPanelOperation(threadId, async () => {
-      const target = this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId);
-      if (!target) return false;
       return this.openThreadAtLeaf(target, threadId);
     });
   }
@@ -184,17 +177,6 @@ export class WorkspacePanelCoordinator {
 
   activeLeafChanged(leaf: WorkspaceLeaf | null): void {
     this.reconcileWorkspacePanels(leaf);
-  }
-
-  async focusOpenPanel(viewId: string, threadId: string | null = null): Promise<boolean> {
-    for (const leaf of this.panelLeaves()) {
-      if (!isAttachedChatView(leaf.view) || workspacePanelSurface(leaf.view).openPanelSnapshot().viewId !== viewId) continue;
-      const view = leaf.view;
-      const surface = workspacePanelSurface(view);
-      const focusing = surface.focusThread(threadId, { focus: false });
-      return this.completePanelOperation(leaf, view, focusing);
-    }
-    return false;
   }
 
   panelViews(): CodexChatView[] {
@@ -415,7 +397,7 @@ export class WorkspacePanelCoordinator {
     if (!this.panelStillOwnsView(leaf, view)) return null;
     const surface = workspacePanelSurface(view);
     await surface.connect();
-    await surface.focusThread(null, { focus: false });
+    await surface.activateThread(undefined, { focus: false });
     if (focus) this.focusOwnedPanel(leaf, view);
     return view;
   }
@@ -423,7 +405,6 @@ export class WorkspacePanelCoordinator {
   private async openThreadAtLeaf(leaf: WorkspaceLeaf | null, threadId: string): Promise<boolean> {
     if (!leaf) return this.openThreadInNewViewNow(threadId);
     const wasDeferred = !isAttachedChatView(leaf.view);
-    const existingThreadId = wasDeferred ? restoredThreadId(leaf) : null;
     if (wasDeferred) {
       await this.options.app.workspace.revealLeaf(leaf);
       if (!isAttachedChatView(leaf.view)) return false;
@@ -432,11 +413,7 @@ export class WorkspacePanelCoordinator {
     const view = leaf.view;
     if (!this.panelStillOwnsView(leaf, view)) return false;
     const surface = workspacePanelSurface(view);
-    const currentThreadId = existingThreadId ?? surface.openPanelSnapshot().threadId;
-    const opening =
-      currentThreadId === threadId
-        ? surface.focusThread(threadId, { focus: false, ownerResolved: true })
-        : surface.openThread(threadId, { focus: false, ownerResolved: true });
+    const opening = surface.activateThread(threadId, { focus: false });
     return this.completePanelOperation(leaf, view, opening, { reveal: !wasDeferred });
   }
 
@@ -446,7 +423,7 @@ export class WorkspacePanelCoordinator {
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return false;
     const surface = workspacePanelSurface(view);
-    const opening = surface.focusThread(threadId, { focus: false, ownerResolved: true });
+    const opening = surface.activateThread(threadId, { focus: false });
     return this.completePanelOperation(leaf, view, opening);
   }
 
@@ -513,7 +490,7 @@ export class WorkspacePanelCoordinator {
     }
     if (isAttachedChatView(leaf.view)) {
       this.recordLastFocusedPanel(leaf);
-      await workspacePanelSurface(leaf.view).hydrateRestoredThread();
+      await workspacePanelSurface(leaf.view).activateThread(undefined, { focus: false });
     }
   }
 

@@ -28,23 +28,10 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView({ requestSaveLayout });
 
-    await view.surface.openThread("thread-1");
+    await view.surface.activateThread("thread-1");
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
     expect(requestSaveLayout).toHaveBeenCalledTimes(1);
-  });
-
-  it("uses workspace-resolved ownership without looking up another panel owner", async () => {
-    const focusThreadInOpenView = vi.fn().mockResolvedValue(true);
-    const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView({ host: chatHost({ focusThreadInOpenView }) });
-
-    await view.surface.openThread("thread-1", { ownerResolved: true });
-
-    expect(focusThreadInOpenView).not.toHaveBeenCalled();
-    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1" }));
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
   });
 
   it("does not persist a temporary subagent panel target", async () => {
@@ -54,7 +41,7 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView();
 
-    await view.surface.openThread("child");
+    await view.surface.activateThread("child");
 
     expect(view.getState()).toEqual({ version: 1 });
   });
@@ -66,7 +53,7 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView();
 
-    await view.surface.openThread("child");
+    await view.surface.activateThread("child");
     connectionMockState().onExit?.();
 
     expect(view.getState()).toEqual({ version: 1 });
@@ -87,7 +74,7 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView();
 
-    await view.surface.openThread("child");
+    await view.surface.activateThread("child");
     connectionMockState().onNotification?.({
       method: "turn/started",
       params: {
@@ -105,7 +92,7 @@ describe("CodexChatView thread state", () => {
       },
     } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
-    await view.surface.openThread("other");
+    await view.surface.activateThread("other");
 
     const unsubscribeCall = client.request.mock.calls.findIndex(([method]) => method === "thread/unsubscribe");
     const otherResumeCall = client.request.mock.calls.findIndex(
@@ -130,7 +117,7 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView();
 
-    await view.surface.openThread("child");
+    await view.surface.activateThread("child");
     connectionMockState().onNotification?.({
       method: "turn/started",
       params: {
@@ -148,7 +135,7 @@ describe("CodexChatView thread state", () => {
       },
     } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
-    await view.surface.openThread("other");
+    await view.surface.activateThread("other");
 
     expect(requestMethods(client).filter((method) => method === "thread/unsubscribe")).toEqual([]);
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "child", turnBusy: true });
@@ -160,7 +147,7 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView({ requestSaveLayout });
 
-    await view.surface.openThread("thread-1");
+    await view.surface.activateThread("thread-1");
     await view.surface.startNewThread();
 
     expect(requestMethods(client)).not.toContain("thread/start");
@@ -177,8 +164,8 @@ describe("CodexChatView thread state", () => {
     await view.onOpen();
     const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus").mockImplementation(() => undefined);
 
-    await view.surface.openThread("thread-1");
-    await view.surface.focusThread("thread-1");
+    await view.surface.activateThread("thread-1");
+    await view.surface.activateThread("thread-1");
     await view.surface.startNewThread();
 
     expect(focus).toHaveBeenCalledTimes(3);
@@ -191,7 +178,7 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView({ requestSaveLayout });
 
-    await view.surface.openThread("thread-1");
+    await view.surface.activateThread("thread-1");
     view.surface.applyThreadUnavailable("thread-1");
 
     expect(view.getState()).toEqual({ version: 1 });
@@ -236,7 +223,7 @@ describe("CodexChatView thread state", () => {
     const view = await chatView({ host });
 
     await view.onOpen();
-    await view.surface.openThread("thread-1");
+    await view.surface.activateThread("thread-1");
     view.surface.setComposerText("keep this draft");
     const composer = composerElement(view);
     await waitForAsyncWork(() => {
@@ -263,7 +250,7 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView();
 
-    const opening = view.surface.openThread("thread-1");
+    const opening = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
       expect(client.request).toHaveBeenCalledWith(
         "thread/turns/list",
@@ -293,7 +280,7 @@ describe("CodexChatView thread state", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.surface.openThread("thread-1");
+    await view.surface.activateThread("thread-1");
 
     expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
     expect(requestMethods(client)).not.toContain("thread/turns/list");
@@ -314,11 +301,11 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView();
 
-    const firstOpen = view.surface.openThread("thread-1");
+    const firstOpen = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
       expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
     });
-    const secondOpen = view.surface.openThread("thread-2");
+    const secondOpen = view.surface.activateThread("thread-2");
     await waitForAsyncWork(() => {
       expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-2", cwd: "/vault" }));
     });
@@ -347,14 +334,14 @@ describe("CodexChatView thread state", () => {
     connectionMockState().client = client;
     const view = await chatView();
 
-    const firstOpen = view.surface.openThread("thread-1");
+    const firstOpen = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
       expect(client.request).toHaveBeenCalledWith(
         "thread/turns/list",
         expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
       );
     });
-    const secondOpen = view.surface.openThread("thread-2");
+    const secondOpen = view.surface.activateThread("thread-2");
     await waitForAsyncWork(() => {
       expect(client.request).toHaveBeenCalledWith(
         "thread/turns/list",
