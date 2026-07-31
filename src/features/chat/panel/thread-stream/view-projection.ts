@@ -2,6 +2,7 @@ import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
 import type { PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatRequestState } from "../../application/pending-requests/state";
+import { chatThreadStreamViewState } from "../../application/state/active-turn";
 import {
   type ThreadStreamRollbackCandidate,
   threadStreamActiveItems,
@@ -119,14 +120,15 @@ function threadStreamStateProjection(
   model: ChatPanelThreadStreamModel,
   dependencies: ChatThreadStreamDependencies,
 ): ThreadStreamStateProjection {
-  const canonicalItems = threadStreamItems(model.threadStream);
-  const pendingSteers = threadStreamPendingSteers(model.threadStream);
-  const stableItemsRaw = model.threadStream.activeSegment
+  const stream = chatThreadStreamViewState(model.threadStream, model.activeTurn);
+  const canonicalItems = threadStreamItems(stream);
+  const pendingSteers = threadStreamPendingSteers(stream);
+  const stableItemsRaw = model.activeTurn.activeSegment
     ? threadStreamStableItems(model.threadStream)
     : appendPendingDisplayItems(threadStreamStableItems(model.threadStream), pendingSteers, model.pendingSubmission);
-  const activeItemsRaw = model.threadStream.activeSegment
-    ? appendPendingDisplayItems(threadStreamActiveItems(model.threadStream), pendingSteers, model.pendingSubmission)
-    : threadStreamActiveItems(model.threadStream);
+  const activeItemsRaw = model.activeTurn.activeSegment
+    ? appendPendingDisplayItems(threadStreamActiveItems(stream), pendingSteers, model.pendingSubmission)
+    : threadStreamActiveItems(stream);
   const titleByThreadId = new Map(model.threads.map((thread) => [thread.id, threadDisplayTitle(thread)] as const));
   const items = resolvedReferenceTitles(appendPendingDisplayItems(canonicalItems, pendingSteers, model.pendingSubmission), titleByThreadId);
   const stableItems = resolvedReferenceTitles(stableItemsRaw, titleByThreadId);
@@ -139,22 +141,22 @@ function threadStreamStateProjection(
   };
   const workspaceRoot = dependencies.vaultPath;
   const subagentActivities = new Map<string, ActiveSubagentActivity>();
-  for (const [threadId, activity] of model.subagentActivity.byThreadId) {
+  for (const [threadId, activity] of model.activeTurn.subagents.byThreadId) {
     const preview = subagentActivityPreview(activity.latestItem, workspaceRoot);
     subagentActivities.set(threadId, {
       executionState: activity.executionState,
       messagePreview: preview,
     });
   }
-  const turnBusy = chatTurnBusy(model.turn);
+  const turnBusy = chatTurnBusy(model.activeTurn);
   const rollbackCandidate = !turnBusy && model.rollbackAllowed ? threadStreamRollbackCandidateFromItems(canonicalItems) : null;
   const forkCandidates = !turnBusy && model.forkAllowed ? forkCandidatesFromItems(canonicalItems) : [];
   const planTarget = implementPlanTarget({
     activeThread: model.activeThreadId ? { id: model.activeThreadId } : null,
     modeAllowed: model.planImplementationAllowed,
-    turn: model.turn,
+    activeTurn: model.activeTurn,
     runtime: { pending: { collaborationMode: model.runtimeCollaborationMode } },
-    threadStream: model.threadStream,
+    threadStream: stream,
   });
   const textActionTargetsByItemId = textActionTargetsForThreadStreamItems(rollbackCandidate, forkCandidates, planTarget);
   const pendingRequests = threadStreamSegmentsEmpty(stableItems, activeItems)
@@ -167,7 +169,7 @@ function threadStreamStateProjection(
     forkMenuItemId: model.forkMenuItemId,
     viewBlocks: threadStreamViewBlocks({
       activeThreadId: model.activeThreadId,
-      activeTurnId: activeTurnId(model.turn),
+      activeTurnId: activeTurnId(model.activeTurn),
       historyCursor: model.threadStream.historyCursor,
       loadingHistory: model.threadStream.loadingHistory,
       items,

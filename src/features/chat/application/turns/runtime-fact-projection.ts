@@ -1,6 +1,7 @@
 import { reconcileCompletedTurnItems } from "../../domain/thread-stream/completed-turn-reconciliation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { attachHookRunsToTurn, completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
+import { chatThreadStreamViewState } from "../state/active-turn";
 import { type ChatAction, type ChatState, chatReducer } from "../state/root-reducer";
 import { threadStreamItems, threadStreamPendingSteers } from "../state/thread-stream";
 import type { TurnRuntimeFact } from "./runtime-facts";
@@ -81,7 +82,10 @@ function projectTurnRuntimeFact(state: ChatState, fact: TurnRuntimeFact): TurnRu
     case "itemUpserted":
       return actionProjection({ type: "thread-stream/item-upserted", item: fact.item });
     case "userMessageObserved":
-      return fact.item.clientId && threadStreamPendingSteers(state.threadStream).some((pending) => pending.clientId === fact.item.clientId)
+      return fact.item.clientId &&
+        threadStreamPendingSteers(chatThreadStreamViewState(state.threadStream, state.activeTurn)).some(
+          (pending) => pending.clientId === fact.item.clientId,
+        )
         ? actionProjection({ type: "thread-stream/pending-steer-committed", item: fact.item })
         : EMPTY_PROJECTION;
     case "itemCompleted":
@@ -120,9 +124,9 @@ function turnStartedProjection(state: ChatState, fact: Extract<TurnRuntimeFact, 
 }
 
 function turnCompletedProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "turnCompleted" }>): TurnRuntimeProjection {
-  if (activeTurnId(state) !== fact.turnId) return EMPTY_PROJECTION;
+  if (activeTurnId(state.activeTurn) !== fact.turnId) return EMPTY_PROJECTION;
   const reconciledItems = reconcileCompletedTurnItems({
-    currentItems: threadStreamItems(state.threadStream),
+    currentItems: threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)),
     completedTurnId: fact.turnId,
     turnItems: fact.itemsView === "notLoaded" ? [] : fact.completedItems,
   });
@@ -159,7 +163,7 @@ function completedItemProjection(item: ThreadStreamItem, turnId: string): TurnRu
 function hookRunProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "hookRunObserved" }>): TurnRuntimeProjection {
   const resolvedTurnId = hookTurnId(state, fact);
   const item = resolvedTurnId ? { ...fact.item, turnId: resolvedTurnId } : fact.item;
-  const currentPendingTurnStart = pendingTurnStartForState(state);
+  const currentPendingTurnStart = pendingTurnStartForState(state.activeTurn);
   let pendingTurnStart = currentPendingTurnStart;
   if (!resolvedTurnId && currentPendingTurnStart && fact.eventName === "userPromptSubmit") {
     const hookIds = currentPendingTurnStart.promptSubmitHookItemIds;
@@ -176,12 +180,18 @@ function hookRunProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { ty
 
 function hookTurnId(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "hookRunObserved" }>): string | null {
   if (fact.turnId) return fact.turnId;
-  if (fact.eventName === "userPromptSubmit" && !pendingTurnStartForState(state)) return activeTurnId(state);
+  if (fact.eventName === "userPromptSubmit" && !pendingTurnStartForState(state.activeTurn)) return activeTurnId(state.activeTurn);
   return null;
 }
 
 function reviewWarningProjection(state: ChatState, item: ThreadStreamItem): TurnRuntimeProjection {
-  if (isUnstructuredAutoReviewWarning(item) && hasStructuredAutoReviewResult(threadStreamItems(state.threadStream), activeTurnId(state))) {
+  if (
+    isUnstructuredAutoReviewWarning(item) &&
+    hasStructuredAutoReviewResult(
+      threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)),
+      activeTurnId(state.activeTurn),
+    )
+  ) {
     return EMPTY_PROJECTION;
   }
   return actionProjection({ type: "thread-stream/item-upserted", item });
@@ -191,15 +201,17 @@ function autoReviewUpdatedProjection(state: ChatState, item: ThreadStreamItem): 
   return actionProjection({
     type: "thread-stream/items-replaced",
     items: upsertThreadStreamItemById(
-      threadStreamItems(state.threadStream).filter((currentItem) => !isUnstructuredAutoReviewWarning(currentItem)),
+      threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)).filter(
+        (currentItem) => !isUnstructuredAutoReviewWarning(currentItem),
+      ),
       item,
     ),
   });
 }
 
 function threadStreamItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly ThreadStreamItem[] {
-  const pending = pendingTurnStartForState(state);
-  const items = threadStreamItems(state.threadStream);
+  const pending = pendingTurnStartForState(state.activeTurn);
+  const items = threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn));
   if (!pending) return items;
   return attachHookRunsToTurn(items, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }

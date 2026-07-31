@@ -19,13 +19,18 @@ interface ChatThreadStreamActiveSegment {
 
 export interface ChatThreadStreamState {
   readonly stableItems: readonly ThreadStreamItem[];
-  readonly activeSegment: ChatThreadStreamActiveSegment | null;
-  readonly pendingSteers: readonly ThreadStreamDialogueItem[];
   readonly turnDiffs: ReadonlyMap<string, string>;
   readonly historyCursor: string | null;
   readonly loadingHistory: boolean;
   readonly reportedLogs: ReadonlySet<string>;
 }
+
+export interface ChatThreadStreamActiveState {
+  readonly activeSegment: ChatThreadStreamActiveSegment | null;
+  readonly pendingSteers: readonly ThreadStreamDialogueItem[];
+}
+
+export type ChatThreadStreamViewState = ChatThreadStreamState & ChatThreadStreamActiveState;
 
 export interface ThreadStreamRollbackCandidate {
   turnId: string;
@@ -103,8 +108,6 @@ export function isThreadStreamAction(action: { type: string }): action is Thread
 export function initialChatThreadStreamState(items: readonly ThreadStreamItem[] = []): ChatThreadStreamState {
   return {
     stableItems: items,
-    activeSegment: null,
-    pendingSteers: [],
     turnDiffs: new Map(),
     historyCursor: null,
     loadingHistory: false,
@@ -112,7 +115,7 @@ export function initialChatThreadStreamState(items: readonly ThreadStreamItem[] 
   };
 }
 
-export function threadStreamItems(state: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">): readonly ThreadStreamItem[] {
+export function threadStreamItems(state: ChatThreadStreamViewState): readonly ThreadStreamItem[] {
   if (!state.activeSegment || state.activeSegment.items.length === 0) return state.stableItems;
   return [...state.stableItems, ...state.activeSegment.items];
 }
@@ -121,30 +124,25 @@ export function threadStreamStableItems(state: Pick<ChatThreadStreamState, "stab
   return state.stableItems;
 }
 
-export function threadStreamActiveItems(state: Pick<ChatThreadStreamState, "activeSegment">): readonly ThreadStreamItem[] {
+export function threadStreamActiveItems(state: Pick<ChatThreadStreamActiveState, "activeSegment">): readonly ThreadStreamItem[] {
   return state.activeSegment?.items ?? [];
 }
 
-export function threadStreamPendingSteers(state: Pick<ChatThreadStreamState, "pendingSteers">): readonly ThreadStreamDialogueItem[] {
+export function threadStreamPendingSteers(state: Pick<ChatThreadStreamActiveState, "pendingSteers">): readonly ThreadStreamDialogueItem[] {
   return state.pendingSteers;
 }
 
-export function threadStreamIsEmpty(state: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">): boolean {
+export function threadStreamIsEmpty(state: ChatThreadStreamViewState): boolean {
   return state.stableItems.length === 0 && (!state.activeSegment || state.activeSegment.items.length === 0);
 }
 
-export function threadStreamTurnsAfterTurnId(
-  state: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">,
-  turnId: string,
-): number | null {
+export function threadStreamTurnsAfterTurnId(state: ChatThreadStreamViewState, turnId: string): number | null {
   const turnIds = orderedTurnIds(threadStreamItems(state));
   const index = turnIds.indexOf(turnId);
   return index === -1 ? null : turnIds.length - index - 1;
 }
 
-export function threadStreamRollbackCandidate(
-  state: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">,
-): ThreadStreamRollbackCandidate | null {
+export function threadStreamRollbackCandidate(state: ChatThreadStreamViewState): ThreadStreamRollbackCandidate | null {
   return threadStreamRollbackCandidateFromItems(threadStreamItems(state));
 }
 
@@ -165,20 +163,16 @@ export function threadStreamRollbackCandidateFromItems(items: readonly ThreadStr
 export function threadStreamWithItems(
   state: ChatThreadStreamState,
   items: readonly ThreadStreamItem[],
-  patch: Partial<Pick<ChatThreadStreamState, "historyCursor" | "loadingHistory" | "pendingSteers">> = {},
+  patch: Partial<Pick<ChatThreadStreamState, "historyCursor" | "loadingHistory">> = {},
 ): ChatThreadStreamState {
-  return patchObject(state, {
-    stableItems: items,
-    activeSegment: null,
-    ...patch,
-  });
+  return patchObject(state, { stableItems: items, ...patch });
 }
 
 export function threadStreamWithActiveTurnItems(
-  state: ChatThreadStreamState,
+  state: ChatThreadStreamViewState,
   turnId: string,
   items: readonly ThreadStreamItem[],
-): ChatThreadStreamState {
+): ChatThreadStreamViewState {
   const stableItems = items.filter((item) => item.turnId !== turnId);
   const activeItems = items.filter((item) => item.turnId === turnId);
   return patchObject(state, {
@@ -189,17 +183,17 @@ export function threadStreamWithActiveTurnItems(
 }
 
 export function threadStreamStartActiveSegment(
-  state: ChatThreadStreamState,
+  state: ChatThreadStreamViewState,
   turnId: string | null,
   items: readonly ThreadStreamItem[],
-): ChatThreadStreamState {
+): ChatThreadStreamViewState {
   return patchObject(state, {
     activeSegment: activeSegmentFromItems(turnId, items),
     pendingSteers: state.pendingSteers.filter((item) => !turnId || item.turnId === turnId),
   });
 }
 
-export function reduceThreadStreamSlice(state: ChatThreadStreamState, action: ThreadStreamAction): ChatThreadStreamState {
+export function reduceThreadStreamSlice(state: ChatThreadStreamViewState, action: ThreadStreamAction): ChatThreadStreamViewState {
   switch (action.type) {
     case "thread-stream/item-added":
     case "thread-stream/system-item-added":
@@ -211,7 +205,10 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamState, action: Th
         ...appendThreadStreamItemPatch(state, action.item),
       });
     case "thread-stream/items-replaced":
-      return threadStreamWithItems(state, action.items, {
+      return patchObject(state, {
+        stableItems: action.items,
+        activeSegment: null,
+        pendingSteers: [],
         ...definedPatch("historyCursor", action.historyCursor),
         ...definedPatch("loadingHistory", action.loadingHistory),
       });
@@ -247,12 +244,12 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamState, action: Th
   }
 }
 
-function removePendingSteer(state: ChatThreadStreamState, clientId: string): ChatThreadStreamState {
+function removePendingSteer(state: ChatThreadStreamViewState, clientId: string): ChatThreadStreamViewState {
   const pendingSteers = state.pendingSteers.filter((item) => item.clientId !== clientId);
   return pendingSteers.length === state.pendingSteers.length ? state : patchObject(state, { pendingSteers });
 }
 
-function commitPendingSteer(state: ChatThreadStreamState, item: ThreadStreamDialogueItem): ChatThreadStreamState {
+function commitPendingSteer(state: ChatThreadStreamViewState, item: ThreadStreamDialogueItem): ChatThreadStreamViewState {
   if (!item.clientId) return state;
   const pending = state.pendingSteers.find(
     (candidate) => candidate.clientId === item.clientId && (!candidate.turnId || !item.turnId || candidate.turnId === item.turnId),
@@ -274,14 +271,14 @@ function commitPendingSteer(state: ChatThreadStreamState, item: ThreadStreamDial
   return patchObject(withoutPending, appendThreadStreamItemPatch(withoutPending, committed));
 }
 
-function appendThreadStreamItemPatch(state: ChatThreadStreamState, item: ThreadStreamItem): Partial<ChatThreadStreamState> {
+function appendThreadStreamItemPatch(state: ChatThreadStreamViewState, item: ThreadStreamItem): Partial<ChatThreadStreamViewState> {
   if (shouldUseActiveSegment(state.activeSegment, item)) {
     return { activeSegment: appendActiveSegmentItem(state.activeSegment, item) };
   }
   return { stableItems: [...state.stableItems, item] };
 }
 
-function upsertThreadStreamItem(state: ChatThreadStreamState, item: ThreadStreamItem): ChatThreadStreamState {
+function upsertThreadStreamItem(state: ChatThreadStreamViewState, item: ThreadStreamItem): ChatThreadStreamViewState {
   if (shouldUseActiveSegment(state.activeSegment, item)) {
     return patchObject(state, { activeSegment: upsertActiveSegmentItem(state.activeSegment, item) });
   }
@@ -289,12 +286,12 @@ function upsertThreadStreamItem(state: ChatThreadStreamState, item: ThreadStream
 }
 
 function appendAssistantDeltaToThreadStream(
-  state: ChatThreadStreamState,
+  state: ChatThreadStreamViewState,
   sourceItemId: string,
   turnId: string,
   delta: string,
   completeReasoning: boolean,
-): ChatThreadStreamState {
+): ChatThreadStreamViewState {
   const current = completeReasoning ? completeReasoningInThreadStream(state, turnId) : state;
   return updateActiveSegment(current, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
@@ -327,11 +324,11 @@ function appendAssistantDeltaToThreadStream(
 }
 
 function appendPlanDeltaToThreadStream(
-  state: ChatThreadStreamState,
+  state: ChatThreadStreamViewState,
   sourceItemId: string,
   turnId: string,
   delta: string,
-): ChatThreadStreamState {
+): ChatThreadStreamViewState {
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
@@ -365,13 +362,13 @@ function appendPlanDeltaToThreadStream(
 }
 
 function appendItemTextToThreadStream(
-  state: ChatThreadStreamState,
+  state: ChatThreadStreamViewState,
   sourceItemId: string,
   turnId: string,
   label: string,
   delta: string,
   kind: "tool" | "hook" | "reasoning",
-): ChatThreadStreamState {
+): ChatThreadStreamViewState {
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
@@ -390,12 +387,12 @@ function appendItemTextToThreadStream(
 }
 
 function appendToolOutputToThreadStream(
-  state: ChatThreadStreamState,
+  state: ChatThreadStreamViewState,
   sourceItemId: string,
   turnId: string,
   delta: string,
   fallbackLabel: string,
-): ChatThreadStreamState {
+): ChatThreadStreamViewState {
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
@@ -418,13 +415,13 @@ function appendToolOutputToThreadStream(
 }
 
 function appendItemOutputToThreadStream(
-  state: ChatThreadStreamState,
+  state: ChatThreadStreamViewState,
   sourceItemId: string,
   turnId: string,
   delta: string,
   kind: "command" | "fileChange",
   fallbackText: string,
-): ChatThreadStreamState {
+): ChatThreadStreamViewState {
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
@@ -445,7 +442,7 @@ function appendItemOutputToThreadStream(
   });
 }
 
-function completeReasoningInThreadStream(state: ChatThreadStreamState, turnId: string): ChatThreadStreamState {
+function completeReasoningInThreadStream(state: ChatThreadStreamViewState, turnId: string): ChatThreadStreamViewState {
   const stableItems = completeReasoningItems(state.stableItems, turnId);
   const activeSegment = state.activeSegment;
 
@@ -464,10 +461,10 @@ function completeReasoningInThreadStream(state: ChatThreadStreamState, turnId: s
 }
 
 function updateActiveSegment(
-  state: ChatThreadStreamState,
+  state: ChatThreadStreamViewState,
   turnId: string,
   update: (segment: ChatThreadStreamActiveSegment) => ChatThreadStreamActiveSegment,
-): ChatThreadStreamState {
+): ChatThreadStreamViewState {
   const activeSegment = state.activeSegment;
   if (activeSegment?.turnId && activeSegment.turnId !== turnId) return state;
   const segment =

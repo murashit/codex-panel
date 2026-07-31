@@ -5,13 +5,13 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
 import { activeThreadState, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
+import { threadStreamStableItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture, chatStateWith } from "../../support/state";
-import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
+import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
 describe("chatReducer", () => {
   it("leaves composer restoration to its owner when the connection scope clears pending web context", () => {
@@ -132,7 +132,7 @@ describe("chatReducer", () => {
 
     expect(next.pendingSubmission).toBeNull();
     expect(chatStateThreadStreamItems(next)).toEqual([]);
-    expect(next.threadStream.pendingSteers).toEqual([adoptedItem]);
+    expect(next.activeTurn.pendingSteers).toEqual([adoptedItem]);
   });
 
   it("clears panel-scoped diagnostics on disconnect without owning shared resources", () => {
@@ -199,7 +199,7 @@ describe("chatReducer", () => {
         provenance,
       },
     });
-    state = withChatStateThreadStreamItems(state, [dialogueItem("retained-item")]);
+    state = withChatStateStableThreadStreamItems(state, [dialogueItem("retained-item")]);
 
     const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
 
@@ -209,7 +209,7 @@ describe("chatReducer", () => {
       fallbackTitle: "Reconnect me",
       provenance,
     });
-    expect(threadStreamItems(disconnected.threadStream)).toEqual([dialogueItem("retained-item")]);
+    expect(threadStreamStableItems(disconnected.threadStream)).toEqual([dialogueItem("retained-item")]);
   });
 
   it("expires an active ephemeral thread instead of making it reconnectable", () => {
@@ -220,12 +220,12 @@ describe("chatReducer", () => {
         lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
       },
     });
-    state = withChatStateThreadStreamItems(state, [dialogueItem("side-item")]);
+    state = withChatStateStableThreadStreamItems(state, [dialogueItem("side-item")]);
 
     const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
 
     expect(disconnected.panelThread).toEqual({ kind: "empty" });
-    expect(threadStreamItems(disconnected.threadStream)).toEqual([]);
+    expect(threadStreamStableItems(disconnected.threadStream)).toEqual([]);
   });
 
   it("applies restored thread identity as an atomic thread-scoped transition", () => {
@@ -342,7 +342,7 @@ describe("chatReducer", () => {
     state = chatReducer(state, { type: "turn/started", threadId: "other-thread", turnId: "stale-turn" });
 
     expect(state.panelThread).toEqual(awaitingResume);
-    expect(state.turn.lifecycle).toEqual({ kind: "idle" });
+    expect(state.activeTurn.lifecycle).toEqual({ kind: "idle" });
   });
 
   it("clears active turn and thread-scoped state", () => {
@@ -461,7 +461,7 @@ describe("chatReducer", () => {
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {
     let state = chatStateFixture();
-    state = withChatStateThreadStreamItems(state, [dialogueItem("previous-message")]);
+    state = withChatStateStableThreadStreamItems(state, [dialogueItem("previous-message")]);
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
@@ -481,78 +481,38 @@ describe("chatReducer", () => {
     expect(chatStateThreadStreamItems(next)).toEqual([]);
   });
 
-  it("keeps turn lifecycle fields synchronized through start and completion", () => {
-    const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: [] };
-    const optimisticItem = {
-      id: "local-user",
-      kind: "dialogue",
-      dialogueKind: "user",
-      role: "user",
-      text: "hello",
-    } satisfies ThreadStreamItem;
-    const acknowledgedItem = { ...optimisticItem, turnId: "turn" } satisfies ThreadStreamItem;
-
-    const optimistic = chatReducer(chatStateFixture(), {
-      type: "turn/optimistic-started",
-      item: optimisticItem,
-      pendingTurnStart: pending,
-    });
-    expect(chatTurnBusy(optimistic)).toBe(true);
-    expect(activeTurnId(optimistic)).toBeNull();
-    expect(pendingTurnStart(optimistic)).toEqual(pending);
-
-    const running = chatReducer(optimistic, {
-      type: "turn/start-acknowledged",
-      turnId: "turn",
-      items: [acknowledgedItem],
-    });
-    expect(chatTurnBusy(running)).toBe(true);
-    expect(activeTurnId(running)).toBe("turn");
-    expect(pendingTurnStart(running)).toBeNull();
-
-    const completed = chatReducer(running, {
-      type: "turn/completed",
-      turnId: "turn",
-      status: "completed",
-      items: [acknowledgedItem],
-    });
-    expect(chatTurnBusy(completed)).toBe(false);
-    expect(activeTurnId(completed)).toBeNull();
-    expect(pendingTurnStart(completed)).toBeNull();
-  });
-
   it("clears running state when a turn start fails", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {
-      turn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] } } },
+      activeTurn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] } } },
     });
 
     const next = chatReducer(state, { type: "turn/start-failed", items: [] });
 
-    expect(chatTurnBusy(next)).toBe(false);
-    expect(activeTurnId(next)).toBeNull();
-    expect(pendingTurnStart(next)).toBeNull();
+    expect(chatTurnBusy(next.activeTurn)).toBe(false);
+    expect(activeTurnId(next.activeTurn)).toBeNull();
+    expect(pendingTurnStart(next.activeTurn)).toBeNull();
   });
 
   it("ignores stale turn start failures after the turn is already running", () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
-    state = withChatStateThreadStreamItems(state, [dialogueItem("existing")]);
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn" } } });
+    state = withChatStateStableThreadStreamItems(state, [dialogueItem("existing")]);
 
     const next = chatReducer(state, { type: "turn/start-failed", items: [] });
 
-    expect(chatTurnBusy(next)).toBe(true);
-    expect(activeTurnId(next)).toBe("turn");
+    expect(chatTurnBusy(next.activeTurn)).toBe(true);
+    expect(activeTurnId(next.activeTurn)).toBe("turn");
     expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("existing")]);
   });
 
   it("clears turn-scoped requests when clearing the local turn scope", () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn" } } });
     state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
     state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
     state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "draft"]]) } });
-    state = withChatStateThreadStreamItems(state, [dialogueItem("kept")]);
+    state = withChatStateStableThreadStreamItems(state, [dialogueItem("kept")]);
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["kept:details"]) } } });
     state = chatReducer(state, {
@@ -563,13 +523,13 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, { type: "turn/scoped-cleared" });
 
-    expect(chatTurnBusy(next)).toBe(false);
-    expect(activeTurnId(next)).toBeNull();
+    expect(chatTurnBusy(next.activeTurn)).toBe(false);
+    expect(activeTurnId(next.activeTurn)).toBeNull();
     expect(next.requests.approvals).toEqual([]);
     expect(next.requests.pendingUserInputs).toEqual([]);
     expect(next.requests.userInputDrafts.size).toBe(0);
     expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("kept")]);
-    expect(next.subagentActivity.byThreadId.size).toBe(0);
+    expect(next.activeTurn.subagents.byThreadId.size).toBe(0);
     expect([...next.ui.disclosures.approvalDetails]).toEqual([]);
     expect([...next.ui.disclosures.textDetails]).toEqual(["kept:details"]);
   });
@@ -586,7 +546,7 @@ describe("chatReducer", () => {
         ]),
       },
     });
-    state = withChatStateThreadStreamItems(state, [dialogueItem("existing")]);
+    state = withChatStateStableThreadStreamItems(state, [dialogueItem("existing")]);
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["existing:details"]) } } });
 
@@ -607,18 +567,27 @@ describe("chatReducer", () => {
 
   it("ignores stale request resolutions without appending result items", () => {
     let state = chatStateFixture();
-    state = withChatStateThreadStreamItems(state, [dialogueItem("existing")]);
+    state = withChatStateStableThreadStreamItems(state, [dialogueItem("existing")]);
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["existing:details"]) } } });
 
     const next = chatReducer(state, { type: "request/resolved", requestId: 99, resultItem: dialogueItem("stale result") });
 
     expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("existing")]);
     expect([...next.ui.disclosures.textDetails]).toEqual(["existing:details"]);
+
+    let running = chatStateFixture({ activeTurn: { lifecycle: { kind: "running", turnId: "current-turn" } } });
+    running = chatStateWith(running, { requests: { approvals: [approval(99)] } });
+    running = withChatStateStableThreadStreamItems(running, [dialogueItem("existing")]);
+    const staleResult = { ...dialogueItem("stale result"), turnId: "old-turn" } satisfies ThreadStreamItem;
+    const settled = chatReducer(running, { type: "request/resolved", requestId: 99, resultItem: staleResult });
+
+    expect(settled.requests.approvals).toEqual([]);
+    expect(chatStateThreadStreamItems(settled)).toEqual([dialogueItem("existing")]);
   });
 
   it("ignores turn start acknowledgements after the turn has already gone idle", () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "idle" } } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
 
     const next = chatReducer(state, {
       type: "turn/start-acknowledged",
@@ -626,15 +595,15 @@ describe("chatReducer", () => {
       items: [{ id: "local-user", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "completed-turn" }],
     });
 
-    expect(chatTurnBusy(next)).toBe(false);
-    expect(activeTurnId(next)).toBeNull();
+    expect(chatTurnBusy(next.activeTurn)).toBe(false);
+    expect(activeTurnId(next.activeTurn)).toBeNull();
   });
 
   it("ignores completed turns while a new turn is still starting", () => {
     const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] };
     let state = chatStateFixture();
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "starting", pendingTurnStart: pending } } });
-    state = withChatStateThreadStreamItems(state, [
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "starting", pendingTurnStart: pending } } });
+    state = withChatStateStableThreadStreamItems(state, [
       { id: "local-user", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
     ]);
 
@@ -645,8 +614,8 @@ describe("chatReducer", () => {
       items: [],
     });
 
-    expect(chatTurnBusy(next)).toBe(true);
-    expect(pendingTurnStart(next)).toEqual(pending);
+    expect(chatTurnBusy(next.activeTurn)).toBe(true);
+    expect(pendingTurnStart(next.activeTurn)).toEqual(pending);
     expect(chatStateThreadStreamItems(next)).toEqual(chatStateThreadStreamItems(state));
   });
 
@@ -693,7 +662,7 @@ describe("chatReducer", () => {
 
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {
     let initial = chatStateFixture();
-    initial = withChatStateThreadStreamItems(initial, [dialogueItem("initial")]);
+    initial = withChatStateStableThreadStreamItems(initial, [dialogueItem("initial")]);
     const store = createChatStateStore(initial);
 
     store.dispatch({ type: "thread-stream/item-upserted", item: dialogueItem("next") });
@@ -784,7 +753,7 @@ function threadScopedResidue(options: { threadId?: string; turnId?: string; draf
   const turnId = options.turnId ?? "turn";
   let state = chatStateFixture({
     activeThread: { id: threadId, goal: goal(threadId) },
-    turn: { lifecycle: { kind: "running", turnId } },
+    activeTurn: { lifecycle: { kind: "running", turnId } },
     runtime: {
       active: { collaborationMode: "plan" },
       pending: { collaborationMode: setCollaborationModeIntent("plan") },
@@ -814,12 +783,12 @@ function threadScopedResidue(options: { threadId?: string; turnId?: string; draf
       goalEditor: { kind: "editing", threadId, objectiveDraft: "draft", tokenBudgetDraft: null },
     },
   });
-  state = withChatStateThreadStreamItems(state, [dialogueItem(options.itemId ?? "previous-message")]);
+  state = withChatStateStableThreadStreamItems(state, [dialogueItem(options.itemId ?? "previous-message")]);
   return state;
 }
 
 function expectThreadScopeReset(state: ChatState, options: { items: readonly ThreadStreamItem[] }): void {
-  expect(activeTurnId(state)).toBeNull();
+  expect(activeTurnId(state.activeTurn)).toBeNull();
   expect(chatStateThreadStreamItems(state)).toEqual(options.items);
   expect(state.threadStream.turnDiffs.size).toBe(0);
   expect(state.threadStream.historyCursor).toBeNull();

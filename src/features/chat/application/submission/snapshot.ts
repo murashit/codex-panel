@@ -1,4 +1,5 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import { chatThreadStreamViewState } from "../state/active-turn";
 import { activeThreadState, type ChatState } from "../state/root-reducer";
 import { threadStreamItems } from "../state/thread-stream";
 import { activeTurnId, chatTurnBusy, type PendingTurnStart, pendingTurnStart } from "../turns/turn-state";
@@ -15,9 +16,9 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
   const activeThread = activeThreadState(state);
   return {
     activeThreadId: activeThread?.id ?? null,
-    activeTurnId: activeTurnId(state),
-    busy: chatTurnBusy(state),
-    items: threadStreamItems(state.threadStream),
-    pendingTurnStart: pendingTurnStart(state),
+    activeTurnId: activeTurnId(state.activeTurn),
+    busy: chatTurnBusy(state.activeTurn),
+    items: threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)),
+    pendingTurnStart: pendingTurnStart(state.activeTurn),
   };
 }

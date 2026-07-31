@@ -1,4 +1,5 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import { chatThreadStreamViewState } from "../state/active-turn";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
@@ -85,7 +86,7 @@ export class HistoryController {
       if (!response) return;
       if (this.isStale(load)) return;
       const current = this.state;
-      const currentItems = threadStreamItems(current.threadStream);
+      const currentItems = threadStreamItems(chatThreadStreamViewState(current.threadStream, current.activeTurn));
       const olderItems = response.items;
       const existingIds = new Set(currentItems.map((item) => item.id));
       this.dispatch({

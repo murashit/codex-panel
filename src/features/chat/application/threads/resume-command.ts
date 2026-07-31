@@ -3,6 +3,7 @@ import type { ThreadActivationSnapshot } from "../../../../domain/threads/activa
 import type { Thread } from "../../../../domain/threads/model";
 import { type EffectOutcome, effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
+import { chatThreadStreamViewState } from "../state/active-turn";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadState, panelThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
@@ -92,7 +93,8 @@ async function resumeThread(
     if (isStaleResume(host, resume, adoptedPanelTarget)) return false;
     await host.syncThreadGoal(effect.value.activation.thread.id);
     if (isStaleResume(host, resume, adoptedPanelTarget)) return false;
-    const renderFallbackMessage = threadStreamIsEmpty(host.stateStore.getState().threadStream);
+    const state = host.stateStore.getState();
+    const renderFallbackMessage = threadStreamIsEmpty(chatThreadStreamViewState(state.threadStream, state.activeTurn));
     if (renderFallbackMessage) {
       host.addSystemMessage(`Resumed thread ${effect.value.activation.thread.id}`);
     }

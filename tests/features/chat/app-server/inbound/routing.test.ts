@@ -24,7 +24,7 @@ describe("chat inbound routing", () => {
   it("keeps routed notification methods covered by matching planners", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
     const plannedMethods = generatedServerNotificationMethods().filter((method) => {
       const kind = routeServerNotification(notificationFixture(method), activeScope).kind;
       return kind !== "inactive" && kind !== "ignored" && kind !== "unhandled";
@@ -73,7 +73,7 @@ describe("chat inbound routing", () => {
   it("does not turn live turn-start state into thread catalog work", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
 
     const plan = planChatInboundNotification(state, turnStartedNotification(), (prefix) => `${prefix}-1`);
 
@@ -83,7 +83,7 @@ describe("chat inbound routing", () => {
   it("translates turn-completed runtime outcomes to thread follow-up effects at the inbound boundary", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
 
     const plan = planChatInboundNotification(state, turnCompletedNotification(), (prefix) => `${prefix}-1`);
 
@@ -268,7 +268,7 @@ describe("chat inbound routing", () => {
   it("safely ignores unknown runtime notifications in the planner", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
     const notification = {
       method: "future/notification",
       params: { threadId: "thread-active", turnId: "turn-active" },

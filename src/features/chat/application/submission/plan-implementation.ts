@@ -1,11 +1,12 @@
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/selectors";
 import { activePanelOperationDecision } from "../panel-operation-policy";
+import { chatThreadStreamViewState } from "../state/active-turn";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { type ChatThreadStreamState, threadStreamItems } from "../state/thread-stream";
-import { type ChatTurnState, chatTurnBusy } from "../turns/turn-state";
+import { type ChatThreadStreamViewState, threadStreamItems } from "../state/thread-stream";
+import { type ChatTurnLifecycleState, chatTurnBusy } from "../turns/turn-state";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 
@@ -19,18 +20,18 @@ export interface PlanImplementationHost {
 interface PlanImplementationState {
   activeThread: Pick<ChatActiveThreadState, "id"> | null;
   modeAllowed: boolean;
-  turn: ChatTurnState;
+  activeTurn: { lifecycle: ChatTurnLifecycleState };
   runtime: { pending: Pick<ChatRuntimeState["pending"], "collaborationMode"> };
-  threadStream: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">;
+  threadStream: ChatThreadStreamViewState;
 }
 
 function implementPlanTargetFromState(state: ChatState): PlanImplementationTarget | null {
   return implementPlanTarget({
     activeThread: activeThreadState(state),
     modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
-    turn: state.turn,
+    activeTurn: state.activeTurn,
     runtime: state.runtime,
-    threadStream: state.threadStream,
+    threadStream: chatThreadStreamViewState(state.threadStream, state.activeTurn),
   });
 }
 
@@ -39,7 +40,7 @@ export function implementPlanTarget(state: PlanImplementationState): PlanImpleme
   if (
     !activeThread ||
     !state.modeAllowed ||
-    chatTurnBusy(state) ||
+    chatTurnBusy(state.activeTurn) ||
     state.runtime.pending.collaborationMode.kind !== "set" ||
     state.runtime.pending.collaborationMode.value !== "plan"
   ) {

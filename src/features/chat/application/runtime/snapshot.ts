@@ -2,6 +2,7 @@ import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { activeThreadRuntimeState, pendingRuntimeIntentState } from "../../domain/runtime/state";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import { chatThreadStreamViewState } from "../state/active-turn";
 import { activeThreadState, type ChatState } from "../state/root-reducer";
 import { threadStreamItems } from "../state/thread-stream";
 
@@ -46,7 +47,7 @@ export function runtimeSnapshotForChatState(state: ChatState, shared: ChatRuntim
     activeThread: { id: activeThread?.id ?? null, tokenUsage: activeThread?.tokenUsage ?? null },
     runtime: state.runtime,
     rateLimit: shared.rateLimitsSnapshot() ?? null,
-    hasThreadTurns: threadStreamItemsHaveThreadTurns(threadStreamItems(state.threadStream)),
+    hasThreadTurns: threadStreamItemsHaveThreadTurns(threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn))),
     availableModels: shared.modelsSnapshot() ?? [],
   });
 }

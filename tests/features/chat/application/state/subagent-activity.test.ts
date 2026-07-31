@@ -7,7 +7,7 @@ import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/t
 
 describe("subagent activity state", () => {
   it("tracks a child and accumulates its active reasoning summary", () => {
-    let state = reduceSubagentActivitySlice(initialSubagentActivityState("parent-turn"), {
+    let state = reduceSubagentActivitySlice(initialSubagentActivityState(), {
       type: "subagent-activity/tracked",
       threadId: "child",
       parentTurnId: "parent-turn",
@@ -115,7 +115,7 @@ describe("subagent activity state", () => {
 });
 
 function trackedState() {
-  return reduceSubagentActivitySlice(initialSubagentActivityState("parent-turn"), {
+  return reduceSubagentActivitySlice(initialSubagentActivityState(), {
     type: "subagent-activity/tracked",
     threadId: "child",
     parentTurnId: "parent-turn",

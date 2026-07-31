@@ -289,7 +289,7 @@ async function steerCurrentTurn(
       ? { type: "web-submission/steer-pending", submissionId: request.pendingSubmissionId, item }
       : { type: "thread-stream/pending-steer-added", item },
   );
-  if (!host.stateStore.getState().threadStream.pendingSteers.some((pending) => pending.clientId === localSteerId)) return false;
+  if (!host.stateStore.getState().activeTurn.pendingSteers.some((pending) => pending.clientId === localSteerId)) return false;
 
   const outcome = await host.turnPort.steerTurn({
     threadId: plan.threadId,

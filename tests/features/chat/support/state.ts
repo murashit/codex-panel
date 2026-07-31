@@ -1,3 +1,4 @@
+import type { ChatActiveTurnState } from "../../../../src/features/chat/application/state/active-turn";
 import {
   activeThreadState,
   type ChatActiveThreadState,
@@ -27,7 +28,7 @@ interface ChatStateFixturePatch {
   };
   activeThread?: Partial<Omit<ChatActiveThreadState, "id">> & { id?: string | null };
   runtime?: RuntimePatch;
-  turn?: Partial<ChatState["turn"]>;
+  activeTurn?: Partial<ChatActiveTurnState>;
   threadStream?: Partial<ChatState["threadStream"]>;
   requests?: Partial<ChatState["requests"]>;
   composer?: Partial<ChatState["composer"]>;
@@ -51,7 +52,7 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
     ...(patch.connection ? { connection: { ...state.connection, ...panelConnectionPatch } } : {}),
     ...(patch.activeThread ? { panelThread: panelThreadWithPatch(state, patch.activeThread) } : {}),
     ...(patch.runtime ? { runtime: runtimeWithPatch(state.runtime, patch.runtime) } : {}),
-    ...(patch.turn ? { turn: { ...state.turn, ...patch.turn } } : {}),
+    ...(patch.activeTurn ? { activeTurn: { ...state.activeTurn, ...patch.activeTurn } } : {}),
     ...(patch.threadStream ? { threadStream: { ...state.threadStream, ...patch.threadStream } } : {}),
     ...(patch.requests ? { requests: { ...state.requests, ...patch.requests } } : {}),
     ...(patch.composer ? { composer: { ...state.composer, ...patch.composer } } : {}),

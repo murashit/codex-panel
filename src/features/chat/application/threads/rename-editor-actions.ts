@@ -1,6 +1,7 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
+import { chatThreadStreamViewState } from "../state/active-turn";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
@@ -176,7 +177,9 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
 }
 
 export function activeThreadRenameTitleContext(state: ChatState, threadId: string): ThreadTitleContext | null {
-  return activeThreadId(state) === threadId ? firstThreadTitleContextFromThreadStreamItems(threadStreamItems(state.threadStream)) : null;
+  return activeThreadId(state) === threadId
+    ? firstThreadTitleContextFromThreadStreamItems(threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)))
+    : null;
 }
 
 function renameState(host: ThreadRenameEditorActionsHost): ChatRenameUiState {

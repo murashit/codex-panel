@@ -104,7 +104,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
         await retryRequiredCleanup();
         return true;
       }
-      if (chatTurnBusy(state)) {
+      if (chatTurnBusy(state.activeTurn)) {
         host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
         return false;
       }
@@ -131,7 +131,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       const state = host.stateStore.getState();
       const activeThread = activeThreadState(state);
       const threadId = activeThread?.lifetime?.kind === "ephemeral" ? activeThread.id : null;
-      const turnId = activeTurnId(state);
+      const turnId = activeTurnId(state.activeTurn);
       if (threadId && turnId) {
         await settleWithin(host.interruptTurn(threadId, turnId), EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS);
       }

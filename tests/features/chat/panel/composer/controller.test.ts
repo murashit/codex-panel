@@ -12,7 +12,7 @@ import type { NoteCandidateProvider } from "../../../../../src/features/chat/app
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
+import { threadStreamStableItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
@@ -377,7 +377,7 @@ describe("ChatComposerController", () => {
     });
     stateStore.dispatch({ type: "turn/completed", turnId: "turn", status: "completed", items: [assistant] });
 
-    expect(threadStreamItems(stateStore.getState().threadStream).map((item) => item.id)).toEqual(["assistant"]);
+    expect(threadStreamStableItems(stateStore.getState().threadStream).map((item) => item.id)).toEqual(["assistant"]);
     expect(stateStore.getState().pendingSubmission?.id).toBe(pending.id);
   });
 

@@ -101,7 +101,7 @@ function connectionBundleFixture(overrides: { readServerDiagnostics?: ReturnType
   const stateStore = createChatStateStore(
     chatStateFixture({
       activeThread: { id: "thread-active" },
-      turn: { lifecycle: { kind: "running", turnId: "turn-active" } },
+      activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
     }),
   );
   const host = {

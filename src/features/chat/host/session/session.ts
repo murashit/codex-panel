@@ -369,7 +369,7 @@ interface PanelActivity {
 function panelActivity(state: ChatState): PanelActivity {
   return {
     threadId: panelThreadId(state),
-    turnBusy: chatTurnBusy(state),
+    turnBusy: chatTurnBusy(state.activeTurn),
     pending: hasPendingRequests(pendingRequestCountsFromQueues(state.requests)),
   };
 }

@@ -6,6 +6,7 @@ import { createThreadMutationCommands, type ThreadMutationCommands } from "../..
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
+import { chatThreadStreamViewState } from "../../application/state/active-turn";
 import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
@@ -113,8 +114,13 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   const titleService = createThreadTitleService({
     port: environment.plugin.threadTitlePort,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
-    visibleCompletedTurnContext: (turnId) =>
-      threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
+    visibleCompletedTurnContext: (turnId) => {
+      const state = stateStore.getState();
+      return threadTitleContextFromThreadStreamItems(
+        turnId,
+        threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)),
+      );
+    },
   });
   const threadMutations = createThreadMutationCommands({
     port: threadMutationPort,

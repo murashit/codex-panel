@@ -54,7 +54,7 @@ export function createThreadNavigationCommands(host: ThreadNavigationCommandsHos
   return {
     async startNewThread(options: { focus?: boolean; beforeActivate?: () => void } = {}): Promise<void> {
       const state = host.stateStore.getState();
-      if (chatTurnBusy(state) && activeThreadState(state)?.provenance?.kind !== "subagent") return;
+      if (chatTurnBusy(state.activeTurn) && activeThreadState(state)?.provenance?.kind !== "subagent") return;
       const intent = host.resumeWork.begin(null);
       const preparation = await host.navigation.prepareForPersistentNavigation(null);
       if (!preparation || !host.resumeWork.isCurrent(intent)) return;

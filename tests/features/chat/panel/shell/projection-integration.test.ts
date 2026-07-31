@@ -32,7 +32,7 @@ import { installObsidianDomShims } from "../../../../support/dom";
 import { composerSharedValues, threadStreamSharedValues, toolbarSharedValues } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith, sharedResourcesForChatState } from "../../support/state";
-import { withChatStateThreadStreamItems } from "../../support/thread-stream";
+import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
 installObsidianDomShims();
 
@@ -73,7 +73,7 @@ describe("chat panel projection integration", () => {
       threadList: { listedThreads: [threadFixture("thread", "Thread"), threadFixture("other", "Other")] },
     });
     state = chatStateWith(state, {
-      turn: { lifecycle: { kind: "running", turnId: "turn" } },
+      activeTurn: { lifecycle: { kind: "running", turnId: "turn" } },
       ui: { toolbarPanel: "history" },
     });
     const parent = renderWithShellModels(state, (models) =>
@@ -163,7 +163,7 @@ describe("chat panel projection integration", () => {
           agentRole: "explorer",
         },
       },
-      turn: { lifecycle: { kind: "running", turnId: "child-turn" } },
+      activeTurn: { lifecycle: { kind: "running", turnId: "child-turn" } },
       ui: { toolbarPanel: "chat-actions" },
     });
     const actions = toolbarActionsFixture();
@@ -193,7 +193,7 @@ describe("chat panel projection integration", () => {
         lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
       },
     });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       { id: "user", kind: "dialogue", dialogueKind: "user", role: "user", text: "Question", turnId: "turn" },
       {
         id: "assistant",
@@ -277,7 +277,7 @@ describe("chat panel projection integration", () => {
         ],
       },
     });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "user",
         kind: "dialogue",
@@ -356,7 +356,7 @@ describe("chat panel projection integration", () => {
     state = chatStateWith(state, {
       threadList: { listedThreads: [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")] },
     });
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn" } } });
     state = chatStateWith(state, { ui: { toolbarPanel: "history" } });
     state = chatStateWith(state, { ui: { archiveConfirmThreadId: "thread-2" } });
     state = chatStateWith(state, {
@@ -477,7 +477,7 @@ describe("chat panel projection integration", () => {
   it("uses a neutral composer context indicator when usage is unavailable", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "item",
         turnId: "turn-1",

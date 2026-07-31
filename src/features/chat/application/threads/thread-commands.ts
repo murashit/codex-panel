@@ -5,6 +5,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import { type EffectOutcome, effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
+import { chatThreadStreamViewState } from "../state/active-turn";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
@@ -85,7 +86,7 @@ export interface ThreadCommands {
 interface ThreadCommandPanelScope {
   targetThreadId: string;
   initialActiveThreadId: string | null;
-  initialTurnLifecycle: ChatState["turn"]["lifecycle"];
+  initialTurnScopeRevision: ChatState["activeTurn"]["turnScopeRevision"];
   panelTarget: PanelTargetLease;
 }
 
@@ -147,7 +148,7 @@ async function archiveThreadFromPanel(
     host.addSystemMessage("Finish or interrupt the thread before archiving it.");
     return false;
   }
-  if (chatTurnBusy(threadCommandState(host))) {
+  if (chatTurnBusy(threadCommandState(host).activeTurn)) {
     host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
     return false;
   }
@@ -174,13 +175,18 @@ async function forkThreadFromTurn(
   archiveSource: boolean,
 ): Promise<void> {
   if (activePanelOperationBlocked(host, threadId, "fork")) return;
-  if (chatTurnBusy(threadCommandState(host))) {
+  if (chatTurnBusy(threadCommandState(host).activeTurn)) {
     host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
     return;
   }
   const scope = captureThreadCommandPanelScope(host, threadId);
 
-  const selectedTurnDistanceFromEnd = turnId ? threadStreamTurnsAfterTurnId(threadCommandState(host).threadStream, turnId) : 0;
+  const selectedTurnDistanceFromEnd = turnId
+    ? threadStreamTurnsAfterTurnId(
+        chatThreadStreamViewState(threadCommandState(host).threadStream, threadCommandState(host).activeTurn),
+        turnId,
+      )
+    : 0;
   if (selectedTurnDistanceFromEnd === null) {
     host.addSystemMessage("Could not find the selected turn to fork.");
     return;
@@ -260,13 +266,14 @@ async function rollbackThread(
   options: { adoptPanelTarget?: (replacementDraft: string) => void } = {},
 ): Promise<void> {
   if (activePanelOperationBlocked(host, threadId, "rollback")) return;
-  if (chatTurnBusy(threadCommandState(host))) {
+  if (chatTurnBusy(threadCommandState(host).activeTurn)) {
     host.addSystemMessage("Interrupt the current turn before rolling back.");
     return;
   }
   const scope = captureThreadCommandPanelScope(host, threadId);
 
-  const candidate = threadStreamRollbackCandidate(threadCommandState(host).threadStream);
+  const current = threadCommandState(host);
+  const candidate = threadStreamRollbackCandidate(chatThreadStreamViewState(current.threadStream, current.activeTurn));
   if (!candidate) {
     host.addSystemMessage("No completed turn to roll back.");
     return;
@@ -385,7 +392,7 @@ function captureThreadCommandPanelScope(host: ThreadCommandsHost, targetThreadId
   return {
     targetThreadId,
     initialActiveThreadId: activeThreadId(threadCommandState(host)),
-    initialTurnLifecycle: threadCommandState(host).turn.lifecycle,
+    initialTurnScopeRevision: threadCommandState(host).activeTurn.turnScopeRevision,
     panelTarget: capturePanelTargetLease(threadCommandState(host)),
   };
 }
@@ -395,7 +402,7 @@ function threadCommandScopeStillTargetsPanel(host: ThreadCommandsHost, scope: Th
   return (
     panelTargetLeaseIsCurrent(state, scope.panelTarget) &&
     activeThreadId(state) === scope.targetThreadId &&
-    state.turn.lifecycle === scope.initialTurnLifecycle
+    state.activeTurn.turnScopeRevision === scope.initialTurnScopeRevision
   );
 }
 

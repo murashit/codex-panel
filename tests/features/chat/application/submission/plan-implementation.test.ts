@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { activePanelOperationDecision } from "../../../../../src/features/chat/application/panel-operation-policy";
+import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/active-turn";
 import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
@@ -82,9 +83,9 @@ function implementPlanTargetFromState(state: ReturnType<ChatStateStore["getState
   return implementPlanTarget({
     activeThread: activeThreadState(state),
     modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
-    turn: state.turn,
+    activeTurn: state.activeTurn,
     runtime: state.runtime,
-    threadStream: state.threadStream,
+    threadStream: chatThreadStreamViewState(state.threadStream, state.activeTurn),
   });
 }
 

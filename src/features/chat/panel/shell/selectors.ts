@@ -6,11 +6,11 @@ import type { Thread } from "../../../../domain/threads/model";
 import { explicitThreadName } from "../../../../domain/threads/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { threadStreamItemsHaveThreadTurns } from "../../application/runtime/snapshot";
+import { chatThreadStreamViewState } from "../../application/state/active-turn";
 import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThreadProvenance } from "../../application/state/root-reducer";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
 
-const hasThreadTurnsByStream = new WeakMap<ChatState["threadStream"], boolean>();
 const composedDiagnosticsByPanel = new WeakMap<
   ChatState["connection"]["serverDiagnostics"],
   WeakMap<MetadataResourceDiagnostics, ChatState["connection"]["serverDiagnostics"]>
@@ -81,10 +81,9 @@ export interface ChatPanelThreadStreamModel {
   readonly forkAllowed: boolean;
   readonly rollbackAllowed: boolean;
   readonly planImplementationAllowed: boolean;
-  readonly turn: ChatState["turn"];
+  readonly activeTurn: ChatState["activeTurn"];
   readonly runtimeCollaborationMode: ChatState["runtime"]["pending"]["collaborationMode"];
   readonly threadStream: ChatState["threadStream"];
-  readonly subagentActivity: ChatState["subagentActivity"];
   readonly pendingSubmission: ChatState["pendingSubmission"];
   readonly requests: ChatState["requests"];
   readonly disclosureDetails: ChatState["ui"]["disclosures"]["details"];
@@ -137,7 +136,7 @@ export function selectChatPanelToolbar(state: ChatState, shared: ChatPanelToolba
     compactDisabled: !activeThread || activePanelOperationDecision(state, "compact").kind !== "allowed",
     goalMutationDisabled: activePanelOperationDecision(state, "goal-mutation").kind === "blocked",
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
-    turnBusy: chatTurnBusy(state),
+    turnBusy: chatTurnBusy(state.activeTurn),
     availableModels: shared.models,
     availableSkills: shared.skills,
     initializeResponse: state.connection.initializeResponse,
@@ -184,10 +183,9 @@ export function selectChatPanelThreadStream(state: ChatState, shared: ChatPanelT
     forkAllowed: activePanelOperationDecision(state, "fork").kind === "allowed",
     rollbackAllowed: activePanelOperationDecision(state, "rollback").kind === "allowed",
     planImplementationAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
-    turn: state.turn,
+    activeTurn: state.activeTurn,
     runtimeCollaborationMode: state.runtime.pending.collaborationMode,
     threadStream: state.threadStream,
-    subagentActivity: state.subagentActivity,
     pendingSubmission: state.pendingSubmission,
     requests: state.requests,
     disclosureDetails: state.ui.disclosures.details,
@@ -223,19 +221,16 @@ export function selectChatPanelComposer(state: ChatState, shared: ChatPanelCompo
     runtimeSettingsDisabled: activePanelOperationDecision(state, "thread-settings").kind !== "allowed",
     webSubmissionPending: state.pendingSubmission !== null,
     webSubmissionCancellable: state.pendingSubmission?.phase === "cancellable",
-    turnBusy: chatTurnBusy(state),
-    activeTurnId: activeTurnId(state),
+    turnBusy: chatTurnBusy(state.activeTurn),
+    activeTurnId: activeTurnId(state.activeTurn),
     runtime: state.runtime,
-    hasThreadTurns: hasThreadTurns(state.threadStream),
+    hasThreadTurns: hasThreadTurns(state),
   };
 }
 
-function hasThreadTurns(threadStream: ChatState["threadStream"]): boolean {
-  const cached = hasThreadTurnsByStream.get(threadStream);
-  if (cached !== undefined) return cached;
-  const result = threadStreamItemsHaveThreadTurns(threadStreamItems(threadStream));
-  hasThreadTurnsByStream.set(threadStream, result);
-  return result;
+function hasThreadTurns(state: ChatState): boolean {
+  const stream = chatThreadStreamViewState(state.threadStream, state.activeTurn);
+  return threadStreamItemsHaveThreadTurns(threadStreamItems(stream));
 }
 
 function projectedThreadName(shared: ChatPanelComposerSharedValues, threadId: string): string | null {

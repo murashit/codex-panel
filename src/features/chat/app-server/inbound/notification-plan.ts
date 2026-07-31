@@ -104,7 +104,7 @@ function planTrackedSubagentNotification(
   notification: ServerNotification,
   localItemId: LocalItemIdProvider,
 ): ChatInboundPlan {
-  if (!threadId || !state.subagentActivity.byThreadId.has(threadId)) return EMPTY_PLAN;
+  if (!threadId || !state.activeTurn.subagents.byThreadId.has(threadId)) return EMPTY_PLAN;
   const facts = subagentRuntimeFacts(notification, localItemId);
   if (!facts) return EMPTY_PLAN;
   const actions = facts.flatMap((fact) => subagentActivityActionsFromRuntimeFact(threadId, notification.method, fact));
@@ -357,7 +357,7 @@ function threadGoalPlan(
 }
 
 function activeTurnIdForState(state: ChatState): string | null {
-  const lifecycle = state.turn.lifecycle;
+  const lifecycle = state.activeTurn.lifecycle;
   return lifecycle.kind === "running" ? lifecycle.turnId : null;
 }
 

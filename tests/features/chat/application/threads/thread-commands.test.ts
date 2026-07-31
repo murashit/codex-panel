@@ -13,7 +13,7 @@ import {
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
-import { withChatStateThreadStreamItems } from "../../support/thread-stream";
+import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
 interface ThreadCommandEffectsMock {
   compactThread: Mock<ThreadCommandEffects["compactThread"]>;
@@ -779,7 +779,7 @@ describe("thread management commands", () => {
     rollback.resolve(completedCurrent(panelThread("forked")));
     await pendingRollback;
 
-    expect(host.stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
+    expect(host.stateStore.getState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
@@ -900,7 +900,7 @@ function hostMock({
   effects?: Partial<ThreadCommandEffectsMock>;
   ensureConnected?: ThreadCommandsHostMock["ensureConnected"];
 }): ThreadCommandsHostMock {
-  let state = withChatStateThreadStreamItems(chatStateFixture(), items);
+  let state = withChatStateStableThreadStreamItems(chatStateFixture(), items);
   if (activeThread) state = chatStateWith(state, { activeThread });
   const stateStore = createChatStateStore(state);
   const effects: ThreadCommandEffectsMock = {

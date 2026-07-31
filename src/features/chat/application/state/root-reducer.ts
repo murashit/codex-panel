@@ -36,13 +36,8 @@ import {
   reduceRequestSlice,
   resolveChatRequest,
 } from "../pending-requests/state";
-import {
-  type ChatTurnState,
-  initialChatTurnState,
-  type PendingTurnStart,
-  STATUS_TURN_RUNNING,
-  transitionChatTurnLifecycleState,
-} from "../turns/turn-state";
+import type { PendingTurnStart } from "../turns/turn-state";
+import { STATUS_TURN_RUNNING, transitionChatTurnLifecycleState } from "../turns/turn-state";
 import type {
   ActiveThreadResumedAction,
   ActiveThreadSettingsAppliedAction,
@@ -54,25 +49,26 @@ import type {
   TurnStartAcknowledgedAction,
   TurnStartFailedAction,
 } from "./actions";
+import {
+  activeTurnCleared,
+  activeTurnOptimisticallyStarted,
+  activeTurnStartedWithItems,
+  activeTurnStartedWithoutItems,
+  activeTurnWithLifecycle,
+  type ChatActiveTurnState,
+  chatThreadStreamViewState,
+  initialChatActiveTurnState,
+  reduceActiveTurnSlice,
+} from "./active-turn";
 import { definedPatch, patchObject } from "./patch";
 import type { ChatPendingSubmissionState, PendingSubmissionAction } from "./pending-submission";
-import {
-  type ChatSubagentActivityState,
-  initialSubagentActivityState,
-  isSubagentActivityAction,
-  reduceSubagentActivitySlice,
-  type SubagentActivityAction,
-  subagentActivityWithParentTurn,
-} from "./subagent-activity";
+import { isSubagentActivityAction, type SubagentActivityAction } from "./subagent-activity";
 import {
   type ChatThreadStreamState,
   initialChatThreadStreamState,
   isThreadStreamAction,
-  reduceThreadStreamSlice,
   type ThreadStreamAction,
   threadStreamItems,
-  threadStreamStartActiveSegment,
-  threadStreamWithActiveTurnItems,
   threadStreamWithItems,
 } from "./thread-stream";
 import {
@@ -137,9 +133,8 @@ interface ChatStateShape {
   panelThread: ChatPanelThreadState;
   panelTargetRevision: number;
   runtime: ChatRuntimeState;
-  turn: ChatTurnState;
+  activeTurn: ChatActiveTurnState;
   threadStream: ChatThreadStreamState;
-  subagentActivity: ChatSubagentActivityState;
   pendingSubmission: ChatPendingSubmissionState | null;
   requests: ChatRequestState;
   composer: ChatComposerState;
@@ -269,9 +264,8 @@ export function createChatState(): ChatState {
     panelThread: initialPanelThreadState(),
     panelTargetRevision: 0,
     runtime: initialChatRuntimeState(),
-    turn: initialChatTurnState(),
+    activeTurn: initialChatActiveTurnState(),
     threadStream: initialChatThreadStreamState(),
-    subagentActivity: initialSubagentActivityState(),
     pendingSubmission: null,
     requests: initialChatRequestState(),
     composer: initialComposerState(),
@@ -380,12 +374,18 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
       return state.pendingSubmission?.id === action.submissionId && state.pendingSubmission.phase === "committed"
         ? patchObject(state, { pendingSubmission: null })
         : state;
-    case "web-submission/steer-pending":
+    case "web-submission/steer-pending": {
       if (state.pendingSubmission?.id !== action.submissionId || state.pendingSubmission.phase !== "committed") return state;
+      const stream = reduceActiveTurnSlice(state.activeTurn, state.threadStream, {
+        type: "thread-stream/pending-steer-added",
+        item: action.item,
+      });
       return patchObject(state, {
         pendingSubmission: null,
-        threadStream: reduceThreadStreamSlice(state.threadStream, { type: "thread-stream/pending-steer-added", item: action.item }),
+        activeTurn: stream.activeTurn,
+        threadStream: stream.threadStream,
       });
+    }
   }
 }
 
@@ -431,7 +431,6 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
         activePermissionProfile: action.activePermissionProfile,
       },
     },
-    turn: initialChatTurnState(),
     threadStream: initialChatThreadStreamState(action.items ?? []),
     pendingSubmission:
       action.preservePendingSubmissionId && state.pendingSubmission?.id === action.preservePendingSubmissionId
@@ -498,30 +497,29 @@ function reduceViewStateClearedTransition(state: ChatState): ChatState {
 }
 
 function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction): ChatState {
-  const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "started", turnId: action.turnId });
-  if (lifecycle === state.turn.lifecycle) return state;
+  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, { type: "started", turnId: action.turnId });
+  if (lifecycle === state.activeTurn.lifecycle) return state;
   const activeThread =
-    activeThreadState(state) ?? (state.turn.lifecycle.kind === "starting" ? createActiveThreadState(action.threadId) : null);
+    activeThreadState(state) ?? (state.activeTurn.lifecycle.kind === "starting" ? createActiveThreadState(action.threadId) : null);
   if (!activeThread || activeThread.id !== action.threadId) return state;
+  const stream = action.items
+    ? activeTurnStartedWithItems(state.activeTurn, state.threadStream, action.turnId, action.items)
+    : activeTurnStartedWithoutItems(state.activeTurn, state.threadStream, action.turnId);
   return patchObject(state, {
     panelThread: { kind: "active", thread: activeThread },
     panelTargetRevision: panelThreadId(state) === action.threadId ? state.panelTargetRevision : state.panelTargetRevision + 1,
-    turn: { lifecycle },
+    activeTurn: activeTurnWithLifecycle(stream.activeTurn, lifecycle),
     connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
-    threadStream: action.items
-      ? threadStreamWithActiveTurnItems(state.threadStream, action.turnId, action.items)
-      : threadStreamStartActiveSegment(state.threadStream, action.turnId, []),
-    subagentActivity: initialSubagentActivityState(action.turnId),
+    threadStream: stream.threadStream,
   });
 }
 
 function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAction): ChatState {
-  const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "completed", turnId: action.turnId });
-  if (lifecycle === state.turn.lifecycle) return state;
+  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, { type: "completed", turnId: action.turnId });
+  if (lifecycle === state.activeTurn.lifecycle) return state;
   return patchObject(state, {
-    turn: { lifecycle },
-    threadStream: threadStreamWithItems(state.threadStream, action.items, { pendingSteers: [] }),
-    subagentActivity: initialSubagentActivityState(),
+    activeTurn: activeTurnWithLifecycle(state.activeTurn, lifecycle),
+    threadStream: threadStreamWithItems(state.threadStream, action.items),
     connection: { ...state.connection, statusText: `Turn ${action.status}.` },
   });
 }
@@ -533,90 +531,88 @@ function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOpt
   ) {
     return state;
   }
-  const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, {
+  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, {
     type: "optimistic-started",
     pendingTurnStart: action.pendingTurnStart,
   });
+  const stream = activeTurnOptimisticallyStarted(state.activeTurn, state.threadStream, action.item);
   return patchObject(state, {
-    turn: { lifecycle },
+    activeTurn: activeTurnWithLifecycle(stream.activeTurn, lifecycle),
     pendingSubmission: action.pendingSubmissionId ? null : state.pendingSubmission,
-    threadStream: threadStreamStartActiveSegment(state.threadStream, null, [action.item]),
-    subagentActivity: initialSubagentActivityState(),
+    threadStream: stream.threadStream,
   });
 }
 
 function reduceTurnStartAcknowledgedTransition(state: ChatState, action: TurnStartAcknowledgedAction): ChatState {
-  const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, {
+  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, {
     type: "start-acknowledged",
     turnId: action.turnId,
   });
-  if (lifecycle === state.turn.lifecycle) return state;
+  if (lifecycle === state.activeTurn.lifecycle) return state;
+  const stream = activeTurnStartedWithItems(state.activeTurn, state.threadStream, action.turnId, action.items);
   return patchObject(state, {
-    turn: { lifecycle },
-    threadStream: threadStreamWithActiveTurnItems(state.threadStream, action.turnId, action.items),
-    subagentActivity: subagentActivityWithParentTurn(state.subagentActivity, action.turnId),
+    activeTurn: activeTurnWithLifecycle(stream.activeTurn, lifecycle),
+    threadStream: stream.threadStream,
   });
 }
 
 function reduceTurnStartFailedTransition(state: ChatState, action: TurnStartFailedAction): ChatState {
-  const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "start-failed" });
-  if (lifecycle === state.turn.lifecycle) return state;
+  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, { type: "start-failed" });
+  if (lifecycle === state.activeTurn.lifecycle) return state;
   return patchObject(state, {
-    turn: { lifecycle },
+    activeTurn: activeTurnWithLifecycle(state.activeTurn, lifecycle),
     threadStream: threadStreamWithItems(state.threadStream, action.items),
-    subagentActivity: initialSubagentActivityState(),
   });
 }
 
 function reducePendingStartHookUpsertedTransition(state: ChatState, action: PendingStartHookUpsertedAction): ChatState {
+  const stream = reduceActiveTurnSlice(state.activeTurn, state.threadStream, { type: "thread-stream/item-upserted", item: action.item });
+  const lifecycle = transitionChatTurnLifecycleState(state.activeTurn.lifecycle, {
+    type: "pending-start-hook-upserted",
+    pendingTurnStart: action.pendingTurnStart,
+  });
   return patchObject(state, {
-    threadStream: reduceThreadStreamSlice(state.threadStream, { type: "thread-stream/item-upserted", item: action.item }),
-    turn: {
-      lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, {
-        type: "pending-start-hook-upserted",
-        pendingTurnStart: action.pendingTurnStart,
-      }),
-    },
+    activeTurn: activeTurnWithLifecycle(stream.activeTurn, lifecycle),
+    threadStream: stream.threadStream,
   });
 }
 
 function reduceRequestResolvedTransition(state: ChatState, action: RequestResolvedAction): ChatState {
   const requests = resolveChatRequest(state.requests, action.requestId);
   if (requests === state.requests) return state;
+  const stream = action.resultItem
+    ? reduceActiveTurnSlice(state.activeTurn, state.threadStream, { type: "thread-stream/item-added", item: action.resultItem })
+    : { activeTurn: state.activeTurn, threadStream: state.threadStream };
   return patchObject(state, {
     requests,
     ui: clearResolvedRequestDisclosures(state.ui, action.requestId),
-    threadStream: action.resultItem
-      ? reduceThreadStreamSlice(state.threadStream, { type: "thread-stream/item-added", item: action.resultItem })
-      : state.threadStream,
+    activeTurn: stream.activeTurn,
+    threadStream: stream.threadStream,
   });
 }
 
 function clearTurnScopedState(state: ChatState): ChatState {
+  const items = threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn));
   return patchObject(state, {
-    turn: {
-      lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
-    },
-    threadStream: threadStreamWithItems(state.threadStream, threadStreamItems(state.threadStream), { pendingSteers: [] }),
-    subagentActivity: initialSubagentActivityState(),
+    activeTurn: activeTurnCleared(state.activeTurn),
+    threadStream: threadStreamWithItems(state.threadStream, items),
     requests: initialChatRequestState(),
     ui: clearAllRequestDisclosures(state.ui),
   });
 }
 
 function clearThreadScopedState(state: ChatState, options: { invalidatePanelTarget?: boolean } = {}): ChatState {
-  return clearTurnScopedState(
-    patchObject(state, {
-      panelThread: initialPanelThreadState(),
-      panelTargetRevision:
-        options.invalidatePanelTarget || panelThreadId(state) !== null ? state.panelTargetRevision + 1 : state.panelTargetRevision,
-      runtime: initialChatRuntimeState(),
-      threadStream: initialChatThreadStreamState(),
-      pendingSubmission: null,
-      composer: initialComposerState(),
-      ui: initialUiState(),
-    }),
-  );
+  const cleared = clearTurnScopedState(state);
+  return patchObject(cleared, {
+    panelThread: initialPanelThreadState(),
+    panelTargetRevision:
+      options.invalidatePanelTarget || panelThreadId(state) !== null ? state.panelTargetRevision + 1 : state.panelTargetRevision,
+    runtime: initialChatRuntimeState(),
+    threadStream: initialChatThreadStreamState(),
+    pendingSubmission: null,
+    composer: initialComposerState(),
+    ui: initialUiState(),
+  });
 }
 
 function clearConnectionScopedState(state: ChatState): ChatState {
@@ -650,18 +646,19 @@ function panelThreadIdForState(panelThread: ChatPanelThreadState): string | null
 }
 
 function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState {
+  const activeTurnSlice =
+    isThreadStreamAction(action) || isSubagentActivityAction(action)
+      ? reduceActiveTurnSlice(state.activeTurn, state.threadStream, action)
+      : { activeTurn: state.activeTurn, threadStream: state.threadStream };
   return patchObject(state, {
     connection: reduceConnectionSlice(state.connection, action),
     panelThread: reducePanelThreadSlice(state.panelThread, action),
     panelTargetRevision: state.panelTargetRevision,
     runtime: reduceRuntimeSlice(state.runtime, action),
-    turn: state.turn,
+    activeTurn: activeTurnSlice.activeTurn,
     pendingSubmission: state.pendingSubmission,
     requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
-    threadStream: isThreadStreamAction(action) ? reduceThreadStreamSlice(state.threadStream, action) : state.threadStream,
-    subagentActivity: isSubagentActivityAction(action)
-      ? reduceSubagentActivitySlice(state.subagentActivity, action)
-      : state.subagentActivity,
+    threadStream: activeTurnSlice.threadStream,
     composer: reduceComposerSlice(state.composer, action),
     ui: isUiAction(action) ? reduceUiSlice(state.ui, action) : state.ui,
   });

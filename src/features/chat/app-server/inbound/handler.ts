@@ -149,7 +149,7 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
   reconcileApprovalRequests(context);
   flushAutomaticApprovalResponses(context);
   const current = state(context);
-  const activeScope = { activeThreadId: activeThreadId(current), activeTurnId: activeTurnId(current) };
+  const activeScope = { activeThreadId: activeThreadId(current), activeTurnId: activeTurnId(current.activeTurn) };
   let route = routeServerRequest(request, activeScope);
   let approvalOwner: ApprovalRequestOwner = "active";
   if (route.kind === "inactive") {
@@ -165,7 +165,7 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
         rejectServerRequest(context, request, `Rejected unsupported app-server request: ${request.method}`);
         return;
       }
-      const parentTurnId = activeTurnId(current);
+      const parentTurnId = activeTurnId(current.activeTurn);
       if (!parentTurnId) {
         dispatch(context, { type: "request/approval-queued", approval: route.approval });
         return;
@@ -241,15 +241,9 @@ function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingR
 
 function trackedSubagentApprovalScope(current: ChatState, request: ServerRequest): { activeThreadId: string; activeTurnId: string } | null {
   if (!isApprovalServerRequest(request)) return null;
-  const parentTurnId = activeTurnId(current);
-  const tracked = current.subagentActivity.byThreadId.get(request.params.threadId);
-  if (
-    !parentTurnId ||
-    current.subagentActivity.parentTurnId !== parentTurnId ||
-    !tracked?.childTurnId ||
-    tracked.childTurnId !== request.params.turnId ||
-    tracked.executionState !== "running"
-  ) {
+  const parentTurnId = activeTurnId(current.activeTurn);
+  const tracked = current.activeTurn.subagents.byThreadId.get(request.params.threadId);
+  if (!parentTurnId || !tracked?.childTurnId || tracked.childTurnId !== request.params.turnId || tracked.executionState !== "running") {
     return null;
   }
   return { activeThreadId: tracked.threadId, activeTurnId: tracked.childTurnId };
@@ -273,7 +267,7 @@ function flushAutomaticApprovalResponses(context: ChatInboundHandlerContext): vo
 function reconcileApprovalRequests(context: ChatInboundHandlerContext): void {
   const current = state(context);
   const pendingApprovalIds = new Set(current.requests.approvals.map((approval) => approval.requestId));
-  const abandonedApprovalIds = context.approvalRequests.reconcile(activeTurnId(current), pendingApprovalIds);
+  const abandonedApprovalIds = context.approvalRequests.reconcile(activeTurnId(current.activeTurn), pendingApprovalIds);
   for (const requestId of abandonedApprovalIds) {
     if (pendingApprovalIds.has(requestId)) dispatch(context, { type: "request/resolved", requestId });
   }

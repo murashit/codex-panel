@@ -4,12 +4,12 @@ import { projectTurnRuntimeFacts } from "../../../../../src/features/chat/applic
 import type { TurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-facts";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture, chatStateWith } from "../../support/state";
-import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
+import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
 function activeRunningState(): ChatState {
   let state = chatStateFixture();
   state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-  return chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+  return chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
 }
 
 function applyActions(state: ChatState, actions: readonly ChatAction[]): ChatState {
@@ -27,7 +27,7 @@ describe("TurnRuntimeFact projection", () => {
 
   it("reconciles completed turn snapshots with optimistic local user dialogues", () => {
     let state = activeRunningState();
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "turn-active" },
     ]);
     const facts: TurnRuntimeFact[] = [
@@ -110,7 +110,7 @@ describe("TurnRuntimeFact projection", () => {
     ]);
     const next = applyActions(state, projection.actions);
 
-    expect(next.threadStream.pendingSteers).toEqual([]);
+    expect(next.activeTurn.pendingSteers).toEqual([]);
     expect(chatStateThreadStreamItems(next)).toEqual([
       expect.objectContaining({
         id: "server-steer",
@@ -122,7 +122,7 @@ describe("TurnRuntimeFact projection", () => {
 
   it("treats normal completion items as a summary and clears pending separately", () => {
     let state = activeRunningState();
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "before",
         sourceItemId: "before",
@@ -171,7 +171,7 @@ describe("TurnRuntimeFact projection", () => {
     ]);
     const next = applyActions(state, projection.actions);
 
-    expect(next.threadStream.pendingSteers).toEqual([]);
+    expect(next.activeTurn.pendingSteers).toEqual([]);
     expect(chatStateThreadStreamItems(next)).toEqual([
       expect.objectContaining({ id: "before" }),
       expect.objectContaining({ id: "assistant" }),
@@ -206,12 +206,12 @@ describe("TurnRuntimeFact projection", () => {
     ]);
     const next = applyActions(state, projection.actions);
 
-    expect(next.threadStream.pendingSteers).toEqual([]);
+    expect(next.activeTurn.pendingSteers).toEqual([]);
   });
 
   it("upserts structured auto-review results without dropping unrelated stream items", () => {
     let state = activeRunningState();
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       { id: "m1", kind: "dialogue", dialogueKind: "assistantResponse", role: "assistant", text: "working", dialogueState: "completed" },
       { id: "warning-1", kind: "reviewResult", role: "tool", text: "Auto-review warning", executionState: "completed" },
     ]);

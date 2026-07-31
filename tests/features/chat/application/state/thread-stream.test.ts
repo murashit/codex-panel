@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { chatThreadStreamViewState, initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/active-turn";
 import {
   initialChatThreadStreamState,
   reduceThreadStreamSlice,
@@ -12,7 +13,7 @@ import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/t
 
 describe("thread stream state", () => {
   it("updates turn diffs and deduplicates reported logs", () => {
-    let state = reduceThreadStreamSlice(initialChatThreadStreamState(), {
+    let state = reduceThreadStreamSlice(initialView(), {
       type: "thread-stream/turn-diff-updated",
       turnId: "turn",
       diff: "@@",
@@ -27,7 +28,7 @@ describe("thread stream state", () => {
 
   it("appends assistant deltas after stable history", () => {
     const history = dialogueItem("history");
-    const running = threadStreamStartActiveSegment(initialChatThreadStreamState([history]), "turn", []);
+    const running = threadStreamStartActiveSegment(initialView([history]), "turn", []);
     const next = reduceThreadStreamSlice(running, {
       type: "thread-stream/assistant-delta-appended",
       itemId: "assistant",
@@ -39,7 +40,7 @@ describe("thread stream state", () => {
   });
 
   it("keeps pending steers outside canonical stream items until the server observes them", () => {
-    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", [dialogueItem("prompt")]);
+    let state = threadStreamStartActiveSegment(initialView(), "turn", [dialogueItem("prompt")]);
     const pending = {
       id: "local-steer",
       clientId: "local-steer",
@@ -87,7 +88,7 @@ describe("thread stream state", () => {
   });
 
   it("does not carry pending steers into a different active turn", () => {
-    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn-old", []);
+    let state = threadStreamStartActiveSegment(initialView(), "turn-old", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/pending-steer-added",
       item: {
@@ -107,7 +108,7 @@ describe("thread stream state", () => {
   });
 
   it("commits one pending steer without disturbing the remaining FIFO order", () => {
-    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", []);
+    let state = threadStreamStartActiveSegment(initialView(), "turn", []);
     for (const clientId of ["first", "second", "third"]) {
       state = reduceThreadStreamSlice(state, {
         type: "thread-stream/pending-steer-added",
@@ -141,7 +142,7 @@ describe("thread stream state", () => {
   });
 
   it("updates repeated output by source item id without exposing the private index", () => {
-    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", []);
+    let state = threadStreamStartActiveSegment(initialView(), "turn", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/item-output-appended",
       itemId: "cmd",
@@ -163,7 +164,7 @@ describe("thread stream state", () => {
   });
 
   it("ignores deltas from a different active turn", () => {
-    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn-active", []);
+    let state = threadStreamStartActiveSegment(initialView(), "turn-active", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/assistant-delta-appended",
       itemId: "assistant",
@@ -181,7 +182,7 @@ describe("thread stream state", () => {
   });
 
   it("keeps optimistic items when the active turn is acknowledged by a delta", () => {
-    const optimistic = threadStreamStartActiveSegment(initialChatThreadStreamState(), null, [dialogueItem("local-user")]);
+    const optimistic = threadStreamStartActiveSegment(initialView(), null, [dialogueItem("local-user")]);
     const next = reduceThreadStreamSlice(optimistic, {
       type: "thread-stream/assistant-delta-appended",
       itemId: "assistant",
@@ -196,7 +197,7 @@ describe("thread stream state", () => {
   });
 
   it("appends text only when an existing source item has the same kind", () => {
-    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", []);
+    let state = threadStreamStartActiveSegment(initialView(), "turn", []);
     state = reduceThreadStreamSlice(state, {
       type: "thread-stream/item-text-appended",
       itemId: "shared-source",
@@ -230,15 +231,16 @@ describe("thread stream state", () => {
 describe("thread stream selectors", () => {
   it("counts turns after a turn id from thread stream state", () => {
     const state = initialChatThreadStreamState(items());
+    const view = chatThreadStreamViewState(state, initialChatActiveTurnState());
 
-    expect(threadStreamTurnsAfterTurnId(state, "turn-1")).toBe(2);
-    expect(threadStreamTurnsAfterTurnId(state, "turn-2")).toBe(1);
-    expect(threadStreamTurnsAfterTurnId(state, "turn-3")).toBe(0);
-    expect(threadStreamTurnsAfterTurnId(state, "missing")).toBeNull();
+    expect(threadStreamTurnsAfterTurnId(view, "turn-1")).toBe(2);
+    expect(threadStreamTurnsAfterTurnId(view, "turn-2")).toBe(1);
+    expect(threadStreamTurnsAfterTurnId(view, "turn-3")).toBe(0);
+    expect(threadStreamTurnsAfterTurnId(view, "missing")).toBeNull();
   });
 
   it("includes the active segment when counting turns", () => {
-    const state = threadStreamWithActiveTurnItems(initialChatThreadStreamState(items()), "turn-3", items());
+    const state = threadStreamWithActiveTurnItems(initialView(items()), "turn-3", items());
 
     expect(threadStreamTurnsAfterTurnId(state, "turn-2")).toBe(1);
   });
@@ -246,7 +248,11 @@ describe("thread stream selectors", () => {
   it("selects the latest turn user dialogue for rollback restoration", () => {
     const state = initialChatThreadStreamState(items());
 
-    expect(threadStreamRollbackCandidate(state)).toEqual({ turnId: "turn-3", itemId: "u3", text: "third" });
+    expect(threadStreamRollbackCandidate(chatThreadStreamViewState(state, initialChatActiveTurnState()))).toEqual({
+      turnId: "turn-3",
+      itemId: "u3",
+      text: "third",
+    });
   });
 
   it("uses the semantic prompt instead of steering dialogues for rollback restoration", () => {
@@ -264,7 +270,11 @@ describe("thread stream selectors", () => {
       },
     ]);
 
-    expect(threadStreamRollbackCandidate(state)).toEqual({ turnId: "turn-1", itemId: "u1", text: "initial" });
+    expect(threadStreamRollbackCandidate(chatThreadStreamViewState(state, initialChatActiveTurnState()))).toEqual({
+      turnId: "turn-1",
+      itemId: "u1",
+      text: "initial",
+    });
   });
 
   it("restores raw user dialogue text instead of rendered display text", () => {
@@ -280,7 +290,7 @@ describe("thread stream selectors", () => {
       },
     ]);
 
-    expect(threadStreamRollbackCandidate(state)).toEqual({
+    expect(threadStreamRollbackCandidate(chatThreadStreamViewState(state, initialChatActiveTurnState()))).toEqual({
       turnId: "turn-1",
       itemId: "u1",
       text: "Use $obsidian-codex-panel-maintain.",
@@ -288,12 +298,18 @@ describe("thread stream selectors", () => {
   });
 
   it("returns null when rollback has no user dialogue candidate", () => {
-    expect(threadStreamRollbackCandidate(initialChatThreadStreamState([]))).toBeNull();
+    expect(
+      threadStreamRollbackCandidate(chatThreadStreamViewState(initialChatThreadStreamState([]), initialChatActiveTurnState())),
+    ).toBeNull();
   });
 });
 
 function dialogueItem(id: string): ThreadStreamItem {
   return { id, kind: "dialogue", role: "assistant", text: id, dialogueKind: "assistantResponse", dialogueState: "completed" };
+}
+
+function initialView(items: readonly ThreadStreamItem[] = []) {
+  return chatThreadStreamViewState(initialChatThreadStreamState(items), initialChatActiveTurnState());
 }
 
 function items(): ThreadStreamItem[] {

@@ -11,7 +11,6 @@ interface SubagentActivityEntry {
 }
 
 export interface ChatSubagentActivityState {
-  readonly parentTurnId: string | null;
   readonly byThreadId: ReadonlyMap<string, SubagentActivityEntry>;
 }
 
@@ -47,12 +46,8 @@ export type SubagentActivityAction =
     }
   | { type: "subagent-activity/execution-state-changed"; threadId: string; executionState: "completed" | "failed" };
 
-export function initialSubagentActivityState(parentTurnId: string | null = null): ChatSubagentActivityState {
-  return { parentTurnId, byThreadId: new Map() };
-}
-
-export function subagentActivityWithParentTurn(state: ChatSubagentActivityState, parentTurnId: string): ChatSubagentActivityState {
-  return state.parentTurnId === parentTurnId ? state : initialSubagentActivityState(parentTurnId);
+export function initialSubagentActivityState(): ChatSubagentActivityState {
+  return { byThreadId: new Map() };
 }
 
 export function isSubagentActivityAction(action: { type: string }): action is SubagentActivityAction {
@@ -62,7 +57,7 @@ export function isSubagentActivityAction(action: { type: string }): action is Su
 export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, action: SubagentActivityAction): ChatSubagentActivityState {
   switch (action.type) {
     case "subagent-activity/tracked":
-      return trackSubagent(state, action.threadId, action.parentTurnId);
+      return trackSubagent(state, action.threadId);
     case "subagent-activity/turn-started":
       return updateTrackedEntry(state, action.threadId, (entry) => ({
         ...entry,
@@ -115,12 +110,11 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
   }
 }
 
-function trackSubagent(state: ChatSubagentActivityState, threadId: string, parentTurnId: string): ChatSubagentActivityState {
-  const current = state.parentTurnId === parentTurnId ? state : initialSubagentActivityState(parentTurnId);
-  if (current.byThreadId.has(threadId)) return current;
-  const byThreadId = new Map(current.byThreadId);
+function trackSubagent(state: ChatSubagentActivityState, threadId: string): ChatSubagentActivityState {
+  if (state.byThreadId.has(threadId)) return state;
+  const byThreadId = new Map(state.byThreadId);
   byThreadId.set(threadId, { threadId, childTurnId: null, latestItem: null, executionState: "running" });
-  return { ...current, byThreadId };
+  return { ...state, byThreadId };
 }
 
 function updateTrackedEntry(

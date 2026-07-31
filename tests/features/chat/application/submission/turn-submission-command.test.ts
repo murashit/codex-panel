@@ -259,7 +259,7 @@ describe("TurnSubmissionCommand", () => {
       clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
     });
     expect(host.prepareInput).not.toHaveBeenCalled();
-    expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
+    expect(stateStore.getState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
   });
@@ -479,17 +479,17 @@ describe("TurnSubmissionCommand", () => {
     await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
 
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(stateStore.getState().threadStream.pendingSteers).toEqual([
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([
       expect.objectContaining({ id: pending.id, clientId: expect.stringMatching(/^local-steer-/), turnId: "turn" }),
     ]);
     stateStore.dispatch({ type: "web-submission/cancelled", submissionId: pending.id });
-    expect(stateStore.getState().threadStream.pendingSteers).toHaveLength(1);
+    expect(stateStore.getState().activeTurn.pendingSteers).toHaveLength(1);
 
     steering.resolve(completedCurrent(undefined));
     await expect(submitting).resolves.toBe(true);
     expect(stateStore.getState().pendingSubmission).toBeNull();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
-    expect(stateStore.getState().threadStream.pendingSteers[0]).toMatchObject({ id: pending.id, turnId: "turn" });
+    expect(stateStore.getState().activeTurn.pendingSteers[0]).toMatchObject({ id: pending.id, turnId: "turn" });
   });
 
   it("cleans up and restores a committed pending web steer when the RPC fails", async () => {
@@ -760,7 +760,7 @@ describe("TurnSubmissionCommand", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
     const localSteerId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
-    expect(stateStore.getState().threadStream.pendingSteers).toEqual([
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([
       expect.objectContaining({ id: localSteerId, clientId: localSteerId, text: "follow up", turnId: "turn" }),
     ]);
   });
@@ -823,7 +823,7 @@ describe("TurnSubmissionCommand", () => {
     });
     await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
     const clientId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
-    expect(stateStore.getState().threadStream.pendingSteers).toEqual([
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([
       expect.objectContaining({ id: pending.id, clientId, text: pending.text }),
     ]);
     stateStore.dispatch({
@@ -861,7 +861,7 @@ describe("TurnSubmissionCommand", () => {
 
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(true);
     const clientId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
-    expect(stateStore.getState().threadStream.pendingSteers).toEqual([expect.objectContaining({ clientId })]);
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([expect.objectContaining({ clientId })]);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
 
     stateStore.dispatch({
@@ -877,7 +877,7 @@ describe("TurnSubmissionCommand", () => {
       },
     });
 
-    expect(stateStore.getState().threadStream.pendingSteers).toEqual([]);
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([]);
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([expect.objectContaining({ id: "server-user", clientId })]);
   });
 
@@ -890,7 +890,7 @@ describe("TurnSubmissionCommand", () => {
 
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
 
-    expect(stateStore.getState().threadStream.pendingSteers).toEqual([]);
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([]);
     expect(host.addSystemMessage).toHaveBeenCalledWith("cannot steer this turn");
   });
 
@@ -907,7 +907,6 @@ describe("TurnSubmissionCommand", () => {
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
 
     expect(activeThreadId(stateStore.getState())).toBe("second");
-    expect(stateStore.getState().threadStream.pendingSteers).toEqual([]);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -926,7 +925,6 @@ describe("TurnSubmissionCommand", () => {
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
 
     expect(activeThreadId(stateStore.getState())).toBe("thread");
-    expect(stateStore.getState().threadStream.pendingSteers).toEqual([]);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 

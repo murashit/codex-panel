@@ -19,27 +19,21 @@ export type ChatTurnLifecycleEvent =
   | { type: "start-failed" }
   | { type: "pending-start-hook-upserted"; pendingTurnStart: PendingTurnStart | null };
 
-export interface ChatTurnState {
+export interface ChatTurnLifecycleOwner {
   readonly lifecycle: ChatTurnLifecycleState;
 }
 
-export function initialChatTurnState(): ChatTurnState {
-  return {
-    lifecycle: { kind: "idle" },
-  };
+export function chatTurnBusy(state: ChatTurnLifecycleOwner): boolean {
+  return state.lifecycle.kind !== "idle";
 }
 
-export function chatTurnBusy(state: { turn: ChatTurnState } | { lifecycle: ChatTurnLifecycleState }): boolean {
-  return turnLifecycleFor(state).kind !== "idle";
-}
-
-export function activeTurnId(state: { turn: ChatTurnState } | { lifecycle: ChatTurnLifecycleState }): string | null {
-  const lifecycle = turnLifecycleFor(state);
+export function activeTurnId(state: ChatTurnLifecycleOwner): string | null {
+  const lifecycle = state.lifecycle;
   return lifecycle.kind === "running" ? lifecycle.turnId : null;
 }
 
-export function pendingTurnStart(state: { turn: ChatTurnState } | { lifecycle: ChatTurnLifecycleState }): PendingTurnStart | null {
-  const lifecycle = turnLifecycleFor(state);
+export function pendingTurnStart(state: ChatTurnLifecycleOwner): PendingTurnStart | null {
+  const lifecycle = state.lifecycle;
   return lifecycle.kind === "starting" ? lifecycle.pendingTurnStart : null;
 }
 
@@ -66,11 +60,6 @@ export function transitionChatTurnLifecycleState(state: ChatTurnLifecycleState, 
     default:
       return unhandledChatTurnLifecycleEvent(event);
   }
-}
-
-function turnLifecycleFor(state: { turn: ChatTurnState } | { lifecycle: ChatTurnLifecycleState }): ChatTurnLifecycleState {
-  if ("turn" in state) return state.turn.lifecycle;
-  return state.lifecycle;
 }
 
 function unhandledChatTurnLifecycleEvent(event: never): never {

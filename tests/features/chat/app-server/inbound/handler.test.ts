@@ -18,7 +18,7 @@ import type { ChatStateStore } from "../../../../../src/features/chat/applicatio
 import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
 import type { ThreadFact as ThreadCatalogEvent } from "../../../../../src/features/threads/workflows/thread-facts";
 import { chatStateFixture, chatStateWith } from "../../support/state";
-import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
+import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
 
@@ -69,7 +69,7 @@ function testStoreForState(state: ChatState): ChatStateStore {
 function activeRunningState(): ChatState {
   return chatStateFixture({
     activeThread: { id: "thread-active" },
-    turn: { lifecycle: { kind: "running", turnId: "turn-active" } },
+    activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
   });
 }
 
@@ -102,7 +102,7 @@ describe("ChatInboundHandler", () => {
 
     it("marks active reasoning completed when assistant text starts", () => {
       let state = activeRunningState();
-      state = withChatStateThreadStreamItems(state, [
+      state = withChatStateStableThreadStreamItems(state, [
         { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" },
       ]);
       const handler = handlerForState(state);
@@ -346,14 +346,14 @@ describe("ChatInboundHandler", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, {
-        turn: {
+        activeTurn: {
           lifecycle: {
             kind: "starting",
             pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
           },
         },
       });
-      state = withChatStateThreadStreamItems(state, [
+      state = withChatStateStableThreadStreamItems(state, [
         { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
@@ -386,7 +386,7 @@ describe("ChatInboundHandler", () => {
 
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(chatStateThreadStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
-      expect(pendingTurnStart(handler.currentState())).toBeNull();
+      expect(pendingTurnStart(handler.currentState().activeTurn)).toBeNull();
       expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
@@ -394,7 +394,7 @@ describe("ChatInboundHandler", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, {
-        turn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
+        activeTurn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
       });
       const handler = handlerForState(state);
 
@@ -424,16 +424,16 @@ describe("ChatInboundHandler", () => {
 
       expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
       expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[0]).turnId).toBeUndefined();
-      expect(expectPresent(pendingTurnStart(handler.currentState())).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+      expect(expectPresent(pendingTurnStart(handler.currentState().activeTurn)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
     it("keeps pre-turn prompt submit hooks through turn start and completed-turn reconciliation", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, {
-        turn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
+        activeTurn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
       });
-      state = withChatStateThreadStreamItems(state, [
+      state = withChatStateStableThreadStreamItems(state, [
         { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
       ]);
       const handler = handlerForState(state);
@@ -445,7 +445,7 @@ describe("ChatInboundHandler", () => {
 
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[1]).turnId).toBeUndefined();
-      expect(expectPresent(pendingTurnStart(handler.currentState())).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+      expect(expectPresent(pendingTurnStart(handler.currentState().activeTurn)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
 
       handler.handleNotification({
         method: "turn/started",
@@ -469,7 +469,7 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).find((item) => item.id === "hook-hook-1-1")).toMatchObject({
         turnId: "turn-active",
       });
-      expect(pendingTurnStart(handler.currentState())).toBeNull();
+      expect(pendingTurnStart(handler.currentState().activeTurn)).toBeNull();
 
       handler.handleNotification({
         method: "turn/completed",
@@ -506,14 +506,14 @@ describe("ChatInboundHandler", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, {
-        turn: {
+        activeTurn: {
           lifecycle: {
             kind: "starting",
             pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
           },
         },
       });
-      state = withChatStateThreadStreamItems(state, [
+      state = withChatStateStableThreadStreamItems(state, [
         { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
@@ -544,7 +544,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(pendingTurnStart(handler.currentState())).toEqual({
+      expect(pendingTurnStart(handler.currentState().activeTurn)).toEqual({
         anchorItemId: "local-user-1",
         promptSubmitHookItemIds: ["hook-hook-1-1"],
       });
@@ -645,7 +645,7 @@ describe("ChatInboundHandler", () => {
             agentRole: "explorer",
           },
         },
-        turn: { lifecycle: { kind: "running", turnId: "turn-active" } },
+        activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
       });
       const handler = handlerForState(state);
 
@@ -1118,7 +1118,7 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
     });
 
-    it("clears a tracked-subagent approval when its parent turn completes first", () => {
+    it("does not carry delayed child activity into the parent turn that follows", () => {
       const handler = handlerForState(activeRunningState());
       trackDirectSubagent(handler, "child", "child-turn");
       handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
@@ -1139,8 +1139,36 @@ describe("ChatInboundHandler", () => {
           },
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
-
       expect(handler.currentState().requests.approvals).toEqual([]);
+      handler.handleNotification({
+        method: "turn/started",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "next-turn",
+            status: "inProgress",
+            startedAt: 3,
+            completedAt: null,
+            durationMs: null,
+            error: null,
+            itemsView: "full",
+            items: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+      handler.handleNotification({
+        method: "item/reasoning/summaryTextDelta",
+        params: {
+          threadId: "child",
+          turnId: "child-turn",
+          itemId: "late-child-reasoning",
+          summaryIndex: 0,
+          delta: "stale child activity",
+        },
+      } satisfies Extract<ServerNotification, { method: "item/reasoning/summaryTextDelta" }>);
+
+      expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "next-turn" });
+      expect(handler.currentState().activeTurn.subagents.byThreadId).toEqual(new Map());
     });
 
     it("keeps different command approval callbacks separate", () => {
@@ -1156,7 +1184,7 @@ describe("ChatInboundHandler", () => {
     it("rejects delayed turn-scoped server requests after the active thread returns to idle", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "idle" } } });
+      state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
 
@@ -1600,7 +1628,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/reasoning/summaryTextDelta" }>);
 
-      expect(handler.currentState().subagentActivity.byThreadId.get("child")).toMatchObject({
+      expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")).toMatchObject({
         childTurnId: "child-turn",
         latestItem: {
           id: "child-reasoning",
@@ -1608,7 +1636,7 @@ describe("ChatInboundHandler", () => {
           text: "reasoning: Inspecting notification routing",
         },
       });
-      expect(handler.currentState().subagentActivity.byThreadId.has("unrelated")).toBe(false);
+      expect(handler.currentState().activeTurn.subagents.byThreadId.has("unrelated")).toBe(false);
 
       handler.handleNotification({
         method: "turn/completed",
@@ -1627,7 +1655,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(handler.currentState().subagentActivity.byThreadId.get("child")?.executionState).toBe("failed");
+      expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")?.executionState).toBe("failed");
     });
 
     it("does not track a nested subagent as direct parent activity", () => {
@@ -1638,7 +1666,7 @@ describe("ChatInboundHandler", () => {
         params: { thread: directSubagentThread("grandchild", "child") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(handler.currentState().subagentActivity.byThreadId.size).toBe(0);
+      expect(handler.currentState().activeTurn.subagents.byThreadId.size).toBe(0);
     });
 
     it("tracks a child from the parent subagent activity item without rendering that protocol marker", () => {
@@ -1660,7 +1688,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/started" }>);
 
-      expect(handler.currentState().subagentActivity.byThreadId.get("child")).toMatchObject({
+      expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")).toMatchObject({
         threadId: "child",
         executionState: "running",
         latestItem: null,
@@ -1687,7 +1715,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/completed" }>);
 
-      expect(handler.currentState().subagentActivity.byThreadId.get("child")).toMatchObject({
+      expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")).toMatchObject({
         threadId: "child",
         executionState: "failed",
       });
@@ -1707,7 +1735,7 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-active",
         },
       });
-      state = withChatStateThreadStreamItems(state, [
+      state = withChatStateStableThreadStreamItems(state, [
         {
           id: "assistant",
           kind: "dialogue",
@@ -1735,7 +1763,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/started" }>);
 
-      expect(handler.currentState().threadStream.pendingSteers).toEqual([]);
+      expect(handler.currentState().activeTurn.pendingSteers).toEqual([]);
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["assistant", "server-steer"]);
     });
 
@@ -1752,7 +1780,7 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-active",
         },
       });
-      state = withChatStateThreadStreamItems(state, [
+      state = withChatStateStableThreadStreamItems(state, [
         { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "start", turnId: "turn-active" },
         {
           id: "a1",
@@ -1798,7 +1826,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(handler.currentState().threadStream.pendingSteers).toEqual([]);
+      expect(handler.currentState().activeTurn.pendingSteers).toEqual([]);
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual([
         "local-user-1",
         "a1",

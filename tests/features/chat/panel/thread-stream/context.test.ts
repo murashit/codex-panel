@@ -23,7 +23,7 @@ import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
-import { withChatStateThreadStreamItems } from "../../support/thread-stream";
+import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 import { installThreadStreamViewportMetrics, pendingApproval } from "./rendering/test-helpers";
 
 installObsidianDomShims();
@@ -121,7 +121,7 @@ describe("thread stream surface", () => {
 
   it("projects pending requests from the captured thread stream state", () => {
     let state = chatStateFixture();
-    state = withChatStateThreadStreamItems(state, [{ id: "system", kind: "system", role: "system", text: "Waiting for approval." }]);
+    state = withChatStateStableThreadStreamItems(state, [{ id: "system", kind: "system", role: "system", text: "Waiting for approval." }]);
     state = chatStateWith(state, { requests: { approvals: [pendingApproval()] } });
     const projection = projectThreadStream(
       threadStreamModelFromChatState(state),
@@ -140,7 +140,7 @@ describe("thread stream surface", () => {
     const pending = pendingWebSubmissionItem("pending-web", "https://example.com", "Summarize");
     if (!pending) throw new Error("Expected pending web submission item");
     const store = createChatStateStore(
-      withChatStateThreadStreamItems(chatStateFixture(), [
+      withChatStateStableThreadStreamItems(chatStateFixture(), [
         {
           id: "assistant",
           kind: "dialogue",
@@ -173,9 +173,9 @@ describe("thread stream surface", () => {
   it("keeps pending steers at the active transcript tail", () => {
     let state = chatStateWith(chatStateFixture(), {
       activeThread: { id: "thread" },
-      turn: { lifecycle: { kind: "running", turnId: "turn" } },
+      activeTurn: { lifecycle: { kind: "running", turnId: "turn" } },
     });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       { id: "prompt", kind: "dialogue", dialogueKind: "user", role: "user", text: "start", turnId: "turn" },
       {
         id: "assistant",
@@ -350,7 +350,7 @@ describe("thread stream surface", () => {
   it("pins to the scroll container bottom", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "message",
         kind: "dialogue",
@@ -378,7 +378,7 @@ describe("thread stream surface", () => {
   it("repins after composer growth has changed the scroll viewport height", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "message",
         kind: "dialogue",
@@ -431,7 +431,7 @@ describe("thread stream surface", () => {
   it("completes bottom pinning after the thread stream viewport commits", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "message",
         kind: "dialogue",
@@ -457,7 +457,7 @@ describe("thread stream surface", () => {
   it("does not force the bottom into view when the user is reading older viewport", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "message",
         kind: "dialogue",
@@ -481,7 +481,7 @@ describe("thread stream surface", () => {
     viewport.scrollTop = 100;
     viewport.dispatchEvent(new Event("scroll"));
 
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "message",
         kind: "dialogue",
@@ -501,7 +501,7 @@ describe("thread stream surface", () => {
   it("does not run a pending bottom pin after the user scrolls away", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(state, [
+    state = withChatStateStableThreadStreamItems(state, [
       {
         id: "message",
         kind: "dialogue",
