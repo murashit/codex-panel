@@ -243,7 +243,7 @@ function trackedSubagentApprovalScope(current: ChatState, request: ServerRequest
   if (!isApprovalServerRequest(request)) return null;
   const parentTurnId = activeTurnId(current.activeTurn);
   const tracked = current.activeTurn.subagents.byThreadId.get(request.params.threadId);
-  if (!parentTurnId || !tracked?.childTurnId || tracked.childTurnId !== request.params.turnId || tracked.executionState !== "running") {
+  if (!parentTurnId || !tracked?.childTurnId || tracked.childTurnId !== request.params.turnId || tracked.liveness !== "running") {
     return null;
   }
   return { activeThreadId: tracked.threadId, activeTurnId: tracked.childTurnId };

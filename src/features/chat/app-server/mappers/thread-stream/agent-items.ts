@@ -37,16 +37,54 @@ export function agentThreadStreamItem(item: ThreadStreamCollabAgentToolCall, tur
     role: "tool",
     ...definedProp("turnId", turnId),
     sourceItemId: item.id,
-    tool: item.tool,
+    action: agentCoordinationAction(item.tool),
+    coordinationUpdate: "snapshot",
     status: item.status,
     senderThreadId: item.senderThreadId,
-    receiverThreadIds: item.receiverThreadIds,
+    targets: item.receiverThreadIds.map((threadId) => ({ threadId })),
     prompt: item.prompt,
     model: item.model,
     reasoningEffort: item.reasoningEffort,
     agents,
     executionState: collabAgentExecutionState(item.tool, item.status, item.receiverThreadIds, agents),
   };
+}
+
+export function subagentActivityThreadStreamItem(
+  item: { id: string; kind: "started" | "interacted" | "interrupted"; agentThreadId: string; agentPath: string },
+  turnId?: string,
+): AgentThreadStreamItem {
+  const id = `subagent-activity:${item.id}`;
+  return {
+    id,
+    kind: "agent",
+    role: "tool",
+    ...definedProp("turnId", turnId),
+    sourceItemId: id,
+    action: subagentActivityAction(item.kind),
+    coordinationUpdate: item.kind,
+    status: item.kind,
+    senderThreadId: null,
+    targets: [{ threadId: item.agentThreadId, label: item.agentPath }],
+    prompt: null,
+    model: null,
+    reasoningEffort: null,
+    agents: [],
+  };
+}
+
+function subagentActivityAction(kind: "started" | "interacted" | "interrupted"): string {
+  if (kind === "started") return "spawn";
+  if (kind === "interacted") return "interact";
+  return "interrupt";
+}
+
+function agentCoordinationAction(tool: string): string {
+  if (tool === "spawnAgent") return "spawn";
+  if (tool === "sendInput") return "interact";
+  if (tool === "resumeAgent") return "resume";
+  if (tool === "closeAgent") return "close";
+  return tool;
 }
 
 function agentStatesDisplay(states: ThreadStreamCollabAgentToolCall["agentsStates"]): AgentStateSummary[] {

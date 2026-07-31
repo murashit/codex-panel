@@ -6,6 +6,41 @@ import {
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("subagent activity state", () => {
+  it("keeps v2 identity, liveness, and outcome as separate facts", () => {
+    let state = reduceSubagentActivitySlice(initialSubagentActivityState(), {
+      type: "subagent-activity/coordination-observed",
+      threadId: "child",
+      parentTurnId: "parent-turn",
+      agentLabel: "/root/scout",
+      coordinationUpdate: "started",
+    });
+    state = reduceSubagentActivitySlice(state, {
+      type: "subagent-activity/coordination-observed",
+      threadId: "child",
+      parentTurnId: "parent-turn",
+      agentLabel: "/root/scout",
+      coordinationUpdate: "interacted",
+    });
+    expect(state.byThreadId.get("child")).toMatchObject({
+      agentLabel: "/root/scout",
+      liveness: "running",
+      outcome: null,
+    });
+
+    state = reduceSubagentActivitySlice(state, {
+      type: "subagent-activity/coordination-observed",
+      threadId: "child",
+      parentTurnId: "parent-turn",
+      agentLabel: "/root/scout",
+      coordinationUpdate: "interrupted",
+    });
+    expect(state.byThreadId.get("child")).toMatchObject({
+      agentLabel: "/root/scout",
+      liveness: "stopped",
+      outcome: null,
+    });
+  });
+
   it("tracks a child and accumulates its active reasoning summary", () => {
     let state = reduceSubagentActivitySlice(initialSubagentActivityState(), {
       type: "subagent-activity/tracked",
@@ -72,7 +107,7 @@ describe("subagent activity state", () => {
           text: "Everything passes.",
         },
       ],
-      executionState: "completed",
+      outcome: "completed",
     });
 
     expect(state.byThreadId.get("child")?.latestItem).toMatchObject({
@@ -103,13 +138,83 @@ describe("subagent activity state", () => {
       threadId: "child",
       childTurnId: "old-turn",
       items: [reasoningItem("stale", "Older work", "old-turn")],
-      executionState: "completed",
+      outcome: "completed",
     });
 
     expect(state.byThreadId.get("child")).toMatchObject({
       childTurnId: "new-turn",
-      executionState: "running",
+      liveness: "running",
+      outcome: null,
       latestItem: { id: "current", text: "Current work" },
+    });
+  });
+
+  it("does not let delayed v2 lifecycle hints overwrite child turn facts", () => {
+    let state = trackedState();
+    state = reduceSubagentActivitySlice(state, {
+      type: "subagent-activity/turn-completed",
+      threadId: "child",
+      childTurnId: "child-turn",
+      items: [],
+      outcome: "completed",
+    });
+    for (const coordinationUpdate of ["started", "interrupted"] as const) {
+      state = reduceSubagentActivitySlice(state, {
+        type: "subagent-activity/coordination-observed",
+        threadId: "child",
+        parentTurnId: "parent-turn",
+        agentLabel: "/root/scout",
+        coordinationUpdate,
+      });
+    }
+
+    expect(state.byThreadId.get("child")).toMatchObject({
+      agentLabel: "/root/scout",
+      childTurnId: "child-turn",
+      liveness: "stopped",
+      outcome: "completed",
+    });
+  });
+
+  it("does not revive a v2 agent when started arrives after interrupted", () => {
+    let state = reduceSubagentActivitySlice(initialSubagentActivityState(), {
+      type: "subagent-activity/coordination-observed",
+      threadId: "child",
+      parentTurnId: "parent-turn",
+      agentLabel: "/root/scout",
+      coordinationUpdate: "interrupted",
+    });
+    state = reduceSubagentActivitySlice(state, {
+      type: "subagent-activity/coordination-observed",
+      threadId: "child",
+      parentTurnId: "parent-turn",
+      agentLabel: "/root/scout",
+      coordinationUpdate: "started",
+    });
+
+    expect(state.byThreadId.get("child")).toMatchObject({ liveness: "stopped", outcome: null });
+  });
+
+  it("stops a running child immediately when v2 interruption arrives", () => {
+    let state = trackedState();
+    state = reduceSubagentActivitySlice(state, {
+      type: "subagent-activity/turn-started",
+      threadId: "child",
+      childTurnId: "child-turn",
+    });
+    state = reduceSubagentActivitySlice(state, {
+      type: "subagent-activity/coordination-observed",
+      threadId: "child",
+      parentTurnId: "parent-turn",
+      agentLabel: "/root/scout",
+      coordinationUpdate: "interrupted",
+    });
+
+    expect(state.byThreadId.get("child")).toMatchObject({
+      childTurnId: "child-turn",
+      agentLabel: "/root/scout",
+      liveness: "stopped",
+      outcome: null,
     });
   });
 });

@@ -43,6 +43,7 @@ function threadProvenance(thread: ThreadRecord): ThreadProvenance {
     parentThreadId: stringOrNull(thread["parentThreadId"]) ?? stringOrNull(spawn?.["parent_thread_id"]),
     sessionId: stringOrNull(thread["sessionId"]),
     depth: finiteNumberOrNull(spawn?.["depth"]),
+    agentPath: stringOrNull(spawn?.["agent_path"]),
     agentNickname: stringOrNull(thread["agentNickname"]) ?? stringOrNull(spawn?.["agent_nickname"]),
     agentRole: stringOrNull(thread["agentRole"]) ?? stringOrNull(spawn?.["agent_role"]),
   };

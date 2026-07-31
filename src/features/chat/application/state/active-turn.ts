@@ -133,7 +133,11 @@ function reduceSubagentAction(
   action: SubagentActivityAction,
 ): ActiveTurnSliceResult {
   const parentTurnId = activeTurn.lifecycle.kind === "running" ? activeTurn.lifecycle.turnId : null;
-  if (!parentTurnId || (action.type === "subagent-activity/tracked" && action.parentTurnId !== parentTurnId)) {
+  if (
+    !parentTurnId ||
+    ((action.type === "subagent-activity/tracked" || action.type === "subagent-activity/coordination-observed") &&
+      action.parentTurnId !== parentTurnId)
+  ) {
     return { activeTurn, threadStream };
   }
   const subagents = reduceSubagentActivitySlice(activeTurn.subagents, action);

@@ -163,6 +163,41 @@ describe("thread stream state", () => {
     expect(threadStreamItems(state)).toEqual([expect.objectContaining({ id: "cmd", output: "onetwo" })]);
   });
 
+  it("keeps v2 activity correlation separate from a dynamic tool with the same protocol id", () => {
+    let state = threadStreamStartActiveSegment(initialView(), "turn", []);
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/item-upserted",
+      item: {
+        id: "subagent-activity:spawn-call",
+        sourceItemId: "subagent-activity:spawn-call",
+        kind: "agent",
+        role: "tool",
+        turnId: "turn",
+        action: "spawn",
+        coordinationUpdate: "started",
+        status: "started",
+        senderThreadId: null,
+        targets: [{ threadId: "child-thread", label: "/root/scout" }],
+        prompt: null,
+        model: null,
+        reasoningEffort: null,
+        agents: [],
+      },
+    });
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/tool-output-appended",
+      itemId: "spawn-call",
+      turnId: "turn",
+      delta: "spawned",
+      fallbackLabel: "spawn_agent",
+    });
+
+    expect(threadStreamItems(state)).toEqual([
+      expect.objectContaining({ id: "subagent-activity:spawn-call", kind: "agent" }),
+      expect.objectContaining({ id: "spawn-call", kind: "tool", output: "spawned" }),
+    ]);
+  });
+
   it("ignores deltas from a different active turn", () => {
     let state = threadStreamStartActiveSegment(initialView(), "turn-active", []);
     state = reduceThreadStreamSlice(state, {

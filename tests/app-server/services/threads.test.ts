@@ -25,7 +25,7 @@ describe("app-server thread response adapters", () => {
           thread_spawn: {
             parent_thread_id: "parent",
             depth: 2,
-            agent_path: null,
+            agent_path: "/root/scout",
             agent_nickname: "Scout",
             agent_role: "explorer",
           },
@@ -41,6 +41,7 @@ describe("app-server thread response adapters", () => {
       parentThreadId: "parent",
       sessionId: "session",
       depth: 2,
+      agentPath: "/root/scout",
       agentNickname: "Scout",
       agentRole: "explorer",
     });

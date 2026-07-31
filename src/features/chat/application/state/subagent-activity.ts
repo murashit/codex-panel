@@ -7,7 +7,9 @@ interface SubagentActivityEntry {
   readonly threadId: string;
   readonly childTurnId: string | null;
   readonly latestItem: ThreadStreamItem | null;
-  readonly executionState: "running" | "completed" | "failed";
+  readonly agentLabel: string | null;
+  readonly liveness: "unknown" | "running" | "stopped";
+  readonly outcome: "completed" | "failed" | null;
 }
 
 export interface ChatSubagentActivityState {
@@ -16,6 +18,13 @@ export interface ChatSubagentActivityState {
 
 export type SubagentActivityAction =
   | { type: "subagent-activity/tracked"; threadId: string; parentTurnId: string }
+  | {
+      type: "subagent-activity/coordination-observed";
+      threadId: string;
+      parentTurnId: string;
+      agentLabel: string | null;
+      coordinationUpdate: "started" | "interacted" | "interrupted";
+    }
   | { type: "subagent-activity/turn-started"; threadId: string; childTurnId: string }
   | { type: "subagent-activity/item-observed"; threadId: string; item: ThreadStreamItem; advance: boolean }
   | { type: "subagent-activity/assistant-delta-appended"; threadId: string; childTurnId: string; itemId: string; delta: string }
@@ -42,9 +51,8 @@ export type SubagentActivityAction =
       threadId: string;
       childTurnId: string;
       items: readonly ThreadStreamItem[];
-      executionState: "completed" | "failed";
-    }
-  | { type: "subagent-activity/execution-state-changed"; threadId: string; executionState: "completed" | "failed" };
+      outcome: "completed" | "failed" | null;
+    };
 
 export function initialSubagentActivityState(): ChatSubagentActivityState {
   return { byThreadId: new Map() };
@@ -58,12 +66,15 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
   switch (action.type) {
     case "subagent-activity/tracked":
       return trackSubagent(state, action.threadId);
+    case "subagent-activity/coordination-observed":
+      return observeCoordinationUpdate(state, action.threadId, action.agentLabel, action.coordinationUpdate);
     case "subagent-activity/turn-started":
       return updateTrackedEntry(state, action.threadId, (entry) => ({
         ...entry,
         childTurnId: action.childTurnId,
         latestItem: null,
-        executionState: "running",
+        liveness: "running",
+        outcome: null,
       }));
     case "subagent-activity/item-observed":
       return updateTrackedEntry(state, action.threadId, (entry) => {
@@ -103,18 +114,40 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
         ...entry,
         childTurnId: action.childTurnId,
         latestItem: latestDisplayableItem(action.items) ?? entry.latestItem,
-        executionState: action.executionState,
+        liveness: "stopped",
+        outcome: action.outcome,
       }));
-    case "subagent-activity/execution-state-changed":
-      return updateTrackedEntry(state, action.threadId, (entry) => ({ ...entry, executionState: action.executionState }));
   }
 }
 
 function trackSubagent(state: ChatSubagentActivityState, threadId: string): ChatSubagentActivityState {
   if (state.byThreadId.has(threadId)) return state;
   const byThreadId = new Map(state.byThreadId);
-  byThreadId.set(threadId, { threadId, childTurnId: null, latestItem: null, executionState: "running" });
+  byThreadId.set(threadId, {
+    threadId,
+    childTurnId: null,
+    latestItem: null,
+    agentLabel: null,
+    liveness: "unknown",
+    outcome: null,
+  });
   return { ...state, byThreadId };
+}
+
+function observeCoordinationUpdate(
+  state: ChatSubagentActivityState,
+  threadId: string,
+  agentLabel: string | null,
+  coordinationUpdate: "started" | "interacted" | "interrupted",
+): ChatSubagentActivityState {
+  const tracked = trackSubagent(state, threadId);
+  return updateTrackedEntry(tracked, threadId, (entry) => {
+    if (coordinationUpdate === "started" && entry.liveness !== "stopped") {
+      return { ...entry, agentLabel, liveness: "running" };
+    }
+    if (coordinationUpdate === "interrupted") return { ...entry, agentLabel, liveness: "stopped" };
+    return { ...entry, agentLabel };
+  });
 }
 
 function updateTrackedEntry(

@@ -1655,7 +1655,10 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")?.executionState).toBe("failed");
+      expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")).toMatchObject({
+        liveness: "stopped",
+        outcome: null,
+      });
     });
 
     it("does not track a nested subagent as direct parent activity", () => {
@@ -1669,7 +1672,7 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().activeTurn.subagents.byThreadId.size).toBe(0);
     });
 
-    it("tracks a child from the parent subagent activity item without rendering that protocol marker", () => {
+    it("preserves a started v2 child activity and its canonical path", () => {
       const handler = handlerForState(activeRunningState());
 
       handler.handleNotification({
@@ -1690,13 +1693,23 @@ describe("ChatInboundHandler", () => {
 
       expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")).toMatchObject({
         threadId: "child",
-        executionState: "running",
+        agentLabel: "child",
+        liveness: "running",
+        outcome: null,
         latestItem: null,
       });
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        {
+          id: "subagent-activity:subagent-started",
+          kind: "agent",
+          action: "spawn",
+          coordinationUpdate: "started",
+          targets: [{ threadId: "child", label: "child" }],
+        },
+      ]);
     });
 
-    it("marks an interrupted child activity as failed without rendering the protocol marker", () => {
+    it("preserves an interrupted v2 activity as stopped without inventing a failure", () => {
       const handler = handlerForState(activeRunningState());
 
       handler.handleNotification({
@@ -1717,9 +1730,19 @@ describe("ChatInboundHandler", () => {
 
       expect(handler.currentState().activeTurn.subagents.byThreadId.get("child")).toMatchObject({
         threadId: "child",
-        executionState: "failed",
+        agentLabel: "child",
+        liveness: "stopped",
+        outcome: null,
       });
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        {
+          id: "subagent-activity:subagent-interrupted",
+          kind: "agent",
+          action: "interrupt",
+          coordinationUpdate: "interrupted",
+        },
+      ]);
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).not.toHaveProperty("executionState");
     });
 
     it("moves a pending steer into canonical order when its user message starts", () => {

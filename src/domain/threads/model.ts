@@ -23,6 +23,7 @@ export type ThreadProvenance =
       readonly parentThreadId: string | null;
       readonly sessionId: string | null;
       readonly depth: number | null;
+      readonly agentPath?: string | null;
       readonly agentNickname: string | null;
       readonly agentRole: string | null;
     };

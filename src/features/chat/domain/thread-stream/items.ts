@@ -284,8 +284,14 @@ export interface AgentStateSummary {
   readonly message: string | null;
 }
 
+interface AgentTargetSummary {
+  readonly threadId: string;
+  readonly label?: string;
+}
+
 export interface AgentRunSummaryAgent {
   readonly threadId: string;
+  readonly agentLabel?: string;
   readonly status: string;
   readonly messagePreview: string | null;
 }
@@ -294,10 +300,11 @@ export interface AgentThreadStreamItem extends ThreadStreamBase {
   readonly kind: "agent";
   readonly role: "tool";
   readonly text?: string;
-  readonly tool: string;
+  readonly action: string;
+  readonly coordinationUpdate: "snapshot" | "started" | "interacted" | "interrupted";
   readonly status: string;
-  readonly senderThreadId: string;
-  readonly receiverThreadIds: readonly string[];
+  readonly senderThreadId: string | null;
+  readonly targets: readonly AgentTargetSummary[];
   readonly prompt: string | null;
   readonly model: string | null;
   readonly reasoningEffort: string | null;

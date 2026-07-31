@@ -70,32 +70,9 @@ function planTurnRuntimeNotification(
   const facts = turnRuntimeFactsFromNotification(notification, localItemId);
   const projection = projectTurnRuntimeFacts(state, facts);
   return {
-    actions: [
-      ...projection.actions,
-      ...subagentTrackingActionsFromParentFacts(state, facts),
-      ...subagentTrackingActionsFromActivityItem(state, notification),
-    ],
+    actions: [...projection.actions, ...subagentTrackingActionsFromParentFacts(state, facts)],
     effects: projection.outcomes.flatMap((outcome) => chatInboundEffectsFromTurnProjectionOutcome(state, outcome)),
   };
-}
-
-function subagentTrackingActionsFromActivityItem(
-  state: ChatState,
-  notification: Parameters<typeof turnRuntimeFactsFromNotification>[0],
-): SubagentActivityAction[] {
-  if (notification.method !== "item/started" && notification.method !== "item/completed") return [];
-  const item = notification.params.item;
-  if (item.type !== "subAgentActivity") return [];
-  const parentTurnId = activeTurnIdForState(state);
-  if (!parentTurnId || notification.params.turnId !== parentTurnId) return [];
-  const tracked: SubagentActivityAction = {
-    type: "subagent-activity/tracked",
-    threadId: item.agentThreadId,
-    parentTurnId,
-  };
-  return item.kind === "interrupted"
-    ? [tracked, { type: "subagent-activity/execution-state-changed", threadId: item.agentThreadId, executionState: "failed" }]
-    : [tracked];
 }
 
 function planTrackedSubagentNotification(
@@ -153,7 +130,7 @@ function subagentActivityActionsFromRuntimeFact(
           threadId,
           childTurnId: fact.turnId,
           items: fact.completedItems,
-          executionState: fact.status === "completed" ? "completed" : "failed",
+          outcome: subagentTurnOutcome(fact.status),
         },
       ];
     case "itemUpserted":
@@ -228,17 +205,36 @@ function subagentActivityActionsFromRuntimeFact(
   }
 }
 
+function subagentTurnOutcome(status: string): "completed" | "failed" | null {
+  if (status === "completed") return "completed";
+  if (status === "failed") return "failed";
+  return null;
+}
+
 function subagentTrackingActionsFromParentFacts(state: ChatState, facts: readonly TurnRuntimeFact[]): SubagentActivityAction[] {
   const parentTurnId = activeTurnIdForState(state);
   if (!parentTurnId) return [];
-  const threadIds = new Set<string>();
+  const actions: SubagentActivityAction[] = [];
+  const trackedThreadIds = new Set<string>();
   for (const fact of facts) {
     if (fact.type !== "itemUpserted" && fact.type !== "itemCompleted") continue;
     if (fact.item.kind !== "agent" || fact.item.turnId !== parentTurnId) continue;
-    for (const threadId of fact.item.receiverThreadIds) threadIds.add(threadId);
-    for (const agent of fact.item.agents) threadIds.add(agent.threadId);
+    if (fact.item.coordinationUpdate === "snapshot") {
+      for (const target of fact.item.targets) trackedThreadIds.add(target.threadId);
+      for (const agent of fact.item.agents) trackedThreadIds.add(agent.threadId);
+      continue;
+    }
+    for (const target of fact.item.targets) {
+      actions.push({
+        type: "subagent-activity/coordination-observed",
+        threadId: target.threadId,
+        parentTurnId,
+        agentLabel: target.label ?? null,
+        coordinationUpdate: fact.item.coordinationUpdate,
+      });
+    }
   }
-  return [...threadIds].map((threadId) => ({ type: "subagent-activity/tracked", threadId, parentTurnId }));
+  return [...[...trackedThreadIds].map((threadId) => ({ type: "subagent-activity/tracked" as const, threadId, parentTurnId })), ...actions];
 }
 
 function chatInboundEffectsFromTurnProjectionOutcome(

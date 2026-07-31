@@ -308,12 +308,13 @@ describe("panel thread stream item rendering", () => {
           id: "agent-1",
           kind: "agent",
           role: "tool",
+          coordinationUpdate: "snapshot",
           text: "Spawn agent",
           turnId: "turn",
-          tool: "spawnAgent",
+          action: "spawn",
           status: "completed",
           senderThreadId: "parent",
-          receiverThreadIds: ["child"],
+          targets: [{ threadId: "child" }],
           prompt: "Inspect the renderer.",
           model: "gpt-5.5",
           reasoningEffort: "high",
@@ -335,6 +336,43 @@ describe("panel thread stream item rendering", () => {
     expect(element.textContent).toContain("childcompleted: Done");
   });
 
+  it("renders v2 activity through the existing agent detail and summary UI", () => {
+    const openThreadInNewView = vi.fn();
+    const blocks = projectedThreadStreamBlocks({
+      turnLifecycle: runningTurnLifecycle("turn"),
+      openThreadInNewView,
+      items: [
+        {
+          id: "v2-started",
+          kind: "agent",
+          role: "tool",
+          action: "spawn",
+          coordinationUpdate: "started",
+          status: "started",
+          senderThreadId: null,
+          targets: [{ threadId: "child", label: "/root/scout" }],
+          prompt: null,
+          model: null,
+          reasoningEffort: null,
+          agents: [],
+          turnId: "turn",
+        },
+      ],
+    });
+
+    const detail = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:v2-started")));
+    expect(detail.classList.contains("codex-panel__agent-activity")).toBe(true);
+    expect(detail.querySelector(".codex-panel__stream-summary")?.textContent).toBe("spawn /root/scout (started)");
+    expect(detail.textContent).toContain("toolspawn");
+    expect(detail.textContent).toContain("statusstarted");
+    expect(detail.textContent).toContain("target/root/scout");
+    expectPresent(detail.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]')).click();
+    expect(openThreadInNewView).toHaveBeenCalledWith("child");
+
+    const summary = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.kind === "liveAgentSummary")));
+    expect(summary.textContent).toContain("/root/scoutstarted");
+  });
+
   it("opens agent threads from agent activity headers", () => {
     const openThreadInNewView = vi.fn();
     const block = projectedThreadStreamBlocks({
@@ -345,12 +383,13 @@ describe("panel thread stream item rendering", () => {
           id: "agent-1",
           kind: "agent",
           role: "tool",
+          coordinationUpdate: "snapshot",
           text: "Spawn agent",
           turnId: "turn",
-          tool: "spawnAgent",
+          action: "spawn",
           status: "completed",
           senderThreadId: "parent",
-          receiverThreadIds: ["child"],
+          targets: [{ threadId: "child" }],
           prompt: "Inspect the renderer.",
           model: null,
           reasoningEffort: null,
@@ -380,12 +419,13 @@ describe("panel thread stream item rendering", () => {
           id: "agent-1",
           kind: "agent",
           role: "tool",
+          coordinationUpdate: "snapshot",
           text: "Wait for agent",
           turnId: "turn",
-          tool: "wait",
+          action: "wait",
           status: "completed",
           senderThreadId: "parent",
-          receiverThreadIds: ["child"],
+          targets: [{ threadId: "child" }],
           prompt: null,
           model: null,
           reasoningEffort: null,
@@ -410,12 +450,13 @@ describe("panel thread stream item rendering", () => {
           id: "agent-1",
           kind: "agent",
           role: "tool",
+          coordinationUpdate: "snapshot",
           text: "Spawn agent",
           turnId: "turn",
-          tool: "spawnAgent",
+          action: "spawn",
           status: "running",
           senderThreadId: "parent",
-          receiverThreadIds: ["child"],
+          targets: [{ threadId: "child" }],
           prompt: `Inspect the renderer.\n${"a".repeat(180)}`,
           model: null,
           reasoningEffort: null,
@@ -441,12 +482,13 @@ describe("panel thread stream item rendering", () => {
           id: "agent-1",
           kind: "agent",
           role: "tool",
+          coordinationUpdate: "snapshot",
           text: "Wait for agent",
           turnId: "turn",
-          tool: "wait",
+          action: "wait",
           status: "completed",
           senderThreadId: "parent",
-          receiverThreadIds: [threadId],
+          targets: [{ threadId }],
           prompt: null,
           model: null,
           reasoningEffort: null,
@@ -482,12 +524,13 @@ describe("panel thread stream item rendering", () => {
           id: "agent-1",
           kind: "agent",
           role: "tool",
+          coordinationUpdate: "snapshot",
           text: "Wait for agent",
           turnId: "turn",
-          tool: "wait",
+          action: "wait",
           status: "running",
           senderThreadId: "parent",
-          receiverThreadIds: ["done", "running"],
+          targets: [{ threadId: "done" }, { threadId: "running" }],
           prompt: null,
           model: null,
           reasoningEffort: null,
@@ -565,12 +608,13 @@ describe("panel thread stream item rendering", () => {
           id: "agent-1",
           kind: "agent",
           role: "tool",
+          coordinationUpdate: "snapshot",
           text: "Wait for agent",
           turnId: "turn",
-          tool: "wait",
+          action: "wait",
           status: "completed",
           senderThreadId: "parent",
-          receiverThreadIds: ["done"],
+          targets: [{ threadId: "done" }],
           prompt: null,
           model: null,
           reasoningEffort: null,
@@ -590,12 +634,13 @@ describe("panel thread stream item rendering", () => {
           id: "agent-1",
           kind: "agent",
           role: "tool",
+          coordinationUpdate: "snapshot",
           text: "Wait for agent",
           turnId: "turn",
-          tool: "wait",
+          action: "wait",
           status: "completed",
           senderThreadId: "parent",
-          receiverThreadIds: ["failed", "running"],
+          targets: [{ threadId: "failed" }, { threadId: "running" }],
           prompt: null,
           model: null,
           reasoningEffort: null,

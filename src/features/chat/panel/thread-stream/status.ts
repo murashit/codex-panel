@@ -84,7 +84,7 @@ function agentRunSummaryLabel(summary: AgentRunSummary): string {
 function agentRunSummaryRow(agent: AgentRunSummaryAgent): { threadId: string; threadLabel: string; status: string } {
   return {
     threadId: agent.threadId,
-    threadLabel: shortThreadId(agent.threadId),
+    threadLabel: agent.agentLabel ?? shortThreadId(agent.threadId),
     status: agent.messagePreview ?? agent.status,
   };
 }

@@ -14,6 +14,7 @@ import type { ThreadStreamSemanticClassification } from "./types";
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
 const ACTIVE_AGENT_ROW_LIMIT = 3;
 type AgentRunState = "running" | "completed" | "failed";
+type ActiveAgentState = AgentStateSummary & { agentLabel?: string };
 
 export interface ActiveTurnItemsContext {
   activeTurnId: string | null;
@@ -23,7 +24,9 @@ export interface ActiveTurnItemsContext {
 }
 
 export interface ActiveSubagentActivity {
-  readonly executionState: "running" | "completed" | "failed";
+  readonly agentLabel: string | null;
+  readonly liveness: "unknown" | "running" | "stopped";
+  readonly outcome: "completed" | "failed" | null;
   readonly messagePreview: string | null;
 }
 
@@ -70,34 +73,52 @@ function activeAgentRunSummary(
 ): AgentRunSummary | null {
   if (!activeTurnId) return null;
 
-  const agentStatuses = new Map<string, AgentStateSummary>();
+  const agentStatuses = new Map<string, ActiveAgentState>();
   for (const item of items) {
     if (item.kind !== "agent" || item.turnId !== activeTurnId) continue;
+    if (item.coordinationUpdate !== "snapshot") {
+      applyAgentLifecycleUpdate(agentStatuses, item);
+      continue;
+    }
+    const labels = new Map(item.targets.map((target) => [target.threadId, target.label]));
     if (item.agents.length > 0) {
       for (const agent of item.agents) {
-        agentStatuses.set(agent.threadId, agent);
+        agentStatuses.set(agent.threadId, {
+          ...agent,
+          ...definedAgentLabel(labels.get(agent.threadId)),
+          executionState: agent.executionState ?? "running",
+        });
       }
     } else {
-      for (const threadId of item.receiverThreadIds) {
-        agentStatuses.set(threadId, { threadId, status: item.status, executionState: item.executionState ?? "running", message: null });
+      for (const target of item.targets) {
+        agentStatuses.set(target.threadId, {
+          threadId: target.threadId,
+          ...definedAgentLabel(target.label),
+          status: item.status,
+          executionState: item.executionState ?? "running",
+          message: null,
+        });
       }
     }
   }
   for (const [threadId, activity] of subagentActivities ?? []) {
     const current = agentStatuses.get(threadId);
+    const executionState = trackedActivityExecutionState(activity);
     if (!current) {
       agentStatuses.set(threadId, {
         threadId,
-        status: activity.executionState,
-        executionState: activity.executionState,
+        ...definedAgentLabel(activity.agentLabel ?? undefined),
+        status: activity.outcome ?? activity.liveness,
+        executionState,
         message: null,
       });
       continue;
     }
     agentStatuses.set(threadId, {
       ...current,
-      status: activity.executionState === current.executionState ? current.status : activity.executionState,
-      executionState: activity.executionState,
+      ...definedAgentLabel(activity.agentLabel ?? undefined),
+      status: executionState && executionState !== current.executionState ? executionState : current.status,
+      executionState: activity.liveness === "unknown" && !activity.outcome ? current.executionState : executionState,
     });
   }
 
@@ -107,7 +128,7 @@ function activeAgentRunSummary(
   const agents = [...agentStatuses.values()];
   for (const agent of agents) {
     const state = agentRunState(agent);
-    summary[state] += 1;
+    if (state) summary[state] += 1;
   }
 
   if (summary.running === 0 && summary.failed === 0) return null;
@@ -116,6 +137,7 @@ function activeAgentRunSummary(
     .filter((agent) => agentRunState(agent) === "running")
     .map((agent) => ({
       threadId: agent.threadId,
+      ...(agent.agentLabel ? { agentLabel: agent.agentLabel } : {}),
       status: agent.status,
       messagePreview:
         subagentActivities?.get(agent.threadId)?.messagePreview ?? agentMessagePreview(agent.message, ACTIVE_AGENT_PREVIEW_LIMIT),
@@ -146,6 +168,42 @@ function activeAgentRunSummaryAnchorId(items: readonly ThreadStreamSemanticClass
   return firstActiveAgent?.item.id ?? null;
 }
 
-function agentRunState(agent: AgentStateSummary): AgentRunState {
-  return agent.executionState ?? "running";
+function applyAgentLifecycleUpdate(states: Map<string, ActiveAgentState>, item: Extract<ThreadStreamItem, { kind: "agent" }>): void {
+  for (const target of item.targets) applyAgentTargetLifecycleUpdate(states, item, target);
+}
+
+function applyAgentTargetLifecycleUpdate(
+  states: Map<string, ActiveAgentState>,
+  item: Extract<ThreadStreamItem, { kind: "agent" }>,
+  target: Extract<ThreadStreamItem, { kind: "agent" }>["targets"][number],
+): void {
+  const current = states.get(target.threadId);
+  if (item.coordinationUpdate === "interacted") {
+    if (current) states.set(target.threadId, { ...current, ...definedAgentLabel(target.label), status: item.status });
+    return;
+  }
+  if (item.coordinationUpdate === "started" && current?.executionState === null) {
+    states.set(target.threadId, { ...current, ...definedAgentLabel(target.label) });
+    return;
+  }
+  states.set(target.threadId, {
+    threadId: target.threadId,
+    ...definedAgentLabel(target.label),
+    status: item.status,
+    executionState: item.coordinationUpdate === "started" ? "running" : null,
+    message: null,
+  });
+}
+
+function definedAgentLabel(label: string | undefined): { agentLabel: string } | Record<string, never> {
+  return label ? { agentLabel: label } : {};
+}
+
+function trackedActivityExecutionState(activity: ActiveSubagentActivity): AgentStateSummary["executionState"] {
+  if (activity.outcome) return activity.outcome;
+  return activity.liveness === "running" ? "running" : null;
+}
+
+function agentRunState(agent: AgentStateSummary): AgentRunState | null {
+  return agent.executionState;
 }

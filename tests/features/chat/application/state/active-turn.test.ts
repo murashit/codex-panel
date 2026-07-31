@@ -79,7 +79,8 @@ describe("active turn aggregate", () => {
     });
     expect(withChildTurn.activeTurn.subagents.byThreadId.get("child-thread")).toMatchObject({
       childTurnId: "child-turn-1",
-      executionState: "running",
+      liveness: "running",
+      outcome: null,
     });
 
     const withMoreDelta = chatReducer(withChildTurn, {

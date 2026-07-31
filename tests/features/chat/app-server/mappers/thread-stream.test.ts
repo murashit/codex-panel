@@ -390,16 +390,77 @@ describe("turn item conversion preserves app-server semantics", () => {
       id: "agent-1",
       kind: "agent",
       role: "tool",
-      tool: "spawnAgent",
+      action: "spawn",
+      coordinationUpdate: "snapshot",
       status: "completed",
       senderThreadId: "parent-thread",
-      receiverThreadIds: ["child-thread"],
+      targets: [{ threadId: "child-thread" }],
       prompt: "Inspect the renderer.",
       model: "gpt-5.5",
       reasoningEffort: "high",
       agents: [{ threadId: "child-thread", status: "completed", executionState: "completed", message: "Done" }],
       executionState: "completed",
     });
+  });
+
+  it.each(["started", "interacted", "interrupted"] as const)(
+    "preserves v2 %s activity and canonical agent identity in live and restored turns",
+    (kind) => {
+      const item: TurnItem = {
+        type: "subAgentActivity",
+        id: `activity-${kind}`,
+        kind,
+        agentThreadId: "child-thread",
+        agentPath: "/root/scout",
+      };
+      const expected = {
+        id: `subagent-activity:activity-${kind}`,
+        kind: "agent",
+        role: "tool",
+        action: kind === "started" ? "spawn" : kind === "interacted" ? "interact" : "interrupt",
+        coordinationUpdate: kind,
+        status: kind,
+        senderThreadId: null,
+        targets: [{ threadId: "child-thread", label: "/root/scout" }],
+        prompt: null,
+        model: null,
+        reasoningEffort: null,
+        agents: [],
+        turnId: "t1",
+      };
+
+      expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject(expected);
+      expect(threadStreamItemsFromTurns([{ id: "t1", items: [item], startedAt: 1 }])).toMatchObject([expected]);
+      expect(threadStreamItemFromTurnItem(item, "t1")).not.toHaveProperty("executionState");
+    },
+  );
+
+  it("keeps a v2 activity distinct from its dynamic tool call with the same protocol id", () => {
+    const dynamic: TurnItem = {
+      type: "dynamicToolCall",
+      id: "spawn-call",
+      namespace: "collaboration",
+      tool: "spawn_agent",
+      arguments: { task_name: "scout" },
+      status: "completed",
+      contentItems: null,
+      success: true,
+      durationMs: 1,
+    };
+    const activity: TurnItem = {
+      type: "subAgentActivity",
+      id: "spawn-call",
+      kind: "started",
+      agentThreadId: "child-thread",
+      agentPath: "/root/scout",
+    };
+
+    expect(
+      threadStreamItemsFromTurns([{ id: "t1", items: [dynamic, activity], startedAt: 1 }]).map((item) => [item.id, item.sourceItemId]),
+    ).toEqual([
+      ["spawn-call", "spawn-call"],
+      ["subagent-activity:spawn-call", "subagent-activity:spawn-call"],
+    ]);
   });
 
   it("marks completed spawn calls complete even before child state arrives", () => {

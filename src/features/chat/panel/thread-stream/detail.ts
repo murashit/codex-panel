@@ -258,10 +258,10 @@ function goalDetails(item: GoalThreadStreamItem): DetailSection[] {
 
 function agentDetailSections(item: AgentThreadStreamItem): DetailSection[] {
   const rows = [
-    { key: "tool", value: agentActivityMetaLabel(item.tool) },
+    { key: "tool", value: agentActivityMetaLabel(item.action) },
     { key: "status", value: item.status },
-    { key: "sender", value: item.senderThreadId },
-    ...(item.receiverThreadIds.length > 0 ? [{ key: "target", value: item.receiverThreadIds.join(", ") }] : []),
+    ...(item.senderThreadId ? [{ key: "sender", value: item.senderThreadId }] : []),
+    ...(item.targets.length > 0 ? [{ key: "target", value: item.targets.map(agentTargetLabel).join(", ") }] : []),
     ...(item.model ? [{ key: "model", value: item.model }] : []),
     ...(item.reasoningEffort ? [{ key: "effort", value: item.reasoningEffort }] : []),
   ];
@@ -462,21 +462,27 @@ function failedStatusLabel(status: unknown): string | null {
 }
 
 function agentSummaryText(item: AgentThreadStreamItem): string {
-  const target = item.receiverThreadIds.length === 0 ? "" : ` ${item.receiverThreadIds.map(shortThreadId).join(", ")}`;
+  const target = item.targets.length === 0 ? "" : ` ${item.targets.map(agentTargetLabel).join(", ")}`;
   const promptPreview = agentPromptPreview(item.prompt);
-  return `${agentActivityMetaLabel(item.tool)}${target}${promptPreview ? `: ${promptPreview}` : ""} (${item.status})`;
+  return `${agentActivityMetaLabel(item.action)}${target}${promptPreview ? `: ${promptPreview}` : ""} (${item.status})`;
 }
 
 function agentThreadIds(item: AgentThreadStreamItem): readonly string[] {
-  return [...new Set([...item.receiverThreadIds, ...item.agents.map((agent) => agent.threadId)])].sort((a, b) => a.localeCompare(b));
+  return [...new Set([...item.targets.map((target) => target.threadId), ...item.agents.map((agent) => agent.threadId)])].sort((a, b) =>
+    a.localeCompare(b),
+  );
+}
+
+function agentTargetLabel(target: AgentThreadStreamItem["targets"][number]): string {
+  return target.label ?? shortThreadId(target.threadId);
 }
 
 function agentActivityMetaLabel(tool: string): string {
-  if (tool === "spawnAgent") return "spawn";
-  if (tool === "sendInput") return "send input";
-  if (tool === "resumeAgent") return "resume";
+  if (tool === "spawn") return "spawn";
+  if (tool === "interact") return "interact with";
+  if (tool === "resume") return "resume";
   if (tool === "wait") return "wait";
-  if (tool === "closeAgent") return "close";
+  if (tool === "close") return "close";
   return tool;
 }
 

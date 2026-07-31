@@ -144,7 +144,9 @@ function threadStreamStateProjection(
   for (const [threadId, activity] of model.activeTurn.subagents.byThreadId) {
     const preview = subagentActivityPreview(activity.latestItem, workspaceRoot);
     subagentActivities.set(threadId, {
-      executionState: activity.executionState,
+      agentLabel: activity.agentLabel,
+      liveness: activity.liveness,
+      outcome: activity.outcome,
       messagePreview: preview,
     });
   }

@@ -3,12 +3,71 @@ import type { ThreadStreamItem } from "../../../../../../src/features/chat/domai
 import { activeTurnLiveItems } from "../../../../../../src/features/chat/domain/thread-stream/semantics/active-turn";
 
 describe("active turn semantics", () => {
+  it("projects v2 paths into the existing summary without treating interaction as a new lifecycle", () => {
+    const started = {
+      id: "started",
+      kind: "agent",
+      role: "tool",
+      action: "spawn",
+      coordinationUpdate: "started",
+      status: "started",
+      senderThreadId: null,
+      targets: [{ threadId: "child", label: "/root/scout" }],
+      prompt: null,
+      model: null,
+      reasoningEffort: null,
+      agents: [],
+      turnId: "t1",
+    } satisfies ThreadStreamItem;
+    const interacted: ThreadStreamItem = {
+      ...started,
+      id: "interacted",
+      action: "interact",
+      coordinationUpdate: "interacted",
+      status: "interacted",
+      executionState: null,
+    };
+
+    expect(activeAgentSummary([started, interacted])).toMatchObject({
+      running: 1,
+      failed: 0,
+      agents: [{ threadId: "child", agentLabel: "/root/scout", status: "interacted" }],
+    });
+    expect(
+      activeAgentSummary([
+        started,
+        interacted,
+        {
+          ...started,
+          id: "interrupted",
+          action: "interrupt",
+          coordinationUpdate: "interrupted",
+          status: "interrupted",
+          executionState: null,
+        },
+      ]),
+    ).toBeNull();
+    expect(
+      activeAgentSummary([
+        {
+          ...started,
+          id: "interrupted",
+          action: "interrupt",
+          coordinationUpdate: "interrupted",
+          status: "interrupted",
+          executionState: null,
+        },
+        started,
+      ]),
+    ).toBeNull();
+  });
+
   it("summarizes active subagent states while a turn is running", () => {
     expect(
       activeAgentSummary([
         agentItem({
-          tool: "wait",
-          receiverThreadIds: ["done", "running", "failed"],
+          action: "wait",
+          targetThreadIds: ["done", "running", "failed"],
           agents: [
             { threadId: "done", status: "completed", executionState: "completed", message: null },
             { threadId: "running", status: "running", executionState: "running", message: null },
@@ -25,14 +84,52 @@ describe("active turn semantics", () => {
     });
   });
 
+  it("keeps unknown v1 agent statuses visible as running", () => {
+    expect(
+      activeAgentSummary([
+        agentItem({
+          targetThreadIds: ["child"],
+          agents: [{ threadId: "child", status: "future-status", executionState: null, message: null }],
+        }),
+      ]),
+    ).toMatchObject({
+      running: 1,
+      completed: 0,
+      failed: 0,
+      agents: [{ threadId: "child", status: "future-status" }],
+    });
+  });
+
+  it("applies lifecycle coordination updates to every normalized target", () => {
+    expect(
+      activeAgentSummary([
+        {
+          ...agentItem({}),
+          coordinationUpdate: "started",
+          status: "started",
+          targets: [
+            { threadId: "first", label: "/root/first" },
+            { threadId: "second", label: "/root/second" },
+          ],
+        },
+      ]),
+    ).toMatchObject({
+      running: 2,
+      agents: [
+        { threadId: "first", agentLabel: "/root/first" },
+        { threadId: "second", agentLabel: "/root/second" },
+      ],
+    });
+  });
+
   it("summarizes active subagent previews and fallback receiver states", () => {
     expect(
       activeAgentSummary([
-        agentItem({ tool: "spawnAgent", status: "inProgress", receiverThreadIds: ["fallback-child"], agents: [] }),
+        agentItem({ action: "spawn", status: "inProgress", targetThreadIds: ["fallback-child"], agents: [] }),
         agentItem({
           id: "agent-2",
-          tool: "wait",
-          receiverThreadIds: ["a", "b", "c", "d", "e"],
+          action: "wait",
+          targetThreadIds: ["a", "b", "c", "d", "e"],
           agents: [
             { threadId: "a", status: "running", executionState: "running", message: "\n  Inspecting   renderer   tests  \nmore details" },
             { threadId: "b", status: "failed", executionState: "failed", message: "Could not reproduce" },
@@ -58,7 +155,7 @@ describe("active turn semantics", () => {
   it("prefers live activity previews and caps visible rows", () => {
     const items = [
       agentItem({
-        receiverThreadIds: ["a", "b", "c", "d"],
+        targetThreadIds: ["a", "b", "c", "d"],
         agents: [
           { threadId: "a", status: "running", executionState: "running", message: "Parent fallback" },
           { threadId: "b", status: "running", executionState: "running", message: null },
@@ -71,8 +168,8 @@ describe("active turn semantics", () => {
       {
         items,
         subagentActivities: new Map([
-          ["a", { executionState: "running", messagePreview: "Inspecting notification routing" }],
-          ["b", { executionState: "running", messagePreview: "Running tests" }],
+          ["a", runningActivity("Inspecting notification routing")],
+          ["b", runningActivity("Running tests")],
         ]),
       },
       "t1",
@@ -92,8 +189,8 @@ describe("active turn semantics", () => {
   it("uses tracked live activity when an in-progress wait item has no receiver state yet", () => {
     const summary = activeTurnLiveItems(
       {
-        items: [agentItem({ receiverThreadIds: [], agents: [] })],
-        subagentActivities: new Map([["child", { executionState: "running", messagePreview: "Reading repository instructions" }]]),
+        items: [agentItem({ targetThreadIds: [], agents: [] })],
+        subagentActivities: new Map([["child", runningActivity("Reading repository instructions")]]),
       },
       "t1",
     ).find((item) => item.kind === "agentSummary")?.summary;
@@ -107,7 +204,7 @@ describe("active turn semantics", () => {
   it("prefers terminal child activity over stale running parent state", () => {
     const items = [
       agentItem({
-        receiverThreadIds: ["completed", "failed"],
+        targetThreadIds: ["completed", "failed"],
         agents: [
           { threadId: "completed", status: "running", executionState: "running", message: null },
           { threadId: "failed", status: "running", executionState: "running", message: null },
@@ -118,8 +215,8 @@ describe("active turn semantics", () => {
       {
         items,
         subagentActivities: new Map([
-          ["completed", { executionState: "completed", messagePreview: "Done" }],
-          ["failed", { executionState: "failed", messagePreview: "Interrupted" }],
+          ["completed", completedActivity("completed", "Done")],
+          ["failed", completedActivity("failed", "Interrupted")],
         ]),
       },
       "t1",
@@ -138,14 +235,14 @@ describe("active turn semantics", () => {
       {
         items: [
           agentItem({
-            tool: "spawnAgent",
+            action: "spawn",
             status: "completed",
             executionState: "completed",
-            receiverThreadIds: ["child"],
+            targetThreadIds: ["child"],
             agents: [],
           }),
         ],
-        subagentActivities: new Map([["child", { executionState: "running", messagePreview: "Inspecting files" }]]),
+        subagentActivities: new Map([["child", runningActivity("Inspecting files")]]),
       },
       "t1",
     ).find((item) => item.kind === "agentSummary")?.summary;
@@ -162,9 +259,9 @@ describe("active turn semantics", () => {
     expect(
       activeAgentSummary([
         agentItem({
-          tool: "wait",
+          action: "wait",
           status: "completed",
-          receiverThreadIds: ["done"],
+          targetThreadIds: ["done"],
           agents: [{ threadId: "done", status: "completed", executionState: "completed", message: null }],
         }),
       ]),
@@ -176,21 +273,35 @@ function activeAgentSummary(items: readonly ThreadStreamItem[]) {
   return activeTurnLiveItems({ items }, "t1").find((item) => item.kind === "agentSummary")?.summary ?? null;
 }
 
-function agentItem(overrides: Partial<Extract<ThreadStreamItem, { kind: "agent" }>>): Extract<ThreadStreamItem, { kind: "agent" }> {
+function runningActivity(messagePreview: string) {
+  return { agentLabel: null, liveness: "running" as const, outcome: null, messagePreview };
+}
+
+function completedActivity(outcome: "completed" | "failed", messagePreview: string) {
+  return { agentLabel: null, liveness: "stopped" as const, outcome, messagePreview };
+}
+
+function agentItem(
+  overrides: Partial<Extract<ThreadStreamItem, { kind: "agent" }>> & {
+    targetThreadIds?: readonly string[];
+  },
+): Extract<ThreadStreamItem, { kind: "agent" }> {
+  const { targetThreadIds, ...itemOverrides } = overrides;
   return {
     id: "agent-1",
     kind: "agent",
     role: "tool",
     text: "Wait for agent",
     turnId: "t1",
-    tool: "wait",
+    action: "wait",
+    coordinationUpdate: "snapshot",
     status: "running",
     senderThreadId: "parent",
-    receiverThreadIds: [],
+    targets: (targetThreadIds ?? []).map((threadId) => ({ threadId })),
     prompt: null,
     model: null,
     reasoningEffort: null,
     agents: [],
-    ...overrides,
+    ...itemOverrides,
   };
 }

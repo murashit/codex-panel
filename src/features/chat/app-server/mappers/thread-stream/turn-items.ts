@@ -13,7 +13,7 @@ import { normalizeProposedPlanMarkdown } from "../../../domain/thread-stream/for
 import { userMessageDisplayText } from "../../../domain/thread-stream/format/user-message-text";
 import type { CommandThreadStreamTarget, ThreadStreamDiagnosticSection, ThreadStreamItem } from "../../../domain/thread-stream/items";
 import type { ThreadStreamItemProvenance } from "../../../domain/thread-stream/provenance";
-import { agentThreadStreamItem } from "./agent-items";
+import { agentThreadStreamItem, subagentActivityThreadStreamItem } from "./agent-items";
 import {
   appServerFailedStatusLabel,
   commandExecutionState,
@@ -100,7 +100,7 @@ function threadStreamItemFromTurnItemCore(item: TurnItem, turnId?: string): Thre
     case "imageGeneration":
       return imageGenerationThreadStreamItem(item, turnId);
     case "subAgentActivity":
-      return null;
+      return subagentActivityThreadStreamItem(item, turnId);
     case "enteredReviewMode":
     case "exitedReviewMode":
       return reviewModeThreadStreamItem(item, turnId);
