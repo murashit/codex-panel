@@ -67,7 +67,7 @@ describe("chat panel projection integration", () => {
     unmountUiRoot(parent);
   });
 
-  it("disables archive but keeps rename available while the active thread is busy", () => {
+  it("disables archive only for the busy target thread", () => {
     let state = chatStateFixture({
       activeThread: { id: "thread" },
       threadList: { listedThreads: [threadFixture("thread", "Thread"), threadFixture("other", "Other")] },
@@ -87,7 +87,7 @@ describe("chat panel projection integration", () => {
     const archiveButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Archive thread"]')];
     const renameButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Rename thread"]')];
     expect(archiveButtons).toHaveLength(2);
-    expect(archiveButtons.every((button) => button.disabled)).toBe(true);
+    expect(archiveButtons.map((button) => button.disabled)).toEqual([true, false]);
     expect(renameButtons).toHaveLength(2);
     expect(renameButtons.every((button) => !button.disabled)).toBe(true);
     unmountUiRoot(parent);

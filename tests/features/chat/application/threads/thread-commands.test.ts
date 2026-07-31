@@ -149,31 +149,22 @@ describe("thread management commands", () => {
 
   it.each([
     {
-      name: "archive",
-      invoke: (actions: ThreadCommands) => actions.archiveThread("source"),
-      operation: "archiveThread" as const,
-      message: "Finish or interrupt the current turn before archiving threads.",
-    },
-    {
       name: "fork",
       invoke: (actions: ThreadCommands) => actions.forkThread("source"),
-      operation: "forkThread" as const,
       message: "Finish or interrupt the current turn before forking threads.",
     },
     {
       name: "rollback",
       invoke: (actions: ThreadCommands) => actions.rollbackThread("source"),
-      operation: "forkThread" as const,
       message: "Interrupt the current turn before rolling back.",
     },
-  ])("rejects $name while a turn is busy", async ({ invoke, operation, message }) => {
+  ])("rejects $name while a turn is busy", async ({ invoke, message }) => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
     host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "turn-running" });
 
     await invoke(threadCommands(host));
 
-    if (operation === "archiveThread") expect(host.mutations.archiveThread).not.toHaveBeenCalled();
-    else expect(host.effects[operation]).not.toHaveBeenCalled();
+    expect(host.effects.forkThread).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith(message);
   });
 
@@ -266,6 +257,17 @@ describe("thread management commands", () => {
     await controller.archiveThread("source", true);
 
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: true });
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("archives an idle thread while the current panel is running another thread", async () => {
+    const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
+    host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "turn-running" });
+
+    await threadCommands(host).archiveThread("other");
+
+    expect(host.threadPanelIsBusy).toHaveBeenCalledWith("other");
+    expect(host.mutations.archiveThread).toHaveBeenCalledWith("other", {});
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 

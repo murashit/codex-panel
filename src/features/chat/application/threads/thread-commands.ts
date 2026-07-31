@@ -149,10 +149,6 @@ async function archiveThreadFromPanel(
     host.addSystemMessage("Finish or interrupt the thread before archiving it.");
     return false;
   }
-  if (chatTurnBusy(threadCommandState(host).activeTurn)) {
-    host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
-    return false;
-  }
   try {
     const options = {
       ...(saveMarkdown === undefined ? {} : { saveMarkdown }),

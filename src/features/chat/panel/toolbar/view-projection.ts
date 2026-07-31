@@ -101,7 +101,7 @@ function toolbarThreadRows(input: {
       selected: core.selected,
       isPinned: core.isPinned,
       renameDisabled: input.renameState.kind === "saving",
-      archiveDisabled: input.turnBusy,
+      archiveDisabled: threadId === input.activeThreadId && input.turnBusy,
       archiveConfirm: core.archiveConfirm,
       rename: core.rename.active
         ? {
