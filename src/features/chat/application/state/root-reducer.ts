@@ -156,7 +156,7 @@ type ActiveThreadAction = { type: "active-thread/token-usage-set"; tokenUsage: T
 type RuntimeAction =
   | { type: "runtime/model-requested"; model: string }
   | { type: "runtime/model-reset-to-config" }
-  | { type: "runtime/reasoning-effort-requested"; effort: ReasoningEffort }
+  | { type: "runtime/reasoning-effort-requested"; effort: ReasoningEffort | null }
   | { type: "runtime/reasoning-effort-reset-to-config" }
   | { type: "runtime/permission-profile-requested"; permissionProfile: string }
   | { type: "runtime/permission-profile-reset-to-config" }

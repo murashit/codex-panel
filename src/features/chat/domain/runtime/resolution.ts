@@ -56,7 +56,7 @@ interface RuntimePermissionsResolution {
 
 export interface RuntimeControlsResolution {
   readonly model: RuntimeLayeredValue<string>;
-  readonly reasoningEffort: RuntimeLayeredValue<ReasoningEffort>;
+  readonly reasoningEffort: RuntimeLayeredValue<ReasoningEffort, ReasoningEffort | null>;
   readonly autoReview: AutoReviewResolution;
   readonly serviceTier: RuntimeLayeredValue<ServiceTier>;
   readonly fastMode: FastModeResolution;
@@ -74,7 +74,7 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     active: snapshot.active.model,
     pending: snapshot.pending.model,
   });
-  const reasoningEffort = resolveRuntimeValue({
+  const reasoningEffort = resolveRuntimeNullablePendingValue({
     configured: config.reasoningEffort,
     active: snapshot.active.reasoningEffort,
     pending: snapshot.pending.reasoningEffort,

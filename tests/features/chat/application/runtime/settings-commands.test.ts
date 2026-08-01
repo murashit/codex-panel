@@ -215,7 +215,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(messages).toEqual(["Reasoning effort ultra is unavailable for gpt-5.5. Supported: low, medium."]);
   });
 
-  it("rejects a model change that would invalidate the effective reasoning intent", async () => {
+  it("normalizes a pending reasoning intent when changing models", async () => {
     const store = createChatStateStore(chatStateFixture());
     const port = settingsPortFixture();
     const messages: string[] = [];
@@ -228,15 +228,15 @@ describe("createChatRuntimeSettingsCommands", () => {
     });
 
     await expect(commands.requestReasoningEffort("high")).resolves.toBe(true);
-    await expect(commands.requestModel("gpt-5.4-mini")).resolves.toBe(false);
+    await expect(commands.requestModel("gpt-5.4-mini")).resolves.toBe(true);
 
-    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
-    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "medium" });
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.4-mini" });
     expect(port.updateThreadSettings).not.toHaveBeenCalled();
-    expect(messages).toEqual(["Reasoning effort high is unavailable for gpt-5.4-mini. Supported: low, medium."]);
+    expect(messages).toEqual([]);
   });
 
-  it("rejects an active-thread model change that would invalidate its reasoning effort", async () => {
+  it("updates an active thread model and normalized effort atomically", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
@@ -251,11 +251,62 @@ describe("createChatRuntimeSettingsCommands", () => {
       ],
     });
 
-    await expect(commands.requestModel("gpt-5.4-mini")).resolves.toBe(false);
+    await expect(commands.requestModel("gpt-5.4-mini")).resolves.toBe(true);
 
+    expect(port.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.4-mini", effort: "medium" });
+    expect(store.getState().runtime.active.model).toBe("gpt-5.4-mini");
+    expect(store.getState().runtime.active.reasoningEffort).toBe("medium");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
-    expect(port.updateThreadSettings).not.toHaveBeenCalled();
-    expect(messages).toEqual(["Reasoning effort high is unavailable for gpt-5.4-mini. Supported: low, medium."]);
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
+    expect(messages).toEqual([]);
+  });
+
+  it("clears effort atomically when the selected model exposes no reasoning efforts", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
+    const store = createChatStateStore(state);
+    const port = settingsPortFixture();
+    const commands = runtimeCommandsFixture(store, port, [], undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
+      availableModels: [
+        modelFixture("gpt-5.5", "fast"),
+        {
+          ...modelFixture("non-reasoning-model", "fast"),
+          supportedReasoningEfforts: [],
+          defaultReasoningEffort: null,
+        },
+      ],
+    });
+
+    await expect(commands.requestModel("non-reasoning-model")).resolves.toBe(true);
+
+    expect(port.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "non-reasoning-model", effort: null });
+    expect(store.getState().runtime.active.model).toBe("non-reasoning-model");
+    expect(store.getState().runtime.active.reasoningEffort).toBeNull();
+  });
+
+  it("normalizes effort atomically when resetting a model to config", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
+    const store = createChatStateStore(state);
+    const port = settingsPortFixture();
+    const messages: string[] = [];
+    const commands = runtimeCommandsFixture(store, port, messages, undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.4-mini", reasoningEffort: "high" }),
+      availableModels: [
+        modelFixture("gpt-5.5", "fast"),
+        { ...modelFixture("gpt-5.4-mini", "fast"), supportedReasoningEfforts: ["low", "medium"] },
+      ],
+    });
+
+    await expect(commands.resetModelToConfig()).resolves.toBe(true);
+
+    expect(port.updateThreadSettings).toHaveBeenCalledWith("thread", { model: null, effort: "medium" });
+    expect(store.getState().runtime.active.model).toBeNull();
+    expect(store.getState().runtime.active.reasoningEffort).toBe("medium");
+    expect(messages).toEqual([]);
   });
 
   it("toggles fast mode and reports the user-visible result", async () => {
@@ -557,6 +608,113 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(store.getState().runtime.active.model).toBe("gpt-new");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
+  });
+
+  it("carries a pending normalized effort through consecutive model changes", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
+    const store = createChatStateStore(state);
+    const firstUpdate = deferred(true);
+    const secondUpdate = deferred(true);
+    const port = settingsPortFixture({
+      updateThreadSettings: vi
+        .fn()
+        .mockImplementationOnce(() => firstUpdate.promise)
+        .mockImplementationOnce(() => secondUpdate.promise),
+    });
+    const commands = runtimeCommandsFixture(store, port, [], undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
+      availableModels: [
+        modelFixture("gpt-5.5", "fast"),
+        { ...modelFixture("gpt-mini", "fast"), supportedReasoningEfforts: ["medium"] },
+        { ...modelFixture("gpt-next", "fast"), supportedReasoningEfforts: ["medium"] },
+      ],
+    });
+
+    const firstRequest = commands.requestModel("gpt-mini");
+    await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-mini", effort: "medium" }));
+    const secondRequest = commands.requestModel("gpt-next");
+
+    firstUpdate.resolve();
+    await expect(firstRequest).resolves.toBe(false);
+    await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-next", effort: "medium" }));
+    secondUpdate.resolve();
+
+    await expect(secondRequest).resolves.toBe(true);
+    expect(store.getState().runtime.active.model).toBe("gpt-next");
+    expect(store.getState().runtime.active.reasoningEffort).toBe("medium");
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
+  });
+
+  it("keeps model and normalized effort together after an earlier update fails", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
+    const store = createChatStateStore(state);
+    const firstUpdate = deferred(false);
+    const port = settingsPortFixture({
+      updateThreadSettings: vi
+        .fn()
+        .mockImplementationOnce(() => firstUpdate.promise)
+        .mockResolvedValueOnce(true),
+    });
+    const commands = runtimeCommandsFixture(store, port, [], undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
+      availableModels: [
+        modelFixture("gpt-5.5", "fast"),
+        { ...modelFixture("gpt-mini", "fast"), supportedReasoningEfforts: ["medium"] },
+        { ...modelFixture("gpt-next", "fast"), supportedReasoningEfforts: ["medium"] },
+      ],
+    });
+
+    const firstRequest = commands.requestModel("gpt-mini");
+    await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenCalledOnce());
+    const secondRequest = commands.requestModel("gpt-next");
+    firstUpdate.resolve();
+
+    await expect(firstRequest).resolves.toBe(false);
+    await expect(secondRequest).resolves.toBe(true);
+    expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-next", effort: "medium" });
+    expect(store.getState().runtime.active.model).toBe("gpt-next");
+    expect(store.getState().runtime.active.reasoningEffort).toBe("medium");
+  });
+
+  it("commits the model anchor when effort changes during a normalized model update", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
+    const store = createChatStateStore(state);
+    const modelUpdate = deferred(true);
+    const effortUpdate = deferred(true);
+    const port = settingsPortFixture({
+      updateThreadSettings: vi
+        .fn()
+        .mockImplementationOnce(() => modelUpdate.promise)
+        .mockImplementationOnce(() => effortUpdate.promise),
+    });
+    const commands = runtimeCommandsFixture(store, port, [], undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
+      availableModels: [
+        modelFixture("gpt-5.5", "fast"),
+        { ...modelFixture("gpt-mini", "fast"), supportedReasoningEfforts: ["low", "medium"] },
+      ],
+    });
+
+    const modelRequest = commands.requestModel("gpt-mini");
+    await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-mini", effort: "medium" }));
+    const effortRequest = commands.requestReasoningEffort("low");
+    modelUpdate.resolve();
+
+    await expect(modelRequest).resolves.toBe(false);
+    await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { effort: "low" }));
+    effortUpdate.resolve();
+
+    await expect(effortRequest).resolves.toBe(true);
+    expect(store.getState().runtime.active.model).toBe("gpt-mini");
+    expect(store.getState().runtime.active.reasoningEffort).toBe("low");
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
   });
 
   it("does not reuse an old settings drain after the panel leaves and returns to the same thread", async () => {

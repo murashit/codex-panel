@@ -1,5 +1,10 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import { unsupportedReasoningEffort, unsupportedReasoningEffortMessage } from "../../../../domain/catalog/reasoning-effort-compatibility";
+import {
+  type ReasoningEffortNormalization,
+  reasoningEffortNormalizationForModel,
+  unsupportedReasoningEffort,
+  unsupportedReasoningEffortMessage,
+} from "../../../../domain/catalog/reasoning-effort-compatibility";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/runtime/keyed-operation-coordinator";
@@ -137,6 +142,7 @@ function commitRuntimeSettingsFields(
     if (!updated || !runtimeSettingsScopeIsCurrent(host, scope)) return false;
 
     const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command);
+    if ("model" in command && committed.model !== command.model) return false;
     if (!patchEmpty(committed)) commitRuntimeSettingsPatch(host, committed);
     return patchEqual(committed, command);
   });
@@ -192,26 +198,29 @@ function commitRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost, update: R
 
 async function requestModel(host: RuntimeSettingsCommandsContext, model: string): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
-  if (modelChangeConflictsWithReasoningEffort(host, model)) return false;
+  const normalization = normalizedReasoningEffortForModelChange(host, model);
   dispatch(host, { type: "runtime/model-requested", model });
-  return applyPendingThreadSettings(host, ["model"]);
+  if (normalization.kind === "set") dispatch(host, { type: "runtime/reasoning-effort-requested", effort: normalization.effort });
+  return applyPendingThreadSettings(host, modelUpdateFields(host));
 }
 
 async function resetModelToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   const { config } = runtimeProjection(host);
-  if (modelChangeConflictsWithReasoningEffort(host, config.model)) return false;
+  const normalization = normalizedReasoningEffortForModelChange(host, config.model);
   dispatch(host, { type: "runtime/model-reset-to-config" });
-  return applyPendingThreadSettings(host, ["model"]);
+  if (normalization.kind === "set") dispatch(host, { type: "runtime/reasoning-effort-requested", effort: normalization.effort });
+  return applyPendingThreadSettings(host, modelUpdateFields(host));
 }
 
-function modelChangeConflictsWithReasoningEffort(host: RuntimeSettingsCommandsHost, model: string | null): boolean {
+function modelUpdateFields(host: RuntimeSettingsCommandsHost): readonly (keyof RuntimeSettingsPatch)[] {
+  return state(host).runtime.pending.reasoningEffort.kind === "unchanged" ? ["model"] : ["model", "effort"];
+}
+
+function normalizedReasoningEffortForModelChange(host: RuntimeSettingsCommandsHost, model: string | null): ReasoningEffortNormalization {
   const { snapshot, config } = runtimeProjection(host);
   const effort = resolveRuntimeControls(snapshot, config).reasoningEffort.effective;
-  const unsupported = effort ? unsupportedReasoningEffort(snapshot.availableModels, model, effort) : null;
-  if (!unsupported) return false;
-  host.addSystemMessage(unsupportedReasoningEffortMessage(unsupported));
-  return true;
+  return reasoningEffortNormalizationForModel(snapshot.availableModels, model, effort);
 }
 
 async function requestModelFromUi(host: RuntimeSettingsCommandsContext, model: string): Promise<void> {

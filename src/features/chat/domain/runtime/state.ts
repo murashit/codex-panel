@@ -37,7 +37,7 @@ export interface ActiveThreadRuntimeState extends RuntimePermissionState, Runtim
 
 export interface PendingRuntimeIntentState {
   readonly model: PendingRuntimeIntent<string>;
-  readonly reasoningEffort: PendingRuntimeIntent<ReasoningEffort>;
+  readonly reasoningEffort: PendingRuntimeIntent<ReasoningEffort | null>;
   readonly permissionProfile: PendingRuntimeIntent<string>;
   readonly approvalPolicy: PendingRuntimeIntent<RuntimeApprovalPolicy>;
   readonly approvalsReviewer: PendingRuntimeIntent<ApprovalsReviewer>;
@@ -99,7 +99,7 @@ export function resetModelToConfigRuntimeState(state: ChatRuntimeState): ChatRun
   };
 }
 
-export function requestReasoningEffortRuntimeState(state: ChatRuntimeState, effort: ReasoningEffort): ChatRuntimeState {
+export function requestReasoningEffortRuntimeState(state: ChatRuntimeState, effort: ReasoningEffort | null): ChatRuntimeState {
   return {
     ...state,
     pending: { ...state.pending, reasoningEffort: setRuntimeIntentValue(effort) },
@@ -190,7 +190,7 @@ export function commitAppliedRuntimeSettingsPatchState(state: ChatRuntimeState, 
     pending: {
       ...state.pending,
       ...("model" in update ? { model: unchangedRuntimeIntent<string>() } : {}),
-      ...("effort" in update ? { reasoningEffort: unchangedRuntimeIntent<ReasoningEffort>() } : {}),
+      ...("effort" in update ? { reasoningEffort: unchangedRuntimeIntent<ReasoningEffort | null>() } : {}),
       ...("serviceTier" in update ? { fastMode: unchangedRuntimeIntent<RequestedFastMode>() } : {}),
       ...("approvalPolicy" in update ? { approvalPolicy: unchangedRuntimeIntent<RuntimeApprovalPolicy>() } : {}),
       ...("approvalsReviewer" in update ? { approvalsReviewer: unchangedRuntimeIntent<ApprovalsReviewer>() } : {}),

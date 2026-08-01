@@ -28,9 +28,9 @@ export function permissionProfileOverrideMessage(permissionProfile: string | nul
 }
 
 export function pendingRuntimeSettingLabel(
-  setting: { kind: "unchanged" } | { kind: "set"; value: unknown } | { kind: "resetToConfig" },
+  setting: { kind: "unchanged" } | { kind: "set"; value: string | null } | { kind: "resetToConfig" },
 ): string {
-  if (setting.kind === "set") return String(setting.value);
+  if (setting.kind === "set") return setting.value ?? "(Codex default)";
   if (setting.kind === "resetToConfig") return "(reset to config)";
   return "(none)";
 }
