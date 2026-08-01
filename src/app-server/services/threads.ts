@@ -13,7 +13,7 @@ import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import { appServerSideChatBoundaryItem, sideChatDeveloperInstructions } from "../protocol/side-chat";
 import { type ThreadRecord, threadFromThreadRecord, threadsFromThreadRecords } from "../protocol/thread";
-import { appServerThreadGoalUpdate, appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
+import { appServerThreadGoalUpdate, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
 import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
 import {
   completedTurnTranscriptSummariesFromTurnRecords,
@@ -358,10 +358,6 @@ export async function setThreadGoal(
 
 export async function clearThreadGoal(client: AppServerRequestClient, threadId: string): Promise<void> {
   await client.request("thread/goal/clear", { threadId });
-}
-
-export async function recordThreadGoalUserMessage(client: AppServerRequestClient, threadId: string, objective: string): Promise<void> {
-  await client.request("thread/inject_items", { threadId, items: [appServerThreadGoalUserHistoryItem(objective)] });
 }
 
 export async function renameThread(client: AppServerRequestClient, threadId: string, name: string): Promise<void> {

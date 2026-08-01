@@ -508,20 +508,11 @@ describe("CodexChatView connection lifecycle", () => {
         tokenBudget: null,
       });
     });
-    await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/inject_items", {
-        threadId: "thread-new",
-        items: [
-          {
-            type: "message",
-            role: "user",
-            content: [{ type: "input_text", text: "Ship the feature" }],
-          },
-        ],
-      });
-    });
+    expect(client.request).not.toHaveBeenCalledWith("thread/inject_items", expect.anything());
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-new" });
-    expect(view.containerEl.textContent).toContain("Ship the feature");
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("Ship the feature");
+    });
   });
 
   it("keeps a goal update notification over an earlier in-flight goal read", async () => {

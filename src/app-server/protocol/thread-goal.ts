@@ -12,7 +12,6 @@ interface AppServerThreadGoal {
 }
 
 type AppServerThreadGoalStatus = ThreadGoalStatus;
-type AppServerJsonValue = number | string | boolean | AppServerJsonValue[] | { [key: string]: AppServerJsonValue | undefined } | null;
 
 export function threadGoalFromAppServerGoal(goal: AppServerThreadGoal | null): ThreadGoal | null {
   if (!goal) return null;
@@ -37,14 +36,6 @@ export function appServerThreadGoalUpdate(update: ThreadGoalUpdate): {
     ...("objective" in update ? { objective: update.objective } : {}),
     ...("status" in update ? { status: update.status === null ? null : update.status } : {}),
     ...("tokenBudget" in update ? { tokenBudget: update.tokenBudget } : {}),
-  };
-}
-
-export function appServerThreadGoalUserHistoryItem(text: string): AppServerJsonValue {
-  return {
-    type: "message",
-    role: "user",
-    content: [{ type: "input_text", text }],
   };
 }
 

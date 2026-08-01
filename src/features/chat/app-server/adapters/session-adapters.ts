@@ -9,7 +9,6 @@ import {
   forkThread,
   listThreadTurns,
   readThreadGoal,
-  recordThreadGoalUserMessage,
   resumeThread,
   setThreadGoal,
   startThread,
@@ -236,13 +235,6 @@ function createChatThreadGoalAdapter(host: CurrentChatAppServerClientHost): Thre
       runCurrentChatAppServerEffect(host, async (client) => {
         await clearThreadGoal(client, threadId);
       }),
-    recordThreadGoalUserMessage: async (threadId, objective) => {
-      const result = await withCurrentChatAppServerClient(host, async (client) => {
-        await recordThreadGoalUserMessage(client, threadId, objective);
-        return true;
-      });
-      return result ?? false;
-    },
   };
 }
 

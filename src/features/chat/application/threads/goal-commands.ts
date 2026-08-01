@@ -10,7 +10,6 @@ import type { ThreadStartOutcome } from "./thread-start-command";
 export interface ThreadGoalEffects {
   setThreadGoal(threadId: string, params: ThreadGoalUpdate): Promise<EffectOutcome<ThreadGoal | null>>;
   clearThreadGoal(threadId: string): Promise<EffectOutcome<void>>;
-  recordThreadGoalUserMessage(threadId: string, objective: string): Promise<boolean>;
 }
 
 export interface GoalCommandsHost extends ThreadGoalProjectionHost {
@@ -94,7 +93,6 @@ async function setNormalizedObjective(
   scope: GoalMutationScope,
 ): Promise<boolean> {
   const current = activeThreadState(host.stateStore.getState())?.goal ?? null;
-  const isNewGoal = current === null;
   const outcome = await setGoal(
     host,
     threadId,
@@ -105,9 +103,6 @@ async function setNormalizedObjective(
     },
     scope,
   );
-  if (outcome.committed && isNewGoal) {
-    await recordGoalUserMessage(host, threadId, objective, scope);
-  }
   return outcome.presented;
 }
 
@@ -241,19 +236,6 @@ async function startThreadAndSaveObjective(
 function emptyPanelCanStartGoalThread(host: GoalCommandsHost): boolean {
   const state = host.stateStore.getState();
   return state.panelThread.kind === "empty" && activePanelOperationDecision(state, "goal-mutation").kind === "allowed";
-}
-
-async function recordGoalUserMessage(
-  host: GoalCommandsContext,
-  threadId: string,
-  objective: string,
-  scope: GoalMutationScope,
-): Promise<void> {
-  try {
-    await host.effects.recordThreadGoalUserMessage(threadId, objective);
-  } catch (error) {
-    addThreadGoalSystemMessage(host, threadId, `Could not record goal message: ${errorMessage(error)}`, scope.panelTarget);
-  }
 }
 
 function goalMutationPresentationIsCurrent(host: GoalCommandsContext, threadId: string, scope: GoalMutationScope): boolean {

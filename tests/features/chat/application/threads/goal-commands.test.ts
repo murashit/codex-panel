@@ -375,7 +375,6 @@ describe("createGoalCommands", () => {
         objective: "Finish",
       }),
     );
-    expect(effects.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread", "Finish");
   });
 
   it("starts a thread before saving a new goal objective when no thread is active", async () => {
@@ -421,7 +420,6 @@ describe("createGoalCommands", () => {
 
     expect(startThread).toHaveBeenCalledWith("Plan release", { syncGoal: false });
     expect(setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Plan release", status: "active", tokenBudget: null });
-    expect(effects.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread-new", "Plan release");
   });
 
   it("does not save a goal through a thread that was created but not activated", async () => {
@@ -547,80 +545,7 @@ describe("createGoalCommands", () => {
     expect(startThread).not.toHaveBeenCalled();
   });
 
-  it("reports goal user history injection failures while the thread remains active", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const effects = effectsFixture({
-      setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal())),
-      recordThreadGoalUserMessage: vi.fn().mockRejectedValue(new Error("offline")),
-    });
-    const addSystemMessage = vi.fn();
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage,
-      addGoalEvent: vi.fn(),
-    });
-
-    await commands.setObjective("thread", "Finish", null);
-
-    expect(addSystemMessage).toHaveBeenCalledWith("Could not record goal message: offline");
-  });
-
-  it("does not report stale goal user history injection failures after the active thread changes", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const effects = effectsFixture({
-      setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal())),
-      recordThreadGoalUserMessage: vi.fn().mockImplementation(async () => {
-        stateStore.dispatch({ type: "active-thread/cleared" });
-        throw new Error("offline");
-      }),
-    });
-    const addSystemMessage = vi.fn();
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage,
-      addGoalEvent: vi.fn(),
-    });
-
-    await commands.setObjective("thread", "Finish", null);
-
-    expect(addSystemMessage).not.toHaveBeenCalled();
-  });
-
-  it("records a committed new goal even when its panel target changes before publication", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const effects = effectsFixture({
-      setThreadGoal: vi.fn().mockImplementation(async () => {
-        stateStore.dispatch({ type: "active-thread/cleared" });
-        return completedCurrent(goal());
-      }),
-    });
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
-    });
-
-    await expect(commands.setObjective("thread", "Finish", null)).resolves.toBe(false);
-
-    expect(effects.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread", "Finish");
-  });
-
-  it("does not inject a goal user history message when editing an existing goal", async () => {
+  it("reports an existing goal objective edit as a structured goal event", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { activeThread: { goal: goal() } });
@@ -641,7 +566,6 @@ describe("createGoalCommands", () => {
     await commands.setObjective("thread", "Updated", null);
 
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
-    expect(effects.recordThreadGoalUserMessage).not.toHaveBeenCalled();
   });
 
   it("reports goal resume as a user-visible state change", async () => {
@@ -686,7 +610,6 @@ function effectsFixture(overrides: Partial<ThreadGoalEffects> = {}): ThreadGoalE
   return {
     setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal())),
     clearThreadGoal: vi.fn().mockResolvedValue(completedCurrent(undefined)),
-    recordThreadGoalUserMessage: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
 }
