@@ -1,5 +1,6 @@
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { ThreadStreamItemProvenance } from "./provenance";
+import type { AgentCoordinationUpdate } from "./semantics/agent-coordination";
 
 export type ThreadStreamItemKind =
   | "dialogue"
@@ -301,7 +302,7 @@ export interface AgentThreadStreamItem extends ThreadStreamBase {
   readonly role: "tool";
   readonly text?: string;
   readonly action: string;
-  readonly coordinationUpdate: "snapshot" | "started" | "interacted" | "interrupted";
+  readonly coordinationUpdate: AgentCoordinationUpdate;
   readonly status: string;
   readonly senderThreadId: string | null;
   readonly targets: readonly AgentTargetSummary[];

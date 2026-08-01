@@ -1,10 +1,7 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamSegmentsEmpty } from "../../domain/thread-stream/selectors";
-import {
-  type ActiveSubagentActivity,
-  activeTurnLiveItems,
-  threadStreamItemsWithoutActiveTaskProgress,
-} from "../../domain/thread-stream/semantics/active-turn";
+import { activeTurnLiveItems, threadStreamItemsWithoutActiveTaskProgress } from "../../domain/thread-stream/semantics/active-turn";
+import type { ActiveSubagentActivity } from "../../domain/thread-stream/semantics/agent-run-summary";
 import type { ThreadStreamSemanticClassification } from "../../domain/thread-stream/semantics/types";
 import type {
   PendingRequestBlockSnapshot,

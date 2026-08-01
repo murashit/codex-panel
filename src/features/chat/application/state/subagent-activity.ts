@@ -1,15 +1,20 @@
 import { streamedTextThreadStreamItem, streamedToolOutputThreadStreamItem } from "../../domain/thread-stream/factories/streaming-items";
 import { normalizeProposedPlanMarkdown } from "../../domain/thread-stream/format/proposed-plan";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import {
+  type AgentCoordinationLifecycle,
+  type AgentCoordinationOutcome,
+  type AgentCoordinationUpdate,
+  applyAgentCoordinationUpdate,
+  UNKNOWN_AGENT_COORDINATION_LIFECYCLE,
+} from "../../domain/thread-stream/semantics/agent-coordination";
 import { upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 
-interface SubagentActivityEntry {
+interface SubagentActivityEntry extends AgentCoordinationLifecycle {
   readonly threadId: string;
   readonly childTurnId: string | null;
   readonly latestItem: ThreadStreamItem | null;
   readonly agentLabel: string | null;
-  readonly liveness: "unknown" | "running" | "stopped";
-  readonly outcome: "completed" | "failed" | null;
 }
 
 export interface ChatSubagentActivityState {
@@ -23,7 +28,7 @@ export type SubagentActivityAction =
       threadId: string;
       parentTurnId: string;
       agentLabel: string | null;
-      coordinationUpdate: "started" | "interacted" | "interrupted";
+      coordinationUpdate: Exclude<AgentCoordinationUpdate, "snapshot">;
     }
   | { type: "subagent-activity/turn-started"; threadId: string; childTurnId: string }
   | { type: "subagent-activity/item-observed"; threadId: string; item: ThreadStreamItem; advance: boolean }
@@ -51,7 +56,7 @@ export type SubagentActivityAction =
       threadId: string;
       childTurnId: string;
       items: readonly ThreadStreamItem[];
-      outcome: "completed" | "failed" | null;
+      outcome: AgentCoordinationOutcome;
     };
 
 export function initialSubagentActivityState(): ChatSubagentActivityState {
@@ -128,8 +133,7 @@ function trackSubagent(state: ChatSubagentActivityState, threadId: string): Chat
     childTurnId: null,
     latestItem: null,
     agentLabel: null,
-    liveness: "unknown",
-    outcome: null,
+    ...UNKNOWN_AGENT_COORDINATION_LIFECYCLE,
   });
   return { ...state, byThreadId };
 }
@@ -138,15 +142,11 @@ function observeCoordinationUpdate(
   state: ChatSubagentActivityState,
   threadId: string,
   agentLabel: string | null,
-  coordinationUpdate: "started" | "interacted" | "interrupted",
+  coordinationUpdate: Exclude<AgentCoordinationUpdate, "snapshot">,
 ): ChatSubagentActivityState {
   const tracked = trackSubagent(state, threadId);
   return updateTrackedEntry(tracked, threadId, (entry) => {
-    if (coordinationUpdate === "started" && entry.liveness !== "stopped") {
-      return { ...entry, agentLabel, liveness: "running" };
-    }
-    if (coordinationUpdate === "interrupted") return { ...entry, agentLabel, liveness: "stopped" };
-    return { ...entry, agentLabel };
+    return { ...entry, ...applyAgentCoordinationUpdate(entry, coordinationUpdate), agentLabel };
   });
 }
 

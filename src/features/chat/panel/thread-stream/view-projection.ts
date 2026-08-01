@@ -21,7 +21,7 @@ import {
   type PlanImplementationTarget,
   threadStreamSegmentsEmpty,
 } from "../../domain/thread-stream/selectors";
-import type { ActiveSubagentActivity } from "../../domain/thread-stream/semantics/active-turn";
+import type { ActiveSubagentActivity } from "../../domain/thread-stream/semantics/agent-run-summary";
 import type { ThreadStreamContext, ThreadStreamDisclosureBucket, ThreadStreamDisclosureState } from "../../ui/thread-stream/context";
 import type { PendingRequestBlockSnapshot, ThreadStreamTextActionTargets, ThreadStreamViewBlock } from "../../ui/thread-stream/model";
 import type { ChatPanelThreadStreamModel } from "../shell/selectors";
