@@ -103,11 +103,7 @@ function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; ac
 }
 
 function ThreadsViewState({ status }: { status: ThreadsViewShellModel["status"] }): UiNode {
-  const className = [
-    "codex-panel-threads__state",
-    status ? "codex-panel-threads__status" : "codex-panel-threads__empty",
-    status?.kind === "error" ? "codex-panel-threads__status--error" : "",
-  ]
+  const className = ["codex-panel-threads__state", status ? "codex-panel-threads__status" : "codex-panel-threads__empty"]
     .filter(Boolean)
     .join(" ");
   return (

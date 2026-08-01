@@ -16,10 +16,6 @@
   overflow-wrap: anywhere;
 }
 
-.codex-panel-threads__status--error {
-  color: var(--codex-panel-color-danger);
-}
-
 .codex-panel-threads__toolbar {
   flex: 0 0 auto;
 }

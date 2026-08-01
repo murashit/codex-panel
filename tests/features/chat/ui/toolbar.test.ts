@@ -601,6 +601,7 @@ describe("Toolbar decisions", () => {
     const status = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-list-status"));
     expect(status.textContent).toBe("Could not load threads.");
     expect(status.getAttribute("role")).toBe("status");
+    expect(status.className).toBe("codex-panel__thread-list-status");
     expect(status.classList.contains("codex-panel-ui__nav-item")).toBe(false);
     expect(parent.querySelector(".codex-panel__thread--error")).toBeNull();
   });

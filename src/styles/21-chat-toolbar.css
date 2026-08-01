@@ -303,10 +303,6 @@
   overflow-wrap: anywhere;
 }
 
-.codex-panel__thread-list-status--error {
-  color: var(--codex-panel-color-danger);
-}
-
 .codex-panel__thread-row {
   grid-template-columns: minmax(0, 1fr) 0;
   gap: 0;

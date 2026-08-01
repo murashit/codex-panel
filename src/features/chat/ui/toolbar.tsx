@@ -327,7 +327,7 @@ function ThreadList({
         threads.map((thread) => <ThreadListRow key={thread.threadId} thread={thread} actions={actions} />)
       )}
       {error ? (
-        <div className="codex-panel__thread-list-status codex-panel__thread-list-status--error" role="status">
+        <div className="codex-panel__thread-list-status" role="status">
           {error}
         </div>
       ) : null}

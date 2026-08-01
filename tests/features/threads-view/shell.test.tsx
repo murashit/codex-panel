@@ -82,6 +82,7 @@ describe("threads view renderer decisions", () => {
 
     const status = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__status"));
     expect(status.getAttribute("role")).toBe("status");
+    expect(status.className).toBe("codex-panel-threads__state codex-panel-threads__status");
     expect(parent.querySelector(".codex-panel-threads__empty")).toBeNull();
   });
 
