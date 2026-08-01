@@ -14,7 +14,7 @@ describe("createSessionTurn", () => {
     });
     const fixture = sessionTurnFixture({ stateStore });
 
-    await fixture.turn.submissionCommands.composerSubmit.submit();
+    await fixture.submit();
 
     expect(fixture.refreshDiagnostics).not.toHaveBeenCalled();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
@@ -26,7 +26,7 @@ describe("createSessionTurn", () => {
   it("refreshes diagnostics for /tools when tool inventory is not loaded", async () => {
     const fixture = sessionTurnFixture();
 
-    await fixture.turn.submissionCommands.composerSubmit.submit();
+    await fixture.submit();
 
     expect(fixture.refreshDiagnostics).toHaveBeenCalledOnce();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
@@ -43,7 +43,7 @@ describe("createSessionTurn", () => {
       throw new Error("config unavailable");
     });
 
-    await fixture.turn.submissionCommands.composerSubmit.submit();
+    await fixture.submit();
 
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
     expect(fixture.status.addStructuredSystemMessage).toHaveBeenCalledWith("Codex capabilities", [
@@ -72,7 +72,7 @@ describe("createSessionTurn", () => {
       threads: [thread],
     });
 
-    await fixture.turn.submissionCommands.composerSubmit.submit();
+    await fixture.submit();
 
     expect(referThread).toHaveBeenCalledWith(thread, "summarize", { sourcePath: "snapshot.md" });
   });
@@ -172,7 +172,12 @@ function sessionTurnFixture(
       notifyActiveThreadIdentityChanged: vi.fn(),
     } as never,
   );
-  return { turn, refreshDiagnostics, runtimeProjection, status };
+  return {
+    submit: () => turn.submissionCommands.composerSubmit.submit(),
+    refreshDiagnostics,
+    runtimeProjection,
+    status,
+  };
 }
 
 function toolInventory(): ToolInventorySnapshot {

@@ -11,23 +11,23 @@ type SessionConnectionInput = Parameters<typeof createSessionConnection>[1];
 describe("session connection", () => {
   it("responds through the responder that delivered the request", async () => {
     const fixture = sessionConnectionFixture();
-    await fixture.connection.coordinator.ensureConnected();
+    await fixture.connect();
     const responder = { respond: vi.fn(), reject: vi.fn() };
 
-    fixture.connectionHandlers().onServerRequest(userInputRequest(1), responder);
-    fixture.connection.inboundHandler.resolveUserInput(1, { note: "Continue" });
+    fixture.deliver(userInputRequest(1), responder);
+    fixture.resolveUserInput(1, { note: "Continue" });
 
     expect(responder.respond).toHaveBeenCalledWith({ answers: { note: { answers: ["Continue"] } } });
   });
 
   it("cannot reuse a responder after its connection scope is invalidated", async () => {
     const fixture = sessionConnectionFixture();
-    await fixture.connection.coordinator.ensureConnected();
+    await fixture.connect();
     const responder = { respond: vi.fn(), reject: vi.fn() };
 
-    fixture.connectionHandlers().onServerRequest(userInputRequest(1), responder);
-    fixture.connection.invalidateConnectionScope();
-    fixture.connection.inboundHandler.resolveUserInput(1, { note: "Continue" });
+    fixture.deliver(userInputRequest(1), responder);
+    fixture.invalidate();
+    fixture.resolveUserInput(1, { note: "Continue" });
 
     expect(responder.respond).not.toHaveBeenCalled();
     expect(responder.reject).not.toHaveBeenCalled();
@@ -35,7 +35,7 @@ describe("session connection", () => {
 
   it("retains a responder when synchronous delivery throws", async () => {
     const fixture = sessionConnectionFixture();
-    await fixture.connection.coordinator.ensureConnected();
+    await fixture.connect();
     const responder = {
       respond: vi.fn().mockImplementationOnce(() => {
         throw new Error("transport busy");
@@ -43,9 +43,9 @@ describe("session connection", () => {
       reject: vi.fn(),
     };
 
-    fixture.connectionHandlers().onServerRequest(userInputRequest(1), responder);
-    fixture.connection.inboundHandler.resolveUserInput(1, { note: "Continue" });
-    fixture.connection.inboundHandler.resolveUserInput(1, { note: "Continue" });
+    fixture.deliver(userInputRequest(1), responder);
+    fixture.resolveUserInput(1, { note: "Continue" });
+    fixture.resolveUserInput(1, { note: "Continue" });
 
     expect(responder.respond).toHaveBeenCalledTimes(2);
     expect(fixture.stateStore.getState().requests.pendingUserInputs).toEqual([]);
@@ -53,16 +53,16 @@ describe("session connection", () => {
 
   it("does not carry a completed approval decision across connection invalidation", async () => {
     const fixture = sessionConnectionFixture();
-    await fixture.connection.coordinator.ensureConnected();
+    await fixture.connect();
     const parentResponder = { respond: vi.fn(), reject: vi.fn() };
-    fixture.connectionHandlers().onServerRequest(commandApprovalRequest(1, "thread-active", "turn-active"), parentResponder);
-    fixture.connection.inboundHandler.resolveApproval(1, "accept");
+    fixture.deliver(commandApprovalRequest(1, "thread-active", "turn-active"), parentResponder);
+    fixture.resolveApproval(1, "accept");
 
-    fixture.connection.invalidateConnectionScope();
+    fixture.invalidate();
     fixture.stateStore.dispatch({ type: "subagent-activity/tracked", threadId: "child", parentTurnId: "turn-active" });
     fixture.stateStore.dispatch({ type: "subagent-activity/turn-started", threadId: "child", childTurnId: "child-turn" });
     const childResponder = { respond: vi.fn(), reject: vi.fn() };
-    fixture.connectionHandlers().onServerRequest(commandApprovalRequest(2, "child", "child-turn"), childResponder);
+    fixture.deliver(commandApprovalRequest(2, "child", "child-turn"), childResponder);
 
     expect(childResponder.respond).not.toHaveBeenCalled();
     expect(fixture.stateStore.getState().requests.approvals).toHaveLength(1);
@@ -73,7 +73,7 @@ describe("session connection", () => {
     const fixture = sessionConnectionFixture({
       readServerDiagnostics: vi.fn().mockRejectedValue(error),
     });
-    await fixture.connection.coordinator.ensureHydrated();
+    await fixture.hydrate();
 
     fixture.runScheduledDiagnostics();
     await vi.waitFor(() => {
@@ -84,7 +84,7 @@ describe("session connection", () => {
   it("does not run deferred diagnostics after disconnect", async () => {
     const readServerDiagnostics = vi.fn().mockResolvedValue(null);
     const fixture = sessionConnectionFixture({ readServerDiagnostics });
-    await fixture.connection.coordinator.ensureHydrated();
+    await fixture.hydrate();
     fixture.setConnected(false);
 
     fixture.runScheduledDiagnostics();
@@ -156,14 +156,19 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
       resetThreadTurnPresence: vi.fn(),
     },
   } as unknown as SessionConnectionInput;
+  const connection = createSessionConnection(host, input);
   return {
     addSystemMessage,
     stateStore,
-    connection: createSessionConnection(host, input),
-    connectionHandlers: () => {
+    connect: () => connection.coordinator.ensureConnected(),
+    hydrate: () => connection.coordinator.ensureHydrated(),
+    deliver: (request: ServerRequest, responder: Parameters<ConnectionManagerHandlers["onServerRequest"]>[1]) => {
       if (!handlers) throw new Error("Expected connection handlers.");
-      return handlers;
+      handlers.onServerRequest(request, responder);
     },
+    resolveUserInput: connection.inboundHandler.resolveUserInput,
+    resolveApproval: connection.inboundHandler.resolveApproval,
+    invalidate: connection.invalidateConnectionScope,
     runScheduledDiagnostics: () => {
       if (!scheduledDiagnostics) throw new Error("Expected deferred diagnostics callback.");
       scheduledDiagnostics();
