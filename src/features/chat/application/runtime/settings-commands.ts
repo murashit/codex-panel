@@ -1,4 +1,5 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { unsupportedReasoningEffort, unsupportedReasoningEffortMessage } from "../../../../domain/catalog/reasoning-effort-compatibility";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/runtime/keyed-operation-coordinator";
@@ -191,14 +192,26 @@ function commitRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost, update: R
 
 async function requestModel(host: RuntimeSettingsCommandsContext, model: string): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
+  if (modelChangeConflictsWithReasoningEffort(host, model)) return false;
   dispatch(host, { type: "runtime/model-requested", model });
   return applyPendingThreadSettings(host, ["model"]);
 }
 
 async function resetModelToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
+  const { config } = runtimeProjection(host);
+  if (modelChangeConflictsWithReasoningEffort(host, config.model)) return false;
   dispatch(host, { type: "runtime/model-reset-to-config" });
   return applyPendingThreadSettings(host, ["model"]);
+}
+
+function modelChangeConflictsWithReasoningEffort(host: RuntimeSettingsCommandsHost, model: string | null): boolean {
+  const { snapshot, config } = runtimeProjection(host);
+  const effort = resolveRuntimeControls(snapshot, config).reasoningEffort.effective;
+  const unsupported = effort ? unsupportedReasoningEffort(snapshot.availableModels, model, effort) : null;
+  if (!unsupported) return false;
+  host.addSystemMessage(unsupportedReasoningEffortMessage(unsupported));
+  return true;
 }
 
 async function requestModelFromUi(host: RuntimeSettingsCommandsContext, model: string): Promise<void> {
@@ -207,6 +220,13 @@ async function requestModelFromUi(host: RuntimeSettingsCommandsContext, model: s
 
 async function requestReasoningEffort(host: RuntimeSettingsCommandsContext, effort: ReasoningEffort): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
+  const { snapshot, config } = runtimeProjection(host);
+  const selectedModel = resolveRuntimeControls(snapshot, config).model.effective;
+  const unsupportedEffort = unsupportedReasoningEffort(snapshot.availableModels, selectedModel, effort);
+  if (unsupportedEffort) {
+    host.addSystemMessage(unsupportedReasoningEffortMessage(unsupportedEffort));
+    return false;
+  }
   dispatch(host, { type: "runtime/reasoning-effort-requested", effort });
   return applyPendingThreadSettings(host, ["effort"]);
 }
@@ -251,6 +271,13 @@ async function toggleFastMode(host: RuntimeSettingsCommandsContext): Promise<voi
 
 async function setFastMode(host: RuntimeSettingsCommandsContext, mode: FastModeState): Promise<void> {
   if (activePanelOperationBlocked(host, "thread-settings")) return;
+  if (mode === "enabled") {
+    const { snapshot, config } = runtimeProjection(host);
+    if (!resolveRuntimeControls(snapshot, config).fastMode.available) {
+      host.addSystemMessage("Fast mode is unavailable for the selected model.");
+      return;
+    }
+  }
   const fastMode: RequestedFastMode = mode;
   await runRuntimeUiCommand(
     host,

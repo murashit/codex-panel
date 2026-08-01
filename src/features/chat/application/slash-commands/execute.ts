@@ -73,7 +73,6 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
   threadCommandTarget?: ThreadCommandTarget;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
-  supportedReasoningEfforts: () => readonly ReasoningEffort[];
   inputSnapshot?: ComposerInputSnapshot;
   submission: ComposerSubmissionAdoption;
 }
@@ -300,10 +299,6 @@ export async function executeSlashCommand(
     case "reasoning": {
       const requested = parseReasoningEffortOverride(args);
       if (requested !== undefined) {
-        if (requested !== null && !context.supportedReasoningEfforts().includes(requested)) {
-          context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
-          return;
-        }
         context.submission.markAdopted();
         const applied = await applyReasoningEffortOverride(context, requested);
         if (applied === false) return;

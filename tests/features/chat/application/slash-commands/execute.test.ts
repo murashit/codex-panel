@@ -53,7 +53,6 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
       requestReasoningEffort: vi.fn(),
       resetReasoningEffortToConfig: vi.fn(),
     },
-    supportedReasoningEfforts: () => ["low", "medium", "high"],
     goals: {
       activeGoal: vi.fn(() => null),
       setObjective: vi.fn().mockResolvedValue(true),
@@ -647,16 +646,6 @@ describe("slash commands", () => {
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Connection diagnostics", details);
   });
 
-  it("rejects unsupported reasoning effort with usage", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("reasoning", "extreme", ctx);
-
-    expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
-    expect(ctx.runtimeSettings.resetReasoningEffortToConfig).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported reasoning level: extreme. Usage: /reasoning [level|default]");
-  });
-
   it("does not announce model or effort changes when applying them fails", async () => {
     const ctx = context();
     ctx.runtimeSettings.requestModel = vi.fn().mockResolvedValue(false);
@@ -701,10 +690,8 @@ describe("slash commands", () => {
     expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
   });
 
-  it("preserves supported reasoning effort casing", async () => {
-    const ctx = context({
-      supportedReasoningEfforts: () => ["CaseSensitive"],
-    });
+  it("preserves explicit reasoning effort casing", async () => {
+    const ctx = context();
 
     await executeSlashCommand("reasoning", "CaseSensitive", ctx);
 

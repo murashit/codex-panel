@@ -96,7 +96,7 @@ export function fastModeActive(snapshot: RuntimeSnapshot, config?: RuntimeConfig
   return runtimeControls(snapshot, config).fastMode.active;
 }
 
-export function fastRuntimeServiceTierRequestValue(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): string {
+export function fastRuntimeServiceTierRequestValue(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): string | null {
   return runtimeControls(snapshot, config).fastMode.serviceTierRequestValue;
 }
 

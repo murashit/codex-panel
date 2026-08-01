@@ -1,12 +1,8 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
-import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import { runtimeSnapshotForChatState } from "../runtime/snapshot";
+import type { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import { activeThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
@@ -57,7 +53,6 @@ export async function executePanelSlashCommand(
     readWebUrl: host.readWebUrl,
     ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),
     submission,
-    supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState(), host.sharedResources),
   });
 }
 
@@ -66,15 +61,3 @@ const NOOP_SUBMISSION_ADOPTION: ComposerSubmissionAdoption = {
   markAdopted: () => undefined,
   adoptPanelTarget: () => undefined,
 };
-
-function supportedReasoningEfforts(
-  state: ReturnType<ChatStateStore["getState"]>,
-  sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1],
-): ReasoningEffort[] {
-  const config = runtimeConfigOrDefault(sharedResources.runtimeConfigSnapshot());
-  const model = findModelMetadataByIdOrName(
-    sharedResources.modelsSnapshot() ?? [],
-    resolveRuntimeControls(runtimeSnapshotForChatState(state, sharedResources), config).model.effective,
-  );
-  return supportedEffortsForModelMetadata(model);
-}

@@ -242,7 +242,7 @@ describe("runtime control resolution", () => {
     expect(currentModel(snapshot, snapshotConfig(snapshot))).toBe("gpt-profile");
     expect(currentReasoningEffort(snapshot, snapshotConfig(snapshot))).toBe("high");
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
   });
 
@@ -358,6 +358,7 @@ describe("runtime control resolution", () => {
     });
     const pending = runtimeSnapshot({
       ...active,
+      availableModels: [{ ...modelFixture("gpt-pending"), serviceTiers: [{ id: "priority", name: "Fast" }] }],
       pending: {
         ...active.pending,
         model: setRuntimeIntentValue("gpt-pending"),
@@ -399,13 +400,13 @@ describe("runtime control resolution", () => {
       },
       approvalPolicy: { confirmed: "never", confirmedSource: "active-thread", effective: "on-request", source: "pending" },
       approvalsReviewer: { confirmed: "user", confirmedSource: "active-thread", effective: "guardian_subagent", source: "pending" },
-      serviceTier: { confirmed: "flex", confirmedSource: "active-thread", effective: "fast", source: "pending" },
+      serviceTier: { confirmed: "flex", confirmedSource: "active-thread", effective: "priority", source: "pending" },
       fastMode: {
         active: true,
         confirmedActive: false,
         source: "pending",
         confirmedSource: "active-thread",
-        serviceTierRequestValue: "fast",
+        serviceTierRequestValue: "priority",
       },
     });
   });

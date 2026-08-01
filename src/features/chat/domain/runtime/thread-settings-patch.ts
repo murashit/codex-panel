@@ -120,9 +120,10 @@ function serviceTierPatchIntent(
   // thread/start null falls back to app-server's baseline/default tier, so a reset
   // to configured service_tier must send the configured id explicitly.
   if (snapshot.pending.fastMode.kind === "set") {
-    return snapshot.pending.fastMode.value === "enabled"
+    if (snapshot.pending.fastMode.value === "disabled") return { kind: "clear" };
+    return resolution.fastMode.serviceTierRequestValue
       ? { kind: "set", value: resolution.fastMode.serviceTierRequestValue }
-      : { kind: "clear" };
+      : { kind: "omit" };
   }
   if (snapshot.pending.fastMode.kind === "resetToConfig") {
     if (target === "thread-start") {

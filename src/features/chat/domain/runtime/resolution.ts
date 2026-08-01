@@ -1,4 +1,4 @@
-import type { ModelMetadata, ReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import { cloneRuntimePermissionState, type RuntimeApprovalPolicy, type RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
@@ -37,6 +37,7 @@ interface CollaborationModeResolution {
 }
 
 interface FastModeResolution {
+  readonly available: boolean;
   readonly requested: PendingRuntimeIntent<RequestedFastMode>;
   readonly active: boolean;
   readonly confirmedActive: boolean;
@@ -44,7 +45,7 @@ interface FastModeResolution {
   readonly confirmedSource: RuntimeValueSource;
   readonly effectiveServiceTier: ServiceTier | null;
   readonly confirmedServiceTier: ServiceTier | null;
-  readonly serviceTierRequestValue: string;
+  readonly serviceTierRequestValue: string | null;
 }
 
 interface RuntimePermissionsResolution {
@@ -84,8 +85,8 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     pending: snapshot.pending.approvalsReviewer,
   });
   const modelMetadata = findModelMetadataByIdOrName(snapshot.availableModels, model.effective);
-  const serviceTiers = modelMetadata?.serviceTiers ?? [];
-  const serviceTier = resolveServiceTier(snapshot, config);
+  const fastServiceTier = modelMetadata?.serviceTiers.find((tier) => tier.name.trim().toLowerCase() === "fast") ?? null;
+  const serviceTier = resolveServiceTier(snapshot, config, fastServiceTier?.id ?? null);
   const permissions = resolveRuntimePermissions(snapshot, config);
 
   return {
@@ -93,7 +94,7 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     reasoningEffort,
     autoReview: resolveAutoReview(approvalsReviewer),
     serviceTier,
-    fastMode: resolveFastMode(snapshot.pending.fastMode, serviceTier, serviceTiers),
+    fastMode: resolveFastMode(snapshot.pending.fastMode, serviceTier, fastServiceTier?.id ?? null),
     collaborationMode: resolveCollaborationMode(snapshot, model.effective),
     permissionProfile: permissions.permissionProfile,
     sandboxPolicy: permissions.sandboxPolicy,
@@ -103,10 +104,14 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
   };
 }
 
-function resolveServiceTier(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimeLayeredValue<ServiceTier> {
+function resolveServiceTier(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigSnapshot,
+  fastServiceTierId: string | null,
+): RuntimeLayeredValue<ServiceTier> {
   const pendingFastMode = snapshot.pending.fastMode;
   if (pendingFastMode.kind === "set" && pendingFastMode.value === "enabled") {
-    return serviceTierValue(snapshot, config, "fast", "pending");
+    return serviceTierValue(snapshot, config, fastServiceTierId, "pending");
   }
   if (pendingFastMode.kind === "set" && pendingFastMode.value === "disabled") {
     return serviceTierValue(snapshot, config, null, "pending");
@@ -152,17 +157,18 @@ function resolveAutoReview(reviewer: RuntimeLayeredValue<ApprovalsReviewer>): Au
 function resolveFastMode(
   requested: PendingRuntimeIntent<RequestedFastMode>,
   serviceTier: RuntimeLayeredValue<ServiceTier>,
-  serviceTiers: ModelMetadata["serviceTiers"],
+  fastServiceTierId: string | null,
 ): FastModeResolution {
   return {
+    available: fastServiceTierId !== null,
     requested,
-    active: isFastServiceTier(serviceTier.effective, serviceTiers),
-    confirmedActive: isFastServiceTier(serviceTier.confirmed, serviceTiers),
+    active: isFastServiceTier(serviceTier.effective, fastServiceTierId),
+    confirmedActive: isFastServiceTier(serviceTier.confirmed, fastServiceTierId),
     source: serviceTier.source,
     confirmedSource: serviceTier.confirmedSource,
     effectiveServiceTier: serviceTier.effective,
     confirmedServiceTier: serviceTier.confirmed,
-    serviceTierRequestValue: serviceTiers.find((tier) => tier.name.trim().toLowerCase() === "fast")?.id ?? "fast",
+    serviceTierRequestValue: fastServiceTierId,
   };
 }
 
@@ -170,11 +176,8 @@ function autoReviewActive(value: ApprovalsReviewer | null): boolean {
   return value === "auto_review" || value === "guardian_subagent";
 }
 
-function isFastServiceTier(value: string | null | undefined, serviceTiers: ModelMetadata["serviceTiers"]): boolean {
-  if (!value) return false;
-  if (value === "fast") return true;
-  if (serviceTiers.length === 0) return value === "priority";
-  return serviceTiers.some((tier) => tier.id === value && tier.name.trim().toLowerCase() === "fast");
+function isFastServiceTier(value: string | null | undefined, fastServiceTierId: string | null): boolean {
+  return fastServiceTierId !== null && value === fastServiceTierId;
 }
 
 function resolveCollaborationMode(snapshot: RuntimeSnapshot, model: string | null): CollaborationModeResolution {

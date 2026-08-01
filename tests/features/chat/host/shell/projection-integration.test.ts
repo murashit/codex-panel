@@ -444,6 +444,7 @@ describe("chat panel projection integration", () => {
           approvals_reviewer: "auto_review",
           service_tier: "fast",
         }),
+        availableModels: [modelFixture("gpt-5.5", "fast")],
       },
     });
     state = chatStateWith(state, {
@@ -472,6 +473,8 @@ describe("chat panel projection integration", () => {
       effort: "high",
       planActive: true,
       autoReviewActive: true,
+      fastAvailable: true,
+      fastActive: true,
     });
   });
 

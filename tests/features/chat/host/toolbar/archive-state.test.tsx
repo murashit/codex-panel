@@ -207,6 +207,7 @@ function shellParts(
             effort: null,
             planActive: false,
             autoReviewActive: false,
+            fastAvailable: true,
             fastActive: false,
             modelChoices: [],
             effortChoices: [],

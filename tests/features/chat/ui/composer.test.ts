@@ -67,6 +67,7 @@ function mountComposerShell(
           effort: null,
           planActive: false,
           autoReviewActive: false,
+          fastAvailable: true,
           fastActive: false,
           modelChoices: [],
           effortChoices: [],
@@ -117,6 +118,7 @@ describe("ComposerShell decisions", () => {
       effort: "high",
       planActive: true,
       autoReviewActive: false,
+      fastAvailable: true,
       fastActive: true,
       modelChoices: [
         { label: "gpt-5.5", selected: true, onClick: vi.fn() },
@@ -167,6 +169,7 @@ describe("ComposerShell decisions", () => {
         effort: "high",
         planActive: false,
         autoReviewActive: false,
+        fastAvailable: true,
         fastActive: false,
         modelChoices: [{ label: "gpt-5.5", onClick: vi.fn() }],
         effortChoices: [{ label: "high", onClick: vi.fn() }],
@@ -209,6 +212,7 @@ describe("ComposerShell decisions", () => {
       effort: "high",
       planActive: true,
       autoReviewActive: false,
+      fastAvailable: true,
       fastActive: true,
       modelChoices: [
         { label: "gpt-5.5", selected: true, onClick: vi.fn() },
@@ -269,6 +273,30 @@ describe("ComposerShell decisions", () => {
     });
   });
 
+  it("keeps Fast visible but ignores interaction when the selected model does not support it", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, {
+      fatal: null,
+      context: { cells: [], percent: "0%" },
+      statusSummary: "Context 0%, plan off, auto-review off, fast off, model gpt-5.4-mini, reasoning effort medium",
+      model: "gpt-5.4-mini",
+      effort: "medium",
+      planActive: false,
+      autoReviewActive: false,
+      fastAvailable: false,
+      fastActive: false,
+      modelChoices: [],
+      effortChoices: [],
+    });
+
+    const fastButton = parent.querySelector<HTMLElement>('[data-icon="zap"]');
+    expect(fastButton).not.toBeNull();
+    expect(fastButton?.classList.contains("is-disabled")).toBe(true);
+    fastButton?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(callbacks.onToggleFast).not.toHaveBeenCalled();
+  });
+
   it("hides composer meta fields only after measured overflow", async () => {
     const parent = document.createElement("div");
 
@@ -288,6 +316,7 @@ describe("ComposerShell decisions", () => {
       effort: "high",
       planActive: true,
       autoReviewActive: false,
+      fastAvailable: true,
       fastActive: true,
       modelChoices: [],
       effortChoices: [],
@@ -333,6 +362,7 @@ describe("ComposerShell decisions", () => {
       effort: null,
       planActive: false,
       autoReviewActive: false,
+      fastAvailable: false,
       fastActive: false,
       modelChoices: [],
       effortChoices: [],
@@ -477,6 +507,7 @@ describe("ComposerShell decisions", () => {
             effort: null,
             planActive: false,
             autoReviewActive: false,
+            fastAvailable: true,
             fastActive: false,
             modelChoices: [],
             effortChoices: [],
@@ -523,6 +554,7 @@ describe("ComposerShell decisions", () => {
             effort: null,
             planActive: false,
             autoReviewActive: false,
+            fastAvailable: true,
             fastActive: false,
             modelChoices: [],
             effortChoices: [],

@@ -87,7 +87,7 @@ describe("thread start commands", () => {
 
     expect(startThread).toHaveBeenCalledWith({
       permissions: ":workspace",
-      serviceTier: "fast",
+      serviceTier: undefined,
     });
     expect(stateStore.getState().runtime.active.model).toBe("gpt-5");
     expect(stateStore.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });

@@ -315,7 +315,7 @@ describe("runtime thread settings patch", () => {
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
   });
 
@@ -341,11 +341,11 @@ describe("runtime thread settings patch", () => {
       availableModels: [model],
     });
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
+    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("priority");
     expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
     expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot)).fastMode).toMatchObject({
       active: true,
-      effectiveServiceTier: "fast",
+      effectiveServiceTier: "priority",
       serviceTierRequestValue: "priority",
     });
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("priority");

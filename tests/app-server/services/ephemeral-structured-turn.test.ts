@@ -178,7 +178,7 @@ describe("runEphemeralStructuredTurn", () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.modelListImpl = async () => {
         callOrder.push("model-list");
-        return { data: [], nextCursor: null };
+        return { data: [appServerModel("gpt-5.1", ["low"])], nextCursor: null };
       };
       fake.startEphemeralThreadImpl = async () => {
         callOrder.push("start-thread");
@@ -217,6 +217,37 @@ describe("runEphemeralStructuredTurn", () => {
       cwd: "/vault",
       serviceName: "structured-test",
       developerInstructions: "Return JSON.",
+    });
+  });
+
+  it("rejects a known unsupported reasoning effort before creating the ephemeral thread", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.modelListImpl = async () => ({ data: [appServerModel("gpt-5.4-mini", ["low", "medium"])], nextCursor: null });
+    });
+
+    await expect(
+      runEphemeralStructuredTurn({ ...runOptions(), runtimeSettings: { model: "gpt-5.4-mini", effort: "ultra" } }, { clientFactory }),
+    ).rejects.toThrow("Reasoning effort ultra is unavailable for gpt-5.4-mini. Supported: low, medium.");
+
+    expect(expectPresent(client.current).startEphemeralThreadOptions).toBeNull();
+  });
+
+  it("defers explicit runtime intent to app-server when model metadata is unavailable", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.modelListImpl = async () => {
+        throw new Error("model catalog unavailable");
+      };
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await runEphemeralStructuredTurn(
+      { ...runOptions(), runtimeSettings: { model: "custom-model", effort: "custom-effort" } },
+      { clientFactory },
+    );
+
+    expect(expectPresent(client.current).startStructuredTurnOptions?.runtime).toEqual({
+      model: "custom-model",
+      effort: "custom-effort",
     });
   });
 
@@ -295,6 +326,31 @@ function runOptions(): Parameters<typeof runEphemeralStructuredTurn>[0] {
     serverRequests: { kind: "reject", message: "Structured test does not handle server requests." },
     exitedMessage: "Structured test app-server exited.",
     timedOutMessage: "Structured test timed out.",
+  };
+}
+
+function appServerModel(model: string, efforts: readonly string[]): ClientResponseByMethod["model/list"]["data"][number] {
+  return {
+    id: model,
+    model,
+    upgrade: null,
+    upgradeInfo: null,
+    availabilityNux: null,
+    displayName: model,
+    description: "",
+    hidden: false,
+    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({
+      reasoningEffort: reasoningEffort as never,
+      label: reasoningEffort,
+      description: "",
+    })),
+    defaultReasoningEffort: (efforts[0] ?? "medium") as never,
+    inputModalities: ["text"],
+    supportsPersonality: false,
+    additionalSpeedTiers: [],
+    serviceTiers: [],
+    defaultServiceTier: null,
+    isDefault: false,
   };
 }
 

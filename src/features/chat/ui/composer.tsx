@@ -37,6 +37,7 @@ export interface ComposerMetaViewModel {
   effort: string | null;
   planActive: boolean;
   autoReviewActive: boolean;
+  fastAvailable: boolean;
   fastActive: boolean;
   modelChoices: RuntimeChoice[];
   effortChoices: RuntimeChoice[];
@@ -288,7 +289,7 @@ function ComposerMeta({
             <ComposerMetaModeButton
               icon="zap"
               active={meta.fastActive}
-              disabled={disabled}
+              disabled={disabled || !meta.fastAvailable}
               onMouseDown={() => {
                 callbacks.onToggleFast();
               }}

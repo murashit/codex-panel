@@ -3,9 +3,8 @@ import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import { codexPanelAppServerInitializeParams } from "../connection/client-profile";
 import type { ServerNotification } from "../connection/rpc-messages";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
-import type { ModelMetadataClient } from "./catalog";
 import type { AppServerRequestClient } from "./request-client";
-import { type RuntimeOverrideSettings, resolvedRuntimeOverrideForClient } from "./runtime-overrides";
+import { type RuntimeOverrideSettings, validatedRuntimeOverrideForClient } from "./runtime-overrides";
 import { deleteThread, startEphemeralThread } from "./threads";
 import { type AppServerStartStructuredTurnOptions, startStructuredTurn } from "./turns";
 
@@ -35,7 +34,7 @@ export interface EphemeralStructuredTurnClient {
   disconnect(): void;
 }
 
-type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient & ModelMetadataClient;
+type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient;
 
 type EphemeralStructuredTurnClientFactory = (
   codexPath: string,
@@ -141,7 +140,7 @@ export async function runEphemeralStructuredTurn(
   try {
     await runAbortable(client.connect());
     const runtime = options.runtimeSettings
-      ? await runAbortable(resolvedRuntimeOverrideForClient(client, options.runtimeSettings))
+      ? await runAbortable(validatedRuntimeOverrideForClient(client, options.runtimeSettings))
       : (options.runtime ?? {});
     const threadResponse = await runAbortable(
       startEphemeralThread(client, {

@@ -89,6 +89,7 @@ function composerMetaViewModel(
       effort: null,
       planActive: false,
       autoReviewActive: false,
+      fastAvailable: false,
       fastActive: false,
     };
   }
@@ -102,6 +103,7 @@ function composerMetaViewModel(
   const compactEffort = effort ? compactReasoningEffortLabel(effort) : null;
   const planActive = resolution.collaborationMode.effective === "plan";
   const reviewActive = resolution.autoReview.active;
+  const fastAvailable = resolution.fastMode.available;
   const fastActive = resolution.fastMode.active;
   return {
     fatal: null,
@@ -118,6 +120,7 @@ function composerMetaViewModel(
     effort: compactEffort,
     planActive,
     autoReviewActive: reviewActive,
+    fastAvailable,
     fastActive,
   };
 }

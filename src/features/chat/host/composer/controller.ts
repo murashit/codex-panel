@@ -517,6 +517,11 @@ export class ChatComposerController {
         activeThreadId: activeThreadState(state)?.id ?? null,
         slashCommandAvailable: (command) => {
           if (activePanelOperationDecision(state, "submit").kind === "blocked") return false;
+          if (command === "fast") {
+            const snapshot = runtimeSnapshotForChatState(state, this.options.sharedResources);
+            const config = runtimeConfigOrDefault(this.options.sharedResources.runtimeConfigSnapshot());
+            if (!resolveRuntimeControls(snapshot, config).fastMode.available) return false;
+          }
           const operation = activePanelOperationForSlashCommandSuggestion(command);
           return !operation || activePanelOperationDecision(state, operation).kind === "allowed";
         },

@@ -199,6 +199,65 @@ describe("createChatRuntimeSettingsCommands", () => {
     ]);
   });
 
+  it("rejects an explicit reasoning effort that the selected model does not support", async () => {
+    const store = createChatStateStore(chatStateFixture());
+    const port = settingsPortFixture();
+    const messages: string[] = [];
+    const commands = runtimeCommandsFixture(store, port, messages, undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
+      availableModels: [{ ...modelFixture("gpt-5.5", "fast"), supportedReasoningEfforts: ["low", "medium"] }],
+    });
+
+    await expect(commands.requestReasoningEffort("ultra")).resolves.toBe(false);
+
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
+    expect(port.updateThreadSettings).not.toHaveBeenCalled();
+    expect(messages).toEqual(["Reasoning effort ultra is unavailable for gpt-5.5. Supported: low, medium."]);
+  });
+
+  it("rejects a model change that would invalidate the effective reasoning intent", async () => {
+    const store = createChatStateStore(chatStateFixture());
+    const port = settingsPortFixture();
+    const messages: string[] = [];
+    const commands = runtimeCommandsFixture(store, port, messages, undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
+      availableModels: [
+        modelFixture("gpt-5.5", "fast"),
+        { ...modelFixture("gpt-5.4-mini", "fast"), supportedReasoningEfforts: ["low", "medium"] },
+      ],
+    });
+
+    await expect(commands.requestReasoningEffort("high")).resolves.toBe(true);
+    await expect(commands.requestModel("gpt-5.4-mini")).resolves.toBe(false);
+
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(port.updateThreadSettings).not.toHaveBeenCalled();
+    expect(messages).toEqual(["Reasoning effort high is unavailable for gpt-5.4-mini. Supported: low, medium."]);
+  });
+
+  it("rejects an active-thread model change that would invalidate its reasoning effort", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
+    const store = createChatStateStore(state);
+    const port = settingsPortFixture();
+    const messages: string[] = [];
+    const commands = runtimeCommandsFixture(store, port, messages, undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
+      availableModels: [
+        modelFixture("gpt-5.5", "fast"),
+        { ...modelFixture("gpt-5.4-mini", "fast"), supportedReasoningEfforts: ["low", "medium"] },
+      ],
+    });
+
+    await expect(commands.requestModel("gpt-5.4-mini")).resolves.toBe(false);
+
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(port.updateThreadSettings).not.toHaveBeenCalled();
+    expect(messages).toEqual(["Reasoning effort high is unavailable for gpt-5.4-mini. Supported: low, medium."]);
+  });
+
   it("toggles fast mode and reports the user-visible result", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -242,7 +301,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const port = settingsPortFixture();
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages, undefined, {
-      runtimeConfig: { ...runtimeConfigFixture(), serviceTier: "fast" },
+      runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-5.5", serviceTier: "fast" },
     });
 
     await commands.disableFastMode();
@@ -289,7 +348,10 @@ describe("createChatRuntimeSettingsCommands", () => {
     const store = createChatStateStore(state);
     const port = settingsPortFixture();
     const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages);
+    const commands = runtimeCommandsFixture(store, port, messages, undefined, {
+      runtimeConfig: runtimeConfigFixture({ model: null }),
+      availableModels: [],
+    });
 
     await expect(commands.setCollaborationMode("plan")).resolves.toBe(true);
 
@@ -762,9 +824,9 @@ interface RuntimeSnapshotFixtureShared {
 
 function runtimeSnapshotFixture(state: ChatState, shared: RuntimeSnapshotFixtureShared = {}) {
   return runtimeSnapshotForChatState(state, {
-    runtimeConfigSnapshot: () => shared.runtimeConfig ?? null,
+    runtimeConfigSnapshot: () => shared.runtimeConfig ?? runtimeConfigFixture({ model: "gpt-5.5" }),
     rateLimitsSnapshot: () => undefined,
-    modelsSnapshot: () => shared.availableModels ?? null,
+    modelsSnapshot: () => shared.availableModels ?? [modelFixture("gpt-5.5", "fast")],
   });
 }
 
@@ -775,7 +837,7 @@ function modelFixture(model: string, fastTierId: string): ModelMetadata {
     displayName: model,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: [],
+    supportedReasoningEfforts: ["low", "medium", "high"],
     defaultReasoningEffort: "medium",
     inputModalities: [],
     serviceTiers: [{ id: fastTierId, name: "Fast" }],
