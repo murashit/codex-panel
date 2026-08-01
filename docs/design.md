@@ -36,6 +36,8 @@ Vault root is the Panel-owned workspace root for that context. Panel operations 
 
 Translate app-server payloads into Panel-owned domain data before they reach feature state or UI. Turn stream conversion is the narrow exception because Codex's event set is broad and experimental; it must still reduce payloads into Panel-owned display and diagnostic models.
 
+Root domain modules own Panel vocabulary and pure rules shared across protocol boundaries or product features. Feature domain modules own pure semantics that change with one feature and must not become an alternate shared kernel; promote a concept to the root domain only when another boundary genuinely consumes the same contract.
+
 Server request adapters should expose user-answerable intent while leaving protocol decisions and response payloads at the boundary.
 
 Organize modules by reason to change. Add an abstraction only when it owns a lifecycle, boundary, state transition, or reusable capability.
@@ -51,6 +53,8 @@ Chat-visible state should have one authoritative owner. Components should consum
 Panel-side cached app-server resources have one authoritative owner. Reads with different completeness or freshness requirements must not overwrite one another's contracts; reconcile partial read models only at explicit lifecycle boundaries. Features may project authoritative event results into that state without introducing parallel caches or global continuous synchronization.
 
 Thread lifecycle changes should be projected from authoritative lifecycle facts into the shared read model. When one Panel action replaces multiple visible projections, publish that result coherently without building a general transaction layer for independently initiated client changes.
+
+Context-wide thread mutations have one execution-context owner. That owner coordinates Panel-owned lifecycle work and user-intent ordering that span surfaces, then publishes successful mutation facts; chat, thread lists, and settings may adapt outcomes for their own UI but must not reimplement the mutation. App-server and its store remain responsible for deciding the validity of independent protocol mutations and resolving their conflicts.
 
 ## Interaction Principles
 

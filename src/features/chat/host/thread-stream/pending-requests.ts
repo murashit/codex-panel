@@ -1,16 +1,18 @@
 import {
   type ApprovalAction,
   approvalActionKind,
-  defaultPendingApprovalOptions,
-  mcpElicitationDraftKey,
-  mcpElicitationFieldDefaultDraft,
   type PendingApproval,
   type PendingMcpElicitation,
   type PendingUserInput,
+} from "../../../../domain/interaction-requests/model";
+import {
+  defaultPendingApprovalOptions,
+  mcpElicitationDraftKey,
+  mcpElicitationFieldDefaultDraft,
   questionDefaultAnswer,
   userInputDraftKey,
   userInputOtherDraftKey,
-} from "../../../../domain/pending-requests/model";
+} from "../../domain/pending-requests/drafts";
 import type {
   PendingApprovalViewModel,
   PendingMcpElicitationViewModel,

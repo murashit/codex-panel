@@ -1,18 +1,16 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import {
   routeServerRequest,
-  serverRequestApprovalResponse,
   serverRequestCurrentTimeResponse,
   serverRequestMcpElicitationResponse,
   serverRequestUserInputResponse,
 } from "../../../../app-server/routing/server-requests";
-import {
-  type ApprovalAction,
-  contentForPendingMcpElicitation,
-  type McpElicitationAction,
-  type PendingRequestId,
-  type PendingUserInput,
-} from "../../../../domain/pending-requests/model";
+import type {
+  ApprovalAction,
+  McpElicitationAction,
+  PendingRequestId,
+  PendingUserInput,
+} from "../../../../domain/interaction-requests/model";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { ThreadFact } from "../../../threads/workflows/thread-facts";
 import type { AppServerResourceFact } from "../../application/connection/server-metadata-effects";
@@ -20,6 +18,7 @@ import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { activeTurnId } from "../../application/turns/turn-state";
+import { contentForPendingMcpElicitation } from "../../domain/pending-requests/drafts";
 import {
   createApprovalResultItem,
   createMcpElicitationResultItem,
@@ -165,12 +164,12 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
         rejectServerRequest(context, request, `Rejected unsupported app-server request: ${request.method}`);
         return;
       }
-      const parentTurnId = activeTurnId(current.activeTurn);
+      const parentTurnId = activeTurnId(current.activeTurn) ?? route.approval.turnId;
       if (!parentTurnId) {
-        dispatch(context, { type: "request/approval-queued", approval: route.approval });
+        rejectServerRequest(context, request, `Rejected approval without a turn: ${request.method}`);
         return;
       }
-      const registration = context.approvalRequests.register(request, route.approval, approvalOwner, parentTurnId);
+      const registration = context.approvalRequests.register(request, approvalOwner, parentTurnId);
       if (registration.kind === "new") {
         const approval = approvalOwner === "tracked-subagent" ? { ...route.approval, turnId: parentTurnId } : route.approval;
         dispatch(context, { type: "request/approval-queued", approval });
@@ -219,11 +218,7 @@ function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingR
   if (!approval) return;
   const plan = context.approvalRequests.decide(approval.requestId, action);
   if (!plan) {
-    if (!context.effects.respondToServerRequest(approval.requestId, serverRequestApprovalResponse(approval, action))) {
-      addSystemMessage(context, "Could not send approval response because Codex app-server is not connected.");
-      return;
-    }
-    dispatch(context, { type: "request/resolved", requestId: approval.requestId, resultItem: createApprovalResultItem(approval, action) });
+    addSystemMessage(context, "Could not find the approval request to answer.");
     return;
   }
   const delivered = deliverApprovalResponses(context, plan.deliveries);

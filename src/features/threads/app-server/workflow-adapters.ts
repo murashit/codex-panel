@@ -3,31 +3,29 @@ import type { EphemeralStructuredTurnRunner } from "../../../app-server/services
 import { generateThreadTitleWithCodex } from "../../../app-server/services/thread-title-generation";
 import {
   archiveThread,
+  deleteThread,
   readCompletedTurnTranscriptSummariesPage,
   readThreadForArchiveExport,
   renameThread,
+  restoreArchivedThread,
   setThreadPinned,
 } from "../../../app-server/services/threads";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { findThreadTitleContext } from "../../../domain/threads/title-generation-model";
-import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
 import type { ThreadMutationPort, ThreadTitlePort } from "../workflows/ports";
 
-export function createThreadMutationAdapter(
-  clientAccess: AppServerClientAccess,
-  lifecycleMutations: KeyedOperationCoordinator<string>,
-): ThreadMutationPort {
+export function createThreadMutationAdapter(clientAccess: AppServerClientAccess): ThreadMutationPort {
   return {
     renameThread: (threadId, name) => clientAccess.withClient((client) => renameThread(client, threadId, name)),
     setThreadPinned: (threadId, isPinned) => clientAccess.withClient((client) => setThreadPinned(client, threadId, isPinned)),
     archiveThread: (threadId, prepare) =>
-      lifecycleMutations.run(threadId, () =>
-        clientAccess.withClient(async (client) => {
-          const prepared = prepare ? await prepare(await readThreadForArchiveExport(client, threadId)) : null;
-          await archiveThread(client, threadId);
-          return prepared;
-        }),
-      ),
+      clientAccess.withClient(async (client) => {
+        const prepared = prepare ? await prepare(await readThreadForArchiveExport(client, threadId)) : null;
+        await archiveThread(client, threadId);
+        return prepared;
+      }),
+    restoreThread: (threadId) => clientAccess.withClient((client) => restoreArchivedThread(client, threadId)),
+    deleteThread: (threadId) => clientAccess.withClient((client) => deleteThread(client, threadId)),
   };
 }
 

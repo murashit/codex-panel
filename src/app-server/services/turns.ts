@@ -1,4 +1,4 @@
-import type { CodexInput } from "../../domain/chat/input";
+import type { CodexInput } from "../../domain/turns/input";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import { appServerTurnInputFromCodexInput, toAppServerUserInput } from "../protocol/request-input";

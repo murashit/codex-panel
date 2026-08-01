@@ -834,7 +834,6 @@ function approval(requestId: number): ChatState["requests"]["approvals"][number]
       { key: "command", value: "pwd" },
       { key: "cwd", value: "/tmp" },
     ],
-    responses: { accept: {}, acceptSession: {}, decline: {}, cancel: {} },
     actionOptions: null,
   };
 }
@@ -843,11 +842,8 @@ function userInput(requestId: number): ChatState["requests"]["pendingUserInputs"
   return {
     requestId,
     params: {
-      threadId: "thread",
       turnId: "turn",
-      itemId: "input",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
-      autoResolutionMs: null,
     },
   };
 }

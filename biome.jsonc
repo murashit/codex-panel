@@ -77,6 +77,10 @@
       "includes": ["**/src/features/**/*.{ts,tsx}"]
     },
     {
+      "path": "./scripts/grit/import-boundaries/no-external-chat-domain-imports.grit",
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/features/chat/**"]
+    },
+    {
       "path": "./scripts/grit/import-boundaries/no-workspace-chat-internal-imports.grit",
       "includes": ["**/src/workspace/**/*.{ts,tsx}"]
     },

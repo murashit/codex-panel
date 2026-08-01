@@ -3,7 +3,7 @@ import {
   type CodexInputItem,
   codexTextInputWithAttachments,
   type VaultFileReference,
-} from "../../../../domain/chat/input";
+} from "../../../../domain/turns/input";
 
 type ComposerAttachmentKind = "image" | "file";
 

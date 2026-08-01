@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import type { CodexInput } from "../../../../src/domain/chat/input";
 import type { Thread } from "../../../../src/domain/threads/model";
+import type { CodexInput } from "../../../../src/domain/turns/input";
 import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/thread-reference-resolver";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];

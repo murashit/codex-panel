@@ -22,6 +22,7 @@ import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/sh
 import { notices } from "../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../support/dom";
 import { runtimeConfigFixture } from "../../../support/runtime-config";
+import { threadMutationCommandsMock } from "../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../support/settings";
 
 export interface TestCodexChatHost extends CodexChatHost {
@@ -433,7 +434,7 @@ export interface ChatHostFixtureOverrides {
   refreshAppServerMetadata?: CodexChatHost["appServerQueries"]["refreshAppServerMetadata"];
   refreshSkills?: CodexChatHost["appServerQueries"]["refreshSkills"];
   refreshRateLimits?: CodexChatHost["appServerQueries"]["refreshRateLimits"];
-  threadNameMutations?: CodexChatHost["threadNameMutations"];
+  threadMutations?: Partial<CodexChatHost["threadMutations"]>;
 }
 
 export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
@@ -609,8 +610,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       activeThreads = threads;
       emitActiveThreads();
     },
-    threadNameMutations: overrides.threadNameMutations ?? createKeyedOperationCoordinator({ whenBusy: "queue" }),
-    threadLifecycleMutations: createKeyedOperationCoordinator({ whenBusy: "reject" }),
+    threadMutations: threadMutationCommandsMock(overrides.threadMutations),
     threadTitlePort: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
@@ -623,7 +623,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
       openThreadInAvailableView: overrides.openThreadInAvailableView ?? vi.fn(),
       openThreadFromPanel: overrides.openThreadFromPanel ?? vi.fn(),
-      threadPanelIsBusy: vi.fn(() => false),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
       notifyPanelActivityChanged: overrides.notifyPanelActivityChanged ?? vi.fn(),
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),

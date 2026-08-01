@@ -1,4 +1,4 @@
-import { type CodexInput, codexTextInput } from "../../../../domain/chat/input";
+import { type CodexInput, codexTextInput } from "../../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { LocalIdSource } from "../local-id-source";

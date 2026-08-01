@@ -16,6 +16,7 @@ import { StaleExecutionRuntimeError } from "../../../../../src/shared/runtime/ex
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/runtime/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 
@@ -259,7 +260,6 @@ describe("chat panel session runtime", () => {
         viewId: "codex-test-view",
         registerEvent: vi.fn(),
         registerPointerDown: vi.fn(),
-        archiveDestination: vi.fn(),
         requestWorkspaceLayoutSave: vi.fn(),
         isForeground: vi.fn(() => true),
         ...overrides.obsidian,
@@ -278,7 +278,6 @@ describe("chat panel session runtime", () => {
         workspace: {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
           openThreadInAvailableView: overrides.plugin?.workspace?.openThreadInAvailableView ?? vi.fn().mockResolvedValue(undefined),
-          threadPanelIsBusy: vi.fn(() => false),
           openTurnDiff: vi.fn().mockResolvedValue(undefined),
           notifyPanelActivityChanged: vi.fn(),
           ...overrides.plugin?.workspace,
@@ -291,8 +290,7 @@ describe("chat panel session runtime", () => {
           apply: overrides.plugin?.threadFacts?.apply ?? vi.fn(),
           applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
-        threadNameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
-        threadLifecycleMutations: createKeyedOperationCoordinator({ whenBusy: "reject" }),
+        threadMutations: threadMutationCommandsMock(),
         threadGoalCoordinator: createThreadGoalCoordinator(),
         runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
       },

@@ -1,11 +1,9 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerClientAccess } from "../app-server/connection/client-access";
 import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
-import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { ThreadCatalogArchivedReader } from "../features/threads/catalog/thread-catalog";
-import type { ThreadFactSink } from "../features/threads/workflows/thread-facts";
-import type { KeyedOperationCoordinator } from "../shared/runtime/keyed-operation-coordinator";
+import type { ThreadMutationCommands } from "../features/threads/workflows/thread-mutation-commands";
 import type { ObservedResultListener } from "../shared/runtime/observed-result";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
 
@@ -21,8 +19,7 @@ export interface SettingsAppServerDynamicDataOptions {
   clientAccess: AppServerClientAccess;
   appServerQueries: SettingsAppServerQueries;
   threadCatalog: ThreadCatalogArchivedReader;
-  threadFacts: ThreadFactSink;
-  threadLifecycleMutations: KeyedOperationCoordinator<string>;
+  threadMutations: Pick<ThreadMutationCommands, "restoreThread" | "deleteThread">;
 }
 
 export function createSettingsAppServerDynamicData(options: SettingsAppServerDynamicDataOptions): SettingsDynamicDataAccess {
@@ -49,17 +46,8 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
     refreshHooks: () => withSettingsConnection(loadHooks),
     trustHook: (hook) => mutateHook(hook, trustHookItem),
     setHookEnabled: (hook, enabled) => mutateHook(hook, (client, item) => setHookItemEnabled(client, item, enabled)),
-    restoreArchivedThread: (threadId) =>
-      options.threadLifecycleMutations.run(threadId, async () => {
-        const thread = await withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
-        options.threadFacts.apply({ type: "thread-restored", thread });
-        return thread;
-      }),
-    deleteArchivedThread: (threadId) =>
-      options.threadLifecycleMutations.run(threadId, async () => {
-        await withSettingsConnection((client) => deleteThread(client, threadId));
-        options.threadFacts.apply({ type: "thread-deleted", threadId });
-      }),
+    restoreArchivedThread: (threadId) => options.threadMutations.restoreThread(threadId),
+    deleteArchivedThread: (threadId) => options.threadMutations.deleteThread(threadId),
   };
 }
 

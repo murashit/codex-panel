@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createThreadAutoTitleWork } from "../../../../src/features/threads/workflows/thread-auto-title-work";
-import { createKeyedOperationCoordinator } from "../../../../src/shared/runtime/keyed-operation-coordinator";
+import type { ThreadMutationCommands } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { deferred } from "../../../support/async";
 
 describe("thread auto-title work", () => {
@@ -29,7 +29,10 @@ describe("thread auto-title work", () => {
     await vi.waitFor(() => expect(fixture.renameThread).toHaveBeenCalledOnce());
 
     expect(fixture.generateTitle).toHaveBeenCalledOnce();
-    expect(fixture.applyFact).toHaveBeenCalledWith({ type: "thread-renamed", threadId: "thread", name: "Generated title" });
+    expect(fixture.renameThread).toHaveBeenCalledWith("thread", "Generated title", {
+      shouldStart: expect.any(Function),
+      shouldPublish: expect.any(Function),
+    });
   });
 
   it("lets a manual thread-name fact supersede pending generated work", async () => {
@@ -92,46 +95,44 @@ describe("thread auto-title work", () => {
     expect(failed.renameThread).not.toHaveBeenCalled();
   });
 
-  it("does not publish when the rename operation fails", async () => {
+  it("treats rename failures as best-effort work", async () => {
     const fixture = workFixture(() => Promise.resolve("Generated title"));
     fixture.renameThread.mockRejectedValueOnce(new Error("rename failed"));
 
     fixture.work.submit("thread", titleContext());
     await vi.waitFor(() => expect(fixture.renameThread).toHaveBeenCalledOnce());
     await flushPromises();
-
-    expect(fixture.applyFact).not.toHaveBeenCalled();
   });
 
-  it("does not publish when a manual rename arrives during generated rename", async () => {
-    const rename = deferred<void>();
+  it("lets the shared rename owner recheck staleness before publishing", async () => {
+    const rename = deferred<boolean>();
     const fixture = workFixture(() => Promise.resolve("Generated title"));
-    fixture.renameThread.mockImplementationOnce(() => rename.promise);
+    fixture.renameThread.mockImplementationOnce(async (_threadId, _title, options) => {
+      expect(options?.shouldStart?.()).toBe(true);
+      await rename.promise;
+      expect(options?.shouldPublish?.()).toBe(false);
+      return true;
+    });
 
     fixture.work.submit("thread", titleContext());
     await vi.waitFor(() => expect(fixture.renameThread).toHaveBeenCalledOnce());
     fixture.work.applyThreadFact({ type: "thread-renamed", threadId: "thread", name: "Manual title" });
-    rename.resolve();
+    rename.resolve(true);
     await flushPromises();
-
-    expect(fixture.applyFact).not.toHaveBeenCalled();
   });
 });
 
 function workFixture(generate: () => Promise<string | null>) {
   const generateTitle = vi.fn((_context, _signal: AbortSignal) => generate());
-  const renameThread = vi.fn().mockResolvedValue(undefined);
-  const applyFact = vi.fn();
+  const renameThread = vi.fn<ThreadMutationCommands["renameThread"]>().mockResolvedValue(true);
   const work = createThreadAutoTitleWork({
     titlePort: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle,
     },
-    mutationPort: { renameThread },
-    nameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
-    facts: { apply: applyFact, applyBatch: vi.fn() },
+    mutations: { renameThread },
   });
-  return { work, generateTitle, renameThread, applyFact };
+  return { work, generateTitle, renameThread };
 }
 
 function titleContext() {

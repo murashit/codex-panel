@@ -4,8 +4,8 @@ import type { AppServerClient, ClientResponseByMethod } from "../../../../src/ap
 import * as shortLivedClient from "../../../../src/app-server/connection/short-lived-client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
-import type { CodexInput } from "../../../../src/domain/chat/input";
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
+import type { CodexInput } from "../../../../src/domain/turns/input";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
 import { deferred } from "../../../support/async";

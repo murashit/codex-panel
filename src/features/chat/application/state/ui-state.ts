@@ -1,4 +1,4 @@
-import { type PendingRequestId, pendingRequestDerivedKeyPrefix } from "../../../../domain/pending-requests/model";
+import type { PendingRequestId } from "../../../../domain/interaction-requests/model";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import {
   type ThreadRenameActiveState,
@@ -7,6 +7,7 @@ import {
   transitionThreadRenameLifecycleState,
 } from "../../../../domain/threads/rename-lifecycle";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
+import { pendingRequestDerivedKeyPrefix } from "../../domain/pending-requests/drafts";
 import type { DisclosureSetAction } from "./actions";
 import { patchObject } from "./patch";
 

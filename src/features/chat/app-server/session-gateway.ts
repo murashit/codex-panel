@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "../../../app-server/connection/client-access";
-import type { CodexInput } from "../../../domain/chat/input";
+import type { CodexInput } from "../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { ServerDiagnosticsPort } from "../application/connection/server-diagnostics-port";
 import { createChatServerDiagnosticsAdapter } from "./adapters/server-diagnostics-adapter";

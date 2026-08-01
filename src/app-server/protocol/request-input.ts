@@ -1,6 +1,6 @@
-import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../domain/chat/context-budget";
-import type { CodexInputItem } from "../../domain/chat/input";
-import { turnContextSubmissionId } from "../../domain/chat/submission-id";
+import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../domain/turns/context-budget";
+import type { CodexInputItem } from "../../domain/turns/input";
+import { turnContextSubmissionId } from "../../domain/turns/submission-id";
 
 type AppServerUserInputImageDetail = "auto" | "low" | "high" | "original";
 

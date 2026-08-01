@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-
-import type { CodexInput } from "../../../../../src/domain/chat/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import type { CodexInput } from "../../../../../src/domain/turns/input";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";

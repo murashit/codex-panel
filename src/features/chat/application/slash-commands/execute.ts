@@ -1,11 +1,11 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { normalizeReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { CodexInput } from "../../../../domain/chat/input";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
 import { resolveThreadSearchQuery } from "../../../../domain/threads/search";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
+import type { CodexInput } from "../../../../domain/turns/input";
 import { modelOverrideMessage, permissionProfileOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import type { ThreadStreamAuditFact, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";

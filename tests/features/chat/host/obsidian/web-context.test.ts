@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CodexInput } from "../../../../../src/domain/chat/input";
+import type { CodexInput } from "../../../../../src/domain/turns/input";
 import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
 import { deferred } from "../../../../support/async";
 

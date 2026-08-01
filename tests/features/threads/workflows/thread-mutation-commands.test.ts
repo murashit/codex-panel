@@ -12,7 +12,6 @@ import {
   type ThreadMutationCommandsHost,
 } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { createKeyedOperationCoordinator } from "../../../../src/shared/runtime/keyed-operation-coordinator";
 import { deferred } from "../../../support/async";
 import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 
@@ -78,9 +77,10 @@ describe("ThreadMutationCommands", () => {
   });
 
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
-    const { mutations, catalog, notice, client, archiveDestination } = operationsFixture();
+    const { mutations, catalog, client, archiveDestination } = operationsFixture();
 
     await expect(mutations.archiveThread("thread", { saveMarkdown: true })).resolves.toEqual({
+      kind: "archived",
       exportedPath: "Archive/Archived Thread abcdef12.md",
     });
 
@@ -91,7 +91,6 @@ describe("ThreadMutationCommands", () => {
     );
     expect(client?.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(callOrder(archiveDestination.createMarkdownFile)).toBeLessThan(requestCallOrder(client, "thread/archive"));
-    expect(notice).toHaveBeenCalledWith("Saved archived thread to Archive/Archived Thread abcdef12.md.");
     expect(catalog.apply).toHaveBeenCalledWith({
       type: "thread-archived",
       threadId: "thread",
@@ -115,6 +114,27 @@ describe("ThreadMutationCommands", () => {
     archive.resolve({});
     await first;
     expect(catalog.apply).toHaveBeenCalledOnce();
+  });
+
+  it("blocks archive before contacting the app server when the thread is active", async () => {
+    const { mutations, client, catalog } = operationsFixture({ threadIsBusy: () => true });
+
+    await expect(mutations.archiveThread("thread")).resolves.toEqual({ kind: "blocked", reason: "thread-busy" });
+
+    expect(client?.request).not.toHaveBeenCalled();
+    expect(catalog.apply).not.toHaveBeenCalled();
+  });
+
+  it("rechecks panel activity inside the coordinated archive operation", async () => {
+    let busy = false;
+    const { mutations, client, catalog } = operationsFixture({ threadIsBusy: () => busy });
+
+    const archive = mutations.archiveThread("thread");
+    busy = true;
+
+    await expect(archive).resolves.toEqual({ kind: "blocked", reason: "thread-busy" });
+    expect(client?.request).not.toHaveBeenCalled();
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("announces archive target adoption immediately before publishing the archive fact", async () => {
@@ -220,7 +240,10 @@ describe("ThreadMutationCommands", () => {
   it("archives without reading transcript history when markdown export is disabled", async () => {
     const { mutations, client, archiveDestinationFactory, archiveExportSettings } = operationsFixture();
 
-    await expect(mutations.archiveThread("thread")).resolves.toEqual({ exportedPath: null } satisfies ArchiveThreadResult);
+    await expect(mutations.archiveThread("thread")).resolves.toEqual({
+      kind: "archived",
+      exportedPath: null,
+    } satisfies ArchiveThreadResult);
 
     expect(requestMethods(client)).not.toContain("thread/read");
     expect(archiveExportSettings).not.toHaveBeenCalled();
@@ -268,9 +291,27 @@ describe("ThreadMutationCommands", () => {
 
     expect(catalog.apply).not.toHaveBeenCalled();
   });
+
+  it("restores and deletes archived threads through the shared lifecycle owner", async () => {
+    const { mutations, client, catalog } = operationsFixture();
+
+    await expect(mutations.restoreThread("thread")).resolves.toMatchObject({ id: "abcdef12-9999", archived: false });
+    await expect(mutations.deleteThread("thread")).resolves.toBeUndefined();
+
+    expect(client?.request).toHaveBeenCalledWith("thread/unarchive", { threadId: "thread" });
+    expect(client?.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread" }, {});
+    expect(catalog.apply).toHaveBeenCalledWith(expect.objectContaining({ type: "thread-restored" }));
+    expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-deleted", threadId: "thread" });
+  });
 });
 
-function operationsFixture(options: { client?: MockClient | null | (() => MockClient | null); referenceThreads?: readonly Thread[] } = {}) {
+function operationsFixture(
+  options: {
+    client?: MockClient | null | (() => MockClient | null);
+    referenceThreads?: readonly Thread[];
+    threadIsBusy?: (threadId: string) => boolean;
+  } = {},
+) {
   const configuredClient = options.client === undefined ? clientMock() : options.client;
   const currentClient = typeof configuredClient === "function" ? configuredClient : () => configuredClient;
   const archiveDestination = archiveDestinationMock();
@@ -287,21 +328,16 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
       for (const fact of facts) apply(fact);
     }),
   };
-  const notice = vi.fn();
   const host: ThreadMutationCommandsHost = {
-    port: createThreadMutationAdapter(
-      {
-        withClient: async (operation) => {
-          const client = currentClient() as AppServerClient | null;
-          if (!client) throw new Error("No current client.");
-          const result = await operation(client);
-          if ((currentClient() as AppServerClient | null) !== client) throw new Error("Client changed.");
-          return result;
-        },
+    port: createThreadMutationAdapter({
+      withClient: async (operation) => {
+        const client = currentClient() as AppServerClient | null;
+        if (!client) throw new Error("No current client.");
+        const result = await operation(client);
+        if ((currentClient() as AppServerClient | null) !== client) throw new Error("Client changed.");
+        return result;
       },
-      createKeyedOperationCoordinator({ whenBusy: "reject" }),
-    ),
-    nameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    }),
     archiveExport: {
       settings: archiveExportSettings,
       enabled: () => false,
@@ -311,7 +347,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
     archiveDestination: archiveDestinationFactory,
     facts: catalog,
     referenceThreads: () => options.referenceThreads ?? [],
-    notice,
+    threadIsBusy: options.threadIsBusy ?? (() => false),
   };
   return {
     mutations: createThreadMutationCommands(host),
@@ -320,7 +356,6 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
     archiveDestinationFactory,
     archiveExportSettings,
     catalog,
-    notice,
   };
 }
 
@@ -333,6 +368,8 @@ function clientMock() {
       if (method === "thread/metadata/update") return Promise.resolve({});
       if (method === "thread/read") return Promise.resolve({ thread: archivedThread() });
       if (method === "thread/archive") return Promise.resolve({});
+      if (method === "thread/unarchive") return Promise.resolve({ thread: archivedThread() });
+      if (method === "thread/delete") return Promise.resolve({});
       throw new Error(`Unexpected app-server request: ${method}`);
     }),
   };

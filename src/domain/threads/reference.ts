@@ -1,4 +1,4 @@
-import { truncateUtf8, utf8ByteLength } from "../chat/context-budget";
+import { truncateUtf8, utf8ByteLength } from "../turns/context-budget";
 import type { Thread } from "./model";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;

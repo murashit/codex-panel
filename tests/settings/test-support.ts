@@ -6,13 +6,14 @@ import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/pro
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
+import { createThreadMutationAdapter } from "../../src/features/threads/app-server/workflow-adapters";
 import type { ThreadFact } from "../../src/features/threads/workflows/thread-facts";
+import { createThreadMutationCommands } from "../../src/features/threads/workflows/thread-mutation-commands";
 import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
 import { StaleExecutionRuntimeError } from "../../src/shared/runtime/execution-runtime-lifetime";
-import { createKeyedOperationCoordinator } from "../../src/shared/runtime/keyed-operation-coordinator";
 
 type ShortLivedClientOperation = (
   codexPath: string,
@@ -250,15 +251,37 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       return result;
     },
   };
-  const createDynamicData = () =>
-    createSettingsAppServerDynamicData({
+  const createDynamicData = () => {
+    const threadMutations = createThreadMutationCommands({
+      port: createThreadMutationAdapter(clientAccess),
+      archiveExport: {
+        settings: () => ({
+          archiveExportFolderTemplate: settings.archiveExportFolderTemplate,
+          archiveExportFilenameTemplate: settings.archiveExportFilenameTemplate,
+          archiveExportTags: settings.archiveExportTags,
+        }),
+        enabled: () => settings.archiveExportEnabled,
+        vaultPath: "/vault",
+        vaultConfigDir: ".obsidian",
+      },
+      archiveDestination: () => ({
+        normalizePath: (path) => path,
+        exists: vi.fn().mockResolvedValue(false),
+        createFolder: vi.fn().mockResolvedValue(undefined),
+        createMarkdownFile: vi.fn().mockResolvedValue(undefined),
+      }),
+      facts: threadFacts,
+      referenceThreads: () => threadCatalog.archivedThreadsSnapshot() ?? [],
+      threadIsBusy: () => false,
+    });
+    return createSettingsAppServerDynamicData({
       vaultPath: "/vault",
       clientAccess,
       appServerQueries,
       threadCatalog,
-      threadFacts,
-      threadLifecycleMutations: createKeyedOperationCoordinator({ whenBusy: "reject" }),
+      threadMutations,
     });
+  };
   let dynamicData = options.dynamicData ?? createDynamicData();
   const host: CodexPanelSettingTabHost = {
     settings,

@@ -1,5 +1,5 @@
-import type { VaultFileReference } from "../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
+import type { VaultFileReference } from "../../domain/turns/input";
 
 /*
  * Compatibility boundary for user messages persisted by old Codex Panel

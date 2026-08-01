@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-
-import type { CodexInput } from "../../../../../src/domain/chat/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import type { CodexInput } from "../../../../../src/domain/turns/input";
 import {
   executePanelSlashCommand,
   type PanelSlashCommandHost,

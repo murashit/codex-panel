@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../../../src/domain/pending-requests/model";
+import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../../../src/domain/interaction-requests/model";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/host/thread-stream/pending-requests";
 import type { PendingRequestBlockContext } from "../../../../../../src/features/chat/ui/thread-stream/context";
@@ -328,10 +328,6 @@ describe("panel pending request rendering", () => {
 
   it("renders command approval buttons from app-server available decisions", () => {
     const parent = document.createElement("div");
-    const allowResponse = {
-      decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },
-    };
-    const denyResponse = { decision: "decline" };
     const approval: PendingApproval = {
       requestId: 43,
       kind: "command",
@@ -343,19 +339,16 @@ describe("panel pending request rendering", () => {
         { key: "reason", value: "Needs network" },
         { key: "network", value: "https://registry.npmjs.org" },
       ],
-      responses: { accept: {}, acceptSession: {}, decline: denyResponse, cancel: {} },
       actionOptions: [
         {
           id: "approval-option:0:network-allow",
           label: "Allow network rule",
-          intent: "accept-session",
-          action: { kind: "approval-option", intent: "accept-session", response: allowResponse },
+          action: { kind: "approval-option", optionId: "approval-option:0:network-allow", intent: "accept-session" },
         },
         {
           id: "approval-option:1:decline",
           label: "Deny",
-          intent: "decline",
-          action: { kind: "approval-option", intent: "decline", response: denyResponse },
+          action: { kind: "approval-option", optionId: "approval-option:1:decline", intent: "decline" },
         },
       ],
     };
@@ -383,8 +376,8 @@ describe("panel pending request rendering", () => {
     });
     expect(resolveApproval).toHaveBeenCalledWith(approval.requestId, {
       kind: "approval-option",
+      optionId: "approval-option:0:network-allow",
       intent: "accept-session",
-      response: allowResponse,
     });
   });
 
@@ -609,12 +602,10 @@ describe("panel pending request rendering", () => {
     const elicitation = pendingMcpElicitationSnapshot({
       requestId: 54,
       params: {
-        threadId: "thread",
         turnId: null,
         serverName: "github",
         mode: "form",
         message: "Configure the issue",
-        meta: null,
         fields: [
           { id: "notify", title: "Notify", description: null, type: "boolean", required: false, defaultValue: false },
           {
@@ -835,12 +826,10 @@ function pendingMcpElicitation({
   return {
     requestId,
     params: {
-      threadId: "thread",
       turnId: null,
       serverName: "github",
       mode: "form",
       message: "Provide issue details",
-      meta: null,
       fields: [
         {
           id: "title",
@@ -885,12 +874,10 @@ function pendingMcpMultiSelectElicitation(): PendingRequestBlockSnapshot["pendin
   return pendingMcpElicitationSnapshot({
     requestId: 53,
     params: {
-      threadId: "thread",
       turnId: null,
       serverName: "github",
       mode: "form",
       message: "Choose labels",
-      meta: null,
       fields: [
         {
           id: "labels",

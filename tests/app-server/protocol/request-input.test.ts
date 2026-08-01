@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appServerTurnInputFromCodexInput, toAppServerUserInput } from "../../../src/app-server/protocol/request-input";
-import { utf8ByteLength } from "../../../src/domain/chat/context-budget";
-import { type CodexInput, codexTextInputWithAttachments, codexTextInputWithReferences } from "../../../src/domain/chat/input";
+import { utf8ByteLength } from "../../../src/domain/turns/context-budget";
+import { type CodexInput, codexTextInputWithAttachments, codexTextInputWithReferences } from "../../../src/domain/turns/input";
 
 const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
 const PANEL_SUBMISSION_ID = "local-user-1-seed-1-1";

@@ -6,7 +6,7 @@ import {
   type PendingApproval,
   type PendingMcpElicitation,
   type PendingUserInput,
-} from "../../../../domain/pending-requests/model";
+} from "../../../../domain/interaction-requests/model";
 import type { ThreadStreamItem, ThreadStreamUserInputQuestionResult } from "../thread-stream/items";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): ThreadStreamItem {

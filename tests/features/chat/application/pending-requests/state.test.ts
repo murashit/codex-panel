@@ -24,7 +24,6 @@ describe("chat pending request state", () => {
           summary: "pwd",
           resultSummary: "pwd",
           details: [{ key: "command", value: "pwd" }],
-          responses: { accept: {}, acceptSession: {}, decline: {}, cancel: {} },
           actionOptions: null,
         },
       ],

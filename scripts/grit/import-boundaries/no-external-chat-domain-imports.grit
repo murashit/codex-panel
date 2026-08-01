@@ -1,0 +1,13 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsImportCallExpression()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where { $source <: r"^[\"'](?:[^\"']*/)?chat/domain(?:/[^\"']*)?[\"']$" },
+  register_diagnostic(span=$stmt, message="Chat domain is feature-local; move cross-feature vocabulary to src/domain or expose a feature contract.", severity="error")
+}

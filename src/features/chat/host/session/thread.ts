@@ -1,8 +1,7 @@
 import { Notice } from "obsidian";
 
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
-import { createThreadMutationAdapter } from "../../../threads/app-server/workflow-adapters";
-import { createThreadMutationCommands, type ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
+import type { ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -111,7 +110,6 @@ interface SessionThreadCommandsResult {
 export function createSessionThreadFoundation(host: SessionThreadHost, input: SessionThreadFoundationInput): SessionThreadFoundation {
   const { appServer, localItemIds, status } = input;
   const { environment, stateStore } = host;
-  const threadMutationPort = createThreadMutationAdapter(appServer.clientAccess, environment.plugin.threadLifecycleMutations);
   const titleService = createThreadTitleService({
     port: environment.plugin.threadTitlePort,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
@@ -123,22 +121,7 @@ export function createSessionThreadFoundation(host: SessionThreadHost, input: Se
       );
     },
   });
-  const threadMutations = createThreadMutationCommands({
-    port: threadMutationPort,
-    nameMutations: environment.plugin.threadNameMutations,
-    archiveExport: {
-      settings: () => environment.plugin.settings.archiveExportSettings(),
-      enabled: () => environment.plugin.settings.archiveExportEnabled(),
-      vaultPath: environment.plugin.appServerContext.vaultPath,
-      vaultConfigDir: environment.obsidian.app.vault.configDir,
-    },
-    archiveDestination: environment.obsidian.archiveDestination,
-    facts: environment.plugin.threadFacts,
-    referenceThreads: () => environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
-    notice: (text) => {
-      new Notice(text);
-    },
-  });
+  const threadMutations = environment.plugin.threadMutations;
   const autoTitleCoordinator = createAutoTitleCoordinator({
     stateStore,
     threadById: (threadId) => environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),
@@ -261,7 +244,12 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
       renameThread: (threadId, value) => foundation.threadMutations.renameThread(threadId, value),
       setThreadPinned: (threadId, isPinned) => foundation.threadMutations.setThreadPinned(threadId, isPinned),
       archiveThread: async (threadId, options) => {
-        await foundation.threadMutations.archiveThread(threadId, options);
+        const result = await foundation.threadMutations.archiveThread(threadId, options);
+        if (result.kind === "blocked") {
+          status.addSystemMessage("Finish or interrupt the thread before archiving it.");
+          return false;
+        }
+        if (result.exportedPath) new Notice(`Saved archived thread to ${result.exportedPath}.`);
         return true;
       },
     },
@@ -283,7 +271,6 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
     applyThreadFact: (fact) => {
       environment.plugin.threadFacts.apply(fact);
     },
-    threadPanelIsBusy: (threadId) => environment.plugin.workspace.threadPanelIsBusy(threadId),
   };
   const commands = createThreadCommands(threadCommandsHost);
   const toolbarPanelActions = createToolbarPanelActions({

@@ -98,7 +98,7 @@ function agentThreadBlocked(operation: ActivePanelOperation): ActivePanelOperati
     case "compact":
       return { kind: "blocked", message: "Agent threads cannot be compacted." };
     case "fork":
-      return { kind: "blocked", message: "Agent threads cannot be forked." };
+      return ALLOWED;
     case "rollback":
       return { kind: "blocked", message: "Agent threads cannot be rolled back." };
     case "start-side-chat":

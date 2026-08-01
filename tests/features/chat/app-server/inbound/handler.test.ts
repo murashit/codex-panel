@@ -1325,12 +1325,10 @@ describe("ChatInboundHandler", () => {
             {
               requestId: 50,
               params: {
-                threadId: "thread-active",
                 turnId: null,
                 serverName: "github",
                 mode: "form",
                 message: "Need input",
-                meta: null,
                 fields: [
                   {
                     id: "title",

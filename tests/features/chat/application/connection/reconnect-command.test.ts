@@ -28,11 +28,8 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
     input: {
       requestId: 7,
       params: {
-        threadId: "thread",
         turnId: "turn",
-        itemId: "input",
         questions: [],
-        autoResolutionMs: null,
       },
     },
   });

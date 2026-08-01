@@ -6,11 +6,6 @@ export function chatPanelSettingsAccess(settings: CodexPanelSettings): ChatPanel
     referenceActiveNoteOnSend: () => settings.referenceActiveNoteOnSend,
     attachmentFolder: () => settings.attachmentFolder,
     archiveExportEnabled: () => settings.archiveExportEnabled,
-    archiveExportSettings: () => ({
-      archiveExportFolderTemplate: settings.archiveExportFolderTemplate,
-      archiveExportFilenameTemplate: settings.archiveExportFilenameTemplate,
-      archiveExportTags: settings.archiveExportTags,
-    }),
     scrollThreadFromComposerEdges: () => settings.scrollThreadFromComposerEdges,
     sendShortcut: () => settings.sendShortcut,
     showToolbar: () => settings.showToolbar,

@@ -111,20 +111,7 @@ describe("thread management commands", () => {
     expect(host.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be forked.");
   });
 
-  it.each([
-    {
-      name: "fork",
-      invoke: (actions: ThreadCommands) => actions.forkThread("agent-thread"),
-      method: "forkThread" as const,
-      message: "Agent threads cannot be forked.",
-    },
-    {
-      name: "rollback",
-      invoke: (actions: ThreadCommands) => actions.rollbackThread("agent-thread"),
-      method: "forkThread" as const,
-      message: "Agent threads cannot be rolled back.",
-    },
-  ])("rejects $name mutations for subagent threads", async ({ invoke, method, message }) => {
+  it("allows subagent threads to be forked by app-server", async () => {
     const host = hostMock({
       items: turnItems(),
       activeThread: {
@@ -141,10 +128,33 @@ describe("thread management commands", () => {
       },
     });
 
-    await invoke(threadCommands(host));
+    await threadCommands(host).forkThread("agent-thread");
 
-    expect(host.effects[method]).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).toHaveBeenCalledWith(message);
+    expect(host.effects.forkThread).toHaveBeenCalledWith("agent-thread");
+    expect(host.addSystemMessage).not.toHaveBeenCalledWith("Agent threads cannot be forked.");
+  });
+
+  it("rejects rollback for subagent threads", async () => {
+    const host = hostMock({
+      items: turnItems(),
+      activeThread: {
+        id: "agent-thread",
+        provenance: {
+          kind: "subagent",
+          subagentKind: "thread-spawn",
+          parentThreadId: "parent",
+          sessionId: "session",
+          depth: 1,
+          agentNickname: "Scout",
+          agentRole: "explorer",
+        },
+      },
+    });
+
+    await threadCommands(host).rollbackThread("agent-thread");
+
+    expect(host.effects.forkThread).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Agent threads cannot be rolled back.");
   });
 
   it.each([
@@ -258,27 +268,6 @@ describe("thread management commands", () => {
 
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: true });
     expect(host.addSystemMessage).not.toHaveBeenCalled();
-  });
-
-  it("archives an idle thread while the current panel is running another thread", async () => {
-    const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "turn-running" });
-
-    await threadCommands(host).archiveThread("other");
-
-    expect(host.threadPanelIsBusy).toHaveBeenCalledWith("other");
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("other", {});
-    expect(host.addSystemMessage).not.toHaveBeenCalled();
-  });
-
-  it("rejects archiving a thread while its panel is busy", async () => {
-    const host = hostMock({ items: [] });
-    vi.mocked(host.threadPanelIsBusy).mockReturnValue(true);
-
-    await threadCommands(host).archiveThread("source");
-
-    expect(host.mutations.archiveThread).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the thread before archiving it.");
   });
 
   it("reports archive operation failures", async () => {
@@ -927,7 +916,6 @@ function hostMock({
       return { adopted: true };
     }),
     applyThreadFact: vi.fn<ThreadCommandsHost["applyThreadFact"]>(),
-    threadPanelIsBusy: vi.fn(() => false),
   };
 }
 

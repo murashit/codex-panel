@@ -1,6 +1,6 @@
 import type { RequestId, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import { serverRequestApprovalResponse } from "../../../../app-server/routing/server-requests";
-import type { ApprovalAction, PendingApproval } from "../../../../domain/pending-requests/model";
+import { serverRequestApprovalDecisionSignature, serverRequestApprovalResponse } from "../../../../app-server/routing/server-requests";
+import type { ApprovalAction } from "../../../../domain/interaction-requests/model";
 
 export type ApprovalServerRequest = Extract<
   ServerRequest,
@@ -19,9 +19,8 @@ interface ApprovalCorrelation {
 }
 
 interface ApprovalEndpoint {
-  readonly requestId: RequestId;
+  readonly request: ApprovalServerRequest;
   readonly owner: ApprovalRequestOwner;
-  readonly approval: PendingApproval;
   readonly settled: boolean;
 }
 
@@ -56,12 +55,7 @@ interface ApprovalRequestSettlement {
 }
 
 export interface ApprovalRequestCoordinator {
-  register(
-    request: ApprovalServerRequest,
-    approval: PendingApproval,
-    owner: ApprovalRequestOwner,
-    parentTurnId: string,
-  ): ApprovalRequestRegistration;
+  register(request: ApprovalServerRequest, owner: ApprovalRequestOwner, parentTurnId: string): ApprovalRequestRegistration;
   decide(logicalRequestId: RequestId, action: ApprovalAction): ApprovalDecisionPlan | null;
   automaticDeliveries(): readonly ApprovalResponseDelivery[];
   markSettled(requestId: RequestId): ApprovalRequestSettlement | null;
@@ -74,8 +68,8 @@ export function createApprovalRequestCoordinator(): ApprovalRequestCoordinator {
   const groups = new Map<RequestId, ApprovalRequestGroup>();
 
   return {
-    register(request, approval, owner, parentTurnId) {
-      const correlation = approvalCorrelation(request, approval);
+    register(request, owner, parentTurnId) {
+      const correlation = approvalCorrelation(request);
       const candidates = [...groups.values()].filter(
         (group) =>
           group.parentTurnId === parentTurnId &&
@@ -88,7 +82,7 @@ export function createApprovalRequestCoordinator(): ApprovalRequestCoordinator {
         if (group) {
           const next = {
             ...group,
-            endpoints: [...group.endpoints, approvalEndpoint(request.id, owner, approval)],
+            endpoints: [...group.endpoints, approvalEndpoint(request, owner)],
           };
           groups.set(group.logicalRequestId, next);
           return group.decision
@@ -101,7 +95,7 @@ export function createApprovalRequestCoordinator(): ApprovalRequestCoordinator {
         logicalRequestId: request.id,
         parentTurnId,
         correlation,
-        endpoints: [approvalEndpoint(request.id, owner, approval)],
+        endpoints: [approvalEndpoint(request, owner)],
         decision: null,
         uiResolved: false,
       };
@@ -123,9 +117,9 @@ export function createApprovalRequestCoordinator(): ApprovalRequestCoordinator {
     },
 
     markSettled(requestId) {
-      const group = [...groups.values()].find((candidate) => candidate.endpoints.some((endpoint) => endpoint.requestId === requestId));
+      const group = [...groups.values()].find((candidate) => candidate.endpoints.some((endpoint) => endpoint.request.id === requestId));
       if (!group) return null;
-      const endpoints = group.endpoints.map((endpoint) => (endpoint.requestId === requestId ? { ...endpoint, settled: true } : endpoint));
+      const endpoints = group.endpoints.map((endpoint) => (endpoint.request.id === requestId ? { ...endpoint, settled: true } : endpoint));
       const settled = { ...group, endpoints };
       const allKnownEndpointsSettled = endpoints.every((endpoint) => endpoint.settled);
       if (shouldRetainSettledGroup(settled, allKnownEndpointsSettled)) {
@@ -172,11 +166,11 @@ export function isApprovalServerRequest(request: ServerRequest): request is Appr
   );
 }
 
-function approvalEndpoint(requestId: RequestId, owner: ApprovalRequestOwner, approval: PendingApproval): ApprovalEndpoint {
-  return { requestId, owner, approval, settled: false };
+function approvalEndpoint(request: ApprovalServerRequest, owner: ApprovalRequestOwner): ApprovalEndpoint {
+  return { request, owner, settled: false };
 }
 
-function approvalCorrelation(request: ApprovalServerRequest, approval: PendingApproval): ApprovalCorrelation {
+function approvalCorrelation(request: ApprovalServerRequest): ApprovalCorrelation {
   return {
     method: request.method,
     itemId: request.params.itemId,
@@ -184,7 +178,7 @@ function approvalCorrelation(request: ApprovalServerRequest, approval: PendingAp
       request.method === "item/commandExecution/requestApproval" && typeof request.params.approvalId === "string"
         ? request.params.approvalId
         : null,
-    decisionSignature: JSON.stringify({ responses: approval.responses, actionOptions: approval.actionOptions }),
+    decisionSignature: serverRequestApprovalDecisionSignature(request),
   };
 }
 
@@ -194,8 +188,8 @@ function unsettledDeliveries(group: ApprovalRequestGroup): ApprovalResponseDeliv
   return group.endpoints
     .filter((endpoint) => !endpoint.settled)
     .map((endpoint) => ({
-      requestId: endpoint.requestId,
-      response: serverRequestApprovalResponse(endpoint.approval, decision),
+      requestId: endpoint.request.id,
+      response: serverRequestApprovalResponse(endpoint.request, decision),
     }));
 }
 

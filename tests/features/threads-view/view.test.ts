@@ -6,9 +6,9 @@ import type * as ThreadTitleGeneratorModule from "../../../src/app-server/servic
 import type { Thread } from "../../../src/domain/threads/model";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "../../../src/features/threads/app-server/workflow-adapters";
 import type { ThreadFactSink } from "../../../src/features/threads/workflows/thread-facts";
+import { createThreadMutationCommands } from "../../../src/features/threads/workflows/thread-mutation-commands";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import { createKeyedOperationCoordinator } from "../../../src/shared/runtime/keyed-operation-coordinator";
 import type { ObservedPaginatedResult } from "../../../src/shared/runtime/observed-result";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
@@ -892,7 +892,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       : {};
   const threadEventOverrides =
     "threadFacts" in overrides && overrides["threadFacts"] !== null && typeof overrides["threadFacts"] === "object"
-      ? (overrides["threadFacts"] as Partial<ThreadsViewHost["threadFacts"]>)
+      ? (overrides["threadFacts"] as Partial<ThreadFactSink>)
       : {};
   const applyThreadFact = threadEventOverrides.apply ?? vi.fn();
   const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadFacts"));
@@ -907,19 +907,38 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       return operation(client as never);
     },
   };
-  return {
-    settings: {
-      archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
-      archiveExportSettings: () => ({
+  const openPanelActivities =
+    "openPanelActivities" in hostOverrides && typeof hostOverrides["openPanelActivities"] === "function"
+      ? (hostOverrides["openPanelActivities"] as ThreadsViewHost["openPanelActivities"])
+      : vi.fn(() => []);
+  const threadMutations = createThreadMutationCommands({
+    port: createThreadMutationAdapter(clientAccess),
+    archiveExport: {
+      settings: () => ({
         archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
         archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
         archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
       }),
+      enabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
+      vaultPath: "/vault",
+      vaultConfigDir: ".obsidian",
     },
-    vaultPath: "/vault",
-    threadNameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
-    threadMutationPort: createThreadMutationAdapter(clientAccess, createKeyedOperationCoordinator({ whenBusy: "reject" })),
-    threadFacts: threadFactSink(applyThreadFact),
+    archiveDestination: () => ({
+      normalizePath: (path) => path,
+      exists: vi.fn().mockResolvedValue(false),
+      createFolder: vi.fn().mockResolvedValue(undefined),
+      createMarkdownFile: vi.fn().mockResolvedValue(undefined),
+    }),
+    facts: threadFactSink(applyThreadFact),
+    referenceThreads: () => [],
+    threadIsBusy: (threadId) =>
+      openPanelActivities().some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
+  });
+  return {
+    settings: {
+      archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
+    },
+    threadMutations,
     threadTitlePort: createThreadTitleAdapter({
       clientAccess,
       codexPath: "codex",
@@ -930,7 +949,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     }),
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
-    openPanelActivities: vi.fn(() => []),
+    openPanelActivities,
     threadCatalog: {
       hasMoreActiveThreads:
         typeof threadCatalogOverrides["hasMoreActiveThreads"] === "function"

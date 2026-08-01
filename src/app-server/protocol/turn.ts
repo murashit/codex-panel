@@ -1,4 +1,3 @@
-import type { VaultFileReference } from "../../domain/chat/input";
 import type { ReferencedThreadMetadata, ReferencedThreadTurn } from "../../domain/threads/reference";
 import {
   nonEmptyTurnTranscriptSummaries,
@@ -6,6 +5,7 @@ import {
   type TurnTranscriptSummary,
   turnTranscriptSummaryFromTranscriptEntries,
 } from "../../domain/threads/transcript";
+import type { VaultFileReference } from "../../domain/turns/input";
 import type { ThreadItem as GeneratedThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn as GeneratedTurn } from "../../generated/app-server/v2/Turn";
 import { legacyPanelUserMessageProjection } from "./legacy-panel-user-message";

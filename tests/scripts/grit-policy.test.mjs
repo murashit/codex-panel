@@ -112,6 +112,30 @@ const policyCases = [
     "export type Value = string;",
   ),
   policyCase(
+    "no-external-chat-domain-imports.grit",
+    "src/features/threads/workflows/escape.ts",
+    'import type { ChatState } from "../../chat/domain/runtime/state";',
+    'import type { Thread } from "../../../domain/threads/model";',
+    {
+      invalid: [
+        {
+          path: "src/execution-runtime.ts",
+          source: 'export const load = () => import("@/features/chat/domain/runtime/state");',
+        },
+      ],
+      valid: [
+        {
+          path: "src/features/chat/application/escape.ts",
+          source: 'import type { ChatState } from "../../chat/domain/runtime/state";',
+        },
+        {
+          path: "src/features/threads/workflows/near-miss.ts",
+          source: 'import type { ChatState } from "../../chat/domains/runtime/state";',
+        },
+      ],
+    },
+  ),
+  policyCase(
     "no-workspace-chat-internal-imports.grit",
     "src/workspace/escape.ts",
     'import type { State } from "../features/chat/application/state/store";',

@@ -54,7 +54,6 @@ export interface ThreadCommandsHost {
   openThreadInNewView: (threadId: string) => Promise<void>;
   openThreadInCurrentPanel: (threadId: string) => Promise<CurrentPanelAdoption>;
   applyThreadFact: (fact: ThreadUpsertFact) => void;
-  threadPanelIsBusy: (threadId: string) => boolean;
 }
 
 type CurrentPanelAdoption = { readonly adopted: boolean };
@@ -145,10 +144,6 @@ async function archiveThreadFromPanel(
   saveMarkdown?: boolean,
   beforeUnavailable?: () => void,
 ): Promise<boolean> {
-  if (host.threadPanelIsBusy(threadId)) {
-    host.addSystemMessage("Finish or interrupt the thread before archiving it.");
-    return false;
-  }
   try {
     const options = {
       ...(saveMarkdown === undefined ? {} : { saveMarkdown }),

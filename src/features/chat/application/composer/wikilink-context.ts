@@ -1,4 +1,5 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
+import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../../../domain/markdown/code-ranges";
 import {
   ACTIVE_FILE_REFERENCE_NAME,
   type CodexInput,
@@ -6,8 +7,7 @@ import {
   type RequestAdditionalContext,
   type SkillReference,
   type VaultFileReference,
-} from "../../../../domain/chat/input";
-import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../../../domain/markdown/code-ranges";
+} from "../../../../domain/turns/input";
 import {
   type ActiveNoteContextReference,
   type ComposerContextReferences,

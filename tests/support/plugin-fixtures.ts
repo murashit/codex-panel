@@ -13,6 +13,7 @@ import type CodexPanelPlugin from "../../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
 import { createKeyedOperationCoordinator } from "../../src/shared/runtime/keyed-operation-coordinator";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
+import { threadMutationCommandsMock } from "./thread-mutations";
 
 export async function pluginWithLeaves(
   leaves: TestLeaf[],
@@ -129,8 +130,7 @@ function chatHostFixture(): CodexChatHost {
       withClient: vi.fn(() => Promise.reject(new Error("Unexpected app-server client request."))),
     },
     appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
-    threadNameMutations: createKeyedOperationCoordinator({ whenBusy: "queue" }),
-    threadLifecycleMutations: createKeyedOperationCoordinator({ whenBusy: "reject" }),
+    threadMutations: threadMutationCommandsMock(),
     threadTitlePort: {
       persistedContext: vi.fn().mockResolvedValue(null),
       generateTitle: vi.fn().mockResolvedValue(null),
@@ -143,7 +143,6 @@ function chatHostFixture(): CodexChatHost {
       openThreadInNewView: vi.fn(),
       openThreadInAvailableView: vi.fn(),
       openThreadFromPanel: vi.fn(),
-      threadPanelIsBusy: vi.fn(() => false),
       openTurnDiff: vi.fn(),
       notifyPanelActivityChanged: vi.fn(),
       openSideChat: vi.fn(),

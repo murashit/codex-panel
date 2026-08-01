@@ -1,4 +1,4 @@
-import type { CodexInputItem } from "../../../../../domain/chat/input";
+import type { CodexInputItem } from "../../../../../domain/turns/input";
 import type { ThreadStreamContextAttachment } from "../items";
 
 export const WEB_CONTEXT_KEY = "codex_panel_web_context";

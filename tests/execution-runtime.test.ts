@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
+import type { ThreadsViewHost } from "../src/features/threads-view/session";
+import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import { StaleExecutionRuntimeError } from "../src/shared/runtime/execution-runtime-lifetime";
 
@@ -59,6 +61,14 @@ describe("CodexExecutionRuntime", () => {
 
       expect(pickers.controllers[0]?.close).not.toHaveBeenCalled();
     });
+  });
+
+  it("shares one thread mutation owner across attached surfaces", () => {
+    const runtime = executionRuntime();
+    const chat = attachChatHost(runtime);
+    const threads = attachThreadsHost(runtime);
+
+    expect(chat.threadMutations).toBe(threads.threadMutations);
   });
 
   it("disconnects an active query client and rejects its late completion when disposed", async () => {
@@ -179,6 +189,19 @@ function attachChatHost(runtime: CodexExecutionRuntime): CodexChatHost {
   return host;
 }
 
+function attachThreadsHost(runtime: CodexExecutionRuntime): ThreadsViewHost {
+  let host: ThreadsViewHost | null = null;
+  const view: ThreadsRuntimeView = {
+    attachRuntime: (nextHost) => {
+      host = nextHost;
+    },
+    detachRuntime: vi.fn(),
+  };
+  runtime.attachThreadsView(view);
+  if (!host) throw new Error("Runtime did not attach a threads host");
+  return host;
+}
+
 function pickerFactory(): {
   controllers: Array<ThreadPickerController & { close: ReturnType<typeof vi.fn> }>;
   finish: Array<() => void>;
@@ -200,7 +223,7 @@ function pickerFactory(): {
 
 function executionRuntime(): CodexExecutionRuntime {
   return new CodexExecutionRuntime({
-    app: {} as never,
+    app: { vault: { configDir: ".obsidian" } } as never,
     context: { codexPath: "codex", vaultPath: "/vault" },
     settings: () => ({ ...DEFAULT_SETTINGS }),
     workspace: {} as never,

@@ -1,4 +1,4 @@
-import { ACTIVE_FILE_REFERENCE_NAME, type CodexInputItem, type VaultFileReference } from "../../../../../domain/chat/input";
+import { ACTIVE_FILE_REFERENCE_NAME, type CodexInputItem, type VaultFileReference } from "../../../../../domain/turns/input";
 import type { ThreadStreamFileReference } from "../items";
 
 const ACTIVE_FILE_DISPLAY_NAME = "Active file";

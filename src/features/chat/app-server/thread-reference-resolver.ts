@@ -1,10 +1,10 @@
 import type { AppServerRequestClient } from "../../../app-server/services/request-client";
 import { readReferencedThreadTranscriptPage } from "../../../app-server/services/threads";
-import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/chat/input";
 import { threadReferenceMarkdown } from "../../../domain/threads/deep-link";
 import { shortThreadId } from "../../../domain/threads/id";
 import type { Thread } from "../../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadContext } from "../../../domain/threads/reference";
+import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { ThreadReferenceInput } from "../application/slash-commands/execute";
 

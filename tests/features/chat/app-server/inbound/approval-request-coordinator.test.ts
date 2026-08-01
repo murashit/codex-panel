@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
-import { appServerApprovalRequest } from "../../../../../src/app-server/protocol/server-requests";
 import {
   type ApprovalServerRequest,
   createApprovalRequestCoordinator,
@@ -13,9 +12,9 @@ describe("approval request coordinator", () => {
     const sibling = commandApprovalRequest(2, "child-b", "child-turn-b", "command");
     const parent = commandApprovalRequest(3, "parent", "parent-turn", "command");
 
-    expect(coordinator.register(child, approval(child), "tracked-subagent", "parent-turn").kind).toBe("new");
-    expect(coordinator.register(sibling, approval(sibling), "tracked-subagent", "parent-turn").kind).toBe("new");
-    expect(coordinator.register(parent, approval(parent), "active", "parent-turn").kind).toBe("new");
+    expect(coordinator.register(child, "tracked-subagent", "parent-turn").kind).toBe("new");
+    expect(coordinator.register(sibling, "tracked-subagent", "parent-turn").kind).toBe("new");
+    expect(coordinator.register(parent, "active", "parent-turn").kind).toBe("new");
   });
 
   it("uses approvalId to distinguish callbacks that share an item", () => {
@@ -23,9 +22,9 @@ describe("approval request coordinator", () => {
     const child = commandApprovalRequest(1, "child", "child-turn", "command", "callback-a");
     const parent = commandApprovalRequest(2, "parent", "parent-turn", "command", "callback-b");
 
-    coordinator.register(child, approval(child), "tracked-subagent", "parent-turn");
+    coordinator.register(child, "tracked-subagent", "parent-turn");
 
-    expect(coordinator.register(parent, approval(parent), "active", "parent-turn").kind).toBe("new");
+    expect(coordinator.register(parent, "active", "parent-turn").kind).toBe("new");
   });
 
   it("coalesces the child copy when the parent request arrives first", () => {
@@ -33,9 +32,9 @@ describe("approval request coordinator", () => {
     const parent = commandApprovalRequest(1, "parent", "parent-turn", "command");
     const child = commandApprovalRequest(2, "child", "child-turn", "command");
 
-    coordinator.register(parent, approval(parent), "active", "parent-turn");
+    coordinator.register(parent, "active", "parent-turn");
 
-    expect(coordinator.register(child, approval(child), "tracked-subagent", "parent-turn")).toEqual({
+    expect(coordinator.register(child, "tracked-subagent", "parent-turn")).toEqual({
       kind: "coalesced",
       logicalRequestId: 1,
     });
@@ -46,23 +45,23 @@ describe("approval request coordinator", () => {
     const child = commandApprovalRequest(1, "child", "child-turn", "command");
     const parent = commandApprovalRequest(2, "parent", "parent-turn", "command", null, ["decline", "cancel"]);
 
-    coordinator.register(child, approval(child), "tracked-subagent", "parent-turn");
+    coordinator.register(child, "tracked-subagent", "parent-turn");
 
-    expect(coordinator.register(parent, approval(parent), "active", "parent-turn").kind).toBe("new");
+    expect(coordinator.register(parent, "active", "parent-turn").kind).toBe("new");
   });
 
   it("locks one decision and maps it through a late twin request", () => {
     const coordinator = createApprovalRequestCoordinator();
     const child = commandApprovalRequest(1, "child", "child-turn", "command");
     const parent = commandApprovalRequest(2, "parent", "parent-turn", "command");
-    coordinator.register(child, approval(child), "tracked-subagent", "parent-turn");
+    coordinator.register(child, "tracked-subagent", "parent-turn");
 
     const plan = coordinator.decide(1, "decline");
     expect(plan).toEqual({ action: "decline", deliveries: [{ requestId: 1, response: { decision: "decline" } }] });
     coordinator.markSettled(1);
     coordinator.markUiResolved(1);
 
-    expect(coordinator.register(parent, approval(parent), "active", "parent-turn")).toEqual({
+    expect(coordinator.register(parent, "active", "parent-turn")).toEqual({
       kind: "answered",
       deliveries: [{ requestId: 2, response: { decision: "decline" } }],
     });
@@ -72,8 +71,8 @@ describe("approval request coordinator", () => {
     const coordinator = createApprovalRequestCoordinator();
     const child = commandApprovalRequest(1, "child", "child-turn", "command");
     const parent = commandApprovalRequest(2, "parent", "parent-turn", "command");
-    coordinator.register(child, approval(child), "tracked-subagent", "parent-turn");
-    coordinator.register(parent, approval(parent), "active", "parent-turn");
+    coordinator.register(child, "tracked-subagent", "parent-turn");
+    coordinator.register(parent, "active", "parent-turn");
 
     coordinator.decide(1, "accept");
     coordinator.markSettled(1);
@@ -85,7 +84,7 @@ describe("approval request coordinator", () => {
   it("reports unresolved UI state when the parent turn changes", () => {
     const coordinator = createApprovalRequestCoordinator();
     const child = commandApprovalRequest(1, "child", "child-turn", "command");
-    coordinator.register(child, approval(child), "tracked-subagent", "parent-turn");
+    coordinator.register(child, "tracked-subagent", "parent-turn");
 
     expect(coordinator.reconcile("next-turn", new Set([1]))).toEqual([1]);
 
@@ -95,7 +94,7 @@ describe("approval request coordinator", () => {
   it("silently drops completed transport state when the parent turn changes", () => {
     const coordinator = createApprovalRequestCoordinator();
     const child = commandApprovalRequest(1, "child", "child-turn", "command");
-    coordinator.register(child, approval(child), "tracked-subagent", "parent-turn");
+    coordinator.register(child, "tracked-subagent", "parent-turn");
     coordinator.decide(1, "accept");
     coordinator.markSettled(1);
     coordinator.markUiResolved(1);
@@ -106,12 +105,6 @@ describe("approval request coordinator", () => {
     expect(coordinator.decide(1, "decline")).toBeNull();
   });
 });
-
-function approval(request: ApprovalServerRequest) {
-  const pending = appServerApprovalRequest(request);
-  if (!pending) throw new Error("Expected approval request");
-  return pending;
-}
 
 function commandApprovalRequest(
   id: number,

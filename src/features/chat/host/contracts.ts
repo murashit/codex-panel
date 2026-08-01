@@ -13,10 +13,10 @@ import type {
 import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
 import type { ObservedResultListener } from "../../../shared/runtime/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
-import type { ArchiveExportDestination, ArchiveExportSettings } from "../../threads/workflows/archive-export";
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
 import type { ThreadAutoTitleWork } from "../../threads/workflows/thread-auto-title-work";
 import type { ThreadFactSink } from "../../threads/workflows/thread-facts";
+import type { ThreadMutationCommands } from "../../threads/workflows/thread-mutation-commands";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ThreadGoalCoordinator } from "../application/threads/thread-goal-coordinator";
@@ -29,8 +29,7 @@ export interface CodexChatHost {
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadFacts: ThreadFactSink;
-  readonly threadLifecycleMutations: KeyedOperationCoordinator<string>;
-  readonly threadNameMutations: KeyedOperationCoordinator<string>;
+  readonly threadMutations: ThreadMutationCommands;
   readonly threadTitlePort: ThreadTitlePort;
   readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;
   readonly threadGoalCoordinator: ThreadGoalCoordinator;
@@ -41,7 +40,6 @@ export interface ChatPanelSettingsAccess {
   referenceActiveNoteOnSend(): boolean;
   attachmentFolder(): string;
   archiveExportEnabled(): boolean;
-  archiveExportSettings(): ArchiveExportSettings;
   scrollThreadFromComposerEdges(): boolean;
   sendShortcut(): SendShortcut;
   showToolbar(): boolean;
@@ -51,7 +49,6 @@ export interface WorkspacePanels {
   openThreadInNewView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
-  threadPanelIsBusy(threadId: string): boolean;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
   notifyPanelActivityChanged(): void;
   openSideChat(sourceThreadId: string, sourceThreadTitle: string | null, initialMessage?: string): Promise<void>;
@@ -82,7 +79,6 @@ export interface ChatPanelEnvironment {
     viewId: string;
     registerEvent: (eventRef: EventRef) => void;
     registerPointerDown: (handler: (event: PointerEvent) => void) => void;
-    archiveDestination: () => ArchiveExportDestination;
     requestWorkspaceLayoutSave: () => void;
     isForeground: () => boolean;
   };

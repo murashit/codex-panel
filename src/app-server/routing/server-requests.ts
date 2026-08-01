@@ -5,9 +5,10 @@ import type {
   PendingApproval,
   PendingMcpElicitation,
   PendingUserInput,
-} from "../../domain/pending-requests/model";
+} from "../../domain/interaction-requests/model";
 import type { ServerRequest } from "../connection/rpc-messages";
 import {
+  appServerApprovalDecisionSignature,
   appServerApprovalRequest,
   appServerApprovalResponse,
   appServerMcpElicitationRequest,
@@ -22,6 +23,11 @@ import {
   isAppServerRouteScopeInActiveRouteScope,
   isTurnScopedAppServerRouteForIdleActiveThread,
 } from "./scope";
+
+type ApprovalServerRequest = Extract<
+  ServerRequest,
+  { method: "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" | "item/permissions/requestApproval" }
+>;
 
 export type ServerRequestRoute =
   | { kind: "approval"; request: ServerRequest; approval: PendingApproval }
@@ -92,8 +98,12 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
   }
 }
 
-export function serverRequestApprovalResponse(approval: PendingApproval, action: ApprovalAction): unknown {
-  return appServerApprovalResponse(approval, action);
+export function serverRequestApprovalResponse(request: ApprovalServerRequest, action: ApprovalAction): unknown {
+  return appServerApprovalResponse(request, action);
+}
+
+export function serverRequestApprovalDecisionSignature(request: ApprovalServerRequest): string {
+  return appServerApprovalDecisionSignature(request);
 }
 
 export function serverRequestUserInputResponse(questions: readonly { id: string }[], answers: Record<string, string>): unknown {

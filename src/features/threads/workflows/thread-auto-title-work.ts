@@ -1,7 +1,7 @@
 import type { ThreadTitleContext } from "../../../domain/threads/title-generation-model";
-import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
-import type { ThreadMutationPort, ThreadTitlePort } from "./ports";
-import type { ThreadFact, ThreadFactSink } from "./thread-facts";
+import type { ThreadTitlePort } from "./ports";
+import type { ThreadFact } from "./thread-facts";
+import type { ThreadMutationCommands } from "./thread-mutation-commands";
 
 export interface ThreadAutoTitleWork {
   submit(threadId: string, context: ThreadTitleContext): void;
@@ -11,9 +11,7 @@ export interface ThreadAutoTitleWork {
 
 interface ThreadAutoTitleWorkHost {
   titlePort: ThreadTitlePort;
-  mutationPort: Pick<ThreadMutationPort, "renameThread">;
-  nameMutations: KeyedOperationCoordinator<string>;
-  facts: ThreadFactSink;
+  mutations: Pick<ThreadMutationCommands, "renameThread">;
 }
 
 export function createThreadAutoTitleWork(host: ThreadAutoTitleWorkHost): ThreadAutoTitleWork {
@@ -37,11 +35,9 @@ export function createThreadAutoTitleWork(host: ThreadAutoTitleWorkHost): Thread
     try {
       const title = await host.titlePort.generateTitle(context, controller.signal);
       if (!title || !operationIsCurrent(threadId, controller)) return;
-      await host.nameMutations.run(threadId, async () => {
-        if (!operationIsCurrent(threadId, controller)) return;
-        await host.mutationPort.renameThread(threadId, title);
-        if (!operationIsCurrent(threadId, controller)) return;
-        host.facts.apply({ type: "thread-renamed", threadId, name: title });
+      await host.mutations.renameThread(threadId, title, {
+        shouldStart: () => operationIsCurrent(threadId, controller),
+        shouldPublish: () => operationIsCurrent(threadId, controller),
       });
     } catch {
       // First-turn naming is best-effort shared metadata work.

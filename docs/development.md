@@ -65,6 +65,14 @@ Name modules by owned responsibility. Use lifecycle or boundary nouns only when 
 
 Prefer functions and factories. Reserve classes for mutable resource ownership, external class APIs, and `Error` types.
 
+## Source Ownership
+
+- `src/domain/` contains Panel-owned vocabulary and pure rules shared across protocol boundaries or product features.
+- `src/features/<feature>/domain/` contains pure semantics owned and consumed only by that feature.
+- `src/features/chat/application/` owns panel-local workflows and state transitions, including active-thread adoption, history hydration, and visible-turn actions.
+- `src/features/threads/workflows/` owns context-wide thread capabilities such as mutation coordination, lifecycle facts, catalog projection, archive export, and title work.
+- Surface hosts translate shared workflow outcomes into UI feedback; shared workflows do not emit Obsidian notices or own confirmation UI.
+
 ## Common Pitfalls
 
 - Preserve last-known-good app-server state on refresh failure. Do not turn disconnected reads into authoritative empty thread lists, settings snapshots, hook inventories, or diagnostics.

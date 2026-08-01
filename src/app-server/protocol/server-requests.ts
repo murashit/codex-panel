@@ -12,7 +12,7 @@ import type {
   PendingMcpElicitationOption,
   PendingUserInput,
   PendingUserInputQuestion,
-} from "../../domain/pending-requests/model";
+} from "../../domain/interaction-requests/model";
 import { pathRelativeToRoot } from "../../domain/vault/paths";
 import type { ServerRequest as GeneratedServerRequest } from "../../generated/app-server/ServerRequest";
 
@@ -31,6 +31,7 @@ type AppServerRequest = GeneratedServerRequest;
 type CommandApprovalRequest = Extract<AppServerRequest, { method: "item/commandExecution/requestApproval" }>;
 type FileChangeApprovalRequest = Extract<AppServerRequest, { method: "item/fileChange/requestApproval" }>;
 type PermissionsApprovalRequest = Extract<AppServerRequest, { method: "item/permissions/requestApproval" }>;
+type ApprovalRequest = CommandApprovalRequest | FileChangeApprovalRequest | PermissionsApprovalRequest;
 type UserInputRequest = Extract<AppServerRequest, { method: "item/tool/requestUserInput" }>;
 type McpElicitationRequest = Extract<AppServerRequest, { method: "mcpServer/elicitation/request" }>;
 
@@ -70,17 +71,15 @@ type AppServerMcpElicitationPrimitiveSchema =
       enum?: unknown;
     };
 
-interface NormalizedMcpElicitationParams {
-  threadId: string;
+interface NormalizedMcpElicitationParamsBase {
   turnId: string | null;
   serverName: string;
-  mode: "form" | "url";
   message: string;
-  meta: unknown;
-  requestedSchema?: unknown;
-  url: string;
-  elicitationId: string;
 }
+
+type NormalizedMcpElicitationParams =
+  | (NormalizedMcpElicitationParamsBase & { mode: "form"; requestedSchema: unknown })
+  | (NormalizedMcpElicitationParamsBase & { mode: "url"; url: string });
 
 export type AppServerApprovalResponse =
   | { decision: CommandApprovalDecision }
@@ -109,9 +108,36 @@ export function appServerApprovalRequest(request: AppServerRequest): PendingAppr
   }
 }
 
-export function appServerApprovalResponse(approval: PendingApproval, action: ApprovalAction): AppServerApprovalResponse {
-  if (isApprovalOptionAction(action)) return action.response as AppServerApprovalResponse;
-  return approvalResponseForIntent(approval, action);
+export function appServerApprovalResponse(request: ApprovalRequest, action: ApprovalAction): AppServerApprovalResponse {
+  const intent = typeof action === "object" ? action.intent : action;
+  switch (request.method) {
+    case "item/commandExecution/requestApproval": {
+      if (typeof action === "object") {
+        const selected = commandApprovalDecisionForOption(request.params.availableDecisions, action.optionId);
+        if (selected === undefined) throw new Error(`Unknown command approval option: ${action.optionId}`);
+        return { decision: selected };
+      }
+      return { decision: commandDecision(intent) };
+    }
+    case "item/fileChange/requestApproval":
+      return { decision: fileChangeDecision(intent) };
+    case "item/permissions/requestApproval":
+      return {
+        scope: intent === "accept-session" ? "session" : "turn",
+        permissions: intent === "accept" || intent === "accept-session" ? grantedPermissions(request.params.permissions) : {},
+      };
+  }
+}
+
+export function appServerApprovalDecisionSignature(request: ApprovalRequest): string {
+  switch (request.method) {
+    case "item/commandExecution/requestApproval":
+      return JSON.stringify(request.params.availableDecisions ?? null);
+    case "item/permissions/requestApproval":
+      return JSON.stringify(request.params.permissions);
+    case "item/fileChange/requestApproval":
+      return "file-change";
+  }
 }
 
 export function appServerUserInputRequest(request: AppServerRequest): PendingUserInput | null {
@@ -148,14 +174,11 @@ export function appServerMcpElicitationRequest(request: AppServerRequest): Pendi
     return {
       requestId: request.id,
       params: {
-        threadId: params.threadId,
         turnId: params.turnId,
         serverName: params.serverName,
         mode: "url",
         message: params.message,
-        meta: params.meta,
         url: params.url,
-        elicitationId: params.elicitationId,
       },
     };
   }
@@ -164,12 +187,10 @@ export function appServerMcpElicitationRequest(request: AppServerRequest): Pendi
   return {
     requestId: request.id,
     params: {
-      threadId: params.threadId,
       turnId: params.turnId,
       serverName: params.serverName,
       mode: "form",
       message: params.message,
-      meta: params.meta,
       fields,
     },
   };
@@ -196,7 +217,6 @@ function commandApprovalRequest(requestId: PendingApproval["requestId"], params:
     summary: approvalSummary(params.reason, params.command, "Command execution requested."),
     resultSummary: approvalResultSummary(params.reason, params.command, "Command execution requested."),
     details,
-    responses: decisionResponses(commandDecision),
     actionOptions: commandApprovalActionOptions(params.availableDecisions),
   };
 }
@@ -212,7 +232,6 @@ function fileChangeApprovalRequest(requestId: PendingApproval["requestId"], para
     summary: approvalSummary(reason, grantRoot ? `grant root: ${grantRoot}` : null, "Allow file changes?"),
     resultSummary: approvalResultSummary(reason, grantRoot ? `grant root: ${grantRoot}` : null, "Allow file changes?"),
     details: grantRoot ? [{ key: "grant root", value: grantRoot }] : [],
-    responses: decisionResponses(fileChangeDecision),
     actionOptions: null,
   };
 }
@@ -233,34 +252,8 @@ function permissionsApprovalRequest(requestId: PendingApproval["requestId"], par
     summary: approvalSummary(params.reason, cwdSummary, "Permission change requested."),
     resultSummary: approvalResultSummary(params.reason, cwdSummary, "Permission change requested."),
     details,
-    responses: {
-      accept: { scope: "turn", permissions: grantedPermissions(params.permissions) },
-      acceptSession: { scope: "session", permissions: grantedPermissions(params.permissions) },
-      decline: { scope: "turn", permissions: {} },
-      cancel: { scope: "turn", permissions: {} },
-    },
     actionOptions: null,
   };
-}
-
-function decisionResponses(decision: (intent: ApprovalActionIntent) => SimpleApprovalDecision): PendingApproval["responses"] {
-  return {
-    accept: { decision: decision("accept") },
-    acceptSession: { decision: decision("accept-session") },
-    decline: { decision: decision("decline") },
-    cancel: { decision: decision("cancel") },
-  };
-}
-
-function approvalResponseForIntent(approval: PendingApproval, intent: ApprovalActionIntent): AppServerApprovalResponse {
-  if (intent === "accept") return approval.responses.accept as AppServerApprovalResponse;
-  if (intent === "accept-session") return approval.responses.acceptSession as AppServerApprovalResponse;
-  if (intent === "cancel") return approval.responses.cancel as AppServerApprovalResponse;
-  return approval.responses.decline as AppServerApprovalResponse;
-}
-
-function isApprovalOptionAction(action: ApprovalAction): action is Extract<ApprovalAction, { kind: "approval-option" }> {
-  return typeof action === "object";
 }
 
 function commandDecision(intent: ApprovalActionIntent): SimpleApprovalDecision {
@@ -317,17 +310,28 @@ function commandApprovalActionOptions(decisions: CommandApprovalParams["availabl
   if (availableDecisions.length === 0) return null;
   return availableDecisions.map((decision, index) => {
     const intent = commandDecisionIntent(decision);
+    const id = commandApprovalOptionId(decision, index);
     return {
-      id: `approval-option:${String(index)}:${commandDecisionKey(decision)}`,
+      id,
       label: commandDecisionLabel(decision),
-      intent,
       action: {
         kind: "approval-option",
+        optionId: id,
         intent,
-        response: { decision },
       },
     };
   });
+}
+
+function commandApprovalDecisionForOption(
+  decisions: CommandApprovalParams["availableDecisions"],
+  optionId: string,
+): CommandApprovalDecision | undefined {
+  return commandApprovalDecisions(decisions).find((decision, index) => commandApprovalOptionId(decision, index) === optionId);
+}
+
+function commandApprovalOptionId(decision: CommandApprovalDecision, index: number): string {
+  return `approval-option:${String(index)}:${commandDecisionKey(decision)}`;
 }
 
 function commandApprovalDecisions(value: unknown): CommandApprovalDecision[] {
@@ -536,10 +540,6 @@ function nullableString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function numberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
 function asRecordOrNull(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
@@ -552,11 +552,8 @@ function pendingUserInputParams(params: UserInputParams): PendingUserInput["para
   const questions: unknown = params.questions;
   if (!Array.isArray(questions)) return null;
   return {
-    threadId: stringValue(params.threadId),
     turnId: stringValue(params.turnId),
-    itemId: stringValue(params.itemId),
     questions: questions.map(pendingUserInputQuestion),
-    autoResolutionMs: numberOrNull(params.autoResolutionMs),
   };
 }
 
@@ -582,26 +579,19 @@ function normalizeMcpElicitationParams(params: McpElicitationParams): Normalized
     case "form":
     case "openai/form":
       return {
-        threadId: stringValue(params.threadId),
         turnId: nullableString(params.turnId),
         serverName: stringValue(params.serverName),
         mode: "form",
         message: stringValue(params.message),
-        meta: params._meta ?? null,
         requestedSchema: params.requestedSchema,
-        url: "",
-        elicitationId: "",
       };
     case "url":
       return {
-        threadId: stringValue(params.threadId),
         turnId: nullableString(params.turnId),
         serverName: stringValue(params.serverName),
         mode: "url",
         message: stringValue(params.message),
-        meta: params._meta ?? null,
         url: stringValue(params.url),
-        elicitationId: stringValue(params.elicitationId),
       };
   }
 }

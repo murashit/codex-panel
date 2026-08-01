@@ -1,4 +1,4 @@
-import type { CodexInput } from "../../../../domain/chat/input";
+import type { CodexInput } from "../../../../domain/turns/input";
 import { contextAttachmentsFromInput } from "../../domain/thread-stream/format/context-attachments";
 import { fileReferencesFromInput } from "../../domain/thread-stream/format/file-references";
 import { userMessageDisplayText } from "../../domain/thread-stream/format/user-message-text";

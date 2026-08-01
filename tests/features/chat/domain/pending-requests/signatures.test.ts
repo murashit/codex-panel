@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PendingUserInput } from "../../../../../src/domain/pending-requests/model";
+import type { PendingUserInput } from "../../../../../src/domain/interaction-requests/model";
 import {
   pendingRequestFocusSignature,
   pendingRequestsSignature,
@@ -11,9 +11,7 @@ describe("pending request signatures", () => {
     const input: PendingUserInput = {
       requestId: 7,
       params: {
-        threadId: "thread",
         turnId: "turn",
-        itemId: "item",
         questions: [
           {
             id: "direction",
@@ -24,7 +22,6 @@ describe("pending request signatures", () => {
             options: [{ label: "Recommended", description: "Use the default path" }],
           },
         ],
-        autoResolutionMs: null,
       },
     };
     const drafts = new Map([

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { appServerUserInputRequest as toPendingUserInput } from "../../../../../src/app-server/protocol/server-requests";
-import type { ApprovalAction, PendingApproval, PendingMcpElicitation } from "../../../../../src/domain/pending-requests/model";
+import type { ApprovalAction, PendingApproval, PendingMcpElicitation } from "../../../../../src/domain/interaction-requests/model";
 import { createPendingRequestActions } from "../../../../../src/features/chat/application/pending-requests/pending-request-actions";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
@@ -157,12 +157,6 @@ function approvalRequest(): PendingApproval {
     summary: "Run tests",
     resultSummary: "Run tests",
     details: [],
-    responses: {
-      accept: { decision: "accept" },
-      acceptSession: { decision: "acceptForSession" },
-      decline: { decision: "decline" },
-      cancel: { decision: "cancel" },
-    },
     actionOptions: null,
   };
 }
@@ -171,12 +165,10 @@ function mcpElicitationRequest(): PendingMcpElicitation {
   return {
     requestId: 9,
     params: {
-      threadId: "thread",
       turnId: "turn",
       serverName: "server",
       mode: "form",
       message: "Need input",
-      meta: null,
       fields: [],
     },
   };

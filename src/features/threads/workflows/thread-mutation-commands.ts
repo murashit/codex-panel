@@ -1,13 +1,12 @@
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../domain/threads/title";
-import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
+import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ThreadMutationPort } from "./ports";
 import type { ThreadFact, ThreadFactSink } from "./thread-facts";
 
 export interface ThreadMutationCommandsHost {
   port: ThreadMutationPort;
-  nameMutations: KeyedOperationCoordinator<string>;
   archiveExport: {
     settings(): ArchiveExportSettings;
     enabled(): boolean;
@@ -17,7 +16,7 @@ export interface ThreadMutationCommandsHost {
   archiveDestination(): ArchiveExportDestination;
   facts: ThreadFactSink;
   referenceThreads(): readonly Thread[];
-  notice(message: string): void;
+  threadIsBusy(threadId: string): boolean;
 }
 
 interface ArchiveThreadOptions {
@@ -26,9 +25,9 @@ interface ArchiveThreadOptions {
   additionalFacts?: readonly ThreadFact[];
 }
 
-export interface ArchiveThreadResult {
-  exportedPath: string | null;
-}
+export type ArchiveThreadResult =
+  | { readonly kind: "archived"; readonly exportedPath: string | null }
+  | { readonly kind: "blocked"; readonly reason: "thread-busy" };
 
 interface RenameThreadOptions {
   shouldStart?: () => boolean;
@@ -39,25 +38,32 @@ export interface ThreadMutationCommands {
   renameThread(threadId: string, value: string, options?: RenameThreadOptions): Promise<boolean>;
   setThreadPinned(threadId: string, isPinned: boolean): Promise<void>;
   archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult>;
+  restoreThread(threadId: string): Promise<Thread>;
+  deleteThread(threadId: string): Promise<void>;
 }
 
 export function createThreadMutationCommands(host: ThreadMutationCommandsHost): ThreadMutationCommands {
+  const nameMutations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+  const lifecycleMutations = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
   return {
-    renameThread: (threadId, value, options) => renameThread(host, threadId, value, options),
+    renameThread: (threadId, value, options) => renameThread(host, nameMutations, threadId, value, options),
     setThreadPinned: (threadId, isPinned) => setThreadPinned(host, threadId, isPinned),
-    archiveThread: (threadId, options) => archiveThread(host, threadId, options),
+    archiveThread: (threadId, options) => archiveThread(host, lifecycleMutations, threadId, options),
+    restoreThread: (threadId) => restoreThread(host, lifecycleMutations, threadId),
+    deleteThread: (threadId) => deleteThread(host, lifecycleMutations, threadId),
   };
 }
 
 async function renameThread(
   host: ThreadMutationCommandsHost,
+  nameMutations: KeyedOperationCoordinator<string>,
   threadId: string,
   value: string,
   options: RenameThreadOptions = {},
 ): Promise<boolean> {
   const name = normalizeExplicitThreadName(value);
   if (!name) return false;
-  return host.nameMutations.run(threadId, async () => {
+  return nameMutations.run(threadId, async () => {
     if (!(options.shouldStart?.() ?? true)) return false;
     await host.port.renameThread(threadId, name);
     if (options.shouldPublish?.() ?? true) {
@@ -74,41 +80,65 @@ async function setThreadPinned(host: ThreadMutationCommandsHost, threadId: strin
 
 async function archiveThread(
   host: ThreadMutationCommandsHost,
+  lifecycleMutations: KeyedOperationCoordinator<string>,
   threadId: string,
   options: ArchiveThreadOptions = {},
 ): Promise<ArchiveThreadResult> {
-  const shouldExport = options.saveMarkdown ?? host.archiveExport.enabled();
-  const exportedPath = await host.port.archiveThread(
-    threadId,
-    shouldExport
-      ? async (thread) => {
-          const archiveSettings = host.archiveExport.settings();
-          const threads = host.referenceThreads();
-          const titleById = new Map(threads.map((item) => [item.id, threadDisplayTitle(item)] as const));
-          const result = await exportArchivedThreadMarkdown(
-            {
-              ...thread,
-              transcriptEntries: thread.transcriptEntries.map((entry) => {
-                if (!entry.referencedThread) return entry;
-                const title = titleById.get(entry.referencedThread.threadId);
-                return title ? { ...entry, referencedThread: { ...entry.referencedThread, title } } : entry;
-              }),
-            },
-            {
-              ...archiveSettings,
-              vaultPath: host.archiveExport.vaultPath,
-              vaultConfigDir: host.archiveExport.vaultConfigDir,
-            },
-            host.archiveDestination(),
-          );
-          return result.path;
-        }
-      : undefined,
-  );
-  if (exportedPath) {
-    host.notice(`Saved archived thread to ${exportedPath}.`);
-  }
-  options.beforePublish?.();
-  host.facts.applyBatch([...(options.additionalFacts ?? []), { type: "thread-archived", threadId }]);
-  return { exportedPath };
+  return lifecycleMutations.run(threadId, async () => {
+    if (host.threadIsBusy(threadId)) return { kind: "blocked", reason: "thread-busy" };
+    const shouldExport = options.saveMarkdown ?? host.archiveExport.enabled();
+    const exportedPath = await host.port.archiveThread(
+      threadId,
+      shouldExport
+        ? async (thread) => {
+            const archiveSettings = host.archiveExport.settings();
+            const threads = host.referenceThreads();
+            const titleById = new Map(threads.map((item) => [item.id, threadDisplayTitle(item)] as const));
+            const result = await exportArchivedThreadMarkdown(
+              {
+                ...thread,
+                transcriptEntries: thread.transcriptEntries.map((entry) => {
+                  if (!entry.referencedThread) return entry;
+                  const title = titleById.get(entry.referencedThread.threadId);
+                  return title ? { ...entry, referencedThread: { ...entry.referencedThread, title } } : entry;
+                }),
+              },
+              {
+                ...archiveSettings,
+                vaultPath: host.archiveExport.vaultPath,
+                vaultConfigDir: host.archiveExport.vaultConfigDir,
+              },
+              host.archiveDestination(),
+            );
+            return result.path;
+          }
+        : undefined,
+    );
+    options.beforePublish?.();
+    host.facts.applyBatch([...(options.additionalFacts ?? []), { type: "thread-archived", threadId }]);
+    return { kind: "archived", exportedPath };
+  });
+}
+
+async function restoreThread(
+  host: ThreadMutationCommandsHost,
+  lifecycleMutations: KeyedOperationCoordinator<string>,
+  threadId: string,
+): Promise<Thread> {
+  return lifecycleMutations.run(threadId, async () => {
+    const thread = await host.port.restoreThread(threadId);
+    host.facts.apply({ type: "thread-restored", thread });
+    return thread;
+  });
+}
+
+async function deleteThread(
+  host: ThreadMutationCommandsHost,
+  lifecycleMutations: KeyedOperationCoordinator<string>,
+  threadId: string,
+): Promise<void> {
+  await lifecycleMutations.run(threadId, async () => {
+    await host.port.deleteThread(threadId);
+    host.facts.apply({ type: "thread-deleted", threadId });
+  });
 }

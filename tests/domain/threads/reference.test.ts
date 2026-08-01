@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-
-import { utf8ByteLength } from "../../../src/domain/chat/context-budget";
 import type { Thread } from "../../../src/domain/threads/model";
 import { referencedThreadContext } from "../../../src/domain/threads/reference";
+import { utf8ByteLength } from "../../../src/domain/turns/context-budget";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {

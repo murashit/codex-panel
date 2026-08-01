@@ -40,23 +40,26 @@ describe("activePanelOperationDecisionForFacts", () => {
   it("keeps subagent panels read-only when the server capability is unavailable", () => {
     expectDecisionKinds(
       { phase: "active", lifetime: "persistent", canAcceptDirectInput: null, provenance: "subagent" },
-      decisions({ "goal-read": "allowed" }),
+      decisions({ fork: "allowed", "goal-read": "allowed" }),
     );
   });
 
   it("uses the server capability for subagent submission while preserving other subagent restrictions", () => {
     expectDecisionKinds(
       { phase: "active", lifetime: "persistent", canAcceptDirectInput: true, provenance: "subagent" },
-      decisions({ submit: "allowed", "goal-read": "allowed" }),
+      decisions({ submit: "allowed", fork: "allowed", "goal-read": "allowed" }),
     );
     expectDecisionKinds(
       { phase: "active", lifetime: "persistent", canAcceptDirectInput: false, provenance: "subagent" },
-      decisions({ "goal-read": "allowed" }),
+      decisions({ fork: "allowed", "goal-read": "allowed" }),
     );
   });
 
   it("keeps the stricter subagent restrictions when mode facts conflict", () => {
-    expectDecisionKinds({ phase: "active", lifetime: "ephemeral", canAcceptDirectInput: null, provenance: "subagent" }, decisions({}));
+    expectDecisionKinds(
+      { phase: "active", lifetime: "ephemeral", canAcceptDirectInput: null, provenance: "subagent" },
+      decisions({ fork: "allowed" }),
+    );
   });
 
   it("blocks only submission when the loaded thread rejects direct input", () => {

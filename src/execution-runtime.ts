@@ -21,6 +21,7 @@ import { createThreadMutationAdapter, createThreadTitleAdapter } from "./feature
 import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
 import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/threads/workflows/thread-auto-title-work";
 import type { ThreadFact, ThreadFactSink } from "./features/threads/workflows/thread-facts";
+import { createThreadMutationCommands, type ThreadMutationCommands } from "./features/threads/workflows/thread-mutation-commands";
 import { projectThreadFacts } from "./features/threads/workflows/thread-projection";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
@@ -28,6 +29,7 @@ import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
 import { createSettingsAppServerDynamicData } from "./settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
 import type { CodexPanelSettings } from "./settings/model";
+import { createObsidianVaultMarkdownDestination } from "./shared/obsidian/vault-write-destination.obsidian";
 import { StaleExecutionRuntimeError } from "./shared/runtime/execution-runtime-lifetime";
 import { createKeyedOperationCoordinator } from "./shared/runtime/keyed-operation-coordinator";
 
@@ -49,10 +51,9 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly appServerQueries: AppServerMetadataQueries;
   private readonly threadCatalog: ThreadCatalog;
   private readonly threadFacts: ThreadFactSink;
+  private readonly threadMutations: ThreadMutationCommands;
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
-  private readonly threadNameMutations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-  private readonly threadLifecycleMutations = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
   private readonly threadGoalCoordinator = createThreadGoalCoordinator();
   private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
   private readonly shortLivedClients = new Set<AppServerClient>();
@@ -77,19 +78,30 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       },
       applyBatch: applyThreadFacts,
     };
+    this.threadMutations = createThreadMutationCommands({
+      port: createThreadMutationAdapter(this),
+      archiveExport: {
+        settings: () => this.archiveExportSettings(),
+        enabled: () => this.options.settings().archiveExportEnabled,
+        vaultPath: this.context.vaultPath,
+        vaultConfigDir: this.options.app.vault.configDir,
+      },
+      archiveDestination: () => createObsidianVaultMarkdownDestination(this.options.app.vault),
+      facts: this.threadFacts,
+      referenceThreads: () => this.threadCatalog.activeThreadsSnapshot() ?? [],
+      threadIsBusy: (threadId) =>
+        this.options.openPanelActivities().some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
+    });
     this.threadAutoTitleWork = createThreadAutoTitleWork({
       titlePort: this.threadTitlePort(),
-      mutationPort: createThreadMutationAdapter(this, this.threadLifecycleMutations),
-      nameMutations: this.threadNameMutations,
-      facts: this.threadFacts,
+      mutations: this.threadMutations,
     });
     this.settingsDynamicData = createSettingsAppServerDynamicData({
       vaultPath: this.context.vaultPath,
       clientAccess: this,
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
-      threadFacts: this.threadFacts,
-      threadLifecycleMutations: this.threadLifecycleMutations,
+      threadMutations: this.threadMutations,
     });
   }
 
@@ -103,8 +115,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFacts,
-      threadNameMutations: this.threadNameMutations,
-      threadLifecycleMutations: this.threadLifecycleMutations,
+      threadMutations: this.threadMutations,
       threadTitlePort: this.threadTitlePort(),
       threadAutoTitleWork: this.currentThreadAutoTitleWork(),
       threadGoalCoordinator: this.threadGoalCoordinator,
@@ -116,11 +127,8 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.assertActive();
     return {
       settings: this.threadsSettings(),
-      vaultPath: this.context.vaultPath,
       threadCatalog: this.threadCatalog,
-      threadFacts: this.threadFacts,
-      threadNameMutations: this.threadNameMutations,
-      threadMutationPort: createThreadMutationAdapter(this, this.threadLifecycleMutations),
+      threadMutations: this.threadMutations,
       threadTitlePort: this.threadTitlePort(),
       openNewPanel: () => this.options.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.options.openThreadInAvailableView(threadId),
@@ -295,7 +303,6 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       referenceActiveNoteOnSend: () => this.options.settings().referenceActiveNoteOnSend,
       attachmentFolder: () => this.options.settings().attachmentFolder,
       archiveExportEnabled: () => this.options.settings().archiveExportEnabled,
-      archiveExportSettings: () => this.archiveExportSettings(),
       scrollThreadFromComposerEdges: () => this.options.settings().scrollThreadFromComposerEdges,
       sendShortcut: () => this.options.settings().sendShortcut,
       showToolbar: () => this.options.settings().showToolbar,
@@ -305,7 +312,6 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private threadsSettings(): ThreadsViewSettingsAccess {
     return {
       archiveExportEnabled: () => this.options.settings().archiveExportEnabled,
-      archiveExportSettings: () => this.archiveExportSettings(),
     };
   }
 

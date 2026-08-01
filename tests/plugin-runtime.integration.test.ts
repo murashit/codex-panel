@@ -367,13 +367,14 @@ describe("CodexPanelPlugin runtime integration", () => {
     runtimeLeaf.view = runtimeView;
     const plugin = await pluginWithLeaves([], { threadsLeaves: [runtimeLeaf] });
     plugin.runtime.attachThreadsView(runtimeView);
+    const previousMutations = attachRuntime.mock.calls[0]?.[0].threadMutations;
     attachRuntime.mockClear();
 
     await publishCodexPath(plugin, "codex-next");
 
     expect(detachRuntime).toHaveBeenCalledOnce();
     expect(attachRuntime).toHaveBeenCalledOnce();
-    expect(attachRuntime.mock.calls[0]?.[0].vaultPath).toBe("/vault");
+    expect(attachRuntime.mock.calls[0]?.[0].threadMutations).not.toBe(previousMutations);
   });
 
   it("cancels selection rewrites before publishing a new app-server context", async () => {

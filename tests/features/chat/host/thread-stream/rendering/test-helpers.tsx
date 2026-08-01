@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 import { vi } from "vitest";
 
-import type { PendingApproval, PendingUserInput } from "../../../../../../src/domain/pending-requests/model";
+import type { PendingApproval, PendingUserInput } from "../../../../../../src/domain/interaction-requests/model";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { threadStreamViewBlocks } from "../../../../../../src/features/chat/host/thread-stream/blocks";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/host/thread-stream/pending-requests";
@@ -369,9 +369,7 @@ export function pendingUserInput(): PendingUserInput {
   return {
     requestId: 99,
     params: {
-      threadId: "thread",
       turnId: "turn",
-      itemId: "input",
       questions: [
         {
           id: "scope",
@@ -382,7 +380,6 @@ export function pendingUserInput(): PendingUserInput {
           options: [{ label: "Narrow", description: "Small change" }],
         },
       ],
-      autoResolutionMs: null,
     },
   };
 }
@@ -433,12 +430,6 @@ export function pendingApproval(): PendingApproval {
       { key: "cwd", value: "/vault" },
       { key: "network", value: "enabled" },
     ],
-    responses: {
-      accept: { permissions: { network: { enabled: true } }, scope: "turn" },
-      acceptSession: { permissions: { network: { enabled: true } }, scope: "session" },
-      decline: { permissions: {}, scope: "turn" },
-      cancel: { permissions: {}, scope: "turn" },
-    },
     actionOptions: null,
   };
 }

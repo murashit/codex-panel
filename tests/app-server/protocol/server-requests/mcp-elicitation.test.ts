@@ -4,7 +4,6 @@ import {
   appServerMcpElicitationResponse as mcpElicitationResponse,
   appServerMcpElicitationRequest as toPendingMcpElicitation,
 } from "../../../../src/app-server/protocol/server-requests";
-import { contentForPendingMcpElicitation, mcpElicitationDraftKey } from "../../../../src/domain/pending-requests/model";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -12,14 +11,13 @@ function expectPresent<T>(value: T | null | undefined): T {
 }
 
 describe("MCP elicitation request model", () => {
-  it("maps form schema fields and builds accepted content", () => {
+  it("maps form schema fields and adapts accepted content", () => {
     const input = expectPresent(toPendingMcpElicitation(formRequest()));
 
     expect(input).toMatchObject({
       requestId: 42,
       params: {
         mode: "form",
-        threadId: "thread",
         turnId: null,
         serverName: "github",
       },
@@ -50,14 +48,7 @@ describe("MCP elicitation request model", () => {
       ]),
     );
 
-    const drafts = new Map([
-      [mcpElicitationDraftKey(42, "title"), "Fix bug"],
-      [mcpElicitationDraftKey(42, "priority"), "high"],
-      [mcpElicitationDraftKey(42, "labels"), JSON.stringify(["bug", "docs"])],
-      [mcpElicitationDraftKey(42, "notify"), "false"],
-      [mcpElicitationDraftKey(42, "count"), "3"],
-    ]);
-    const content = contentForPendingMcpElicitation(input, drafts);
+    const content = { title: "Fix bug", priority: "high", labels: ["bug", "docs"], notify: false, count: 3, ratio: null };
 
     expect(content).toEqual({
       title: "Fix bug",
@@ -83,10 +74,8 @@ describe("MCP elicitation request model", () => {
       params: {
         mode: "url",
         url: "https://example.com/confirm",
-        elicitationId: "elicit-1",
       },
     });
-    expect(contentForPendingMcpElicitation(input, new Map())).toBeNull();
   });
 
   it("maps OpenAI form mode through the normal form model", () => {

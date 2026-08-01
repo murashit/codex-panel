@@ -4,7 +4,12 @@ import {
   appServerApprovalResponse as approvalResponse,
   appServerApprovalRequest as toPendingApproval,
 } from "../../../../src/app-server/protocol/server-requests";
-import { defaultPendingApprovalOptions, type PendingApproval } from "../../../../src/domain/pending-requests/model";
+import type { PendingApproval } from "../../../../src/domain/interaction-requests/model";
+
+type ApprovalRequest = Extract<
+  ServerRequest,
+  { method: "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" | "item/permissions/requestApproval" }
+>;
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -12,21 +17,21 @@ function expectPresent<T>(value: T | null | undefined): T {
 }
 
 function approvalActionOptions(approval: PendingApproval) {
-  return approval.actionOptions && approval.actionOptions.length > 0 ? approval.actionOptions : defaultPendingApprovalOptions();
+  return approval.actionOptions ?? [];
 }
 
 function approvalActionLabels(approval: NonNullable<ReturnType<typeof toPendingApproval>>): (string | null)[] {
   return approvalActionOptions(approval).map((option) => option.label);
 }
 
-function approvalResponseAt(approval: NonNullable<ReturnType<typeof toPendingApproval>>, index: number): unknown {
+function approvalResponseAt(request: ApprovalRequest, approval: NonNullable<ReturnType<typeof toPendingApproval>>, index: number): unknown {
   const option = expectPresent(approvalActionOptions(approval)[index]);
-  return approvalResponse(approval, option.action);
+  return approvalResponse(request, option.action);
 }
 
 describe("approval model", () => {
   it("classifies command approvals and builds v2 decisions", () => {
-    const request: ServerRequest = {
+    const request: ApprovalRequest = {
       id: 1,
       method: "item/commandExecution/requestApproval",
       params: {
@@ -49,11 +54,11 @@ describe("approval model", () => {
     expect(approval.title).toBe("Command approval");
     expect(approval.summary).toBe("npm run build");
     expect(approvalActionLabels(approval)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
-    expect(approvalResponseAt(approval, 1)).toEqual({ decision: "acceptForSession" });
+    expect(approvalResponseAt(request, approval, 1)).toEqual({ decision: "acceptForSession" });
   });
 
   it("builds permission grants only for accept actions", () => {
-    const request: ServerRequest = {
+    const request: ApprovalRequest = {
       id: 2,
       method: "item/permissions/requestApproval",
       params: {
@@ -67,10 +72,8 @@ describe("approval model", () => {
         permissions: { network: { enabled: true }, fileSystem: null },
       },
     };
-    const approval = expectPresent(toPendingApproval(request));
-
-    expect(approvalResponse(approval, "decline")).toEqual({ permissions: {}, scope: "turn" });
-    expect(approvalResponse(approval, "accept")).toEqual({
+    expect(approvalResponse(request, "decline")).toEqual({ permissions: {}, scope: "turn" });
+    expect(approvalResponse(request, "accept")).toEqual({
       permissions: { network: { enabled: true } },
       scope: "turn",
     });
@@ -102,7 +105,7 @@ describe("approval model", () => {
     const allowApiDecision = {
       applyNetworkPolicyAmendment: { network_policy_amendment: { host: "api.github.com", action: "allow" } },
     } as const;
-    const request: ServerRequest = {
+    const request: ApprovalRequest = {
       id: 30,
       method: "item/commandExecution/requestApproval",
       params: {
@@ -126,9 +129,13 @@ describe("approval model", () => {
 
     expect(options.map((option) => option.label)).toEqual(["Allow network rule", "Allow network rule", "Deny"]);
     expect(new Set(options.map((option) => option.id)).size).toBe(options.length);
-    expect(approvalResponseAt(approval, 0)).toEqual({ decision: allowRegistryDecision });
-    expect(approvalResponseAt(approval, 1)).toEqual({ decision: allowApiDecision });
-    expect(approvalResponseAt(approval, 2)).toEqual({ decision: "decline" });
+    for (const option of options) {
+      expect(option.action).toMatchObject({ kind: "approval-option", optionId: option.id });
+      expect(option.action).not.toHaveProperty("response");
+    }
+    expect(approvalResponseAt(request, approval, 0)).toEqual({ decision: allowRegistryDecision });
+    expect(approvalResponseAt(request, approval, 1)).toEqual({ decision: allowApiDecision });
+    expect(approvalResponseAt(request, approval, 2)).toEqual({ decision: "decline" });
   });
 
   it("preserves amendment intent alongside command approval responses", () => {
@@ -141,57 +148,53 @@ describe("approval model", () => {
     const acceptExecpolicyDecision = {
       acceptWithExecpolicyAmendment: { execpolicy_amendment: ["npm", "test"] as string[] },
     } as const;
-    const approval = expectPresent(
-      toPendingApproval({
-        id: 33,
-        method: "item/commandExecution/requestApproval",
-        params: {
-          command: "npm test",
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "command",
-          environmentId: null,
-          startedAtMs: 1,
-          reason: null,
-          commandActions: [],
-          proposedExecpolicyAmendment: ["npm", "test"],
-          proposedNetworkPolicyAmendments: [
-            { host: "registry.npmjs.org", action: "allow" },
-            { host: "example.com", action: "deny" },
-          ],
-          availableDecisions: [allowNetworkDecision, denyNetworkDecision, acceptExecpolicyDecision],
-        },
-      }),
-    );
+    const request: ApprovalRequest = {
+      id: 33,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        command: "npm test",
+        cwd: "/tmp/project",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        environmentId: null,
+        startedAtMs: 1,
+        reason: null,
+        commandActions: [],
+        proposedExecpolicyAmendment: ["npm", "test"],
+        proposedNetworkPolicyAmendments: [
+          { host: "registry.npmjs.org", action: "allow" },
+          { host: "example.com", action: "deny" },
+        ],
+        availableDecisions: [allowNetworkDecision, denyNetworkDecision, acceptExecpolicyDecision],
+      },
+    };
+    const approval = expectPresent(toPendingApproval(request));
     const options = approvalActionOptions(approval);
 
     expect(options).toEqual([
       expect.objectContaining({
         label: "Allow network rule",
-        intent: "accept-session",
         action: {
           kind: "approval-option",
+          optionId: options[0]?.id,
           intent: "accept-session",
-          response: { decision: allowNetworkDecision },
         },
       }),
       expect.objectContaining({
         label: "Deny network rule",
-        intent: "decline",
         action: {
           kind: "approval-option",
+          optionId: options[1]?.id,
           intent: "decline",
-          response: { decision: denyNetworkDecision },
         },
       }),
       expect.objectContaining({
         label: "Allow rule",
-        intent: "accept-session",
         action: {
           kind: "approval-option",
+          optionId: options[2]?.id,
           intent: "accept-session",
-          response: { decision: acceptExecpolicyDecision },
         },
       }),
     ]);
@@ -216,7 +219,7 @@ describe("approval model", () => {
         proposedNetworkPolicyAmendments: [],
         availableDecisions: [futureDecision],
       },
-    } as unknown as ServerRequest;
+    } as unknown as ApprovalRequest;
     const approval = expectPresent(toPendingApproval(request));
     const options = approvalActionOptions(approval);
 
@@ -224,36 +227,34 @@ describe("approval model", () => {
       {
         id: "approval-option:0:restartWithNetwork",
         label: "Choose",
-        action: { kind: "approval-option", intent: "decline", response: { decision: futureDecision } },
-        intent: "decline",
+        action: { kind: "approval-option", optionId: "approval-option:0:restartWithNetwork", intent: "decline" },
       },
     ]);
-    expect(approvalResponseAt(approval, 0)).toEqual({ decision: futureDecision });
+    expect(approvalResponseAt(request, approval, 0)).toEqual({ decision: futureDecision });
   });
 
-  it("falls back to generic command approval actions when app-server omits decisions", () => {
-    const approval = expectPresent(
-      toPendingApproval({
-        id: 31,
-        method: "item/commandExecution/requestApproval",
-        params: {
-          command: "npm run build",
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "command",
-          environmentId: null,
-          startedAtMs: 1,
-          reason: null,
-          commandActions: [],
-          proposedExecpolicyAmendment: null,
-          proposedNetworkPolicyAmendments: [],
-        },
-      }),
-    );
+  it("adapts a generic command approval decision when app-server omits decisions", () => {
+    const request: ApprovalRequest = {
+      id: 31,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        command: "npm run build",
+        cwd: "/tmp/project",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        environmentId: null,
+        startedAtMs: 1,
+        reason: null,
+        commandActions: [],
+        proposedExecpolicyAmendment: null,
+        proposedNetworkPolicyAmendments: [],
+      },
+    } as ApprovalRequest;
+    const approval = expectPresent(toPendingApproval(request));
 
-    expect(approvalActionLabels(approval)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
-    expect(approvalResponse(approval, "accept-session")).toEqual({ decision: "acceptForSession" });
+    expect(approval.actionOptions).toBeNull();
+    expect(approvalResponse(request, "accept-session")).toEqual({ decision: "acceptForSession" });
   });
 
   it("shows approval reasons first in pending request summaries", () => {
@@ -483,19 +484,19 @@ describe("approval model", () => {
       acceptSession: { decision: "acceptForSession" },
       cancel: { decision: "cancel" },
     },
-  ] satisfies { name: string; request: ServerRequest; acceptSession: unknown; cancel: unknown }[])(
+  ] satisfies { name: string; request: ApprovalRequest; acceptSession: unknown; cancel: unknown }[])(
     "builds action responses for $name",
     ({ request, acceptSession, cancel }) => {
       const approval = expectPresent(toPendingApproval(request));
       if (approval.kind === "command") {
-        expect(approvalResponseAt(approval, 0)).toEqual(acceptSession);
-        expect(approvalResponseAt(approval, 1)).toEqual(cancel);
-        expect(approvalResponseAt(approval, 2)).toEqual({ decision: "decline" });
+        expect(approvalResponseAt(request, approval, 0)).toEqual(acceptSession);
+        expect(approvalResponseAt(request, approval, 1)).toEqual(cancel);
+        expect(approvalResponseAt(request, approval, 2)).toEqual({ decision: "decline" });
         return;
       }
-      expect(approvalResponse(approval, "accept-session")).toEqual(acceptSession);
-      expect(approvalResponse(approval, "cancel")).toEqual(cancel);
-      expect(approvalResponse(approval, "decline")).toEqual({ decision: "decline" });
+      expect(approvalResponse(request, "accept-session")).toEqual(acceptSession);
+      expect(approvalResponse(request, "cancel")).toEqual(cancel);
+      expect(approvalResponse(request, "decline")).toEqual({ decision: "decline" });
     },
   );
 });

@@ -3,25 +3,19 @@ import type { Thread } from "../../domain/threads/model";
 import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
 import { DeferredTask } from "../../shared/runtime/deferred-task";
 import { isStaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
-import type { KeyedOperationCoordinator } from "../../shared/runtime/keyed-operation-coordinator";
 import type { ObservedPaginatedResult } from "../../shared/runtime/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../shared/runtime/observed-result";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
-import type { ArchiveExportDestination, ArchiveExportSettings } from "../threads/workflows/archive-export";
-import type { ThreadMutationPort, ThreadTitlePort } from "../threads/workflows/ports";
-import type { ThreadFactSink } from "../threads/workflows/thread-facts";
-import { createThreadMutationCommands, type ThreadMutationCommands } from "../threads/workflows/thread-mutation-commands";
+import type { ThreadTitlePort } from "../threads/workflows/ports";
+import type { ThreadMutationCommands } from "../threads/workflows/thread-mutation-commands";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
 import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows, transitionThreadsRenameState } from "./state";
 export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
-  readonly vaultPath: string;
   readonly threadCatalog: ThreadsViewThreadCatalog;
-  readonly threadFacts: ThreadFactSink;
-  readonly threadNameMutations: KeyedOperationCoordinator<string>;
-  readonly threadMutationPort: ThreadMutationPort;
+  readonly threadMutations: ThreadMutationCommands;
   readonly threadTitlePort: ThreadTitlePort;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
@@ -32,15 +26,12 @@ type ThreadsViewThreadCatalog = ThreadCatalogPaginatedActiveReader;
 
 export interface ThreadsViewSettingsAccess {
   archiveExportEnabled(): boolean;
-  archiveExportSettings(): ArchiveExportSettings;
 }
 
 export interface ThreadsViewSessionEnvironment {
   root: HTMLElement;
   host: ThreadsViewHost;
   registerPointerDown(handler: (event: PointerEvent) => void): void;
-  archiveDestination(): ArchiveExportDestination;
-  vaultConfigDir(): string;
   viewWindow(): Window | null;
 }
 
@@ -74,22 +65,7 @@ export class ThreadsViewSession {
 
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
     this.renderTask = new DeferredTask(() => this.viewWindow(), 0);
-    this.mutations = createThreadMutationCommands({
-      port: this.host.threadMutationPort,
-      nameMutations: this.host.threadNameMutations,
-      archiveExport: {
-        settings: () => this.host.settings.archiveExportSettings(),
-        enabled: () => this.host.settings.archiveExportEnabled(),
-        vaultPath: this.host.vaultPath,
-        vaultConfigDir: this.environment.vaultConfigDir(),
-      },
-      archiveDestination: () => this.environment.archiveDestination(),
-      facts: this.host.threadFacts,
-      referenceThreads: () => this.threads,
-      notice: (message) => {
-        new Notice(message);
-      },
-    });
+    this.mutations = this.host.threadMutations;
     this.titleService = createThreadTitleService({
       port: this.host.threadTitlePort,
     });
@@ -379,19 +355,19 @@ export class ThreadsViewSession {
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
     if (this.lifecycleBusyThreadIds.has(threadId)) return;
-    const panelActivity = this.host.openPanelActivities().find((activity) => activity.threadId === threadId);
-    if (panelActivity?.pending || panelActivity?.running) {
-      new Notice("Finish or interrupt the thread before archiving it.");
-      return;
-    }
     const viewLifetime = this.lifetime.signal();
     this.lifecycleBusyThreadIds.add(threadId);
     this.render();
     try {
-      await this.mutations.archiveThread(threadId, {
+      const result = await this.mutations.archiveThread(threadId, {
         saveMarkdown,
       });
       if (!this.lifetime.isCurrent(viewLifetime)) return;
+      if (result.kind === "blocked") {
+        new Notice("Finish or interrupt the thread before archiving it.");
+        return;
+      }
+      if (result.exportedPath) new Notice(`Saved archived thread to ${result.exportedPath}.`);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
     } catch (error) {

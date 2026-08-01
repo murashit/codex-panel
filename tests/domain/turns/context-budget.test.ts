@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../../src/domain/chat/context-budget";
+import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../../src/domain/turns/context-budget";
 
 describe("UTF-8 context budgets", () => {
   it.each([

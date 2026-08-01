@@ -1,6 +1,6 @@
-import type { VaultFileReference } from "../../domain/chat/input";
-import { isPanelSubmissionClientId, turnContextSubmissionId } from "../../domain/chat/submission-id";
 import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
+import type { VaultFileReference } from "../../domain/turns/input";
+import { isPanelSubmissionClientId, turnContextSubmissionId } from "../../domain/turns/submission-id";
 
 /*
  * Read-only compatibility for v2 metadata envelopes written by Codex Panel
