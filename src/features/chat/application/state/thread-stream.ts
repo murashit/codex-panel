@@ -1,12 +1,13 @@
-import {
-  streamedItemOutputThreadStreamItem,
-  streamedTextThreadStreamItem,
-  streamedToolOutputThreadStreamItem,
-} from "../../domain/thread-stream/factories/streaming-items";
-import { normalizeProposedPlanMarkdown } from "../../domain/thread-stream/format/proposed-plan";
+import { streamedItemOutputThreadStreamItem } from "../../domain/thread-stream/factories/streaming-items";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamSemanticClassifications } from "../../domain/thread-stream/semantics/classify";
 import { threadStreamIsTurnInitiator } from "../../domain/thread-stream/semantics/predicates";
+import {
+  appendAssistantStreamingDelta,
+  appendPlanStreamingDelta,
+  appendTextStreamingDelta,
+  appendToolOutputStreamingDelta,
+} from "../../domain/thread-stream/streaming-deltas";
 import { completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import { definedPatch, patchObject } from "./patch";
 
@@ -296,30 +297,9 @@ function appendAssistantDeltaToThreadStream(
   return updateActiveSegment(current, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) =>
-        item.kind === "dialogue" && item.dialogueKind === "assistantResponse"
-          ? {
-              ...item,
-              text: `${item.text}${delta}`,
-              copyText: `${item.text}${delta}`,
-              turnId: item.turnId ?? turnId,
-              dialogueState: "streaming",
-            }
-          : item,
-      );
+      return replaceActiveSegmentItem(segment, index, (item) => appendAssistantStreamingDelta(item, sourceItemId, turnId, delta));
     }
-    return appendActiveSegmentItem(segment, {
-      id: sourceItemId,
-      kind: "dialogue",
-      dialogueKind: "assistantResponse",
-      role: "assistant",
-      text: delta,
-      copyText: delta,
-      turnId,
-      sourceItemId,
-      provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId },
-      dialogueState: "streaming",
-    });
+    return appendActiveSegmentItem(segment, appendAssistantStreamingDelta(null, sourceItemId, turnId, delta));
   });
 }
 
@@ -332,32 +312,9 @@ function appendPlanDeltaToThreadStream(
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) => {
-        if (item.kind !== "dialogue" || item.role !== "assistant") return item;
-        const text = normalizeProposedPlanMarkdown(`${item.text}${delta}`);
-        return {
-          ...item,
-          dialogueKind: "proposedPlan",
-          text,
-          copyText: text,
-          turnId: item.turnId ?? turnId,
-          dialogueState: "streaming",
-        };
-      });
+      return replaceActiveSegmentItem(segment, index, (item) => appendPlanStreamingDelta(item, sourceItemId, turnId, delta));
     }
-    const text = normalizeProposedPlanMarkdown(delta);
-    return appendActiveSegmentItem(segment, {
-      id: sourceItemId,
-      kind: "dialogue",
-      dialogueKind: "proposedPlan",
-      role: "assistant",
-      text,
-      copyText: text,
-      turnId,
-      sourceItemId,
-      provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId },
-      dialogueState: "streaming",
-    });
+    return appendActiveSegmentItem(segment, appendPlanStreamingDelta(null, sourceItemId, turnId, delta));
   });
 }
 
@@ -372,17 +329,9 @@ function appendItemTextToThreadStream(
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) => appendTextToMatchingStreamItemKind(item, kind, delta));
+      return replaceActiveSegmentItem(segment, index, (item) => appendTextStreamingDelta(item, sourceItemId, turnId, label, delta, kind));
     }
-    return appendActiveSegmentItem(segment, {
-      ...streamedTextThreadStreamItem({
-        id: sourceItemId,
-        kind,
-        label,
-        delta,
-        turnId,
-      }),
-    });
+    return appendActiveSegmentItem(segment, appendTextStreamingDelta(null, sourceItemId, turnId, label, delta, kind));
   });
 }
 
@@ -397,20 +346,10 @@ function appendToolOutputToThreadStream(
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
       return replaceActiveSegmentItem(segment, index, (item) =>
-        item.kind === "tool" || item.kind === "hook" || item.kind === "reasoning"
-          ? { ...item, output: `${item.output ?? ""}${delta}` }
-          : item,
+        appendToolOutputStreamingDelta(item, sourceItemId, turnId, delta, fallbackLabel, { allowReasoning: true }),
       );
     }
-    return appendActiveSegmentItem(
-      segment,
-      streamedToolOutputThreadStreamItem({
-        id: sourceItemId,
-        turnId,
-        output: delta,
-        fallbackLabel,
-      }),
-    );
+    return appendActiveSegmentItem(segment, appendToolOutputStreamingDelta(null, sourceItemId, turnId, delta, fallbackLabel));
   });
 }
 
@@ -474,11 +413,6 @@ function updateActiveSegment(
         ? activeSegmentFromItems(turnId, activeSegment.items)
         : activeSegmentFromItems(turnId, []);
   return patchObject(state, { activeSegment: update(segment) });
-}
-
-function appendTextToMatchingStreamItemKind(item: ThreadStreamItem, kind: "tool" | "hook" | "reasoning", delta: string): ThreadStreamItem {
-  if (item.kind !== kind) return item;
-  return { ...item, text: `${item.text ?? ""}${delta}` };
 }
 
 function shouldUseActiveSegment(

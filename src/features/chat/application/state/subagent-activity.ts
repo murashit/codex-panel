@@ -1,5 +1,3 @@
-import { streamedTextThreadStreamItem, streamedToolOutputThreadStreamItem } from "../../domain/thread-stream/factories/streaming-items";
-import { normalizeProposedPlanMarkdown } from "../../domain/thread-stream/format/proposed-plan";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import {
   type AgentCoordinationLifecycle,
@@ -8,6 +6,12 @@ import {
   applyAgentCoordinationUpdate,
   UNKNOWN_AGENT_COORDINATION_LIFECYCLE,
 } from "../../domain/thread-stream/semantics/agent-coordination";
+import {
+  appendAssistantStreamingDelta,
+  appendPlanStreamingDelta,
+  appendTextStreamingDelta,
+  appendToolOutputStreamingDelta,
+} from "../../domain/thread-stream/streaming-deltas";
 import { upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 
 interface SubagentActivityEntry extends AgentCoordinationLifecycle {
@@ -94,25 +98,25 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
         ...entry,
         childTurnId: action.childTurnId,
-        latestItem: appendAssistantDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta),
+        latestItem: appendAssistantStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta),
       }));
     case "subagent-activity/plan-delta-appended":
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
         ...entry,
         childTurnId: action.childTurnId,
-        latestItem: appendPlanDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta),
+        latestItem: appendPlanStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta),
       }));
     case "subagent-activity/text-delta-appended":
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
         ...entry,
         childTurnId: action.childTurnId,
-        latestItem: appendTextDelta(entry.latestItem, action.itemId, action.childTurnId, action.label, action.delta, action.kind),
+        latestItem: appendTextStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.label, action.delta, action.kind),
       }));
     case "subagent-activity/tool-output-appended":
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
         ...entry,
         childTurnId: action.childTurnId,
-        latestItem: appendToolOutput(entry.latestItem, action.itemId, action.childTurnId, action.delta, action.fallbackLabel),
+        latestItem: appendToolOutputStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta, action.fallbackLabel),
       }));
     case "subagent-activity/turn-completed":
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
@@ -181,75 +185,6 @@ function observedLatestItem(current: ThreadStreamItem | null, item: ThreadStream
   if (advance || !current) return item;
   if (!sameSourceItem(current, item.id)) return current;
   return upsertThreadStreamItemById([current], item)[0] ?? item;
-}
-
-function appendAssistantDelta(current: ThreadStreamItem | null, itemId: string, turnId: string, delta: string): ThreadStreamItem {
-  if (current && sameSourceItem(current, itemId) && current.kind === "dialogue" && current.dialogueKind === "assistantResponse") {
-    return {
-      ...current,
-      text: `${current.text}${delta}`,
-      copyText: `${current.text}${delta}`,
-      turnId,
-      dialogueState: "streaming",
-    };
-  }
-  return {
-    id: itemId,
-    kind: "dialogue",
-    dialogueKind: "assistantResponse",
-    role: "assistant",
-    text: delta,
-    copyText: delta,
-    turnId,
-    sourceItemId: itemId,
-    provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: itemId },
-    dialogueState: "streaming",
-  };
-}
-
-function appendPlanDelta(current: ThreadStreamItem | null, itemId: string, turnId: string, delta: string): ThreadStreamItem {
-  const previousText =
-    current && sameSourceItem(current, itemId) && current.kind === "dialogue" && current.role === "assistant" ? current.text : "";
-  const text = normalizeProposedPlanMarkdown(`${previousText}${delta}`);
-  return {
-    id: itemId,
-    kind: "dialogue",
-    dialogueKind: "proposedPlan",
-    role: "assistant",
-    text,
-    copyText: text,
-    turnId,
-    sourceItemId: itemId,
-    provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: itemId },
-    dialogueState: "streaming",
-  };
-}
-
-function appendTextDelta(
-  current: ThreadStreamItem | null,
-  itemId: string,
-  turnId: string,
-  label: string,
-  delta: string,
-  kind: "tool" | "hook" | "reasoning",
-): ThreadStreamItem {
-  if (current && sameSourceItem(current, itemId) && current.kind === kind) {
-    return { ...current, text: `${current.text ?? ""}${delta}`, turnId };
-  }
-  return streamedTextThreadStreamItem({ id: itemId, turnId, label, delta, kind });
-}
-
-function appendToolOutput(
-  current: ThreadStreamItem | null,
-  itemId: string,
-  turnId: string,
-  delta: string,
-  fallbackLabel: string,
-): ThreadStreamItem {
-  if (current && sameSourceItem(current, itemId) && (current.kind === "tool" || current.kind === "hook")) {
-    return { ...current, output: `${current.output ?? ""}${delta}`, turnId };
-  }
-  return streamedToolOutputThreadStreamItem({ id: itemId, turnId, output: delta, fallbackLabel });
 }
 
 function latestDisplayableItem(items: readonly ThreadStreamItem[]): ThreadStreamItem | null {
