@@ -44,6 +44,8 @@ Organize modules by reason to change. Add an abstraction only when it owns a lif
 
 Runtime UI composition is Preact-owned. Obsidian and app-server lifecycles and imperative host bridges stay outside components; those bridges should remain narrow rather than becoming a second UI composition system.
 
+The chat host owns session lifecycle and the display projections that adapt application state to pure UI contracts. Do not insert a separate panel presentation layer between host and UI; keep projection helpers local to host and keep UI independent of host, application, app-server, and Obsidian ownership.
+
 Chat-visible state should have one authoritative owner. Components should consume narrow projections of that state rather than mirror it into another reactive store.
 
 Panel-side cached app-server resources have one authoritative owner. Reads with different completeness or freshness requirements must not overwrite one another's contracts; reconcile partial read models only at explicit lifecycle boundaries. Features may project authoritative event results into that state without introducing parallel caches or global continuous synchronization.

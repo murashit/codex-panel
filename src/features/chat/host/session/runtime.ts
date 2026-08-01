@@ -1,12 +1,15 @@
+import { Notice } from "obsidian";
+
 import { codexPanelAppServerInitializeParams } from "../../../../app-server/connection/client-profile";
 import { ConnectionManager } from "../../../../app-server/connection/connection-manager";
 import { isStaleExecutionRuntimeError } from "../../../../shared/runtime/execution-runtime-lifetime";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import { createReconnectPanelCommand } from "../../application/connection/reconnect-command";
 import { createLocalIdSource, type LocalIdSource } from "../../application/local-id-source";
+import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { createChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
-import type { ChatConnectionPhase } from "../../application/state/root-reducer";
+import { activeThreadId, type ChatConnectionPhase } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { createEphemeralThreadLifecycle } from "../../application/threads/ephemeral-thread-lifecycle";
 import { createPersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
@@ -16,15 +19,21 @@ import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
-import { createChatPanelRuntimeNotices } from "../../panel/runtime/notices";
-import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream/scroll-binding";
-import { createChatComposerController } from "../bundles/composer-bundle";
-import { createConnectionBundle } from "../bundles/connection-bundle";
-import { createShellBundle } from "../bundles/shell-bundle";
-import { createThreadCommandBundle, createThreadFoundation, createThreadLifecycleBundle } from "../bundles/thread-bundle";
-import { createTurnBundle } from "../bundles/turn-bundle";
+import { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
+import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
+import { obsidianFuzzyMatcher } from "../obsidian/fuzzy-search.obsidian";
+import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
+import { VaultNoteCandidateProvider } from "../obsidian/vault-note-candidate-provider.obsidian";
+import { createChatPanelRuntimeNotices } from "../runtime/notices";
+import { createChatThreadStreamDependencies } from "../thread-stream/context.obsidian";
+import type { ChatThreadStreamScrollBinding } from "../thread-stream/scroll-binding";
+import { createToolbarUiActions } from "../toolbar/actions";
+import { toolbarOutsidePointerHit } from "../toolbar/hit-test.dom";
+import { createSessionConnection } from "./connection";
 import type { ChatViewDeferredTasks } from "./deferred-work";
+import { createSessionThreadCommands, createSessionThreadFeatures, createSessionThreadFoundation } from "./thread";
+import { createSessionTurn } from "./turn";
 
 interface ChatPanelSessionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -69,7 +78,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     host.environment.obsidian.requestWorkspaceLayoutSave();
   };
 
-  const threadFoundation = createThreadFoundation(host, {
+  const threadFoundation = createSessionThreadFoundation(host, {
     appServer: currentAppServer,
     localItemIds,
     status,
@@ -77,7 +86,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const invalidateThreadWork = (): void => {
     threadFoundation.invalidateActiveThreadWork();
   };
-  const connectionBundle = createConnectionBundle(
+  const sessionConnection = createSessionConnection(
     {
       environment,
       stateStore,
@@ -94,10 +103,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       status,
     },
   );
-  const {
-    connection: { coordinator: connectionCoordinator },
-    inboundHandler,
-  } = connectionBundle;
+  const { coordinator: connectionCoordinator, inboundHandler } = sessionConnection;
   const ensureConnected = () => connectionCoordinator.ensureConnected();
   const appServer = createChatAppServerGateway(currentAppServer, {
     vaultPath: resourceContext.vaultPath,
@@ -142,7 +148,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       void threadFoundation.goalSync.syncThreadGoal(threadId);
     },
   });
-  const threadLifecycle = createThreadLifecycleBundle(host, {
+  const threadFeatures = createSessionThreadFeatures(host, {
     appServer,
     localItemIds,
     ensureConnected,
@@ -151,8 +157,54 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     foundation: threadFoundation,
     notifyActiveThreadIdentityChanged,
   });
-  const composerController = createChatComposerController(host, {
-    runtimeSettings,
+  const composerController = new ChatComposerController({
+    fuzzyMatcher: obsidianFuzzyMatcher,
+    noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
+    contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app),
+    attachmentHandler: createVaultComposerAttachmentHandler({
+      app: environment.obsidian.app,
+      attachmentFolder: () => environment.plugin.settings.attachmentFolder(),
+    }),
+    sourcePath: () => environment.obsidian.app.workspace.getActiveFile()?.path ?? "",
+    stateStore,
+    viewId: environment.obsidian.viewId,
+    referenceActiveNoteOnSend: () => environment.plugin.settings.referenceActiveNoteOnSend(),
+    sendShortcut: () => environment.plugin.settings.sendShortcut(),
+    scrollThreadFromComposerEdges: () => environment.plugin.settings.scrollThreadFromComposerEdges(),
+    runtimeActions: {
+      requestModel: (modelId) => runtimeSettings.requestModelFromUi(modelId),
+      requestReasoningEffort: (effort) => runtimeSettings.requestReasoningEffortFromUi(effort),
+    },
+    threadScrollFromComposer: (action) => {
+      host.threadStreamScrollBinding.scrollFromComposer(action);
+    },
+    togglePlan: () => void runtimeSettings.toggleCollaborationMode(),
+    toggleAutoReview: () => void runtimeSettings.toggleAutoReview(),
+    toggleFast: () => void runtimeSettings.toggleFastMode(),
+    canFocus: environment.obsidian.isForeground,
+    onAttachmentError: (message) => {
+      new Notice(message);
+    },
+    sharedResources: {
+      runtimeConfigSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
+      rateLimitsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
+      modelsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("models"),
+      skillsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("skills"),
+      permissionProfilesSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("permissionProfiles"),
+      activeThreadsSnapshot: () => environment.plugin.threadCatalog.activeThreadsSnapshot(),
+      subscribe: (listener) => {
+        const unsubscribers = [
+          environment.plugin.appServerQueries.observeMetadataResource("runtimeConfig", listener),
+          environment.plugin.appServerQueries.observeMetadataResource("models", listener),
+          environment.plugin.appServerQueries.observeMetadataResource("skills", listener),
+          environment.plugin.appServerQueries.observeMetadataResource("permissionProfiles", listener),
+          environment.plugin.threadCatalog.observeActiveThreadsResult(listener),
+        ];
+        return () => {
+          for (const unsubscribe of unsubscribers) unsubscribe();
+        };
+      },
+    },
   });
   const ephemeral = createEphemeralThreadLifecycle({
     stateStore,
@@ -171,14 +223,13 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     unsubscribeThread: (threadId) => appServer.threadSubscription.unsubscribeThread(threadId),
     addSystemMessage: status.addSystemMessage,
   });
-  const threadCommands = createThreadCommandBundle(host, {
+  const threadCommands = createSessionThreadCommands(host, {
     appServer,
     ensureConnected,
     status,
     composerController,
     foundation: threadFoundation,
-    lifecycle: threadLifecycle,
-    notifyActiveThreadIdentityChanged,
+    features: threadFeatures,
     navigation,
     activatePersistentThread: host.activatePersistentThread,
   });
@@ -188,7 +239,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       connectionCoordinator.invalidate();
       invalidateThreadWork();
       host.deferredTasks.clearDiagnostics();
-      connectionBundle.invalidateConnectionScope();
+      sessionConnection.invalidateConnectionScope();
       connection.disconnect();
     },
     setStatus: (statusText: string, phase?: ChatConnectionPhase) => {
@@ -196,7 +247,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     ensureConnected,
     isConnected: () => connection.isConnected(),
-    resumeThread: (threadId: string) => threadLifecycle.resume.resumeThread(threadId),
+    resumeThread: (threadId: string) => threadFeatures.resume.resumeThread(threadId),
     addSystemMessage: (text: string) => {
       status.addSystemMessage(text);
     },
@@ -205,41 +256,112 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const reconnect = async () => {
     await reconnectPanel();
   };
-  const turn = createTurnBundle(host, {
+  const turn = createSessionTurn(host, {
     localItemIds,
     appServer,
     status,
     inboundHandler,
-    threadLifecycle,
+    threadLifecycle: threadFeatures,
     threadCommands: threadCommands.commands,
     navigation: threadCommands.navigation,
     composerController,
     runtimeSettings,
     threadStart,
-    goals: threadLifecycle.goals,
+    goals: threadFeatures.goals,
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
     reconnect,
     runtimeProjection,
     refreshDiagnostics: () => connectionCoordinator.refreshDiagnostics(),
     notifyActiveThreadIdentityChanged,
   });
-  const shell = createShellBundle(host, {
-    connection,
+  const toolbarActions = createToolbarUiActions({
     connectionCoordinator,
-    goals: threadLifecycle.goals,
-    rename: threadLifecycle.rename,
+    reconnectCommand: reconnect,
     threadCommands: threadCommands.commands,
-    toolbarPanelActions: threadCommands.toolbarPanelActions,
+    goals: threadFeatures.goals,
+    toolbarPanel: threadCommands.toolbarPanelActions,
+    rename: threadFeatures.rename,
     navigation: threadCommands.navigation,
-    reconnect,
-    history: threadFoundation.history,
-    pendingRequests: turn.pendingRequests,
-    turn,
-    composerController,
+    loadMoreThreads: () => environment.plugin.threadCatalog.loadMoreActiveThreads(),
+    openSideChat: () => {
+      const state = stateStore.getState();
+      if (activePanelOperationDecision(state, "start-side-chat").kind !== "allowed") return;
+      const threadId = activeThreadId(state);
+      if (!threadId) return;
+      const thread = environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId);
+      void environment.plugin.workspace.openSideChat(threadId, thread?.name ?? thread?.preview ?? null);
+    },
+    debugDetails: {
+      stateStore,
+      connected: () => connection.isConnected(),
+      vaultPath: () => environment.plugin.appServerContext.vaultPath,
+      configuredCommand: () => environment.plugin.appServerContext.codexPath,
+      runtimeConfig: () => environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
+      rateLimit: () => environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
+      availableModels: () => environment.plugin.appServerQueries.metadataSnapshot("models") ?? [],
+      metadataDiagnostics: () => environment.plugin.appServerQueries.metadataDiagnosticsSnapshot(),
+    },
   });
+  const toolbarDependencies = {
+    connection: {
+      connected: () => connection.isConnected(),
+    },
+    settings: {
+      vaultPath: () => environment.plugin.appServerContext.vaultPath,
+      configuredCommand: () => environment.plugin.appServerContext.codexPath,
+      archiveExportEnabled: () => environment.plugin.settings.archiveExportEnabled(),
+    },
+  };
+  const goalDependencies = {
+    sendShortcut: () => environment.plugin.settings.sendShortcut(),
+    actions: threadFeatures.goals,
+  };
+  const threadStreamContext = createChatThreadStreamDependencies({
+    panelId: environment.obsidian.viewId,
+    app: environment.obsidian.app,
+    owner: environment.obsidian.owner,
+    stateStore,
+    vaultPath: environment.plugin.appServerContext.vaultPath,
+    loadOlderTurns: () => void threadFoundation.history.loadOlder(),
+    actions: {
+      rollbackThread: (threadId) => void threadCommands.commands.rollbackThread(threadId),
+      forkThreadFromTurn: (threadId, turnId, archiveSource) =>
+        void threadCommands.commands.forkThreadFromTurn(threadId, turnId, archiveSource),
+      implementPlan: (itemId) => void turn.submissionCommands.planImplementation.implement(itemId),
+      openThreadInAvailableView: (threadId) => void environment.plugin.workspace.openThreadInAvailableView(threadId),
+      openThreadInNewView: (threadId) => void environment.plugin.workspace.openThreadInNewView(threadId),
+      openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
+    },
+    requests: turn.pendingRequests,
+  });
+  const shell = {
+    parts: {
+      toolbar: {
+        dependencies: toolbarDependencies,
+        actions: toolbarActions,
+      },
+      goal: goalDependencies,
+      threadStream: {
+        context: threadStreamContext,
+        scrollPortBinding: host.threadStreamScrollBinding,
+      },
+      composer: {
+        presenter: composerController,
+        actions: {
+          submit: () => void turn.submissionCommands.composerSubmit.submit(),
+        },
+      },
+    },
+    closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => {
+      threadCommands.toolbarPanelActions.closeOnOutsidePointer({
+        hit: toolbarOutsidePointerHit(event, environment.view.panelRoot(), environment.view.viewWindow()),
+        renameEditing: threadFeatures.rename.isEditing(),
+      });
+    },
+  };
   const refreshSharedThreads = async (): Promise<void> => {
     try {
-      await connectionBundle.refreshSharedThreads();
+      await sessionConnection.refreshSharedThreads();
     } catch (error) {
       if (isStaleExecutionRuntimeError(error)) return;
       throw error;
@@ -262,7 +384,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const commands = {
     invalidateThreadWork: () => {
       invalidateThreadWork();
-      threadLifecycle.restoration.invalidate();
+      threadFeatures.restoration.invalidate();
     },
     reconnect,
     refreshSharedThreads,
@@ -275,9 +397,9 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       coordinator: connectionCoordinator,
     },
     thread: {
-      resume: threadLifecycle.resume,
-      restoration: threadLifecycle.restoration,
-      identity: threadLifecycle.identity,
+      resume: threadFeatures.resume,
+      restoration: threadFeatures.restoration,
+      identity: threadFeatures.identity,
       ephemeral,
       navigation,
     },
@@ -296,7 +418,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       commands.invalidateThreadWork();
       host.deferredTasks.clearAll();
       threadCatalogObserver.unsubscribe();
-      connectionBundle.invalidateConnectionScope();
+      sessionConnection.invalidateConnectionScope();
       composerController.dispose();
       host.threadStreamScrollBinding.dispose();
       unmount();

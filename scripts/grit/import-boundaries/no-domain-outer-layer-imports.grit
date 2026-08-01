@@ -15,7 +15,7 @@ private pattern root_outer_layer_source() {
   }
 }
 
-private pattern chat_domain_outer_layer_source() { r"^[\"'](?:\.\./)+(?:application|host|panel|ui)(?:/.*)?[\"']$" }
+private pattern chat_domain_outer_layer_source() { r"^[\"'](?:\.\./)+(?:application|host|ui)(?:/.*)?[\"']$" }
 
 private pattern domain_outer_layer_source() {
   or {

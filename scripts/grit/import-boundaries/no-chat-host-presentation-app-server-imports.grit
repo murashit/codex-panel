@@ -1,0 +1,15 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsImportCallExpression()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where {
+    $source <: r"^[\"'](?:(?:\.\./)+app-server|src/(?:app-server|features/chat/app-server))(?:/.*)?[\"']$"
+  },
+  register_diagnostic(span=$stmt, message="Chat host presentation modules must receive app-server data through session composition instead of importing app-server adapters directly.", severity="error")
+}

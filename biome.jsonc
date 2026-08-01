@@ -95,12 +95,8 @@
       "includes": ["**/src/features/chat/app-server/**/*.{ts,tsx}"]
     },
     {
-      "path": "./scripts/grit/import-boundaries/no-chat-host-rendering-layer-imports.grit",
-      "includes": ["**/src/features/chat/host/**/*.{ts,tsx}"]
-    },
-    {
-      "path": "./scripts/grit/import-boundaries/no-chat-panel-runtime-boundary-imports.grit",
-      "includes": ["**/src/features/chat/panel/**/*.{ts,tsx}"]
+      "path": "./scripts/grit/import-boundaries/no-chat-host-presentation-app-server-imports.grit",
+      "includes": ["**/src/features/chat/host/{composer,goal,runtime,shell,thread-stream,toolbar}/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-ui-outer-layer-imports.grit",

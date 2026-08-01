@@ -8,7 +8,7 @@ import type {
   ChatPanelComposerSharedValues,
   ChatPanelThreadStreamSharedValues,
   ChatPanelToolbarSharedValues,
-} from "../../../../src/features/chat/panel/shell/selectors";
+} from "../../../../src/features/chat/host/shell/selectors";
 
 export interface ChatSharedDisplayValues {
   readonly threads: readonly Thread[];

@@ -162,25 +162,19 @@ const policyCases = [
   policyCase(
     "no-chat-app-server-outer-layer-imports.grit",
     "src/features/chat/app-server/escape.ts",
-    'import type { Panel } from "../panel/toolbar/actions";',
+    'import type { Host } from "../host/toolbar/actions";',
     'import type { Store } from "../application/state/store";',
   ),
   policyCase(
-    "no-chat-host-rendering-layer-imports.grit",
-    "src/features/chat/host/escape.tsx",
-    'import type { View } from "../ui/thread-stream/model";',
-    'import type { Store } from "../application/state/store";',
-  ),
-  policyCase(
-    "no-chat-panel-runtime-boundary-imports.grit",
-    "src/features/chat/panel/escape.ts",
-    'import type { Host } from "../host/contracts";',
-    'import type { View } from "../ui/thread-stream/model";',
+    "no-chat-host-presentation-app-server-imports.grit",
+    "src/features/chat/host/shell/escape.ts",
+    'import type { Gateway } from "../../app-server/session-gateway";',
+    'import type { Store } from "../../application/state/store";',
   ),
   policyCase(
     "no-chat-ui-outer-layer-imports.grit",
     "src/features/chat/ui/escape.ts",
-    'import type { Panel } from "../panel/shell/selectors";',
+    'import type { Host } from "../host/shell/selectors";',
     'import type { Item } from "../domain/thread-stream/items";',
   ),
   policyCase(
@@ -241,7 +235,7 @@ const policyCases = [
       ],
       valid: [
         {
-          path: "src/features/chat/panel/runtime/notices.ts",
+          path: "src/features/chat/host/runtime/notices.ts",
           source: "export const now = Date.now();",
         },
       ],
