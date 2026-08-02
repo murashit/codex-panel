@@ -1,14 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
-import {
-  EphemeralThreadCleanupRequiredError,
-  forkEphemeralThread,
-  listThreads,
-  startThread,
-  threadFromAppServerRecord,
-  unsubscribeThread,
-} from "../../../src/app-server/services/threads";
+import { listThreads, startThread, threadFromAppServerRecord, unsubscribeThread } from "../../../src/app-server/services/threads";
 
 describe("app-server thread response adapters", () => {
   it("preserves spawned subagent provenance in the domain thread", () => {
@@ -82,116 +75,12 @@ describe("app-server thread response adapters", () => {
     expect(thread.canAcceptDirectInput).toBe(false);
   });
 
-  it("forks read-only ephemeral side-chat threads behind a model-visible boundary", async () => {
-    const client = {
-      request: vi.fn((method: string) => {
-        if (method === "config/read") return Promise.resolve({ config: { developer_instructions: "Existing policy." } });
-        if (method === "thread/inject_items") return Promise.resolve({});
-        return Promise.resolve({
-          thread: { id: "side", preview: "", name: null, createdAt: 1, updatedAt: 1 },
-          cwd: "/vault",
-          model: "gpt-5.5",
-          serviceTier: null,
-          approvalsReviewer: null,
-          reasoningEffort: null,
-          approvalPolicy: "never",
-          sandbox: { type: "readOnly", networkAccess: false },
-          activePermissionProfile: null,
-        });
-      }),
-    } as unknown as AppServerRequestClient;
-
-    const result = await forkEphemeralThread(client, "source", "/vault");
-
-    expect(client.request).toHaveBeenNthCalledWith(
-      2,
-      "thread/fork",
-      expect.objectContaining({
-        threadId: "source",
-        cwd: "/vault",
-        ephemeral: true,
-        sandbox: "read-only",
-        approvalPolicy: "never",
-        excludeTurns: true,
-        developerInstructions: expect.stringContaining("Existing policy."),
-      }),
-    );
-    expect(client.request).toHaveBeenNthCalledWith(1, "config/read", { cwd: "/vault" });
-    expect(client.request).toHaveBeenNthCalledWith(3, "thread/inject_items", {
-      threadId: "side",
-      items: [
-        {
-          type: "message",
-          role: "user",
-          content: [{ type: "input_text", text: expect.stringContaining("Side conversation boundary.") }],
-        },
-      ],
-    });
-    expect(result).toMatchObject({ sourceThreadId: "source", activation: { thread: { id: "side" } } });
-  });
-
   it("unsubscribes ephemeral threads instead of deleting them", async () => {
     const client = { request: vi.fn().mockResolvedValue({ status: "unsubscribed" }) } as unknown as AppServerRequestClient;
 
     await unsubscribeThread(client, "side", { timeoutMs: 5_000 });
 
     expect(client.request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side" }, { timeoutMs: 5_000 });
-  });
-
-  it("unsubscribes a fork when boundary injection fails", async () => {
-    const injectionError = new Error("inject failed");
-    const request = vi.fn((method: string) => {
-      if (method === "config/read") return Promise.resolve({ config: { developer_instructions: null } });
-      if (method === "thread/fork") {
-        return Promise.resolve({
-          thread: { id: "side", preview: "", name: null, createdAt: 1, updatedAt: 1 },
-          cwd: "/vault",
-          model: "gpt-5.5",
-          serviceTier: null,
-          approvalsReviewer: null,
-          reasoningEffort: null,
-          approvalPolicy: "never",
-          sandbox: { type: "readOnly", networkAccess: false },
-          activePermissionProfile: null,
-        });
-      }
-      if (method === "thread/inject_items") return Promise.reject(injectionError);
-      return Promise.resolve({ status: "unsubscribed" });
-    });
-    const client = { request } as unknown as AppServerRequestClient;
-
-    await expect(forkEphemeralThread(client, "source", "/vault")).rejects.toBe(injectionError);
-
-    expect(request).toHaveBeenLastCalledWith("thread/unsubscribe", { threadId: "side" }, { timeoutMs: 5_000 });
-  });
-
-  it("returns the fork id when boundary injection and cleanup both fail", async () => {
-    const injectionError = new Error("inject failed");
-    const cleanupError = new Error("unsubscribe failed");
-    const request = vi.fn((method: string) => {
-      if (method === "config/read") return Promise.resolve({ config: { developer_instructions: null } });
-      if (method === "thread/fork") {
-        return Promise.resolve({
-          thread: { id: "side", preview: "", name: null, createdAt: 1, updatedAt: 1 },
-          cwd: "/vault",
-          model: "gpt-5.5",
-          serviceTier: null,
-          approvalsReviewer: null,
-          reasoningEffort: null,
-          approvalPolicy: "never",
-          sandbox: { type: "readOnly", networkAccess: false },
-          activePermissionProfile: null,
-        });
-      }
-      if (method === "thread/inject_items") return Promise.reject(injectionError);
-      return Promise.reject(cleanupError);
-    });
-    const client = { request } as unknown as AppServerRequestClient;
-
-    const error = await forkEphemeralThread(client, "source", "/vault").catch((reason: unknown) => reason);
-
-    expect(error).toBeInstanceOf(EphemeralThreadCleanupRequiredError);
-    expect(error).toMatchObject({ threadId: "side", cause: injectionError, cleanupError });
   });
 
   it("starts panel-owned threads with the codex-panel service name", async () => {

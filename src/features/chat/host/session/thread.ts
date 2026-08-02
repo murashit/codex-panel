@@ -1,8 +1,7 @@
 import { Notice } from "obsidian";
-
-import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import type { ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
+import { recoverRolloutTokenUsage } from "../../app-server/rollout-token-usage";
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { chatThreadStreamViewState } from "../../application/state/active-turn";

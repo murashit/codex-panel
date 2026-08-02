@@ -1,16 +1,15 @@
-import type { ReasoningEffort } from "../../domain/catalog/metadata";
+import {
+  type EphemeralStructuredTurnRunner,
+  runEphemeralStructuredTurnForAssistantTranscriptText,
+  type StructuredTurnOutputSchema,
+} from "../../../app-server/services/ephemeral-structured-turn";
+import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import {
   THREAD_TITLE_MAX_CHARS,
   type ThreadTitleContext,
   threadTitleFromGeneratedText,
   threadTitlePrompt,
-} from "../../domain/threads/title-generation-model";
-import { turnTranscriptAssistantTextFromTurnRecord } from "../protocol/turn";
-import {
-  type EphemeralStructuredTurnRunner,
-  runEphemeralStructuredTurn,
-  type StructuredTurnOutputSchema,
-} from "./ephemeral-structured-turn";
+} from "../../../domain/threads/title-generation-model";
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
 const THREAD_TITLE_TIMEOUT_MS = 60_000;
@@ -52,22 +51,23 @@ export async function generateThreadTitleWithCodex(
   runtimeSettings: ThreadTitleRuntimeSettings,
   options: GenerateThreadTitleWithCodexOptions = {},
 ): Promise<string | null> {
-  const runner = options.runner ?? runEphemeralStructuredTurn;
-  const turn = await runner({
-    codexPath,
-    cwd,
-    serviceName: THREAD_TITLE_SERVICE_NAME,
-    developerInstructions: TITLE_DEVELOPER_INSTRUCTIONS,
-    prompt: threadTitlePrompt(context),
-    outputSchema: TITLE_OUTPUT_SCHEMA,
-    timeoutMs: THREAD_TITLE_TIMEOUT_MS,
-    serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
-    exitedMessage: "Codex title generation app-server exited.",
-    timedOutMessage: "Timed out while generating a Codex thread title.",
-    abortMessage: "Thread title generation cancelled.",
-    runtimeSettings: { model: runtimeSettings.threadNamingModel, effort: runtimeSettings.threadNamingEffort },
-    signal: options.signal,
-  });
-  const response = turnTranscriptAssistantTextFromTurnRecord(turn);
+  const response = await runEphemeralStructuredTurnForAssistantTranscriptText(
+    {
+      codexPath,
+      cwd,
+      serviceName: THREAD_TITLE_SERVICE_NAME,
+      developerInstructions: TITLE_DEVELOPER_INSTRUCTIONS,
+      prompt: threadTitlePrompt(context),
+      outputSchema: TITLE_OUTPUT_SCHEMA,
+      timeoutMs: THREAD_TITLE_TIMEOUT_MS,
+      serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
+      exitedMessage: "Codex title generation app-server exited.",
+      timedOutMessage: "Timed out while generating a Codex thread title.",
+      abortMessage: "Thread title generation cancelled.",
+      runtimeSettings: { model: runtimeSettings.threadNamingModel, effort: runtimeSettings.threadNamingEffort },
+      signal: options.signal,
+    },
+    options.runner,
+  );
   return response ? threadTitleFromGeneratedText(response) : null;
 }

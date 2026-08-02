@@ -5,7 +5,7 @@ import {
   fallbackAppServerRouteScope,
   isAppServerRouteScopeInActiveRouteScope,
   isTurnScopedAppServerRouteForIdleActiveThread,
-} from "../../../../app-server/routing/scope";
+} from "./route-scope";
 
 type ServerNotificationMethod = ServerNotification["method"];
 type RoutedNotification<M extends ServerNotificationMethod> = Extract<ServerNotification, { method: M }>;

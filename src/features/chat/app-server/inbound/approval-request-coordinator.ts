@@ -1,6 +1,6 @@
 import type { RequestId, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import { serverRequestApprovalDecisionSignature, serverRequestApprovalResponse } from "../../../../app-server/routing/server-requests";
-import type { ApprovalAction } from "../../../../domain/interaction-requests/model";
+import type { ApprovalAction } from "../../domain/pending-requests/model";
+import { serverRequestApprovalDecisionSignature, serverRequestApprovalResponse } from "./server-request-routing";
 
 export type ApprovalServerRequest = Extract<
   ServerRequest,

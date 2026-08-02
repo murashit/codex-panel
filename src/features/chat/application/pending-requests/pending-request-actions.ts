@@ -1,11 +1,6 @@
-import type {
-  ApprovalAction,
-  McpElicitationAction,
-  PendingRequestId,
-  PendingUserInput,
-} from "../../../../domain/interaction-requests/model";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
 import { answersForPendingUserInput } from "../../domain/pending-requests/drafts";
+import type { ApprovalAction, McpElicitationAction, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import type { ChatStateStore } from "../state/store";
 

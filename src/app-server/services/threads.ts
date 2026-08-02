@@ -11,7 +11,6 @@ import { REFERENCED_THREAD_TURN_LIMIT, type ReferencedThreadTranscriptPage } fro
 import type { TurnTranscriptSummary } from "../../domain/threads/transcript";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
-import { appServerSideChatBoundaryItem, sideChatDeveloperInstructions } from "../protocol/side-chat";
 import { type ThreadRecord, threadFromThreadRecord, threadsFromThreadRecords } from "../protocol/thread";
 import { appServerThreadGoalUpdate, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
 import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
@@ -245,57 +244,6 @@ function appServerSandboxMode(
   if (policy.type === "dangerFullAccess") return "danger-full-access";
   if (policy.type === "readOnly") return "read-only";
   return "workspace-write";
-}
-
-export interface EphemeralThreadForkSnapshot {
-  readonly activation: ThreadActivationSnapshot;
-  readonly sourceThreadId: string;
-}
-
-export class EphemeralThreadCleanupRequiredError extends Error {
-  readonly cleanupError: unknown;
-  readonly threadId: string;
-
-  constructor(threadId: string, cause: unknown, cleanupError: unknown) {
-    super(`Could not prepare or unsubscribe side chat ${threadId}.`, { cause });
-    this.name = "EphemeralThreadCleanupRequiredError";
-    this.threadId = threadId;
-    this.cleanupError = cleanupError;
-  }
-}
-
-export async function forkEphemeralThread(
-  client: AppServerRequestClient,
-  sourceThreadId: string,
-  vaultPath: string,
-): Promise<EphemeralThreadForkSnapshot> {
-  const config = await client.request("config/read", { cwd: vaultPath });
-  const response = await client.request("thread/fork", {
-    threadId: sourceThreadId,
-    cwd: vaultPath,
-    ephemeral: true,
-    sandbox: "read-only",
-    approvalPolicy: "never",
-    developerInstructions: sideChatDeveloperInstructions(config.config.developer_instructions),
-    excludeTurns: true,
-  });
-  try {
-    await client.request("thread/inject_items", {
-      threadId: response.thread.id,
-      items: [appServerSideChatBoundaryItem()],
-    });
-  } catch (error) {
-    try {
-      await unsubscribeThread(client, response.thread.id, { timeoutMs: 5_000 });
-    } catch (cleanupError) {
-      throw new EphemeralThreadCleanupRequiredError(response.thread.id, error, cleanupError);
-    }
-    throw error;
-  }
-  return {
-    activation: threadActivationSnapshotFromAppServerResponse(response),
-    sourceThreadId,
-  };
 }
 
 export async function compactThread(client: AppServerRequestClient, threadId: string): Promise<void> {

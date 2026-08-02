@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
+import type { ServerRequest } from "../../../../../../src/app-server/connection/rpc-messages";
 import {
   appServerApprovalResponse as approvalResponse,
   appServerApprovalRequest as toPendingApproval,
-} from "../../../../src/app-server/protocol/server-requests";
-import type { PendingApproval } from "../../../../src/domain/interaction-requests/model";
+} from "../../../../../../src/features/chat/app-server/inbound/server-request-adapter";
+import type { PendingApproval } from "../../../../../../src/features/chat/domain/pending-requests/model";
 
 type ApprovalRequest = Extract<
   ServerRequest,

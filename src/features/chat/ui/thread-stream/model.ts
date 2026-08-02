@@ -1,4 +1,4 @@
-import type { ApprovalAction, PendingMcpElicitationField, PendingRequestId } from "../../../../domain/interaction-requests/model";
+import type { ApprovalAction, PendingMcpElicitationField, PendingRequestId } from "../../domain/pending-requests/model";
 import type { ExecutionState, TaskProgressThreadStreamItem } from "../../domain/thread-stream/items";
 import type { PlanImplementationTarget } from "../../domain/thread-stream/selectors";
 

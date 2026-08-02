@@ -1,5 +1,4 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { PendingRequestId } from "../../../../domain/interaction-requests/model";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
@@ -8,6 +7,7 @@ import { createServerDiagnostics } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
+import type { PendingRequestId } from "../../domain/pending-requests/model";
 import { type CollaborationModeSelection, type RequestedFastMode, unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
 import {
   type ChatRuntimeState,

@@ -1,3 +1,4 @@
+import type { ThreadStreamItem, ThreadStreamUserInputQuestionResult } from "../thread-stream/items";
 import {
   type ApprovalAction,
   approvalActionKind,
@@ -6,8 +7,7 @@ import {
   type PendingApproval,
   type PendingMcpElicitation,
   type PendingUserInput,
-} from "../../../../domain/interaction-requests/model";
-import type { ThreadStreamItem, ThreadStreamUserInputQuestionResult } from "../thread-stream/items";
+} from "./model";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): ThreadStreamItem {
   const kind = approvalActionKind(action);

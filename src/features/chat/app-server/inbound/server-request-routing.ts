@@ -1,3 +1,4 @@
+import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type {
   ApprovalAction,
   McpElicitationAction,
@@ -5,8 +6,14 @@ import type {
   PendingApproval,
   PendingMcpElicitation,
   PendingUserInput,
-} from "../../domain/interaction-requests/model";
-import type { ServerRequest } from "../connection/rpc-messages";
+} from "../../domain/pending-requests/model";
+import {
+  type ActiveRouteScope,
+  type AppServerRouteScope,
+  fallbackAppServerRouteScope,
+  isAppServerRouteScopeInActiveRouteScope,
+  isTurnScopedAppServerRouteForIdleActiveThread,
+} from "./route-scope";
 import {
   appServerApprovalDecisionSignature,
   appServerApprovalRequest,
@@ -15,14 +22,7 @@ import {
   appServerMcpElicitationResponse,
   appServerUserInputRequest,
   appServerUserInputResponse,
-} from "../protocol/server-requests";
-import {
-  type ActiveRouteScope,
-  type AppServerRouteScope,
-  fallbackAppServerRouteScope,
-  isAppServerRouteScopeInActiveRouteScope,
-  isTurnScopedAppServerRouteForIdleActiveThread,
-} from "./scope";
+} from "./server-request-adapter";
 
 type ApprovalServerRequest = Extract<
   ServerRequest,

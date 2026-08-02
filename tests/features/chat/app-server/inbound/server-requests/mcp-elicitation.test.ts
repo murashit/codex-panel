@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
+import type { ServerRequest } from "../../../../../../src/app-server/connection/rpc-messages";
 import {
   appServerMcpElicitationResponse as mcpElicitationResponse,
   appServerMcpElicitationRequest as toPendingMcpElicitation,
-} from "../../../../src/app-server/protocol/server-requests";
+} from "../../../../../../src/features/chat/app-server/inbound/server-request-adapter";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

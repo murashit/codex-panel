@@ -4,8 +4,6 @@ import type { AppServerRequestClient } from "../../../../app-server/services/req
 import {
   clearThreadGoal,
   compactThread,
-  EphemeralThreadCleanupRequiredError,
-  forkEphemeralThread,
   forkThread,
   listThreadTurns,
   readThreadGoal,
@@ -30,6 +28,7 @@ import type { ThreadCommandEffects } from "../../application/threads/thread-comm
 import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";
 import { threadStreamItemsFromTurns } from "../mappers/thread-stream/turn-items";
+import { EphemeralThreadCleanupRequiredError, forkEphemeralThread } from "../side-chat";
 
 interface CurrentChatAppServerClientHost {
   currentClient(): AppServerClient | null;

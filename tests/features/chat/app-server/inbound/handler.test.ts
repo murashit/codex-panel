@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
-import { appServerApprovalRequest, appServerUserInputRequest } from "../../../../../src/app-server/protocol/server-requests";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import {
   type ChatInboundHandler,
   type ChatInboundHandlerEffects,
   createChatInboundHandler,
 } from "../../../../../src/features/chat/app-server/inbound/handler";
+import {
+  appServerApprovalRequest,
+  appServerUserInputRequest,
+} from "../../../../../src/features/chat/app-server/inbound/server-request-adapter";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import {
   activeThreadState,

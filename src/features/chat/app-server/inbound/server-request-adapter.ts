@@ -1,4 +1,6 @@
-import { jsonPreview } from "../../domain/display/json-preview";
+import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import { jsonPreview } from "../../../../domain/display/json-preview";
+import { pathRelativeToRoot } from "../../../../domain/vault/paths";
 import type {
   ApprovalAction,
   ApprovalActionIntent,
@@ -12,9 +14,7 @@ import type {
   PendingMcpElicitationOption,
   PendingUserInput,
   PendingUserInputQuestion,
-} from "../../domain/interaction-requests/model";
-import { pathRelativeToRoot } from "../../domain/vault/paths";
-import type { ServerRequest as GeneratedServerRequest } from "../../generated/app-server/ServerRequest";
+} from "../../domain/pending-requests/model";
 
 interface AppServerGrantedPermissionProfile {
   network?: unknown;
@@ -27,7 +27,7 @@ type CommandApprovalDecision =
   | { acceptWithExecpolicyAmendment: unknown }
   | { applyNetworkPolicyAmendment: { network_policy_amendment: { action?: unknown; host?: unknown } } };
 
-type AppServerRequest = GeneratedServerRequest;
+type AppServerRequest = ServerRequest;
 type CommandApprovalRequest = Extract<AppServerRequest, { method: "item/commandExecution/requestApproval" }>;
 type FileChangeApprovalRequest = Extract<AppServerRequest, { method: "item/fileChange/requestApproval" }>;
 type PermissionsApprovalRequest = Extract<AppServerRequest, { method: "item/permissions/requestApproval" }>;

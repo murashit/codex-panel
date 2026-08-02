@@ -2,7 +2,12 @@ import { AppServerClient, type AppServerClientHandlers } from "../connection/cli
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import { codexPanelAppServerInitializeParams } from "../connection/client-profile";
 import type { ServerNotification } from "../connection/rpc-messages";
-import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
+import {
+  lastAgentMessageTextFromTurnRecord,
+  type TurnItem,
+  type TurnRecord,
+  turnTranscriptAssistantTextFromTurnRecord,
+} from "../protocol/turn";
 import type { AppServerRequestClient } from "./request-client";
 import { type RuntimeOverrideSettings, validatedRuntimeOverrideForClient } from "./runtime-overrides";
 import { deleteThread, startEphemeralThread } from "./threads";
@@ -195,6 +200,14 @@ export async function runEphemeralStructuredTurnForLastAgentText(
 ): Promise<string | null> {
   const turn = await runner(options);
   return lastAgentMessageTextFromTurnRecord(turn);
+}
+
+export async function runEphemeralStructuredTurnForAssistantTranscriptText(
+  options: RunEphemeralStructuredTurnOptions,
+  runner: EphemeralStructuredTurnRunner = runEphemeralStructuredTurn,
+): Promise<string | null> {
+  const turn = await runner(options);
+  return turnTranscriptAssistantTextFromTurnRecord(turn);
 }
 
 type EphemeralStructuredTurnLifecycleState =

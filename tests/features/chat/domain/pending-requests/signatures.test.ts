@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PendingUserInput } from "../../../../../src/domain/interaction-requests/model";
+import type { PendingUserInput } from "../../../../../src/features/chat/domain/pending-requests/model";
 import {
   pendingRequestFocusSignature,
   pendingRequestsSignature,

@@ -1,0 +1,15 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsImportCallExpression()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where {
+    $source <: r"^[\"'](?:(?:\.\./)+(?:features|settings|workspace)|src/(?:features|settings|workspace))(?:/.*)?[\"']$"
+  },
+  register_diagnostic(span=$stmt, message="App-server core and shared modules must stay independent of feature, settings, and workspace implementations.", severity="error")
+}

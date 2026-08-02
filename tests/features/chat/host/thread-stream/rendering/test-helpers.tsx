@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 import { vi } from "vitest";
 
-import type { PendingApproval, PendingUserInput } from "../../../../../../src/domain/interaction-requests/model";
+import type { PendingApproval, PendingUserInput } from "../../../../../../src/features/chat/domain/pending-requests/model";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { threadStreamViewBlocks } from "../../../../../../src/features/chat/host/thread-stream/blocks";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/host/thread-stream/pending-requests";

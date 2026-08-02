@@ -2,16 +2,16 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { TurnRecord } from "../../../src/app-server/protocol/turn";
-import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
-import { generateThreadTitleWithCodex } from "../../../src/app-server/services/thread-title-generation";
+import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
+import type { EphemeralStructuredTurnRunner } from "../../../../src/app-server/services/ephemeral-structured-turn";
 import {
   findThreadTitleContext,
   THREAD_TITLE_MAX_CHARS,
   threadTitleContextFromTurnTranscriptSummary,
   threadTitleFromGeneratedText,
   threadTitlePrompt,
-} from "../../../src/domain/threads/title-generation-model";
+} from "../../../../src/domain/threads/title-generation-model";
+import { generateThreadTitleWithCodex } from "../../../../src/features/threads/app-server/thread-title-generation";
 
 describe("thread title", () => {
   it("builds title context from a turn transcript summary", () => {
@@ -90,6 +90,22 @@ describe("thread title", () => {
         runtimeSettings: { model: null, effort: null },
         signal,
       }),
+    );
+  });
+
+  it("preserves a title returned as a plan transcript item", async () => {
+    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () =>
+      turn([
+        {
+          type: "plan",
+          id: "plan",
+          text: '{"title":"Planからのタイトル"}',
+        },
+      ]),
+    );
+
+    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe(
+      "Planからのタイトル",
     );
   });
 

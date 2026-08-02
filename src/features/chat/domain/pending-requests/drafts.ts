@@ -6,7 +6,7 @@ import type {
   PendingRequestId,
   PendingUserInput,
   PendingUserInputQuestion,
-} from "../../../../domain/interaction-requests/model";
+} from "./model";
 
 export function defaultPendingApprovalOptions(): PendingApprovalOption[] {
   return [

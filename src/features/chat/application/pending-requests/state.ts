@@ -1,10 +1,5 @@
-import type {
-  PendingApproval,
-  PendingMcpElicitation,
-  PendingRequestId,
-  PendingUserInput,
-} from "../../../../domain/interaction-requests/model";
 import { mcpElicitationDraftKey, userInputDraftKey, userInputOtherDraftKey } from "../../domain/pending-requests/drafts";
+import type { PendingApproval, PendingMcpElicitation, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
 import { patchObject } from "../state/patch";
 
 export interface ChatRequestState {

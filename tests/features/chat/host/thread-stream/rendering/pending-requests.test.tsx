@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../../../src/domain/interaction-requests/model";
+import type {
+  PendingApproval,
+  PendingMcpElicitation,
+  PendingUserInput,
+} from "../../../../../../src/features/chat/domain/pending-requests/model";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/host/thread-stream/pending-requests";
 import type { PendingRequestBlockContext } from "../../../../../../src/features/chat/ui/thread-stream/context";

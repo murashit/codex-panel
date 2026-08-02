@@ -1,16 +1,4 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import {
-  routeServerRequest,
-  serverRequestCurrentTimeResponse,
-  serverRequestMcpElicitationResponse,
-  serverRequestUserInputResponse,
-} from "../../../../app-server/routing/server-requests";
-import type {
-  ApprovalAction,
-  McpElicitationAction,
-  PendingRequestId,
-  PendingUserInput,
-} from "../../../../domain/interaction-requests/model";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { ThreadFact } from "../../../threads/workflows/thread-facts";
 import type { AppServerResourceFact } from "../../application/connection/server-metadata-effects";
@@ -19,6 +7,7 @@ import { activeThreadId, type ChatAction, type ChatState } from "../../applicati
 import type { ChatStateStore } from "../../application/state/store";
 import { activeTurnId } from "../../application/turns/turn-state";
 import { contentForPendingMcpElicitation } from "../../domain/pending-requests/drafts";
+import type { ApprovalAction, McpElicitationAction, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
 import {
   createApprovalResultItem,
   createMcpElicitationResultItem,
@@ -34,6 +23,12 @@ import {
   isApprovalServerRequest,
 } from "./approval-request-coordinator";
 import { type ChatInboundEffect, planChatInboundNotification } from "./notification-plan";
+import {
+  routeServerRequest,
+  serverRequestCurrentTimeResponse,
+  serverRequestMcpElicitationResponse,
+  serverRequestUserInputResponse,
+} from "./server-request-routing";
 
 export interface ChatInboundHandlerEffects {
   refreshServerDiagnostics: () => void;

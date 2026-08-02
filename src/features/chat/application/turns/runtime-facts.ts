@@ -1,5 +1,5 @@
-import type { PendingRequestId } from "../../../../domain/interaction-requests/model";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
+import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 
 type TurnRuntimeTextItemKind = "tool" | "hook" | "reasoning";

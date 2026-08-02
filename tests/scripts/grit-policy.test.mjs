@@ -50,10 +50,24 @@ const policyCases = [
     },
   ),
   policyCase(
-    "no-lower-level-feature-imports.grit",
+    "no-core-outer-layer-imports.grit",
     "src/shared/runtime/escape.ts",
     'import type { Feature } from "../../features/escape";',
     "export type Value = string;",
+    {
+      invalid: [
+        {
+          path: "src/app-server/services/escape.ts",
+          source: 'export const loadSettings = () => import("../../settings/model");',
+        },
+      ],
+      valid: [
+        {
+          path: "src/app-server/services/value.ts",
+          source: 'import type { Value } from "../../domain/example/value";',
+        },
+      ],
+    },
   ),
   policyCase(
     "no-app-server-connection-boundary-imports.grit",

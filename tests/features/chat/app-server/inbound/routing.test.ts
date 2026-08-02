@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
-import { routeServerRequest } from "../../../../../src/app-server/routing/server-requests";
 import { planChatInboundNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
 import { routeServerNotification } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
+import { routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/server-request-routing";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };

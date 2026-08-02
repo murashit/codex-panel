@@ -30,7 +30,7 @@
       "includes": ["**/src/domain/**/*.{ts,tsx}", "**/src/features/chat/domain/**/*.{ts,tsx}"]
     },
     {
-      "path": "./scripts/grit/import-boundaries/no-lower-level-feature-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-core-outer-layer-imports.grit",
       "includes": ["**/src/app-server/**/*.{ts,tsx}", "**/src/shared/**/*.{ts,tsx}"]
     },
 
@@ -41,8 +41,7 @@
         "**/src/app-server/protocol/**/*.{ts,tsx}",
         "**/src/domain/**/*.{ts,tsx}",
         "**/src/shared/**/*.{ts,tsx}",
-        "**/src/features/selection-rewrite/**/*.{ts,tsx}",
-        "!**/src/features/selection-rewrite/app-server-adapter.ts"
+        "**/src/features/selection-rewrite/**/*.{ts,tsx}"
       ]
     },
     {
@@ -62,7 +61,6 @@
       "includes": [
         "**/src/**/*.{ts,tsx}",
         "!**/src/app-server/connection/**",
-        "!**/src/app-server/protocol/server-requests.ts",
         "!**/src/app-server/protocol/thread.ts",
         "!**/src/app-server/protocol/turn.ts"
       ]

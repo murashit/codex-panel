@@ -1,20 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
-import { appServerUserInputRequest as toPendingUserInput } from "../../../../../src/app-server/protocol/server-requests";
-import type { ApprovalAction, PendingApproval, PendingMcpElicitation } from "../../../../../src/domain/interaction-requests/model";
 import { createPendingRequestActions } from "../../../../../src/features/chat/application/pending-requests/pending-request-actions";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-
-function expectPresent<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) throw new Error("Expected value to be present");
-  return value;
-}
+import type {
+  ApprovalAction,
+  PendingApproval,
+  PendingMcpElicitation,
+  PendingUserInput,
+} from "../../../../../src/features/chat/domain/pending-requests/model";
 
 describe("PendingRequestActions", () => {
   it("resolves user input from immutable draft state and restores composer focus", () => {
     const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    const input = expectPresent(toPendingUserInput(userInputRequest()));
+    const input = userInputRequest();
     stateStore.dispatch({ type: "request/user-input-queued", input });
     stateStore.dispatch({ type: "request/user-input-draft-set", key: "7:direction", value: "Left" });
 
@@ -39,7 +37,7 @@ describe("PendingRequestActions", () => {
 
   it("cancels queued user input and commits the action", () => {
     const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    const input = expectPresent(toPendingUserInput(userInputRequest()));
+    const input = userInputRequest();
     stateStore.dispatch({ type: "request/user-input-queued", input });
 
     pendingRequests.actions.cancelUserInput(input.requestId);
@@ -60,7 +58,7 @@ describe("PendingRequestActions", () => {
 
   it("ignores actions for requests that disappeared before the action ran", () => {
     const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
-    const input = expectPresent(toPendingUserInput(userInputRequest()));
+    const input = userInputRequest();
     stateStore.dispatch({ type: "request/approval-queued", approval: approvalRequest() });
     stateStore.dispatch({ type: "request/user-input-queued", input });
     stateStore.dispatch({ type: "request/mcp-elicitation-queued", elicitation: mcpElicitationRequest() });
@@ -100,7 +98,7 @@ describe("PendingRequestActions", () => {
   it("consumes each pending-request focus signature once and resets after the queue clears", () => {
     const composerHasFocus = vi.fn(() => true);
     const { stateStore, pendingRequests } = actionsHarness(composerHasFocus);
-    const input = expectPresent(toPendingUserInput(userInputRequest()));
+    const input = userInputRequest();
 
     expect(pendingRequests.consumeAutoFocus()).toBe(false);
     stateStore.dispatch({ type: "request/user-input-queued", input });
@@ -174,14 +172,11 @@ function mcpElicitationRequest(): PendingMcpElicitation {
   };
 }
 
-function userInputRequest(): ServerRequest {
+function userInputRequest(): PendingUserInput {
   return {
-    id: 7,
-    method: "item/tool/requestUserInput",
+    requestId: 7,
     params: {
-      threadId: "thread",
       turnId: "turn",
-      itemId: "item",
       questions: [
         {
           id: "direction",
@@ -192,7 +187,6 @@ function userInputRequest(): ServerRequest {
           options: [{ label: "Recommended", description: "Use the default path" }],
         },
       ],
-      autoResolutionMs: null,
     },
   };
 }

@@ -1,6 +1,5 @@
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { EphemeralStructuredTurnRunner } from "../../../app-server/services/ephemeral-structured-turn";
-import { generateThreadTitleWithCodex } from "../../../app-server/services/thread-title-generation";
 import {
   archiveThread,
   deleteThread,
@@ -13,6 +12,7 @@ import {
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { findThreadTitleContext } from "../../../domain/threads/title-generation-model";
 import type { ThreadMutationPort, ThreadTitlePort } from "../workflows/ports";
+import { generateThreadTitleWithCodex } from "./thread-title-generation";
 
 export function createThreadMutationAdapter(clientAccess: AppServerClientAccess): ThreadMutationPort {
   return {

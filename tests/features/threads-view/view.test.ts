@@ -2,8 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
-import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
 import type { Thread } from "../../../src/domain/threads/model";
+import type * as ThreadTitleGeneratorModule from "../../../src/features/threads/app-server/thread-title-generation";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "../../../src/features/threads/app-server/workflow-adapters";
 import type { ThreadFactSink } from "../../../src/features/threads/workflows/thread-facts";
 import { createThreadMutationCommands } from "../../../src/features/threads/workflows/thread-mutation-commands";
@@ -69,7 +69,7 @@ vi.mock("../../../src/app-server/connection/connection-manager", () => {
   return { ConnectionManager, StaleConnectionError };
 });
 
-vi.mock("../../../src/app-server/services/thread-title-generation", async (importOriginal) => {
+vi.mock("../../../src/features/threads/app-server/thread-title-generation", async (importOriginal) => {
   const actual = await importOriginal<typeof ThreadTitleGeneratorModule>();
   return {
     ...actual,
