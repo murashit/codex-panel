@@ -12,7 +12,6 @@ export interface ServerMetadataEffectsHost {
   refreshAppServerMetadata: () => Promise<void>;
   refreshSkills: () => Promise<void>;
   refreshRateLimits: () => Promise<void>;
-  isStaleRuntimeError: (error: unknown) => boolean;
 }
 
 export interface ServerMetadataEffects {
@@ -22,14 +21,14 @@ export interface ServerMetadataEffects {
 
 export function createServerMetadataEffects(host: ServerMetadataEffectsHost): ServerMetadataEffects {
   return {
-    refreshAppServerMetadata: () => refreshAppServerMetadata(host),
+    refreshAppServerMetadata: () => host.refreshAppServerMetadata(),
     handleAppServerResourceFact: async (fact) => {
       if (fact.type === "skills-changed") {
-        await refreshMetadataResource(host, host.refreshSkills);
+        await host.refreshSkills();
         return;
       }
       if (fact.type === "rate-limits-updated") {
-        await refreshMetadataResource(host, host.refreshRateLimits);
+        await host.refreshRateLimits();
         return;
       }
       applyAppServerResourceFact(host, fact);
@@ -47,23 +46,6 @@ function applyAppServerResourceFact(host: ServerMetadataEffectsHost, fact: AppSe
         applyMcpStartupStatusEvent(host, fact.name, fact.status, fact.message);
       }
       return;
-  }
-}
-
-async function refreshAppServerMetadata(host: ServerMetadataEffectsHost): Promise<void> {
-  try {
-    await host.refreshAppServerMetadata();
-  } catch (error) {
-    if (host.isStaleRuntimeError(error)) return;
-    throw error;
-  }
-}
-
-async function refreshMetadataResource(host: ServerMetadataEffectsHost, refresh: () => Promise<void>): Promise<void> {
-  try {
-    await refresh();
-  } catch (error) {
-    if (!host.isStaleRuntimeError(error)) throw error;
   }
 }
 

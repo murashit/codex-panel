@@ -114,8 +114,7 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
     referThread,
     readWebUrl,
     startNewThread: thread.startNewThread,
-    startThreadForGoal: (objective, adoptPanelTarget) =>
-      startThreadForGoal(refs.threadStartCommand, objective, status.addSystemMessage, adoptPanelTarget),
+    startThreadForGoal: (objective, adoptPanelTarget) => startThreadForGoal(refs.threadStartCommand, objective, adoptPanelTarget),
     resumeThread: thread.selectThread,
     threadCommands: refs.threadCommands,
     reconnect: refs.reconnectCommand,
@@ -186,18 +185,11 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
 async function startThreadForGoal(
   starter: SubmissionThreadStarter,
   objective: string,
-  addSystemMessage: (message: string) => void,
   adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"],
 ): Promise<string | null> {
   const outcome = await starter.startThread(objective, {
     syncGoal: false,
     ...(adoptPanelTarget ? { adoptPanelTarget } : {}),
   });
-  if (outcome.kind === "created-not-activated") {
-    addSystemMessage(
-      `Created thread ${outcome.threadId}, but the connection changed before it could be opened. Resume it from history before setting its goal.`,
-    );
-    return null;
-  }
   return outcome.kind === "created-activated" ? outcome.threadId : null;
 }

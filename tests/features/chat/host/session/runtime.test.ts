@@ -12,7 +12,6 @@ import { createChatViewDeferredTasks } from "../../../../../src/features/chat/ho
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/model";
-import { StaleExecutionRuntimeError } from "../../../../../src/shared/runtime/execution-runtime-lifetime";
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/runtime/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
@@ -54,8 +53,9 @@ describe("chat panel session runtime", () => {
     await Promise.all([firstRestoration, secondRestoration]);
   });
 
-  it("treats stale shared thread refreshes as runtime-local no-ops", async () => {
-    const refresh = vi.fn().mockRejectedValue(new StaleExecutionRuntimeError());
+  it("propagates shared thread refresh failures", async () => {
+    const error = new Error("refresh failed");
+    const refresh = vi.fn().mockRejectedValue(error);
     const { runtime } = sessionRuntimeFixture({
       environment: {
         plugin: {
@@ -66,7 +66,7 @@ describe("chat panel session runtime", () => {
       },
     });
 
-    await expect(runtime.commands.refreshSharedThreads()).resolves.toBeUndefined();
+    await expect(runtime.commands.refreshSharedThreads()).rejects.toBe(error);
 
     expect(refresh).toHaveBeenCalledOnce();
   });

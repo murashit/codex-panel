@@ -1,5 +1,4 @@
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import { type EffectOutcome, effectCompletedInCurrentContext } from "../effect-outcome";
 import { ephemeralThreadActivatedAction } from "../state/actions";
 import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
@@ -10,7 +9,7 @@ export type EphemeralThreadForkResult =
   | { kind: "cleanup-required"; threadId: string };
 
 export interface EphemeralThreadEffects {
-  forkEphemeralThread(sourceThreadId: string): Promise<EffectOutcome<EphemeralThreadForkResult>>;
+  forkEphemeralThread(sourceThreadId: string): Promise<EphemeralThreadForkResult | null>;
   unsubscribeEphemeralThread(threadId: string): Promise<boolean>;
 }
 
@@ -70,9 +69,8 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
         await retryRequiredCleanup();
         if (openIsStale(isCurrent)) return false;
       }
-      const effect = await host.effects.forkEphemeralThread(input.sourceThreadId);
-      if (!effectCompletedInCurrentContext(effect)) return false;
-      const result = effect.value;
+      const result = await host.effects.forkEphemeralThread(input.sourceThreadId);
+      if (!result) return false;
       if (result.kind === "cleanup-required") {
         await tryCleanupEphemeralThread(result.threadId);
         if (!openIsStale(isCurrent)) {

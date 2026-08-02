@@ -45,20 +45,6 @@ export class AppServerQueryScope {
     return this.clientAccess.withClient(operation, options);
   }
 
-  runWhileActive<T>(operation: () => Promise<T>): Promise<T> {
-    this.assertUsable();
-    return (async () => {
-      try {
-        const result = await operation();
-        this.assertUsable();
-        return result;
-      } catch (error) {
-        if (this.disposed) throw new StaleExecutionRuntimeError();
-        throw error;
-      }
-    })();
-  }
-
   trackObserver(unsubscribe: () => void): () => void {
     if (this.disposed) {
       unsubscribe();

@@ -36,7 +36,6 @@ export interface ChatConnectionCoordinatorHost {
   addSystemMessage: (text: string) => void;
   configuredCommand: () => string;
   isStaleConnectionError: (error: unknown) => boolean;
-  isStaleRuntimeError: (error: unknown) => boolean;
   notifyConnectionFailed: () => void;
 }
 
@@ -117,7 +116,6 @@ async function refreshActiveThreads(host: ChatConnectionCoordinatorHost): Promis
     await host.refreshSharedThreads();
     host.refreshTabHeader();
   } catch (error) {
-    if (host.isStaleRuntimeError(error)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
 }
@@ -168,7 +166,6 @@ async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale
   } catch (error) {
     if (isStale()) return;
     if (host.isStaleConnectionError(error)) return;
-    if (host.isStaleRuntimeError(error)) return;
     const message = connectionErrorMessage(error, host.configuredCommand());
     host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
     host.addSystemMessage(message);
@@ -181,7 +178,7 @@ async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, is
   try {
     await host.metadataEffects.refreshAppServerMetadata();
   } catch (error) {
-    if (isStale() || host.isStaleRuntimeError(error)) return;
+    if (isStale()) return;
     host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);
   }
   if (isStale()) return;
@@ -189,7 +186,7 @@ async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, is
   try {
     await host.refreshSharedThreads();
   } catch (error) {
-    if (isStale() || host.isStaleRuntimeError(error)) return;
+    if (isStale()) return;
     host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);
   }
   if (isStale()) return;

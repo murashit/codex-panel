@@ -52,22 +52,14 @@ describe("server metadata effects", () => {
     expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toMatchObject([{ name: "github", startupStatus: "ready" }]);
   });
 
-  it("ignores stale runtime failures but propagates ordinary refresh failures", async () => {
-    const stale = new Error("stale");
+  it("propagates resource refresh failures", async () => {
     const ordinary = new Error("offline");
-    const staleEffects = createServerMetadataEffects({
-      stateStore: createChatStateStore(chatStateFixture()),
-      ...refreshHost(),
-      refreshSkills: vi.fn().mockRejectedValue(stale),
-      isStaleRuntimeError: (error) => error === stale,
-    });
     const failingEffects = createServerMetadataEffects({
       stateStore: createChatStateStore(chatStateFixture()),
       ...refreshHost(),
       refreshRateLimits: vi.fn().mockRejectedValue(ordinary),
     });
 
-    await expect(staleEffects.handleAppServerResourceFact({ type: "skills-changed" })).resolves.toBeUndefined();
     await expect(failingEffects.handleAppServerResourceFact({ type: "rate-limits-updated" })).rejects.toBe(ordinary);
   });
 });
@@ -77,6 +69,5 @@ function refreshHost() {
     refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
     refreshSkills: vi.fn().mockResolvedValue(undefined),
     refreshRateLimits: vi.fn().mockResolvedValue(undefined),
-    isStaleRuntimeError: () => false,
   };
 }

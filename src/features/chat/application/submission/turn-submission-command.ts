@@ -132,9 +132,6 @@ async function sendTurnText(
           }
           if (started.kind === "created-not-activated") {
             failPendingRequest(host, request);
-            host.addSystemMessage(
-              `Created thread ${started.threadId}, but the connection changed before it could be opened. Select it from history to continue.`,
-            );
             return true;
           }
         }
@@ -195,7 +192,6 @@ async function sendTurnText(
       host.stateStore.dispatch({ type: "turn/start-failed", items });
       return false;
     }
-    if (outcome.kind === "completed-stale") return true;
     const response = outcome.value;
     const acknowledgedState = submissionStateSnapshot(host.stateStore.getState());
     const pendingStart = acknowledgedState.pendingTurnStart;
@@ -316,7 +312,6 @@ async function steerCurrentTurn(
     }
     return false;
   }
-  if (outcome.kind === "completed-stale") return true;
   const targetIsCurrent = steerTargetIsCurrent(host, plan, panelTarget);
   if (!targetIsCurrent && !request.pendingSubmissionId) return true;
   if (targetIsCurrent) host.setStatus(STATUS_STEERED_CURRENT_TURN);

@@ -16,7 +16,7 @@ import { deferred } from "../../../../support/async";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
-const completedCurrent = <T>(value: T): EffectOutcome<T> => ({ kind: "completed-current", value });
+const completed = <T>(value: T): EffectOutcome<T> => ({ kind: "completed", value });
 const notStarted = <T>(): EffectOutcome<T> => ({ kind: "not-started" });
 
 function thread(id: string): Thread {
@@ -36,8 +36,8 @@ type TurnSubmissionHostOverrides = Partial<TurnSubmissionCommandHost>;
 
 function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
-  const startTurn = vi.fn().mockResolvedValue(completedCurrent({ turnId: "turn" }));
-  const steerTurn = vi.fn().mockResolvedValue(completedCurrent(undefined));
+  const startTurn = vi.fn().mockResolvedValue(completed({ turnId: "turn" }));
+  const steerTurn = vi.fn().mockResolvedValue(completed(undefined));
   const host: TurnSubmissionCommandHost & { setDraft: ReturnType<typeof vi.fn> } = {
     stateStore,
     turnPort: {
@@ -159,8 +159,8 @@ describe("TurnSubmissionCommand", () => {
     const { host, startTurn, stateStore } = createHost({
       turnPort: {
         ensureConnected,
-        startTurn: vi.fn().mockResolvedValue(completedCurrent({ turnId: "turn" })),
-        steerTurn: vi.fn().mockResolvedValue(completedCurrent(undefined)),
+        startTurn: vi.fn().mockResolvedValue(completed({ turnId: "turn" })),
+        steerTurn: vi.fn().mockResolvedValue(completed(undefined)),
         interruptTurn: vi.fn().mockResolvedValue(true),
       },
     });
@@ -482,7 +482,7 @@ describe("TurnSubmissionCommand", () => {
     stateStore.dispatch({ type: "web-submission/cancelled", submissionId: pending.id });
     expect(stateStore.getState().activeTurn.pendingSteers).toHaveLength(1);
 
-    steering.resolve(completedCurrent(undefined));
+    steering.resolve(completed(undefined));
     await expect(submitting).resolves.toBe(true);
     expect(stateStore.getState().pendingSubmission).toBeNull();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
@@ -613,7 +613,7 @@ describe("TurnSubmissionCommand", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("does not create a second thread after the first creation completes in a stale context", async () => {
+  it("does not create a second thread after the first creation loses its panel target", async () => {
     const { host, startTurn } = createHost({
       startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated", threadId: "created" }),
     });
@@ -622,9 +622,7 @@ describe("TurnSubmissionCommand", () => {
     await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(true);
 
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).toHaveBeenCalledWith(
-      "Created thread created, but the connection changed before it could be opened. Select it from history to continue.",
-    );
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("applies reserved runtime settings after creating a thread and before starting the turn", async () => {
@@ -699,18 +697,6 @@ describe("TurnSubmissionCommand", () => {
 
     expect(submitted).toBe(false);
     expect(host.setDraft).not.toHaveBeenCalled();
-  });
-
-  it("does not restore a turn that completed in a superseded app-server context", async () => {
-    const { host, startTurn, stateStore } = createHost();
-    startTurn.mockResolvedValue({ kind: "completed-stale", value: { turnId: "turn" } });
-    resumeThread(stateStore);
-    const commands = createTurnSubmissionCommand(host);
-
-    await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(true);
-
-    expect(host.setDraft).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("prepares turn input with the provided composer input snapshot", async () => {
@@ -836,7 +822,7 @@ describe("TurnSubmissionCommand", () => {
         clientId,
       },
     });
-    steering.resolve(completedCurrent(undefined));
+    steering.resolve(completed(undefined));
 
     await expect(submitting).resolves.toBe(true);
     expect(stateStore.getState().pendingSubmission).toBeNull();
@@ -1035,7 +1021,7 @@ describe("TurnSubmissionCommand", () => {
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     steerTurn.mockImplementation(async () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
-      return completedCurrent(undefined);
+      return completed(undefined);
     });
     const commands = createTurnSubmissionCommand(host);
 
@@ -1045,18 +1031,5 @@ describe("TurnSubmissionCommand", () => {
     expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
-  });
-
-  it("does not restore a steer that completed in a superseded app-server context", async () => {
-    const { host, stateStore, steerTurn } = createHost();
-    resumeThread(stateStore);
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    steerTurn.mockResolvedValue({ kind: "completed-stale", value: undefined });
-    const commands = createTurnSubmissionCommand(host);
-
-    await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(true);
-
-    expect(host.setDraft).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 });

@@ -54,12 +54,12 @@ describe("chat app-server adapters", () => {
       permissions: ":workspace",
     });
     expect(snapshot).toMatchObject({
-      kind: "completed-current",
+      kind: "completed",
       value: { thread: { id: "thread" } },
     });
   });
 
-  it("drops stale thread start responses after the current client changes", async () => {
+  it("returns completed thread starts after the current client changes", async () => {
     const start = deferred<AppServerThreadStartResponse>();
     const firstClient = { request: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
@@ -74,7 +74,7 @@ describe("chat app-server adapters", () => {
     start.resolve(threadStartResponse("thread"));
 
     await expect(starting).resolves.toMatchObject({
-      kind: "completed-stale",
+      kind: "completed",
       value: { thread: { id: "thread" } },
     });
   });
@@ -93,7 +93,7 @@ describe("chat app-server adapters", () => {
         input: textInput("hello"),
         clientUserMessageId: "local-user",
       }),
-    ).resolves.toEqual({ kind: "completed-current", value: { turnId: "turn-1" } });
+    ).resolves.toEqual({ kind: "completed", value: { turnId: "turn-1" } });
 
     expect(request).toHaveBeenCalledWith("turn/start", {
       threadId: "thread",
@@ -144,7 +144,7 @@ describe("chat app-server adapters", () => {
     });
   });
 
-  it("drops stale turn adapter responses after the current client changes", async () => {
+  it("returns completed turn starts after the current client changes", async () => {
     const start = deferred<{ turn: { id: string } }>();
     const firstClient = { request: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
@@ -158,10 +158,10 @@ describe("chat app-server adapters", () => {
     currentClient = secondClient;
     start.resolve({ turn: { id: "turn-1" } });
 
-    await expect(starting).resolves.toEqual({ kind: "completed-stale", value: { turnId: "turn-1" } });
+    await expect(starting).resolves.toEqual({ kind: "completed", value: { turnId: "turn-1" } });
   });
 
-  it("preserves a completed stale steer as an external effect fact", async () => {
+  it("returns completed steers after the current client changes", async () => {
     const steer = deferred<unknown>();
     const firstClient = { request: vi.fn().mockReturnValue(steer.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
@@ -180,7 +180,7 @@ describe("chat app-server adapters", () => {
     currentClient = secondClient;
     steer.resolve({});
 
-    await expect(steering).resolves.toEqual({ kind: "completed-stale", value: undefined });
+    await expect(steering).resolves.toEqual({ kind: "completed", value: undefined });
   });
 
   it("uses the steer client id to namespace bounded context", async () => {
@@ -219,7 +219,7 @@ describe("chat app-server adapters", () => {
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
-    await expect(adapter.compactThread("thread")).resolves.toEqual({ kind: "completed-current", value: undefined });
+    await expect(adapter.compactThread("thread")).resolves.toEqual({ kind: "completed", value: undefined });
 
     expect(request).toHaveBeenCalledWith("thread/compact/start", { threadId: "thread" });
   });
@@ -236,7 +236,7 @@ describe("chat app-server adapters", () => {
 
     expect(request).toHaveBeenCalledWith("thread/fork", { threadId: "source", cwd: "/vault", excludeTurns: true });
     expect(outcome).toMatchObject({
-      kind: "completed-current",
+      kind: "completed",
       value: { id: "forked", preview: "Preview", archived: false },
     });
   });
@@ -259,7 +259,7 @@ describe("chat app-server adapters", () => {
     });
   });
 
-  it("drops stale fork adapter responses after the current client changes", async () => {
+  it("returns completed forks after the current client changes", async () => {
     const fork = deferred<{ thread: ThreadRecord }>();
     const firstClient = { request: vi.fn().mockReturnValue(fork.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
@@ -274,7 +274,7 @@ describe("chat app-server adapters", () => {
     fork.resolve({ thread: threadRecord("forked") });
 
     await expect(forking).resolves.toMatchObject({
-      kind: "completed-stale",
+      kind: "completed",
       value: { id: "forked" },
     });
   });
@@ -300,7 +300,7 @@ describe("chat app-server adapters", () => {
       deferGoalContinuation: true,
     });
     expect(outcome).toMatchObject({
-      kind: "completed-current",
+      kind: "completed",
       value: { id: "forked" },
     });
   });
@@ -392,7 +392,7 @@ describe("chat app-server adapters", () => {
     ]);
   });
 
-  it("drops stale history adapter responses after the current client changes", async () => {
+  it("returns history responses after the current client changes", async () => {
     const history = deferred<{ data: TurnRecord[]; nextCursor: string | null }>();
     const firstClient = { request: vi.fn().mockReturnValue(history.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
@@ -406,7 +406,9 @@ describe("chat app-server adapters", () => {
     currentClient = secondClient;
     history.resolve({ data: [turn([userMessage("u1", "prompt")])], nextCursor: "older" });
 
-    await expect(loading).resolves.toBeNull();
+    await expect(loading).resolves.toMatchObject({
+      items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
+    });
   });
 
   it("resumes threads with the session vault path and projects initial history", async () => {
@@ -437,7 +439,7 @@ describe("chat app-server adapters", () => {
       initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
     });
     expect(snapshot).toMatchObject({
-      kind: "completed-current",
+      kind: "completed",
       value: {
         activation: { thread: { id: "thread" } },
         rolloutPath: "/tmp/rollout.jsonl",
@@ -450,7 +452,7 @@ describe("chat app-server adapters", () => {
     });
   });
 
-  it("drops stale resume adapter responses after the current client changes", async () => {
+  it("returns completed resumes after the current client changes", async () => {
     const resume = deferred<AppServerThreadResumeResponse>();
     const firstClient = { request: vi.fn().mockReturnValue(resume.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
@@ -465,7 +467,7 @@ describe("chat app-server adapters", () => {
     resume.resolve(threadResumeResponse("thread"));
 
     await expect(resuming).resolves.toMatchObject({
-      kind: "completed-stale",
+      kind: "completed",
       value: { activation: { thread: { id: "thread" } } },
     });
   });
@@ -515,10 +517,7 @@ describe("chat app-server adapters", () => {
     currentClient = secondClient;
     injected.resolve({});
 
-    await expect(forking).resolves.toMatchObject({
-      kind: "completed-stale",
-      value: { kind: "ready", activation: { thread: { id: "side" } } },
-    });
+    await expect(forking).resolves.toBeNull();
     expect(firstRequest).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side" }, { timeoutMs: 5_000 });
     expect(secondRequest).not.toHaveBeenCalled();
   });
@@ -557,7 +556,7 @@ describe("chat app-server adapters", () => {
     await expect(readOnlyUnavailable.readThreadGoal("thread")).resolves.toBeUndefined();
   });
 
-  it("drops stale runtime settings updates after the current client changes", async () => {
+  it("returns successful runtime settings updates after the current client changes", async () => {
     const update = deferred<void>();
     const request = vi.fn().mockReturnValue(update.promise);
     const firstClient = { request } as unknown as AppServerClient;
@@ -572,7 +571,7 @@ describe("chat app-server adapters", () => {
     currentClient = secondClient;
     update.resolve(undefined);
 
-    await expect(updating).resolves.toBe(false);
+    await expect(updating).resolves.toBe(true);
     expect(request).toHaveBeenCalledWith("thread/settings/update", { threadId: "thread", model: "gpt-5.5" });
   });
 
@@ -677,7 +676,7 @@ describe("chat app-server adapters", () => {
     expect(gateway.connectionAvailable()).toBe(false);
   });
 
-  it("rejects current-client results when the connection changes during the operation", async () => {
+  it("returns an admitted current-client result when the connection changes during the operation", async () => {
     const result = deferred<string>();
     const firstClient = {} as AppServerClient;
     const secondClient = {} as AppServerClient;
@@ -686,9 +685,9 @@ describe("chat app-server adapters", () => {
 
     const running = gateway.clientAccess.withClient(() => result.promise);
     currentClient = secondClient;
-    result.resolve("stale");
+    result.resolve("completed");
 
-    await expect(running).rejects.toThrow("Codex app-server connection changed while running the operation.");
+    await expect(running).resolves.toBe("completed");
   });
 
   it("reads files from the current client with request options", async () => {
@@ -700,7 +699,7 @@ describe("chat app-server adapters", () => {
     expect(request).toHaveBeenCalledWith("fs/readFile", { path: "/tmp/rollout.jsonl" }, { timeoutMs: 2_000 });
   });
 
-  it("returns no file data while disconnected or when the connection changes during the read", async () => {
+  it("returns no file data while disconnected and completes an admitted read after a connection change", async () => {
     const disconnected = createTestGateway({ currentClient: () => null });
     await expect(disconnected.readFileBase64("/tmp/rollout.jsonl")).resolves.toBeNull();
 
@@ -712,9 +711,9 @@ describe("chat app-server adapters", () => {
 
     const reading = gateway.readFileBase64("/tmp/rollout.jsonl");
     currentClient = secondClient;
-    read.resolve({ dataBase64: "c3RhbGU=" });
+    read.resolve({ dataBase64: "Y29tcGxldGVk" });
 
-    await expect(reading).resolves.toBeNull();
+    await expect(reading).resolves.toBe("Y29tcGxldGVk");
   });
 });
 

@@ -39,7 +39,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
   const stateStore = createChatStateStore(createChatState());
   const resumeThread = vi
     .fn<ThreadResumeEffects["resumeThread"]>()
-    .mockResolvedValue(response ? { kind: "completed-current", value: response } : { kind: "not-started" });
+    .mockResolvedValue(response ? { kind: "completed", value: response } : { kind: "not-started" });
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyLatestPage = vi.fn();
   const invalidateHistory = vi.fn();
@@ -144,7 +144,7 @@ describe("ResumeCommand", () => {
   it("does not invoke an older resume after a newer intent wins during connection", async () => {
     const firstConnection = deferred<boolean>();
     const resumeThread = vi.fn<ThreadResumeEffects["resumeThread"]>().mockImplementation(async (threadId) => ({
-      kind: "completed-current",
+      kind: "completed",
       value: activation(threadId),
     }));
     const ensureConnected = vi.fn().mockReturnValueOnce(firstConnection.promise).mockResolvedValue(true);

@@ -2,7 +2,6 @@ import { Notice } from "obsidian";
 
 import { codexPanelAppServerInitializeParams } from "../../../../app-server/connection/client-profile";
 import { ConnectionManager } from "../../../../app-server/connection/connection-manager";
-import { isStaleExecutionRuntimeError } from "../../../../shared/runtime/execution-runtime-lifetime";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import { createReconnectPanelCommand } from "../../application/connection/reconnect-command";
 import { createLocalIdSource, type LocalIdSource } from "../../application/local-id-source";
@@ -359,14 +358,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       });
     },
   };
-  const refreshSharedThreads = async (): Promise<void> => {
-    try {
-      await sessionConnection.refreshSharedThreads();
-    } catch (error) {
-      if (isStaleExecutionRuntimeError(error)) return;
-      throw error;
-    }
-  };
+  const refreshSharedThreads = (): Promise<void> => sessionConnection.refreshSharedThreads();
   let unsubscribeSharedThreads: (() => void) | null = null;
   const threadCatalogObserver = {
     subscribe: () => {

@@ -217,7 +217,6 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     sendShortcut: options.sendShortcut ?? "enter",
   };
   const appServerQueries = {
-    contextKey: () => settings.codexPath,
     metadataSnapshot: () => options.modelsSnapshot ?? [],
     fetchModels: options.fetchModels ?? (async () => options.modelsSnapshot ?? []),
     refreshModels: options.refreshModels ?? (async () => options.modelsSnapshot ?? []),
@@ -229,29 +228,27 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     observeArchivedThreadsResult: options.observeArchived ?? (() => () => undefined),
   };
   const applyThreadFact = options.applyThreadFact ?? (() => undefined);
-  const threadFacts = {
-    apply: applyThreadFact,
-    applyBatch: (facts: readonly ThreadFact[]) => {
-      for (const fact of facts) applyThreadFact(fact);
-    },
-  };
-  const clientAccess = {
-    withClient: async <T>(operation: (client: AppServerClient) => Promise<T>, clientOptions?: AppServerClientAccessOptions): Promise<T> => {
-      const contextKey = appServerQueries.contextKey();
-      const result = (await currentShortLivedClientMock()(
-        settings.codexPath,
-        "/vault",
-        async (client) => {
-          if (appServerQueries.contextKey() !== contextKey) throw new StaleExecutionRuntimeError();
-          return operation(client);
-        },
-        clientOptions,
-      )) as T;
-      if (appServerQueries.contextKey() !== contextKey) throw new StaleExecutionRuntimeError();
-      return result;
-    },
-  };
   const createDynamicData = () => {
+    const contextKey = settings.codexPath;
+    const contextIsCurrent = () => settings.codexPath === contextKey;
+    const clientAccess = {
+      withClient: async <T>(
+        operation: (client: AppServerClient) => Promise<T>,
+        clientOptions?: AppServerClientAccessOptions,
+      ): Promise<T> => {
+        if (!contextIsCurrent()) throw new StaleExecutionRuntimeError();
+        return (await currentShortLivedClientMock()(contextKey, "/vault", operation, clientOptions)) as T;
+      },
+    };
+    const threadFacts = {
+      apply: (fact: ThreadFact) => {
+        if (contextIsCurrent()) applyThreadFact(fact);
+      },
+      applyBatch: (facts: readonly ThreadFact[]) => {
+        if (!contextIsCurrent()) return;
+        for (const fact of facts) applyThreadFact(fact);
+      },
+    };
     const threadMutations = createThreadMutationCommands({
       port: createThreadMutationAdapter(clientAccess),
       archiveExport: {

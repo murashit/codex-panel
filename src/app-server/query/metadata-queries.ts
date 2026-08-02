@@ -119,32 +119,32 @@ export class AppServerMetadataQueries {
     return this.observeMetadataQueryResource(descriptor.queryOptions(), descriptor.project, listener, options);
   }
 
-  refreshAppServerMetadata(): Promise<void> {
-    return this.scope.runWhileActive(async () => {
-      const runtimeResult = this.fetchRuntimeConfig().then(
-        () => ({ ok: true as const }),
-        (error: unknown) => ({ ok: false as const, error }),
-      );
-      const [, runtime] = await Promise.all([
-        Promise.allSettled([
-          this.fetchMetadataResource("skills"),
-          this.fetchMetadataResource("permissionProfiles"),
-          this.fetchMetadataResource("rateLimits"),
-          this.fetchModels({ force: true }),
-        ]),
-        runtimeResult,
-      ]);
-      this.scope.assertUsable();
-      if (!runtime.ok) throw runtime.error;
-    });
+  async refreshAppServerMetadata(): Promise<void> {
+    this.scope.assertUsable();
+    const runtimeResult = this.fetchRuntimeConfig().then(
+      () => ({ ok: true as const }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
+    const [, runtime] = await Promise.all([
+      Promise.allSettled([
+        this.fetchMetadataResource("skills"),
+        this.fetchMetadataResource("permissionProfiles"),
+        this.fetchMetadataResource("rateLimits"),
+        this.fetchModels({ force: true }),
+      ]),
+      runtimeResult,
+    ]);
+    if (!runtime.ok) throw runtime.error;
   }
 
   refreshSkills(): Promise<void> {
-    return this.scope.runWhileActive(() => this.invalidatedMetadataQueries.refreshAfterInvalidation("skills"));
+    this.scope.assertUsable();
+    return this.invalidatedMetadataQueries.refreshAfterInvalidation("skills");
   }
 
   refreshRateLimits(): Promise<void> {
-    return this.scope.runWhileActive(() => this.invalidatedMetadataQueries.refreshAfterInvalidation("rateLimits"));
+    this.scope.assertUsable();
+    return this.invalidatedMetadataQueries.refreshAfterInvalidation("rateLimits");
   }
 
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options: { emitCurrent?: boolean } = {}): () => void {
@@ -152,18 +152,16 @@ export class AppServerMetadataQueries {
     return this.observeQueryResult(this.metadataDescriptor("models").queryOptions(), cloneModelMetadata, listener, options);
   }
 
-  fetchModels(options: { force?: boolean } = {}): Promise<readonly ModelMetadata[]> {
-    return this.scope.runWhileActive(async () => {
-      const descriptor = this.metadataDescriptor("models");
-      const key = descriptor.queryOptions().queryKey;
-      if (options.force) {
-        await this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-        this.scope.assertUsable();
-      }
-      const models = await this.scope.client.fetchQuery(descriptor.queryOptions());
+  async fetchModels(options: { force?: boolean } = {}): Promise<readonly ModelMetadata[]> {
+    this.scope.assertUsable();
+    const descriptor = this.metadataDescriptor("models");
+    const key = descriptor.queryOptions().queryKey;
+    if (options.force) {
+      await this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
       this.scope.assertUsable();
-      return cloneModelMetadata(models);
-    });
+    }
+    const models = await this.scope.client.fetchQuery(descriptor.queryOptions());
+    return cloneModelMetadata(models);
   }
 
   refreshModels(): Promise<readonly ModelMetadata[]> {
@@ -271,7 +269,6 @@ export class AppServerMetadataQueries {
     const data = isInvalidatedMetadataResource(id)
       ? await this.invalidatedMetadataQueries.read(id)
       : await this.scope.client.fetchQuery(this.metadataDescriptor(id).queryOptions());
-    this.scope.assertUsable();
     return data as MetadataQueryData[Id];
   }
 

@@ -119,7 +119,7 @@ describe("thread reference resolver", () => {
     expect(addSystemMessage).toHaveBeenCalledWith("history unavailable");
   });
 
-  it("discards history when the app-server client changes during the request", async () => {
+  it("uses admitted history when the app-server client changes during the request", async () => {
     const request = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
     const addSystemMessage = vi.fn();
     const client = { request } as unknown as AppServerClient;
@@ -135,10 +135,10 @@ describe("thread reference resolver", () => {
     const result = await resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never);
 
     expect(result).toBeNull();
-    expect(addSystemMessage).not.toHaveBeenCalled();
+    expect(addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable turns.");
   });
 
-  it("suppresses history errors from a stale app-server client", async () => {
+  it("reports history errors after the app-server client changes", async () => {
     const request = vi.fn().mockRejectedValue(new Error("history unavailable"));
     const addSystemMessage = vi.fn();
     const client = { request } as unknown as AppServerClient;
@@ -154,7 +154,7 @@ describe("thread reference resolver", () => {
     const result = await resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never);
 
     expect(result).toBeNull();
-    expect(addSystemMessage).not.toHaveBeenCalled();
+    expect(addSystemMessage).toHaveBeenCalledWith("history unavailable");
   });
 });
 

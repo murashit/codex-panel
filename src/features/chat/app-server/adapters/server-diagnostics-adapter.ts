@@ -20,7 +20,6 @@ export function createChatServerDiagnosticsAdapter(host: ChatServerDiagnosticsAd
         mcpDiagnostics: request.initialDiagnostics.mcpServers,
       });
       const toolInventoryResult = await toolInventory;
-      if (host.currentClient() !== client) return null;
       return {
         toolInventory: toolInventoryResult,
       };

@@ -93,10 +93,7 @@ describe("ephemeral thread lifecycle", () => {
     const opening = lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: "Source" });
     await Promise.resolve();
     await lifecycle.dispose();
-    resolveFork({
-      kind: "completed-current",
-      value: { kind: "ready", sourceThreadId: "source", activation: activationFixture() },
-    });
+    resolveFork({ kind: "ready", sourceThreadId: "source", activation: activationFixture() });
 
     await expect(opening).resolves.toBe(false);
     expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
@@ -120,7 +117,7 @@ describe("ephemeral thread lifecycle", () => {
     const opening = lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
     await Promise.resolve();
     await lifecycle.dispose();
-    fork.resolve({ kind: "completed-current", value: { kind: "cleanup-required", threadId: "side" } });
+    fork.resolve({ kind: "cleanup-required", threadId: "side" });
 
     await expect(opening).resolves.toBe(false);
     expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
@@ -151,10 +148,7 @@ describe("ephemeral thread lifecycle", () => {
       await vi.waitFor(() => expect(port.forkEphemeralThread).toHaveBeenCalledOnce());
       current = false;
       store.dispatch({ type: "panel/view-state-cleared" });
-      fork.resolve({
-        kind: "completed-current",
-        value: { kind: "ready", sourceThreadId: "source", activation: activationFixture() },
-      });
+      fork.resolve({ kind: "ready", sourceThreadId: "source", activation: activationFixture() });
 
       await expect(opening).resolves.toBe(false);
       expect(port.unsubscribeEphemeralThread).toHaveBeenCalledTimes(1);
@@ -235,9 +229,7 @@ describe("ephemeral thread lifecycle", () => {
   it("retries cleanup-required forks when the side view is disposed", async () => {
     const store = createChatStateStore();
     const port = transportMock();
-    port.forkEphemeralThread = vi
-      .fn()
-      .mockResolvedValue({ kind: "completed-current", value: { kind: "cleanup-required", threadId: "side" } });
+    port.forkEphemeralThread = vi.fn().mockResolvedValue({ kind: "cleanup-required", threadId: "side" });
     port.unsubscribeEphemeralThread = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
     const addSystemMessage = vi.fn();
     const lifecycle = createEphemeralThreadLifecycle({
@@ -261,8 +253,9 @@ describe("ephemeral thread lifecycle", () => {
 function transportMock(): EphemeralThreadEffects {
   return {
     forkEphemeralThread: vi.fn().mockResolvedValue({
-      kind: "completed-current",
-      value: { kind: "ready", sourceThreadId: "source", activation: activationFixture() },
+      kind: "ready",
+      sourceThreadId: "source",
+      activation: activationFixture(),
     }),
     unsubscribeEphemeralThread: vi.fn().mockResolvedValue(true),
   };

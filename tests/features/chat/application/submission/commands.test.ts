@@ -55,7 +55,7 @@ describe("createSubmissionCommands", () => {
     const stateStore = createChatStateStore(createChatState());
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);
-    const startTurn = vi.fn().mockResolvedValue({ kind: "completed-current" as const, value: { turnId: "turn" } });
+    const startTurn = vi.fn().mockResolvedValue({ kind: "completed" as const, value: { turnId: "turn" } });
     const prepareInput = vi.fn((text: string, _snapshot: ComposerInputSnapshot): { text: string; input: CodexInput } => ({
       text,
       input: [
@@ -77,7 +77,7 @@ describe("createSubmissionCommands", () => {
         turnPort: {
           ensureConnected: vi.fn().mockResolvedValue(true),
           startTurn,
-          steerTurn: vi.fn().mockResolvedValue({ kind: "completed-current" as const, value: undefined }),
+          steerTurn: vi.fn().mockResolvedValue({ kind: "completed" as const, value: undefined }),
           interruptTurn: vi.fn().mockResolvedValue(true),
         },
         referThread: vi.fn(),

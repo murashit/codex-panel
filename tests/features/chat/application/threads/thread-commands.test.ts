@@ -237,7 +237,7 @@ describe("thread management commands", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    compact.resolve(completedCurrent(undefined));
+    compact.resolve(completed(undefined));
     await pendingCompact;
 
     expect(host.addSystemMessage).not.toHaveBeenCalledWith("Compaction requested.");
@@ -405,7 +405,7 @@ describe("thread management commands", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    fork.resolve(completedCurrent(panelThread("forked")));
+    fork.resolve(completed(panelThread("forked")));
     await pendingFork;
 
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
@@ -459,25 +459,6 @@ describe("thread management commands", () => {
     expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(host.openThreadInNewView).not.toHaveBeenCalled();
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
-  });
-
-  it("records a fork that completed before its app-server context became stale", async () => {
-    const host = hostMock({
-      items: turnItems(),
-      effects: {
-        forkThread: vi
-          .fn<ThreadCommandEffects["forkThread"]>()
-          .mockResolvedValue({ kind: "completed-stale", value: panelThread("forked") }),
-      },
-    });
-    const controller = threadCommands(host);
-
-    await controller.forkThreadFromTurn("source", null, true);
-
-    expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
-    expect(host.mutations.renameThread).not.toHaveBeenCalled();
-    expect(host.mutations.archiveThread).not.toHaveBeenCalled();
-    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
 
   it("delegates thread rename requests", async () => {
@@ -731,7 +712,7 @@ describe("thread management commands", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    rollback.resolve(completedCurrent(panelThread("forked")));
+    rollback.resolve(completed(panelThread("forked")));
     await pendingRollback;
 
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
@@ -764,31 +745,12 @@ describe("thread management commands", () => {
     const pendingRollback = controller.rollbackThread("source");
     await waitForAsyncWork(() => expect(host.effects.forkThread).toHaveBeenCalledOnce());
     host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "new-turn" });
-    rollback.resolve(completedCurrent(panelThread("forked")));
+    rollback.resolve(completed(panelThread("forked")));
     await pendingRollback;
 
     expect(host.stateStore.getState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.applyThreadFact).toHaveBeenCalledWith({ type: "thread-upserted", thread: panelThread("forked") });
-    expect(host.mutations.archiveThread).not.toHaveBeenCalled();
-  });
-
-  it("does not publish or adopt a rollback fork from a stale app-server context", async () => {
-    const host = hostMock({
-      items: turnItems(),
-      activeThread: { id: "source" },
-      effects: {
-        forkThread: vi
-          .fn<ThreadCommandEffects["forkThread"]>()
-          .mockResolvedValue({ kind: "completed-stale", value: panelThread("forked") }),
-      },
-    });
-    const controller = threadCommands(host);
-
-    await controller.rollbackThread("source");
-
-    expect(host.applyThreadFact).not.toHaveBeenCalled();
-    expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
   });
 
@@ -892,8 +854,8 @@ function hostMock({
   if (activeThread) state = chatStateWith(state, { activeThread });
   const stateStore = createChatStateStore(state);
   const effects: ThreadCommandEffectsMock = {
-    compactThread: vi.fn<ThreadCommandEffects["compactThread"]>().mockResolvedValue(completedCurrent(undefined)),
-    forkThread: vi.fn<ThreadCommandEffects["forkThread"]>().mockResolvedValue(completedCurrent(panelThread("forked"))),
+    compactThread: vi.fn<ThreadCommandEffects["compactThread"]>().mockResolvedValue(completed(undefined)),
+    forkThread: vi.fn<ThreadCommandEffects["forkThread"]>().mockResolvedValue(completed(panelThread("forked"))),
     ...effectsOverrides,
   };
   const mutations: ThreadMutationCommandsMock = {
@@ -955,6 +917,6 @@ function callOrder(fn: Mock): number {
   return order;
 }
 
-function completedCurrent<T>(value: T): EffectOutcome<T> {
-  return { kind: "completed-current", value };
+function completed<T>(value: T): EffectOutcome<T> {
+  return { kind: "completed", value };
 }

@@ -105,19 +105,14 @@ function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
       if (!client) return { kind: "not-started" };
       const dispatch = steerTurn(client, request.threadId, request.turnId, request.input, request.clientUserMessageId);
       if (dispatch.kind === "not-dispatched") {
-        return chatAppServerClientIsStale(host, client)
-          ? { kind: "completed-stale", value: undefined }
-          : { kind: "failed", error: dispatch.error };
+        return { kind: "failed", error: dispatch.error };
       }
       try {
         await dispatch.completion;
       } catch (error) {
-        if (chatAppServerClientIsStale(host, client)) return { kind: "completed-stale", value: undefined };
         return error instanceof AppServerRpcError ? { kind: "failed", error } : { kind: "delivery-unknown", error };
       }
-      return chatAppServerClientIsStale(host, client)
-        ? { kind: "completed-stale", value: undefined }
-        : { kind: "completed-current", value: undefined };
+      return { kind: "completed", value: undefined };
     },
     interruptTurn: async (threadId, turnId) => {
       const interrupted = await withCurrentChatAppServerClient(host, async (client) => {
@@ -170,16 +165,16 @@ function createChatEphemeralThreadAdapter(host: ChatAppServerAdapterHost): Ephem
   return {
     forkEphemeralThread: async (sourceThreadId) => {
       const client = host.currentClient();
-      if (!client) return { kind: "not-started" };
+      if (!client) return null;
       const value = await forkEphemeralThreadResult(client, sourceThreadId, host.vaultPath);
-      if (!chatAppServerClientIsStale(host, client)) return { kind: "completed-current", value };
+      if (!chatAppServerClientIsStale(host, client)) return value;
       const threadId = value.kind === "ready" ? value.activation.thread.id : value.threadId;
       try {
         await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
       } catch {
         // The superseded connection remains the only valid cleanup context.
       }
-      return { kind: "completed-stale", value };
+      return null;
     },
     unsubscribeEphemeralThread: async (threadId) => {
       const result = await withCurrentChatAppServerClient(host, async (client) => {
@@ -247,10 +242,7 @@ function runCurrentChatAppServerEffect<T>(
 ): Promise<EffectOutcome<T>> {
   const client = host.currentClient();
   if (!client) return Promise.resolve({ kind: "not-started" });
-  const effect = operation(client);
-  return effect.then((value) =>
-    chatAppServerClientIsStale(host, client) ? { kind: "completed-stale", value } : { kind: "completed-current", value },
-  );
+  return operation(client).then((value) => ({ kind: "completed", value }));
 }
 
 async function withCurrentChatAppServerClient<T>(
@@ -259,8 +251,7 @@ async function withCurrentChatAppServerClient<T>(
 ): Promise<T | null> {
   const client = host.currentClient();
   if (!client) return null;
-  const result = await operation(client);
-  return chatAppServerClientIsStale(host, client) ? null : result;
+  return operation(client);
 }
 
 async function readChatThreadHistoryPage(
@@ -297,8 +288,7 @@ async function readThreadGoalFromCurrentClient(
 ): ReturnType<ThreadGoalSource["readThreadGoal"]> {
   const client = host.currentClient();
   if (!client) return undefined;
-  const goal = await readThreadGoal(client, threadId);
-  return chatAppServerClientIsStale(host, client) ? undefined : goal;
+  return readThreadGoal(client, threadId);
 }
 
 function threadTurnsPageFromAppServerPage(page: AppServerThreadTurnsPage): ThreadTurnsPage {

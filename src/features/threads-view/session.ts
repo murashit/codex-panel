@@ -2,7 +2,6 @@ import { Notice } from "obsidian";
 import type { Thread } from "../../domain/threads/model";
 import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
 import { DeferredTask } from "../../shared/runtime/deferred-task";
-import { isStaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
 import type { ObservedPaginatedResult } from "../../shared/runtime/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../shared/runtime/observed-result";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
@@ -113,7 +112,7 @@ export class ThreadsViewSession {
     try {
       await request();
     } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime) || isStaleExecutionRuntimeError(error)) return;
+      if (!this.lifetime.isCurrent(lifetime)) return;
       if (!this.currentThreadsSnapshot()) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
         this.render();
@@ -129,7 +128,7 @@ export class ThreadsViewSession {
     try {
       await this.host.threadCatalog.loadMoreActiveThreads();
     } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime) || isStaleExecutionRuntimeError(error)) return;
+      if (!this.lifetime.isCurrent(lifetime)) return;
       this.noticeError(error);
     }
   }

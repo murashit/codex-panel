@@ -74,11 +74,7 @@ function createCurrentClientAccess(host: ChatCurrentAppServerGatewayHost): AppSe
 
       const client = host.currentClient();
       if (!client) throw new Error("Codex app-server is not connected.");
-      const result = await operation(client);
-      if (host.currentClient() !== client) {
-        throw new Error("Codex app-server connection changed while running the operation.");
-      }
-      return result;
+      return operation(client);
     },
   };
 }
@@ -91,5 +87,5 @@ async function readCurrentClientFileBase64(
   const client = host.currentClient();
   if (!client) return null;
   const response = await client.request("fs/readFile", { path }, options);
-  return host.currentClient() === client ? response.dataBase64 : null;
+  return response.dataBase64;
 }

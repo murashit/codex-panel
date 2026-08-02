@@ -5,7 +5,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
-import { type EffectOutcome, effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
+import { type EffectOutcome, effectCompleted } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
@@ -77,9 +77,6 @@ async function startThread(
       : { ...activation.thread, preview: fallbackPreview };
   const patchedActivation = thread === activation.thread ? activation : { ...activation, thread };
   host.recordStartedThread(thread);
-  if (!effectCompletedInCurrentContext(effect)) {
-    return { kind: "created-not-activated", threadId: activation.thread.id };
-  }
   const current = host.stateStore.getState();
   if (
     options.preservePendingSubmissionId &&

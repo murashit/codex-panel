@@ -4,7 +4,3 @@ export class StaleExecutionRuntimeError extends Error {
     this.name = "StaleExecutionRuntimeError";
   }
 }
-
-export function isStaleExecutionRuntimeError(error: unknown): error is StaleExecutionRuntimeError {
-  return error instanceof StaleExecutionRuntimeError;
-}

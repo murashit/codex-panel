@@ -28,7 +28,7 @@ The app-server API is experimental, so favor a clean current flow over broad com
 
 Runtime controls should express visible user intent for the active thread rather than copy Codex configuration. Diagnostics should expose only actionable troubleshooting facts.
 
-An app-server context is the pair of Codex executable and Vault root. Replacing it invalidates old context-bound work before publishing the new context and keeps events and metadata attributed to their source context. Preserve last-known-good state only across transient failures within the same context.
+An app-server context is the pair of Codex executable and Vault root. Replacing it disposes the old context's clients, observers, and background work and stops that context from publishing events or shared facts before the new context is exposed. Already-dispatched operations may still settle; the owner of a panel or feature operation decides whether a returned value still applies to its target. Preserve last-known-good state only across transient failures within the same context.
 
 Vault root is the Panel-owned workspace root for that context. Panel operations always use it as the thread working directory and do not project mutable protocol thread cwd values into panel state.
 
@@ -60,7 +60,7 @@ Context-wide thread mutations have one execution-context owner. That owner coord
 
 Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent connection, turn state, composer, and pending requests. A persistent thread has one panel owner at a time, while different threads remain independent.
 
-Asynchronous work may publish panel-local results only while the panel still owns their target. Facts completed in the current app-server context remain shared truth even if the initiating view has moved on, and cleanup created by a committed state transition must outlive the action that initiated it.
+Asynchronous work may publish panel-local results only while the panel still owns their target. App-server client identity is a resource-lifecycle detail, not an application-level validity scope; panel target, thread, and operation ownership decide whether results remain relevant. Facts completed in the current app-server context remain shared truth even if the initiating view has moved on, and cleanup created by a committed state transition must outlive the action that initiated it.
 
 Coordinate work only where a user-visible invariant is genuinely shared, and do so at the narrowest semantic owner. Keep independent panels and threads independent.
 

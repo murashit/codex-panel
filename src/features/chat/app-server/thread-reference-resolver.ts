@@ -35,7 +35,6 @@ async function referencedThreadInput(
   if (!client) return null;
   try {
     const transcript = await readReferencedThreadTranscriptPage(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
-    if (host.currentClient() !== client) return null;
     if (transcript.turns.length === 0) {
       host.addSystemMessage("Referenced thread has no readable turns.");
       return null;
@@ -59,7 +58,6 @@ async function referencedThreadInput(
       ]),
     };
   } catch (error) {
-    if (host.currentClient() !== client) return null;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return null;
   }

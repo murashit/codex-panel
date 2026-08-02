@@ -4,7 +4,7 @@ import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/
 import type { Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
-import { type EffectOutcome, effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
+import { type EffectOutcome, effectCompleted } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { chatThreadStreamViewState } from "../state/active-turn";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -119,7 +119,7 @@ async function compactThread(host: ThreadCommandsHost, threadId: string): Promis
     if (!(await host.ensureConnected())) return;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
     const effect = await host.effects.compactThread(threadId);
-    if (!effectCompletedInCurrentContext(effect)) return;
+    if (!effectCompleted(effect)) return;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(STATUS_COMPACTION_REQUESTED);
     host.setStatus(STATUS_COMPACTION_REQUESTED);
@@ -192,7 +192,7 @@ async function forkThreadFromTurn(
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
-    if (!effectCompletedInCurrentContext(effect) || !threadCommandScopeStillTargetsOriginalPanel(host, scope)) {
+    if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) {
       host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       return;
     }
@@ -294,7 +294,6 @@ async function rollbackThread(
     });
     if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
-    if (!effectCompletedInCurrentContext(effect)) return;
     if (!threadCommandScopeStillTargetsPanel(host, scope)) {
       host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       return;

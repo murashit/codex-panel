@@ -71,6 +71,19 @@ describe("CodexExecutionRuntime", () => {
     expect(chat.threadMutations).toBe(threads.threadMutations);
   });
 
+  it("stops publishing thread facts after disposal", () => {
+    const onThreadFacts = vi.fn();
+    const runtime = executionRuntime(onThreadFacts);
+    const facts = attachChatHost(runtime).threadFacts;
+
+    facts.apply({ type: "thread-archived", threadId: "before-dispose" });
+    runtime.dispose();
+    facts.apply({ type: "thread-archived", threadId: "after-dispose" });
+
+    expect(onThreadFacts).toHaveBeenCalledOnce();
+    expect(onThreadFacts).toHaveBeenCalledWith([{ type: "thread-archived", threadId: "before-dispose" }]);
+  });
+
   it("disconnects an active query client and rejects its late completion when disposed", async () => {
     let resolveModels: (value: { data: readonly [] }) => void = () => undefined;
     const models = new Promise<{ data: readonly [] }>((resolve) => {
@@ -104,10 +117,10 @@ describe("CodexExecutionRuntime", () => {
 
     expect(client.disconnect).toHaveBeenCalledOnce();
     resolveModels({ data: [] });
-    await expect(fetch).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+    await fetch.catch(() => undefined);
   });
 
-  it("classifies a rejected short-lived operation as stale when disposed in flight", async () => {
+  it("preserves a rejected short-lived operation after disposal", async () => {
     let rejectOperation: (error: Error) => void = () => undefined;
     const operation = new Promise<never>((_resolve, reject) => {
       rejectOperation = reject;
@@ -119,7 +132,7 @@ describe("CodexExecutionRuntime", () => {
     runtime.dispose();
     rejectOperation(new Error("Disconnected"));
 
-    await expect(request).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+    await expect(request).rejects.toThrow("Disconnected");
   });
 
   it("disconnects a client created after the runtime is disposed", async () => {
@@ -221,13 +234,13 @@ function pickerFactory(): {
   return { controllers, finish };
 }
 
-function executionRuntime(): CodexExecutionRuntime {
+function executionRuntime(onThreadFacts = vi.fn()): CodexExecutionRuntime {
   return new CodexExecutionRuntime({
     app: { vault: { configDir: ".obsidian" } } as never,
     context: { codexPath: "codex", vaultPath: "/vault" },
     settings: () => ({ ...DEFAULT_SETTINGS }),
     workspace: {} as never,
-    onThreadFacts: vi.fn(),
+    onThreadFacts,
     openNewPanel: vi.fn(),
     openThreadInCurrentView: vi.fn(),
     openThreadInAvailableView: vi.fn(),

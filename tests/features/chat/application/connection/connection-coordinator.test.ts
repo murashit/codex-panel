@@ -46,7 +46,6 @@ function createCoordinatorHarness({ connected = false, canConnect = true } = {})
     addSystemMessage: vi.fn(),
     configuredCommand: () => "codex",
     isStaleConnectionError: () => false,
-    isStaleRuntimeError: () => false,
     notifyConnectionFailed: vi.fn(),
   };
   return {
@@ -241,16 +240,14 @@ describe("ChatConnectionCoordinator", () => {
     expect(refreshAppServerMetadata).not.toHaveBeenCalled();
   });
 
-  it("ignores stale resource context failures while refreshing active threads", async () => {
+  it("reports active thread refresh failures", async () => {
     const { coordinator, host } = createCoordinatorHarness({ connected: true });
-    const error = new Error("stale");
+    const error = new Error("refresh failed");
     vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(error);
-    host.isStaleRuntimeError = vi.fn((candidate) => candidate === error);
 
     await coordinator.refreshActiveThreads();
 
-    expect(host.isStaleRuntimeError).toHaveBeenCalledWith(error);
-    expect(host.addSystemMessage).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("refresh failed");
   });
 
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {

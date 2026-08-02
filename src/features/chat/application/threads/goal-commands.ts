@@ -1,5 +1,5 @@
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
-import { type EffectOutcome, effectCompletedInCurrentContext } from "../effect-outcome";
+import { type EffectOutcome, effectCompleted } from "../effect-outcome";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, activeThreadState } from "../state/root-reducer";
@@ -135,7 +135,7 @@ async function clearGoal(host: GoalCommandsContext, threadId: string, scope: Goa
   try {
     if (!(await host.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId, scope)) return false;
     const effect = await host.effects.clearThreadGoal(threadId);
-    if (!effectCompletedInCurrentContext(effect)) return false;
+    if (!effectCompleted(effect)) return false;
     host.goalCoordinator.markAuthoritativeObservation(threadId);
     return applyThreadGoalIfActive(host, threadId, null, { reportChange: true, panelTarget: scope.panelTarget });
   } catch (error) {
@@ -155,7 +155,7 @@ async function setGoal(
       return GOAL_MUTATION_NOT_COMMITTED;
     }
     const effect = await host.effects.setThreadGoal(threadId, params);
-    if (!effectCompletedInCurrentContext(effect)) return GOAL_MUTATION_NOT_COMMITTED;
+    if (!effectCompleted(effect)) return GOAL_MUTATION_NOT_COMMITTED;
     host.goalCoordinator.markAuthoritativeObservation(threadId);
     return {
       committed: true,
@@ -217,12 +217,6 @@ async function startThreadAndSaveObjective(
     if (!(await host.ensureConnected())) return false;
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) || !emptyPanelCanStartGoalThread(host)) return false;
     const outcome = await host.startThread(plan.objective, { syncGoal: false });
-    if (outcome.kind === "created-not-activated") {
-      host.addSystemMessage(
-        `Created thread ${outcome.threadId}, but the connection changed before it could be opened. Resume it from history before setting its goal.`,
-      );
-      return false;
-    }
     if (outcome.kind !== "created-activated") return false;
     return await enqueueGoalMutation(host, outcome.threadId, (scope) =>
       setNormalizedObjective(host, outcome.threadId, plan.objective, plan.tokenBudget, scope),

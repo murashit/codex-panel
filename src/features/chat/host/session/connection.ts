@@ -2,7 +2,6 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
-import { isStaleExecutionRuntimeError } from "../../../../shared/runtime/execution-runtime-lifetime";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { createServerDiagnosticsCoordinator } from "../../application/connection/server-diagnostics-coordinator";
@@ -113,7 +112,6 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
     refreshSkills: () => environment.plugin.appServerQueries.refreshSkills(),
     refreshRateLimits: () => environment.plugin.appServerQueries.refreshRateLimits(),
-    isStaleRuntimeError: isStaleExecutionRuntimeError,
   });
   const diagnosticsCoordinator = createServerDiagnosticsCoordinator({
     stateStore,
@@ -213,7 +211,6 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     addSystemMessage: status.addSystemMessage,
     configuredCommand: () => environment.plugin.appServerContext.codexPath,
     isStaleConnectionError: (error) => error instanceof StaleConnectionError,
-    isStaleRuntimeError: isStaleExecutionRuntimeError,
     notifyConnectionFailed: () => {
       new Notice("Codex app-server connection failed.");
     },

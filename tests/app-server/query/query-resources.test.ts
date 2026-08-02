@@ -50,19 +50,6 @@ describe("app-server query resources", () => {
     });
   });
 
-  it("classifies late completion after disposal as a stale execution runtime", async () => {
-    const pending = deferred<readonly []>();
-    const cache = createCache({
-      withClient: vi.fn(() => pending.promise) as AppServerClientAccess["withClient"],
-    });
-
-    const fetch = cache.metadataQueries.fetchModels();
-    cache.scope.dispose();
-    pending.resolve([]);
-
-    await expect(fetch).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
-  });
-
   it("tears down observers without notifying them after disposal", async () => {
     const pending = deferred<readonly []>();
     const cache = createCache({
@@ -75,7 +62,7 @@ describe("app-server query resources", () => {
     listener.mockClear();
     cache.scope.dispose();
     pending.resolve([]);
-    await expect(fetch).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+    await fetch.catch(() => undefined);
 
     expect(listener).not.toHaveBeenCalled();
   });
@@ -415,9 +402,7 @@ describe("app-server query resources", () => {
     expect(cache.threadCatalog.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
     staleRead.resolve({ data: [{ ...thread("target"), name: "stale" }], nextCursor: null });
     await expect(refresh).resolves.toEqual([{ ...thread("target"), name: "from-event" }]);
-    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(3));
-
-    expect(cache.threadCatalog.activeThreadsSnapshot()?.[0]?.name).toBe("authoritative");
+    await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()?.[0]?.name).toBe("authoritative"));
   });
 
   it("restarts an initial thread read when an exact event arrives before any snapshot", async () => {
@@ -599,20 +584,8 @@ describe("app-server query resources", () => {
     cache.scope.dispose();
 
     expect(cache.metadataQueries.metadataSnapshot("models")).toBeNull();
-    expect(() => cache.metadataQueries.fetchModels()).toThrow(StaleExecutionRuntimeError);
+    await expect(cache.metadataQueries.fetchModels()).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
     expect(listModels).toHaveBeenCalledOnce();
-  });
-
-  it("rejects an in-flight metadata notification refresh as stale after disposal", async () => {
-    const response = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const cache = cacheWithRequestHandlers({ "skills/list": vi.fn(() => response.promise) });
-    const refresh = cache.metadataQueries.refreshSkills();
-    await flushMicrotasks();
-
-    cache.scope.dispose();
-
-    await expect(refresh).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
-    response.resolve({ data: [{ skills: [catalogSkill("ignored")] }] });
   });
 
   it("freezes its lease context before starting requests", async () => {

@@ -49,7 +49,7 @@ describe("chat session adapters", () => {
     await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "delivery-unknown", error });
   });
 
-  it("ignores a steer error from a superseded app-server context", async () => {
+  it("preserves an RPC steer failure after the current client changes", async () => {
     const error = new AppServerRpcError("turn/steer", { code: -32000, message: "old context rejected" });
     const replacementClient = {} as AppServerClient;
     let currentClient: AppServerClient | null;
@@ -66,7 +66,7 @@ describe("chat session adapters", () => {
       connectedClient: async () => currentClient,
     });
 
-    await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "completed-stale", value: undefined });
+    await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "failed", error });
   });
 });
 

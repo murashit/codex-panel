@@ -5,7 +5,6 @@ import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import { SettingsDynamicSectionsController } from "../../src/settings/dynamic-sections-controller";
-import { StaleExecutionRuntimeError } from "../../src/shared/runtime/execution-runtime-lifetime";
 import type { ObservedResult } from "../../src/shared/runtime/observed-result";
 import { deferred } from "../support/async";
 import {
@@ -332,7 +331,7 @@ describe("SettingsDynamicSectionsController", () => {
     expect(applyThreadFact).not.toHaveBeenCalled();
   });
 
-  it("starts a replacement-context archived mutation while old work is still pending", async () => {
+  it("lets replacement and previous context mutations settle independently", async () => {
     const oldRestore = deferred<{ thread: ThreadRecord }>();
     const oldClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => oldRestore.promise),
@@ -357,7 +356,7 @@ describe("SettingsDynamicSectionsController", () => {
     oldRestore.resolve({
       thread: appServerThread({ id: "thread-shared", preview: "Old context" }),
     });
-    await expect(staleMutation).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+    await expect(staleMutation).resolves.toMatchObject({ id: "thread-shared", preview: "Old context" });
   });
 
   it("displays restored archived thread state after recording the active catalog event", async () => {

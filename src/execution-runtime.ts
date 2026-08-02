@@ -68,6 +68,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.appServerQueries = new AppServerMetadataQueries(this.queryScope);
     this.threadCatalog = new AppServerThreadCatalog(this.queryScope);
     const applyThreadFacts = (facts: readonly ThreadFact[]): void => {
+      if (this.disposed) return;
       for (const fact of facts) this.threadAutoTitleWork?.applyThreadFact(fact);
       this.threadCatalog.applyThreadCatalogChanges(projectThreadFacts(this.threadCatalog, facts));
       options.onThreadFacts(facts);
@@ -212,25 +213,18 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       this.assertActive();
       return operation(client);
     };
-    try {
-      const result = await withShortLivedAppServerClient(this.context.codexPath, this.context.vaultPath, guardedOperation, options, {
-        created: (client) => {
-          if (this.disposed) {
-            client.disconnect();
-            throw new StaleExecutionRuntimeError();
-          }
-          this.shortLivedClients.add(client);
-        },
-        disposed: (client) => {
-          this.shortLivedClients.delete(client);
-        },
-      });
-      this.assertActive();
-      return result;
-    } catch (error) {
-      if (this.disposed) throw new StaleExecutionRuntimeError();
-      throw error;
-    }
+    return withShortLivedAppServerClient(this.context.codexPath, this.context.vaultPath, guardedOperation, options, {
+      created: (client) => {
+        if (this.disposed) {
+          client.disconnect();
+          throw new StaleExecutionRuntimeError();
+        }
+        this.shortLivedClients.add(client);
+      },
+      disposed: (client) => {
+        this.shortLivedClients.delete(client);
+      },
+    });
   }
 
   private structuredTurnRunner(): EphemeralStructuredTurnRunner {
