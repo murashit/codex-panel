@@ -57,7 +57,7 @@ async function resumeThread(host: ResumeCommandHost, threadId: string, intent?: 
     return null;
   }
   const resume = intent ?? host.resumeWork.begin(threadId);
-  if (resume.threadId !== threadId || host.resumeWork.isStale(resume)) return null;
+  if (resume.threadId !== threadId || !host.resumeWork.isCurrent(resume)) return null;
   const initialPanelTarget = capturePanelTargetLease(host.stateStore.getState());
   host.history.invalidate();
 
@@ -153,7 +153,7 @@ function recoverResumedThreadTokenUsage(
 
 function isStaleResume(host: ResumeCommandHost, resume: ActiveChatResume, panelTarget?: PanelTargetLease): boolean {
   return (
-    host.resumeWork.isStale(resume) ||
+    !host.resumeWork.isCurrent(resume) ||
     host.closing() ||
     Boolean(panelTarget && !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget))
   );

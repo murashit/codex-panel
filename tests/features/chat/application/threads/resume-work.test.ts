@@ -7,8 +7,8 @@ describe("ChatResumeWorkTracker", () => {
     const tracker = new ChatResumeWorkTracker();
     const resume = tracker.begin("thread");
 
-    expect(tracker.isStale(resume)).toBe(false);
+    expect(tracker.isCurrent(resume)).toBe(true);
     tracker.invalidate();
-    expect(tracker.isStale(resume)).toBe(true);
+    expect(tracker.isCurrent(resume)).toBe(false);
   });
 });

@@ -22,15 +22,12 @@ export interface HistoryControllerHost {
   setThreadTurnPresence: (hadTurns: boolean) => void;
 }
 
-type ThreadHistoryLoadLifecycleState = { kind: "idle" } | { kind: "loading"; threadId: string; mode: "latest" | "older" };
-type ActiveThreadHistoryLoad = Extract<ThreadHistoryLoadLifecycleState, { kind: "loading" }>;
-type ThreadHistoryLoadLifecycleEvent =
-  | { type: "started"; load: ActiveThreadHistoryLoad }
-  | { type: "finished"; load: ActiveThreadHistoryLoad }
-  | { type: "invalidated" };
+interface ActiveThreadHistoryLoad {
+  readonly threadId: string;
+}
 
 export class HistoryController {
-  private lifecycle: ThreadHistoryLoadLifecycleState = { kind: "idle" };
+  private activeLoad: ActiveThreadHistoryLoad | null = null;
 
   constructor(private readonly host: HistoryControllerHost) {}
 
@@ -43,20 +40,20 @@ export class HistoryController {
   }
 
   invalidate(): void {
-    this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "invalidated" });
+    this.activeLoad = null;
     this.dispatch({ type: "thread-stream/history-loading-set", loading: false });
   }
 
   async loadLatest(threadId = activeThreadId(this.state)): Promise<void> {
     if (!threadId) return;
-    const load = this.startLoading(threadId, "latest");
+    const load = this.startLoading(threadId);
     try {
       const response = await this.host.source.readHistoryPage(threadId, null, 20);
       if (!response) return;
-      if (this.isStale(load)) return;
+      if (!this.isCurrent(load)) return;
       this.applyLatestPage(threadId, response);
     } catch (error) {
-      if (this.isStale(load)) return;
+      if (!this.isCurrent(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     } finally {
       this.finishLoading(load);
@@ -80,11 +77,11 @@ export class HistoryController {
     const threadId = activeThreadId(state);
     if (!threadId || !state.threadStream.historyCursor || state.threadStream.loadingHistory) return;
     const cursor = state.threadStream.historyCursor;
-    const load = this.startLoading(threadId, "older");
+    const load = this.startLoading(threadId);
     try {
       const response = await this.host.source.readHistoryPage(threadId, cursor, 20);
       if (!response) return;
-      if (this.isStale(load)) return;
+      if (!this.isCurrent(load)) return;
       const current = this.state;
       const currentItems = threadStreamItems(chatThreadStreamViewState(current.threadStream, current.activeTurn));
       const olderItems = response.items;
@@ -95,41 +92,27 @@ export class HistoryController {
         historyCursor: response.nextCursor,
       });
     } catch (error) {
-      if (this.isStale(load)) return;
+      if (!this.isCurrent(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     } finally {
       this.finishLoading(load);
     }
   }
 
-  private startLoading(threadId: string, mode: ActiveThreadHistoryLoad["mode"]): ActiveThreadHistoryLoad {
-    const load: ActiveThreadHistoryLoad = { kind: "loading", threadId, mode };
-    this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "started", load });
+  private startLoading(threadId: string): ActiveThreadHistoryLoad {
+    const load = { threadId };
+    this.activeLoad = load;
     this.dispatch({ type: "thread-stream/history-loading-set", loading: true });
     return load;
   }
 
   private finishLoading(load: ActiveThreadHistoryLoad): void {
-    if (this.isStale(load)) return;
-    this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "finished", load });
+    if (!this.isCurrent(load)) return;
+    this.activeLoad = null;
     this.dispatch({ type: "thread-stream/history-loading-set", loading: false });
   }
 
-  private isStale(load: ActiveThreadHistoryLoad): boolean {
-    return this.lifecycle !== load || activeThreadId(this.state) !== load.threadId;
-  }
-}
-
-function transitionThreadHistoryLoadLifecycle(
-  state: ThreadHistoryLoadLifecycleState,
-  event: ThreadHistoryLoadLifecycleEvent,
-): ThreadHistoryLoadLifecycleState {
-  switch (event.type) {
-    case "started":
-      return event.load;
-    case "finished":
-      return state === event.load ? { kind: "idle" } : state;
-    case "invalidated":
-      return state.kind === "idle" ? state : { kind: "idle" };
+  private isCurrent(load: ActiveThreadHistoryLoad): boolean {
+    return this.activeLoad === load && activeThreadId(this.state) === load.threadId;
   }
 }

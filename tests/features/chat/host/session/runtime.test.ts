@@ -44,7 +44,7 @@ describe("chat panel session runtime", () => {
 
     runtime.commands.invalidateThreadWork();
 
-    expect(resumeWork.isStale(resume)).toBe(true);
+    expect(resumeWork.isCurrent(resume)).toBe(false);
     expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
     const secondRestoration = runtime.thread.restoration.ensureLoaded(loadRestoredThread);
     expect(loadRestoredThread).toHaveBeenCalledTimes(2);
