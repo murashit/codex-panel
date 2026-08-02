@@ -265,7 +265,7 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
     openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
     openThreadInCurrentPanel: async (threadId) => {
       await input.activatePersistentThread(threadId);
-      return { adopted: activeThreadId(stateStore.getState()) === threadId };
+      return activeThreadId(stateStore.getState()) === threadId;
     },
     applyThreadFact: (fact) => {
       environment.plugin.threadFacts.apply(fact);

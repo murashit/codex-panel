@@ -615,7 +615,7 @@ describe("TurnSubmissionCommand", () => {
 
   it("does not create a second thread after the first creation loses its panel target", async () => {
     const { host, startTurn } = createHost({
-      startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated", threadId: "created" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated" }),
     });
     const commands = createTurnSubmissionCommand(host);
 
@@ -839,7 +839,7 @@ describe("TurnSubmissionCommand", () => {
     const { host, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    steerTurn.mockResolvedValue({ kind: "delivery-unknown", error: new Error("connection closed") });
+    steerTurn.mockResolvedValue({ kind: "delivery-unknown" });
     const commands = createTurnSubmissionCommand(host);
 
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(true);

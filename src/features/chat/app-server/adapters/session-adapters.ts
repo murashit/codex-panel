@@ -110,7 +110,7 @@ function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
       try {
         await dispatch.completion;
       } catch (error) {
-        return error instanceof AppServerRpcError ? { kind: "failed", error } : { kind: "delivery-unknown", error };
+        return error instanceof AppServerRpcError ? { kind: "failed", error } : { kind: "delivery-unknown" };
       }
       return { kind: "completed", value: undefined };
     },

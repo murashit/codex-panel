@@ -1,5 +1,4 @@
 import { QueryClient } from "@tanstack/query-core";
-import { StaleExecutionRuntimeError } from "../../shared/runtime/execution-runtime-lifetime";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "../connection/client-access";
 import type { AppServerExecutionContext } from "../connection/execution-context";
@@ -37,7 +36,7 @@ export class AppServerQueryScope {
   }
 
   assertUsable(): void {
-    if (this.disposed) throw new StaleExecutionRuntimeError();
+    if (this.disposed) throw new Error("Codex execution runtime is no longer active.");
   }
 
   runWithClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {

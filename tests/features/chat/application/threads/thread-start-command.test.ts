@@ -171,7 +171,7 @@ describe("thread start commands", () => {
     stateStore.dispatch(resumedThreadAction({ response: activationFixture(threadFixture("selected")) }));
     started.resolve(completedActivation(activationFixture(threadFixture("delayed"))));
 
-    await expect(starting).resolves.toEqual({ kind: "created-not-activated", threadId: "delayed" });
+    await expect(starting).resolves.toEqual({ kind: "created-not-activated" });
     expect(activeThreadId(stateStore.getState())).toBe("selected");
     expect(recordStartedThread).toHaveBeenCalledWith(threadFixture("delayed", { preview: pending.text }));
   });

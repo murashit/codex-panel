@@ -430,7 +430,7 @@ describe("createGoalCommands", () => {
       stateStore,
       effects,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated", threadId: "thread-new" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
     });

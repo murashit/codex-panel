@@ -30,7 +30,6 @@ import { createSettingsAppServerDynamicData } from "./settings/app-server-dynami
 import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
 import type { CodexPanelSettings } from "./settings/model";
 import { createObsidianVaultMarkdownDestination } from "./shared/obsidian/vault-write-destination.obsidian";
-import { StaleExecutionRuntimeError } from "./shared/runtime/execution-runtime-lifetime";
 import { createKeyedOperationCoordinator } from "./shared/runtime/keyed-operation-coordinator";
 
 export interface CodexExecutionRuntimeOptions {
@@ -217,7 +216,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       created: (client) => {
         if (this.disposed) {
           client.disconnect();
-          throw new StaleExecutionRuntimeError();
+          throw new Error("Codex execution runtime is no longer active.");
         }
         this.shortLivedClients.add(client);
       },
@@ -245,7 +244,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
               created: (client) => {
                 if (this.disposed) {
                   client.disconnect();
-                  throw new StaleExecutionRuntimeError();
+                  throw new Error("Codex execution runtime is no longer active.");
                 }
                 this.structuredTurnClients.add(client);
               },
@@ -275,12 +274,12 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
 
   private currentThreadAutoTitleWork(): ThreadAutoTitleWork {
     this.assertActive();
-    if (!this.threadAutoTitleWork) throw new StaleExecutionRuntimeError();
+    if (!this.threadAutoTitleWork) throw new Error("Codex execution runtime is no longer active.");
     return this.threadAutoTitleWork;
   }
 
   private assertActive(): void {
-    if (this.disposed) throw new StaleExecutionRuntimeError();
+    if (this.disposed) throw new Error("Codex execution runtime is no longer active.");
   }
 
   private tryCleanup(operation: () => void): boolean {

@@ -9,7 +9,6 @@ import { AppServerThreadCatalog } from "../../../src/app-server/query/thread-cat
 import type { RateLimitSnapshot } from "../../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../../src/domain/runtime/permissions";
 import type { Thread } from "../../../src/domain/threads/model";
-import { StaleExecutionRuntimeError } from "../../../src/shared/runtime/execution-runtime-lifetime";
 
 describe("app-server query resources", () => {
   it("uses its required runtime-owned client access", async () => {
@@ -584,7 +583,7 @@ describe("app-server query resources", () => {
     cache.scope.dispose();
 
     expect(cache.metadataQueries.metadataSnapshot("models")).toBeNull();
-    await expect(cache.metadataQueries.fetchModels()).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+    await expect(cache.metadataQueries.fetchModels()).rejects.toThrow("Codex execution runtime is no longer active.");
     expect(listModels).toHaveBeenCalledOnce();
   });
 

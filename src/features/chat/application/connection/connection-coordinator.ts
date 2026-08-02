@@ -63,7 +63,7 @@ export interface ChatConnectionCoordinator {
 
 export function createChatConnectionCoordinator(host: ChatConnectionCoordinatorHost): ChatConnectionCoordinator {
   let generation = 0;
-  let activeConnection: { generation: number; initialization: Promise<void>; hydration: Promise<void> } | null = null;
+  let activeConnection: { initialization: Promise<void>; hydration: Promise<void> } | null = null;
   const invalidate = (): void => {
     generation += 1;
     activeConnection = null;
@@ -77,7 +77,7 @@ export function createChatConnectionCoordinator(host: ChatConnectionCoordinatorH
       if (connectionIsStale() || !host.connection.isConnected()) return;
       await hydrateConnectedResources(host, connectionIsStale);
     });
-    const active = { generation: connectionGeneration, initialization, hydration };
+    const active = { initialization, hydration };
     activeConnection = active;
     const clear = (): void => {
       if (activeConnection === active) activeConnection = null;

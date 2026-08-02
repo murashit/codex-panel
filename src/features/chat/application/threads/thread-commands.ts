@@ -4,7 +4,7 @@ import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/
 import type { Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
-import { type EffectOutcome, effectCompleted } from "../effect-outcome";
+import type { EffectOutcome } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { chatThreadStreamViewState } from "../state/active-turn";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -52,11 +52,9 @@ export interface ThreadCommandsHost {
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<void>;
-  openThreadInCurrentPanel: (threadId: string) => Promise<CurrentPanelAdoption>;
+  openThreadInCurrentPanel: (threadId: string) => Promise<boolean>;
   applyThreadFact: (fact: ThreadUpsertFact) => void;
 }
-
-type CurrentPanelAdoption = { readonly adopted: boolean };
 
 interface ThreadUpsertFact {
   readonly type: "thread-upserted";
@@ -119,7 +117,7 @@ async function compactThread(host: ThreadCommandsHost, threadId: string): Promis
     if (!(await host.ensureConnected())) return;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
     const effect = await host.effects.compactThread(threadId);
-    if (!effectCompleted(effect)) return;
+    if (effect.kind === "not-started") return;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(STATUS_COMPACTION_REQUESTED);
     host.setStatus(STATUS_COMPACTION_REQUESTED);
@@ -189,7 +187,7 @@ async function forkThreadFromTurn(
     const effect = turnId
       ? await host.effects.forkThread(threadId, { position: { kind: "through-turn", turnId } })
       : await host.effects.forkThread(threadId);
-    if (!effectCompleted(effect)) return;
+    if (effect.kind === "not-started") return;
     const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
     if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) {
@@ -197,9 +195,9 @@ async function forkThreadFromTurn(
       return;
     }
     if (archiveSource) {
-      let adoption: CurrentPanelAdoption;
+      let adopted: boolean;
       try {
-        adoption = await host.openThreadInCurrentPanel(forkedThreadId);
+        adopted = await host.openThreadInCurrentPanel(forkedThreadId);
       } catch (error) {
         host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
         if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
@@ -207,7 +205,7 @@ async function forkThreadFromTurn(
         host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel: ${message}`);
         return;
       }
-      if (!adoption.adopted) {
+      if (!adopted) {
         host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
         if (threadCommandScopeStillTargetsOriginalPanel(host, scope)) {
           host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel.`);
@@ -292,21 +290,21 @@ async function rollbackThread(
       deferGoalContinuation: true,
       runtime: runtimeOverrides,
     });
-    if (!effectCompleted(effect)) return;
+    if (effect.kind === "not-started") return;
     const forkedThread = effect.value;
     if (!threadCommandScopeStillTargetsPanel(host, scope)) {
       host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       return;
     }
-    let adoption: CurrentPanelAdoption;
+    let adopted: boolean;
     try {
       options.adoptPanelTarget?.(forkedThread.id, candidate.text);
-      adoption = await host.openThreadInCurrentPanel(forkedThread.id);
+      adopted = await host.openThreadInCurrentPanel(forkedThread.id);
     } catch (error) {
       host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       throw error;
     }
-    if (!adoption.adopted) {
+    if (!adopted) {
       host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       if (threadCommandScopeStillTargetsPanel(host, scope)) {
         host.addSystemMessage("The rolled-back version was created but could not be opened in this panel. Open it from thread history.");

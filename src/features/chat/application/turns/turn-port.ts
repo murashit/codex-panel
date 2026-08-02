@@ -21,7 +21,7 @@ interface ChatTurnSteerRequest {
 type ChatTurnSteerOutcome =
   | EffectOutcome<void>
   | { readonly kind: "failed"; readonly error: unknown }
-  | { readonly kind: "delivery-unknown"; readonly error: unknown };
+  | { readonly kind: "delivery-unknown" };
 
 export interface ChatTurnPort {
   ensureConnected(): Promise<boolean>;

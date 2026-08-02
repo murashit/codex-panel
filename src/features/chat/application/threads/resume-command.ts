@@ -1,7 +1,7 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { Thread } from "../../../../domain/threads/model";
-import { type EffectOutcome, effectCompleted } from "../effect-outcome";
+import type { EffectOutcome } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { chatThreadStreamViewState } from "../state/active-turn";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -65,7 +65,7 @@ async function resumeThread(host: ResumeCommandHost, threadId: string, intent?: 
     if (!(await host.ensureConnected())) return null;
     if (isStaleResume(host, resume, initialPanelTarget)) return null;
     const effect = await host.effects.resumeThread(threadId);
-    if (!effectCompleted(effect)) return null;
+    if (effect.kind === "not-started") return null;
     host.recordResumedThread(effect.value.activation.thread);
     if (isStaleResume(host, resume, initialPanelTarget)) return null;
     const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);

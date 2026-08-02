@@ -6,7 +6,6 @@ import type { ThreadPickerController } from "../src/features/thread-picker/modal
 import type { ThreadsViewHost } from "../src/features/threads-view/session";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
-import { StaleExecutionRuntimeError } from "../src/shared/runtime/execution-runtime-lifetime";
 
 const { openThreadPickerMock, withShortLivedAppServerClientMock, runEphemeralStructuredTurnMock } = vi.hoisted(() => ({
   openThreadPickerMock: vi.fn(),
@@ -152,7 +151,7 @@ describe("CodexExecutionRuntime", () => {
     );
     runtime = executionRuntime();
 
-    await expect(runtime.withClient(() => Promise.resolve("unused"))).rejects.toBeInstanceOf(StaleExecutionRuntimeError);
+    await expect(runtime.withClient(() => Promise.resolve("unused"))).rejects.toThrow("Codex execution runtime is no longer active.");
 
     expect(client.disconnect).toHaveBeenCalledOnce();
   });

@@ -46,7 +46,7 @@ describe("chat session adapters", () => {
     const error = new Error("Codex app-server disconnected.");
     const adapters = adaptersWithSteerError(error);
 
-    await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "delivery-unknown", error });
+    await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "delivery-unknown" });
   });
 
   it("preserves an RPC steer failure after the current client changes", async () => {

@@ -212,7 +212,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     );
 
     const first = threadCatalog(plugin).refreshActiveThreads();
-    const staleFirst = expect(first).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
+    const staleFirst = expect(first).rejects.toThrow("Codex execution runtime is no longer active.");
     await flushMicrotasks();
     await publishCodexPath(plugin, "codex-b");
     const second = threadCatalog(plugin).refreshActiveThreads();
@@ -295,7 +295,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     await publishCodexPath(plugin, "codex-b");
     clientReady.resolve();
 
-    await expect(operation).rejects.toThrow("Codex execution runtime was disposed while work was in progress.");
+    await expect(operation).rejects.toThrow("Codex execution runtime is no longer active.");
     expect(callback).not.toHaveBeenCalled();
     expect(shortLivedClient.request).not.toHaveBeenCalled();
   });

@@ -13,7 +13,6 @@ import { createSettingsAppServerDynamicData } from "../../src/settings/app-serve
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
-import { StaleExecutionRuntimeError } from "../../src/shared/runtime/execution-runtime-lifetime";
 
 type ShortLivedClientOperation = (
   codexPath: string,
@@ -236,7 +235,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
         operation: (client: AppServerClient) => Promise<T>,
         clientOptions?: AppServerClientAccessOptions,
       ): Promise<T> => {
-        if (!contextIsCurrent()) throw new StaleExecutionRuntimeError();
+        if (!contextIsCurrent()) throw new Error("Codex execution runtime is no longer active.");
         return (await currentShortLivedClientMock()(contextKey, "/vault", operation, clientOptions)) as T;
       },
     };

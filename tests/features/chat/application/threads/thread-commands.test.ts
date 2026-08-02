@@ -587,7 +587,7 @@ describe("thread management commands", () => {
 
   it("keeps the source when the rollback fork is not adopted", async () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
-    host.openThreadInCurrentPanel.mockResolvedValue({ adopted: false });
+    host.openThreadInCurrentPanel.mockResolvedValue(false);
 
     await threadCommands(host).rollbackThread("source");
 
@@ -604,7 +604,7 @@ describe("thread management commands", () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
     host.openThreadInCurrentPanel.mockImplementation(async (threadId) => {
       adoptThread(host, threadId);
-      return { adopted: true };
+      return true;
     });
 
     await threadCommands(host).rollbackThread("source");
@@ -621,7 +621,7 @@ describe("thread management commands", () => {
     });
     host.openThreadInCurrentPanel.mockImplementation(async (threadId) => {
       adoptThread(host, threadId);
-      return { adopted: true };
+      return true;
     });
 
     await threadCommands(host).rollbackThread("source", { adoptPanelTarget });
@@ -875,7 +875,7 @@ function hostMock({
     openThreadInNewView: vi.fn<ThreadCommandsHost["openThreadInNewView"]>().mockResolvedValue(undefined),
     openThreadInCurrentPanel: vi.fn<ThreadCommandsHost["openThreadInCurrentPanel"]>().mockImplementation(async (threadId) => {
       adoptThread({ stateStore }, threadId);
-      return { adopted: true };
+      return true;
     }),
     applyThreadFact: vi.fn<ThreadCommandsHost["applyThreadFact"]>(),
   };

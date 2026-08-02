@@ -5,7 +5,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
-import { type EffectOutcome, effectCompleted } from "../effect-outcome";
+import type { EffectOutcome } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
@@ -24,7 +24,7 @@ export interface ThreadStartEffects {
 export type ThreadStartOutcome =
   | { readonly kind: "not-started" }
   | { readonly kind: "created-activated"; readonly threadId: string }
-  | { readonly kind: "created-not-activated"; readonly threadId: string };
+  | { readonly kind: "created-not-activated" };
 
 export interface ThreadStartCommandHost {
   stateStore: ChatStateStore;
@@ -68,7 +68,7 @@ async function startThread(
     serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),
     permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
   });
-  if (!effectCompleted(effect)) return { kind: "not-started" };
+  if (effect.kind === "not-started") return { kind: "not-started" };
   const activation = effect.value;
   const fallbackPreview = preview?.trim();
   const thread =
@@ -85,10 +85,10 @@ async function startThread(
       options.preservePendingSubmissionId,
     )
   ) {
-    return { kind: "created-not-activated", threadId: activation.thread.id };
+    return { kind: "created-not-activated" };
   }
   if (!panelTargetLeaseIsCurrent(current, panelTarget)) {
-    return { kind: "created-not-activated", threadId: activation.thread.id };
+    return { kind: "created-not-activated" };
   }
 
   const action = resumedThreadAction({
@@ -100,7 +100,7 @@ async function startThread(
   options.adoptPanelTarget?.(action.thread.id);
   const applied = host.stateStore.dispatch(action);
   if (activeThreadId(applied) !== action.thread.id) {
-    return { kind: "created-not-activated", threadId: action.thread.id };
+    return { kind: "created-not-activated" };
   }
   if (options.syncGoal ?? true) host.syncThreadGoal(action.thread.id);
   return { kind: "created-activated", threadId: action.thread.id };
