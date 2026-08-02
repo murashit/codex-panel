@@ -7,50 +7,28 @@ export type AppServerResourceFact =
   | { type: "rate-limits-updated" }
   | { type: "mcp-startup-status-updated"; name: string; status: McpServerStartupStatus; message: string | null };
 
-export interface ServerMetadataEffectsHost {
+export interface ServerResourceFactHost {
   stateStore: ChatStateStore;
-  refreshAppServerMetadata: () => Promise<void>;
   refreshSkills: () => Promise<void>;
   refreshRateLimits: () => Promise<void>;
 }
 
-export interface ServerMetadataEffects {
-  refreshAppServerMetadata: () => Promise<void>;
-  handleAppServerResourceFact: (fact: AppServerResourceFact) => Promise<void>;
-}
-
-export function createServerMetadataEffects(host: ServerMetadataEffectsHost): ServerMetadataEffects {
-  return {
-    refreshAppServerMetadata: () => host.refreshAppServerMetadata(),
-    handleAppServerResourceFact: async (fact) => {
-      if (fact.type === "skills-changed") {
-        await host.refreshSkills();
-        return;
-      }
-      if (fact.type === "rate-limits-updated") {
-        await host.refreshRateLimits();
-        return;
-      }
-      applyAppServerResourceFact(host, fact);
-    },
-  };
-}
-
-function applyAppServerResourceFact(host: ServerMetadataEffectsHost, fact: AppServerResourceFact): void {
+export async function handleAppServerResourceFact(host: ServerResourceFactHost, fact: AppServerResourceFact): Promise<void> {
   switch (fact.type) {
     case "skills-changed":
+      await host.refreshSkills();
+      return;
     case "rate-limits-updated":
+      await host.refreshRateLimits();
       return;
     case "mcp-startup-status-updated":
-      if (fact.name.length > 0) {
-        applyMcpStartupStatusEvent(host, fact.name, fact.status, fact.message);
-      }
+      if (fact.name.length > 0) applyMcpStartupStatusEvent(host, fact.name, fact.status, fact.message);
       return;
   }
 }
 
 function applyMcpStartupStatusEvent(
-  host: ServerMetadataEffectsHost,
+  host: ServerResourceFactHost,
   name: string,
   startupStatus: McpServerStartupStatus,
   message: string | null,

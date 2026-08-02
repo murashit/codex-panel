@@ -3,7 +3,7 @@ import { threadFromAppServerRecord } from "../../../../app-server/services/threa
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadFact } from "../../../threads/workflows/thread-facts";
-import type { AppServerResourceFact } from "../../application/connection/server-metadata-effects";
+import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
 import type { SubagentActivityAction } from "../../application/state/subagent-activity";

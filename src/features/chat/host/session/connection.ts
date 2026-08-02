@@ -6,7 +6,7 @@ import { type ChatInboundHandler, createChatInboundHandler } from "../../app-ser
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { createServerDiagnosticsCoordinator } from "../../application/connection/server-diagnostics-coordinator";
 import type { ServerDiagnosticsPort } from "../../application/connection/server-diagnostics-port";
-import { createServerMetadataEffects } from "../../application/connection/server-metadata-effects";
+import { handleAppServerResourceFact, type ServerResourceFactHost } from "../../application/connection/server-resource-facts";
 import type { LocalIdSource } from "../../application/local-id-source";
 import type { ChatConnectionPhase } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
@@ -107,12 +107,11 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   const { environment, stateStore } = host;
   const { connection, diagnosticsPort, localItemIds, status, autoTitleCoordinator } = input;
   const serverRequestResponders = createServerRequestResponderRegistry();
-  const serverMetadataEffects = createServerMetadataEffects({
+  const serverResourceFactHost: ServerResourceFactHost = {
     stateStore,
-    refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
     refreshSkills: () => environment.plugin.appServerQueries.refreshSkills(),
     refreshRateLimits: () => environment.plugin.appServerQueries.refreshRateLimits(),
-  });
+  };
   const diagnosticsCoordinator = createServerDiagnosticsCoordinator({
     stateStore,
     diagnosticsPort,
@@ -129,7 +128,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
         });
       },
       handleAppServerResourceFact: (fact) => {
-        void serverMetadataEffects.handleAppServerResourceFact(fact).catch((error: unknown) => {
+        void handleAppServerResourceFact(serverResourceFactHost, fact).catch((error: unknown) => {
           status.addSystemMessage(error instanceof Error ? error.message : String(error));
         });
       },
@@ -182,12 +181,8 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
         }),
       isConnected: () => connection.isConnected(),
     },
-    metadataEffects: {
-      refreshAppServerMetadata: () => serverMetadataEffects.refreshAppServerMetadata(),
-    },
-    diagnosticsCoordinator: {
-      refreshServerDiagnostics: () => diagnosticsCoordinator.refreshServerDiagnostics(),
-    },
+    refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
+    refreshServerDiagnostics: () => diagnosticsCoordinator.refreshServerDiagnostics(),
     refreshSharedThreads,
     scheduleDeferredDiagnostics: () => {
       scheduleDeferredDiagnosticsRefresh({

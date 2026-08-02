@@ -8,8 +8,6 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { deferred } from "../../../../support/async";
 
 type ChatConnectionPort = ChatConnectionCoordinatorHost["connection"];
-type ChatConnectionMetadataEffects = ChatConnectionCoordinatorHost["metadataEffects"];
-type ChatConnectionDiagnosticsCoordinator = ChatConnectionCoordinatorHost["diagnosticsCoordinator"];
 
 function createCoordinatorHarness({ connected = false, canConnect = true } = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -24,18 +22,12 @@ function createCoordinatorHarness({ connected = false, canConnect = true } = {})
   };
   const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
   const refreshServerDiagnostics = vi.fn().mockResolvedValue(undefined);
-  const metadataEffects = {
-    refreshAppServerMetadata,
-  } satisfies ChatConnectionMetadataEffects;
-  const diagnosticsCoordinator = {
-    refreshServerDiagnostics,
-  } satisfies ChatConnectionDiagnosticsCoordinator;
   const host: ChatConnectionCoordinatorHost = {
     stateStore,
     connection,
     canConnect: () => canConnect,
-    metadataEffects,
-    diagnosticsCoordinator,
+    refreshAppServerMetadata,
+    refreshServerDiagnostics,
     invalidateThreadWork: vi.fn(),
     refreshSharedThreads: vi.fn().mockResolvedValue(undefined),
     scheduleDeferredDiagnostics: vi.fn(),

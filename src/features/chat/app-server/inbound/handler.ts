@@ -1,7 +1,7 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { ThreadFact } from "../../../threads/workflows/thread-facts";
-import type { AppServerResourceFact } from "../../application/connection/server-metadata-effects";
+import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";

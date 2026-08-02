@@ -12,20 +12,12 @@ interface ChatConnectionPort {
   isConnected(): boolean;
 }
 
-interface ChatConnectionMetadataEffects {
-  refreshAppServerMetadata: () => Promise<unknown>;
-}
-
-interface ChatConnectionDiagnosticsCoordinator {
-  refreshServerDiagnostics: () => Promise<void>;
-}
-
 export interface ChatConnectionCoordinatorHost {
   stateStore: ChatStateStore;
   connection: ChatConnectionPort;
   canConnect: () => boolean;
-  metadataEffects: ChatConnectionMetadataEffects;
-  diagnosticsCoordinator: ChatConnectionDiagnosticsCoordinator;
+  refreshAppServerMetadata: () => Promise<unknown>;
+  refreshServerDiagnostics: () => Promise<void>;
   invalidateThreadWork: () => void;
   refreshSharedThreads: () => Promise<void>;
   scheduleDeferredDiagnostics: () => void;
@@ -132,10 +124,7 @@ async function refreshDiagnostics(
 
 async function refreshConnectedDiagnostics(host: ChatConnectionCoordinatorHost): Promise<void> {
   host.clearDeferredDiagnostics();
-  const [metadataResult, diagnosticsResult] = await Promise.allSettled([
-    host.metadataEffects.refreshAppServerMetadata(),
-    host.diagnosticsCoordinator.refreshServerDiagnostics(),
-  ]);
+  const [metadataResult, diagnosticsResult] = await Promise.allSettled([host.refreshAppServerMetadata(), host.refreshServerDiagnostics()]);
   if (metadataResult.status === "rejected") throw metadataResult.reason;
   if (diagnosticsResult.status === "rejected") throw diagnosticsResult.reason;
 }
@@ -176,7 +165,7 @@ async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale
 
 async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, isStale: () => boolean): Promise<void> {
   try {
-    await host.metadataEffects.refreshAppServerMetadata();
+    await host.refreshAppServerMetadata();
   } catch (error) {
     if (isStale()) return;
     host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);
