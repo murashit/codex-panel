@@ -67,6 +67,22 @@ describe("app-server request input", () => {
     });
   });
 
+  it("serializes supported attachments without persisting panel-only references", () => {
+    const input: CodexInput = [
+      { type: "image", url: "https://example.com/image.png", detail: "high" },
+      { type: "localImage", path: "/vault/image.png" },
+      { type: "skill", name: "Review", path: ".codex/skills/review/SKILL.md" },
+      { type: "fileReference", name: "Note", path: "Note.md" },
+      { type: "additionalContext", key: "context", kind: "untrusted", value: "reference" },
+    ];
+
+    expect(toAppServerUserInput(input)).toEqual([
+      { type: "image", url: "https://example.com/image.png", detail: "high" },
+      { type: "localImage", path: "/vault/image.png" },
+      { type: "skill", name: "Review", path: ".codex/skills/review/SKILL.md" },
+    ]);
+  });
+
   it("does not persist Vault file-reference display metadata in app-server history", () => {
     const prepared = appServerTurnInputFromCodexInput(
       [

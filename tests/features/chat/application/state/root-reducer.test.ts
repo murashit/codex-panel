@@ -45,6 +45,61 @@ describe("chatReducer", () => {
     expect(resumed.composer.draft).toBe("Continue here");
   });
 
+  it("retargets only the explicitly preserved pending web submission when a thread resumes", () => {
+    const pending = pendingWebSubmission("current-web", "committed");
+    const state = chatReducer(chatStateFixture(), { type: "web-submission/pending", submission: pending });
+
+    const preserved = chatReducer(state, {
+      ...resumedThreadAction("resumed-thread"),
+      preservePendingSubmissionId: "current-web",
+    });
+    const stale = chatReducer(state, {
+      ...resumedThreadAction("resumed-thread"),
+      preservePendingSubmissionId: "older-web",
+    });
+
+    expect(preserved.pendingSubmission).toEqual({ ...pending, targetThreadId: "resumed-thread" });
+    expect(stale.pendingSubmission).toBeNull();
+  });
+
+  it.each([
+    { label: "a different submission", phase: "committed", actionId: "older-web" },
+    { label: "an uncommitted submission", phase: "cancellable", actionId: "current-web" },
+  ] as const)("ignores an optimistic turn start owned by $label", ({ phase, actionId }) => {
+    const state = chatReducer(chatStateFixture(), {
+      type: "web-submission/pending",
+      submission: pendingWebSubmission("current-web", phase),
+    });
+    const item = pendingWebSubmission("optimistic").item;
+
+    const next = chatReducer(state, {
+      type: "turn/optimistic-started",
+      item,
+      pendingTurnStart: { anchorItemId: item.id, promptSubmitHookItemIds: [] },
+      pendingSubmissionId: actionId,
+    });
+
+    expect(next).toBe(state);
+  });
+
+  it("adopts an optimistic turn start from the matching committed web submission", () => {
+    const state = chatReducer(chatStateFixture(), {
+      type: "web-submission/pending",
+      submission: pendingWebSubmission("current-web", "committed"),
+    });
+    const item = pendingWebSubmission("optimistic").item;
+
+    const next = chatReducer(state, {
+      type: "turn/optimistic-started",
+      item,
+      pendingTurnStart: { anchorItemId: item.id, promptSubmitHookItemIds: [] },
+      pendingSubmissionId: "current-web",
+    });
+
+    expect(next.pendingSubmission).toBeNull();
+    expect(next.activeTurn.activeSegment?.items).toEqual([item]);
+  });
+
   it.each([
     {
       label: "commit",
@@ -670,6 +725,15 @@ describe("chatReducer", () => {
     state = chatReducer(state, { type: "composer/suggestions-set", suggestions: [nextSuggestion] });
 
     expect(state.composer.suggestions).toEqual([nextSuggestion]);
+  });
+
+  it("accepts the first composer suggestion as an explicit selection", () => {
+    const suggestions = [suggestion("/plan"), suggestion("/status")];
+    let state = chatReducer(chatStateFixture(), { type: "composer/suggestions-set", suggestions, selected: 1 });
+
+    state = chatReducer(state, { type: "composer/suggestions-set", suggestions, selected: 0 });
+
+    expect(state.composer.suggestSelected).toBe(0);
   });
 
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {

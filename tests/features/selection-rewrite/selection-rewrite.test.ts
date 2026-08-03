@@ -6,7 +6,11 @@ import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
 import { createAppServerSelectionRewriteAdapter } from "../../../src/features/selection-rewrite/app-server-adapter";
 import { buildSelectionDiffLines } from "../../../src/features/selection-rewrite/diff";
-import { canApplySelectionRewrite, type SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
+import {
+  canApplySelectionRewrite,
+  type SelectionRewriteState,
+  selectionRewriteTextRangeOffsets,
+} from "../../../src/features/selection-rewrite/model";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
 import { SelectionRewriteOutputError, type SelectionRewritePortRequest } from "../../../src/features/selection-rewrite/port";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
@@ -152,6 +156,76 @@ describe("selection rewrite apply guard", () => {
         },
         state,
       ),
+    ).toBe(false);
+  });
+
+  it("converts a valid multi-line editor range to half-open text offsets", () => {
+    expect(
+      selectionRewriteTextRangeOffsets("first\nsecond line\nthird", {
+        from: { line: 1, ch: 1 },
+        to: { line: 1, ch: 7 },
+      }),
+    ).toEqual({ from: 7, to: 13 });
+  });
+
+  it("falls back to the expected text only when editor positions are invalid", () => {
+    const invalidRange = {
+      from: { line: 20, ch: 0 },
+      to: { line: 20, ch: 4 },
+    };
+
+    expect(selectionRewriteTextRangeOffsets("before target after", invalidRange, "target")).toEqual({ from: 7, to: 13 });
+    expect(selectionRewriteTextRangeOffsets("before target after", invalidRange, "missing")).toBeNull();
+    expect(selectionRewriteTextRangeOffsets("before target after", invalidRange)).toBeNull();
+  });
+
+  it("rejects negative, reversed, and past-line-end editor ranges", () => {
+    expect(selectionRewriteTextRangeOffsets("text", { from: { line: -1, ch: 0 }, to: { line: 0, ch: 1 } })).toBeNull();
+    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: -1 }, to: { line: 0, ch: 1 } })).toBeNull();
+    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: 3 }, to: { line: 0, ch: 1 } })).toBeNull();
+    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: 0 }, to: { line: 0, ch: 5 } })).toBeNull();
+    expect(selectionRewriteTextRangeOffsets("a\nlong", { from: { line: 0, ch: 0 }, to: { line: 0, ch: 2 } })).toBeNull();
+  });
+
+  it("accepts empty ranges at line boundaries and rejects an empty fallback", () => {
+    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: 0 }, to: { line: 0, ch: 1 } })).toEqual({
+      from: 0,
+      to: 1,
+    });
+    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } })).toEqual({
+      from: 0,
+      to: 4,
+    });
+    expect(selectionRewriteTextRangeOffsets("a\n", { from: { line: 0, ch: 1 }, to: { line: 0, ch: 1 } })).toEqual({ from: 1, to: 1 });
+    expect(selectionRewriteTextRangeOffsets("a\n", { from: { line: 1, ch: 0 }, to: { line: 1, ch: 0 } })).toEqual({ from: 2, to: 2 });
+    expect(selectionRewriteTextRangeOffsets("text", { from: { line: 2, ch: 0 }, to: { line: 2, ch: 0 } }, "")).toBeNull();
+  });
+
+  it("guards nearby edits while ignoring note changes outside the bounded context", () => {
+    const prefix = "p".repeat(1_100);
+    const suffix = "s".repeat(1_100);
+    const noteText = `${prefix}target${suffix}`;
+    const state = rewriteState({
+      originalText: "target",
+      noteText,
+      targetRange: { from: { line: 0, ch: 1_100 }, to: { line: 0, ch: 1_106 } },
+    });
+
+    expect(canApplySelectionRewrite({ currentText: "target", currentNoteText: `X${noteText.slice(1)}` }, state)).toBe(true);
+    expect(canApplySelectionRewrite({ currentText: "target", currentNoteText: `${noteText.slice(0, -1)}X` }, state)).toBe(true);
+    expect(canApplySelectionRewrite({ currentText: "target", currentNoteText: `${prefix.slice(0, -1)}Xtarget${suffix}` }, state)).toBe(
+      false,
+    );
+  });
+
+  it("rejects apply when either saved or current target positions cannot be resolved", () => {
+    const invalid = rewriteState({
+      noteText: "no saved selection",
+      targetRange: { from: { line: 20, ch: 0 }, to: { line: 20, ch: 6 } },
+    });
+
+    expect(
+      canApplySelectionRewrite({ currentText: invalid.originalText, currentNoteText: `current ${invalid.originalText}` }, invalid),
     ).toBe(false);
   });
 });

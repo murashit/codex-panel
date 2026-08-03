@@ -55,6 +55,7 @@ describe("thread reference resolver", () => {
     });
     expect(result?.input[1]).toMatchObject({
       type: "additionalContext",
+      key: "codex_panel_referenced_thread",
       kind: "untrusted",
       value: expect.stringContaining("Referenced thread context for the current user input:"),
     });

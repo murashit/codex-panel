@@ -100,6 +100,20 @@ describe("legacy turn context manifests", () => {
     });
   });
 
+  it("requires an explicit submission id to match the trusted client", () => {
+    const manifest = validManifest({ submissionId: "different-submission" });
+
+    expect(projectedManifest(manifest)).toMatchObject({ manifest: null });
+  });
+
+  it("accepts legacy context binding without a submission id only when contexts are present", () => {
+    const bound = validManifestWithoutSubmissionId();
+    const empty = { ...bound, contexts: [] };
+
+    expect(projectedManifest(bound).manifest).toMatchObject({ contexts: [{ id: `${SUBMISSION_ID}.00` }] });
+    expect(projectedManifest(empty)).toMatchObject({ manifest: null });
+  });
+
   it("keeps mismatched and duplicate context IDs visible", () => {
     const entry = validManifest().contexts[0];
     if (!entry) throw new Error("Expected a valid manifest entry.");
@@ -137,6 +151,11 @@ function validManifest(overrides: Partial<LegacyTurnContextManifest> = {}): Lega
     contexts: [{ kind: "web", id: `${SUBMISSION_ID}.00`, truncated: false }],
     ...overrides,
   };
+}
+
+function validManifestWithoutSubmissionId(): LegacyTurnContextManifest {
+  const { submissionId: _, ...manifest } = validManifest();
+  return manifest;
 }
 
 function projectedManifest(manifest: LegacyTurnContextManifest, clientId: string | null = SUBMISSION_ID) {

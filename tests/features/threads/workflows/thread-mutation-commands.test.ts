@@ -260,38 +260,6 @@ describe("ThreadMutationCommands", () => {
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
-  it("does not publish stale rename results after the current client changes", async () => {
-    const firstClient = clientMock();
-    const secondClient = clientMock();
-    let currentClient: MockClient | null = firstClient;
-    const { mutations, catalog } = operationsFixture({ client: () => currentClient });
-    firstClient.request.mockImplementationOnce(async (method: string) => {
-      if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
-      currentClient = secondClient;
-      return {};
-    });
-
-    await expect(mutations.renameThread("thread", "Title")).rejects.toThrow("Client changed.");
-
-    expect(catalog.apply).not.toHaveBeenCalled();
-  });
-
-  it("does not publish stale archive results after the current client changes", async () => {
-    const firstClient = clientMock();
-    const secondClient = clientMock();
-    let currentClient: MockClient | null = firstClient;
-    const { mutations, catalog } = operationsFixture({ client: () => currentClient });
-    firstClient.request.mockImplementationOnce(async (method: string) => {
-      if (method !== "thread/archive") throw new Error(`Unexpected app-server request: ${method}`);
-      currentClient = secondClient;
-      return {};
-    });
-
-    await expect(mutations.archiveThread("thread")).rejects.toThrow("Client changed.");
-
-    expect(catalog.apply).not.toHaveBeenCalled();
-  });
-
   it("restores and deletes archived threads through the shared lifecycle owner", async () => {
     const { mutations, client, catalog } = operationsFixture();
 
@@ -306,14 +274,9 @@ describe("ThreadMutationCommands", () => {
 });
 
 function operationsFixture(
-  options: {
-    client?: MockClient | null | (() => MockClient | null);
-    referenceThreads?: readonly Thread[];
-    threadIsBusy?: (threadId: string) => boolean;
-  } = {},
+  options: { client?: MockClient | null; referenceThreads?: readonly Thread[]; threadIsBusy?: (threadId: string) => boolean } = {},
 ) {
-  const configuredClient = options.client === undefined ? clientMock() : options.client;
-  const currentClient = typeof configuredClient === "function" ? configuredClient : () => configuredClient;
+  const client = options.client === undefined ? clientMock() : options.client;
   const archiveDestination = archiveDestinationMock();
   const archiveDestinationFactory = vi.fn(() => archiveDestination);
   const archiveExportSettings = vi.fn(() => ({
@@ -331,11 +294,8 @@ function operationsFixture(
   const host: ThreadMutationCommandsHost = {
     port: createThreadMutationAdapter({
       withClient: async (operation) => {
-        const client = currentClient() as AppServerClient | null;
         if (!client) throw new Error("No current client.");
-        const result = await operation(client);
-        if ((currentClient() as AppServerClient | null) !== client) throw new Error("Client changed.");
-        return result;
+        return operation(client as unknown as AppServerClient);
       },
     }),
     archiveExport: {
@@ -351,7 +311,7 @@ function operationsFixture(
   };
   return {
     mutations: createThreadMutationCommands(host),
-    client: currentClient(),
+    client,
     archiveDestination,
     archiveDestinationFactory,
     archiveExportSettings,

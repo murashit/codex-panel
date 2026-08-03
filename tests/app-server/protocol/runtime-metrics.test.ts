@@ -32,6 +32,18 @@ describe("app-server runtime metrics", () => {
     ).toMatchObject({ limitId: "single-bucket", primary: { usedPercent: 12 } });
   });
 
+  it("projects the individual spend-control limit", () => {
+    const rateLimit = appServerRateLimitFixture("codex", 25);
+    rateLimit.individualLimit = { limit: "100", used: "25", remainingPercent: 75, resetsAt: 123 };
+
+    expect(rateLimitSnapshotFromAccountRateLimitsResponse({ rateLimits: rateLimit, rateLimitsByLimitId: null }).individualLimit).toEqual({
+      limit: "100",
+      used: "25",
+      remainingPercent: 75,
+      resetsAt: 123,
+    });
+  });
+
   it("summarizes account rate limit response availability", () => {
     expect(
       accountRateLimitsSummaryFromResponse({

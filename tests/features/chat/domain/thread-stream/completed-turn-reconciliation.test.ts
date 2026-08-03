@@ -55,6 +55,32 @@ describe("reconcileCompletedTurnItems", () => {
     ]);
   });
 
+  it("keeps fallback reconciliation scoped to the completed turn", () => {
+    const completedTurnOptimistic = {
+      ...userDialogue("local-user-completed", "same text", "completed"),
+      contextAttachments: [{ label: "Completed context", detail: "completed" }],
+    } satisfies ThreadStreamItem;
+    const otherTurnOptimistic = {
+      ...userDialogue("local-user-other", "same text", "other"),
+      contextAttachments: [{ label: "Other context", detail: "other" }],
+    } satisfies ThreadStreamItem;
+    const server = userDialogue("server-user", "same text", "completed");
+
+    const next = reconcileCompletedTurnItems({
+      currentItems: [completedTurnOptimistic, otherTurnOptimistic],
+      completedTurnId: "completed",
+      turnItems: [server],
+    });
+
+    expect(next).toEqual([
+      otherTurnOptimistic,
+      expect.objectContaining({
+        id: "server-user",
+        contextAttachments: [{ label: "Completed context", detail: "completed" }],
+      }),
+    ]);
+  });
+
   it("keeps the optimistic reference title while accepting server truncation metadata", () => {
     const optimistic = {
       ...userDialogue("local-user-1", "continue", "turn", "local-user-1"),
