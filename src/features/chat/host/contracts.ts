@@ -11,7 +11,6 @@ import type {
   SharedServerMetadataSnapshotValues,
 } from "../../../domain/server/metadata";
 import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
-import type { ObservedResultListener } from "../../../shared/runtime/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
 import type { ThreadAutoTitleWork } from "../../threads/workflows/thread-auto-title-work";
@@ -69,7 +68,6 @@ interface ChatAppServerQueries {
   ): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
-  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
 }
 
 export interface ChatPanelEnvironment {

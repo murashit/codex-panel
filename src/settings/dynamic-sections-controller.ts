@@ -105,10 +105,11 @@ export class SettingsDynamicSectionsController {
 
   private subscribe(): void {
     const dynamicData = this.dynamicData;
-    this.unsubscribeModels = dynamicData.observeModelsResult(
-      (result) => {
+    this.unsubscribeModels = dynamicData.observeModels(
+      (models) => {
         if (!this.dynamicDataIsCurrent(dynamicData)) return;
-        this.receiveObservedModelsResult(result);
+        this.models = [...models];
+        this.callbacks.display();
       },
       { emitCurrent: false },
     );
@@ -138,13 +139,6 @@ export class SettingsDynamicSectionsController {
       this.archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
     }
     this.unsubscribe();
-  }
-
-  private receiveObservedModelsResult(result: ObservedResult<readonly ModelMetadata[]>): void {
-    const observedModels = result.value;
-    if (!observedModels) return;
-    this.models = [...observedModels];
-    this.callbacks.display();
   }
 
   private receiveObservedArchivedThreadsResult(result: ObservedResult<readonly Thread[]>): void {

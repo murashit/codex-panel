@@ -13,8 +13,7 @@ import {
   createMcpElicitationResultItem,
   createUserInputResultItem,
 } from "../../domain/pending-requests/result-items";
-import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
-import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
+import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import { classifyAppServerLog } from "./app-server-logs";
 import {
   type ApprovalRequestOwner,
@@ -49,9 +48,6 @@ export interface ChatInboundHandler {
   cancelUserInput(requestId: PendingRequestId): void;
   resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): void;
   clearServerRequests(): void;
-  addSystemMessage(text: string): void;
-  addStructuredSystemMessage(text: string, details: ThreadStreamNoticeSection[]): void;
-  addDedupedSystemMessage(text: string): void;
 }
 
 interface ChatInboundHandlerContext {
@@ -96,15 +92,6 @@ export function createChatInboundHandler(
     },
     clearServerRequests: () => {
       context.approvalRequests.clear();
-    },
-    addSystemMessage: (text) => {
-      addSystemMessage(context, text);
-    },
-    addStructuredSystemMessage: (text, details) => {
-      addStructuredSystemMessage(context, text, details);
-    },
-    addDedupedSystemMessage: (text) => {
-      addDedupedSystemMessage(context, text);
     },
   };
 }
@@ -312,13 +299,6 @@ function pendingUserInput(context: ChatInboundHandlerContext, requestId: Pending
 
 function addSystemMessage(context: ChatInboundHandlerContext, text: string): void {
   dispatch(context, { type: "thread-stream/system-item-added", item: createSystemItem(localItemId(context, "system"), text) });
-}
-
-function addStructuredSystemMessage(context: ChatInboundHandlerContext, text: string, details: ThreadStreamNoticeSection[]): void {
-  dispatch(context, {
-    type: "thread-stream/system-item-added",
-    item: createStructuredSystemItem(localItemId(context, "system"), text, details),
-  });
 }
 
 function addDedupedSystemMessage(context: ChatInboundHandlerContext, text: string): void {

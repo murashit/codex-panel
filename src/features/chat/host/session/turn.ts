@@ -129,11 +129,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
         },
       },
       thread: {
-        ensureRestoredThreadLoaded: () =>
-          threadLifecycle.restoration.ensureLoaded(async (threadId) => {
-            const activation = await threadLifecycle.resume.resumeThread(threadId);
-            await activation?.hydrate();
-          }),
+        ensureRestoredThreadLoaded: threadLifecycle.ensureRestoredThreadLoaded,
         startNewThread: () => navigation.startNewThread(),
         selectThread: (threadId) => navigation.selectThread(threadId),
         notifyIdentityChanged: notifyActiveThreadIdentityChanged,

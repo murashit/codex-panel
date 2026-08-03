@@ -11,7 +11,7 @@ export interface SettingsHookCatalog {
 
 export interface SettingsDynamicDataAccess {
   modelsSnapshot(): readonly ModelMetadata[] | null;
-  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
+  observeModels(listener: (models: readonly ModelMetadata[]) => void, options?: { emitCurrent?: boolean }): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
   archivedThreadsSnapshot(): readonly Thread[] | null;

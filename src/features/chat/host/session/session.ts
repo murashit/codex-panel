@@ -377,10 +377,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   private async ensureRestoredThreadLoaded(): Promise<boolean> {
-    return this.runtime.thread.restoration.ensureLoaded(async (threadId) => {
-      const activation = await this.runtime.thread.resume.resumeThread(threadId);
-      await activation?.hydrate();
-    });
+    return this.runtime.thread.ensureRestoredThreadLoaded();
   }
 
   private reconcilePendingPersistentRuntimeTarget(threadId: string | null): void {

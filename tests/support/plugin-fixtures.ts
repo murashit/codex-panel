@@ -156,7 +156,6 @@ function chatHostFixture(): CodexChatHost {
       fetchModels: vi.fn(() => Promise.resolve([])),
       refreshModels: vi.fn(() => Promise.resolve([])),
       observeMetadataResource: vi.fn(() => () => undefined),
-      observeModelsResult: vi.fn(() => () => undefined),
     },
     threadCatalog: {
       fetchActiveThreads: vi.fn(() => Promise.resolve([])),

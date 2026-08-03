@@ -14,7 +14,7 @@ export function codexThreadIdFromHref(href: string): string | null {
   if (!encoded || encoded.includes("/") || encoded.includes("?") || encoded.includes("#")) return null;
   try {
     const threadId = decodeURIComponent(encoded);
-    return threadId.length > 0 && threadId.length <= MAX_THREAD_ID_LENGTH ? threadId : null;
+    return threadId.length <= MAX_THREAD_ID_LENGTH ? threadId : null;
   } catch {
     return null;
   }

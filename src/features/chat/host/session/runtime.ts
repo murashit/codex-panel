@@ -392,6 +392,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       resume: threadFeatures.resume,
       restoration: threadFeatures.restoration,
       identity: threadFeatures.identity,
+      ensureRestoredThreadLoaded: threadFeatures.ensureRestoredThreadLoaded,
       ephemeral,
       navigation,
     },

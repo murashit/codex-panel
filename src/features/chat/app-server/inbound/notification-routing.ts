@@ -158,7 +158,7 @@ export function routeServerNotification(notification: ServerNotification, scope:
 
   switch (registered.delivery) {
     case "threadCatalog":
-      return routeNotification(registered);
+      return registeredRoute(registered);
     case "activeScope": {
       const routeScope = registered.scope;
       if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
@@ -166,32 +166,15 @@ export function routeServerNotification(notification: ServerNotification, scope:
         return { kind: "inactive", notification, scope: routeScope };
       }
 
-      return routeNotification(registered);
+      return registeredRoute(registered);
     }
     default:
       throw new Error("Unhandled server notification delivery policy");
   }
 }
 
-function routeNotification(notification: RegisteredNotification): ServerNotificationRoute {
-  switch (notification.kind) {
-    case "streamUpdate":
-      return { kind: notification.kind, notification: notification.notification };
-    case "turnLifecycle":
-      return { kind: notification.kind, notification: notification.notification };
-    case "threadLifecycle":
-      return { kind: notification.kind, notification: notification.notification };
-    case "requestResolved":
-      return { kind: notification.kind, notification: notification.notification };
-    case "diagnosticStatus":
-      return { kind: notification.kind, notification: notification.notification };
-    case "userVisibleNotice":
-      return { kind: notification.kind, notification: notification.notification };
-    case "ignored":
-      return { kind: notification.kind, notification: notification.notification };
-    default:
-      throw new Error("Unhandled server notification route kind");
-  }
+function registeredRoute(notification: RegisteredNotification): ServerNotificationRoute {
+  return { kind: notification.kind, notification: notification.notification } as ServerNotificationRoute;
 }
 
 function registeredNotification<M extends ServerNotificationMethod>(notification: RoutedNotification<M>): RegisteredNotification | null {

@@ -443,7 +443,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
   let models = overrides.modelsSnapshot?.() ?? null;
   const activeThreadResultListeners = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
   const metadataResourceListeners = new Set<(resource: SharedServerMetadataResource) => void>();
-  const modelResultListeners = new Set<(result: ObservedResult<readonly ModelMetadata[]>) => void>();
   const settings = {
     ...DEFAULT_SETTINGS,
     codexPath: "codex",
@@ -541,7 +540,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       probe: diagnosticProbeOk("models", `${String(fetchedModels.length)} models`, Date.now()),
     };
     for (const listener of metadataResourceListeners) listener(modelsResource);
-    for (const listener of modelResultListeners) listener(queryResult(fetchedModels));
     const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: reloadSkills })) as {
       data: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }[];
     };
@@ -651,13 +649,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
       refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
       observeMetadataResource,
-      observeModelsResult: (listener, options = {}) => {
-        modelResultListeners.add(listener);
-        if ((options.emitCurrent ?? true) && models) listener(queryResult(models));
-        return () => {
-          modelResultListeners.delete(listener);
-        };
-      },
     },
     threadCatalog: {
       hasMoreActiveThreads: vi.fn(() => false),

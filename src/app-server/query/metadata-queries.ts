@@ -17,7 +17,6 @@ import type {
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
 } from "../../domain/server/metadata";
-import type { ObservedResult, ObservedResultListener } from "../../shared/runtime/observed-result";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listModelMetadata } from "../services/catalog";
 import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "../services/metadata-probes";
@@ -145,11 +144,6 @@ export class AppServerMetadataQueries {
   refreshRateLimits(): Promise<void> {
     this.scope.assertUsable();
     return this.invalidatedMetadataQueries.refreshAfterInvalidation("rateLimits");
-  }
-
-  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options: { emitCurrent?: boolean } = {}): () => void {
-    this.scope.assertUsable();
-    return this.observeQueryResult(this.metadataDescriptor("models").queryOptions(), cloneModelMetadata, listener, options);
   }
 
   async fetchModels(options: { force?: boolean } = {}): Promise<readonly ModelMetadata[]> {
@@ -298,27 +292,6 @@ export class AppServerMetadataQueries {
     );
   }
 
-  private observeQueryResult<TQuery, TValue>(
-    queryOptions: AppServerQueryOptions<TQuery>,
-    project: (value: TQuery) => TValue,
-    listener: ObservedResultListener<TValue>,
-    options: { emitCurrent?: boolean },
-  ): () => void {
-    const observer = new QueryObserver<TQuery>(this.scope.client, {
-      ...queryOptions,
-      enabled: false,
-    });
-    const emit = (result: QueryObserverResult<TQuery>): void => {
-      if (!this.scope.isDisposed()) listener(this.projectObservedResult(result, project));
-    };
-    const unsubscribe = observer.subscribe(emit);
-    if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
-    return this.scope.trackObserver(() => {
-      unsubscribe();
-      observer.destroy();
-    });
-  }
-
   private observeMetadataQueryResource<TQuery, Resource extends SharedServerMetadataResource>(
     queryOptions: AppServerQueryOptions<TQuery>,
     project: (result: QueryObserverResult<TQuery>) => Resource,
@@ -339,17 +312,6 @@ export class AppServerMetadataQueries {
       unsubscribe();
       observer.destroy();
     });
-  }
-
-  private projectObservedResult<TQuery, TValue>(
-    result: QueryObserverResult<TQuery>,
-    project: (value: TQuery) => TValue,
-  ): ObservedResult<TValue> {
-    return {
-      value: result.data === undefined ? null : project(result.data),
-      error: result.error instanceof Error ? result.error : null,
-      isFetching: result.isFetching,
-    };
   }
 }
 

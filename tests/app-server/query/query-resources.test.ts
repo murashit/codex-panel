@@ -55,7 +55,7 @@ describe("app-server query resources", () => {
       withClient: vi.fn(() => pending.promise) as AppServerClientAccess["withClient"],
     });
     const listener = vi.fn();
-    cache.metadataQueries.observeModelsResult(listener, { emitCurrent: false });
+    cache.metadataQueries.observeMetadataResource("models", listener, { emitCurrent: false });
 
     const fetch = cache.metadataQueries.fetchModels();
     listener.mockClear();
@@ -72,7 +72,7 @@ describe("app-server query resources", () => {
     });
     const destroy = vi.spyOn(QueryObserver.prototype, "destroy");
 
-    const unsubscribe = cache.metadataQueries.observeModelsResult(() => {
+    const unsubscribe = cache.metadataQueries.observeMetadataResource("models", () => {
       cache.scope.dispose();
     });
 

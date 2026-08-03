@@ -99,9 +99,7 @@ function nonEmptyStringOrNull(value: unknown): string | null {
 }
 
 function numberOrNull(value: unknown): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "bigint") return Number(value);
-  return null;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function recordOrNull(value: unknown): Record<string, unknown> | null {

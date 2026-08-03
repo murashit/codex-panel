@@ -41,6 +41,7 @@ export interface SessionThreadLifecycle {
   restoration: RestorationController;
   resume: ResumeCommand;
   identity: ActiveThreadIdentitySync;
+  ensureRestoredThreadLoaded: () => Promise<boolean>;
 }
 
 interface SessionThreadStatus {
@@ -198,11 +199,7 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
       },
       localItemIds,
       startThread: (preview, options) => threadStart.startThread(preview, options),
-      ensureRestoredThreadLoaded: () =>
-        lifecycle.restoration.ensureLoaded(async (threadId) => {
-          const activation = await lifecycle.resume.resumeThread(threadId);
-          await activation?.hydrate();
-        }),
+      ensureRestoredThreadLoaded: lifecycle.ensureRestoredThreadLoaded,
       startEditingGoal: goalEditor.startEditing,
       addSystemMessage: (text) => {
         status.addSystemMessage(text);
@@ -223,7 +220,7 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     resolveThreadTitleContext: (threadId) => foundation.titleService.resolveContext(threadId),
     generateThreadTitle: (context, signal) => foundation.titleService.generate(context, signal),
   });
-  const { identity, restoration, resume } = lifecycle;
+  const { identity, restoration, resume, ensureRestoredThreadLoaded } = lifecycle;
 
   return {
     goals,
@@ -231,6 +228,7 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     identity,
     restoration,
     resume,
+    ensureRestoredThreadLoaded,
   };
 }
 
@@ -354,5 +352,10 @@ function createSessionThreadLifecycle(
     restoration,
     resume,
     identity,
+    ensureRestoredThreadLoaded: () =>
+      restoration.ensureLoaded(async (threadId) => {
+        const activation = await resume.resumeThread(threadId);
+        await activation?.hydrate();
+      }),
   };
 }

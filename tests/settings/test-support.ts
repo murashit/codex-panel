@@ -5,6 +5,8 @@ import type { AppServerClientAccessOptions } from "../../src/app-server/connecti
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
+import { diagnosticProbeOk } from "../../src/domain/server/diagnostics";
+import type { SharedServerMetadataResourceFor } from "../../src/domain/server/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import { createThreadMutationAdapter } from "../../src/features/threads/app-server/workflow-adapters";
 import type { ThreadFact } from "../../src/features/threads/workflows/thread-facts";
@@ -188,7 +190,7 @@ export interface SettingsTabHostOptions {
   modelsSnapshot?: ModelMetadata[];
   fetchModels?: () => Promise<readonly ModelMetadata[]>;
   refreshModels?: () => Promise<readonly ModelMetadata[]>;
-  observeModels?: SettingsDynamicDataAccess["observeModelsResult"];
+  observeModels?: SettingsDynamicDataAccess["observeModels"];
   refreshChatViews?: () => void;
   refreshThreadsViews?: () => void;
   archivedThreads?: Thread[];
@@ -219,7 +221,15 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     metadataSnapshot: () => options.modelsSnapshot ?? [],
     fetchModels: options.fetchModels ?? (async () => options.modelsSnapshot ?? []),
     refreshModels: options.refreshModels ?? (async () => options.modelsSnapshot ?? []),
-    observeModelsResult: options.observeModels ?? (() => () => undefined),
+    observeMetadataResource: (
+      _id: "models",
+      listener: (resource: SharedServerMetadataResourceFor<"models">) => void,
+      observeOptions?: { emitCurrent?: boolean },
+    ) =>
+      (options.observeModels ?? (() => () => undefined))(
+        (models) => listener({ id: "models", value: models, probe: diagnosticProbeOk("models", "models", 0) }),
+        observeOptions,
+      ),
   };
   const threadCatalog = {
     archivedThreadsSnapshot: () => options.archivedSnapshot ?? null,

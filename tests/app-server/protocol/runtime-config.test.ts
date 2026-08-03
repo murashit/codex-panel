@@ -2,6 +2,41 @@ import { describe, expect, it } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../src/app-server/protocol/runtime-config";
 
 describe("runtime config protocol mapping", () => {
+  it("maps the complete non-permission runtime snapshot", () => {
+    expect(
+      runtimeConfigSnapshotFromAppServerConfig({
+        config: {
+          model: "gpt-5.6",
+          model_provider: "openai",
+          model_reasoning_effort: "high",
+          model_reasoning_summary: "concise",
+          model_verbosity: "low",
+          service_tier: "fast",
+          model_context_window: 200_000,
+          model_auto_compact_token_limit: 180_000,
+        },
+        layers: [{ name: { type: "user", profile: "work" }, config: {} }],
+      }),
+    ).toMatchObject({
+      profile: "work",
+      model: "gpt-5.6",
+      modelProvider: "openai",
+      reasoningEffort: "high",
+      reasoningSummary: "concise",
+      verbosity: "low",
+      serviceTier: "fast",
+      modelContextWindow: 200_000,
+      autoCompactTokenLimit: 180_000,
+    });
+  });
+
+  it.each([
+    { mode: "danger-full-access", expected: { type: "dangerFullAccess" } },
+    { mode: "read-only", expected: { type: "readOnly", networkAccess: false } },
+  ])("maps the $mode sandbox policy", ({ mode, expected }) => {
+    expect(runtimeConfigFixture({ sandbox_mode: mode }).startupPermissions.sandboxPolicy).toEqual(expected);
+  });
+
   it("keeps startup permission defaults in the runtime config snapshot", () => {
     expect(
       runtimeConfigFixture({
@@ -61,6 +96,8 @@ describe("runtime config protocol mapping", () => {
           type: "workspaceWrite",
           writableRoots: ["/vault"],
           networkAccess: false,
+          excludeTmpdirEnvVar: false,
+          excludeSlashTmp: false,
         },
       },
     });
