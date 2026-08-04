@@ -394,6 +394,7 @@ function contextProvider(
 ): ComposerContextReferenceProvider {
   return {
     contextReferences,
+    retainSelectionEmphasis: () => null,
     dispose: vi.fn(),
   };
 }

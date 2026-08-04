@@ -13,6 +13,12 @@ function ruleBody(selector: string): string {
 }
 
 describe("panel CSS boundaries", () => {
+  it("styles retained editor selection decorations", () => {
+    const emphasis = ruleBody(".codex-panel-selection-emphasis");
+
+    expect(emphasis).toContain("background-color: var(--text-selection)");
+  });
+
   it("defines design tokens on every standalone UI root", () => {
     const tokenScopeEnd = styles.indexOf(" {");
     expect(tokenScopeEnd).toBeGreaterThan(0);

@@ -159,7 +159,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const composerController = new ChatComposerController({
     fuzzyMatcher: obsidianFuzzyMatcher,
     noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
-    contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app),
+    contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app, environment.obsidian.isForeground),
     attachmentHandler: createVaultComposerAttachmentHandler({
       app: environment.obsidian.app,
       attachmentFolder: () => environment.plugin.settings.attachmentFolder(),

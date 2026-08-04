@@ -1391,6 +1391,18 @@ describe("ChatComposerController", () => {
         text: "initial selection",
       },
     };
+    const alphaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const firstBetaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const secondBetaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const nextDraftBetaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const submittedBetaSelectionEmphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const retainSelectionEmphasis = vi
+      .fn()
+      .mockReturnValueOnce(alphaSelectionEmphasis)
+      .mockReturnValueOnce(firstBetaSelectionEmphasis)
+      .mockReturnValueOnce(secondBetaSelectionEmphasis)
+      .mockReturnValueOnce(nextDraftBetaSelectionEmphasis)
+      .mockReturnValueOnce(submittedBetaSelectionEmphasis);
     let controller: ChatComposerController | null = null;
     const renderShell = vi.fn(() => {
       if (!controller) throw new Error("Expected controller.");
@@ -1401,7 +1413,10 @@ describe("ChatComposerController", () => {
       noteCandidateProvider: noteProvider({
         resolveFileReference: (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
       }),
-      contextReferenceProvider: contextProvider(() => references),
+      contextReferenceProvider: {
+        ...contextProvider(() => references),
+        retainSelectionEmphasis,
+      },
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -1438,6 +1453,7 @@ describe("ChatComposerController", () => {
     const prepared = controller.preparedInput(completedSelectionReference, snapshot);
 
     expect(composer(parent).value).toBe("[[notes/Alpha]] (L42:C5-L47:C1)");
+    expect(retainSelectionEmphasis).toHaveBeenCalledWith(expect.objectContaining({ text: "initial selection" }));
     expect(prepared.input).toContainEqual({
       type: "additionalContext",
       key: "codex_panel_obsidian_context",
@@ -1445,6 +1461,59 @@ describe("ChatComposerController", () => {
       value:
         "Obsidian references for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md (inline excerpt below)\n\nInline excerpts:\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
     });
+
+    setTextAreaValue(composer(parent), `${completedSelectionReference}\n@sel`);
+    composer(parent).setSelectionRange(composer(parent).value.length, composer(parent).value.length);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    const betaSelectionReference = "[[notes/Beta]] (L1:C1-L1:C5)";
+    expect(composer(parent).value).toBe(`${completedSelectionReference}\n${betaSelectionReference}`);
+    expect(retainSelectionEmphasis).toHaveBeenCalledTimes(2);
+    expect(alphaSelectionEmphasis.release).not.toHaveBeenCalled();
+    expect(firstBetaSelectionEmphasis.release).not.toHaveBeenCalled();
+
+    setTextAreaValue(composer(parent), `${composer(parent).value}\n@sel`);
+    composer(parent).setSelectionRange(composer(parent).value.length, composer(parent).value.length);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    expect(retainSelectionEmphasis).toHaveBeenCalledTimes(3);
+    expect(firstBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
+    expect(secondBetaSelectionEmphasis.release).not.toHaveBeenCalled();
+
+    const claim = controller.claimSubmission();
+    expect(alphaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(false);
+    expect(secondBetaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(false);
+    expect(alphaSelectionEmphasis.release).not.toHaveBeenCalled();
+    expect(secondBetaSelectionEmphasis.release).not.toHaveBeenCalled();
+
+    setTextAreaValue(composer(parent), "@sel");
+    composer(parent).setSelectionRange(composer(parent).value.length, composer(parent).value.length);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    expect(retainSelectionEmphasis).toHaveBeenCalledTimes(4);
+
+    claim?.settle("failed");
+    expect(alphaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(true);
+    expect(secondBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
+    expect(nextDraftBetaSelectionEmphasis.release).not.toHaveBeenCalled();
+
+    setTextAreaValue(composer(parent), betaSelectionReference);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(alphaSelectionEmphasis.release).toHaveBeenCalledOnce();
+    expect(nextDraftBetaSelectionEmphasis.release).not.toHaveBeenCalled();
+
+    setTextAreaValue(composer(parent), "");
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(nextDraftBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
+
+    setTextAreaValue(composer(parent), "@sel");
+    composer(parent).setSelectionRange(composer(parent).value.length, composer(parent).value.length);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    const acceptedClaim = controller.claimSubmission();
+    expect(submittedBetaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(false);
+    acceptedClaim?.settle("accepted");
+    expect(submittedBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
 
     controller.setDraft("", { clearSuggestions: true });
     expect(controller.preparedInput(completedSelectionReference, snapshot).input).toContainEqual({
@@ -1654,6 +1723,7 @@ function contextProvider(
 ): ComposerContextReferenceProvider {
   return {
     contextReferences,
+    retainSelectionEmphasis: () => null,
     dispose: vi.fn(),
   };
 }

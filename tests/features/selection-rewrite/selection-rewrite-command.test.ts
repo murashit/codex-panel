@@ -16,11 +16,22 @@ const popoverMock = vi.hoisted(() => {
     },
   };
 });
+const selectionEmphasisMock = vi.hoisted(() => ({
+  release: vi.fn(),
+  retain: vi.fn(),
+  setVisible: vi.fn(),
+}));
+
+vi.mock("../../../src/shared/obsidian/editor-selection-emphasis.obsidian", () => ({
+  retainEditorSelectionEmphasis: selectionEmphasisMock.retain,
+}));
 
 vi.mock("../../../src/features/selection-rewrite/popover.dom", () => {
   class SelectionRewritePopover {
     readonly open = vi.fn();
-    readonly close = vi.fn();
+    readonly close = vi.fn(() => {
+      this.options.onClose?.();
+    });
 
     constructor(readonly options: SelectionRewritePopoverOptions) {
       popoverMock.instances.push({ options, open: this.open, close: this.close });
@@ -33,6 +44,10 @@ vi.mock("../../../src/features/selection-rewrite/popover.dom", () => {
 describe("selection rewrite command", () => {
   it("captures the unsaved editor buffer and clones the target range", () => {
     popoverMock.reset();
+    selectionEmphasisMock.release.mockReset();
+    selectionEmphasisMock.retain
+      .mockReset()
+      .mockReturnValue({ release: selectionEmphasisMock.release, setVisible: selectionEmphasisMock.setVisible });
     const addedCommand = {
       current: null as null | { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean },
     };
@@ -60,7 +75,9 @@ describe("selection rewrite command", () => {
       getCursor: vi.fn((which: "from" | "to") => (which === "from" ? from : to)),
     };
     const view = new MarkdownView({} as never);
-    Object.assign(view, { containerEl: { doc: document } });
+    const containerEl = document.createElement("div");
+    Object.defineProperty(containerEl, "doc", { value: document });
+    Object.assign(view, { containerEl });
     view.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });
 
     const port: SelectionRewritePort = { generate: async () => ({ replacementText: "" }) };
@@ -84,6 +101,7 @@ describe("selection rewrite command", () => {
     });
     expect(popoverMock.instances[0]?.open).toHaveBeenCalledOnce();
     expect(popoverMock.instances[0]?.options.port).toBe(port);
+    expect(selectionEmphasisMock.retain).toHaveBeenCalledWith(editor, captured?.targetRange);
 
     expect(addedCommand.current?.editorCheckCallback(false, editor, view)).toBe(true);
     expect(popoverMock.instances).toHaveLength(2);
@@ -92,6 +110,7 @@ describe("selection rewrite command", () => {
 
     controller.closeAll();
     expect(popoverMock.instances[1]?.close).toHaveBeenCalledOnce();
+    expect(selectionEmphasisMock.release).toHaveBeenCalledTimes(2);
 
     cleanup.current?.();
     expect(popoverMock.instances[1]?.close).toHaveBeenCalledOnce();

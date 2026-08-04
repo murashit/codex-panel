@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { type App, type EventRef, TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -5,8 +7,16 @@ const dailyNotesInterface = vi.hoisted(() => ({
   appHasDailyNotesPluginLoaded: vi.fn<() => boolean>(),
   getDailyNoteSettings: vi.fn(),
 }));
+const selectionEmphasisMock = vi.hoisted(() => ({
+  release: vi.fn(),
+  retain: vi.fn(),
+  setVisible: vi.fn(),
+}));
 
 vi.mock("obsidian-daily-notes-interface", () => dailyNotesInterface);
+vi.mock("../../../../../src/shared/obsidian/editor-selection-emphasis.obsidian", () => ({
+  retainEditorSelectionEmphasis: selectionEmphasisMock.retain,
+}));
 
 import { VaultComposerContextReferenceProvider } from "../../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
 import { configuredDailyNoteReferences } from "../../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
@@ -16,6 +26,11 @@ describe("VaultNoteCandidateProvider", () => {
   beforeEach(() => {
     dailyNotesInterface.appHasDailyNotesPluginLoaded.mockReset().mockReturnValue(false);
     dailyNotesInterface.getDailyNoteSettings.mockReset().mockReturnValue(undefined);
+    selectionEmphasisMock.release.mockReset();
+    selectionEmphasisMock.setVisible.mockReset();
+    selectionEmphasisMock.retain
+      .mockReset()
+      .mockReturnValue({ release: selectionEmphasisMock.release, setVisible: selectionEmphasisMock.setVisible });
   });
 
   afterEach(() => {
@@ -292,7 +307,7 @@ describe("VaultNoteCandidateProvider", () => {
       abstractFiles: new Map([["notes/Alpha.md", file]]),
       linktexts: new Map([["notes/Alpha.md", "Alpha"]]),
     });
-    const provider = new VaultComposerContextReferenceProvider(app);
+    const provider = new VaultComposerContextReferenceProvider(app, () => false);
 
     expect(provider.contextReferences("Inbox.md")).toEqual({
       activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
@@ -306,22 +321,116 @@ describe("VaultNoteCandidateProvider", () => {
     });
   });
 
+  it("shows the matching retained selection only while its owning panel is foreground", () => {
+    const file = tFile("notes/Alpha.md", "Alpha");
+    const view = markdownView(file, {
+      selection: "selected text",
+      from: { line: 2, ch: 4 },
+      to: { line: 3, ch: 1 },
+    });
+    const app = appFixture({
+      activeView: view,
+      abstractFiles: new Map([[file.path, file]]),
+      linktexts: new Map([[file.path, "Alpha"]]),
+    });
+    let panelForeground = true;
+    const provider = new VaultComposerContextReferenceProvider(app, () => panelForeground);
+    const selection = provider.contextReferences("Inbox.md").selection;
+    if (!selection) throw new Error("Expected selection context.");
+
+    app.setActiveView(null);
+    app.triggerWorkspaceEvent("active-leaf-change");
+    const emphasis = provider.retainSelectionEmphasis(selection);
+
+    expect(selectionEmphasisMock.retain).toHaveBeenCalledWith(view.editor, selection.range);
+    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(true);
+
+    emphasis?.setEnabled(false);
+    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(false);
+
+    panelForeground = false;
+    app.setActiveView(view);
+    app.triggerWorkspaceEvent("active-leaf-change");
+    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(false);
+    expect(selectionEmphasisMock.release).not.toHaveBeenCalled();
+
+    panelForeground = true;
+    app.setActiveView(null);
+    app.triggerWorkspaceEvent("active-leaf-change");
+    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(false);
+
+    emphasis?.setEnabled(true);
+    expect(selectionEmphasisMock.setVisible).toHaveBeenLastCalledWith(true);
+
+    emphasis?.release();
+    expect(selectionEmphasisMock.release).toHaveBeenCalledOnce();
+
+    panelForeground = false;
+    app.triggerWorkspaceEvent("active-leaf-change");
+    expect(selectionEmphasisMock.setVisible).toHaveBeenCalledTimes(5);
+  });
+
+  it("routes retained selection visibility independently between panel providers", () => {
+    const file = tFile("notes/Alpha.md", "Alpha");
+    const view = markdownView(file, {
+      selection: "selected text",
+      from: { line: 2, ch: 4 },
+      to: { line: 3, ch: 1 },
+    });
+    const app = appFixture({
+      activeView: view,
+      abstractFiles: new Map([[file.path, file]]),
+      linktexts: new Map([[file.path, "Alpha"]]),
+    });
+    let firstForeground = true;
+    let secondForeground = false;
+    const first = new VaultComposerContextReferenceProvider(app, () => firstForeground);
+    const second = new VaultComposerContextReferenceProvider(app, () => secondForeground);
+    const selection = first.contextReferences("Inbox.md").selection;
+    if (!selection) throw new Error("Expected selection context.");
+    app.setActiveView(null);
+    app.triggerWorkspaceEvent("active-leaf-change");
+
+    const firstEmphasis = { release: vi.fn(), setVisible: vi.fn() };
+    const secondEmphasis = { release: vi.fn(), setVisible: vi.fn() };
+    selectionEmphasisMock.retain.mockReturnValueOnce(firstEmphasis).mockReturnValueOnce(secondEmphasis);
+    const retainedFirst = first.retainSelectionEmphasis(selection);
+    second.retainSelectionEmphasis(selection);
+
+    expect(firstEmphasis.setVisible).toHaveBeenLastCalledWith(true);
+    expect(secondEmphasis.setVisible).toHaveBeenLastCalledWith(false);
+
+    firstForeground = false;
+    secondForeground = true;
+    app.triggerWorkspaceEvent("active-leaf-change");
+    expect(firstEmphasis.setVisible).toHaveBeenLastCalledWith(false);
+    expect(secondEmphasis.setVisible).toHaveBeenLastCalledWith(true);
+
+    retainedFirst?.release();
+    second.dispose();
+    expect(firstEmphasis.release).toHaveBeenCalledOnce();
+    expect(secondEmphasis.release).toHaveBeenCalledOnce();
+    first.dispose();
+  });
+
   it("shares active-view event tracking across panel context providers", () => {
     const app = appFixture();
-    const first = new VaultComposerContextReferenceProvider(app);
-    const second = new VaultComposerContextReferenceProvider(app);
+    const first = new VaultComposerContextReferenceProvider(app, () => false);
+    const second = new VaultComposerContextReferenceProvider(app, () => false);
 
     first.dispose();
-    expect(app.offref).not.toHaveBeenCalled();
+    expect(app.offref).toHaveBeenCalledOnce();
 
     second.dispose();
-    expect(app.offref).toHaveBeenCalledTimes(2);
+    expect(app.offref).toHaveBeenCalledTimes(4);
   });
 });
 
 interface AppFixture extends App {
   offref: ReturnType<typeof vi.fn>;
+  setActiveView(view: unknown): void;
   triggerVaultEvent(name: string): void;
+  triggerWorkspaceEvent(name: string): void;
 }
 
 function appFixture(
@@ -341,6 +450,7 @@ function appFixture(
     activeView?: unknown;
   } = {},
 ): AppFixture {
+  let activeView: unknown = options.activeView ?? null;
   const refs: { source: "vault" | "metadata" | "workspace"; name: string; callback: () => void; ref: EventRef }[] = [];
   const offref = vi.fn((ref: EventRef) => {
     const index = refs.findIndex((event) => event.ref === ref);
@@ -355,8 +465,16 @@ function appFixture(
     };
   return {
     offref,
+    setActiveView: (view: unknown) => {
+      activeView = view;
+    },
     triggerVaultEvent: (name: string) => {
       for (const event of refs.filter((ref) => ref.source === "vault" && ref.name === name)) {
+        event.callback();
+      }
+    },
+    triggerWorkspaceEvent: (name: string) => {
+      for (const event of refs.filter((ref) => ref.source === "workspace" && ref.name === name)) {
         event.callback();
       }
     },
@@ -364,7 +482,7 @@ function appFixture(
       on: on("workspace"),
       offref,
       getActiveFile: () => options.activeFile ?? null,
-      getActiveViewOfType: () => options.activeView ?? null,
+      getActiveViewOfType: () => activeView,
       getLastOpenFiles: () => options.lastOpenFiles ?? [],
     },
     metadataCache: {
@@ -394,9 +512,14 @@ function appFixture(
 function markdownView(
   file: TFile,
   selection: { selection: string; from: { line: number; ch: number }; to: { line: number; ch: number } },
-): unknown {
+): {
+  file: TFile;
+  containerEl: HTMLElement;
+  editor: { getSelection(): string; getCursor(kind: "from" | "to"): { line: number; ch: number } };
+} {
   return {
     file,
+    containerEl: document.createElement("div"),
     editor: {
       getSelection: () => selection.selection,
       getCursor: (kind: "from" | "to") => (kind === "from" ? selection.from : selection.to),

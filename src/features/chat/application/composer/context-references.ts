@@ -29,8 +29,14 @@ export interface ComposerContextReferences {
   selectionSnapshots?: readonly SelectionContextReference[];
 }
 
+export interface ComposerSelectionEmphasis {
+  setEnabled(enabled: boolean): void;
+  release(): void;
+}
+
 export interface ComposerContextReferenceProvider {
   contextReferences(sourcePath: string): ComposerContextReferences;
+  retainSelectionEmphasis(selection: SelectionContextReference): ComposerSelectionEmphasis | null;
   dispose(): void;
 }
 

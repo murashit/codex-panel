@@ -248,6 +248,10 @@ export class Plugin {
     // Test mock placeholder.
   }
 
+  registerEditorExtension(_extension: unknown): void {
+    // Test mock placeholder.
+  }
+
   addCommand(_command: unknown): void {
     // Test mock placeholder.
   }

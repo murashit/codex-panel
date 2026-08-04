@@ -239,6 +239,7 @@ describe("chat panel session runtime", () => {
             getActiveViewOfType: vi.fn(() => null),
             getLastOpenFiles: vi.fn(() => []),
             on: vi.fn(() => ({})),
+            offref: vi.fn(),
             openLinkText: vi.fn(),
           },
           vault: {

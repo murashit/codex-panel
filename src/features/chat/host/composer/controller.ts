@@ -9,6 +9,7 @@ import {
   type ActiveNoteContextReference,
   activeNoteContextReferenceMarker,
   type ComposerContextReferenceProvider,
+  type ComposerSelectionEmphasis,
   type SelectionContextReference,
   selectionContextReferenceMarker,
 } from "../../application/composer/context-references";
@@ -104,6 +105,7 @@ export class ChatComposerController {
   private readonly attachmentTransfers: ComposerAttachmentTransfers;
   private activeNoteContextSnapshots: ActiveNoteContextReference[] = [];
   private selectionContextSnapshots: SelectionContextReference[] = [];
+  private readonly selectionEmphases = new Map<string, ComposerSelectionEmphasis>();
   private threadCommandTarget: ThreadCommandTarget | null = null;
   private activeSubmissionClaim: ActiveComposerSubmissionClaim | null = null;
   private pendingSelection: ComposerPendingSelection | null = null;
@@ -223,6 +225,7 @@ export class ChatComposerController {
     this.unsubscribeState();
     this.unsubscribeSharedResources();
     this.attachmentTransfers.dispose();
+    this.clearSelectionEmphases();
     this.threadCommandTarget = null;
     this.composer = null;
     this.options.noteCandidateProvider.dispose();
@@ -250,6 +253,7 @@ export class ChatComposerController {
     if (!text.trim()) return null;
     const inputSnapshot = this.captureInputSnapshot();
     const panelTarget = capturePanelTargetLease(this.state);
+    const claimedSelectionEmphases = this.takeSelectionEmphases();
     let settled = false;
 
     this.attachmentTransfers.clear();
@@ -281,11 +285,13 @@ export class ChatComposerController {
         const activeClaim = this.activeSubmissionClaim;
         if (activeClaim?.claim === claim) this.activeSubmissionClaim = null;
         if (activeClaim?.claim !== claim || !panelTargetLeaseIsCurrent(this.state, activeClaim.panelTarget)) {
+          releaseSelectionEmphases(claimedSelectionEmphases);
           return;
         }
 
         const nextDraft = this.draft;
         if (outcome === "accepted") {
+          releaseSelectionEmphases(claimedSelectionEmphases);
           if (replacementDraft === undefined) return;
           const restoredDraft = nextDraft.trim().length > 0 ? `${replacementDraft}\n\n${nextDraft}` : replacementDraft;
           this.setDraft(restoredDraft, {
@@ -314,6 +320,7 @@ export class ChatComposerController {
           preserveContext: true,
           threadCommandTarget: inputSnapshot.threadCommandTarget ?? this.threadCommandTarget,
         });
+        this.restoreClaimedSelectionEmphases(claimedSelectionEmphases);
       },
     };
     this.activeSubmissionClaim = {
@@ -349,6 +356,7 @@ export class ChatComposerController {
     this.attachmentTransfers.restore(snapshot.attachments);
     this.activeNoteContextSnapshots = [...snapshot.activeNoteSnapshots];
     this.selectionContextSnapshots = [...snapshot.selectionSnapshots];
+    this.clearSelectionEmphases();
     this.threadCommandTarget = snapshot.threadCommandTarget;
     this.setDraft(snapshot.draft, {
       preserveContext: true,
@@ -434,6 +442,7 @@ export class ChatComposerController {
     this.attachmentTransfers.clear();
     this.activeNoteContextSnapshots = [];
     this.selectionContextSnapshots = [];
+    this.clearSelectionEmphases();
     this.threadCommandTarget = null;
   }
 
@@ -619,12 +628,45 @@ export class ChatComposerController {
       ...this.selectionContextSnapshots.filter((snapshot) => selectionContextReferenceMarker(snapshot) !== marker),
       selection,
     ];
+    this.selectionEmphases.get(marker)?.release();
+    this.selectionEmphases.delete(marker);
+    const emphasis = this.options.contextReferenceProvider.retainSelectionEmphasis(selection);
+    if (emphasis) this.selectionEmphases.set(marker, emphasis);
   }
 
   private pruneSelectionContextSnapshots(text: string): void {
     this.selectionContextSnapshots = this.selectionContextSnapshots.filter((selection) =>
       text.includes(selectionContextReferenceMarker(selection)),
     );
+    const retainedMarkers = new Set(this.selectionContextSnapshots.map(selectionContextReferenceMarker));
+    for (const [marker, emphasis] of this.selectionEmphases) {
+      if (retainedMarkers.has(marker)) continue;
+      emphasis.release();
+      this.selectionEmphases.delete(marker);
+    }
+  }
+
+  private clearSelectionEmphases(): void {
+    releaseSelectionEmphases(this.selectionEmphases);
+  }
+
+  private takeSelectionEmphases(): Map<string, ComposerSelectionEmphasis> {
+    const emphases = new Map(this.selectionEmphases);
+    this.selectionEmphases.clear();
+    for (const emphasis of emphases.values()) emphasis.setEnabled(false);
+    return emphases;
+  }
+
+  private restoreClaimedSelectionEmphases(claimed: Map<string, ComposerSelectionEmphasis>): void {
+    for (const [marker, emphasis] of claimed) {
+      if (this.selectionEmphases.has(marker)) {
+        emphasis.release();
+        continue;
+      }
+      emphasis.setEnabled(true);
+      this.selectionEmphases.set(marker, emphasis);
+    }
+    claimed.clear();
   }
 
   private pruneActiveNoteContextSnapshots(text: string): void {
@@ -710,6 +752,11 @@ function mergeByMarker<T>(claimed: readonly T[], current: readonly T[], marker: 
   for (const value of claimed) merged.set(marker(value), value);
   for (const value of current) merged.set(marker(value), value);
   return [...merged.values()];
+}
+
+function releaseSelectionEmphases(emphases: Map<string, ComposerSelectionEmphasis>): void {
+  for (const emphasis of emphases.values()) emphasis.release();
+  emphases.clear();
 }
 
 function collapsedComposerSelection(value: string, cursor: number): ComposerPendingSelection {

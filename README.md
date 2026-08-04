@@ -52,7 +52,7 @@ For a one-off question alongside the current thread, use `/btw` to open a tempor
 
 ### Bring in the right context
 
-The composer lets you point Codex to relevant material without pasting it into the prompt. Type wikilinks to reference vault files while keeping their names readable. Use `@active` for the active file or `@selection` for the current Markdown selection.
+The composer lets you point Codex to relevant material without pasting it into the prompt. Type wikilinks to reference vault files while keeping their names readable. Use `@active` for the active file or `@selection` for the current Markdown selection. Completed `@selection` references highlight their unchanged source ranges while that panel is active; the highlights hide when you return to the editor and reappear when you return to the same panel while the references remain in its composer.
 
 When Obsidian Daily Notes or the daily section of Periodic Notes is enabled, `@today`, `@tomorrow`, and `@yesterday` resolve through its folder and date format. Paste or drop files to save them in the configured attachment folder and reference them from the same prompt. For material outside the vault, `/web <url> [message]` fetches readable page content and attaches it to the next turn without creating a note.
 

@@ -1,10 +1,14 @@
 import type { App, EditorPosition, EventRef } from "obsidian";
 import { MarkdownView, TFile } from "obsidian";
-
+import {
+  type EditorSelectionEmphasis,
+  retainEditorSelectionEmphasis,
+} from "../../../../shared/obsidian/editor-selection-emphasis.obsidian";
 import type {
   ComposerContextRange,
   ComposerContextReferenceProvider,
   ComposerContextReferences,
+  ComposerSelectionEmphasis,
 } from "../../application/composer/context-references";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
@@ -12,11 +16,24 @@ interface EventSource {
   offref?(ref: EventRef): void;
 }
 
+interface PanelSelectionEmphasis {
+  readonly decoration: EditorSelectionEmphasis;
+  enabled: boolean;
+}
+
 export class VaultComposerContextReferenceProvider implements ComposerContextReferenceProvider {
   private readonly shared: SharedComposerContext;
+  private readonly selectionEmphases = new Set<PanelSelectionEmphasis>();
+  private readonly activeLeafChangeRef: EventRef;
   private disposed = false;
 
-  constructor(private readonly app: App) {
+  constructor(
+    private readonly app: App,
+    private readonly isForeground: () => boolean,
+  ) {
+    this.activeLeafChangeRef = app.workspace.on("active-leaf-change", () => {
+      this.syncSelectionEmphasisVisibility();
+    });
     const existing = sharedComposerContexts.get(app);
     if (existing) {
       existing.consumers += 1;
@@ -31,13 +48,45 @@ export class VaultComposerContextReferenceProvider implements ComposerContextRef
     return this.shared.tracker.contextReferences(sourcePath);
   }
 
+  retainSelectionEmphasis(selection: ComposerContextReferences["selection"]): ComposerSelectionEmphasis | null {
+    if (this.disposed || !selection) return null;
+    const decoration = this.shared.tracker.retainSelectionEmphasis(selection);
+    if (!decoration) return null;
+    const emphasis = { decoration, enabled: true };
+    this.selectionEmphases.add(emphasis);
+    decoration.setVisible(this.isForeground());
+
+    let retained = true;
+    return {
+      setEnabled: (enabled) => {
+        if (!retained || emphasis.enabled === enabled) return;
+        emphasis.enabled = enabled;
+        decoration.setVisible(enabled && this.isForeground());
+      },
+      release: () => {
+        if (!retained) return;
+        retained = false;
+        this.selectionEmphases.delete(emphasis);
+        decoration.release();
+      },
+    };
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.app.workspace.offref(this.activeLeafChangeRef);
+    for (const emphasis of this.selectionEmphases) emphasis.decoration.release();
+    this.selectionEmphases.clear();
     this.shared.consumers -= 1;
     if (this.shared.consumers > 0) return;
     this.shared.tracker.dispose();
     sharedComposerContexts.delete(this.app);
+  }
+
+  private syncSelectionEmphasisVisibility(): void {
+    const visible = this.isForeground();
+    for (const emphasis of this.selectionEmphases) emphasis.decoration.setVisible(emphasis.enabled && visible);
   }
 }
 
@@ -84,6 +133,13 @@ class VaultComposerContextTracker {
     };
   }
 
+  retainSelectionEmphasis(selection: NonNullable<ComposerContextReferences["selection"]>): EditorSelectionEmphasis | null {
+    const view = this.validLastMarkdownView();
+    if (!view || !selectionReferencesMatch(selectionContextReference(this.app, view, selection.path), selection)) return null;
+
+    return retainEditorSelectionEmphasis(view.editor, selection.range);
+  }
+
   dispose(): void {
     for (const unregister of this.unregisterEvents.splice(0)) {
       unregister();
@@ -116,6 +172,21 @@ class VaultComposerContextTracker {
     if (!view?.file) return null;
     return this.app.vault.getAbstractFileByPath(view.file.path) instanceof TFile ? view : null;
   }
+}
+
+function selectionReferencesMatch(
+  current: ComposerContextReferences["selection"],
+  expected: NonNullable<ComposerContextReferences["selection"]>,
+): boolean {
+  if (!current) return false;
+  return (
+    current.path === expected.path &&
+    current.text === expected.text &&
+    current.range.from.line === expected.range.from.line &&
+    current.range.from.ch === expected.range.from.ch &&
+    current.range.to.line === expected.range.to.line &&
+    current.range.to.ch === expected.range.to.ch
+  );
 }
 
 function selectionContextReference(app: App, view: MarkdownView, sourcePath: string): ComposerContextReferences["selection"] {

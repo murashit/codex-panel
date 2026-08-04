@@ -9,6 +9,7 @@ import { CodexPanelRuntime } from "./plugin-runtime";
 import { type CodexPanelSettings, DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchStoredSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab.obsidian";
 import { disposeTextareaHeightMirrors } from "./shared/dom/textarea-autogrow.measure";
+import { registerEditorSelectionEmphasis } from "./shared/obsidian/editor-selection-emphasis.obsidian";
 
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
@@ -21,6 +22,7 @@ export default class CodexPanelPlugin extends Plugin {
 
   override async onload(): Promise<void> {
     disposeTextareaHeightMirrors();
+    registerEditorSelectionEmphasis(this);
     this.runtime.reset();
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();

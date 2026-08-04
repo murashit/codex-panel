@@ -1,3 +1,7 @@
+.codex-panel-selection-emphasis {
+  background-color: var(--text-selection);
+}
+
 .codex-panel-textarea-height-mirror {
   position: fixed;
   top: 0;
