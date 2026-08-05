@@ -1496,6 +1496,10 @@ describe("ChatComposerController", () => {
     expect(alphaSelectionEmphasis.setEnabled).toHaveBeenLastCalledWith(true);
     expect(secondBetaSelectionEmphasis.release).toHaveBeenCalledOnce();
     expect(nextDraftBetaSelectionEmphasis.release).not.toHaveBeenCalled();
+    expect(controller.captureInputSnapshot().selectionSnapshots.map((selection) => selection.text)).toEqual([
+      "initial selection",
+      "changed selection",
+    ]);
 
     setTextAreaValue(composer(parent), betaSelectionReference);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
