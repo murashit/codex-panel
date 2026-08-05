@@ -109,6 +109,7 @@ const previousTag = versionKeys.at(-2);
 if (!previousTag) fail("versions.json must contain a release before the prepared version");
 run("git", ["rev-parse", "--verify", `refs/tags/${previousTag}`], { capture: true });
 run("npm", ["ci", "--ignore-scripts"]);
+run("npm", ["audit", "--omit=dev", "--audit-level=low"]);
 run("npm", ["run", "commitlint", "--", "--from", previousTag, "--to", "main", "--verbose"]);
 run("npm", ["run", "release:check"]);
 run("npm", ["run", "api:baseline"]);

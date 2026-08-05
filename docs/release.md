@@ -38,7 +38,7 @@ git push origin X.Y.Z
 
 `release:prepare` updates version files and writes a replaceable `## Changes` draft from the same Conventional Commit candidates. It validates only that the requested version is the next patch, minor, or major version; it does not decide which increment is appropriate.
 
-Run `release:preflight` after the release commit is on `main`; it validates the release commit, installs the exact lockfile dependencies with `npm ci --ignore-scripts`, and runs the same checks used by the release workflow. Do not rely on an existing `node_modules` directory or on `npm ci --dry-run`.
+Run `release:preflight` after the release commit is on `main`; it validates the release commit, installs the exact lockfile dependencies with `npm ci --ignore-scripts`, fails if `npm audit --omit=dev --audit-level=low` finds a known vulnerability in a runtime dependency or cannot complete the audit, and runs the same checks used by the release workflow. Do not rely on an existing `node_modules` directory or on `npm ci --dry-run`.
 
 The release commit must be named `chore(release): X.Y.Z` and may contain only the version metadata and `.github/release-notes/X.Y.Z.md`. Formatting, generated output, and unrelated fixes belong in earlier commits.
 
