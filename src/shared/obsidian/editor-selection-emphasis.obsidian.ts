@@ -1,11 +1,15 @@
-import type { Extension, Facet, Text } from "@codemirror/state";
-import type { Decoration, DecorationSet, EditorView } from "@codemirror/view";
-import type { Editor, EditorPosition, Plugin } from "obsidian";
+import { type Extension, StateEffect, StateField } from "@codemirror/state";
+import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import type { Editor, EditorPosition } from "obsidian";
 
 interface RetainedSelectionEmphasis {
   from: number;
   to: number;
-  document: Text;
+  visible: boolean;
+}
+
+interface SelectionEmphasisVisibility {
+  id: number;
   visible: boolean;
 }
 
@@ -14,128 +18,71 @@ export interface EditorSelectionEmphasis {
   release(): void;
 }
 
-interface HostDecoration {
-  mark(spec: { class: string }): Decoration;
-  set(ranges: readonly unknown[], sort?: boolean): DecorationSet;
-}
-
-interface HostEditorViewConstructor {
-  decorations: Facet<
-    DecorationSet | ((view: EditorView) => DecorationSet),
-    readonly (DecorationSet | ((view: EditorView) => DecorationSet))[]
-  >;
-}
-
-const emphasesByView = new WeakMap<EditorView, Map<number, RetainedSelectionEmphasis>>();
-let registerExtension: ((extension: Extension) => void) | null = null;
-let hostDecoration: HostDecoration | null = null;
-let extensionRegistered = false;
+const retainSelectionEmphasis = StateEffect.define<RetainedSelectionEmphasis & { id: number }>();
+const setSelectionEmphasisVisibility = StateEffect.define<SelectionEmphasisVisibility>();
+const releaseSelectionEmphasis = StateEffect.define<number>();
+const selectionEmphasisField = StateField.define<ReadonlyMap<number, RetainedSelectionEmphasis>>({
+  create: () => new Map(),
+  update: (emphases, transaction) => {
+    if (transaction.docChanged) return new Map();
+    let next = emphases;
+    for (const effect of transaction.effects) {
+      if (effect.is(retainSelectionEmphasis)) {
+        next = new Map(next).set(effect.value.id, effect.value);
+      } else if (effect.is(setSelectionEmphasisVisibility)) {
+        const emphasis = next.get(effect.value.id);
+        if (!emphasis || emphasis.visible === effect.value.visible) continue;
+        next = new Map(next).set(effect.value.id, { ...emphasis, visible: effect.value.visible });
+      } else if (effect.is(releaseSelectionEmphasis) && next.has(effect.value)) {
+        const remaining = new Map(next);
+        remaining.delete(effect.value);
+        next = remaining;
+      }
+    }
+    return next;
+  },
+  provide: (field) => EditorView.decorations.from(field, selectionEmphasisDecorations),
+});
 let nextSelectionEmphasisId = 1;
 
-export function registerEditorSelectionEmphasis(plugin: Plugin): void {
-  registerExtension = (extension) => {
-    plugin.registerEditorExtension(extension);
-  };
-  plugin.register(() => {
-    registerExtension = null;
-    hostDecoration = null;
-    extensionRegistered = false;
-  });
-}
+export const editorSelectionEmphasisExtension: Extension = selectionEmphasisField;
 
 export function retainEditorSelectionEmphasis(
   editor: Editor,
   range: { from: EditorPosition; to: EditorPosition },
 ): EditorSelectionEmphasis | null {
   const view = editorViewFromEditor(editor);
-  const decoration = view ? (hostDecoration ?? hostDecorationFromView(view)) : null;
-  if (!view || !decoration || !registerExtension) return null;
+  if (!view || view.state.field(selectionEmphasisField, false) === undefined) return null;
 
   const from = editor.posToOffset(range.from);
   const to = editor.posToOffset(range.to);
   if (from < 0 || to <= from || to > view.state.doc.length) return null;
 
-  hostDecoration = decoration;
-  const emphases = emphasesByView.get(view) ?? new Map<number, RetainedSelectionEmphasis>();
-  emphasesByView.set(view, emphases);
   const id = nextSelectionEmphasisId;
   nextSelectionEmphasisId += 1;
-  const emphasis = { from, to, document: view.state.doc, visible: true };
-  emphases.set(id, emphasis);
-
-  if (!extensionRegistered) {
-    const viewConstructor = view.constructor as unknown as HostEditorViewConstructor;
-    registerExtension(viewConstructor.decorations.of(selectionEmphasisDecorations));
-    extensionRegistered = true;
-  }
-  refreshEditorView(view);
+  view.dispatch({ effects: retainSelectionEmphasis.of({ id, from, to, visible: true }) });
 
   let retained = true;
   return {
     setVisible: (visible) => {
-      if (!retained || emphasis.visible === visible) return;
-      emphasis.visible = visible;
-      refreshEditorView(view);
+      if (!retained) return;
+      view.dispatch({ effects: setSelectionEmphasisVisibility.of({ id, visible }) });
     },
     release: () => {
       if (!retained) return;
       retained = false;
-      emphases.delete(id);
-      refreshEditorView(view);
+      view.dispatch({ effects: releaseSelectionEmphasis.of(id) });
     },
   };
 }
 
-function selectionEmphasisDecorations(view: EditorView): DecorationSet {
-  const decoration = hostDecoration;
-  if (!decoration) throw new Error("Selection emphasis decoration is unavailable.");
-  const ranges = [...(emphasesByView.get(view)?.values() ?? [])]
-    .filter((emphasis) => emphasis.visible && emphasis.document === view.state.doc)
-    .map((emphasis) => decoration.mark({ class: "codex-panel-selection-emphasis" }).range(emphasis.from, emphasis.to));
-  return decoration.set(ranges, true);
-}
-
-function refreshEditorView(view: EditorView): void {
-  if (view.dom.isConnected) view.dispatch({});
-}
-
-function hostDecorationFromView(view: EditorView): HostDecoration | null {
-  const viewConstructor = view.constructor as unknown as HostEditorViewConstructor;
-  const providers = view.state.facet(viewConstructor.decorations);
-  for (const provider of providers) {
-    const decorations = decorationSetFromProvider(provider, view);
-    const sample = decorations ? firstDecoration(decorations, view.state.doc.length) : null;
-    const decorationApi = sample ? decorationConstructor(sample) : null;
-    if (decorationApi) return decorationApi;
-  }
-  return null;
-}
-
-function firstDecoration(decorations: DecorationSet, documentLength: number): Decoration | null {
-  let sample: Decoration | undefined;
-  decorations.between(0, documentLength, (_from, _to, decoration) => {
-    sample ??= decoration;
-  });
-  return sample ?? null;
-}
-
-function decorationSetFromProvider(provider: unknown, view: EditorView): DecorationSet | null {
-  if (typeof provider !== "function") return provider as DecorationSet;
-  try {
-    return (provider as (editorView: EditorView) => DecorationSet)(view);
-  } catch {
-    return null;
-  }
-}
-
-function decorationConstructor(decoration: Decoration): HostDecoration | null {
-  let candidateConstructor: unknown = decoration.constructor;
-  while (typeof candidateConstructor === "function") {
-    const candidate = candidateConstructor as unknown as Partial<HostDecoration>;
-    if (typeof candidate.mark === "function" && typeof candidate.set === "function") return candidate as HostDecoration;
-    candidateConstructor = Object.getPrototypeOf(candidateConstructor);
-  }
-  return null;
+function selectionEmphasisDecorations(emphases: ReadonlyMap<number, RetainedSelectionEmphasis>): DecorationSet {
+  return Decoration.set(
+    [...emphases.values()]
+      .filter((emphasis) => emphasis.visible)
+      .map((emphasis) => Decoration.mark({ class: "codex-panel-selection-emphasis" }).range(emphasis.from, emphasis.to)),
+    true,
+  );
 }
 
 function editorViewFromEditor(editor: Editor): EditorView | null {

@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 
-import { type Extension, StateEffect } from "@codemirror/state";
-import { Decoration, EditorView } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 
 import {
-  registerEditorSelectionEmphasis,
+  editorSelectionEmphasisExtension,
   retainEditorSelectionEmphasis,
 } from "../../../src/shared/obsidian/editor-selection-emphasis.obsidian";
 
@@ -20,18 +19,9 @@ describe("editor selection emphasis", () => {
     const view = new EditorView({
       parent,
       doc: "alpha beta",
-      extensions: [EditorView.decorations.of(Decoration.set([Decoration.mark({ class: "seed" }).range(6, 10)]))],
+      extensions: [editorSelectionEmphasisExtension],
     });
     editor.cm = view;
-    let reset = (): void => undefined;
-    registerEditorSelectionEmphasis({
-      register: (cleanup: () => void) => {
-        reset = cleanup;
-      },
-      registerEditorExtension: (extension: Extension) => {
-        view.dispatch({ effects: StateEffect.appendConfig.of(extension) });
-      },
-    } as never);
 
     const range = { from: { line: 0, ch: 0 }, to: { line: 0, ch: 5 } };
     const releaseFirst = retainEditorSelectionEmphasis(editor as never, range);
@@ -57,7 +47,6 @@ describe("editor selection emphasis", () => {
     releaseSecond?.release();
     expect(parent.querySelector(".codex-panel-selection-emphasis")).toBeNull();
 
-    reset();
     view.destroy();
   });
 
@@ -71,18 +60,9 @@ describe("editor selection emphasis", () => {
     const view = new EditorView({
       parent,
       doc: "alpha beta",
-      extensions: [EditorView.decorations.of(Decoration.set([Decoration.mark({ class: "seed" }).range(6, 10)]))],
+      extensions: [editorSelectionEmphasisExtension],
     });
     editor.cm = view;
-    let reset = (): void => undefined;
-    registerEditorSelectionEmphasis({
-      register: (cleanup: () => void) => {
-        reset = cleanup;
-      },
-      registerEditorExtension: (extension: Extension) => {
-        view.dispatch({ effects: StateEffect.appendConfig.of(extension) });
-      },
-    } as never);
 
     const release = retainEditorSelectionEmphasis(editor as never, {
       from: { line: 0, ch: 0 },
@@ -95,7 +75,30 @@ describe("editor selection emphasis", () => {
     release?.setVisible(false);
     release?.setVisible(true);
     release?.release();
-    reset();
     view.destroy();
+  });
+
+  it("fails closed when the extension is unavailable or the range is invalid", () => {
+    const editor = {
+      cm: new EditorView({ doc: "alpha" }),
+      posToOffset: ({ ch }: { ch: number }) => ch,
+    };
+
+    expect(
+      retainEditorSelectionEmphasis(editor as never, {
+        from: { line: 0, ch: 0 },
+        to: { line: 0, ch: 5 },
+      }),
+    ).toBeNull();
+
+    editor.cm.destroy();
+    editor.cm = new EditorView({ doc: "alpha", extensions: [editorSelectionEmphasisExtension] });
+    expect(
+      retainEditorSelectionEmphasis(editor as never, {
+        from: { line: 0, ch: 5 },
+        to: { line: 0, ch: 5 },
+      }),
+    ).toBeNull();
+    editor.cm.destroy();
   });
 });
