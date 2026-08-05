@@ -370,6 +370,69 @@ describe("VaultNoteCandidateProvider", () => {
     expect(selectionEmphasisMock.setVisible).toHaveBeenCalledTimes(5);
   });
 
+  it("retains the originating editor when the same note is active in another view", () => {
+    const alpha = tFile("notes/Alpha.md", "Alpha");
+    const selection = {
+      selection: "selected text",
+      from: { line: 2, ch: 4 },
+      to: { line: 3, ch: 1 },
+    };
+    const alphaView = markdownView(alpha, {
+      ...selection,
+    });
+    const otherAlphaView = markdownView(alpha, selection);
+    const app = appFixture({
+      activeView: alphaView,
+      abstractFiles: new Map([[alpha.path, alpha]]),
+      linktexts: new Map([[alpha.path, "Alpha"]]),
+    });
+    const provider = new VaultComposerContextReferenceProvider(app, () => true);
+    const reference = provider.contextReferences("Inbox.md").selection;
+    if (!reference) throw new Error("Expected selection context.");
+
+    app.setActiveView(otherAlphaView);
+    app.triggerWorkspaceEvent("active-leaf-change");
+    provider.retainSelectionEmphasis(reference);
+
+    expect(selectionEmphasisMock.retain).toHaveBeenCalledWith(alphaView.editor, reference.range);
+  });
+
+  it("rejects selections whose originating view or source range changed", () => {
+    const alpha = tFile("notes/Alpha.md", "Alpha");
+    const beta = tFile("notes/Beta.md", "Beta");
+    const source = {
+      selection: "selected text",
+      from: { line: 2, ch: 4 },
+      to: { line: 3, ch: 1 },
+    };
+    const view = markdownView(alpha, source);
+    const app = appFixture({
+      activeView: view,
+      abstractFiles: new Map([
+        [alpha.path, alpha],
+        [beta.path, beta],
+      ]),
+      linktexts: new Map([[alpha.path, "Alpha"]]),
+    });
+    const provider = new VaultComposerContextReferenceProvider(app, () => true);
+    const changedSourceSelection = provider.contextReferences("Inbox.md").selection;
+    if (!changedSourceSelection) throw new Error("Expected selection context.");
+    source.selection = "changed text";
+
+    expect(provider.retainSelectionEmphasis(changedSourceSelection)).toBeNull();
+
+    source.selection = "selected text";
+    const changedViewSelection = provider.contextReferences("Inbox.md").selection;
+    if (!changedViewSelection) throw new Error("Expected selection context.");
+
+    expect(provider.retainSelectionEmphasis({ ...changedViewSelection })).toBeNull();
+
+    view.file = beta;
+
+    expect(provider.retainSelectionEmphasis(changedViewSelection)).toBeNull();
+    expect(selectionEmphasisMock.retain).not.toHaveBeenCalled();
+  });
+
   it("routes retained selection visibility independently between panel providers", () => {
     const file = tFile("notes/Alpha.md", "Alpha");
     const view = markdownView(file, {
@@ -515,7 +578,11 @@ function markdownView(
 ): {
   file: TFile;
   containerEl: HTMLElement;
-  editor: { getSelection(): string; getCursor(kind: "from" | "to"): { line: number; ch: number } };
+  editor: {
+    getSelection(): string;
+    getCursor(kind: "from" | "to"): { line: number; ch: number };
+    getRange(from: { line: number; ch: number }, to: { line: number; ch: number }): string;
+  };
 } {
   return {
     file,
@@ -523,6 +590,10 @@ function markdownView(
     editor: {
       getSelection: () => selection.selection,
       getCursor: (kind: "from" | "to") => (kind === "from" ? selection.from : selection.to),
+      getRange: (from, to) =>
+        from.line === selection.from.line && from.ch === selection.from.ch && to.line === selection.to.line && to.ch === selection.to.ch
+          ? selection.selection
+          : "",
     },
   };
 }

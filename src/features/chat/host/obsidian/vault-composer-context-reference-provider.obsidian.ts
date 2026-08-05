@@ -9,6 +9,7 @@ import type {
   ComposerContextReferenceProvider,
   ComposerContextReferences,
   ComposerSelectionEmphasis,
+  SelectionContextReference,
 } from "../../application/composer/context-references";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
@@ -99,6 +100,7 @@ const sharedComposerContexts = new WeakMap<App, SharedComposerContext>();
 
 class VaultComposerContextTracker {
   private readonly unregisterEvents: (() => void)[] = [];
+  private readonly selectionViews = new WeakMap<SelectionContextReference, MarkdownView>();
   private lastMarkdownView: MarkdownView | null = null;
 
   constructor(private readonly app: App) {
@@ -127,15 +129,16 @@ class VaultComposerContextTracker {
           linktext: linktextForFile(this.app, activeFile, sourcePath || activeFile.path),
         }
       : null;
-    return {
-      activeNote,
-      selection: view ? selectionContextReference(this.app, view, sourcePath) : null,
-    };
+    const selection = view ? selectionContextReference(this.app, view, sourcePath) : null;
+    if (selection && view) this.selectionViews.set(selection, view);
+    return { activeNote, selection };
   }
 
   retainSelectionEmphasis(selection: NonNullable<ComposerContextReferences["selection"]>): EditorSelectionEmphasis | null {
-    const view = this.validLastMarkdownView();
-    if (!view || !selectionReferencesMatch(selectionContextReference(this.app, view, selection.path), selection)) return null;
+    const view = this.selectionViews.get(selection);
+    if (!view?.file || view.file.path !== selection.path) return null;
+    if (!(this.app.vault.getAbstractFileByPath(view.file.path) instanceof TFile)) return null;
+    if (view.editor.getRange(selection.range.from, selection.range.to) !== selection.text) return null;
 
     return retainEditorSelectionEmphasis(view.editor, selection.range);
   }
@@ -172,21 +175,6 @@ class VaultComposerContextTracker {
     if (!view?.file) return null;
     return this.app.vault.getAbstractFileByPath(view.file.path) instanceof TFile ? view : null;
   }
-}
-
-function selectionReferencesMatch(
-  current: ComposerContextReferences["selection"],
-  expected: NonNullable<ComposerContextReferences["selection"]>,
-): boolean {
-  if (!current) return false;
-  return (
-    current.path === expected.path &&
-    current.text === expected.text &&
-    current.range.from.line === expected.range.from.line &&
-    current.range.from.ch === expected.range.from.ch &&
-    current.range.to.line === expected.range.to.line &&
-    current.range.to.ch === expected.range.to.ch
-  );
 }
 
 function selectionContextReference(app: App, view: MarkdownView, sourcePath: string): ComposerContextReferences["selection"] {
