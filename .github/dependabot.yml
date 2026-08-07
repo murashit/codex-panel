@@ -25,6 +25,9 @@ updates:
         patterns:
           - "*"
     ignore:
+      # Obsidian ships exact CodeMirror peers; scripts/api-baseline.mjs detects when they change.
+      - dependency-name: "@codemirror/state"
+      - dependency-name: "@codemirror/view"
       - dependency-name: "obsidian"
         update-types:
           - "version-update:semver-minor"
