@@ -53,6 +53,7 @@ export interface ThreadCommandsHost {
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<void>;
   openThreadInCurrentPanel: (threadId: string) => Promise<boolean>;
+  beginThreadReplacementPublication: (sourceThreadId: string, replacementThread: Thread) => ThreadReplacementPublication;
   applyThreadFact: (fact: ThreadUpsertFact) => void;
 }
 
@@ -61,13 +62,14 @@ interface ThreadUpsertFact {
   readonly thread: Thread;
 }
 
+interface ThreadReplacementPublication {
+  finish(result: { readonly sourceArchived: boolean }): void;
+}
+
 interface ThreadManagementMutations {
   renameThread(threadId: string, value: string): Promise<boolean>;
   setThreadPinned(threadId: string, isPinned: boolean): Promise<void>;
-  archiveThread(
-    threadId: string,
-    options?: { saveMarkdown?: boolean; beforePublish?: () => void; additionalFacts?: readonly ThreadUpsertFact[] },
-  ): Promise<boolean>;
+  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; beforePublish?: () => void }): Promise<boolean>;
 }
 
 export interface ThreadCommands {
@@ -195,25 +197,25 @@ async function forkThreadFromTurn(
       return;
     }
     if (archiveSource) {
-      let adopted: boolean;
-      try {
-        adopted = await host.openThreadInCurrentPanel(forkedThreadId);
-      } catch (error) {
-        host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
-        if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
-        const message = error instanceof Error ? error.message : String(error);
-        host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel: ${message}`);
-        return;
-      }
-      if (!adopted) {
-        host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
-        if (threadCommandScopeStillTargetsOriginalPanel(host, scope)) {
-          host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel.`);
+      await publishThreadReplacement(host, threadId, forkedThread, async () => {
+        let adopted: boolean;
+        try {
+          adopted = await host.openThreadInCurrentPanel(forkedThreadId);
+        } catch (error) {
+          if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return false;
+          const message = error instanceof Error ? error.message : String(error);
+          host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel: ${message}`);
+          return false;
         }
-        return;
-      }
-      await archiveReplacedSource(host, threadId, forkedThread, {
-        failureMessage: "Forked the thread, but could not archive the previous version",
+        if (!adopted) {
+          if (threadCommandScopeStillTargetsOriginalPanel(host, scope)) {
+            host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in the current panel.`);
+          }
+          return false;
+        }
+        return archiveReplacedSource(host, threadId, forkedThread.id, {
+          failureMessage: "Forked the thread, but could not archive the previous version",
+        });
       });
       return;
     }
@@ -296,30 +298,25 @@ async function rollbackThread(
       host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
       return;
     }
-    let adopted: boolean;
-    try {
+    await publishThreadReplacement(host, threadId, forkedThread, async () => {
       options.adoptPanelTarget?.(forkedThread.id, candidate.text);
-      adopted = await host.openThreadInCurrentPanel(forkedThread.id);
-    } catch (error) {
-      host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
-      throw error;
-    }
-    if (!adopted) {
-      host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
-      if (threadCommandScopeStillTargetsPanel(host, scope)) {
-        host.addSystemMessage("The rolled-back version was created but could not be opened in this panel. Open it from thread history.");
-        host.setStatus(STATUS_ROLLBACK_FAILED);
+      const adopted = await host.openThreadInCurrentPanel(forkedThread.id);
+      if (!adopted) {
+        if (threadCommandScopeStillTargetsPanel(host, scope)) {
+          host.addSystemMessage("The rolled-back version was created but could not be opened in this panel. Open it from thread history.");
+          host.setStatus(STATUS_ROLLBACK_FAILED);
+        }
+        return false;
       }
-      return;
-    }
-    if (!options.adoptPanelTarget) host.setComposerText(candidate.text);
-    if (activeThreadId(threadCommandState(host)) === forkedThread.id) {
-      host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
-      host.setStatus(STATUS_ROLLBACK_COMPLETE);
-    }
-    await archiveReplacedSource(host, threadId, forkedThread, {
-      saveMarkdown: false,
-      failureMessage: "Rolled back the latest turn, but could not archive the previous version",
+      if (!options.adoptPanelTarget) host.setComposerText(candidate.text);
+      if (activeThreadId(threadCommandState(host)) === forkedThread.id) {
+        host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
+        host.setStatus(STATUS_ROLLBACK_COMPLETE);
+      }
+      return archiveReplacedSource(host, threadId, forkedThread.id, {
+        saveMarkdown: false,
+        failureMessage: "Rolled back the latest turn, but could not archive the previous version",
+      });
     });
   } catch (error) {
     if (!threadCommandScopeStillTargetsPanel(host, scope)) return;
@@ -331,22 +328,18 @@ async function rollbackThread(
 async function archiveReplacedSource(
   host: ThreadCommandsHost,
   sourceThreadId: string,
-  replacementThread: Thread,
+  replacementThreadId: string,
   options: { readonly saveMarkdown?: boolean; readonly failureMessage: string },
-): Promise<void> {
+): Promise<boolean> {
   try {
-    const archiveOptions = {
-      ...(options.saveMarkdown === undefined ? {} : { saveMarkdown: options.saveMarkdown }),
-      additionalFacts: [{ type: "thread-upserted", thread: replacementThread }] satisfies readonly ThreadUpsertFact[],
-    };
-    if (await host.mutations.archiveThread(sourceThreadId, archiveOptions)) return;
-    host.applyThreadFact({ type: "thread-upserted", thread: replacementThread });
-    reportReplacementArchiveFailure(host, replacementThread.id, options.failureMessage, "archive was not completed");
+    const archiveOptions = options.saveMarkdown === undefined ? {} : { saveMarkdown: options.saveMarkdown };
+    if (await host.mutations.archiveThread(sourceThreadId, archiveOptions)) return true;
+    reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, "archive was not completed");
   } catch (error) {
-    host.applyThreadFact({ type: "thread-upserted", thread: replacementThread });
     const message = error instanceof Error ? error.message : String(error);
-    reportReplacementArchiveFailure(host, replacementThread.id, options.failureMessage, message);
+    reportReplacementArchiveFailure(host, replacementThreadId, options.failureMessage, message);
   }
+  return false;
 }
 
 function reportReplacementArchiveFailure(
@@ -357,6 +350,27 @@ function reportReplacementArchiveFailure(
 ): void {
   if (activeThreadId(threadCommandState(host)) !== replacementThreadId) return;
   host.addSystemMessage(`${failureMessage}: ${detail}`);
+}
+
+async function publishThreadReplacement(
+  host: ThreadCommandsHost,
+  sourceThreadId: string,
+  replacementThread: Thread,
+  replace: () => Promise<boolean>,
+): Promise<void> {
+  let publication: ThreadReplacementPublication;
+  try {
+    publication = host.beginThreadReplacementPublication(sourceThreadId, replacementThread);
+  } catch (error) {
+    host.applyThreadFact({ type: "thread-upserted", thread: replacementThread });
+    throw error;
+  }
+  let sourceArchived = false;
+  try {
+    sourceArchived = await replace();
+  } finally {
+    publication.finish({ sourceArchived });
+  }
 }
 
 function activePanelOperationBlocked(host: ThreadCommandsHost, threadId: string, operation: ActivePanelOperation): boolean {

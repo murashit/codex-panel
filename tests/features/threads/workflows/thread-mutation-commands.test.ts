@@ -147,26 +147,6 @@ describe("ThreadMutationCommands", () => {
     expect(callOrder(beforePublish)).toBeLessThan(callOrder(catalog.apply));
   });
 
-  it("publishes replacement and archive facts in one batch", async () => {
-    const { mutations, catalog } = operationsFixture();
-    const replacement = {
-      id: "replacement",
-      preview: "Replacement",
-      createdAt: 2,
-      updatedAt: 2,
-      name: null,
-      archived: false,
-      canAcceptDirectInput: null,
-      provenance: { kind: "interactive" },
-    } satisfies Thread;
-    const replacementFact = { type: "thread-upserted", thread: replacement } as const;
-
-    await mutations.archiveThread("thread", { saveMarkdown: false, additionalFacts: [replacementFact] });
-
-    expect(catalog.applyBatch).toHaveBeenCalledOnce();
-    expect(catalog.applyBatch).toHaveBeenCalledWith([replacementFact, { type: "thread-archived", threadId: "thread" }]);
-  });
-
   it("resolves persisted reference titles before archive export", async () => {
     const client = clientMock();
     const clientId = "local-user-1-seed-1-1";

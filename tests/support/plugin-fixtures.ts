@@ -170,6 +170,9 @@ function chatHostFixture(): CodexChatHost {
       apply: vi.fn(),
       applyBatch: vi.fn(),
     },
+    threadReplacementPublication: {
+      begin: vi.fn(() => ({ finish: vi.fn() })),
+    },
   };
 }
 

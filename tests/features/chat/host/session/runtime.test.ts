@@ -291,6 +291,9 @@ describe("chat panel session runtime", () => {
           apply: overrides.plugin?.threadFacts?.apply ?? vi.fn(),
           applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
+        threadReplacementPublication: {
+          begin: vi.fn(() => ({ finish: vi.fn() })),
+        },
         threadMutations: threadMutationCommandsMock(),
         threadGoalCoordinator: createThreadGoalCoordinator(),
         runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),

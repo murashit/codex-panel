@@ -23,6 +23,10 @@ import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/
 import type { ThreadFact, ThreadFactSink } from "./features/threads/workflows/thread-facts";
 import { createThreadMutationCommands, type ThreadMutationCommands } from "./features/threads/workflows/thread-mutation-commands";
 import { projectThreadFacts } from "./features/threads/workflows/thread-projection";
+import {
+  createThreadReplacementPublication,
+  type ThreadReplacementPublicationOwner,
+} from "./features/threads/workflows/thread-replacement-publication";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
@@ -50,6 +54,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly appServerQueries: AppServerMetadataQueries;
   private readonly threadCatalog: ThreadCatalog;
   private readonly threadFacts: ThreadFactSink;
+  private readonly threadReplacementPublication: ThreadReplacementPublicationOwner;
   private readonly threadMutations: ThreadMutationCommands;
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsDynamicData: SettingsDynamicDataAccess;
@@ -72,12 +77,8 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       this.threadCatalog.applyThreadCatalogChanges(projectThreadFacts(this.threadCatalog, facts));
       options.onThreadFacts(facts);
     };
-    this.threadFacts = {
-      apply: (fact) => {
-        applyThreadFacts([fact]);
-      },
-      applyBatch: applyThreadFacts,
-    };
+    this.threadReplacementPublication = createThreadReplacementPublication(applyThreadFacts);
+    this.threadFacts = this.threadReplacementPublication.facts;
     this.threadMutations = createThreadMutationCommands({
       port: createThreadMutationAdapter(this),
       archiveExport: {
@@ -87,7 +88,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
         vaultConfigDir: this.options.app.vault.configDir,
       },
       archiveDestination: () => createObsidianVaultMarkdownDestination(this.options.app.vault),
-      facts: this.threadFacts,
+      facts: this.threadReplacementPublication.mutationFacts,
       referenceThreads: () => this.threadCatalog.activeThreadsSnapshot() ?? [],
       threadIsBusy: (threadId) =>
         this.options.openPanelActivities().some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
@@ -115,6 +116,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFacts,
+      threadReplacementPublication: this.threadReplacementPublication,
       threadMutations: this.threadMutations,
       threadTitlePort: this.threadTitlePort(),
       threadAutoTitleWork: this.currentThreadAutoTitleWork(),

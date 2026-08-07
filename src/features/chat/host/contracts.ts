@@ -16,6 +16,7 @@ import type { ThreadTitlePort } from "../../threads/workflows/ports";
 import type { ThreadAutoTitleWork } from "../../threads/workflows/thread-auto-title-work";
 import type { ThreadFactSink } from "../../threads/workflows/thread-facts";
 import type { ThreadMutationCommands } from "../../threads/workflows/thread-mutation-commands";
+import type { ThreadReplacementPublicationOwner } from "../../threads/workflows/thread-replacement-publication";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ThreadGoalCoordinator } from "../application/threads/thread-goal-coordinator";
@@ -28,6 +29,7 @@ export interface CodexChatHost {
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadFacts: ThreadFactSink;
+  readonly threadReplacementPublication: Pick<ThreadReplacementPublicationOwner, "begin">;
   readonly threadMutations: ThreadMutationCommands;
   readonly threadTitlePort: ThreadTitlePort;
   readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;

@@ -3,7 +3,7 @@ import { threadDisplayTitle } from "../../../domain/threads/title";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ThreadMutationPort } from "./ports";
-import type { ThreadFact, ThreadFactSink } from "./thread-facts";
+import type { ThreadFactSink } from "./thread-facts";
 
 export interface ThreadMutationCommandsHost {
   port: ThreadMutationPort;
@@ -22,7 +22,6 @@ export interface ThreadMutationCommandsHost {
 interface ArchiveThreadOptions {
   saveMarkdown?: boolean;
   beforePublish?: () => void;
-  additionalFacts?: readonly ThreadFact[];
 }
 
 export type ArchiveThreadResult =
@@ -115,7 +114,7 @@ async function archiveThread(
         : undefined,
     );
     options.beforePublish?.();
-    host.facts.applyBatch([...(options.additionalFacts ?? []), { type: "thread-archived", threadId }]);
+    host.facts.apply({ type: "thread-archived", threadId });
     return { kind: "archived", exportedPath };
   });
 }
