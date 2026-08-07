@@ -338,6 +338,7 @@ describe("CodexChatView workspace restoration", () => {
           turnId: "turn-1",
           itemId: "input-1",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          isBlocking: true,
           autoResolutionMs: null,
         },
       },

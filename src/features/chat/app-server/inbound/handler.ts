@@ -55,7 +55,10 @@ interface ChatInboundHandlerContext {
   effects: ChatInboundHandlerEffects;
   localItemIds: LocalIdSource;
   approvalRequests: ReturnType<typeof createApprovalRequestCoordinator>;
+  userInputAutoResolutionTimers: Map<PendingRequestId, number>;
 }
+
+const NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS = 120_000;
 
 export function createChatInboundHandler(
   store: ChatStateStore,
@@ -67,6 +70,7 @@ export function createChatInboundHandler(
     effects,
     localItemIds,
     approvalRequests: createApprovalRequestCoordinator(),
+    userInputAutoResolutionTimers: new Map(),
   };
   return {
     handleNotification: (notification) => {
@@ -92,6 +96,7 @@ export function createChatInboundHandler(
     },
     clearServerRequests: () => {
       context.approvalRequests.clear();
+      clearUserInputAutoResolutionTimers(context);
     },
   };
 }
@@ -108,6 +113,7 @@ function handleNotification(context: ChatInboundHandlerContext, notification: Se
   reconcileApprovalRequests(context);
   flushAutomaticApprovalResponses(context);
   if (notification.method === "serverRequest/resolved") {
+    clearUserInputAutoResolutionTimer(context, notification.params.requestId);
     const settlement = context.approvalRequests.markSettled(notification.params.requestId);
     if (settlement) {
       if (!settlement.uiResolved && settlement.allKnownEndpointsSettled) {
@@ -162,6 +168,7 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
     }
     case "userInput":
       dispatch(context, { type: "request/user-input-queued", input: route.input });
+      if (!route.input.params.isBlocking) scheduleUserInputAutoResolution(context, route.input);
       return;
     case "mcpElicitation":
       dispatch(context, { type: "request/mcp-elicitation-queued", elicitation: route.elicitation });
@@ -257,6 +264,7 @@ function resolveUserInput(context: ChatInboundHandlerContext, requestId: Pending
     addSystemMessage(context, "Could not send user input because Codex app-server is not connected.");
     return;
   }
+  clearUserInputAutoResolutionTimer(context, input.requestId);
   dispatch(context, {
     type: "request/resolved",
     requestId: input.requestId,
@@ -271,6 +279,7 @@ function cancelUserInput(context: ChatInboundHandlerContext, requestId: PendingR
     addSystemMessage(context, "Could not cancel user input because Codex app-server is not connected.");
     return;
   }
+  clearUserInputAutoResolutionTimer(context, input.requestId);
   dispatch(context, {
     type: "request/resolved",
     requestId: input.requestId,
@@ -295,6 +304,32 @@ function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: Pe
 
 function pendingUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingUserInput | null {
   return state(context).requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
+}
+
+function scheduleUserInputAutoResolution(context: ChatInboundHandlerContext, input: PendingUserInput): void {
+  clearUserInputAutoResolutionTimer(context, input.requestId);
+  const timer = window.setTimeout(() => {
+    context.userInputAutoResolutionTimers.delete(input.requestId);
+    if (!pendingUserInput(context, input.requestId)) return;
+    if (!context.effects.respondToServerRequest(input.requestId, { answers: {} })) {
+      addSystemMessage(context, "Could not auto-resolve user input because Codex app-server is not connected.");
+      return;
+    }
+    dispatch(context, { type: "request/resolved", requestId: input.requestId });
+  }, NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS);
+  context.userInputAutoResolutionTimers.set(input.requestId, timer);
+}
+
+function clearUserInputAutoResolutionTimer(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
+  const timer = context.userInputAutoResolutionTimers.get(requestId);
+  if (timer === undefined) return;
+  window.clearTimeout(timer);
+  context.userInputAutoResolutionTimers.delete(requestId);
+}
+
+function clearUserInputAutoResolutionTimers(context: ChatInboundHandlerContext): void {
+  for (const timer of context.userInputAutoResolutionTimers.values()) window.clearTimeout(timer);
+  context.userInputAutoResolutionTimers.clear();
 }
 
 function addSystemMessage(context: ChatInboundHandlerContext, text: string): void {

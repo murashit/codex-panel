@@ -2,6 +2,7 @@ import type { Thread, ThreadProvenance } from "../../domain/threads/model";
 import type { Thread as GeneratedThread } from "../../generated/app-server/v2/Thread";
 
 type RequiredThreadRecordFields = "id" | "preview" | "name" | "createdAt" | "updatedAt";
+export const BUILT_IN_PINNED_THREAD_SECTION_NAME = "Pinned";
 
 export type ThreadRecord = Pick<GeneratedThread, RequiredThreadRecordFields> &
   Partial<Omit<GeneratedThread, RequiredThreadRecordFields | "source" | "status" | "turns">> & {
@@ -19,7 +20,7 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
     preview: normalizeString(thread.preview),
     name: thread.name === null ? null : normalizeString(thread.name),
     archived: options.archived ?? false,
-    ...(thread.isPinned === true ? { isPinned: true } : {}),
+    ...(thread.section?.name === BUILT_IN_PINNED_THREAD_SECTION_NAME ? { isPinned: true } : {}),
     createdAt: finiteTimestamp(thread.createdAt),
     updatedAt: finiteTimestamp(thread.updatedAt),
     canAcceptDirectInput: typeof thread.canAcceptDirectInput === "boolean" ? thread.canAcceptDirectInput : null,

@@ -660,6 +660,7 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-active",
           itemId: "input-1",
           questions: [{ id: "scope", header: "Scope", question: "What should I do?", isOther: false, isSecret: false, options: null }],
+          isBlocking: true,
           autoResolutionMs: null,
         },
       });
@@ -697,6 +698,7 @@ describe("ChatInboundHandler", () => {
               options: [{ label: "Narrow", description: "Small change" }],
             },
           ],
+          isBlocking: true,
           autoResolutionMs: null,
         },
       });
@@ -714,6 +716,74 @@ describe("ChatInboundHandler", () => {
       });
     });
 
+    it("auto-resolves non-blocking requestUserInput server requests after the client grace period", () => {
+      vi.useFakeTimers();
+      vi.stubGlobal("window", globalThis);
+      try {
+        const respondToServerRequest = vi.fn(() => true);
+        const handler = handlerForState(chatStateFixture(), { respondToServerRequest });
+
+        handler.handleServerRequest({
+          id: 44,
+          method: "item/tool/requestUserInput",
+          params: {
+            threadId: "thread-active",
+            turnId: "turn-active",
+            itemId: "input-1",
+            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+            isBlocking: false,
+            autoResolutionMs: null,
+          },
+        });
+
+        expect(handler.currentState().requests.pendingUserInputs).toEqual([
+          expect.objectContaining({ requestId: 44, params: expect.objectContaining({ isBlocking: false }) }),
+        ]);
+        vi.advanceTimersByTime(119_999);
+        expect(respondToServerRequest).not.toHaveBeenCalled();
+
+        vi.advanceTimersByTime(1);
+        expect(respondToServerRequest).toHaveBeenCalledWith(44, { answers: {} });
+        expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
+      } finally {
+        vi.unstubAllGlobals();
+        vi.useRealTimers();
+      }
+    });
+
+    it("cancels non-blocking user-input auto-resolution when the server resolves the request", () => {
+      vi.useFakeTimers();
+      vi.stubGlobal("window", globalThis);
+      try {
+        const respondToServerRequest = vi.fn(() => true);
+        const handler = handlerForState(chatStateFixture(), { respondToServerRequest });
+
+        handler.handleServerRequest({
+          id: 45,
+          method: "item/tool/requestUserInput",
+          params: {
+            threadId: "thread-active",
+            turnId: "turn-active",
+            itemId: "input-1",
+            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+            isBlocking: false,
+            autoResolutionMs: null,
+          },
+        });
+        handler.handleNotification({
+          method: "serverRequest/resolved",
+          params: { threadId: "thread-active", requestId: 45 },
+        });
+
+        vi.advanceTimersByTime(120_000);
+        expect(respondToServerRequest).not.toHaveBeenCalled();
+        expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
+      } finally {
+        vi.unstubAllGlobals();
+        vi.useRealTimers();
+      }
+    });
+
     it("rejects cancelled requestUserInput server requests", () => {
       const state = chatStateFixture();
       const rejectServerRequest = vi.fn(() => true);
@@ -727,6 +797,7 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-active",
           itemId: "input-1",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          isBlocking: true,
           autoResolutionMs: null,
         },
       });
@@ -984,6 +1055,7 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-active",
           itemId: "input",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          isBlocking: true,
           autoResolutionMs: null,
         },
       });
@@ -995,6 +1067,7 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-other",
           itemId: "input",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          isBlocking: true,
           autoResolutionMs: null,
         },
       });
@@ -1199,6 +1272,7 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-stale",
           itemId: "input",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          isBlocking: true,
           autoResolutionMs: null,
         },
       });
@@ -1316,6 +1390,7 @@ describe("ChatInboundHandler", () => {
                 turnId: "turn-active",
                 itemId: "input",
                 questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+                isBlocking: true,
                 autoResolutionMs: null,
               },
             }),
@@ -2385,6 +2460,7 @@ function userInputRequest(id: number): ServerRequest {
       turnId: "turn",
       itemId: "input",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+      isBlocking: true,
       autoResolutionMs: null,
     },
   };
@@ -2466,12 +2542,13 @@ function appServerThread(id: string, cwd: string): ThreadStartedNotification["pa
     parentThreadId: null,
     preview: "",
     ephemeral: false,
-    isPinned: false,
     historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,
     recencyAt: null,
+    section: null,
+    sectionEnteredAt: null,
     status: { type: "active", activeFlags: [] },
     path: null,
     cwd,

@@ -177,6 +177,7 @@ function userInputRequest(): PendingUserInput {
     requestId: 7,
     params: {
       turnId: "turn",
+      isBlocking: true,
       questions: [
         {
           id: "direction",

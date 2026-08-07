@@ -29,6 +29,7 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
       requestId: 7,
       params: {
         turnId: "turn",
+        isBlocking: true,
         questions: [],
       },
     },

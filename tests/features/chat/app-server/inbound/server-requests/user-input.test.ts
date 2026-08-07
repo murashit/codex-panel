@@ -29,12 +29,13 @@ describe("user input model", () => {
             options: [{ label: "Recommended", description: "Use the default path" }],
           },
         ],
+        isBlocking: true,
         autoResolutionMs: null,
       },
     };
 
     const input = expectPresent(toPendingUserInput(request));
-    expect(input).toMatchObject({ requestId: 7 });
+    expect(input).toMatchObject({ requestId: 7, params: { isBlocking: true } });
     expect(appServerUserInputResponse(input.params.questions, { direction: "Recommended" })).toEqual({
       answers: { direction: { answers: ["Recommended"] } },
     });

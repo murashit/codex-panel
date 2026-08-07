@@ -178,8 +178,10 @@ function chatHostFixture(): CodexChatHost {
 
 export function threadListClient(fetchThreads: () => Promise<readonly Thread[]>): never {
   return {
-    request: async (method: string) => {
+    request: async (method: string, params: { sectionId?: string }) => {
+      if (method === "threadSection/list") return { data: [{ id: "pinned", name: "Pinned" }], nextCursor: null };
       if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
+      if (params.sectionId === "pinned") return { data: [], nextCursor: null };
       return { data: await fetchThreads(), nextCursor: null };
     },
   } as never;

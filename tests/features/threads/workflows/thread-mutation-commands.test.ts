@@ -48,8 +48,29 @@ describe("ThreadMutationCommands", () => {
 
     await mutations.setThreadPinned("thread", true);
 
-    expect(client?.request).toHaveBeenCalledWith("thread/metadata/update", { threadId: "thread", isPinned: true });
+    expect(client?.request).toHaveBeenCalledWith("threadSection/list", { cursor: null, limit: 100 });
+    expect(client?.request).toHaveBeenCalledWith("thread/section/move", { threadId: "thread", sectionId: "pinned" });
     expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: true });
+  });
+
+  it("unpins without listing sections and publishes only after the move succeeds", async () => {
+    const { mutations, client, catalog } = operationsFixture();
+
+    await mutations.setThreadPinned("thread", false);
+
+    expect(client?.request).toHaveBeenCalledOnce();
+    expect(client?.request).toHaveBeenCalledWith("thread/section/move", { threadId: "thread", sectionId: null });
+    expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: false });
+  });
+
+  it("does not publish a pin when the built-in section is unavailable", async () => {
+    const client = clientMock();
+    client.request.mockResolvedValueOnce({ data: [], nextCursor: null });
+    const { mutations, catalog } = operationsFixture({ client });
+
+    await expect(mutations.setThreadPinned("thread", true)).rejects.toThrow("built-in Pinned thread section");
+
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("serializes successive names for the same thread", async () => {
@@ -165,7 +186,7 @@ describe("ThreadMutationCommands", () => {
         },
       ],
     });
-    client.request.mockImplementation((method: string, params: { threadId: string; name?: string }) => {
+    client.request.mockImplementation((method: string, params: { threadId?: string; name?: string }) => {
       if (method === "thread/read") {
         return Promise.resolve({
           thread: {
@@ -303,9 +324,10 @@ type MockClient = ReturnType<typeof clientMock>;
 
 function clientMock() {
   return {
-    request: vi.fn((method: string, params: { threadId: string; name?: string }) => {
+    request: vi.fn((method: string, params: { threadId?: string; name?: string }) => {
       if (method === "thread/name/set") return Promise.resolve({ threadId: params.threadId, name: params.name });
-      if (method === "thread/metadata/update") return Promise.resolve({});
+      if (method === "threadSection/list") return Promise.resolve({ data: [{ id: "pinned", name: "Pinned" }], nextCursor: null });
+      if (method === "thread/section/move") return Promise.resolve({});
       if (method === "thread/read") return Promise.resolve({ thread: archivedThread() });
       if (method === "thread/archive") return Promise.resolve({});
       if (method === "thread/unarchive") return Promise.resolve({ thread: archivedThread() });

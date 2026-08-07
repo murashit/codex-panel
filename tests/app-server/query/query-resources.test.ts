@@ -26,24 +26,28 @@ describe("app-server query resources", () => {
 
   it("copies its execution context before performing requests", async () => {
     const context = { codexPath: "/opt/codex", vaultPath: "/vault-a" };
-    const request = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
+    const request = vi.fn(async (method: string, params: unknown) => {
+      if (method === "threadSection/list") return { data: [{ id: "pinned", name: "Pinned" }], nextCursor: null };
+      if (method === "thread/list" && (params as { sectionId?: string }).sectionId === "pinned") return { data: [], nextCursor: null };
+      return { data: [], nextCursor: null };
+    });
     const cache = createCache({ withClient: async (operation) => operation({ request } as never) }, context);
 
     context.codexPath = "/changed";
     context.vaultPath = "/vault-b";
     await cache.threadCatalog.fetchActiveThreads();
 
-    expect(request).toHaveBeenNthCalledWith(1, "thread/list", {
+    expect(request).toHaveBeenCalledWith("threadSection/list", { cursor: null, limit: 100 });
+    expect(request).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault-a",
       archived: false,
-      isPinned: true,
       sortKey: "recency_at",
       sortDirection: "desc",
     });
-    expect(request).toHaveBeenNthCalledWith(2, "thread/list", {
+    expect(request).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault-a",
       archived: false,
-      isPinned: false,
+      sectionId: "pinned",
       sortKey: "recency_at",
       sortDirection: "desc",
     });
@@ -178,14 +182,20 @@ describe("app-server query resources", () => {
 
   it("loads every pinned thread before paginating unpinned history", async () => {
     const listThreads = vi.fn((params: unknown) => {
-      const request = params as { isPinned?: boolean; cursor?: string };
-      if (request.isPinned === true) {
+      const request = params as { sectionId?: string; cursor?: string };
+      if (request.sectionId === "pinned") {
         return request.cursor === "pinned-page-2"
-          ? Promise.resolve({ data: [{ ...thread("older-pinned"), isPinned: true }], nextCursor: null })
-          : Promise.resolve({ data: [{ ...thread("pinned"), isPinned: true }], nextCursor: "pinned-page-2" });
+          ? Promise.resolve({ data: [{ ...thread("older-pinned"), section: { id: "pinned", name: "Pinned" } }], nextCursor: null })
+          : Promise.resolve({
+              data: [{ ...thread("pinned"), section: { id: "pinned", name: "Pinned" } }],
+              nextCursor: "pinned-page-2",
+            });
       }
       if (request.cursor === "page-2") return Promise.resolve({ data: [thread("older")], nextCursor: null });
-      return Promise.resolve({ data: [thread("recent")], nextCursor: "page-2" });
+      return Promise.resolve({
+        data: [{ ...thread("pinned"), section: { id: "pinned", name: "Pinned" } }, thread("recent")],
+        nextCursor: "page-2",
+      });
     });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads }, cacheContext(), { exposePinnedFilters: true });
 
@@ -200,10 +210,11 @@ describe("app-server query resources", () => {
       { id: "recent" },
       { id: "older" },
     ]);
-    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ isPinned: true }));
-    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ isPinned: true, cursor: "pinned-page-2" }));
-    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ isPinned: false }));
-    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ isPinned: false, cursor: "page-2" }));
+    expect(cache.threadCatalog.recentActiveThreadsSnapshot()?.map((thread) => thread.id)).toEqual(["pinned", "older-pinned", "recent"]);
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ sectionId: "pinned" }));
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ sectionId: "pinned", cursor: "pinned-page-2" }));
+    expect(listThreads).toHaveBeenCalledWith(expect.not.objectContaining({ sectionId: expect.anything() }));
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ cursor: "page-2" }));
   });
 
   it("moves an opened older thread to the front without discarding loaded history", async () => {
@@ -1021,9 +1032,10 @@ function cacheWithThreads(
     {
       withClient: async (operation) => {
         return operation({
-          request: async (method: string, params: { archived?: boolean; isPinned?: boolean }) => {
+          request: async (method: string, params: { archived?: boolean; sectionId?: string }) => {
+            if (method === "threadSection/list") return { data: [{ id: "pinned", name: "Pinned" }], nextCursor: null };
             if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
-            if ("isPinned" in params && params.isPinned === true) return { data: [], nextCursor: null };
+            if (params.sectionId === "pinned") return { data: [], nextCursor: null };
             return {
               data: await fetchThreads(runtimeContext, params.archived ?? false),
               nextCursor: null,
@@ -1043,15 +1055,12 @@ function cacheWithRequestHandlers(
 ): TestQueryResources {
   const requestClient = {
     request: async (method: string, params: unknown) => {
+      if (method === "threadSection/list") return { data: [{ id: "pinned", name: "Pinned" }], nextCursor: null };
       const handler = handlers[method];
       if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
       if (method === "thread/list" && !options.exposePinnedFilters && params && typeof params === "object") {
         const threadListParams = params as Record<string, unknown>;
-        if (threadListParams["isPinned"] === true) return { data: [], nextCursor: null };
-        if (threadListParams["isPinned"] === false) {
-          const { isPinned: _, ...legacyParams } = threadListParams;
-          return handler(legacyParams);
-        }
+        if (threadListParams["sectionId"] === "pinned") return { data: [], nextCursor: null };
       }
       return handler(params);
     },

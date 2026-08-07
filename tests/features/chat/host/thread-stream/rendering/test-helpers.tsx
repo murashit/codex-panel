@@ -370,6 +370,7 @@ export function pendingUserInput(): PendingUserInput {
     requestId: 99,
     params: {
       turnId: "turn",
+      isBlocking: true,
       questions: [
         {
           id: "scope",

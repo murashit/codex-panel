@@ -238,6 +238,7 @@ function modelFixture(overrides: Partial<Model> = {}): Model {
     availabilityNux: null,
     displayName: "GPT 5.5",
     description: "Primary model",
+    modelSpecialty: null,
     hidden: false,
     supportedReasoningEfforts: [
       { reasoningEffort: "low", description: "Low" },

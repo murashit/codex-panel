@@ -554,6 +554,7 @@ function pendingUserInputParams(params: UserInputParams): PendingUserInput["para
   return {
     turnId: stringValue(params.turnId),
     questions: questions.map(pendingUserInputQuestion),
+    isBlocking: params.isBlocking,
   };
 }
 

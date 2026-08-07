@@ -14,7 +14,7 @@ import type {
   ObservedResult,
   ObservedResultListener,
 } from "../../shared/runtime/observed-result";
-import { listThreads, readThreadPage, type ThreadPage } from "../services/threads";
+import { listPinnedThreads, listThreads, readThreadPage, type ThreadPage } from "../services/threads";
 import {
   type ActiveThreadCursor,
   type ActiveThreadData,
@@ -223,17 +223,17 @@ export class AppServerThreadCatalog {
             return readThreadPage(client, this.scope.context.vaultPath, {
               cursor: pageParam,
               archived: false,
-              isPinned: false,
             });
           }
-          const [pinnedThreads, unpinnedPage] = await Promise.all([
-            listThreads(client, this.scope.context.vaultPath, { archived: false, isPinned: true, signal }),
-            readThreadPage(client, this.scope.context.vaultPath, { archived: false, isPinned: false }),
+          const [pinnedThreads, firstPage] = await Promise.all([
+            listPinnedThreads(client, this.scope.context.vaultPath, { archived: false, signal }),
+            readThreadPage(client, this.scope.context.vaultPath, { archived: false }),
           ]);
+          const threads = [...pinnedThreads, ...firstPage.threads];
           return {
-            ...unpinnedPage,
-            threads: [...pinnedThreads, ...unpinnedPage.threads],
-            fetchedSize: pinnedThreads.length + unpinnedPage.fetchedSize,
+            ...firstPage,
+            threads,
+            fetchedSize: new Set(threads.map((thread) => thread.id)).size,
           };
         });
         signal.throwIfAborted();

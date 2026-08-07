@@ -907,6 +907,7 @@ function userInput(requestId: number): ChatState["requests"]["pendingUserInputs"
     requestId,
     params: {
       turnId: "turn",
+      isBlocking: true,
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
     },
   };

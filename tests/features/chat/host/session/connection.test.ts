@@ -188,6 +188,7 @@ function userInputRequest(id: number): Extract<ServerRequest, { method: "item/to
       turnId: "turn-active",
       itemId: "input-1",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+      isBlocking: true,
       autoResolutionMs: null,
     },
   };

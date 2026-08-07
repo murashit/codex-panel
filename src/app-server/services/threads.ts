@@ -11,7 +11,12 @@ import { REFERENCED_THREAD_TURN_LIMIT, type ReferencedThreadTranscriptPage } fro
 import type { TurnTranscriptSummary } from "../../domain/threads/transcript";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
-import { type ThreadRecord, threadFromThreadRecord, threadsFromThreadRecords } from "../protocol/thread";
+import {
+  BUILT_IN_PINNED_THREAD_SECTION_NAME,
+  type ThreadRecord,
+  threadFromThreadRecord,
+  threadsFromThreadRecords,
+} from "../protocol/thread";
 import { appServerThreadGoalUpdate, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
 import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
 import {
@@ -52,7 +57,7 @@ export interface AppServerStartEphemeralThreadOptions {
 
 export interface AppServerThreadListOptions {
   archived?: boolean;
-  isPinned?: boolean;
+  sectionId?: string | null;
   cursor?: string | null;
   limit?: number | null;
 }
@@ -108,7 +113,7 @@ export function resumeThread(
 export async function listThreads(
   client: AppServerRequestClient,
   cwd: string,
-  options: { archived?: boolean; isPinned?: boolean; signal?: AbortSignal } = {},
+  options: { archived?: boolean; sectionId?: string | null; signal?: AbortSignal } = {},
 ): Promise<Thread[]> {
   const archived = options.archived ?? false;
   const threads: Thread[] = [];
@@ -119,7 +124,7 @@ export async function listThreads(
     options.signal?.throwIfAborted();
     const page = await readThreadPage(client, cwd, {
       archived,
-      ...(options.isPinned === undefined ? {} : { isPinned: options.isPinned }),
+      ...(options.sectionId === undefined ? {} : { sectionId: options.sectionId }),
       cursor,
     });
     threads.push(...page.threads);
@@ -313,7 +318,18 @@ export async function renameThread(client: AppServerRequestClient, threadId: str
 }
 
 export async function setThreadPinned(client: AppServerRequestClient, threadId: string, isPinned: boolean): Promise<void> {
-  await client.request("thread/metadata/update", { threadId, isPinned });
+  const sectionId = isPinned ? await pinnedThreadSectionId(client) : null;
+  if (isPinned && sectionId === null) throw new Error("Codex app-server did not provide its built-in Pinned thread section.");
+  await client.request("thread/section/move", { threadId, sectionId });
+}
+
+export async function listPinnedThreads(
+  client: AppServerRequestClient,
+  cwd: string,
+  options: { archived?: boolean; signal?: AbortSignal } = {},
+): Promise<Thread[]> {
+  const sectionId = await pinnedThreadSectionId(client, options.signal);
+  return sectionId === null ? [] : listThreads(client, cwd, { ...options, sectionId });
 }
 
 export async function updateThreadSettings(
@@ -347,8 +363,23 @@ function readThreadRecordPage(client: AppServerRequestClient, cwd: string, optio
     ...(options.cursor ? { cursor: options.cursor } : {}),
     ...(options.limit === undefined ? {} : { limit: options.limit }),
     archived: options.archived ?? false,
-    ...(options.isPinned === undefined ? {} : { isPinned: options.isPinned }),
+    ...(options.sectionId === undefined ? {} : { sectionId: options.sectionId }),
     sortKey: "recency_at",
     sortDirection: "desc",
   });
+}
+
+async function pinnedThreadSectionId(client: AppServerRequestClient, signal?: AbortSignal): Promise<string | null> {
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+  for (;;) {
+    signal?.throwIfAborted();
+    const response: ClientResponseByMethod["threadSection/list"] = await client.request("threadSection/list", { cursor, limit: 100 });
+    const pinned = response.data.find((section) => section.name === BUILT_IN_PINNED_THREAD_SECTION_NAME);
+    if (pinned) return pinned.id;
+    cursor = response.nextCursor;
+    if (!cursor) return null;
+    if (seenCursors.has(cursor)) throw new Error("Codex app-server returned a repeated thread section list cursor.");
+    seenCursors.add(cursor);
+  }
 }

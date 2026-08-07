@@ -12,6 +12,7 @@ describe("pending request signatures", () => {
       requestId: 7,
       params: {
         turnId: "turn",
+        isBlocking: true,
         questions: [
           {
             id: "direction",

@@ -1,4 +1,4 @@
-type McpAuthStatus = "unsupported" | "notLoggedIn" | "bearerToken" | "oAuth";
+type McpAuthStatus = "unknown" | "unsupported" | "notLoggedIn" | "bearerToken" | "oAuth";
 
 export type McpServerStartupStatus = "starting" | "ready" | "failed" | "cancelled";
 

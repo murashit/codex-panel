@@ -51,6 +51,7 @@ export interface PendingUserInputQuestion {
 interface PendingUserInputParams {
   turnId: string;
   questions: readonly PendingUserInputQuestion[];
+  isBlocking: boolean;
 }
 
 export interface PendingUserInput {
