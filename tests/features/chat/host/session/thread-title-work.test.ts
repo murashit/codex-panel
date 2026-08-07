@@ -76,7 +76,6 @@ describe("chat thread foundation auto-title handoff", () => {
     await vi.waitFor(() =>
       expect(renameThread).toHaveBeenCalledWith("thread", "Shared runtime title", {
         shouldStart: expect.any(Function),
-        shouldPublish: expect.any(Function),
       }),
     );
   });

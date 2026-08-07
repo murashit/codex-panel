@@ -36,7 +36,6 @@ describe("thread projection", () => {
     expect(
       projectThreadFacts({ activeThreadsSnapshot: () => [], archivedThreadsSnapshot: () => [] }, [
         { type: "thread-upserted", thread: subagent("child") },
-        { type: "thread-restored", thread: subagent("restored") },
       ]),
     ).toEqual([]);
   });

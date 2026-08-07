@@ -19,7 +19,6 @@ import {
 } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
-import type { ThreadFact as ThreadCatalogEvent } from "../../../../../src/features/threads/workflows/thread-facts";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
@@ -30,25 +29,18 @@ type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
   currentState(): ChatState;
 };
 
-function handlerForState(
-  state = chatStateFixture(),
-  actions: Partial<ChatInboundHandlerEffects> & {
-    applyThreadFact?: ChatInboundHandlerEffects["applyThreadFact"];
-  } = {},
-): TestChatInboundHandler {
+function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboundHandlerEffects> = {}): TestChatInboundHandler {
   const store = testStoreForState(state);
-  const { applyThreadFact, ...inboundActions } = actions;
   const handler = createChatInboundHandler(
     store,
     {
       refreshServerDiagnostics: vi.fn(),
       handleAppServerResourceFact: vi.fn(),
       maybeNameThread: vi.fn(),
-      applyThreadFact: applyThreadFact ?? vi.fn(),
       observeThreadGoal: vi.fn(),
       respondToServerRequest: vi.fn(() => true),
       rejectServerRequest: vi.fn(() => true),
-      ...inboundActions,
+      ...actions,
     },
     createLocalIdSource({ nowMs: () => 1, seed: "test" }),
   );
@@ -367,8 +359,7 @@ describe("ChatInboundHandler", () => {
           status: "completed",
         },
       ]);
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(state, { applyThreadFact });
+      const handler = handlerForState(state);
 
       handler.handleNotification({
         method: "turn/started",
@@ -390,7 +381,6 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(chatStateThreadStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
       expect(pendingTurnStart(handler.currentState().activeTurn)).toBeNull();
-      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("captures only prompt-submit hooks observed during the pending turn start", () => {
@@ -1107,12 +1097,12 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
-    it("rejects server requests scoped to a different active thread or turn", () => {
+    it("leaves server requests for a different active thread or turn unclaimed", () => {
       const state = activeRunningState();
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
 
-      handler.handleServerRequest({
+      const otherThread = handler.handleServerRequest({
         id: 51,
         method: "item/tool/requestUserInput",
         params: {
@@ -1124,7 +1114,7 @@ describe("ChatInboundHandler", () => {
           autoResolutionMs: null,
         },
       });
-      handler.handleServerRequest({
+      const otherTurn = handler.handleServerRequest({
         id: 52,
         method: "item/tool/requestUserInput",
         params: {
@@ -1138,19 +1128,9 @@ describe("ChatInboundHandler", () => {
       });
 
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      expect(rejectServerRequest).toHaveBeenCalledTimes(2);
-      expect(rejectServerRequest).toHaveBeenNthCalledWith(
-        1,
-        51,
-        -32601,
-        "Rejected inactive app-server request: item/tool/requestUserInput",
-      );
-      expect(rejectServerRequest).toHaveBeenNthCalledWith(
-        2,
-        52,
-        -32601,
-        "Rejected inactive app-server request: item/tool/requestUserInput",
-      );
+      expect(otherThread).toBe(false);
+      expect(otherTurn).toBe(false);
+      expect(rejectServerRequest).not.toHaveBeenCalled();
     });
 
     it("presents one parent-owned approval and answers both parent and tracked-child requests", () => {
@@ -1322,14 +1302,14 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().requests.approvals).toHaveLength(2);
     });
 
-    it("rejects delayed turn-scoped server requests after the active thread returns to idle", () => {
+    it("leaves delayed turn-scoped server requests unclaimed after the active thread returns to idle", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
 
-      handler.handleServerRequest({
+      const handled = handler.handleServerRequest({
         id: 53,
         method: "item/tool/requestUserInput",
         params: {
@@ -1343,7 +1323,8 @@ describe("ChatInboundHandler", () => {
       });
 
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      expect(rejectServerRequest).toHaveBeenCalledWith(53, -32601, "Rejected inactive app-server request: item/tool/requestUserInput");
+      expect(handled).toBe(false);
+      expect(rejectServerRequest).not.toHaveBeenCalled();
     });
 
     it("keeps pending requests when response delivery fails", () => {
@@ -1579,10 +1560,9 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
-    it("routes active-thread archive notifications to the shared catalog without clearing the panel", () => {
+    it("leaves context-owned archive notifications out of panel state", () => {
       const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(state, { applyThreadFact });
+      const handler = handlerForState(state);
 
       handler.handleNotification({
         method: "thread/archived",
@@ -1590,73 +1570,12 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
       expect(activeThreadState(handler.currentState())?.id).toBe("thread-active");
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-archived",
-        threadId: "thread-active",
-      } satisfies ThreadCatalogEvent);
-    });
-
-    it("records deleted thread notifications in the active catalog", () => {
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
-
-      handler.handleNotification({
-        method: "thread/deleted",
-        params: { threadId: "thread-active" },
-      } satisfies Extract<ServerNotification, { method: "thread/deleted" }>);
-
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-deleted",
-        threadId: "thread-active",
-      } satisfies ThreadCatalogEvent);
-    });
-
-    it("routes unarchived thread notifications through the catalog instead of refreshing in the handler", () => {
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
-
-      handler.handleNotification({
-        method: "thread/unarchived",
-        params: { threadId: "thread-active" },
-      } satisfies Extract<ServerNotification, { method: "thread/unarchived" }>);
-
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-unarchived",
-        threadId: "thread-active",
-      } satisfies ThreadCatalogEvent);
-    });
-
-    it("leaves interactive thread-started catalog publication to the command result", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(state, { applyThreadFact });
-
-      handler.handleNotification({
-        method: "thread/started",
-        params: { thread: appServerThread("thread-other", "/workspace/other") },
-      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
-
-      expect(applyThreadFact).not.toHaveBeenCalled();
-    });
-
-    it("leaves interactive fork publication to the command response", () => {
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
-
-      handler.handleNotification({
-        method: "thread/started",
-        params: { thread: { ...appServerThread("thread-forked", "/workspace"), forkedFromId: "thread-source" } },
-      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
-
-      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("does not project an active thread-started notification into panel or catalog state", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(state, { applyThreadFact });
+      const handler = handlerForState(state);
 
       handler.handleNotification({
         method: "thread/started",
@@ -1664,12 +1583,10 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
-      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("keeps ephemeral thread-started notifications out of the shared catalog and an empty panel", () => {
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
+      const handler = handlerForState(chatStateFixture());
 
       handler.handleNotification({
         method: "thread/started",
@@ -1677,38 +1594,6 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(handler.currentState().panelThread).toEqual({ kind: "empty" });
-      expect(applyThreadFact).not.toHaveBeenCalled();
-    });
-
-    it("keeps subagent thread-started notifications out of the shared catalog", () => {
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { applyThreadFact });
-      const child = appServerThread("child", "/workspace/active");
-
-      handler.handleNotification({
-        method: "thread/started",
-        params: {
-          thread: {
-            ...child,
-            parentThreadId: "parent",
-            source: {
-              subAgent: {
-                thread_spawn: {
-                  parent_thread_id: "parent",
-                  depth: 1,
-                  agent_path: null,
-                  agent_nickname: "Scout",
-                  agent_role: "explorer",
-                },
-              },
-            },
-            agentNickname: "Scout",
-            agentRole: "explorer",
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
-
-      expect(applyThreadFact).not.toHaveBeenCalled();
     });
 
     it("tracks direct subagent activity without admitting unrelated inactive notifications", () => {
@@ -2037,25 +1922,6 @@ describe("ChatInboundHandler", () => {
         userText: "hello",
         assistantText: "done",
       });
-    });
-
-    it("routes thread name notifications through catalog events", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const applyThreadFact = vi.fn();
-      const handler = handlerForState(state, { applyThreadFact });
-
-      handler.handleNotification({
-        method: "thread/name/updated",
-        params: { threadId: "thread-active", threadName: "  Codex   Panel自動命名  " },
-      } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>);
-
-      expect(state).not.toHaveProperty("threadList");
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-renamed",
-        threadId: "thread-active",
-        name: "Codex Panel自動命名",
-      } satisfies ThreadCatalogEvent);
     });
 
     it("syncs active runtime state from thread settings notifications", () => {

@@ -1,7 +1,6 @@
 import { expect, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
-import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
@@ -16,23 +15,22 @@ import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data"
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
 
-type ShortLivedClientOperation = (
+type ContextClientOperation = (
   codexPath: string,
   cwd: string,
   operation: (client: AppServerClient) => Promise<unknown>,
-  options?: AppServerClientAccessOptions,
 ) => Promise<unknown>;
-type ShortLivedClientMock = ReturnType<typeof vi.fn<ShortLivedClientOperation>>;
+type ContextClientMock = ReturnType<typeof vi.fn<ContextClientOperation>>;
 
-let shortLivedClientMock: ShortLivedClientMock | null = null;
+let contextClientMock: ContextClientMock | null = null;
 
-export function setSettingsShortLivedClientMock(mock: unknown): void {
-  shortLivedClientMock = mock as ShortLivedClientMock;
+export function setSettingsContextClientMock(mock: unknown): void {
+  contextClientMock = mock as ContextClientMock;
 }
 
-function currentShortLivedClientMock(): ShortLivedClientMock {
-  if (!shortLivedClientMock) throw new Error("Expected settings short-lived client mock");
-  return shortLivedClientMock;
+function currentContextClientMock(): ContextClientMock {
+  if (!contextClientMock) throw new Error("Expected settings context client mock");
+  return contextClientMock;
 }
 
 export function panelThread(overrides: Partial<Thread> = {}): Thread {
@@ -145,12 +143,12 @@ export type SettingsRequestClient = AppServerClient & {
   requestHandlers: Record<string, ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>>;
 };
 
-export function useShortLivedClients(...clients: SettingsRequestClient[]): void {
-  const mock = currentShortLivedClientMock();
+export function useContextClients(...clients: SettingsRequestClient[]): void {
+  const mock = currentContextClientMock();
   const runWithClient = (client: SettingsRequestClient, operation: (client: AppServerClient) => Promise<unknown>) => operation(client);
   if (clients.length === 1) {
     const [client] = clients;
-    if (!client) throw new Error("Expected a short-lived client.");
+    if (!client) throw new Error("Expected a context client.");
     mock.mockImplementation((_codexPath: string, _cwd: string, operation: (client: AppServerClient) => Promise<unknown>) =>
       runWithClient(client, operation),
     );
@@ -241,12 +239,9 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     const contextKey = settings.codexPath;
     const contextIsCurrent = () => settings.codexPath === contextKey;
     const clientAccess = {
-      withClient: async <T>(
-        operation: (client: AppServerClient) => Promise<T>,
-        clientOptions?: AppServerClientAccessOptions,
-      ): Promise<T> => {
+      withClient: async <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> => {
         if (!contextIsCurrent()) throw new Error("Codex execution runtime is no longer active.");
-        return (await currentShortLivedClientMock()(contextKey, "/vault", operation, clientOptions)) as T;
+        return (await currentContextClientMock()(contextKey, "/vault", operation)) as T;
       },
     };
     const threadFacts = {

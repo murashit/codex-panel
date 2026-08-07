@@ -63,19 +63,19 @@ interface ThreadUpsertFact {
 }
 
 interface ThreadReplacementPublication {
-  finish(result: { readonly sourceArchived: boolean }): void;
+  finish(): void;
 }
 
 interface ThreadManagementMutations {
   renameThread(threadId: string, value: string): Promise<boolean>;
   setThreadPinned(threadId: string, isPinned: boolean): Promise<void>;
-  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; beforePublish?: () => void }): Promise<boolean>;
+  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; afterArchive?: () => void }): Promise<boolean>;
 }
 
 export interface ThreadCommands {
   compactActiveThread: () => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
-  archiveThread: (threadId: string, saveMarkdown?: boolean, beforeUnavailable?: () => void) => Promise<void>;
+  archiveThread: (threadId: string, saveMarkdown?: boolean, afterArchive?: () => void) => Promise<void>;
   setThreadPinned: (threadId: string, isPinned: boolean) => Promise<void>;
   forkThread: (threadId: string) => Promise<void>;
   forkThreadFromTurn: (threadId: string, turnId: string | null, archiveSource: boolean) => Promise<void>;
@@ -94,7 +94,7 @@ export function createThreadCommands(host: ThreadCommandsHost): ThreadCommands {
   return {
     compactActiveThread: () => compactActiveThread(host),
     compactThread: (threadId) => compactThread(host, threadId),
-    archiveThread: (threadId, saveMarkdown, beforeUnavailable) => archiveThread(host, threadId, saveMarkdown, beforeUnavailable),
+    archiveThread: (threadId, saveMarkdown, afterArchive) => archiveThread(host, threadId, saveMarkdown, afterArchive),
     setThreadPinned: (threadId, isPinned) => setThreadPinned(host, threadId, isPinned),
     forkThread: (threadId) => forkThread(host, threadId),
     forkThreadFromTurn: (threadId, turnId, archiveSource) => forkThreadFromTurn(host, threadId, turnId, archiveSource),
@@ -129,25 +129,20 @@ async function compactThread(host: ThreadCommandsHost, threadId: string): Promis
   }
 }
 
-async function archiveThread(
-  host: ThreadCommandsHost,
-  threadId: string,
-  saveMarkdown?: boolean,
-  beforeUnavailable?: () => void,
-): Promise<void> {
-  await archiveThreadFromPanel(host, threadId, saveMarkdown, beforeUnavailable);
+async function archiveThread(host: ThreadCommandsHost, threadId: string, saveMarkdown?: boolean, afterArchive?: () => void): Promise<void> {
+  await archiveThreadFromPanel(host, threadId, saveMarkdown, afterArchive);
 }
 
 async function archiveThreadFromPanel(
   host: ThreadCommandsHost,
   threadId: string,
   saveMarkdown?: boolean,
-  beforeUnavailable?: () => void,
+  afterArchive?: () => void,
 ): Promise<boolean> {
   try {
     const options = {
       ...(saveMarkdown === undefined ? {} : { saveMarkdown }),
-      ...(beforeUnavailable ? { beforePublish: beforeUnavailable } : {}),
+      ...(afterArchive ? { afterArchive } : {}),
     };
     return await host.mutations.archiveThread(threadId, options);
   } catch (error) {
@@ -365,11 +360,10 @@ async function publishThreadReplacement(
     host.applyThreadFact({ type: "thread-upserted", thread: replacementThread });
     throw error;
   }
-  let sourceArchived = false;
   try {
-    sourceArchived = await replace();
+    await replace();
   } finally {
-    publication.finish({ sourceArchived });
+    publication.finish();
   }
 }
 

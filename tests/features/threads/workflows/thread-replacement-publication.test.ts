@@ -31,7 +31,7 @@ describe("ThreadReplacementPublication", () => {
 
     expect(visibleActiveSnapshots).toEqual([]);
 
-    replacement.finish({ sourceArchived: true });
+    replacement.finish();
 
     expect(visibleActiveSnapshots).toEqual([["replacement", "other"]]);
     expect(active).toEqual([thread("replacement", { preview: "resumed" }), thread("other")]);
@@ -43,23 +43,22 @@ describe("ThreadReplacementPublication", () => {
     const publication = createThreadReplacementPublication((facts) => committed.push(facts));
     const replacement = publication.begin("source", thread("replacement"));
 
-    replacement.finish({ sourceArchived: false });
+    replacement.finish();
 
     expect(committed).toEqual([[{ type: "thread-upserted", thread: thread("replacement") }]]);
   });
 
-  it("adds the successful source archive when no notification was observed", () => {
+  it("publishes a later source archive notification exactly once", () => {
     const committed: unknown[] = [];
     const publication = createThreadReplacementPublication((facts) => committed.push(facts));
     const replacement = publication.begin("source", thread("replacement"));
 
-    replacement.finish({ sourceArchived: true });
+    replacement.finish();
+    publication.facts.apply({ type: "thread-archived", threadId: "source" });
 
     expect(committed).toEqual([
-      [
-        { type: "thread-upserted", thread: thread("replacement") },
-        { type: "thread-archived", threadId: "source" },
-      ],
+      [{ type: "thread-upserted", thread: thread("replacement") }],
+      [{ type: "thread-archived", threadId: "source" }],
     ]);
   });
 
@@ -70,7 +69,7 @@ describe("ThreadReplacementPublication", () => {
 
     expect(() => publication.begin("source", thread("other"))).toThrow("already in progress");
 
-    active.finish({ sourceArchived: false });
+    active.finish();
     expect(committed).toEqual([[{ type: "thread-upserted", thread: thread("replacement") }]]);
   });
 
@@ -82,16 +81,16 @@ describe("ThreadReplacementPublication", () => {
     publication.facts.apply({ type: "thread-renamed", threadId: "unrelated", name: "Updated" });
 
     expect(committed).toEqual([[{ type: "thread-renamed", threadId: "unrelated", name: "Updated" }]]);
-    replacement.finish({ sourceArchived: false });
+    replacement.finish();
   });
 
-  it("keeps an observed source archive even when the initiating request reports failure", () => {
+  it("keeps a source archive observed before replacement publication finishes", () => {
     const committed: unknown[] = [];
     const publication = createThreadReplacementPublication((facts) => committed.push(facts));
     const replacement = publication.begin("source", thread("replacement"));
     publication.facts.apply({ type: "thread-archived", threadId: "source" });
 
-    replacement.finish({ sourceArchived: false });
+    replacement.finish();
 
     expect(committed).toEqual([
       [
@@ -101,41 +100,20 @@ describe("ThreadReplacementPublication", () => {
     ]);
   });
 
-  it("does not overwrite a later source unarchive with the initiating archive result", () => {
+  it("preserves observed source lifecycle order", () => {
     const committed: unknown[] = [];
     const publication = createThreadReplacementPublication((facts) => committed.push(facts));
     const replacement = publication.begin("source", thread("replacement"));
     publication.facts.apply({ type: "thread-archived", threadId: "source" });
     publication.facts.apply({ type: "thread-unarchived", threadId: "source" });
-    publication.mutationFacts.apply({ type: "thread-archived", threadId: "source" });
 
-    replacement.finish({ sourceArchived: true });
+    replacement.finish();
 
     expect(committed).toEqual([
       [
         { type: "thread-upserted", thread: thread("replacement") },
         { type: "thread-archived", threadId: "source" },
         { type: "thread-unarchived", threadId: "source" },
-      ],
-    ]);
-  });
-
-  it("does not overwrite a later source restore with the initiating archive result", () => {
-    const committed: unknown[] = [];
-    const publication = createThreadReplacementPublication((facts) => committed.push(facts));
-    const replacement = publication.begin("source", thread("replacement"));
-    const restored = thread("source", { preview: "restored" });
-    publication.facts.apply({ type: "thread-archived", threadId: "source" });
-    publication.facts.apply({ type: "thread-restored", thread: restored });
-    publication.mutationFacts.apply({ type: "thread-archived", threadId: "source" });
-
-    replacement.finish({ sourceArchived: true });
-
-    expect(committed).toEqual([
-      [
-        { type: "thread-upserted", thread: thread("replacement") },
-        { type: "thread-archived", threadId: "source" },
-        { type: "thread-restored", thread: restored },
       ],
     ]);
   });

@@ -1,7 +1,8 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
-import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
+import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
+import type { AppServerContextConnectionLease } from "../../../../app-server/connection/context-connection";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { createServerDiagnosticsCoordinator } from "../../application/connection/server-diagnostics-coordinator";
@@ -23,7 +24,7 @@ interface SessionConnectionStatus {
 }
 
 interface SessionConnectionInput {
-  connection: ConnectionManager;
+  connection: AppServerContextConnectionLease;
   diagnosticsPort: ServerDiagnosticsPort;
   localItemIds: LocalIdSource;
   status: SessionConnectionStatus;
@@ -64,8 +65,10 @@ function scheduleDeferredDiagnosticsRefresh(host: DeferredDiagnosticsRefreshHost
 
 interface ServerRequestResponderRegistry {
   remember(requestId: RespondRequestId, responder: AppServerServerRequestResponder): void;
+  forget(requestId: RespondRequestId): void;
   respond(requestId: RespondRequestId, result: unknown): boolean;
   reject(requestId: RejectRequestId, code: number, message: string): boolean;
+  rejectAll(code: number, message: string): void;
   clear(): void;
 }
 
@@ -74,6 +77,9 @@ function createServerRequestResponderRegistry(): ServerRequestResponderRegistry 
   return {
     remember: (requestId, responder) => {
       responders.set(requestId, responder);
+    },
+    forget: (requestId) => {
+      responders.delete(requestId);
     },
     respond: (requestId, result) => {
       const responder = responders.get(requestId) ?? null;
@@ -96,6 +102,16 @@ function createServerRequestResponderRegistry(): ServerRequestResponderRegistry 
       } catch {
         return false;
       }
+    },
+    rejectAll: (code, message) => {
+      for (const responder of responders.values()) {
+        try {
+          responder.reject(code, message);
+        } catch {
+          // The shared transport may already have settled this request.
+        }
+      }
+      responders.clear();
     },
     clear: () => {
       responders.clear();
@@ -135,9 +151,6 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
       maybeNameThread: (threadId, turnId, completedTurnTranscriptSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
       },
-      applyThreadFact: (fact) => {
-        environment.plugin.threadFacts.apply(fact);
-      },
       observeThreadGoal: (threadId) => {
         environment.plugin.threadGoalCoordinator.markAuthoritativeObservation(threadId);
       },
@@ -167,7 +180,9 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
           },
           onServerRequest: (request, responder) => {
             serverRequestResponders.remember(request.id, responder);
-            inboundHandler.handleServerRequest(request);
+            const handled = inboundHandler.handleServerRequest(request);
+            if (!handled) serverRequestResponders.forget(request.id);
+            return handled;
           },
           onLog: (message) => {
             inboundHandler.handleAppServerLog(message);
@@ -216,7 +231,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     inboundHandler,
     invalidateConnectionScope: () => {
       inboundHandler.clearServerRequests();
-      serverRequestResponders.clear();
+      serverRequestResponders.rejectAll(-32000, "Codex Panel disconnected before the request was answered.");
       diagnosticsCoordinator.invalidate();
     },
     refreshSharedThreads,

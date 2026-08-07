@@ -13,12 +13,19 @@ type NotificationRouteKind = ReturnType<typeof routeServerNotification>["kind"];
 type RequestRouteKind = ReturnType<typeof routeServerRequest>["kind"];
 
 describe("chat inbound routing", () => {
-  it("leaves only deprecated generated app-server notifications unhandled", () => {
+  it("leaves context-owned lifecycle and deprecated notifications outside panel routing", () => {
     const unhandled = generatedServerNotificationMethods().filter(
       (method) => routeServerNotification(notificationFixture(method), activeScope).kind === "unhandled",
     );
 
-    expect(unhandled).toEqual(["item/fileChange/outputDelta", "thread/compacted"]);
+    expect(unhandled).toEqual([
+      "item/fileChange/outputDelta",
+      "thread/archived",
+      "thread/compacted",
+      "thread/deleted",
+      "thread/name/updated",
+      "thread/unarchived",
+    ]);
   });
 
   it("keeps routed notification methods covered by matching planners", () => {
@@ -148,18 +155,8 @@ describe("chat inbound routing", () => {
     expectRequestRouteKind(request, "inactive", idleActiveThreadScope);
   });
 
-  it("delivers all thread catalog notifications outside the active scope", () => {
-    const notifications = [
-      { method: "thread/started", params: { thread: threadSnapshot("thread-other") } },
-      { method: "thread/archived", params: { threadId: "thread-other" } },
-      { method: "thread/deleted", params: { threadId: "thread-other" } },
-      { method: "thread/unarchived", params: { threadId: "thread-other" } },
-      { method: "thread/name/updated", params: { threadId: "thread-other", threadName: "Renamed" } },
-    ] satisfies ServerNotification[];
-
-    for (const notification of notifications) {
-      expectNotificationRouteKind(notification, "threadLifecycle");
-    }
+  it("delivers thread starts outside the active scope", () => {
+    expectNotificationRouteKind({ method: "thread/started", params: { thread: threadSnapshot("thread-other") } }, "threadLifecycle");
   });
 
   it("preserves thread catalog routing for malformed thread-started payloads", () => {
@@ -186,7 +183,6 @@ describe("chat inbound routing", () => {
     );
 
     expectNotificationRouteKind({ method: "skills/changed", params: {} }, "diagnosticStatus");
-    expectNotificationRouteKind(threadArchivedNotification("thread-other"), "threadLifecycle");
   });
 
   it("keeps active-thread-only lifecycle notifications scoped to the active thread", () => {
@@ -235,7 +231,6 @@ describe("chat inbound routing", () => {
   it.each([
     { name: "agent delta", notification: agentDeltaNotification(), kind: "streamUpdate" },
     { name: "turn started", notification: turnStartedNotification(), kind: "turnLifecycle" },
-    { name: "thread archived", notification: threadArchivedNotification(), kind: "threadLifecycle" },
     { name: "thread settings updated", notification: threadSettingsUpdatedNotification(), kind: "threadLifecycle" },
     { name: "thread goal updated", notification: threadGoalUpdatedNotification(), kind: "threadLifecycle" },
     { name: "server request resolved", notification: serverRequestResolvedNotification(), kind: "requestResolved" },
@@ -612,13 +607,6 @@ function tokenBreakdownFixture(): {
     cachedInputTokens: 0,
     outputTokens: 0,
     reasoningOutputTokens: 0,
-  };
-}
-
-function threadArchivedNotification(threadId = "thread-active"): ServerNotification {
-  return {
-    method: "thread/archived",
-    params: { threadId },
   };
 }
 

@@ -356,44 +356,30 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
   });
 
-  it("publishes an archive catalog event without closing panel leaves", async () => {
+  it("archives without closing panel leaves", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": archiveThread,
     });
-    const applyThreadFact = vi.fn();
-    const host = threadsHost({
-      threadFacts: threadFactSink(applyThreadFact),
-    });
+    const host = threadsHost();
     const view = await threadsView(host);
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
 
-    await waitForAsyncWork(() => {
-      expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" });
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-archived",
-        threadId: "thread",
-      });
-    });
+    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" }));
   });
 
-  it("publishes a completed archive after the threads view closes", async () => {
+  it("lets a completed archive settle after the threads view closes", async () => {
     const archived = deferred<object>();
     const archiveThread = vi.fn(() => archived.promise);
     connectionMock.state.client = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": archiveThread,
     });
-    const applyThreadFact = vi.fn();
-    const view = await threadsView(
-      threadsHost({
-        threadFacts: threadFactSink(applyThreadFact),
-      }),
-    );
+    const view = await threadsView(threadsHost());
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
@@ -405,13 +391,7 @@ describe("CodexThreadsView", () => {
 
     await view.onClose();
     archived.resolve({});
-
-    await waitForAsyncWork(() => {
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-archived",
-        threadId: "thread",
-      });
-    });
+    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledOnce());
     expect(view.containerEl.childElementCount).toBe(0);
   });
 
@@ -434,16 +414,13 @@ describe("CodexThreadsView", () => {
     expect(archiveThread).not.toHaveBeenCalled();
   });
 
-  it("notifies open panels after renaming a thread", async () => {
+  it("renames a thread through the shared client", async () => {
     const renameThreadRequest = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
-    const applyThreadFact = vi.fn();
-    const host = threadsHost({
-      threadFacts: threadFactSink(applyThreadFact),
-    });
+    const host = threadsHost();
     const view = await threadsView(host);
 
     await view.refresh();
@@ -454,29 +431,17 @@ describe("CodexThreadsView", () => {
     changeInputValue(input, "  Renamed   thread  ");
     view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.dispatchEvent(new FocusEvent("blur"));
 
-    await waitForAsyncWork(() => {
-      expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed thread" });
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-renamed",
-        threadId: "thread",
-        name: "Renamed thread",
-      });
-    });
+    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed thread" }));
   });
 
-  it("publishes a completed rename after the threads view closes", async () => {
+  it("lets a completed rename settle after the threads view closes", async () => {
     const renamed = deferred<object>();
     const renameThreadRequest = vi.fn(() => renamed.promise);
     connectionMock.state.client = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
-    const applyThreadFact = vi.fn();
-    const view = await threadsView(
-      threadsHost({
-        threadFacts: threadFactSink(applyThreadFact),
-      }),
-    );
+    const view = await threadsView(threadsHost());
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
@@ -490,14 +455,7 @@ describe("CodexThreadsView", () => {
 
     await view.onClose();
     renamed.resolve({});
-
-    await waitForAsyncWork(() => {
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-renamed",
-        threadId: "thread",
-        name: "Renamed after close",
-      });
-    });
+    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
     expect(view.containerEl.childElementCount).toBe(0);
   });
 
@@ -508,10 +466,7 @@ describe("CodexThreadsView", () => {
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
-    const applyThreadFact = vi.fn();
-    const host = threadsHost({
-      threadFacts: threadFactSink(applyThreadFact),
-    });
+    const host = threadsHost();
     const view = await threadsView(host);
 
     await view.refresh();
@@ -532,14 +487,7 @@ describe("CodexThreadsView", () => {
 
     saved.resolve({});
 
-    await waitForAsyncWork(() => {
-      expect(applyThreadFact).toHaveBeenCalledWith({
-        type: "thread-renamed",
-        threadId: "thread",
-        name: "Saved title",
-      });
-      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).toBeNull();
-    });
+    await waitForAsyncWork(() => expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).toBeNull());
   });
 
   it("restores the same editor when a locked rename save fails", async () => {

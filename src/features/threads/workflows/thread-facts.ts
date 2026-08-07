@@ -6,7 +6,6 @@ export type ThreadFact =
   | { type: "thread-pinned"; threadId: string; isPinned: boolean }
   | { type: "thread-archived"; threadId: string }
   | { type: "thread-deleted"; threadId: string }
-  | { type: "thread-restored"; thread: Thread }
   | { type: "thread-unarchived"; threadId: string };
 
 export interface ThreadFactSink {

@@ -2,12 +2,11 @@ import type { Thread } from "../../../domain/threads/model";
 import type { ThreadFact, ThreadFactSink } from "./thread-facts";
 
 interface ThreadReplacementPublication {
-  finish(result: { readonly sourceArchived: boolean }): void;
+  finish(): void;
 }
 
 export interface ThreadReplacementPublicationOwner {
   readonly facts: ThreadFactSink;
-  readonly mutationFacts: ThreadFactSink;
   begin(sourceThreadId: string, replacementThread: Thread): ThreadReplacementPublication;
 }
 
@@ -22,7 +21,7 @@ interface PendingReplacement {
 export function createThreadReplacementPublication(commit: (facts: readonly ThreadFact[]) => void): ThreadReplacementPublicationOwner {
   const pendingByThreadId = new Map<string, PendingReplacement>();
 
-  const applyBatch = (facts: readonly ThreadFact[], source: "observation" | "mutation"): void => {
+  const applyBatch = (facts: readonly ThreadFact[]): void => {
     const immediate: ThreadFact[] = [];
     for (const fact of facts) {
       const pending = pendingByThreadId.get(threadIdForFact(fact));
@@ -30,24 +29,22 @@ export function createThreadReplacementPublication(commit: (facts: readonly Thre
         immediate.push(fact);
         continue;
       }
-      if (source === "mutation" && fact.type === "thread-archived" && fact.threadId === pending.sourceThreadId) continue;
       pending.facts.push(fact);
     }
     if (immediate.length > 0) commit(immediate);
   };
 
-  const facts = (source: "observation" | "mutation"): ThreadFactSink => ({
+  const facts: ThreadFactSink = {
     apply: (fact) => {
-      applyBatch([fact], source);
+      applyBatch([fact]);
     },
     applyBatch: (batch) => {
-      applyBatch(batch, source);
+      applyBatch(batch);
     },
-  });
+  };
 
   return {
-    facts: facts("observation"),
-    mutationFacts: facts("mutation"),
+    facts,
     begin: (sourceThreadId, replacementThread) => {
       if (pendingByThreadId.has(sourceThreadId) || pendingByThreadId.has(replacementThread.id)) {
         throw new Error("A replacement publication is already in progress for this thread.");
@@ -63,16 +60,13 @@ export function createThreadReplacementPublication(commit: (facts: readonly Thre
       pendingByThreadId.set(replacementThread.id, pending);
 
       return {
-        finish: ({ sourceArchived }) => {
+        finish: () => {
           if (pending.finished) return;
           pending.finished = true;
           pendingByThreadId.delete(pending.sourceThreadId);
           pendingByThreadId.delete(pending.replacementThreadId);
 
           const completedFacts: ThreadFact[] = [{ type: "thread-upserted", thread: pending.initialReplacement }, ...pending.facts];
-          if (sourceArchived && !sourceLifecycleWasObserved(pending)) {
-            completedFacts.push({ type: "thread-archived", threadId: pending.sourceThreadId });
-          }
           commit(completedFacts);
         },
       };
@@ -80,18 +74,6 @@ export function createThreadReplacementPublication(commit: (facts: readonly Thre
   };
 }
 
-function sourceLifecycleWasObserved(pending: PendingReplacement): boolean {
-  return pending.facts.some((fact) => {
-    if (threadIdForFact(fact) !== pending.sourceThreadId) return false;
-    return (
-      fact.type === "thread-archived" ||
-      fact.type === "thread-deleted" ||
-      fact.type === "thread-restored" ||
-      fact.type === "thread-unarchived"
-    );
-  });
-}
-
 function threadIdForFact(fact: ThreadFact): string {
-  return fact.type === "thread-upserted" || fact.type === "thread-restored" ? fact.thread.id : fact.threadId;
+  return fact.type === "thread-upserted" ? fact.thread.id : fact.threadId;
 }

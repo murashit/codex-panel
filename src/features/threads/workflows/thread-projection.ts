@@ -53,13 +53,6 @@ function threadListChangesForFact(
         { kind: "remove", list: "active", threadId: fact.threadId },
         { kind: "remove", list: "archived", threadId: fact.threadId },
       ];
-    case "thread-restored":
-      return isThreadVisibleInCatalog(fact.thread)
-        ? [
-            { kind: "upsert", list: "active", thread: { ...fact.thread, archived: false } },
-            { kind: "remove", list: "archived", threadId: fact.thread.id },
-          ]
-        : [];
     case "thread-unarchived": {
       const thread = threadById(snapshots.archived, fact.threadId);
       return [

@@ -183,11 +183,7 @@ export class AppServerMetadataQueries {
           queryKey: MODELS_QUERY_KEY,
           queryFn: async (): Promise<readonly ModelMetadata[]> => {
             try {
-              return cloneModelMetadata(
-                await this.scope.runWithClient((client) => listModelMetadata(client), {
-                  serverRequests: { kind: "reject", message: "Codex model list refresh does not handle server requests." },
-                }),
-              );
+              return cloneModelMetadata(await this.scope.runWithClient((client) => listModelMetadata(client)));
             } catch (error) {
               throw new MetadataResourceQueryError(diagnosticProbeError("models", error, Date.now()));
             }

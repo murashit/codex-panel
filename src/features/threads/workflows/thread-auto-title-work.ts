@@ -37,7 +37,6 @@ export function createThreadAutoTitleWork(host: ThreadAutoTitleWorkHost): Thread
       if (!title || !operationIsCurrent(threadId, controller)) return;
       await host.mutations.renameThread(threadId, title, {
         shouldStart: () => operationIsCurrent(threadId, controller),
-        shouldPublish: () => operationIsCurrent(threadId, controller),
       });
     } catch {
       // First-turn naming is best-effort shared metadata work.
@@ -66,7 +65,6 @@ export function createThreadAutoTitleWork(host: ThreadAutoTitleWorkHost): Thread
           }
           return;
         case "thread-upserted":
-        case "thread-restored":
           unavailableThreadIds.delete(fact.thread.id);
           if (fact.thread.name?.trim()) {
             titledThreadIds.add(fact.thread.id);

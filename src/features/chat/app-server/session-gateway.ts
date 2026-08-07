@@ -1,5 +1,4 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import type { AppServerClientAccess, AppServerClientAccessOptions } from "../../../app-server/connection/client-access";
 import type { CodexInput } from "../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { ServerDiagnosticsPort } from "../application/connection/server-diagnostics-port";
@@ -13,7 +12,6 @@ import {
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
 
 export interface ChatCurrentAppServerGatewayHost {
-  fallbackClientAccess: AppServerClientAccess;
   vaultPath: string;
   currentClient(): AppServerClient | null;
 }
@@ -31,7 +29,6 @@ interface ChatThreadReferenceResolverOptions {
 }
 
 export interface ChatCurrentAppServerGateway extends ChatCurrentSessionAdapters {
-  clientAccess: AppServerClientAccess;
   serverDiagnostics: ServerDiagnosticsPort;
   connectionAvailable(): boolean;
   readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string | null>;
@@ -42,7 +39,6 @@ export interface ChatAppServerGateway extends ChatCurrentAppServerGateway, ChatC
 
 export function createChatCurrentAppServerGateway(host: ChatCurrentAppServerGatewayHost): ChatCurrentAppServerGateway {
   return {
-    clientAccess: createCurrentClientAccess(host),
     ...createChatCurrentSessionAdapters(host),
     serverDiagnostics: createChatServerDiagnosticsAdapter(host),
     connectionAvailable: () => host.currentClient() !== null,
@@ -62,20 +58,6 @@ export function createChatAppServerGateway(
   return {
     ...currentGateway,
     ...createChatConnectedSessionAdapters(host),
-  };
-}
-
-function createCurrentClientAccess(host: ChatCurrentAppServerGatewayHost): AppServerClientAccess {
-  return {
-    withClient: async (operation, options: AppServerClientAccessOptions = {}) => {
-      if (options.serverRequests?.kind === "reject") {
-        return host.fallbackClientAccess.withClient(operation, options);
-      }
-
-      const client = host.currentClient();
-      if (!client) throw new Error("Codex app-server is not connected.");
-      return operation(client);
-    },
   };
 }
 

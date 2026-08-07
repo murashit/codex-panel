@@ -1,7 +1,5 @@
 import { Notice } from "obsidian";
 
-import { codexPanelAppServerInitializeParams } from "../../../../app-server/connection/client-profile";
-import { ConnectionManager } from "../../../../app-server/connection/connection-manager";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import { createReconnectPanelCommand } from "../../application/connection/reconnect-command";
 import { createLocalIdSource, type LocalIdSource } from "../../application/local-id-source";
@@ -61,10 +59,9 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   };
   const localItemIds = createLocalIdSource();
   const resourceContext = environment.plugin.appServerContext;
-  const connection = new ConnectionManager(resourceContext.codexPath, resourceContext.vaultPath, codexPanelAppServerInitializeParams());
+  const connection = environment.plugin.appServerConnection.createLease();
   const currentClient = () => connection.currentClient();
   const currentAppServer = createChatCurrentAppServerGateway({
-    fallbackClientAccess: environment.plugin.appServerClientAccess,
     vaultPath: resourceContext.vaultPath,
     currentClient,
   });

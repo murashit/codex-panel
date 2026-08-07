@@ -28,9 +28,7 @@ export interface SettingsAppServerDynamicDataOptions {
 
 export function createSettingsAppServerDynamicData(options: SettingsAppServerDynamicDataOptions): SettingsDynamicDataAccess {
   const withSettingsConnection = <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> =>
-    options.clientAccess.withClient(operation, {
-      serverRequests: { kind: "reject", message: "Codex Panel settings does not handle server requests." },
-    });
+    options.clientAccess.withClient(operation);
   const loadHooks = (client: AppServerClient): Promise<SettingsHookCatalog> => loadSettingsHookCatalog(client, options.vaultPath);
   const mutateHook = (hook: HookItem, mutation: (client: AppServerClient, hook: HookItem) => Promise<void>): Promise<SettingsHookCatalog> =>
     withSettingsConnection(async (client) => {

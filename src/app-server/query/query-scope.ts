@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/query-core";
 import type { AppServerClient } from "../connection/client";
-import type { AppServerClientAccess, AppServerClientAccessOptions } from "../connection/client-access";
+import type { AppServerClientAccess } from "../connection/client-access";
 import type { AppServerExecutionContext } from "../connection/execution-context";
 
 export interface AppServerQueryOptions<T> {
@@ -39,9 +39,9 @@ export class AppServerQueryScope {
     if (this.disposed) throw new Error("Codex execution runtime is no longer active.");
   }
 
-  runWithClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {
+  runWithClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
     this.assertUsable();
-    return this.clientAccess.withClient(operation, options);
+    return this.clientAccess.withClient(operation);
   }
 
   trackObserver(unsubscribe: () => void): () => void {

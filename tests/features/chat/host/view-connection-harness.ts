@@ -73,6 +73,40 @@ export function connectionMockState(): typeof connectionMock.state {
   return connectionMock.state;
 }
 
+function contextConnectionMock(): CodexChatHost["appServerConnection"] {
+  return {
+    createLease: () => {
+      let connected = false;
+      return {
+        connect: async (handlers) => {
+          connectionMock.state.connectCalls += 1;
+          connectionMock.state.connected = true;
+          connected = true;
+          connectionMock.state.onNotification = handlers.onNotification;
+          connectionMock.state.onServerRequest = (request, responder) => {
+            handlers.onServerRequest(request, responder);
+          };
+          connectionMock.state.onExit = () => {
+            connected = false;
+            handlers.onExit();
+          };
+          return {
+            userAgent: "codex-test",
+            codexHome: "/tmp/codex",
+            platformFamily: "unix",
+            platformOs: "macos",
+          };
+        },
+        currentClient: () => (connected ? (connectionMock.state.client as never) : null),
+        isConnected: () => connected && connectionMock.state.connected,
+        disconnect: () => {
+          connected = false;
+        },
+      };
+    },
+  };
+}
+
 vi.mock("../../../../src/app-server/connection/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
@@ -588,7 +622,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
         emitActiveThreads();
         return;
       case "thread-upserted":
-      case "thread-restored":
         upsertActiveThread(event.thread);
         return;
       case "thread-unarchived":
@@ -599,13 +632,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     for (const fact of facts) (overrides.applyThreadFact ?? applyThreadFact)(fact);
   });
   return {
-    appServerClientAccess: {
-      withClient: async (operation) => {
-        const client = connectionMock.state.client as TestAppServerClient | null;
-        if (!client) throw new Error("Codex app-server is not connected.");
-        return operation(client as never);
-      },
-    },
+    appServerConnection: contextConnectionMock(),
     appServerContext: { codexPath: settings.codexPath, vaultPath },
     settingsSource: settings,
     receiveActiveThreads: (threads) => {

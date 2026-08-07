@@ -13,30 +13,41 @@ import {
   hook,
   model,
   panelThread,
-  setSettingsShortLivedClientMock,
+  setSettingsContextClientMock,
   settingsClient,
   settingsRequestClient,
   settingsTabHost,
-  useShortLivedClients,
+  useContextClients,
 } from "./test-support";
 
 type SettingsDynamicSectionsSnapshot = ReturnType<SettingsDynamicSectionsController["snapshot"]>;
 
-const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
-  withShortLivedAppServerClientMock: vi.fn(),
+const { contextConnectionClientMock } = vi.hoisted(() => ({
+  contextConnectionClientMock: vi.fn(),
 }));
 
-vi.mock("../../src/app-server/connection/short-lived-client", () => ({
-  withShortLivedAppServerClient: withShortLivedAppServerClientMock,
+vi.mock("../../src/app-server/connection/context-connection", () => ({
+  AppServerContextConnection: class {
+    constructor(
+      private readonly codexPath: string,
+      private readonly cwd: string,
+    ) {}
+
+    withClient(operation: unknown) {
+      return contextConnectionClientMock(this.codexPath, this.cwd, operation);
+    }
+
+    dispose() {}
+  },
 }));
 
-setSettingsShortLivedClientMock(withShortLivedAppServerClientMock);
+setSettingsContextClientMock(contextConnectionClientMock);
 
 const noop = (): void => undefined;
 
 describe("SettingsDynamicSectionsController", () => {
   beforeEach(() => {
-    withShortLivedAppServerClientMock.mockReset();
+    contextConnectionClientMock.mockReset();
   });
 
   it("publishes archived thread catalog updates", () => {
@@ -67,7 +78,7 @@ describe("SettingsDynamicSectionsController", () => {
   it("deduplicates a loading section without blocking completed section refreshes", async () => {
     const firstModels = deferred<ModelMetadata[]>();
     const firstClient = settingsClient();
-    useShortLivedClients(firstClient);
+    useContextClients(firstClient);
     const refreshModels = vi.fn(() => firstModels.promise);
     const refreshArchived = vi
       .fn()
@@ -87,7 +98,7 @@ describe("SettingsDynamicSectionsController", () => {
 
     expect(refreshModels).toHaveBeenCalledOnce();
     expect(refreshArchived).toHaveBeenCalledTimes(2);
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+    expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
     expect(controller.snapshot().modelsLifecycle.kind).toBe("loading");
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
 
@@ -124,7 +135,7 @@ describe("SettingsDynamicSectionsController", () => {
     const firstClient = settingsClient();
     firstClient.requestHandlers["hooks/list"] = vi.fn(() => firstHooks.promise);
     const secondClient = settingsClient({ hooks: [hook({ key: "hook-after-reopen" })] });
-    useShortLivedClients(firstClient, secondClient);
+    useContextClients(firstClient, secondClient);
     const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
 
     controller.activate();
@@ -147,7 +158,7 @@ describe("SettingsDynamicSectionsController", () => {
     const write = deferred<unknown>();
     const client = settingsClient({ hooks: [hook({ key: "hook-after-write", trustStatus: "trusted" })] });
     client.requestHandlers["config/batchWrite"] = vi.fn(() => write.promise);
-    useShortLivedClients(client);
+    useContextClients(client);
     const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
 
     controller.activate();
@@ -157,7 +168,7 @@ describe("SettingsDynamicSectionsController", () => {
     controller.activate();
     controller.maybeAutoLoadDynamicSections();
 
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+    expect(contextConnectionClientMock).toHaveBeenCalledOnce();
 
     write.resolve({});
     await mutation;
@@ -170,13 +181,13 @@ describe("SettingsDynamicSectionsController", () => {
     const client = settingsClient({
       hooks: [hook({ key: "hook-trusted", currentHash: "trusted-hash", trustStatus: "trusted" })],
     });
-    useShortLivedClients(client);
+    useContextClients(client);
     const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
 
     await controller.trustHook(hook({ key: "hook-trusted", currentHash: "untrusted-hash", trustStatus: "untrusted" }));
 
     expect(client.request.mock.calls.map(([method]) => method)).toEqual(["config/batchWrite", "hooks/list"]);
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+    expect(contextConnectionClientMock).toHaveBeenCalledOnce();
     expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-trusted", currentHash: "trusted-hash" })]);
     expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "loaded", status: "Trusted hook definition." });
   });
@@ -186,7 +197,7 @@ describe("SettingsDynamicSectionsController", () => {
     const oldClient = settingsClient({ hooks: [hook({ key: "hook-old-context" })] });
     oldClient.requestHandlers["config/batchWrite"] = vi.fn(() => oldWrite.promise);
     const newClient = settingsClient({ hooks: [hook({ key: "hook-new-context" })] });
-    useShortLivedClients(oldClient, newClient);
+    useContextClients(oldClient, newClient);
     const host = settingsTabHost();
     const notify = vi.fn();
     const controller = new SettingsDynamicSectionsController(host, { display: noop, notify });
@@ -215,7 +226,7 @@ describe("SettingsDynamicSectionsController", () => {
       "thread/unarchive": vi.fn(() => staleRestore.promise),
     });
     const newerClient = settingsClient({ hooks: [hook({ key: "hook-new" })] });
-    useShortLivedClients(initialClient, restoreClient, newerClient);
+    useContextClients(initialClient, restoreClient, newerClient);
     const refreshArchived = vi
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
@@ -237,7 +248,7 @@ describe("SettingsDynamicSectionsController", () => {
 
     expect(refreshArchived).toHaveBeenCalledOnce();
     expect(refreshModels).toHaveBeenCalledTimes(2);
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(3);
+    expect(contextConnectionClientMock).toHaveBeenCalledTimes(3);
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
     expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new" })]);
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Old archived"]);
@@ -245,10 +256,7 @@ describe("SettingsDynamicSectionsController", () => {
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
 
-    expect(applyThreadFact).toHaveBeenCalledWith({
-      type: "thread-restored",
-      thread: expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
-    });
+    expect(applyThreadFact).not.toHaveBeenCalled();
   });
 
   it("rejects a conflicting archived mutation while one is pending", async () => {
@@ -262,7 +270,7 @@ describe("SettingsDynamicSectionsController", () => {
       "thread/delete": deleteRequest,
     });
     const applyThreadFact = vi.fn();
-    useShortLivedClients(restoreClient, deleteClient);
+    useContextClients(restoreClient, deleteClient);
     const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact }), {
       display: noop,
       notify: noop,
@@ -274,24 +282,24 @@ describe("SettingsDynamicSectionsController", () => {
 
     expect(restoreRequest).toHaveBeenCalledOnce();
     expect(deleteRequest).not.toHaveBeenCalled();
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+    expect(contextConnectionClientMock).toHaveBeenCalledOnce();
 
     restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await Promise.all([restore, deletion]);
 
     expect(deleteRequest).not.toHaveBeenCalled();
-    expect(applyThreadFact.mock.calls.map(([event]) => event.type)).toEqual(["thread-restored"]);
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+    expect(applyThreadFact).not.toHaveBeenCalled();
+    expect(contextConnectionClientMock).toHaveBeenCalledOnce();
   });
 
-  it("publishes a completed archived mutation after the settings view is disposed", async () => {
+  it("lets a completed archived mutation settle after the settings view is disposed", async () => {
     const restoreResult = deferred<{ thread: ThreadRecord }>();
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => restoreResult.promise),
     });
     const applyThreadFact = vi.fn();
     const display = vi.fn();
-    useShortLivedClients(restoreClient);
+    useContextClients(restoreClient);
     const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact }), {
       display,
       notify: noop,
@@ -305,10 +313,7 @@ describe("SettingsDynamicSectionsController", () => {
     restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored after close" }) });
     await restore;
 
-    expect(applyThreadFact).toHaveBeenCalledWith({
-      type: "thread-restored",
-      thread: expect.objectContaining({ id: "thread-old", preview: "Restored after close", archived: false }),
-    });
+    expect(applyThreadFact).not.toHaveBeenCalled();
     expect(display).not.toHaveBeenCalled();
   });
 
@@ -318,7 +323,7 @@ describe("SettingsDynamicSectionsController", () => {
       "thread/unarchive": vi.fn(() => restoreResult.promise),
     });
     const applyThreadFact = vi.fn();
-    useShortLivedClients(restoreClient);
+    useContextClients(restoreClient);
     const host = settingsTabHost({ applyThreadFact });
     const controller = new SettingsDynamicSectionsController(host, { display: noop, notify: noop });
 
@@ -341,7 +346,7 @@ describe("SettingsDynamicSectionsController", () => {
         thread: appServerThread({ id: "thread-shared", preview: "New context" }),
       }),
     });
-    useShortLivedClients(oldClient, newClient);
+    useContextClients(oldClient, newClient);
     const host = settingsTabHost();
 
     const staleMutation = host.dynamicData.restoreArchivedThread("thread-shared");
@@ -361,13 +366,16 @@ describe("SettingsDynamicSectionsController", () => {
 
   it("displays restored archived thread state after recording the active catalog event", async () => {
     const snapshots: SettingsDynamicSectionsSnapshot[] = [];
+    let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const initialClient = settingsClient();
     const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
+      "thread/unarchive": vi.fn(async () => {
+        emitArchived([]);
+        return { thread: appServerThread({ id: "thread-old", preview: "Restored old" }) };
+      }),
     });
-    useShortLivedClients(initialClient, restoreClient);
+    useContextClients(initialClient, restoreClient);
     const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
-    let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const controller = new SettingsDynamicSectionsController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
@@ -376,9 +384,6 @@ describe("SettingsDynamicSectionsController", () => {
             listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
           };
           return () => undefined;
-        },
-        applyThreadFact: () => {
-          emitArchived([]);
         },
       }),
       {
@@ -403,13 +408,16 @@ describe("SettingsDynamicSectionsController", () => {
 
   it("displays deleted archived thread status after recording the catalog event", async () => {
     const snapshots: SettingsDynamicSectionsSnapshot[] = [];
+    let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const initialClient = settingsClient();
     const deleteClient = settingsRequestClient({
-      "thread/delete": vi.fn().mockResolvedValue({}),
+      "thread/delete": vi.fn(async () => {
+        emitArchived([]);
+        return {};
+      }),
     });
-    useShortLivedClients(initialClient, deleteClient);
+    useContextClients(initialClient, deleteClient);
     const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
-    let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const controller = new SettingsDynamicSectionsController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
@@ -418,9 +426,6 @@ describe("SettingsDynamicSectionsController", () => {
             listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
           };
           return () => undefined;
-        },
-        applyThreadFact: () => {
-          emitArchived([]);
         },
       }),
       {

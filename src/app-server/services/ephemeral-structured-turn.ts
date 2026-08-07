@@ -1,5 +1,4 @@
 import { AppServerClient, type AppServerClientHandlers } from "../connection/client";
-import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import { codexPanelAppServerInitializeParams } from "../connection/client-profile";
 import type { ServerNotification } from "../connection/rpc-messages";
 import {
@@ -55,7 +54,7 @@ export interface RunEphemeralStructuredTurnOptions {
   prompt: string;
   outputSchema: StructuredTurnOutputSchema;
   timeoutMs: number;
-  serverRequests: Extract<AppServerClientRequestPolicy, { kind: "reject" }>;
+  serverRequests: { kind: "reject"; message: string };
   exitedMessage: string;
   timedOutMessage: string;
   abortMessage?: string;

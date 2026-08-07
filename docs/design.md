@@ -22,7 +22,7 @@ Panel settings should store only panel-specific preferences. Do not mirror Codex
 
 `codex app-server` is the source of truth for Codex state. Panel-side caches exist to keep the UI stable across transient failures; failed reads or stale panels must not become authoritative empty state.
 
-Panel-originated commands should project their successful results promptly into the shared read model. Independent clients are not part of the same immediate-consistency boundary: their changes may appear through app-server notifications, an explicit refresh, or a later manual sync, and intermediate cross-client ordering is not guaranteed.
+Panel-originated commands should project their successful results promptly into the shared read model. Opening or closing another Panel surface must not by itself change whether a persistent-thread read or mutation can proceed. Changes made by external clients may appear through app-server notifications, an explicit refresh, or a later manual sync, and intermediate cross-client ordering is not guaranteed.
 
 The app-server API is experimental, so favor a clean current flow over broad compatibility layers; preserve compatibility when it is a supported product contract.
 
@@ -58,7 +58,7 @@ Context-wide thread mutations have one execution-context owner. That owner coord
 
 ## Interaction Principles
 
-Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent connection, turn state, composer, and pending requests. A persistent thread has one panel owner at a time, while different threads remain independent.
+Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent turn state, composer, and pending requests. A persistent thread has one panel owner at a time, while different threads remain independent.
 
 Asynchronous work may publish panel-local results only while the panel still owns their target. App-server client identity is a resource-lifecycle detail, not an application-level validity scope; panel target, thread, and operation ownership decide whether results remain relevant. Facts completed in the current app-server context remain shared truth even if the initiating view has moved on, and cleanup created by a committed state transition must outlive the action that initiated it.
 

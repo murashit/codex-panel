@@ -20,7 +20,7 @@ describe("session connection", () => {
     expect(responder.respond).toHaveBeenCalledWith({ answers: { note: { answers: ["Continue"] } } });
   });
 
-  it("cannot reuse a responder after its connection scope is invalidated", async () => {
+  it("rejects and forgets a responder when its panel connection scope is invalidated", async () => {
     const fixture = sessionConnectionFixture();
     await fixture.connect();
     const responder = { respond: vi.fn(), reject: vi.fn() };
@@ -30,7 +30,7 @@ describe("session connection", () => {
     fixture.resolveUserInput(1, { note: "Continue" });
 
     expect(responder.respond).not.toHaveBeenCalled();
-    expect(responder.reject).not.toHaveBeenCalled();
+    expect(responder.reject).toHaveBeenCalledWith(-32000, "Codex Panel disconnected before the request was answered.");
   });
 
   it("retains a responder when synchronous delivery throws", async () => {

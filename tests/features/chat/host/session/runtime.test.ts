@@ -7,7 +7,7 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import { createThreadGoalCoordinator } from "../../../../../src/features/chat/application/threads/thread-goal-coordinator";
-import type { ChatPanelEnvironment } from "../../../../../src/features/chat/host/contracts";
+import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
 import { createChatViewDeferredTasks } from "../../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
@@ -266,9 +266,7 @@ describe("chat panel session runtime", () => {
         ...overrides.obsidian,
       },
       plugin: {
-        appServerClientAccess: {
-          withClient: vi.fn(() => Promise.reject(new Error("Unexpected fallback app-server client request."))),
-        },
+        appServerConnection: contextConnectionFixture(),
         appServerContext: overrides.plugin?.appServerContext ?? { codexPath: "codex", vaultPath: "/vault" },
         threadTitlePort: {
           persistedContext: vi.fn().mockResolvedValue(null),
@@ -304,6 +302,22 @@ describe("chat panel session runtime", () => {
         refreshTabHeader: vi.fn(),
         ...overrides.view,
       },
+    };
+  }
+
+  function contextConnectionFixture(): CodexChatHost["appServerConnection"] {
+    return {
+      createLease: () => ({
+        connect: vi.fn().mockResolvedValue({
+          codexHome: "/tmp/codex",
+          platformFamily: "unix",
+          platformOs: "macos",
+          userAgent: "codex-test",
+        }),
+        currentClient: () => null,
+        isConnected: () => false,
+        disconnect: vi.fn(),
+      }),
     };
   }
 

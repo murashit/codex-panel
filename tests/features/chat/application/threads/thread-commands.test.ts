@@ -323,7 +323,7 @@ describe("thread management commands", () => {
     expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.mutations.archiveThread));
     expect(host.beginThreadReplacementPublication).toHaveBeenCalledWith("source", panelThread("forked"));
-    expect(host.replacementPublication.finish).toHaveBeenCalledWith({ sourceArchived: true });
+    expect(host.replacementPublication.finish).toHaveBeenCalledWith();
     expect(host.applyThreadFact).not.toHaveBeenCalled();
   });
 
@@ -338,7 +338,7 @@ describe("thread management commands", () => {
       return true;
     });
     host.mutations.archiveThread.mockImplementation(async (threadId) => {
-      publication.mutationFacts.apply({ type: "thread-archived", threadId });
+      publication.facts.apply({ type: "thread-archived", threadId });
       return true;
     });
 
@@ -366,7 +366,7 @@ describe("thread management commands", () => {
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
     expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
-    expect(host.replacementPublication.finish).toHaveBeenCalledWith({ sourceArchived: false });
+    expect(host.replacementPublication.finish).toHaveBeenCalledWith();
     expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Forked the thread, but could not archive the previous version: archive failed");
   });
@@ -384,7 +384,7 @@ describe("thread management commands", () => {
 
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
-    expect(host.replacementPublication.finish).toHaveBeenCalledWith({ sourceArchived: false });
+    expect(host.replacementPublication.finish).toHaveBeenCalledWith();
     expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith(
       "Forked the thread, but could not archive the previous version: archive was not completed",
@@ -564,7 +564,7 @@ describe("thread management commands", () => {
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.mutations.archiveThread));
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
     expect(host.beginThreadReplacementPublication).toHaveBeenCalledWith("source", panelThread("forked"));
-    expect(host.replacementPublication.finish).toHaveBeenCalledWith({ sourceArchived: true });
+    expect(host.replacementPublication.finish).toHaveBeenCalledWith();
     expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
   });
@@ -628,7 +628,7 @@ describe("thread management commands", () => {
 
     await threadCommands(host).rollbackThread("source");
 
-    expect(host.replacementPublication.finish).toHaveBeenCalledWith({ sourceArchived: false });
+    expect(host.replacementPublication.finish).toHaveBeenCalledWith();
     expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(activeThreadId(host.stateStore.getState())).toBe("source");
     expect(host.setComposerText).not.toHaveBeenCalled();

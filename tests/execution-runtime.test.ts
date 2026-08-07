@@ -7,9 +7,15 @@ import type { ThreadsViewHost } from "../src/features/threads-view/session";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 
-const { openThreadPickerMock, withShortLivedAppServerClientMock, runEphemeralStructuredTurnMock } = vi.hoisted(() => ({
+const { contextConnectionMock, openThreadPickerMock, runEphemeralStructuredTurnMock } = vi.hoisted(() => ({
+  contextConnectionMock: {
+    client: { disconnect: vi.fn(), request: vi.fn() },
+    instances: [] as Array<{
+      dispose: ReturnType<typeof vi.fn>;
+      handlers: { onNotification(notification: unknown): void };
+    }>,
+  },
   openThreadPickerMock: vi.fn(),
-  withShortLivedAppServerClientMock: vi.fn(),
   runEphemeralStructuredTurnMock: vi.fn(),
 }));
 
@@ -17,8 +23,42 @@ vi.mock("../src/features/thread-picker/modal.obsidian", () => ({
   openThreadPicker: openThreadPickerMock,
 }));
 
-vi.mock("../src/app-server/connection/short-lived-client", () => ({
-  withShortLivedAppServerClient: withShortLivedAppServerClientMock,
+vi.mock("../src/app-server/connection/context-connection", () => ({
+  AppServerContextConnection: class {
+    readonly dispose = vi.fn(() => {
+      contextConnectionMock.client.disconnect();
+    });
+
+    constructor(
+      _codexPath: string,
+      _cwd: string,
+      _initializeParams: unknown,
+      readonly handlers: { onNotification(notification: unknown): void },
+    ) {
+      contextConnectionMock.instances.push(this);
+    }
+
+    createLease() {
+      return {
+        connect: vi.fn(),
+        currentClient: () => contextConnectionMock.client,
+        isConnected: () => true,
+        disconnect: vi.fn(),
+      };
+    }
+
+    withClient<T>(operation: (client: typeof contextConnectionMock.client) => Promise<T>): Promise<T> {
+      return operation(contextConnectionMock.client);
+    }
+
+    currentClient() {
+      return contextConnectionMock.client;
+    }
+
+    isConnected() {
+      return true;
+    }
+  },
 }));
 
 vi.mock("../src/app-server/services/ephemeral-structured-turn", async (importOriginal) => ({
@@ -29,7 +69,9 @@ vi.mock("../src/app-server/services/ephemeral-structured-turn", async (importOri
 describe("CodexExecutionRuntime", () => {
   beforeEach(() => {
     openThreadPickerMock.mockReset();
-    withShortLivedAppServerClientMock.mockReset();
+    contextConnectionMock.client.disconnect.mockReset();
+    contextConnectionMock.client.request.mockReset();
+    contextConnectionMock.instances.length = 0;
     runEphemeralStructuredTurnMock.mockReset();
   });
 
@@ -83,77 +125,54 @@ describe("CodexExecutionRuntime", () => {
     expect(onThreadFacts).toHaveBeenCalledWith([{ type: "thread-archived", threadId: "before-dispose" }]);
   });
 
-  it("disconnects an active query client and rejects its late completion when disposed", async () => {
-    let resolveModels: (value: { data: readonly [] }) => void = () => undefined;
-    const models = new Promise<{ data: readonly [] }>((resolve) => {
-      resolveModels = resolve;
-    });
-    const client = {
-      disconnect: vi.fn(),
-      request: vi.fn(() => models),
-    };
-    withShortLivedAppServerClientMock.mockImplementation(
-      async (
-        _codexPath: string,
-        _vaultPath: string,
-        operation: (appServerClient: typeof client) => Promise<unknown>,
-        _options: unknown,
-        lifetime: { created(appServerClient: typeof client): void; disposed(appServerClient: typeof client): void },
-      ) => {
-        lifetime.created(client);
-        try {
-          return await operation(client);
-        } finally {
-          lifetime.disposed(client);
-        }
-      },
-    );
+  it("uses one context connection for shared reads and panel sessions", async () => {
     const runtime = executionRuntime();
+    const chat = attachChatHost(runtime);
 
-    const fetch = attachChatHost(runtime).appServerQueries.fetchModels();
-    await Promise.resolve();
-    runtime.dispose();
+    const first = await runtime.withClient(async (client) => client);
 
-    expect(client.disconnect).toHaveBeenCalledOnce();
-    resolveModels({ data: [] });
-    await fetch.catch(() => undefined);
+    expect(first).toBe(contextConnectionMock.client);
+    expect(chat.appServerConnection).toBe(runtime.appServerConnection);
+    expect(contextConnectionMock.instances).toHaveLength(1);
   });
 
-  it("preserves a rejected short-lived operation after disposal", async () => {
-    let rejectOperation: (error: Error) => void = () => undefined;
-    const operation = new Promise<never>((_resolve, reject) => {
-      rejectOperation = reject;
+  it("routes read-only queries and archive through the panel context client", async () => {
+    contextConnectionMock.client.request.mockImplementation(async (method: string) => {
+      if (method === "model/list") return { data: [] };
+      if (method === "thread/archive") return {};
+      throw new Error(`Unexpected app-server request: ${method}`);
     });
-    withShortLivedAppServerClientMock.mockReturnValue(operation);
     const runtime = executionRuntime();
+    const chat = attachChatHost(runtime);
 
-    const request = attachChatHost(runtime).appServerClientAccess.withClient(() => Promise.resolve("unused"));
-    runtime.dispose();
-    rejectOperation(new Error("Disconnected"));
+    await chat.appServerQueries.fetchModels();
+    await chat.threadMutations.archiveThread("thread", { saveMarkdown: false });
 
-    await expect(request).rejects.toThrow("Disconnected");
+    expect(contextConnectionMock.client.request).toHaveBeenCalledWith("model/list", { cursor: null, includeHidden: false, limit: 100 });
+    expect(contextConnectionMock.client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
+    expect(contextConnectionMock.instances).toHaveLength(1);
   });
 
-  it("disconnects a client created after the runtime is disposed", async () => {
-    let runtime!: CodexExecutionRuntime;
-    const client = { disconnect: vi.fn(), request: vi.fn() };
-    withShortLivedAppServerClientMock.mockImplementation(
-      async (
-        _codexPath: string,
-        _vaultPath: string,
-        _operation: unknown,
-        _options: unknown,
-        lifecycle: { created(appServerClient: typeof client): void },
-      ) => {
-        runtime.dispose();
-        lifecycle.created(client);
-      },
-    );
-    runtime = executionRuntime();
+  it("publishes descendant lifecycle notifications once from the context owner", () => {
+    const onThreadFacts = vi.fn();
+    executionRuntime(onThreadFacts);
 
-    await expect(runtime.withClient(() => Promise.resolve("unused"))).rejects.toThrow("Codex execution runtime is no longer active.");
+    contextConnectionMock.instances[0]?.handlers.onNotification({
+      method: "thread/archived",
+      params: { threadId: "descendant" },
+    });
 
-    expect(client.disconnect).toHaveBeenCalledOnce();
+    expect(onThreadFacts).toHaveBeenCalledOnce();
+    expect(onThreadFacts).toHaveBeenCalledWith([{ type: "thread-archived", threadId: "descendant" }]);
+  });
+
+  it("disconnects the shared context connection on disposal", () => {
+    const runtime = executionRuntime();
+
+    runtime.dispose();
+
+    expect(contextConnectionMock.instances[0]?.dispose).toHaveBeenCalledOnce();
+    expect(contextConnectionMock.client.disconnect).toHaveBeenCalledOnce();
   });
 
   it("aborts an in-flight structured turn when the runtime is disposed", async () => {

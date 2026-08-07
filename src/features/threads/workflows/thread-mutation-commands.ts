@@ -21,7 +21,7 @@ export interface ThreadMutationCommandsHost {
 
 interface ArchiveThreadOptions {
   saveMarkdown?: boolean;
-  beforePublish?: () => void;
+  afterArchive?: () => void;
 }
 
 export type ArchiveThreadResult =
@@ -30,7 +30,6 @@ export type ArchiveThreadResult =
 
 interface RenameThreadOptions {
   shouldStart?: () => boolean;
-  shouldPublish?: () => boolean;
 }
 
 export interface ThreadMutationCommands {
@@ -65,9 +64,6 @@ async function renameThread(
   return nameMutations.run(threadId, async () => {
     if (!(options.shouldStart?.() ?? true)) return false;
     await host.port.renameThread(threadId, name);
-    if (options.shouldPublish?.() ?? true) {
-      host.facts.apply({ type: "thread-renamed", threadId, name });
-    }
     return true;
   });
 }
@@ -113,8 +109,7 @@ async function archiveThread(
           }
         : undefined,
     );
-    options.beforePublish?.();
-    host.facts.apply({ type: "thread-archived", threadId });
+    options.afterArchive?.();
     return { kind: "archived", exportedPath };
   });
 }
@@ -126,7 +121,6 @@ async function restoreThread(
 ): Promise<Thread> {
   return lifecycleMutations.run(threadId, async () => {
     const thread = await host.port.restoreThread(threadId);
-    host.facts.apply({ type: "thread-restored", thread });
     return thread;
   });
 }
@@ -138,6 +132,5 @@ async function deleteThread(
 ): Promise<void> {
   await lifecycleMutations.run(threadId, async () => {
     await host.port.deleteThread(threadId);
-    host.facts.apply({ type: "thread-deleted", threadId });
   });
 }

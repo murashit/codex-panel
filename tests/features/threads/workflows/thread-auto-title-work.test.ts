@@ -31,7 +31,6 @@ describe("thread auto-title work", () => {
     expect(fixture.generateTitle).toHaveBeenCalledOnce();
     expect(fixture.renameThread).toHaveBeenCalledWith("thread", "Generated title", {
       shouldStart: expect.any(Function),
-      shouldPublish: expect.any(Function),
     });
   });
 
@@ -104,20 +103,15 @@ describe("thread auto-title work", () => {
     await flushPromises();
   });
 
-  it("lets the shared rename owner recheck staleness before publishing", async () => {
-    const rename = deferred<boolean>();
+  it("lets the shared rename owner recheck staleness before starting", async () => {
     const fixture = workFixture(() => Promise.resolve("Generated title"));
     fixture.renameThread.mockImplementationOnce(async (_threadId, _title, options) => {
       expect(options?.shouldStart?.()).toBe(true);
-      await rename.promise;
-      expect(options?.shouldPublish?.()).toBe(false);
       return true;
     });
 
     fixture.work.submit("thread", titleContext());
     await vi.waitFor(() => expect(fixture.renameThread).toHaveBeenCalledOnce());
-    fixture.work.applyThreadFact({ type: "thread-renamed", threadId: "thread", name: "Manual title" });
-    rename.resolve(true);
     await flushPromises();
   });
 });

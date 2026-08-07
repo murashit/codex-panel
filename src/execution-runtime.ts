@@ -1,9 +1,10 @@
 import type { App } from "obsidian";
 
 import type { AppServerClient } from "./app-server/connection/client";
-import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
+import type { AppServerClientAccess } from "./app-server/connection/client-access";
+import { codexPanelAppServerInitializeParams } from "./app-server/connection/client-profile";
+import { AppServerContextConnection } from "./app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "./app-server/connection/execution-context";
-import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
 import { AppServerMetadataQueries } from "./app-server/query/metadata-queries";
 import { AppServerQueryScope } from "./app-server/query/query-scope";
 import { AppServerThreadCatalog } from "./app-server/query/thread-catalog-queries";
@@ -17,6 +18,7 @@ import type { ChatPanelSettingsAccess, ChatRuntimeView, CodexChatHost, Workspace
 import { createAppServerSelectionRewriteAdapter } from "./features/selection-rewrite/app-server-adapter";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
+import { threadFactFromLifecycleNotification } from "./features/threads/app-server/thread-lifecycle-notifications";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
 import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
 import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/threads/workflows/thread-auto-title-work";
@@ -50,6 +52,7 @@ export interface CodexExecutionRuntimeOptions {
 
 export class CodexExecutionRuntime implements AppServerClientAccess {
   private readonly context: Readonly<AppServerExecutionContext>;
+  readonly appServerConnection: AppServerContextConnection;
   private readonly queryScope: AppServerQueryScope;
   private readonly appServerQueries: AppServerMetadataQueries;
   private readonly threadCatalog: ThreadCatalog;
@@ -60,7 +63,6 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   readonly settingsDynamicData: SettingsDynamicDataAccess;
   private readonly threadGoalCoordinator = createThreadGoalCoordinator();
   private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-  private readonly shortLivedClients = new Set<AppServerClient>();
   private readonly structuredTurnClients = new Set<EphemeralStructuredTurnClient>();
   private readonly structuredTurnOperations = new Set<AbortController>();
   private activeThreadPicker: ThreadPickerController | null = null;
@@ -68,6 +70,19 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
 
   constructor(private readonly options: CodexExecutionRuntimeOptions) {
     this.context = Object.freeze({ ...options.context });
+    this.appServerConnection = new AppServerContextConnection(
+      this.context.codexPath,
+      this.context.vaultPath,
+      codexPanelAppServerInitializeParams(),
+      {
+        onNotification: (notification) => {
+          const fact = threadFactFromLifecycleNotification(notification);
+          if (!fact) return false;
+          this.threadFacts.apply(fact);
+          return true;
+        },
+      },
+    );
     this.queryScope = new AppServerQueryScope(this.context, this);
     this.appServerQueries = new AppServerMetadataQueries(this.queryScope);
     this.threadCatalog = new AppServerThreadCatalog(this.queryScope);
@@ -88,7 +103,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
         vaultConfigDir: this.options.app.vault.configDir,
       },
       archiveDestination: () => createObsidianVaultMarkdownDestination(this.options.app.vault),
-      facts: this.threadReplacementPublication.mutationFacts,
+      facts: this.threadReplacementPublication.facts,
       referenceThreads: () => this.threadCatalog.activeThreadsSnapshot() ?? [],
       threadIsBusy: (threadId) =>
         this.options.openPanelActivities().some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
@@ -109,7 +124,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
   private chatHost(): CodexChatHost {
     this.assertActive();
     return {
-      appServerClientAccess: this,
+      appServerConnection: this.appServerConnection,
       appServerContext: this.context,
       settings: this.chatSettings(),
       workspace: this.options.workspace,
@@ -138,8 +153,12 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     };
   }
 
-  withClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {
-    return this.runWithAppServerClient(operation, options);
+  withClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
+    this.assertActive();
+    return this.appServerConnection.withClient(async (client) => {
+      this.assertActive();
+      return operation(client);
+    });
   }
 
   attachChatView(view: ChatRuntimeView): void {
@@ -195,36 +214,11 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
         client.disconnect();
       });
     this.structuredTurnClients.clear();
-    for (const client of this.shortLivedClients)
-      this.tryCleanup(() => {
-        client.disconnect();
-      });
-    this.shortLivedClients.clear();
+    this.tryCleanup(() => {
+      this.appServerConnection.dispose();
+    });
     this.tryCleanup(() => {
       this.queryScope.dispose();
-    });
-  }
-
-  private async runWithAppServerClient<T>(
-    operation: (client: AppServerClient) => Promise<T>,
-    options: AppServerClientAccessOptions = {},
-  ): Promise<T> {
-    this.assertActive();
-    const guardedOperation = (client: AppServerClient): Promise<T> => {
-      this.assertActive();
-      return operation(client);
-    };
-    return withShortLivedAppServerClient(this.context.codexPath, this.context.vaultPath, guardedOperation, options, {
-      created: (client) => {
-        if (this.disposed) {
-          client.disconnect();
-          throw new Error("Codex execution runtime is no longer active.");
-        }
-        this.shortLivedClients.add(client);
-      },
-      disposed: (client) => {
-        this.shortLivedClients.delete(client);
-      },
     });
   }
 

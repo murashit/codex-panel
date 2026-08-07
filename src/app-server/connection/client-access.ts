@@ -1,11 +1,5 @@
 import type { AppServerClient } from "./client";
 
-export type AppServerClientRequestPolicy = { kind: "reject"; message: string };
-
-export interface AppServerClientAccessOptions {
-  serverRequests?: AppServerClientRequestPolicy;
-}
-
 export interface AppServerClientAccess {
-  withClient<T>(operation: (client: AppServerClient) => Promise<T>, options?: AppServerClientAccessOptions): Promise<T>;
+  withClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T>;
 }

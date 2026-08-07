@@ -48,10 +48,6 @@ const THREAD_CATALOG_DELIVERY = { delivery: "threadCatalog", scope: null } as co
 
 const SERVER_NOTIFICATION_REGISTRY = {
   "thread/started": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
-  "thread/archived": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
-  "thread/deleted": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
-  "thread/unarchived": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
-  "thread/name/updated": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
   "thread/goal/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadTurnNotificationScope },
   "thread/goal/cleared": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadOnlyNotificationScope },
   "thread/settings/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadOnlyNotificationScope },

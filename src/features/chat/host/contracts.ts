@@ -1,6 +1,6 @@
 import type { App, Component, EventRef } from "obsidian";
 
-import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
+import type { AppServerContextConnectionLease } from "../../../app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
@@ -22,7 +22,7 @@ import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-sn
 import type { ThreadGoalCoordinator } from "../application/threads/thread-goal-coordinator";
 
 export interface CodexChatHost {
-  readonly appServerClientAccess: AppServerClientAccess;
+  readonly appServerConnection: { createLease(): AppServerContextConnectionLease };
   readonly appServerContext: Readonly<AppServerExecutionContext>;
   readonly settings: ChatPanelSettingsAccess;
   readonly workspace: WorkspacePanels;

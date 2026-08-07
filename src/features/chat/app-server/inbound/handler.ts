@@ -1,6 +1,5 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
-import type { ThreadFact } from "../../../threads/workflows/thread-facts";
 import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
@@ -39,7 +38,6 @@ export interface ChatInboundHandlerEffects {
   refreshServerDiagnostics: () => void;
   handleAppServerResourceFact: (fact: AppServerResourceFact) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
-  applyThreadFact: (fact: ThreadFact) => void;
   observeThreadGoal: (threadId: string) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
@@ -47,7 +45,7 @@ export interface ChatInboundHandlerEffects {
 
 export interface ChatInboundHandler {
   handleNotification(notification: ServerNotification): void;
-  handleServerRequest(request: ServerRequest): void;
+  handleServerRequest(request: ServerRequest): boolean;
   handleAppServerLog(message: string): void;
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void;
   resolveUserInput(requestId: PendingRequestId, answers: Record<string, string>): void;
@@ -83,7 +81,7 @@ export function createChatInboundHandler(
       handleNotification(context, notification);
     },
     handleServerRequest: (request) => {
-      handleServerRequest(context, request);
+      return handleServerRequest(context, request);
     },
     handleAppServerLog: (message) => {
       handleAppServerLog(context, message);
@@ -144,7 +142,7 @@ function handleNotification(context: ChatInboundHandlerContext, notification: Se
   reconcileApprovalRequests(context);
 }
 
-function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
+function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): boolean {
   reconcileApprovalRequests(context);
   flushAutomaticApprovalResponses(context);
   const current = state(context);
@@ -162,12 +160,12 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
     case "approval": {
       if (!isApprovalServerRequest(request)) {
         rejectServerRequest(context, request, `Rejected unsupported app-server request: ${request.method}`);
-        return;
+        return true;
       }
       const parentTurnId = activeTurnId(current.activeTurn) ?? route.approval.turnId;
       if (!parentTurnId) {
         rejectServerRequest(context, request, `Rejected approval without a turn: ${request.method}`);
-        return;
+        return true;
       }
       const registration = context.approvalRequests.register(request, approvalOwner, parentTurnId);
       if (registration.kind === "new") {
@@ -176,7 +174,7 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
       } else if (registration.kind === "answered") {
         deliverApprovalResponses(context, registration.deliveries);
       }
-      return;
+      return true;
     }
     case "userInput": {
       const input = route.input.params.isBlocking
@@ -184,26 +182,26 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
         : { ...route.input, autoResolutionAtMs: Date.now() + NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS };
       dispatch(context, { type: "request/user-input-queued", input });
       if (!input.params.isBlocking) scheduleUserInputAutoResolution(context, input);
-      return;
+      return true;
     }
     case "mcpElicitation":
       dispatch(context, { type: "request/mcp-elicitation-queued", elicitation: route.elicitation });
-      return;
+      return true;
     case "currentTime":
       if (!context.effects.respondToServerRequest(route.request.id, serverRequestCurrentTimeResponse(Date.now()))) {
         addSystemMessage(context, "Could not send current time because Codex app-server is not connected.");
       }
-      return;
-    case "inactive":
-      rejectServerRequest(context, request, `Rejected inactive app-server request: ${request.method}`);
-      return;
+      return true;
+    case "inactive": {
+      return false;
+    }
     case "unsupported":
       rejectServerRequest(context, request, `Rejected unsupported app-server request: ${request.method}`);
-      return;
+      return true;
     case "unknown": {
       const message = `Rejected unknown app-server request: ${request.method}`;
       context.effects.rejectServerRequest(request.id, -32601, message);
-      return;
+      return true;
     }
   }
 }
@@ -398,9 +396,6 @@ function runInboundEffect(context: ChatInboundHandlerContext, effect: ChatInboun
       return;
     case "maybe-name-thread":
       context.effects.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
-      return;
-    case "apply-thread-fact":
-      context.effects.applyThreadFact(effect.fact);
       return;
   }
 }

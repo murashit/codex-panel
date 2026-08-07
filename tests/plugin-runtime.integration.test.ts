@@ -25,12 +25,27 @@ import {
 
 installObsidianDomShims();
 
-const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
-  withShortLivedAppServerClientMock: vi.fn(),
+const { contextConnectionClientMock } = vi.hoisted(() => ({
+  contextConnectionClientMock: vi.fn(),
 }));
 
-vi.mock("../src/app-server/connection/short-lived-client", () => ({
-  withShortLivedAppServerClient: withShortLivedAppServerClientMock,
+vi.mock("../src/app-server/connection/context-connection", () => ({
+  AppServerContextConnection: class {
+    constructor(
+      private readonly codexPath: string,
+      private readonly cwd: string,
+    ) {}
+
+    withClient(operation: unknown) {
+      return contextConnectionClientMock(this.codexPath, this.cwd, operation);
+    }
+
+    createLease() {
+      throw new Error("Unexpected panel connection lease.");
+    }
+
+    dispose() {}
+  },
 }));
 
 function threadCatalog(plugin: CodexPanelPlugin) {
@@ -71,7 +86,7 @@ function currentChatHost(plugin: CodexPanelPlugin): CodexChatHost {
 describe("CodexPanelPlugin runtime integration", () => {
   beforeEach(() => {
     vi.useRealTimers();
-    withShortLivedAppServerClientMock.mockReset();
+    contextConnectionClientMock.mockReset();
   });
 
   it("creates and loads a turn diff leaf before publishing its session payload", async () => {
@@ -198,7 +213,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     let resolveFirst!: (threads: Thread[]) => void;
     const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-a");
-    withShortLivedAppServerClientMock.mockImplementation(
+    contextConnectionClientMock.mockImplementation(
       (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
         operation(
           threadListClient(() =>
@@ -218,7 +233,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const second = threadCatalog(plugin).refreshActiveThreads();
     await flushMicrotasks();
 
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+    expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
     await expect(second).resolves.toEqual([thread("second")]);
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
 
@@ -229,8 +244,8 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toBeNull();
   });
 
-  it("runs shared queries through a runtime-owned short-lived client", async () => {
-    withShortLivedAppServerClientMock.mockImplementation(
+  it("runs shared queries through the runtime-owned context connection", async () => {
+    contextConnectionClientMock.mockImplementation(
       (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
         operation(threadListClient(() => Promise.resolve([thread("matching-context")]))),
     );
@@ -239,65 +254,8 @@ describe("CodexPanelPlugin runtime integration", () => {
 
     await expect(threadCatalog(plugin).refreshActiveThreads()).resolves.toEqual([thread("matching-context")]);
 
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith(
-      "codex-b",
-      "/vault",
-      expect.any(Function),
-      {},
-      expect.objectContaining({ created: expect.any(Function), disposed: expect.any(Function) }),
-    );
+    expect(contextConnectionClientMock).toHaveBeenCalledWith("codex-b", "/vault", expect.any(Function));
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("matching-context")]);
-  });
-
-  it("uses a short-lived client when the operation declares an unhandled server-request policy", async () => {
-    const shortLivedClient = { request: vi.fn().mockResolvedValue({}) };
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _vaultPath: string, operation: (client: typeof shortLivedClient) => Promise<unknown>) =>
-        operation(shortLivedClient),
-    );
-    const plugin = await pluginWithLeaves([]);
-    plugin.settings.codexPath = "codex";
-
-    const result = await currentChatHost(plugin).appServerClientAccess.withClient(
-      (client) => client.request("config/read", { cwd: "/vault", includeLayers: true }),
-      {
-        serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
-      },
-    );
-
-    expect(result).toEqual({});
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith(
-      "codex",
-      "/vault",
-      expect.any(Function),
-      {
-        serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
-      },
-      expect.objectContaining({ created: expect.any(Function), disposed: expect.any(Function) }),
-    );
-    expect(shortLivedClient.request).toHaveBeenCalledWith("config/read", { cwd: "/vault", includeLayers: true });
-  });
-
-  it("does not start a short-lived operation when its app-server context changes while connecting", async () => {
-    const clientReady = deferred<void>();
-    const shortLivedClient = { request: vi.fn().mockResolvedValue({}) };
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _vaultPath: string, operation: (client: typeof shortLivedClient) => Promise<unknown>) =>
-        clientReady.promise.then(() => operation(shortLivedClient)),
-    );
-    const plugin = await pluginWithLeaves([]);
-    await publishCodexPath(plugin, "codex-a");
-    const callback = vi.fn(() => Promise.resolve("unused"));
-
-    const operation = currentChatHost(plugin).appServerClientAccess.withClient(callback, {
-      serverRequests: { kind: "reject", message: "test" },
-    });
-    await publishCodexPath(plugin, "codex-b");
-    clientReady.resolve();
-
-    await expect(operation).rejects.toThrow("Codex execution runtime is no longer active.");
-    expect(callback).not.toHaveBeenCalled();
-    expect(shortLivedClient.request).not.toHaveBeenCalled();
   });
 
   it("persists the new context before restarting its runtime", async () => {

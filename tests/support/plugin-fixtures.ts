@@ -126,8 +126,18 @@ export function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf
 function chatHostFixture(): CodexChatHost {
   const settings: CodexPanelSettings = { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" };
   return {
-    appServerClientAccess: {
-      withClient: vi.fn(() => Promise.reject(new Error("Unexpected app-server client request."))),
+    appServerConnection: {
+      createLease: () => ({
+        connect: vi.fn().mockResolvedValue({
+          codexHome: "/tmp/codex",
+          platformFamily: "unix",
+          platformOs: "macos",
+          userAgent: "codex-test",
+        }),
+        currentClient: () => null,
+        isConnected: () => false,
+        disconnect: vi.fn(),
+      }),
     },
     appServerContext: { codexPath: settings.codexPath, vaultPath: "/vault" },
     threadMutations: threadMutationCommandsMock(),

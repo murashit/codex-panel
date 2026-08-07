@@ -1,8 +1,6 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
-import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
-import type { ThreadFact } from "../../../threads/workflows/thread-facts";
 import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
@@ -21,8 +19,7 @@ export type ChatInboundEffect =
       completedTurnTranscriptSummary: TurnCompletionTranscriptSummary;
     }
   | { type: "refresh-server-diagnostics" }
-  | { type: "handle-app-server-resource-fact"; fact: AppServerResourceFact }
-  | { type: "apply-thread-fact"; fact: ThreadFact };
+  | { type: "handle-app-server-resource-fact"; fact: AppServerResourceFact };
 
 type TurnCompletionTranscriptSummary = TurnRuntimeProjectionOutcome["completedTurnTranscriptSummary"];
 
@@ -291,30 +288,6 @@ function planThreadLifecycle(
   switch (notification.method) {
     case "thread/started":
       return threadStartedPlan(state, notification);
-    case "thread/archived":
-      return effectPlan({
-        type: "apply-thread-fact",
-        fact: { type: "thread-archived", threadId: notification.params.threadId },
-      });
-    case "thread/deleted":
-      return effectPlan({
-        type: "apply-thread-fact",
-        fact: { type: "thread-deleted", threadId: notification.params.threadId },
-      });
-    case "thread/unarchived":
-      return effectPlan({
-        type: "apply-thread-fact",
-        fact: { type: "thread-unarchived", threadId: notification.params.threadId },
-      });
-    case "thread/name/updated":
-      return effectPlan({
-        type: "apply-thread-fact",
-        fact: {
-          type: "thread-renamed",
-          threadId: notification.params.threadId,
-          name: normalizeExplicitThreadName(notification.params.threadName),
-        },
-      });
     case "thread/settings/updated":
       if (activeThreadId(state) !== notification.params.threadId) return EMPTY_PLAN;
       return actionPlan(activeThreadSettingsAppliedAction(notification.params.threadSettings));

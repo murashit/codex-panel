@@ -16,20 +16,12 @@ import { deferred } from "../../../support/async";
 import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 
 describe("ThreadMutationCommands", () => {
-  it("renames a thread and notifies shared surfaces after success", async () => {
+  it("renames a thread through the shared client", async () => {
     const { mutations, client, catalog } = operationsFixture();
 
     await expect(mutations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
 
     expect(client?.request).toHaveBeenCalledWith("thread/name/set", { threadId: "thread", name: "Saved title" });
-    expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-renamed", threadId: "thread", name: "Saved title" });
-  });
-
-  it("can skip rename publication when the caller invalidates the save", async () => {
-    const { mutations, catalog } = operationsFixture();
-
-    await mutations.renameThread("thread", "Generated title", { shouldPublish: () => false });
-
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
@@ -97,7 +89,7 @@ describe("ThreadMutationCommands", () => {
     expect(client.request).toHaveBeenNthCalledWith(3, "thread/name/set", { threadId: "thread", name: "Latest manual title" });
   });
 
-  it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
+  it("archives a thread and reports exported markdown", async () => {
     const { mutations, catalog, client, archiveDestination } = operationsFixture();
 
     await expect(mutations.archiveThread("thread", { saveMarkdown: true })).resolves.toEqual({
@@ -112,10 +104,7 @@ describe("ThreadMutationCommands", () => {
     );
     expect(client?.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(callOrder(archiveDestination.createMarkdownFile)).toBeLessThan(requestCallOrder(client, "thread/archive"));
-    expect(catalog.apply).toHaveBeenCalledWith({
-      type: "thread-archived",
-      threadId: "thread",
-    });
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("rejects a second archive for the same thread while the first is pending", async () => {
@@ -134,7 +123,7 @@ describe("ThreadMutationCommands", () => {
 
     archive.resolve({});
     await first;
-    expect(catalog.apply).toHaveBeenCalledOnce();
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("blocks archive before contacting the app server when the thread is active", async () => {
@@ -158,14 +147,14 @@ describe("ThreadMutationCommands", () => {
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
-  it("announces archive target adoption immediately before publishing the archive fact", async () => {
+  it("runs the post-archive callback after the request succeeds", async () => {
     const { mutations, catalog } = operationsFixture();
-    const beforePublish = vi.fn();
+    const afterArchive = vi.fn();
 
-    await mutations.archiveThread("thread", { saveMarkdown: false, beforePublish });
+    await mutations.archiveThread("thread", { saveMarkdown: false, afterArchive });
 
-    expect(beforePublish).toHaveBeenCalledOnce();
-    expect(callOrder(beforePublish)).toBeLessThan(callOrder(catalog.apply));
+    expect(afterArchive).toHaveBeenCalledOnce();
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("resolves persisted reference titles before archive export", async () => {
@@ -269,8 +258,7 @@ describe("ThreadMutationCommands", () => {
 
     expect(client?.request).toHaveBeenCalledWith("thread/unarchive", { threadId: "thread" });
     expect(client?.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread" }, {});
-    expect(catalog.apply).toHaveBeenCalledWith(expect.objectContaining({ type: "thread-restored" }));
-    expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-deleted", threadId: "thread" });
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 });
 

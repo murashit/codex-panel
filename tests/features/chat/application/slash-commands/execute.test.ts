@@ -521,8 +521,8 @@ describe("slash commands", () => {
   });
 
   it("adopts the panel target only when archiving the active thread is published", async () => {
-    const archiveThread = vi.fn(async (_threadId, _saveMarkdown, beforeUnavailable) => {
-      beforeUnavailable?.();
+    const archiveThread = vi.fn(async (_threadId, _saveMarkdown, afterArchive) => {
+      afterArchive?.();
     });
     const ctx = context({
       threadCommands: {

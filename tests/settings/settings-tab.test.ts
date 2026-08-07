@@ -17,27 +17,38 @@ import {
   panelThread,
   requestMethods,
   type SettingsTabHostOptions,
-  setSettingsShortLivedClientMock,
+  setSettingsContextClientMock,
   settingsClient,
   settingsTabHost,
-  useShortLivedClients,
+  useContextClients,
 } from "./test-support";
 
 installObsidianDomShims();
 
-const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
-  withShortLivedAppServerClientMock: vi.fn(),
+const { contextConnectionClientMock } = vi.hoisted(() => ({
+  contextConnectionClientMock: vi.fn(),
 }));
 
-vi.mock("../../src/app-server/connection/short-lived-client", () => ({
-  withShortLivedAppServerClient: withShortLivedAppServerClientMock,
+vi.mock("../../src/app-server/connection/context-connection", () => ({
+  AppServerContextConnection: class {
+    constructor(
+      private readonly codexPath: string,
+      private readonly cwd: string,
+    ) {}
+
+    withClient(operation: unknown): unknown {
+      return contextConnectionClientMock(this.codexPath, this.cwd, operation);
+    }
+
+    dispose(): void {}
+  },
 }));
 
-setSettingsShortLivedClientMock(withShortLivedAppServerClientMock);
+setSettingsContextClientMock(contextConnectionClientMock);
 
 describe("settings tab", () => {
   beforeEach(() => {
-    withShortLivedAppServerClientMock.mockReset();
+    contextConnectionClientMock.mockReset();
     notices.length = 0;
   });
 
@@ -46,7 +57,7 @@ describe("settings tab", () => {
 
     const definitions = tab.getSettingDefinitions();
 
-    expect(withShortLivedAppServerClientMock).not.toHaveBeenCalled();
+    expect(contextConnectionClientMock).not.toHaveBeenCalled();
     expect(declarativeDefinitionNames(definitions)).toEqual([
       "Codex details",
       "Codex executable",
@@ -113,7 +124,7 @@ describe("settings tab", () => {
 
   it("publishes model and effort changes from a representative declarative helper renderer", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    useShortLivedClients(settingsClient());
+    useContextClients(settingsClient());
     const tab = newSettingsTab({
       saveSettings,
       modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-5.5", false, false, ["extreme"])]),
@@ -139,7 +150,7 @@ describe("settings tab", () => {
 
   it("normalizes and publishes a representative declarative archive text field", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    useShortLivedClients(settingsClient());
+    useContextClients(settingsClient());
     const tab = newSettingsTab({ saveSettings });
     const filename = declarativeDefinitionByName(tab.getSettingDefinitions(), "Saved note filename");
     const container = renderDeclarativeDefinition(filename, "Saved note filename");
@@ -156,7 +167,7 @@ describe("settings tab", () => {
 
   it("restores a thread through the declarative archived-section callback", async () => {
     const client = settingsClient();
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({
       archivedSnapshot: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })],
     });
@@ -173,7 +184,7 @@ describe("settings tab", () => {
 
   it("preserves an active declarative text island while dynamic sections refresh", async () => {
     const client = settingsClient();
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab();
     const executable = declarativeDefinitionByName(tab.getSettingDefinitions(), "Codex executable");
     if (!executable?.render) throw new Error("Missing declarative Codex executable renderer");
@@ -192,7 +203,7 @@ describe("settings tab", () => {
 
   it("rolls back a declarative text island after publication fails", async () => {
     const client = settingsClient();
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({ saveSettings: vi.fn().mockRejectedValue(new Error("disk full")) });
     const executable = declarativeDefinitionByName(tab.getSettingDefinitions(), "Codex executable");
     if (!executable?.render) throw new Error("Missing declarative Codex executable renderer");
@@ -213,20 +224,20 @@ describe("settings tab", () => {
   it("auto-loads dynamic sections once and keeps one global refresh button", async () => {
     const client = settingsClient();
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({ fetchModels });
 
     tab.display();
     await flushPromises();
 
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
+    expect(contextConnectionClientMock).toHaveBeenCalledTimes(1);
     expect(fetchModels).toHaveBeenCalledTimes(1);
     expectRequestTimes(client, "hooks/list", 1);
 
     tab.display();
     await flushPromises();
 
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
+    expect(contextConnectionClientMock).toHaveBeenCalledTimes(1);
     expect(buttonLabels(tab)).toContain("Refresh Codex details");
     expect(settingNames(tab)).toContain("Codex hooks");
     expect(settingNames(tab)).toContain("Archived threads");
@@ -290,7 +301,7 @@ describe("settings tab", () => {
   it("binds the replacement executable data source when a hidden tab is shown again", async () => {
     const save = deferred<void>();
     const observeModels = vi.fn(() => vi.fn());
-    useShortLivedClients(settingsClient(), settingsClient());
+    useContextClients(settingsClient(), settingsClient());
     const host = settingsTabHost({
       saveSettings: vi.fn(() => save.promise),
       observeModels,
@@ -441,7 +452,7 @@ describe("settings tab", () => {
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
     const firstClient = settingsClient({ models: [model("gpt-5.4")] });
     const secondClient = settingsClient({ models: [model("gpt-5.5")] });
-    useShortLivedClients(firstClient, secondClient);
+    useContextClients(firstClient, secondClient);
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.4")]));
     const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     const refreshArchived = vi
@@ -455,7 +466,7 @@ describe("settings tab", () => {
     clickButtonByLabel(tab, "Refresh Codex details");
     await flushPromises();
 
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+    expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
     expect(fetchModels).toHaveBeenCalledOnce();
     expect(refreshModels).toHaveBeenCalledOnce();
     expect(refreshArchived).toHaveBeenCalledTimes(2);
@@ -475,7 +486,7 @@ describe("settings tab", () => {
       models: [model("gpt-new")],
       hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
     });
-    useShortLivedClients(oldClient, newClient);
+    useContextClients(oldClient, newClient);
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-old")]));
     const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-new")]));
     const refreshArchived = vi
@@ -504,15 +515,15 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(refreshChatViews).not.toHaveBeenCalled();
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
+    expect(contextConnectionClientMock).toHaveBeenCalledTimes(1);
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
     expect(tab.containerEl.textContent).not.toContain("Old archived");
 
     clickButtonByLabel(tab, "Refresh Codex details");
     await flushPromises();
 
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
-    expect(withShortLivedAppServerClientMock.mock.calls[1]?.[0]).toBe("/opt/codex");
+    expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
+    expect(contextConnectionClientMock.mock.calls[1]?.[0]).toBe("/opt/codex");
     expect(tab.containerEl.textContent).toContain("gpt-new");
     expect(tab.containerEl.textContent).toContain("New archived");
   });
@@ -555,7 +566,7 @@ describe("settings tab", () => {
   });
 
   it("subscribes model updates only while the settings tab is displayed", () => {
-    useShortLivedClients(settingsClient());
+    useContextClients(settingsClient());
     const unsubscribe = vi.fn();
     const observeModels = vi.fn(() => unsubscribe);
     const tab = newSettingsTab({ observeModels });
@@ -573,7 +584,7 @@ describe("settings tab", () => {
   it("uses cached models initially and publishes refreshed models", async () => {
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     const client = settingsClient({ models: [model("gpt-5.5")] });
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({ modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]), fetchModels });
 
     tab.display();
@@ -589,7 +600,7 @@ describe("settings tab", () => {
   it("replaces stale cached model options with an empty successful refresh while preserving saved values", async () => {
     const fetchModels = vi.fn().mockResolvedValue([]);
     const client = settingsClient({ models: [] });
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({
       modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]),
       fetchModels,
@@ -633,7 +644,7 @@ describe("settings tab", () => {
       models: [model("gpt-5.4")],
       hooksError: new Error("hooks unavailable"),
     });
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ preview: "Archived thread", archived: true })] });
 
     tab.display();
@@ -648,7 +659,7 @@ describe("settings tab", () => {
     const client = settingsClient({
       hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", trustStatus: "untrusted" })],
     });
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
@@ -666,7 +677,7 @@ describe("settings tab", () => {
 
   it("confirms archived thread deletion inline and cancels from outside clicks", async () => {
     const client = settingsClient();
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
@@ -685,7 +696,7 @@ describe("settings tab", () => {
   it("preserves an in-progress Codex executable edit while dynamic sections update", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const client = settingsClient();
-    useShortLivedClients(client);
+    useContextClients(client);
     const tab = newSettingsTab({
       saveSettings,
       archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })],
@@ -725,7 +736,7 @@ describe("settings tab", () => {
 
   it("permanently deletes an archived thread from the confirmed settings row", async () => {
     const client = settingsClient();
-    useShortLivedClients(client);
+    useContextClients(client);
     const deleteRequest = deferred<undefined>();
     client.requestHandlers["thread/delete"]?.mockReturnValue(deleteRequest.promise);
     let publishArchivedThreads = (): void => undefined;
@@ -736,9 +747,6 @@ describe("settings tab", () => {
           listener({ value: [], error: null, isFetching: false });
         };
         return () => undefined;
-      },
-      applyThreadFact: (fact) => {
-        if (fact.type === "thread-deleted") publishArchivedThreads();
       },
     });
 
@@ -755,6 +763,7 @@ describe("settings tab", () => {
     expect(buttonByLabel(tab, "Delete thread").ariaDisabled).toBe("true");
 
     deleteRequest.resolve(undefined);
+    publishArchivedThreads();
     await flushPromises();
 
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list .codex-panel-settings__status-row")).not.toBeNull();
