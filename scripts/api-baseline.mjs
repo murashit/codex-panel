@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const validArgs = new Set(["--json"]);
+const obsidianCodeMirrorPeers = ["@codemirror/state", "@codemirror/view"];
 
 if (isMain()) {
   const args = new Set(process.argv.slice(2));
@@ -70,7 +71,9 @@ export async function createApiBaselineReport(options = {}) {
   const obsidianReadmeMinVersion = readmeBaselines.obsidianMinAppVersion;
   const obsidianVersionEntry = inputs.versionsJson[inputs.packageJson.version] ?? null;
   const obsidianSpec = inputs.packageJson.devDependencies?.obsidian ?? null;
-  const obsidianLockVersion = inputs.packageLockJson.packages?.["node_modules/obsidian"]?.version ?? null;
+  const obsidianLockPackage = inputs.packageLockJson.packages?.["node_modules/obsidian"];
+  const obsidianLockVersion = obsidianLockPackage?.version ?? null;
+  const obsidianPeerDependencies = obsidianLockPackage?.peerDependencies ?? {};
   const obsidianSpecSemver = parseSemver(obsidianSpec);
   const obsidianLockSemver = parseSemver(obsidianLockVersion);
   const obsidianMinSemver = parseSemver(obsidianMinVersion);
@@ -142,6 +145,15 @@ export async function createApiBaselineReport(options = {}) {
       `README Obsidian API types ${displayValue(obsidianReadmeApiTypesVersion)} does not match package-lock obsidian ${displayValue(obsidianLockVersion)}.`,
     );
   }
+  for (const dependency of obsidianCodeMirrorPeers) {
+    const packageSpec = inputs.packageJson.devDependencies?.[dependency] ?? null;
+    const peerSpec = obsidianPeerDependencies[dependency] ?? null;
+    if (!peerSpec) {
+      fail(`locked obsidian must declare the ${dependency} peer dependency; review the root CodeMirror pin.`);
+    } else if (packageSpec !== peerSpec) {
+      fail(`package.json devDependency ${dependency} ${displayValue(packageSpec)} must match locked obsidian peer ${peerSpec}.`);
+    }
+  }
 
   return {
     codex: {
@@ -171,6 +183,15 @@ export async function createApiBaselineReport(options = {}) {
       packageDependencyMinor: minorKey(obsidianSpecSemver),
       lockedPackageVersion: obsidianLockVersion,
       lockedPackageMinor: minorKey(obsidianLockSemver),
+      codeMirrorPeers: Object.fromEntries(
+        obsidianCodeMirrorPeers.map((dependency) => [
+          dependency,
+          {
+            packageDependency: inputs.packageJson.devDependencies?.[dependency] ?? null,
+            obsidianPeerDependency: obsidianPeerDependencies[dependency] ?? null,
+          },
+        ]),
+      ),
     },
     failures,
   };
@@ -302,6 +323,11 @@ function printReport(report) {
   console.log(`  package obsidian: ${displayValue(report.obsidian.packageDependency)}`);
   console.log(`  package range: ${report.obsidian.packageDependencyRange}`);
   console.log(`  package-lock obsidian: ${displayValue(report.obsidian.lockedPackageVersion)}`);
+  for (const [dependency, versions] of Object.entries(report.obsidian.codeMirrorPeers)) {
+    console.log(
+      `  ${dependency}: package ${displayValue(versions.packageDependency)}, obsidian peer ${displayValue(versions.obsidianPeerDependency)}`,
+    );
+  }
   if (report.failures.length > 0) {
     console.log("");
     console.log("Failures");

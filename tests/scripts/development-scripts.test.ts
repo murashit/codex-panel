@@ -133,6 +133,26 @@ describe("development scripts", () => {
     expect(report.failures).toContain("local Codex CLI 0.144.5 does not match recorded tested CLI 0.144.4.");
   });
 
+  it("reports when Obsidian changes its pinned CodeMirror peers", async () => {
+    const cwd = await apiBaselineFixture({ recordedCodexVersion: "0.144.4", readmeCodexVersion: "0.144.4" });
+    await writeJson(path.join(cwd, "package-lock.json"), {
+      packages: {
+        "node_modules/obsidian": {
+          version: "1.12.3",
+          peerDependencies: {
+            "@codemirror/state": "6.7.1",
+            "@codemirror/view": "6.38.6",
+          },
+        },
+      },
+    });
+    const { createApiBaselineReport } = await import(pathToFileURL(path.join(repoRoot, "scripts", "api-baseline.mjs")).href);
+
+    const report = await createApiBaselineReport({ cwd, readCodexVersion: () => "0.144.4" });
+
+    expect(report.failures).toContain("package.json devDependency @codemirror/state 6.5.0 must match locked obsidian peer 6.7.1.");
+  });
+
   it("reports representative CSS usage policy failures", async () => {
     const cwd = await cssUsageFixture({
       "src/styles/10-component.css": [
@@ -193,9 +213,24 @@ async function styleOrderFixture(): Promise<string> {
 
 async function apiBaselineFixture(options: { recordedCodexVersion: string; readmeCodexVersion: string }): Promise<string> {
   const cwd = await tempWorkspace();
-  await writeJson(path.join(cwd, "package.json"), { version: "1.0.0", devDependencies: { obsidian: "~1.12.3" } });
+  await writeJson(path.join(cwd, "package.json"), {
+    version: "1.0.0",
+    devDependencies: {
+      "@codemirror/state": "6.5.0",
+      "@codemirror/view": "6.38.6",
+      obsidian: "~1.12.3",
+    },
+  });
   await writeJson(path.join(cwd, "package-lock.json"), {
-    packages: { "node_modules/obsidian": { version: "1.12.3" } },
+    packages: {
+      "node_modules/obsidian": {
+        version: "1.12.3",
+        peerDependencies: {
+          "@codemirror/state": "6.5.0",
+          "@codemirror/view": "6.38.6",
+        },
+      },
+    },
   });
   await writeJson(path.join(cwd, "manifest.json"), { minAppVersion: "1.12.0" });
   await writeJson(path.join(cwd, "versions.json"), { "1.0.0": "1.12.0" });
