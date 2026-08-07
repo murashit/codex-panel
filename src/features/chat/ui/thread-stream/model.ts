@@ -38,6 +38,7 @@ export interface PendingUserInputViewModel {
   requestId: PendingRequestId;
   title: string;
   body: string;
+  autoResolutionAtMs: number | null;
   questions: readonly PendingUserInputQuestionViewModel[];
 }
 

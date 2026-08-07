@@ -10,6 +10,7 @@ describe("pending request signatures", () => {
   it("signs visible request content and sorted drafts deterministically", () => {
     const input: PendingUserInput = {
       requestId: 7,
+      autoResolutionAtMs: null,
       params: {
         turnId: "turn",
         isBlocking: true,
@@ -39,6 +40,7 @@ describe("pending request signatures", () => {
         inputs: [
           {
             id: 7,
+            autoResolutionAtMs: null,
             questions: [{ id: "direction", header: "Direction", question: "Which way?", options: ["Recommended"] }],
           },
         ],

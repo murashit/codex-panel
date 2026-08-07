@@ -71,6 +71,7 @@ function pendingUserInputViewModel(input: PendingUserInput): PendingUserInputVie
     requestId: input.requestId,
     title: "Codex needs input",
     body: `Answer ${String(input.params.questions.length)} question${input.params.questions.length === 1 ? "" : "s"} to continue.`,
+    autoResolutionAtMs: input.autoResolutionAtMs,
     questions: input.params.questions.map((question) => ({
       id: question.id,
       header: question.header,

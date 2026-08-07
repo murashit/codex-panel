@@ -147,6 +147,7 @@ export function appServerUserInputRequest(request: AppServerRequest): PendingUse
   return {
     requestId: request.id,
     params,
+    autoResolutionAtMs: null,
   };
 }
 

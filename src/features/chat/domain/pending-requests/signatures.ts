@@ -17,6 +17,7 @@ export function pendingRequestsSignature(
     approvals: approvals.map((approval) => ({ id: approval.requestId, kind: approval.kind })),
     inputs: inputs.map((input) => ({
       id: input.requestId,
+      autoResolutionAtMs: input.autoResolutionAtMs,
       questions: input.params.questions.map((question) => ({
         id: question.id,
         header: question.header,

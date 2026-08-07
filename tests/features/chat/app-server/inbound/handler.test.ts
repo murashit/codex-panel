@@ -784,6 +784,71 @@ describe("ChatInboundHandler", () => {
       }
     });
 
+    it("extends non-blocking user-input auto-resolution after interaction", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(1_000);
+      vi.stubGlobal("window", globalThis);
+      try {
+        const respondToServerRequest = vi.fn(() => true);
+        const handler = handlerForState(chatStateFixture(), { respondToServerRequest });
+        handler.handleServerRequest({
+          id: 46,
+          method: "item/tool/requestUserInput",
+          params: {
+            threadId: "thread-active",
+            turnId: "turn-active",
+            itemId: "input-1",
+            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+            isBlocking: false,
+            autoResolutionMs: null,
+          },
+        });
+
+        vi.advanceTimersByTime(100_000);
+        handler.extendUserInputAutoResolution(46);
+        expect(handler.currentState().requests.pendingUserInputs[0]?.autoResolutionAtMs).toBe(221_000);
+
+        vi.advanceTimersByTime(119_999);
+        expect(respondToServerRequest).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(1);
+        expect(respondToServerRequest).toHaveBeenCalledWith(46, { answers: {} });
+      } finally {
+        vi.unstubAllGlobals();
+        vi.useRealTimers();
+      }
+    });
+
+    it("skips non-blocking user input with an empty answer response", () => {
+      vi.useFakeTimers();
+      vi.stubGlobal("window", globalThis);
+      try {
+        const respondToServerRequest = vi.fn(() => true);
+        const handler = handlerForState(chatStateFixture(), { respondToServerRequest });
+        handler.handleServerRequest({
+          id: 47,
+          method: "item/tool/requestUserInput",
+          params: {
+            threadId: "thread-active",
+            turnId: "turn-active",
+            itemId: "input-1",
+            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+            isBlocking: false,
+            autoResolutionMs: null,
+          },
+        });
+
+        handler.skipUserInput(47);
+
+        expect(respondToServerRequest).toHaveBeenCalledWith(47, { answers: {} });
+        expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
+        vi.advanceTimersByTime(120_000);
+        expect(respondToServerRequest).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.unstubAllGlobals();
+        vi.useRealTimers();
+      }
+    });
+
     it("rejects cancelled requestUserInput server requests", () => {
       const state = chatStateFixture();
       const rejectServerRequest = vi.fn(() => true);

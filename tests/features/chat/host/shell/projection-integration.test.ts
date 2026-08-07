@@ -819,6 +819,7 @@ function threadStreamSurfaceContext(): ChatThreadStreamDependencies {
       actions: {
         resolveApproval: vi.fn(),
         resolveUserInput: vi.fn(),
+        skipUserInput: vi.fn(),
         cancelUserInput: vi.fn(),
         resolveMcpElicitation: vi.fn(),
         setApprovalDetailsExpanded: vi.fn(),

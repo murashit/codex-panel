@@ -7,7 +7,13 @@ import { activeThreadId, type ChatAction, type ChatState } from "../../applicati
 import type { ChatStateStore } from "../../application/state/store";
 import { activeTurnId } from "../../application/turns/turn-state";
 import { contentForPendingMcpElicitation } from "../../domain/pending-requests/drafts";
-import type { ApprovalAction, McpElicitationAction, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
+import {
+  type ApprovalAction,
+  type McpElicitationAction,
+  NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS,
+  type PendingRequestId,
+  type PendingUserInput,
+} from "../../domain/pending-requests/model";
 import {
   createApprovalResultItem,
   createMcpElicitationResultItem,
@@ -45,6 +51,8 @@ export interface ChatInboundHandler {
   handleAppServerLog(message: string): void;
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void;
   resolveUserInput(requestId: PendingRequestId, answers: Record<string, string>): void;
+  skipUserInput(requestId: PendingRequestId): void;
+  extendUserInputAutoResolution(requestId: PendingRequestId): void;
   cancelUserInput(requestId: PendingRequestId): void;
   resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): void;
   clearServerRequests(): void;
@@ -57,8 +65,6 @@ interface ChatInboundHandlerContext {
   approvalRequests: ReturnType<typeof createApprovalRequestCoordinator>;
   userInputAutoResolutionTimers: Map<PendingRequestId, number>;
 }
-
-const NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS = 120_000;
 
 export function createChatInboundHandler(
   store: ChatStateStore,
@@ -87,6 +93,12 @@ export function createChatInboundHandler(
     },
     resolveUserInput: (requestId, answers) => {
       resolveUserInput(context, requestId, answers);
+    },
+    skipUserInput: (requestId) => {
+      skipUserInput(context, requestId);
+    },
+    extendUserInputAutoResolution: (requestId) => {
+      extendUserInputAutoResolution(context, requestId);
     },
     cancelUserInput: (requestId) => {
       cancelUserInput(context, requestId);
@@ -166,10 +178,14 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
       }
       return;
     }
-    case "userInput":
-      dispatch(context, { type: "request/user-input-queued", input: route.input });
-      if (!route.input.params.isBlocking) scheduleUserInputAutoResolution(context, route.input);
+    case "userInput": {
+      const input = route.input.params.isBlocking
+        ? route.input
+        : { ...route.input, autoResolutionAtMs: Date.now() + NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS };
+      dispatch(context, { type: "request/user-input-queued", input });
+      if (!input.params.isBlocking) scheduleUserInputAutoResolution(context, input);
       return;
+    }
     case "mcpElicitation":
       dispatch(context, { type: "request/mcp-elicitation-queued", elicitation: route.elicitation });
       return;
@@ -287,6 +303,26 @@ function cancelUserInput(context: ChatInboundHandlerContext, requestId: PendingR
   });
 }
 
+function skipUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
+  const input = pendingUserInput(context, requestId);
+  if (!input || input.params.isBlocking) return;
+  if (!context.effects.respondToServerRequest(input.requestId, { answers: {} })) {
+    addSystemMessage(context, "Could not skip user input because Codex app-server is not connected.");
+    return;
+  }
+  clearUserInputAutoResolutionTimer(context, input.requestId);
+  dispatch(context, { type: "request/resolved", requestId: input.requestId });
+}
+
+function extendUserInputAutoResolution(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
+  const input = pendingUserInput(context, requestId);
+  if (!input || input.params.isBlocking) return;
+  const autoResolutionAtMs = Date.now() + NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS;
+  const extended = { ...input, autoResolutionAtMs };
+  dispatch(context, { type: "request/user-input-auto-resolution-extended", requestId, autoResolutionAtMs });
+  scheduleUserInputAutoResolution(context, extended);
+}
+
 function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: McpElicitationAction): void {
   const elicitation = state(context).requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
   if (!elicitation) return;
@@ -308,6 +344,7 @@ function pendingUserInput(context: ChatInboundHandlerContext, requestId: Pending
 
 function scheduleUserInputAutoResolution(context: ChatInboundHandlerContext, input: PendingUserInput): void {
   clearUserInputAutoResolutionTimer(context, input.requestId);
+  const delayMs = Math.max(0, (input.autoResolutionAtMs ?? Date.now()) - Date.now());
   const timer = window.setTimeout(() => {
     context.userInputAutoResolutionTimers.delete(input.requestId);
     if (!pendingUserInput(context, input.requestId)) return;
@@ -316,7 +353,7 @@ function scheduleUserInputAutoResolution(context: ChatInboundHandlerContext, inp
       return;
     }
     dispatch(context, { type: "request/resolved", requestId: input.requestId });
-  }, NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS);
+  }, delayMs);
   context.userInputAutoResolutionTimers.set(input.requestId, timer);
 }
 

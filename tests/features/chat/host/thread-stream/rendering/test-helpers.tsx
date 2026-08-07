@@ -314,6 +314,7 @@ export function pendingRequestActions(overrides: Partial<PendingRequestBlockActi
   return {
     resolveApproval: vi.fn(),
     resolveUserInput: vi.fn(),
+    skipUserInput: vi.fn(),
     cancelUserInput: vi.fn(),
     resolveMcpElicitation: vi.fn(),
     setApprovalDetailsExpanded: vi.fn(),
@@ -368,6 +369,7 @@ export function withStreamItemContentScrollHeight<T>(scrollHeight: number, fn: (
 export function pendingUserInput(): PendingUserInput {
   return {
     requestId: 99,
+    autoResolutionAtMs: null,
     params: {
       turnId: "turn",
       isBlocking: true,

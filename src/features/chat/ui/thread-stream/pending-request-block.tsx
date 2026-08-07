@@ -14,6 +14,8 @@ import type {
 import { focusPendingRequestControl } from "./pending-request-block.dom";
 import { createStatusStreamItemClassName } from "./status";
 
+const OPTIONAL_INPUT_COUNTDOWN_VISIBLE_MS = 30_000;
+
 export function pendingRequestBlockNode(input: {
   snapshot: PendingRequestBlockSnapshot;
   actions: PendingRequestBlockActions;
@@ -217,11 +219,12 @@ function UserInputCard({
   actions: PendingRequestBlockActions;
   controlNamespace: string;
 }): UiNode {
+  const body = useUserInputBody(input);
   return (
     <PendingRequestCard className="codex-panel__user-input">
       <div className="codex-panel__pending-request-info">
         <div className="codex-panel__pending-request-title">{input.title}</div>
-        <div className="codex-panel__pending-request-body">{input.body}</div>
+        <div className="codex-panel__pending-request-body">{body}</div>
         <UserInputQuestions input={input} userInputDrafts={userInputDrafts} actions={actions} controlNamespace={controlNamespace} />
       </div>
       <div className="codex-panel__pending-request-actions">
@@ -232,16 +235,56 @@ function UserInputCard({
             actions.resolveUserInput(input.requestId);
           }}
         />
-        <ActionButton
-          label="Cancel"
-          className=""
-          onClick={() => {
-            actions.cancelUserInput(input.requestId);
-          }}
-        />
+        {input.autoResolutionAtMs === null ? (
+          <ActionButton
+            label="Cancel"
+            className=""
+            onClick={() => {
+              actions.cancelUserInput(input.requestId);
+            }}
+          />
+        ) : (
+          <ActionButton
+            label="Skip"
+            className=""
+            onClick={() => {
+              actions.skipUserInput(input.requestId);
+            }}
+          />
+        )}
       </div>
     </PendingRequestCard>
   );
+}
+
+function useUserInputBody(input: PendingUserInputViewModel): string {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (input.autoResolutionAtMs === null) return;
+    const updateNow = () => {
+      setNowMs(Date.now());
+    };
+    updateNow();
+    let countdownTimer: number | null = null;
+    const beginCountdown = () => {
+      updateNow();
+      countdownTimer = window.setInterval(updateNow, 1_000);
+    };
+    const revealTimer = window.setTimeout(
+      beginCountdown,
+      Math.max(0, input.autoResolutionAtMs - OPTIONAL_INPUT_COUNTDOWN_VISIBLE_MS - Date.now()),
+    );
+    return () => {
+      window.clearTimeout(revealTimer);
+      if (countdownTimer !== null) window.clearInterval(countdownTimer);
+    };
+  }, [input.autoResolutionAtMs]);
+  if (input.autoResolutionAtMs === null) return input.body;
+  const remainingSeconds = Math.max(0, Math.ceil((input.autoResolutionAtMs - nowMs) / 1_000));
+  if (remainingSeconds > OPTIONAL_INPUT_COUNTDOWN_VISIBLE_MS / 1_000) {
+    return "Optional — Codex will continue automatically.";
+  }
+  return `Optional — Codex will continue without an answer in ${String(remainingSeconds)} second${remainingSeconds === 1 ? "" : "s"}.`;
 }
 
 function PendingRequestCard({ className, children }: { className: string; children: UiNode }): UiNode {
@@ -281,7 +324,7 @@ function UserInputQuestions({
                           value={option.label}
                           checked={current === option.label}
                           onChange={(event) => {
-                            if (event.currentTarget.checked) actions.setUserInputDraft(question.draftKey, option.label);
+                            if (event.currentTarget.checked) actions.setUserInputDraft(input.requestId, question.draftKey, option.label);
                           }}
                         />
                         <span className="codex-panel__user-input-option-label">{option.label}</span>
@@ -297,13 +340,20 @@ function UserInputQuestions({
                       current={current}
                       optionLabels={new Set(question.options.map((option) => option.label))}
                       question={question}
+                      requestId={input.requestId}
                       userInputDrafts={userInputDrafts}
                       actions={actions}
                     />
                   ) : null}
                 </>
               ) : (
-                <FreeformUserInput isSecret={question.isSecret} current={current} question={question} actions={actions} />
+                <FreeformUserInput
+                  requestId={input.requestId}
+                  isSecret={question.isSecret}
+                  current={current}
+                  question={question}
+                  actions={actions}
+                />
               )}
             </div>
           </div>
@@ -519,6 +569,7 @@ function OtherUserInputOption({
   current,
   optionLabels,
   question,
+  requestId,
   userInputDrafts,
   actions,
 }: {
@@ -526,6 +577,7 @@ function OtherUserInputOption({
   current: string;
   optionLabels: ReadonlySet<string>;
   question: PendingUserInputQuestionViewModel;
+  requestId: PendingUserInputViewModel["requestId"];
   userInputDrafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
@@ -539,11 +591,11 @@ function OtherUserInputOption({
     if (!composingRef.current) setInputValue(otherValue);
   }, [otherValue]);
   const selectOther = () => {
-    actions.setUserInputDraft(draftKey, otherValue);
+    actions.setUserInputDraft(requestId, draftKey, otherValue);
   };
   const commitOtherValue = (value: string) => {
-    actions.setUserInputDraft(otherKey, value);
-    actions.setUserInputDraft(draftKey, value);
+    actions.setUserInputDraft(requestId, otherKey, value);
+    actions.setUserInputDraft(requestId, draftKey, value);
   };
   const compositionProps = {
     oncompositionstart: () => {
@@ -593,11 +645,13 @@ function OtherUserInputOption({
 }
 
 function FreeformUserInput({
+  requestId,
   isSecret,
   current,
   question,
   actions,
 }: {
+  requestId: PendingUserInputViewModel["requestId"];
   isSecret: boolean;
   current: string;
   question: PendingUserInputQuestionViewModel;
@@ -609,7 +663,7 @@ function FreeformUserInput({
       type={isSecret ? "password" : "text"}
       value={current}
       onInput={(event) => {
-        actions.setUserInputDraft(question.draftKey, event.currentTarget.value);
+        actions.setUserInputDraft(requestId, question.draftKey, event.currentTarget.value);
       }}
     />
   );

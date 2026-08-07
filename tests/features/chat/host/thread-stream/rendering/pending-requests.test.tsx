@@ -93,6 +93,52 @@ describe("panel pending request rendering", () => {
     expect(resolveUserInput).toHaveBeenCalledWith(input.requestId);
   });
 
+  it("renders optional input inline and reveals its countdown only for the final 30 seconds", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const parent = document.createElement("div");
+    const blockingInput = pendingUserInput();
+    const input: PendingUserInput = {
+      ...blockingInput,
+      autoResolutionAtMs: 121_000,
+      params: { ...blockingInput.params, isBlocking: false },
+    };
+    const actions = pendingRequestActions();
+    try {
+      renderPendingRequestNode(parent, [], [input], { values: new Map() }, new Set(), actions);
+
+      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe("Optional — Codex will continue automatically.");
+      expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual(["Submit", "Skip"]);
+
+      actEvent(() => {
+        vi.advanceTimersByTime(90_000);
+      });
+      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe(
+        "Optional — Codex will continue without an answer in 30 seconds.",
+      );
+
+      renderPendingRequestNode(parent, [], [{ ...input, autoResolutionAtMs: 211_000 }], { values: new Map() }, new Set(), actions);
+      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe("Optional — Codex will continue automatically.");
+      expect(vi.getTimerCount()).toBe(1);
+
+      actEvent(() => {
+        vi.advanceTimersByTime(90_000);
+      });
+      expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe(
+        "Optional — Codex will continue without an answer in 30 seconds.",
+      );
+
+      actEvent(() => {
+        parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button").item(1).click();
+      });
+      expect(actions.skipUserInput).toHaveBeenCalledWith(input.requestId);
+      expect(actions.cancelUserInput).not.toHaveBeenCalled();
+    } finally {
+      unmountUiRootInAct(parent);
+      vi.useRealTimers();
+    }
+  });
+
   it("selects the other Plan mode answer from controlled drafts", () => {
     const parent = document.createElement("div");
     const drafts = new Map<string, string>();
@@ -100,7 +146,7 @@ describe("panel pending request rendering", () => {
     const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
     const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
     const actions = pendingRequestActions({
-      setUserInputDraft: vi.fn((key: string, value: string) => {
+      setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
         drafts.set(key, value);
       }),
     });
@@ -113,8 +159,8 @@ describe("panel pending request rendering", () => {
       changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
     });
 
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope:other", "Custom scope");
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "Custom scope");
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope:other", "Custom scope");
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope", "Custom scope");
 
     render();
     const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
@@ -128,7 +174,7 @@ describe("panel pending request rendering", () => {
     const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
     const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
     const actions = pendingRequestActions({
-      setUserInputDraft: vi.fn((key: string, value: string) => {
+      setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
         drafts.set(key, value);
       }),
     });
@@ -144,7 +190,7 @@ describe("panel pending request rendering", () => {
       expectPresent(radios.at(1)).click();
     });
 
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "");
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope", "");
 
     render();
     const rerenderedRadios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
@@ -158,7 +204,7 @@ describe("panel pending request rendering", () => {
     const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
     const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
     const actions = pendingRequestActions({
-      setUserInputDraft: vi.fn((key: string, value: string) => {
+      setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
         drafts.set(key, value);
       }),
     });
@@ -185,7 +231,7 @@ describe("panel pending request rendering", () => {
     const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
     const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
     const actions = pendingRequestActions({
-      setUserInputDraft: vi.fn((key: string, value: string) => {
+      setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
         drafts.set(key, value);
       }),
     });
@@ -198,17 +244,17 @@ describe("panel pending request rendering", () => {
       dispatchComposingInputValue(otherInput, "にほん");
     });
 
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "");
-    expect(actions.setUserInputDraft).not.toHaveBeenCalledWith("99:scope:other", "にほん");
-    expect(actions.setUserInputDraft).not.toHaveBeenCalledWith("99:scope", "にほん");
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope", "");
+    expect(actions.setUserInputDraft).not.toHaveBeenCalledWith(99, "99:scope:other", "にほん");
+    expect(actions.setUserInputDraft).not.toHaveBeenCalledWith(99, "99:scope", "にほん");
 
     setNativeInputValue(otherInput, "日本");
     actEvent(() => {
       otherInput.dispatchEvent(new Event("compositionend", { bubbles: true }));
     });
 
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope:other", "日本");
-    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "日本");
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope:other", "日本");
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith(99, "99:scope", "日本");
   });
 
   it("renders pending approvals and user input questions in the same request block", () => {

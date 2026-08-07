@@ -905,6 +905,7 @@ function approval(requestId: number): ChatState["requests"]["approvals"][number]
 function userInput(requestId: number): ChatState["requests"]["pendingUserInputs"][number] {
   return {
     requestId,
+    autoResolutionAtMs: null,
     params: {
       turnId: "turn",
       isBlocking: true,

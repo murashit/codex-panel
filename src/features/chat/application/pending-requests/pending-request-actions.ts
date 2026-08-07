@@ -7,6 +7,8 @@ import type { ChatStateStore } from "../state/store";
 interface PendingRequestResponder {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
   resolveUserInput: (requestId: PendingRequestId, answers: Record<string, string>) => void;
+  skipUserInput: (requestId: PendingRequestId) => void;
+  extendUserInputAutoResolution: (requestId: PendingRequestId) => void;
   cancelUserInput: (requestId: PendingRequestId) => void;
   resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
 }
@@ -22,10 +24,11 @@ export interface PendingRequestActions {
   readonly actions: {
     resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
     resolveUserInput: (requestId: PendingRequestId) => void;
+    skipUserInput: (requestId: PendingRequestId) => void;
     cancelUserInput: (requestId: PendingRequestId) => void;
     resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
     setApprovalDetailsExpanded: (requestId: PendingRequestId, expanded: boolean) => void;
-    setUserInputDraft: (key: string, value: string) => void;
+    setUserInputDraft: (requestId: PendingRequestId, key: string, value: string) => void;
     setMcpElicitationDraft: (key: string, value: string) => void;
   };
   readonly consumeAutoFocus: () => boolean;
@@ -45,6 +48,12 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
       const input = pendingUserInput(host, requestId);
       if (!input) return;
       host.responder.resolveUserInput(requestId, answersForPendingUserInput(input, host.stateStore.getState().requests.userInputDrafts));
+      commitRequestAction(host);
+    },
+    skipUserInput: (requestId) => {
+      const input = pendingUserInput(host, requestId);
+      if (!input || input.params.isBlocking) return;
+      host.responder.skipUserInput(requestId);
       commitRequestAction(host);
     },
     cancelUserInput: (requestId) => {
@@ -67,8 +76,10 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
         open: expanded,
       });
     },
-    setUserInputDraft: (key, value) => {
+    setUserInputDraft: (requestId, key, value) => {
       host.stateStore.dispatch({ type: "request/user-input-draft-set", key, value });
+      const input = pendingUserInput(host, requestId);
+      if (input && !input.params.isBlocking) host.responder.extendUserInputAutoResolution(requestId);
     },
     setMcpElicitationDraft: (key, value) => {
       host.stateStore.dispatch({ type: "request/mcp-elicitation-draft-set", key, value });

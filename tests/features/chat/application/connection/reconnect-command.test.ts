@@ -27,6 +27,7 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
     type: "request/user-input-queued",
     input: {
       requestId: 7,
+      autoResolutionAtMs: null,
       params: {
         turnId: "turn",
         isBlocking: true,

@@ -1,5 +1,7 @@
 export type PendingRequestId = string | number;
 
+export const NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS = 120_000;
+
 export type ApprovalActionIntent = "accept" | "accept-session" | "decline" | "cancel";
 
 type ApprovalKind = "command" | "fileChange" | "permission";
@@ -57,6 +59,7 @@ interface PendingUserInputParams {
 export interface PendingUserInput {
   requestId: PendingRequestId;
   params: PendingUserInputParams;
+  autoResolutionAtMs: number | null;
 }
 
 export type McpElicitationAction = "accept" | "decline" | "cancel";

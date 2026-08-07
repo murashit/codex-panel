@@ -46,6 +46,18 @@ describe("PendingRequestActions", () => {
     expect(focusComposer).toHaveBeenCalledOnce();
   });
 
+  it("skips optional user input without cancelling the request", () => {
+    const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
+    const input = optionalUserInputRequest();
+    stateStore.dispatch({ type: "request/user-input-queued", input });
+
+    pendingRequests.actions.skipUserInput(input.requestId);
+
+    expect(responder.skipUserInput).toHaveBeenCalledWith(input.requestId);
+    expect(responder.cancelUserInput).not.toHaveBeenCalled();
+    expect(focusComposer).toHaveBeenCalledOnce();
+  });
+
   it("resolves a queued MCP elicitation and commits the action", () => {
     const { stateStore, responder, focusComposer, pendingRequests } = actionsHarness();
     stateStore.dispatch({ type: "request/mcp-elicitation-queued", elicitation: mcpElicitationRequest() });
@@ -79,20 +91,30 @@ describe("PendingRequestActions", () => {
   });
 
   it("dispatches request drafts and approval disclosure state", () => {
-    const { stateStore, pendingRequests } = actionsHarness();
+    const { stateStore, responder, pendingRequests } = actionsHarness();
     const actions = pendingRequests.actions;
 
-    actions.setUserInputDraft("7:direction", "Right");
+    actions.setUserInputDraft(7, "7:direction", "Right");
     actions.setMcpElicitationDraft("9:mcp:title", "Fix tests");
     actions.setApprovalDetailsExpanded?.(1, true);
 
     expect(stateStore.getState().requests.userInputDrafts.get("7:direction")).toBe("Right");
+    expect(responder.extendUserInputAutoResolution).not.toHaveBeenCalled();
     expect(stateStore.getState().requests.mcpElicitationDrafts.get("9:mcp:title")).toBe("Fix tests");
     expect(stateStore.getState().ui.disclosures.approvalDetails.has("1:details")).toBe(true);
 
     actions.setApprovalDetailsExpanded?.(1, false);
 
     expect(stateStore.getState().ui.disclosures.approvalDetails.has("1:details")).toBe(false);
+  });
+
+  it("extends optional user-input auto-resolution when its draft changes", () => {
+    const { stateStore, responder, pendingRequests } = actionsHarness();
+    stateStore.dispatch({ type: "request/user-input-queued", input: optionalUserInputRequest() });
+
+    pendingRequests.actions.setUserInputDraft(7, "7:direction", "Right");
+
+    expect(responder.extendUserInputAutoResolution).toHaveBeenCalledWith(7);
   });
 
   it("consumes each pending-request focus signature once and resets after the queue clears", () => {
@@ -133,6 +155,8 @@ function actionsHarness(composerHasFocus = vi.fn(() => false)) {
   const responder = {
     resolveApproval: vi.fn(),
     resolveUserInput: vi.fn(),
+    skipUserInput: vi.fn(),
+    extendUserInputAutoResolution: vi.fn(),
     cancelUserInput: vi.fn(),
     resolveMcpElicitation: vi.fn(),
   };
@@ -175,6 +199,7 @@ function mcpElicitationRequest(): PendingMcpElicitation {
 function userInputRequest(): PendingUserInput {
   return {
     requestId: 7,
+    autoResolutionAtMs: null,
     params: {
       turnId: "turn",
       isBlocking: true,
@@ -189,5 +214,14 @@ function userInputRequest(): PendingUserInput {
         },
       ],
     },
+  };
+}
+
+function optionalUserInputRequest(): PendingUserInput {
+  const input = userInputRequest();
+  return {
+    ...input,
+    autoResolutionAtMs: 120_000,
+    params: { ...input.params, isBlocking: false },
   };
 }

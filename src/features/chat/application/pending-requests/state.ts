@@ -13,6 +13,7 @@ export interface ChatRequestState {
 export type RequestAction =
   | { type: "request/approval-queued"; approval: PendingApproval }
   | { type: "request/user-input-queued"; input: PendingUserInput }
+  | { type: "request/user-input-auto-resolution-extended"; requestId: PendingRequestId; autoResolutionAtMs: number }
   | { type: "request/mcp-elicitation-queued"; elicitation: PendingMcpElicitation }
   | { type: "request/user-input-draft-set"; key: string; value: string }
   | { type: "request/mcp-elicitation-draft-set"; key: string; value: string };
@@ -21,6 +22,7 @@ export function isRequestAction(action: { type: string }): action is RequestActi
   switch (action.type) {
     case "request/approval-queued":
     case "request/user-input-queued":
+    case "request/user-input-auto-resolution-extended":
     case "request/mcp-elicitation-queued":
     case "request/user-input-draft-set":
     case "request/mcp-elicitation-draft-set":
@@ -48,6 +50,12 @@ export function reduceRequestSlice(state: ChatRequestState, action: RequestActio
     case "request/user-input-queued":
       if (state.pendingUserInputs.some((existing) => existing.requestId === action.input.requestId)) return state;
       return patchObject(state, { pendingUserInputs: [...state.pendingUserInputs, action.input] });
+    case "request/user-input-auto-resolution-extended":
+      return patchObject(state, {
+        pendingUserInputs: state.pendingUserInputs.map((input) =>
+          input.requestId === action.requestId ? { ...input, autoResolutionAtMs: action.autoResolutionAtMs } : input,
+        ),
+      });
     case "request/mcp-elicitation-queued":
       if (state.pendingMcpElicitations.some((existing) => existing.requestId === action.elicitation.requestId)) return state;
       return patchObject(state, { pendingMcpElicitations: [...state.pendingMcpElicitations, action.elicitation] });
