@@ -628,7 +628,12 @@ describe("app-server query resources", () => {
     expect(cache.metadataQueries.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["writer"]);
     expect(cache.metadataQueries.metadataSnapshot("permissionProfiles")?.map((profile) => profile.id)).toEqual([":workspace"]);
     expect(cache.metadataQueries.metadataSnapshot("rateLimits")?.primary?.usedPercent).toBe(64);
-    expect(cache.metadataQueries.metadataDiagnosticsSnapshot().probes.models.status).toBe("ok");
+    expect(cache.metadataQueries.metadataDiagnosticsSnapshot().probes).toMatchObject({
+      models: { status: "ok", checkedAt: expect.any(Number) },
+      skills: { status: "ok", summary: "1 skills", checkedAt: expect.any(Number) },
+      permissionProfiles: { status: "ok", summary: "1 profiles", checkedAt: expect.any(Number) },
+      rateLimits: { status: "ok", summary: "available", checkedAt: expect.any(Number) },
+    });
     expect(cache.metadataQueries.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-meta"]);
   });
 
@@ -995,9 +1000,9 @@ describe("app-server query resources", () => {
     expect(cache.metadataQueries.metadataSnapshot("rateLimits")?.primary?.usedPercent).toBe(17);
     expect(cache.metadataQueries.metadataDiagnosticsSnapshot().probes).toMatchObject({
       models: { status: "failed" },
-      skills: { status: "failed" },
-      permissionProfiles: { status: "failed" },
-      rateLimits: { status: "failed" },
+      skills: { status: "failed", checkedAt: expect.any(Number) },
+      permissionProfiles: { status: "failed", checkedAt: expect.any(Number) },
+      rateLimits: { status: "failed", checkedAt: expect.any(Number) },
     });
   });
 

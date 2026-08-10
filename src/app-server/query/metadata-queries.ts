@@ -18,9 +18,10 @@ import type {
   SharedServerMetadataSnapshotValues,
 } from "../../domain/server/metadata";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
-import { listModelMetadata } from "../services/catalog";
-import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "../services/metadata-probes";
-import { readEffectiveConfig } from "../services/runtime-metadata";
+import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
+import { listModelMetadata, listPermissionProfiles, listSkillCatalog } from "../services/catalog";
+import type { AppServerRequestClient } from "../services/request-client";
+import { readAccountRateLimits, readEffectiveConfig } from "../services/runtime-metadata";
 import { createInvalidatedQueryRefreshCoordinator, type InvalidatedQueryRefreshCoordinator } from "./invalidated-query-refresh";
 import type { AppServerQueryOptions, AppServerQueryScope } from "./query-scope";
 import { cloneModelMetadata, cloneRateLimitSnapshot, cloneSharedServerMetadataResource } from "./snapshots";
@@ -38,7 +39,6 @@ interface MetadataResourceSnapshot<T> {
 }
 
 type MetadataResourceKind = "skills" | "permissionProfiles" | "rateLimits";
-type MetadataResourceValue = readonly SkillMetadata[] | readonly RuntimePermissionProfileSummary[] | RateLimitSnapshot | null;
 
 interface MetadataResourceQueryOptions {
   readonly forceReloadSkills?: boolean;
@@ -201,13 +201,12 @@ export class AppServerMetadataQueries {
         queryOptions: (options = {}) => ({
           queryKey: SKILLS_QUERY_KEY,
           queryFn: async () =>
-            this.scope.runWithClient(async (client) =>
-              successfulMetadataResource(
-                await readSkillMetadataProbe(client, this.scope.context.vaultPath, {
-                  forceReload: options.forceReloadSkills ?? false,
-                }),
-              ),
-            ),
+            this.readMetadataResource("skills", async (client) => {
+              const catalog = await listSkillCatalog(client, this.scope.context.vaultPath, {
+                forceReload: options.forceReloadSkills ?? false,
+              });
+              return { value: catalog.skills, summary: `${String(catalog.totalCount)} skills` };
+            }),
         }),
         project: (result) => ({
           id: "skills",
@@ -220,9 +219,10 @@ export class AppServerMetadataQueries {
         queryOptions: () => ({
           queryKey: PERMISSION_PROFILES_QUERY_KEY,
           queryFn: async () =>
-            this.scope.runWithClient(async (client) =>
-              successfulMetadataResource(await readPermissionProfileMetadataProbe(client, this.scope.context.vaultPath)),
-            ),
+            this.readMetadataResource("permissionProfiles", async (client) => {
+              const profiles = await listPermissionProfiles(client, this.scope.context.vaultPath);
+              return { value: profiles, summary: `${String(profiles.length)} profiles` };
+            }),
         }),
         project: (result) => ({
           id: "permissionProfiles",
@@ -235,7 +235,13 @@ export class AppServerMetadataQueries {
         queryOptions: () => ({
           queryKey: RATE_LIMITS_QUERY_KEY,
           queryFn: async () =>
-            this.scope.runWithClient(async (client) => successfulMetadataResource(await readRateLimitMetadataProbe(client))),
+            this.readMetadataResource("rateLimits", async (client) => {
+              const response = await readAccountRateLimits(client);
+              return {
+                value: rateLimitSnapshotFromAccountRateLimitsResponse(response),
+                summary: accountRateLimitsSummaryFromResponse(response),
+              };
+            }),
         }),
         project: (result) => ({
           id: "rateLimits",
@@ -251,6 +257,18 @@ export class AppServerMetadataQueries {
     return this.metadataDescriptors[id];
   }
 
+  private async readMetadataResource<T>(
+    id: MetadataResourceKind,
+    read: (client: AppServerRequestClient) => Promise<{ value: T; summary: string }>,
+  ): Promise<MetadataResourceSnapshot<T>> {
+    try {
+      const { value, summary } = await this.scope.runWithClient(read);
+      return { value, probe: diagnosticProbeOk(id, summary, Date.now()) };
+    } catch (error) {
+      throw new MetadataResourceQueryError(diagnosticProbeError(id, error, Date.now()));
+    }
+  }
+
   private async fetchRuntimeConfig(): Promise<void> {
     await this.fetchMetadataResource("runtimeConfig");
   }
@@ -262,15 +280,11 @@ export class AppServerMetadataQueries {
     return data as MetadataQueryData[Id];
   }
 
-  private metadataResourceState(resource: "skills"): { value: readonly SkillMetadata[] | null; probe: DiagnosticProbeResult };
-  private metadataResourceState(resource: "permissionProfiles"): {
-    value: readonly RuntimePermissionProfileSummary[] | null;
-    probe: DiagnosticProbeResult;
-  };
-  private metadataResourceState(resource: "rateLimits"): { value: RateLimitSnapshot | null; probe: DiagnosticProbeResult };
-  private metadataResourceState(resource: MetadataResourceKind): { value: MetadataResourceValue; probe: DiagnosticProbeResult } {
+  private metadataResourceState<Id extends MetadataResourceKind>(
+    resource: Id,
+  ): { value: MetadataQueryData[Id]["value"] | null; probe: DiagnosticProbeResult } {
     const key = this.metadataDescriptor(resource).queryOptions().queryKey;
-    const state = this.scope.client.getQueryState<MetadataResourceSnapshot<MetadataResourceValue>>(key);
+    const state = this.scope.client.getQueryState<MetadataQueryData[Id]>(key);
     const failedProbe = diagnosticProbeFromError(state?.error);
     return {
       value: state?.data?.value ?? null,
@@ -316,11 +330,6 @@ class MetadataResourceQueryError extends Error {
     super(probe.message ?? `Codex app-server ${probe.id} query failed.`);
     this.name = "MetadataResourceQueryError";
   }
-}
-
-function successfulMetadataResource<T>(result: MetadataResourceSnapshot<T>): MetadataResourceSnapshot<T> {
-  if (result.probe.status !== "ok") throw new MetadataResourceQueryError(result.probe);
-  return result;
 }
 
 function isInvalidatedMetadataResource(id: SharedServerMetadataResourceId): id is InvalidatedMetadataResourceKind {
