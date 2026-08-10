@@ -3,6 +3,7 @@ import { chatThreadStreamViewState } from "../state/active-turn";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
+import { reconcileForkDisplayItems } from "./fork-display-snapshot";
 
 export interface ThreadHistoryPage {
   items: ThreadStreamItem[];
@@ -20,6 +21,10 @@ export interface HistoryControllerHost {
   addSystemMessage: (text: string) => void;
   showLatestPageAtBottom: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
+}
+
+interface LatestHistoryDisplayOptions {
+  readonly displayItems?: readonly ThreadStreamItem[];
 }
 
 interface ActiveThreadHistoryLoad {
@@ -44,14 +49,14 @@ export class HistoryController {
     this.dispatch({ type: "thread-stream/history-loading-set", loading: false });
   }
 
-  async loadLatest(threadId = activeThreadId(this.state)): Promise<void> {
+  async loadLatest(threadId = activeThreadId(this.state), options: LatestHistoryDisplayOptions = {}): Promise<void> {
     if (!threadId) return;
     const load = this.startLoading(threadId);
     try {
       const response = await this.host.source.readHistoryPage(threadId, null, 20);
       if (!response) return;
       if (!this.isCurrent(load)) return;
-      this.applyLatestPage(threadId, response);
+      this.applyLatestPage(threadId, response, options);
     } catch (error) {
       if (!this.isCurrent(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -60,13 +65,13 @@ export class HistoryController {
     }
   }
 
-  applyLatestPage(threadId: string, response: ThreadHistoryPage): boolean {
+  applyLatestPage(threadId: string, response: ThreadHistoryPage, options: LatestHistoryDisplayOptions = {}): boolean {
     if (activeThreadId(this.state) !== threadId) return false;
     this.host.setThreadTurnPresence(response.hadTurns);
     this.host.showLatestPageAtBottom();
     this.dispatch({
       type: "thread-stream/items-replaced",
-      items: response.items,
+      items: options.displayItems ? reconcileForkDisplayItems(options.displayItems, response.items) : response.items,
       historyCursor: response.nextCursor,
     });
     return true;
@@ -84,11 +89,9 @@ export class HistoryController {
       if (!this.isCurrent(load)) return;
       const current = this.state;
       const currentItems = threadStreamItems(chatThreadStreamViewState(current.threadStream, current.activeTurn));
-      const olderItems = response.items;
-      const existingIds = new Set(currentItems.map((item) => item.id));
       this.dispatch({
         type: "thread-stream/items-replaced",
-        items: [...olderItems.filter((item) => !existingIds.has(item.id)), ...currentItems],
+        items: reconcileForkDisplayItems(currentItems, response.items, { missingTurns: "prepend" }),
         historyCursor: response.nextCursor,
       });
     } catch (error) {

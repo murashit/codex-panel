@@ -64,6 +64,22 @@ describe("HistoryController", () => {
     expect(showLatestPageAtBottom).toHaveBeenCalledOnce();
   });
 
+  it("reconciles hydrated history with an operation-local fork display snapshot", () => {
+    const readHistoryPage = vi.fn<HistoryPageReader>();
+    const { loader, stateStore } = historyFixture({ readHistoryPage });
+    const progress = taskProgress("turn");
+
+    const applied = loader.applyLatestPage("thread", historyPage([message("assistant", "Server history")], "older"), {
+      displayItems: [message("assistant", "Stale display"), progress],
+    });
+
+    expect(applied).toBe(true);
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining({ id: "assistant", text: "Server history" }),
+      progress,
+    ]);
+  });
+
   it("ignores already returned latest turns pages for stale threads", () => {
     const { loader, stateStore } = historyFixture({ readHistoryPage: vi.fn<HistoryPageReader>() });
 
@@ -75,9 +91,13 @@ describe("HistoryController", () => {
   });
 
   it("loads older history without coupling thread stream replacement to bottom pin state", async () => {
-    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older")], "next"));
+    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older", "older-turn")], "next"));
     const { loader, stateStore, dispatch, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
-    stateStore.dispatch({ type: "thread-stream/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
+    stateStore.dispatch({
+      type: "thread-stream/items-replaced",
+      items: [message("current", "Current", "current-turn")],
+      historyCursor: "cursor",
+    });
 
     await loader.loadOlder();
 
@@ -86,6 +106,31 @@ describe("HistoryController", () => {
     expect(stateStore.getState().threadStream.historyCursor).toBe("next");
     expect(showLatestPageAtBottom).not.toHaveBeenCalled();
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "thread-stream/items-replaced" }));
+  });
+
+  it("hydrates snapshot-retained older turns instead of dropping the server page", async () => {
+    const inheritedUser = userMessage("local-older", "Inherited older", "older-turn", "older-submission", true);
+    const canonicalUser = userMessage("server-older", "Canonical older", "older-turn", "older-submission");
+    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([canonicalUser], null));
+    const { loader, stateStore } = historyFixture({ readHistoryPage });
+    const progress = taskProgress("older-turn");
+    stateStore.dispatch({
+      type: "thread-stream/items-replaced",
+      items: [inheritedUser, progress, message("current", "Current", "current-turn")],
+      historyCursor: "cursor",
+    });
+
+    await loader.loadOlder();
+
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining({
+        id: "server-older",
+        text: "Canonical older",
+        contextAttachments: [{ label: "Obsidian context", detail: "Note" }],
+      }),
+      progress,
+      expect.objectContaining({ id: "current", text: "Current" }),
+    ]);
   });
 
   it("clears loading state when the history port has no page", async () => {
@@ -128,7 +173,7 @@ function historyPage(items: ThreadStreamItem[], nextCursor: string | null): Thre
   return { items, nextCursor, hadTurns: items.length > 0 };
 }
 
-function message(id: string, text: string): ThreadStreamItem {
+function message(id: string, text: string, turnId = "turn"): ThreadStreamItem {
   return {
     id,
     kind: "dialogue" as const,
@@ -136,6 +181,38 @@ function message(id: string, text: string): ThreadStreamItem {
     text,
     dialogueKind: "assistantResponse" as const,
     dialogueState: "completed" as const,
-    turnId: "turn",
+    turnId,
+  };
+}
+
+function userMessage(id: string, text: string, turnId: string, clientId: string, inherited = false): ThreadStreamItem {
+  return {
+    id,
+    kind: "dialogue",
+    role: "user",
+    text,
+    copyText: text,
+    dialogueKind: "user",
+    turnId,
+    clientId,
+    ...(inherited
+      ? {
+          contextAttachments: [{ label: "Obsidian context", detail: "Note" }],
+          provenance: { source: "localUser" as const, channel: "optimistic" as const, interaction: "prompt" as const, sourceId: clientId },
+        }
+      : {}),
+  };
+}
+
+function taskProgress(turnId: string): ThreadStreamItem {
+  return {
+    id: `plan-progress-${turnId}`,
+    kind: "taskProgress",
+    role: "tool",
+    turnId,
+    explanation: null,
+    steps: [{ step: "Keep this", status: "completed" }],
+    status: "completed",
+    executionState: "completed",
   };
 }

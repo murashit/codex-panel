@@ -12,6 +12,7 @@ import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatTurnBusy } from "../turns/turn-state";
+import { captureForkDisplaySnapshot, type ForkDisplaySnapshot } from "./fork-display-snapshot";
 
 type ThreadForkPosition =
   | { readonly kind: "through-turn"; readonly turnId: string }
@@ -51,8 +52,8 @@ export interface ThreadCommandsHost {
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
-  openThreadInNewView: (threadId: string) => Promise<void>;
-  openThreadInCurrentPanel: (threadId: string) => Promise<boolean>;
+  openThreadInNewView: (threadId: string, displaySnapshot: ForkDisplaySnapshot) => Promise<void>;
+  openThreadInCurrentPanel: (threadId: string, displaySnapshot: ForkDisplaySnapshot) => Promise<boolean>;
   beginThreadReplacementPublication: (sourceThreadId: string, replacementThread: Thread) => ThreadReplacementPublication;
   applyThreadFact: (fact: ThreadUpsertFact) => void;
 }
@@ -167,6 +168,10 @@ async function forkThreadFromTurn(
     return;
   }
   const scope = captureThreadCommandPanelScope(host, threadId);
+  const displaySnapshot = captureForkDisplaySnapshot(
+    chatThreadStreamViewState(threadCommandState(host).threadStream, threadCommandState(host).activeTurn),
+    turnId ? { kind: "through-turn", turnId } : { kind: "latest" },
+  );
 
   const selectedTurnDistanceFromEnd = turnId
     ? threadStreamTurnsAfterTurnId(
@@ -195,7 +200,7 @@ async function forkThreadFromTurn(
       await publishThreadReplacement(host, threadId, forkedThread, async () => {
         let adopted: boolean;
         try {
-          adopted = await host.openThreadInCurrentPanel(forkedThreadId);
+          adopted = await host.openThreadInCurrentPanel(forkedThreadId, displaySnapshot);
         } catch (error) {
           if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return false;
           const message = error instanceof Error ? error.message : String(error);
@@ -216,7 +221,7 @@ async function forkThreadFromTurn(
     }
     host.applyThreadFact({ type: "thread-upserted", thread: forkedThread });
     try {
-      await host.openThreadInNewView(forkedThreadId);
+      await host.openThreadInNewView(forkedThreadId, displaySnapshot);
     } catch (error) {
       if (!threadCommandScopeStillTargetsOriginalPanel(host, scope)) return;
       const message = error instanceof Error ? error.message : String(error);
@@ -265,6 +270,10 @@ async function rollbackThread(
     host.addSystemMessage("No completed turn to roll back.");
     return;
   }
+  const displaySnapshot = captureForkDisplaySnapshot(chatThreadStreamViewState(current.threadStream, current.activeTurn), {
+    kind: "before-turn",
+    turnId: candidate.turnId,
+  });
   const runtime = activeThreadRuntimeState(threadCommandState(host).runtime);
   const runtimeOverrides = {
     ...(runtime.model ? { model: runtime.model } : {}),
@@ -295,7 +304,7 @@ async function rollbackThread(
     }
     await publishThreadReplacement(host, threadId, forkedThread, async () => {
       options.adoptPanelTarget?.(forkedThread.id, candidate.text);
-      const adopted = await host.openThreadInCurrentPanel(forkedThread.id);
+      const adopted = await host.openThreadInCurrentPanel(forkedThread.id, displaySnapshot);
       if (!adopted) {
         if (threadCommandScopeStillTargetsPanel(host, scope)) {
           host.addSystemMessage("The rolled-back version was created but could not be opened in this panel. Open it from thread history.");

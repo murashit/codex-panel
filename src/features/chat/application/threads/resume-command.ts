@@ -8,6 +8,7 @@ import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurre
 import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
+import type { ForkDisplaySnapshot } from "./fork-display-snapshot";
 import type { HistoryController, ThreadHistoryPage } from "./history-controller";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
 import { canSwitchToThread } from "./thread-switching";
@@ -38,7 +39,7 @@ export interface ResumeCommandHost {
 }
 
 export interface ResumeCommand {
-  resumeThread(threadId: string, intent?: ActiveChatResume): Promise<ThreadResumeActivation | null>;
+  resumeThread(threadId: string, intent?: ActiveChatResume, displaySnapshot?: ForkDisplaySnapshot): Promise<ThreadResumeActivation | null>;
 }
 
 export interface ThreadResumeActivation {
@@ -47,11 +48,16 @@ export interface ThreadResumeActivation {
 
 export function createResumeCommand(host: ResumeCommandHost): ResumeCommand {
   return {
-    resumeThread: (threadId, intent) => resumeThread(host, threadId, intent),
+    resumeThread: (threadId, intent, displaySnapshot) => resumeThread(host, threadId, intent, displaySnapshot),
   };
 }
 
-async function resumeThread(host: ResumeCommandHost, threadId: string, intent?: ActiveChatResume): Promise<ThreadResumeActivation | null> {
+async function resumeThread(
+  host: ResumeCommandHost,
+  threadId: string,
+  intent?: ActiveChatResume,
+  displaySnapshot?: ForkDisplaySnapshot,
+): Promise<ThreadResumeActivation | null> {
   if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
     host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
     return null;
@@ -68,12 +74,12 @@ async function resumeThread(host: ResumeCommandHost, threadId: string, intent?: 
     if (effect.kind === "not-started") return null;
     host.recordResumedThread(effect.value.activation.thread);
     if (isStaleResume(host, resume, initialPanelTarget)) return null;
-    const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);
+    const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision, displaySnapshot);
     if (!adoptedPanelTarget) return null;
     let hydration: Promise<boolean> | null = null;
     return {
       hydrate: () => {
-        hydration ??= hydrateResumedThread(host, effect.value, resume, adoptedPanelTarget);
+        hydration ??= hydrateResumedThread(host, effect.value, resume, adoptedPanelTarget, displaySnapshot);
         return hydration;
       },
     };
@@ -89,14 +95,23 @@ async function hydrateResumedThread(
   response: ThreadResumeSnapshot,
   resume: ActiveChatResume,
   panelTarget: PanelTargetLease,
+  displaySnapshot?: ForkDisplaySnapshot,
 ): Promise<boolean> {
   try {
     if (isStaleResume(host, resume, panelTarget)) return false;
     recoverResumedThreadTokenUsage(host, response.activation.thread.id, response.rolloutPath, resume, panelTarget);
     if (response.initialHistoryPage) {
-      host.history.applyLatestPage(response.activation.thread.id, response.initialHistoryPage);
+      if (displaySnapshot) {
+        host.history.applyLatestPage(response.activation.thread.id, response.initialHistoryPage, { displayItems: displaySnapshot.items });
+      } else {
+        host.history.applyLatestPage(response.activation.thread.id, response.initialHistoryPage);
+      }
     } else {
-      await host.history.loadLatest(response.activation.thread.id);
+      if (displaySnapshot) {
+        await host.history.loadLatest(response.activation.thread.id, { displayItems: displaySnapshot.items });
+      } else {
+        await host.history.loadLatest(response.activation.thread.id);
+      }
     }
     if (isStaleResume(host, resume, panelTarget)) return false;
     await host.syncThreadGoal(response.activation.thread.id);
@@ -118,14 +133,21 @@ function applyResumedThread(
   host: ResumeCommandHost,
   response: ThreadResumeSnapshot,
   expectedPanelTargetRevision: number,
+  displaySnapshot?: ForkDisplaySnapshot,
 ): PanelTargetLease | null {
   const state = host.stateStore.dispatch(
     resumedThreadAction({
       response: response.activation,
       expectedPanelTargetRevision,
+      ...(displaySnapshot ? { items: displaySnapshot.items } : {}),
     }),
   );
   if (activeThreadState(state)?.id !== response.activation.thread.id) return null;
+  if (displaySnapshot) {
+    for (const [turnId, diff] of displaySnapshot.turnDiffs) {
+      host.stateStore.dispatch({ type: "thread-stream/turn-diff-updated", turnId, diff });
+    }
+  }
   host.resetThreadTurnPresence(false);
   host.notifyActiveThreadIdentityChanged();
   return capturePanelTargetLease(state);

@@ -292,7 +292,10 @@ describe("thread management commands", () => {
   });
 
   it("forks through a selected turn", async () => {
-    const host = hostMock({ items: turnItems() });
+    const items = [...turnItems().slice(0, 2), taskProgress("turn-1"), ...turnItems().slice(2)];
+    const host = hostMock({ items });
+    host.stateStore.dispatch({ type: "thread-stream/turn-diff-updated", turnId: "turn-1", diff: "diff one" });
+    host.stateStore.dispatch({ type: "thread-stream/turn-diff-updated", turnId: "turn-2", diff: "diff two" });
     const controller = threadCommands(host);
 
     await controller.forkThreadFromTurn("source", "turn-1", false);
@@ -304,7 +307,10 @@ describe("thread management commands", () => {
       type: "thread-upserted",
       thread: expect.objectContaining({ id: "forked" }),
     });
-    expect(host.openThreadInNewView).toHaveBeenCalledWith("forked");
+    expect(host.openThreadInNewView).toHaveBeenCalledWith("forked", {
+      items: items.slice(0, 3),
+      turnDiffs: new Map([["turn-1", "diff one"]]),
+    });
     expect(callOrder(host.applyThreadFact)).toBeLessThan(callOrder(host.openThreadInNewView));
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
@@ -320,7 +326,7 @@ describe("thread management commands", () => {
       position: { kind: "through-turn", turnId: "turn-3" },
     });
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Object));
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.mutations.archiveThread));
     expect(host.beginThreadReplacementPublication).toHaveBeenCalledWith("source", panelThread("forked"));
     expect(host.replacementPublication.finish).toHaveBeenCalledWith();
@@ -364,7 +370,7 @@ describe("thread management commands", () => {
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions());
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Object));
     expect(activeThreadId(host.stateStore.getState())).toBe("forked");
     expect(host.replacementPublication.finish).toHaveBeenCalledWith();
     expect(host.applyThreadFact).not.toHaveBeenCalled();
@@ -475,7 +481,7 @@ describe("thread management commands", () => {
     archive.resolve(true);
     await pendingFork;
 
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", expect.any(Object));
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
   });
 
@@ -528,7 +534,8 @@ describe("thread management commands", () => {
   });
 
   it("forks before the latest turn, adopts it, restores the prompt, and archives the source", async () => {
-    const host = hostMock({ items: turnItems() });
+    const items = [...turnItems().slice(0, 4), taskProgress("turn-2"), ...turnItems().slice(4)];
+    const host = hostMock({ items });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -545,10 +552,12 @@ describe("thread management commands", () => {
     });
     host.stateStore.dispatch({
       type: "thread-stream/items-replaced",
-      items: turnItems(),
+      items,
       historyCursor: null,
       loadingHistory: false,
     });
+    host.stateStore.dispatch({ type: "thread-stream/turn-diff-updated", turnId: "turn-2", diff: "diff two" });
+    host.stateStore.dispatch({ type: "thread-stream/turn-diff-updated", turnId: "turn-3", diff: "diff three" });
     const controller = threadCommands(host);
 
     await controller.rollbackThread("source");
@@ -558,7 +567,10 @@ describe("thread management commands", () => {
       deferGoalContinuation: true,
       runtime: { reasoningEffort: null, serviceTier: null },
     });
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked", {
+      items: items.slice(0, 5),
+      turnDiffs: new Map([["turn-2", "diff two"]]),
+    });
     expect(host.setComposerText).toHaveBeenCalledWith("three");
     expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions(false));
     expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.mutations.archiveThread));
@@ -862,6 +874,19 @@ function turnItems(): ThreadStreamItem[] {
       dialogueState: "completed",
     },
   ];
+}
+
+function taskProgress(turnId: string): ThreadStreamItem {
+  return {
+    id: `plan-progress-${turnId}`,
+    kind: "taskProgress",
+    role: "tool",
+    turnId,
+    explanation: null,
+    steps: [{ step: "Keep this", status: "completed" }],
+    status: "completed",
+    executionState: "completed",
+  };
 }
 
 function threadCommands(host: ThreadCommandsHost): ThreadCommands {

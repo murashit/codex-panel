@@ -19,6 +19,7 @@ import type { ThreadMutationCommands } from "../../threads/workflows/thread-muta
 import type { ThreadReplacementPublicationOwner } from "../../threads/workflows/thread-replacement-publication";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
+import type { ForkDisplaySnapshot } from "../application/threads/fork-display-snapshot";
 import type { ThreadGoalCoordinator } from "../application/threads/thread-goal-coordinator";
 
 export interface CodexChatHost {
@@ -47,7 +48,7 @@ export interface ChatPanelSettingsAccess {
 }
 
 export interface WorkspacePanels {
-  openThreadInNewView(threadId: string): Promise<void>;
+  openThreadInNewView(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
@@ -125,6 +126,7 @@ export interface ChatWorkspacePanelSnapshot {
 
 interface ChatWorkspacePanelOperationOptions {
   focus?: boolean;
+  displaySnapshot?: ForkDisplaySnapshot;
 }
 
 export interface ChatWorkspacePanelSurface {

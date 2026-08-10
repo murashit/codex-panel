@@ -1,9 +1,17 @@
 import type { App, WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
-import type { ChatSharedThreadSurface, ChatWorkspacePanelSnapshot, ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
+import type {
+  ChatSharedThreadSurface,
+  ChatWorkspacePanelSnapshot,
+  ChatWorkspacePanelSurface,
+  WorkspacePanels,
+} from "../features/chat/host/contracts";
 import { CodexChatView } from "../features/chat/host/view.obsidian";
 import { parseChatPanelViewState } from "../features/chat/host/view-state";
+
+type ForkDisplaySnapshot = Parameters<WorkspacePanels["openThreadInNewView"]>[1];
+
 import { createKeyedOperationCoordinator } from "../shared/runtime/keyed-operation-coordinator";
 
 interface WorkspacePanelReconcileOptions {
@@ -112,10 +120,10 @@ export class WorkspacePanelCoordinator {
     return leaf.view;
   }
 
-  async openThreadInNewView(threadId: string): Promise<void> {
+  async openThreadInNewView(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<void> {
     await this.runThreadPanelOperation(threadId, () => {
       const target = this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId);
-      return this.openThreadAtLeaf(target, threadId);
+      return this.openThreadAtLeaf(target, threadId, displaySnapshot);
     });
   }
 
@@ -402,8 +410,8 @@ export class WorkspacePanelCoordinator {
     return view;
   }
 
-  private async openThreadAtLeaf(leaf: WorkspaceLeaf | null, threadId: string): Promise<boolean> {
-    if (!leaf) return this.openThreadInNewViewNow(threadId);
+  private async openThreadAtLeaf(leaf: WorkspaceLeaf | null, threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<boolean> {
+    if (!leaf) return this.openThreadInNewViewNow(threadId, displaySnapshot);
     const wasDeferred = !isAttachedChatView(leaf.view);
     if (wasDeferred) {
       await this.options.app.workspace.revealLeaf(leaf);
@@ -413,17 +421,17 @@ export class WorkspacePanelCoordinator {
     const view = leaf.view;
     if (!this.panelStillOwnsView(leaf, view)) return false;
     const surface = workspacePanelSurface(view);
-    const opening = surface.activateThread(threadId, { focus: false });
+    const opening = surface.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) });
     return this.completePanelOperation(leaf, view, opening, { reveal: !wasDeferred });
   }
 
-  private async openThreadInNewViewNow(threadId: string): Promise<boolean> {
+  private async openThreadInNewViewNow(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<boolean> {
     const view = await this.createNewViewNow({ version: 1, threadId });
     if (!view) return false;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return false;
     const surface = workspacePanelSurface(view);
-    const opening = surface.activateThread(threadId, { focus: false });
+    const opening = surface.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) });
     return this.completePanelOperation(leaf, view, opening);
   }
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/metrics";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
+import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/active-turn";
 import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { HistoryController, type ThreadHistoryPage } from "../../../../../src/features/chat/application/threads/history-controller";
@@ -95,6 +96,55 @@ describe("ResumeCommand", () => {
 
     expect(applyLatestPage).toHaveBeenCalledWith("thread", initialHistoryPage);
     expect(loadLatest).not.toHaveBeenCalled();
+  });
+
+  it("hydrates a fork from app-server history without dropping inherited display artifacts", async () => {
+    const displayUser = {
+      id: "local-user",
+      kind: "dialogue",
+      role: "user",
+      text: "Read [[Note]]",
+      copyText: "Read [[Note]]",
+      dialogueKind: "user",
+      turnId: "turn",
+      clientId: "submission",
+      contextAttachments: [{ label: "Obsidian context", detail: "Note" }],
+      provenance: { source: "localUser", channel: "optimistic", interaction: "prompt", sourceId: "submission" },
+    } satisfies ThreadStreamItem;
+    const serverUser = {
+      id: "server-user",
+      kind: "dialogue",
+      role: "user",
+      text: "Read [[Note]]",
+      copyText: "Read [[Note]]",
+      dialogueKind: "user",
+      turnId: "turn",
+      clientId: "submission",
+    } satisfies ThreadStreamItem;
+    const progress = taskProgress("turn");
+    const response = activation("thread", { initialHistoryPage: historyPage([serverUser, message("answer", "Done", "assistant")], null) });
+    const { commands, host, stateStore } = createActions(response);
+    host.history = new HistoryController({
+      stateStore,
+      source: { readHistoryPage: vi.fn() },
+      addSystemMessage: host.addSystemMessage,
+      showLatestPageAtBottom: vi.fn(),
+      setThreadTurnPresence: vi.fn(),
+    });
+
+    const resumed = await commands.resumeThread("thread", undefined, {
+      items: [displayUser, progress],
+      turnDiffs: new Map([["turn", "diff --git a/Note.md b/Note.md"]]),
+    });
+    await resumed?.hydrate();
+
+    const state = stateStore.getState();
+    expect(state.threadStream.stableItems).toEqual([
+      expect.objectContaining({ id: "server-user", contextAttachments: displayUser.contextAttachments }),
+      progress,
+      expect.objectContaining({ id: "answer", text: "Done" }),
+    ]);
+    expect(chatThreadStreamViewState(state.threadStream, state.activeTurn).turnDiffs.get("turn")).toBe("diff --git a/Note.md b/Note.md");
   });
 
   it("does not publish completion work after its activation is superseded", async () => {
@@ -294,6 +344,19 @@ function tokenUsageFixture(inputTokens: number): ThreadTokenUsage {
     last: { inputTokens, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: inputTokens + 2 },
     total: { inputTokens, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: inputTokens + 2 },
     modelContextWindow: 1000,
+  };
+}
+
+function taskProgress(turnId: string): ThreadStreamItem {
+  return {
+    id: `plan-progress-${turnId}`,
+    kind: "taskProgress",
+    role: "tool",
+    turnId,
+    explanation: null,
+    steps: [{ step: "Keep this", status: "completed" }],
+    status: "completed",
+    executionState: "completed",
   };
 }
 

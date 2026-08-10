@@ -7,6 +7,7 @@ import {
   panelThreadProvenance,
 } from "../../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
+import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { chatTurnBusy } from "../../application/turns/turn-state";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
@@ -131,7 +132,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     };
   }
 
-  async activateThread(threadId?: string, options: { focus?: boolean } = {}): Promise<void> {
+  async activateThread(threadId?: string, options: { focus?: boolean; displaySnapshot?: ForkDisplaySnapshot } = {}): Promise<void> {
     const restoredThread = awaitingResumeThreadState(this.state);
     const restoredThreadId = restoredThread?.threadId ?? null;
     const targetThreadId = threadId ?? restoredThreadId;
@@ -162,7 +163,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
     const activation = {
       threadId: targetThreadId,
-      promise: this.activatePersistentThread(targetThreadId),
+      promise: this.activatePersistentThread(targetThreadId, options.displaySnapshot),
     };
     this.pendingPersistentActivation = activation;
     let activated: boolean;
@@ -174,14 +175,14 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (activated && options.focus !== false) this.focusComposer();
   }
 
-  private async activatePersistentThread(threadId: string): Promise<boolean> {
+  private async activatePersistentThread(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<boolean> {
     if (this.runtime.thread.restoration.isPending(threadId)) {
-      return this.ensureRestoredThreadLoaded();
+      return this.runtime.thread.ensureRestoredThreadLoaded(displaySnapshot);
     }
     const intent = this.resumeWork.begin(threadId);
     const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
     if (!preparation || !this.resumeWork.isCurrent(intent)) return false;
-    const activation = await this.runtime.thread.resume.resumeThread(threadId, intent);
+    const activation = await this.runtime.thread.resume.resumeThread(threadId, intent, displaySnapshot);
     if (!activation) return false;
     this.reconcilePendingPersistentRuntimeTarget(threadId);
     this.runtime.thread.navigation.commitPersistentNavigation(preparation);
@@ -376,10 +377,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     return this.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [];
   }
 
-  private async ensureRestoredThreadLoaded(): Promise<boolean> {
-    return this.runtime.thread.ensureRestoredThreadLoaded();
-  }
-
   private reconcilePendingPersistentRuntimeTarget(threadId: string | null): void {
     const snapshot = this.pendingRuntimeRestore;
     if (!snapshot || snapshot.ephemeralSource) return;
@@ -396,7 +393,8 @@ export class ChatPanelSession implements ChatPanelHandle {
       resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
-      activatePersistentThread: (threadId) => this.activateThread(threadId, { focus: false }),
+      activatePersistentThread: (threadId, displaySnapshot) =>
+        this.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) }),
     });
   }
 }

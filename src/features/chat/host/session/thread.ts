@@ -10,6 +10,7 @@ import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import { createGoalCommands, type GoalCommands } from "../../application/threads/goal-commands";
 import { createGoalEditorActions, type GoalEditorActions } from "../../application/threads/goal-editor-actions";
 import { createThreadGoalSync, type ThreadGoalSync } from "../../application/threads/goal-sync";
@@ -41,7 +42,7 @@ export interface SessionThreadLifecycle {
   restoration: RestorationController;
   resume: ResumeCommand;
   identity: ActiveThreadIdentitySync;
-  ensureRestoredThreadLoaded: () => Promise<boolean>;
+  ensureRestoredThreadLoaded: (displaySnapshot?: ForkDisplaySnapshot) => Promise<boolean>;
 }
 
 interface SessionThreadStatus {
@@ -98,7 +99,7 @@ interface SessionThreadCommandInput {
   foundation: SessionThreadFoundation;
   features: SessionThreadFeatures;
   navigation: PersistentNavigationLifecycle;
-  activatePersistentThread: (threadId: string) => Promise<void>;
+  activatePersistentThread: (threadId: string, displaySnapshot?: ForkDisplaySnapshot) => Promise<void>;
 }
 
 interface SessionThreadCommandsResult {
@@ -260,9 +261,9 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
     setComposerText: (text) => {
       composerController.setDraft(text, { focus: true });
     },
-    openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
-    openThreadInCurrentPanel: async (threadId) => {
-      await input.activatePersistentThread(threadId);
+    openThreadInNewView: (threadId, displaySnapshot) => environment.plugin.workspace.openThreadInNewView(threadId, displaySnapshot),
+    openThreadInCurrentPanel: async (threadId, displaySnapshot) => {
+      await input.activatePersistentThread(threadId, displaySnapshot);
       return activeThreadId(stateStore.getState()) === threadId;
     },
     beginThreadReplacementPublication: (sourceThreadId, replacementThread) =>
@@ -354,9 +355,9 @@ function createSessionThreadLifecycle(
     restoration,
     resume,
     identity,
-    ensureRestoredThreadLoaded: () =>
+    ensureRestoredThreadLoaded: (displaySnapshot) =>
       restoration.ensureLoaded(async (threadId) => {
-        const activation = await resume.resumeThread(threadId);
+        const activation = await resume.resumeThread(threadId, undefined, displaySnapshot);
         await activation?.hydrate();
       }),
   };

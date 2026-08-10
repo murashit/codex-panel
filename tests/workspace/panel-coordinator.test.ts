@@ -477,18 +477,19 @@ describe("WorkspacePanelCoordinator", () => {
       leaves.push(newLeaf);
     });
     const open = vi.spyOn(view.surface, "activateThread").mockResolvedValue(undefined);
+    const displaySnapshot = { items: [], turnDiffs: new Map([["turn", "diff"]]) };
     (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-      expect(open).toHaveBeenCalledWith("thread-1", { focus: false });
+      expect(open).toHaveBeenCalledWith("thread-1", { focus: false, displaySnapshot });
     });
 
-    await panels(plugin).openThreadInNewView("thread-1");
+    await panels(plugin).openThreadInNewView("thread-1", displaySnapshot);
 
     expect(newLeaf.setViewState).toHaveBeenCalledWith({
       type: VIEW_TYPE_CODEX_PANEL,
       active: false,
       state: { version: 1, threadId: "thread-1" },
     });
-    expect(open).toHaveBeenCalledWith("thread-1", { focus: false });
+    expect(open).toHaveBeenCalledWith("thread-1", { focus: false, displaySnapshot });
   });
 
   it("reveals a pending side chat immediately without focusing it when creation fails", async () => {

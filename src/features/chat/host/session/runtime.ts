@@ -9,6 +9,7 @@ import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot"
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { createEphemeralThreadLifecycle } from "../../application/threads/ephemeral-thread-lifecycle";
+import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import { createPersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
@@ -45,7 +46,7 @@ interface ChatPanelSessionRuntimeHost {
   resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
-  activatePersistentThread: (threadId: string) => Promise<void>;
+  activatePersistentThread: (threadId: string, displaySnapshot?: ForkDisplaySnapshot) => Promise<void>;
 }
 
 export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
