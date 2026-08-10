@@ -270,14 +270,13 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
         notifyPanelActivityChanged: () => {
           this.refreshThreadsViewLiveState();
         },
+        openNewPanel: () => this.panels.openNewPanel(),
+        openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
+        openPanelActivities: () => this.openPanelActivities(),
       },
       onThreadFacts: (facts) => {
         this.applyThreadFacts(facts);
       },
-      openNewPanel: () => this.panels.openNewPanel(),
-      openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
-      openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
-      openPanelActivities: () => this.openPanelActivities(),
     });
   }
 }

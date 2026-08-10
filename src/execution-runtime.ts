@@ -42,11 +42,13 @@ export interface CodexExecutionRuntimeOptions {
   app: App;
   context: AppServerExecutionContext;
   settings: () => CodexPanelSettings;
-  workspace: WorkspacePanels;
+  workspace: ExecutionWorkspaceOperations;
   onThreadFacts(facts: readonly ThreadFact[]): void;
+}
+
+interface ExecutionWorkspaceOperations extends WorkspacePanels {
   openNewPanel(): Promise<unknown>;
   openThreadInCurrentView(threadId: string): Promise<void>;
-  openThreadInAvailableView(threadId: string): Promise<void>;
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
 }
 
@@ -106,7 +108,9 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       facts: this.threadReplacementPublication.facts,
       referenceThreads: () => this.threadCatalog.activeThreadsSnapshot() ?? [],
       threadIsBusy: (threadId) =>
-        this.options.openPanelActivities().some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
+        this.options.workspace
+          .openPanelActivities()
+          .some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
     });
     this.threadAutoTitleWork = createThreadAutoTitleWork({
       titlePort: this.threadTitlePort(),
@@ -147,9 +151,9 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       threadCatalog: this.threadCatalog,
       threadMutations: this.threadMutations,
       threadTitlePort: this.threadTitlePort(),
-      openNewPanel: () => this.options.openNewPanel(),
-      openThreadInAvailableView: (threadId) => this.options.openThreadInAvailableView(threadId),
-      openPanelActivities: () => this.options.openPanelActivities(),
+      openNewPanel: () => this.options.workspace.openNewPanel(),
+      openThreadInAvailableView: (threadId) => this.options.workspace.openThreadInAvailableView(threadId),
+      openPanelActivities: () => this.options.workspace.openPanelActivities(),
     };
   }
 
@@ -185,8 +189,8 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       {
         app: this.options.app,
         threadCatalog: this.threadCatalog,
-        openThreadInCurrentView: (threadId) => this.options.openThreadInCurrentView(threadId),
-        openThreadInAvailableView: (threadId) => this.options.openThreadInAvailableView(threadId),
+        openThreadInCurrentView: (threadId) => this.options.workspace.openThreadInCurrentView(threadId),
+        openThreadInAvailableView: (threadId) => this.options.workspace.openThreadInAvailableView(threadId),
       },
       () => {
         if (this.activeThreadPicker === picker) this.activeThreadPicker = null;

@@ -257,11 +257,7 @@ function executionRuntime(onThreadFacts = vi.fn()): CodexExecutionRuntime {
     app: { vault: { configDir: ".obsidian" } } as never,
     context: { codexPath: "codex", vaultPath: "/vault" },
     settings: () => ({ ...DEFAULT_SETTINGS }),
-    workspace: {} as never,
+    workspace: { openPanelActivities: () => [] } as never,
     onThreadFacts,
-    openNewPanel: vi.fn(),
-    openThreadInCurrentView: vi.fn(),
-    openThreadInAvailableView: vi.fn(),
-    openPanelActivities: () => [],
   });
 }
