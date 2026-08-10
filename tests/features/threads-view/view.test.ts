@@ -17,18 +17,12 @@ import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 const connectionMock = vi.hoisted(() => {
   const state = {
     client: null as Record<string, unknown> | null,
-    connected: false,
-    connectCalls: 0,
-    onExit: null as (() => void) | null,
   };
 
   return {
     state,
     reset(): void {
       state.client = null;
-      state.connected = false;
-      state.connectCalls = 0;
-      state.onExit = null;
     },
   };
 });
@@ -36,38 +30,6 @@ const connectionMock = vi.hoisted(() => {
 const namingMock = vi.hoisted(() => ({
   generateThreadTitleWithCodex: vi.fn(),
 }));
-
-vi.mock("../../../src/app-server/connection/connection-manager", () => {
-  class StaleConnectionError extends Error {}
-
-  class ConnectionManager {
-    connect(handlers: { onExit: () => void }): Promise<unknown> {
-      connectionMock.state.onExit = handlers.onExit;
-      connectionMock.state.connectCalls += 1;
-      connectionMock.state.connected = true;
-      return Promise.resolve({
-        userAgent: "codex-test",
-        codexHome: "/tmp/codex",
-        platformFamily: "unix",
-        platformOs: "macos",
-      });
-    }
-
-    currentClient(): unknown {
-      return connectionMock.state.connected ? connectionMock.state.client : null;
-    }
-
-    isConnected(): boolean {
-      return connectionMock.state.connected;
-    }
-
-    disconnect(): void {
-      connectionMock.state.connected = false;
-    }
-  }
-
-  return { ConnectionManager, StaleConnectionError };
-});
 
 vi.mock("../../../src/features/threads/app-server/thread-title-generation", async (importOriginal) => {
   const actual = await importOriginal<typeof ThreadTitleGeneratorModule>();

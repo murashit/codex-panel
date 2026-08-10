@@ -129,7 +129,7 @@ describe("CodexExecutionRuntime", () => {
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
 
-    const first = await runtime.withClient(async (client) => client);
+    const first = await runtime.appServerConnection.withClient(async (client) => client);
 
     expect(first).toBe(contextConnectionMock.client);
     expect(chat.appServerConnection).toBe(runtime.appServerConnection);

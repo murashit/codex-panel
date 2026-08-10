@@ -1,7 +1,5 @@
 import type { App } from "obsidian";
 
-import type { AppServerClient } from "./app-server/connection/client";
-import type { AppServerClientAccess } from "./app-server/connection/client-access";
 import { codexPanelAppServerInitializeParams } from "./app-server/connection/client-profile";
 import { AppServerContextConnection } from "./app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "./app-server/connection/execution-context";
@@ -52,7 +50,7 @@ interface ExecutionWorkspaceOperations extends WorkspacePanels {
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
 }
 
-export class CodexExecutionRuntime implements AppServerClientAccess {
+export class CodexExecutionRuntime {
   private readonly context: Readonly<AppServerExecutionContext>;
   readonly appServerConnection: AppServerContextConnection;
   private readonly queryScope: AppServerQueryScope;
@@ -85,7 +83,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
         },
       },
     );
-    this.queryScope = new AppServerQueryScope(this.context, this);
+    this.queryScope = new AppServerQueryScope(this.context, this.appServerConnection);
     this.appServerQueries = new AppServerMetadataQueries(this.queryScope);
     this.threadCatalog = new AppServerThreadCatalog(this.queryScope);
     const applyThreadFacts = (facts: readonly ThreadFact[]): void => {
@@ -97,7 +95,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     this.threadReplacementPublication = createThreadReplacementPublication(applyThreadFacts);
     this.threadFacts = this.threadReplacementPublication.facts;
     this.threadMutations = createThreadMutationCommands({
-      port: createThreadMutationAdapter(this),
+      port: createThreadMutationAdapter(this.appServerConnection),
       archiveExport: {
         settings: () => this.archiveExportSettings(),
         enabled: () => this.options.settings().archiveExportEnabled,
@@ -118,7 +116,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
     });
     this.settingsDynamicData = createSettingsAppServerDynamicData({
       vaultPath: this.context.vaultPath,
-      clientAccess: this,
+      clientAccess: this.appServerConnection,
       appServerQueries: this.appServerQueries,
       threadCatalog: this.threadCatalog,
       threadMutations: this.threadMutations,
@@ -155,14 +153,6 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
       openThreadInAvailableView: (threadId) => this.options.workspace.openThreadInAvailableView(threadId),
       openPanelActivities: () => this.options.workspace.openPanelActivities(),
     };
-  }
-
-  withClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    this.assertActive();
-    return this.appServerConnection.withClient(async (client) => {
-      this.assertActive();
-      return operation(client);
-    });
   }
 
   attachChatView(view: ChatRuntimeView): void {
@@ -263,7 +253,7 @@ export class CodexExecutionRuntime implements AppServerClientAccess {
 
   private threadTitlePort() {
     return createThreadTitleAdapter({
-      clientAccess: this,
+      clientAccess: this.appServerConnection,
       codexPath: this.context.codexPath,
       vaultPath: this.context.vaultPath,
       threadNamingModel: () => this.options.settings().threadNamingModel,
