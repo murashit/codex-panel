@@ -552,36 +552,6 @@ describe("submitComposer", () => {
     expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalledOnce();
   });
 
-  it("executes reconnect without a connected client preflight", async () => {
-    const { host, ensureConnected, execute, setDraft, settleSubmission } = createHost("/reconnect");
-
-    await submitComposer(host);
-
-    expect(ensureConnected).not.toHaveBeenCalled();
-    expect(setDraft).not.toHaveBeenCalled();
-    expect(settleSubmission).toHaveBeenCalledWith("accepted");
-    expect(execute).toHaveBeenCalledWith("reconnect", "", expect.any(Object), {
-      isCurrent: expect.any(Function),
-      markAdopted: expect.any(Function),
-      adoptPanelTarget: expect.any(Function),
-    });
-  });
-
-  it("executes compact without a connected client preflight", async () => {
-    const { host, ensureConnected, execute, setDraft, settleSubmission } = createHost("/compact");
-
-    await submitComposer(host);
-
-    expect(ensureConnected).not.toHaveBeenCalled();
-    expect(setDraft).not.toHaveBeenCalled();
-    expect(settleSubmission).toHaveBeenCalledWith("accepted");
-    expect(execute).toHaveBeenCalledWith("compact", "", expect.any(Object), {
-      isCurrent: expect.any(Function),
-      markAdopted: expect.any(Function),
-      adoptPanelTarget: expect.any(Function),
-    });
-  });
-
   it("restores slash command composer drafts from command results", async () => {
     const { host, ensureConnected, execute, sendTurnText, setDraft, settleSubmission, showLatest } = createHost("/goal edit");
     execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });

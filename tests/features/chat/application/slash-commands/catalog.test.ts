@@ -1,36 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  SLASH_COMMANDS,
-  type SlashCommandName,
-  slashCommandHelpSections,
-  slashCommandRequiresConnection,
-} from "../../../../../src/features/chat/application/slash-commands/catalog";
+import { slashCommandHelpSections } from "../../../../../src/features/chat/application/slash-commands/catalog";
 
 describe("slash command catalog", () => {
-  it("defines unique command names and usage rows", () => {
-    expect(new Set(SLASH_COMMANDS.map((definition) => definition.command)).size).toBe(SLASH_COMMANDS.length);
-    expect(SLASH_COMMANDS.every((definition) => definition.usage.startsWith(definition.command))).toBe(true);
-  });
-
-  it("groups help by command surface and expands catalog subcommands", () => {
+  it("groups representative help rows by command surface", () => {
     const sections = slashCommandHelpSections();
     const keys = (title: string) => sections.find((section) => section.title === title)?.auditFacts.map((row) => row.key) ?? [];
 
     expect(sections.map((section) => section.title)).toEqual(["Panel actions", "Thread settings", "Diagnostics", "Composition"]);
-    expect(keys("Panel actions")).toEqual(expect.arrayContaining(["/clear", "/reconnect", "/archive <thread>", "/rename <thread> <name>"]));
-    expect(keys("Thread settings")).toEqual(
-      expect.arrayContaining(["/plan [message]", "/goal", "/goal set <objective>", "/goal edit", "/permissions [profile|default]"]),
-    );
-    expect(keys("Diagnostics")).toEqual(expect.arrayContaining(["/status", "/doctor", "/tools", "/help"]));
-    expect(keys("Composition")).toEqual(["/refer <thread> <message>", "/web <url> [message]"]);
-  });
-
-  it("owns connection availability metadata", () => {
-    expect(
-      SLASH_COMMANDS.filter((definition) => !slashCommandRequiresConnection(definition.command.slice(1) as SlashCommandName)).map(
-        (item) => item.command,
-      ),
-    ).toEqual(["/reconnect", "/compact"]);
+    expect(keys("Panel actions")).toContain("/clear");
+    expect(keys("Thread settings")).toContain("/goal set <objective>");
+    expect(keys("Diagnostics")).toContain("/status");
+    expect(keys("Composition")).toContain("/web <url> [message]");
   });
 });

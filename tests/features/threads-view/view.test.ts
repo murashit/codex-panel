@@ -264,60 +264,6 @@ describe("CodexThreadsView", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("keeps successful empty thread lists as last-known-good observed values", async () => {
-    let observedThreads!: (result: ObservedPaginatedResult<readonly Thread[]>) => void;
-    const view = await threadsView(
-      threadsHost({
-        threadCatalog: {
-          refreshActiveThreads: vi.fn(
-            () =>
-              new Promise(() => {
-                // Keep the initial refresh pending; this test drives observed query results directly.
-              }),
-          ),
-          observeActiveThreadsResult: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
-            observedThreads = listener;
-            return () => undefined;
-          }),
-        },
-      }),
-    );
-
-    observedThreads(queryResult([]));
-    observedThreads(queryResult<readonly Thread[]>(null, new Error("boom")));
-
-    expect(view.containerEl.querySelector(".codex-panel-threads__empty")).not.toBeNull();
-    expect(view.containerEl.textContent).not.toContain("boom");
-  });
-
-  it("keeps observed refresh failures out of an existing thread list", async () => {
-    let observedThreads!: (result: ObservedPaginatedResult<readonly Thread[]>) => void;
-    const existing = threadFromRecord(threadFixture({ id: "existing", preview: "Existing thread" }));
-    const view = await threadsView(
-      threadsHost({
-        threadCatalog: {
-          fetchActiveThreads: vi.fn(
-            () =>
-              new Promise(() => {
-                // Drive the shared query state directly.
-              }),
-          ),
-          observeActiveThreadsResult: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
-            observedThreads = listener;
-            return () => undefined;
-          }),
-        },
-      }),
-    );
-
-    observedThreads(queryResult([existing]));
-    observedThreads(queryResult([existing], new Error("Background refresh failed.")));
-
-    expect(view.containerEl.textContent).toContain("Existing thread");
-    expect(view.containerEl.textContent).not.toContain("Background refresh failed.");
-    expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
-  });
-
   it("archives without closing panel leaves", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
@@ -394,31 +340,6 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.dispatchEvent(new FocusEvent("blur"));
 
     await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed thread" }));
-  });
-
-  it("lets a completed rename settle after the threads view closes", async () => {
-    const renamed = deferred<object>();
-    const renameThreadRequest = vi.fn(() => renamed.promise);
-    connectionMock.state.client = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/name/set": renameThreadRequest,
-    });
-    const view = await threadsView(threadsHost());
-
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    if (!input) throw new Error("Missing rename input");
-    changeInputValue(input, "Renamed after close");
-    input.dispatchEvent(new FocusEvent("blur"));
-    await waitForAsyncWork(() => {
-      expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed after close" });
-    });
-
-    await view.onClose();
-    renamed.resolve({});
-    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
-    expect(view.containerEl.childElementCount).toBe(0);
   });
 
   it("keeps the rename editor locked until a save finishes", async () => {

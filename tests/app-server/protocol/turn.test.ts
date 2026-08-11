@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   chronologicalTurnTranscriptSummariesFromTurnRecords,
-  completedTurnTranscriptSummariesFromTurnRecords,
   completedTurnTranscriptSummaryFromTurnRecord,
   lastAgentMessageTextFromTurnRecord,
   referencedThreadTurnsFromNewestFirstTurnRecords,
@@ -50,16 +49,6 @@ describe("app-server turn records", () => {
   it("requires both user and assistant text for a completed turn summary", () => {
     expect(completedTurnTranscriptSummaryFromTurnRecord(turn([userMessage("u1", "依頼")]))).toBeNull();
     expect(completedTurnTranscriptSummaryFromTurnRecord(turn([agentMessage("a1", "回答")]))).toBeNull();
-  });
-
-  it("projects completed turn transcript summaries from turn lists without exposing filtering logic to callers", () => {
-    expect(
-      completedTurnTranscriptSummariesFromTurnRecords([
-        turn([userMessage("u1", "依頼"), agentMessage("a1", "回答")], { id: "completed" }),
-        turn([userMessage("u2", "失敗した依頼"), agentMessage("a2", "失敗した回答")], { id: "failed", status: "failed" }),
-        turn([commandItem("cmd")], { id: "empty" }),
-      ]),
-    ).toEqual([{ userText: "依頼", assistantText: "回答" }]);
   });
 
   it("returns chronological turn transcript summaries and drops turns without transcript text", () => {

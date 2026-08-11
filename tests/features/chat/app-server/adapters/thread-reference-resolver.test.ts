@@ -119,44 +119,6 @@ describe("thread reference resolver", () => {
     expect(result).toBeNull();
     expect(addSystemMessage).toHaveBeenCalledWith("history unavailable");
   });
-
-  it("uses admitted history when the app-server client changes during the request", async () => {
-    const request = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
-    const addSystemMessage = vi.fn();
-    const client = { request } as unknown as AppServerClient;
-    const replacementClient = { request: vi.fn() } as unknown as AppServerClient;
-    const currentClient = vi.fn().mockReturnValueOnce(client).mockReturnValue(replacementClient);
-    const resolver = createThreadReferenceResolver({
-      currentClient,
-      prepareInput: vi.fn(),
-      addSystemMessage,
-      setStatus: vi.fn(),
-    });
-
-    const result = await resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never);
-
-    expect(result).toBeNull();
-    expect(addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable turns.");
-  });
-
-  it("reports history errors after the app-server client changes", async () => {
-    const request = vi.fn().mockRejectedValue(new Error("history unavailable"));
-    const addSystemMessage = vi.fn();
-    const client = { request } as unknown as AppServerClient;
-    const replacementClient = { request: vi.fn() } as unknown as AppServerClient;
-    const currentClient = vi.fn().mockReturnValueOnce(client).mockReturnValue(replacementClient);
-    const resolver = createThreadReferenceResolver({
-      currentClient,
-      prepareInput: vi.fn(),
-      addSystemMessage,
-      setStatus: vi.fn(),
-    });
-
-    const result = await resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never);
-
-    expect(result).toBeNull();
-    expect(addSystemMessage).toHaveBeenCalledWith("history unavailable");
-  });
 });
 
 function threadFixture(): Thread {

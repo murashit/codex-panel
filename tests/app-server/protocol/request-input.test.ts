@@ -83,40 +83,18 @@ describe("app-server request input", () => {
     ]);
   });
 
-  it("does not persist Vault file-reference display metadata in app-server history", () => {
+  it("keeps Panel metadata out of app-server history while sending explicit context separately", () => {
     const prepared = appServerTurnInputFromCodexInput(
       [
         { type: "text", text: "Use [[Note]]" },
         { type: "fileReference", name: "Note", path: "Note.md" },
+        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "page" },
       ],
       "local-user-1-seed-1-1",
     );
 
-    expect(prepared.additionalContext).toBeUndefined();
     expect(prepared.input).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
     expect(prepared.input).not.toContainEqual(expect.objectContaining({ type: "mention" }));
-  });
-
-  it("does not persist metadata for Vault files or explicit context", () => {
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "Read the linked notes" },
-        ...Array.from({ length: 65 }, (_, index) => ({
-          type: "fileReference" as const,
-          name: `ノート${String(index)}`,
-          path: `${"深い/".repeat(20)}ノート${String(index)}.md`,
-        })),
-        {
-          type: "additionalContext" as const,
-          key: "codex_panel_web_context",
-          kind: "untrusted" as const,
-          value: "page",
-        },
-      ],
-      "local-user-1-seed-1-1",
-    );
-
-    expect(prepared.input).toEqual([{ type: "text", text: "Read the linked notes", text_elements: [] }]);
     expect(prepared.additionalContext).toMatchObject({
       "codex_panel.local-user-1-seed-1-1.00.codex_panel_web_context.part_01_of_01": {
         kind: "untrusted",

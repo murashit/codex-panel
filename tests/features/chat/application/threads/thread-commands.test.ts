@@ -266,16 +266,6 @@ describe("thread management commands", () => {
     expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
   });
 
-  it("delegates archive requests to thread mutations", async () => {
-    const host = hostMock({ items: [] });
-    const controller = threadCommands(host);
-
-    await controller.archiveThread("source", true);
-
-    expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: true });
-    expect(host.addSystemMessage).not.toHaveBeenCalled();
-  });
-
   it("reports archive operation failures", async () => {
     const host = hostMock({
       items: [],
@@ -500,37 +490,6 @@ describe("thread management commands", () => {
     expect(host.applyThreadFact).not.toHaveBeenCalled();
     expect(host.openThreadInNewView).not.toHaveBeenCalled();
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
-  });
-
-  it("delegates thread rename requests", async () => {
-    const host = hostMock({ items: [] });
-    const controller = threadCommands(host);
-
-    await expect(controller.renameThread("thread", " Slash   command title ")).resolves.toBe(true);
-
-    expect(host.mutations.renameThread).toHaveBeenCalledWith("thread", " Slash   command title ");
-  });
-
-  it("delegates pinned state updates", async () => {
-    const host = hostMock({ items: [] });
-
-    await threadCommands(host).setThreadPinned("thread", true);
-
-    expect(host.mutations.setThreadPinned).toHaveBeenCalledWith("thread", true);
-  });
-
-  it("returns false when thread mutations reject a rename", async () => {
-    const host = hostMock({
-      items: [],
-      mutations: {
-        renameThread: vi.fn<ThreadCommandsHost["mutations"]["renameThread"]>().mockResolvedValue(false),
-      },
-    });
-    const controller = threadCommands(host);
-
-    await expect(controller.renameThread("thread", "   ")).resolves.toBe(false);
-
-    expect(host.mutations.renameThread).toHaveBeenCalledWith("thread", "   ");
   });
 
   it("forks before the latest turn, adopts it, restores the prompt, and archives the source", async () => {

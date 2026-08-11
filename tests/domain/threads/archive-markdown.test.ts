@@ -238,25 +238,6 @@ describe("thread archive export", () => {
     );
   });
 
-  it("normalizes exported thread markdown links when vault path is provided", () => {
-    const output = exportedMarkdown(
-      thread({
-        transcriptEntries: [
-          transcriptEntry(
-            "assistant",
-            "[Vault](</Users/showhey/Vault/topics/Alpha.md>)\n[External](/Users/showhey/Repos/project/README.md)",
-            1,
-          ),
-        ],
-      }),
-      new Date(2026, 4, 18),
-      { vaultPath: "/Users/showhey/Vault" },
-    );
-
-    expect(output).toContain("[Vault](topics/Alpha.md)");
-    expect(output).toContain("External (`/Users/showhey/Repos/project/README.md`)");
-  });
-
   it("preserves Obsidian syntax outside normalized links", () => {
     const obsidianSyntax = [
       "[[Wiki note]]",

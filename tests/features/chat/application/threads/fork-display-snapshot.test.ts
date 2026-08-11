@@ -11,23 +11,10 @@ import {
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("fork display snapshots", () => {
-  it("captures only turn-scoped display state through the selected turn", () => {
-    const state = {
-      ...initialChatThreadStreamState([message("u1", "turn-1"), taskProgress("turn-1"), message("u2", "turn-2")]),
-      ...initialChatActiveTurnState(),
-      turnDiffs: new Map([
-        ["turn-1", "diff one"],
-        ["turn-2", "diff two"],
-      ]),
-    };
-
-    const snapshot = captureForkDisplaySnapshot(state, { kind: "through-turn", turnId: "turn-1" });
-
-    expect(snapshot.items.map((item) => item.id)).toEqual(["u1", "plan-progress-turn-1"]);
-    expect([...snapshot.turnDiffs]).toEqual([["turn-1", "diff one"]]);
-  });
-
-  it("excludes the rollback turn and unscoped or active display state", () => {
+  it.each([
+    { position: { kind: "through-turn", turnId: "turn-1" } as const },
+    { position: { kind: "before-turn", turnId: "turn-2" } as const },
+  ])("captures only scoped display state at $position.kind", ({ position }) => {
     const stable = initialChatThreadStreamState([
       message("u1", "turn-1"),
       unscopedSystemMessage(),
@@ -35,12 +22,19 @@ describe("fork display snapshots", () => {
       message("u2", "turn-2"),
     ]);
     const state = threadStreamStartActiveSegment(
-      { ...stable, ...initialChatActiveTurnState(), turnDiffs: new Map([["turn-1", "diff one"]]) },
+      {
+        ...stable,
+        ...initialChatActiveTurnState(),
+        turnDiffs: new Map([
+          ["turn-1", "diff one"],
+          ["turn-2", "diff two"],
+        ]),
+      },
       "turn-active",
       [message("active", "turn-active")],
     );
 
-    const snapshot = captureForkDisplaySnapshot(state, { kind: "before-turn", turnId: "turn-2" });
+    const snapshot = captureForkDisplaySnapshot(state, position);
 
     expect(snapshot.items.map((item) => item.id)).toEqual(["u1", "plan-progress-turn-1"]);
     expect([...snapshot.turnDiffs]).toEqual([["turn-1", "diff one"]]);

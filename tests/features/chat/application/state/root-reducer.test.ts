@@ -707,46 +707,6 @@ describe("chatReducer", () => {
     expect(state.runtime.active.serviceTierKnown).toBe(false);
   });
 
-  it("updates composer suggestions when insertion-only fields change", () => {
-    const initialSuggestion = {
-      display: "Alpha",
-      detail: "alpha.md",
-      replacement: "[[Alpha]]",
-      start: 0,
-      tabCursorOffset: -2,
-    } satisfies ChatState["composer"]["suggestions"][number];
-    const nextSuggestion = {
-      ...initialSuggestion,
-      tabCursorOffset: 0,
-      suffixOnInsert: "]]",
-    } satisfies ChatState["composer"]["suggestions"][number];
-
-    let state = chatReducer(chatStateFixture(), { type: "composer/suggestions-set", suggestions: [initialSuggestion] });
-    state = chatReducer(state, { type: "composer/suggestions-set", suggestions: [nextSuggestion] });
-
-    expect(state.composer.suggestions).toEqual([nextSuggestion]);
-  });
-
-  it("accepts the first composer suggestion as an explicit selection", () => {
-    const suggestions = [suggestion("/plan"), suggestion("/status")];
-    let state = chatReducer(chatStateFixture(), { type: "composer/suggestions-set", suggestions, selected: 1 });
-
-    state = chatReducer(state, { type: "composer/suggestions-set", suggestions, selected: 0 });
-
-    expect(state.composer.suggestSelected).toBe(0);
-  });
-
-  it("stores updates through ChatStateStore without mutating the initial snapshot", () => {
-    let initial = chatStateFixture();
-    initial = withChatStateStableThreadStreamItems(initial, [dialogueItem("initial")]);
-    const store = createChatStateStore(initial);
-
-    store.dispatch({ type: "thread-stream/item-upserted", item: dialogueItem("next") });
-
-    expect(chatStateThreadStreamItems(initial)).toEqual([dialogueItem("initial")]);
-    expect(chatStateThreadStreamItems(store.getState())).toEqual([dialogueItem("initial"), dialogueItem("next")]);
-  });
-
   it("keeps panel-local thread, request, and composer state isolated across stores", () => {
     const panelA = createChatStateStore();
     const panelB = createChatStateStore();

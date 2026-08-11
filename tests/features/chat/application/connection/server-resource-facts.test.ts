@@ -5,27 +5,28 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { chatStateFixture } from "../../support/state";
 
 describe("server resource facts", () => {
-  it("routes resource facts to their shared query refresh", async () => {
-    const refreshSkills = vi.fn().mockResolvedValue(undefined);
-    const refreshRateLimits = vi.fn().mockResolvedValue(undefined);
+  it.each([
+    ["skills-changed", "refreshSkills"],
+    ["rate-limits-updated", "refreshRateLimits"],
+  ] as const)("routes %s failures through %s", async (type, target) => {
+    const error = new Error("offline");
     const host = {
       stateStore: createChatStateStore(chatStateFixture()),
-      refreshSkills,
-      refreshRateLimits,
+      refreshSkills: vi.fn().mockResolvedValue(undefined),
+      refreshRateLimits: vi.fn().mockResolvedValue(undefined),
     };
+    host[target].mockRejectedValue(error);
 
-    await handleAppServerResourceFact(host, { type: "skills-changed" });
-    await handleAppServerResourceFact(host, { type: "rate-limits-updated" });
+    await expect(handleAppServerResourceFact(host, { type })).rejects.toBe(error);
 
-    expect(refreshSkills).toHaveBeenCalledOnce();
-    expect(refreshRateLimits).toHaveBeenCalledOnce();
+    expect(host[target]).toHaveBeenCalledOnce();
   });
 
   it("keeps MCP startup status in panel diagnostics", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
 
     await handleAppServerResourceFact(
-      { stateStore, ...refreshHost() },
+      { stateStore, refreshSkills: async () => undefined, refreshRateLimits: async () => undefined },
       {
         type: "mcp-startup-status-updated",
         name: "github",
@@ -36,22 +37,4 @@ describe("server resource facts", () => {
 
     expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toMatchObject([{ name: "github", startupStatus: "ready" }]);
   });
-
-  it("propagates resource refresh failures", async () => {
-    const ordinary = new Error("offline");
-    const host = {
-      stateStore: createChatStateStore(chatStateFixture()),
-      ...refreshHost(),
-      refreshRateLimits: vi.fn().mockRejectedValue(ordinary),
-    };
-
-    await expect(handleAppServerResourceFact(host, { type: "rate-limits-updated" })).rejects.toBe(ordinary);
-  });
 });
-
-function refreshHost() {
-  return {
-    refreshSkills: vi.fn().mockResolvedValue(undefined),
-    refreshRateLimits: vi.fn().mockResolvedValue(undefined),
-  };
-}

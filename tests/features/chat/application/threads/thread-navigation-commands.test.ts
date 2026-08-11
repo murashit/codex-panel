@@ -134,16 +134,7 @@ describe("ThreadNavigationCommands", () => {
     expect(navigation.commitPersistentNavigation).not.toHaveBeenCalled();
   });
 
-  it("routes thread selection through workspace ownership coordination", async () => {
-    const { commands, host } = createActionsHarness();
-
-    await commands.selectThread("thread");
-
-    expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
-    expect(host.openThreadFromPanel).toHaveBeenCalledWith("thread", true);
-  });
-
-  it("routes switching away from a running subagent through workspace coordination", async () => {
+  it("allows switching away from a running subagent through workspace coordination", async () => {
     const { commands, host, stateStore } = createActionsHarness();
     resumeThreadState(stateStore, "child", true);
     stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });

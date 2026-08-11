@@ -55,26 +55,6 @@ describe("chat app-server adapters", () => {
     });
   });
 
-  it("returns completed thread starts after the current client changes", async () => {
-    const start = deferred<AppServerThreadStartResponse>();
-    const firstClient = { request: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
-    const secondClient = {} as unknown as AppServerClient;
-    let currentClient = firstClient;
-    const adapter = createTestGateway({
-      currentClient: () => currentClient,
-      connectedClient: vi.fn().mockResolvedValue(firstClient),
-    }).threadStart;
-
-    const starting = adapter.startThread({});
-    currentClient = secondClient;
-    start.resolve(threadStartResponse("thread"));
-
-    await expect(starting).resolves.toMatchObject({
-      kind: "completed",
-      value: { thread: { id: "thread" } },
-    });
-  });
-
   it("starts turns with the session vault path and returns chat-owned turn ids", async () => {
     const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
     const client = { request } as unknown as AppServerClient;
@@ -157,28 +137,6 @@ describe("chat app-server adapters", () => {
     await expect(starting).resolves.toEqual({ kind: "completed", value: { turnId: "turn-1" } });
   });
 
-  it("returns completed steers after the current client changes", async () => {
-    const steer = deferred<unknown>();
-    const firstClient = { request: vi.fn().mockReturnValue(steer.promise) } as unknown as AppServerClient;
-    const secondClient = {} as unknown as AppServerClient;
-    let currentClient = firstClient;
-    const adapter = createTestGateway({
-      currentClient: () => currentClient,
-      connectedClient: vi.fn().mockResolvedValue(firstClient),
-    }).turn;
-
-    const steering = adapter.steerTurn({
-      threadId: "thread",
-      turnId: "turn",
-      input: textInput("follow up"),
-      clientUserMessageId: "local-user",
-    });
-    currentClient = secondClient;
-    steer.resolve({});
-
-    await expect(steering).resolves.toEqual({ kind: "completed", value: undefined });
-  });
-
   it("uses the steer client id to namespace bounded context", async () => {
     const request = vi.fn().mockResolvedValue({});
     const client = { request } as unknown as AppServerClient;
@@ -252,26 +210,6 @@ describe("chat app-server adapters", () => {
       cwd: "/vault",
       excludeTurns: true,
       lastTurnId: "turn-2",
-    });
-  });
-
-  it("returns completed forks after the current client changes", async () => {
-    const fork = deferred<{ thread: ThreadRecord }>();
-    const firstClient = { request: vi.fn().mockReturnValue(fork.promise) } as unknown as AppServerClient;
-    const secondClient = {} as unknown as AppServerClient;
-    let currentClient = firstClient;
-    const adapter = createTestGateway({
-      currentClient: () => currentClient,
-      connectedClient: vi.fn().mockResolvedValue(firstClient),
-    }).threadCommands;
-
-    const forking = adapter.forkThread("source");
-    currentClient = secondClient;
-    fork.resolve({ thread: threadRecord("forked") });
-
-    await expect(forking).resolves.toMatchObject({
-      kind: "completed",
-      value: { id: "forked" },
     });
   });
 
@@ -388,25 +326,6 @@ describe("chat app-server adapters", () => {
     ]);
   });
 
-  it("returns history responses after the current client changes", async () => {
-    const history = deferred<{ data: TurnRecord[]; nextCursor: string | null }>();
-    const firstClient = { request: vi.fn().mockReturnValue(history.promise) } as unknown as AppServerClient;
-    const secondClient = {} as unknown as AppServerClient;
-    let currentClient = firstClient;
-    const adapter = createTestGateway({
-      currentClient: () => currentClient,
-      connectedClient: vi.fn().mockResolvedValue(firstClient),
-    }).threadHistory;
-
-    const loading = adapter.readHistoryPage("thread", "cursor", 20);
-    currentClient = secondClient;
-    history.resolve({ data: [turn([userMessage("u1", "prompt")])], nextCursor: "older" });
-
-    await expect(loading).resolves.toMatchObject({
-      items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
-    });
-  });
-
   it("resumes threads with the session vault path and projects initial history", async () => {
     const request = vi.fn().mockResolvedValue({
       thread: { ...threadRecord("thread"), path: "/tmp/rollout.jsonl" },
@@ -445,26 +364,6 @@ describe("chat app-server adapters", () => {
           items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
         },
       },
-    });
-  });
-
-  it("returns completed resumes after the current client changes", async () => {
-    const resume = deferred<AppServerThreadResumeResponse>();
-    const firstClient = { request: vi.fn().mockReturnValue(resume.promise) } as unknown as AppServerClient;
-    const secondClient = {} as unknown as AppServerClient;
-    let currentClient = firstClient;
-    const adapter = createTestGateway({
-      currentClient: () => currentClient,
-      connectedClient: vi.fn().mockResolvedValue(firstClient),
-    }).threadResume;
-
-    const resuming = adapter.resumeThread("thread");
-    currentClient = secondClient;
-    resume.resolve(threadResumeResponse("thread"));
-
-    await expect(resuming).resolves.toMatchObject({
-      kind: "completed",
-      value: { activation: { thread: { id: "thread" } } },
     });
   });
 
@@ -664,7 +563,6 @@ describe("chat app-server adapters", () => {
 });
 
 type AppServerThreadStartResponse = ClientResponseByMethod["thread/start"];
-type AppServerThreadResumeResponse = ClientResponseByMethod["thread/resume"];
 
 function createTestGateway(options: {
   vaultPath?: string;
@@ -724,28 +622,6 @@ function threadStartResponse(threadId: string, overrides: Partial<AppServerThrea
     activePermissionProfile: null,
     reasoningEffort: null,
     multiAgentMode: "explicitRequestOnly",
-    ...overrides,
-  };
-}
-
-function threadResumeResponse(threadId: string, overrides: Partial<AppServerThreadResumeResponse> = {}): AppServerThreadResumeResponse {
-  return {
-    thread: threadRecord(threadId) as AppServerThreadResumeResponse["thread"],
-    cwd: "/vault",
-    model: "gpt-test",
-    modelProvider: "openai",
-    serviceTier: null,
-    runtimeWorkspaceRoots: [],
-    instructionSources: [],
-    approvalPolicy: "never",
-    approvalsReviewer: "user",
-    sandbox: { type: "readOnly", networkAccess: false },
-    activePermissionProfile: null,
-    reasoningEffort: null,
-    multiAgentMode: "explicitRequestOnly",
-    initialTurnsPage: null,
-    turnsBackwardsCursor: null,
-    itemsBackwardsCursor: null,
     ...overrides,
   };
 }

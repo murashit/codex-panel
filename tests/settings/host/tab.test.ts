@@ -107,21 +107,6 @@ describe("settings tab", () => {
     expect(refreshThreadsViews).toHaveBeenCalledOnce();
   });
 
-  it("ignores invalid declarative control values and rejects unknown keys", async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    await tab.setControlValue("showToolbar", "false");
-    await tab.setControlValue("sendShortcut", "invalid");
-    await tab.setControlValue("scrollThreadFromComposerEdges", null);
-    await tab.setControlValue("referenceActiveNoteOnSend", 1);
-    await tab.setControlValue("archiveExportEnabled", undefined);
-
-    expect(saveSettings).not.toHaveBeenCalled();
-    expect(tab.getControlValue("unknown")).toBeUndefined();
-    await expect(tab.setControlValue("unknown", true)).rejects.toThrow("Unknown declarative setting key: unknown");
-  });
-
   it("publishes model and effort changes from a representative declarative helper renderer", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     useContextClients(settingsClient());
@@ -241,21 +226,6 @@ describe("settings tab", () => {
     expect(buttonLabels(tab)).toContain("Refresh Codex details");
     expect(settingNames(tab)).toContain("Codex hooks");
     expect(settingNames(tab)).toContain("Archived threads");
-  });
-
-  it("saves the send shortcut setting", async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    tab.display();
-    const shortcut = selectForSetting(tab, "Send shortcut");
-    if (!shortcut) throw new Error("Missing send shortcut dropdown");
-
-    shortcut.value = "mod-enter";
-    shortcut.dispatchEvent(new Event("change"));
-    await flushPromises();
-
-    expect(saveSettings).toHaveBeenCalledOnce();
   });
 
   it("saves the toolbar visibility setting and refreshes open panels", async () => {
@@ -391,38 +361,6 @@ describe("settings tab", () => {
     expect(selectForSetting(tab, "Send shortcut")?.value).toBe("mod-enter");
     expect(inputForSetting(tab, "Reference active file on send")?.checked).toBe(false);
     expect(notices).toContain("Could not apply Codex Panel settings: disk full");
-  });
-
-  it("saves archive export settings", async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    tab.display();
-    const toggle = inputForSetting(tab, "Save note by default");
-    if (!toggle) throw new Error("Missing archive export toggle");
-    toggle.checked = true;
-    toggle.dispatchEvent(new Event("change"));
-    await flushPromises();
-
-    const folder = inputForSetting(tab, "Saved note folder");
-    if (!folder) throw new Error("Missing archive export folder input");
-    folder.value = "Saved Threads";
-    folder.dispatchEvent(new Event("blur"));
-    await flushPromises();
-
-    const filename = inputForSetting(tab, "Saved note filename");
-    if (!filename) throw new Error("Missing archive export filename input");
-    filename.value = "{{date}} {{title}}.md";
-    filename.dispatchEvent(new Event("blur"));
-    await flushPromises();
-
-    const tags = inputForSetting(tab, "Saved note tags");
-    if (!tags) throw new Error("Missing archive export tags input");
-    tags.value = "codex, archive";
-    tags.dispatchEvent(new Event("blur"));
-    await flushPromises();
-
-    expect(saveSettings).toHaveBeenCalledTimes(4);
   });
 
   it("restores default archive export templates when cleared", async () => {

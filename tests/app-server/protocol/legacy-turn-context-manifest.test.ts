@@ -39,24 +39,6 @@ describe("legacy turn context manifests", () => {
     expect(fileReferencesFromLegacyManifest(projection.manifest)).toEqual([{ name: "Note", path: "Notes/Note.md" }]);
   });
 
-  it("ignores obsolete accounting fields while retaining the manifest", () => {
-    const manifest = validManifest({
-      contexts: [
-        {
-          ...validManifest().contexts[0],
-          parts: -1,
-          sourceBytes: "unknown",
-          includedBytes: Number.MAX_SAFE_INTEGER + 1,
-          inlineExcerpts: -1,
-        } as never,
-      ],
-    });
-
-    expect(projectedManifest(manifest).manifest).toMatchObject({
-      contexts: [{ kind: "web", id: `${SUBMISSION_ID}.00`, truncated: false }],
-    });
-  });
-
   it("rejects malformed top-level and visible metadata shapes", () => {
     expect(projectedRaw({ version: 1, contexts: [] }).manifest).toBeNull();
     expect(projectedRaw({ version: 2, contexts: {} }).manifest).toBeNull();

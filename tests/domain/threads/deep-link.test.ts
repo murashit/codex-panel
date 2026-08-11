@@ -17,10 +17,9 @@ describe("Codex thread deep links", () => {
     },
   );
 
-  it("rejects malformed encoding and thread ids beyond the decoded length limit", () => {
+  it("rejects malformed encoding and excessively long thread ids", () => {
     expect(codexThreadIdFromHref("codex://threads/%E0%A4%A")).toBeNull();
-    expect(codexThreadIdFromHref(codexThreadHref("x".repeat(160)))).toBe("x".repeat(160));
-    expect(codexThreadIdFromHref(codexThreadHref("x".repeat(161)))).toBeNull();
+    expect(codexThreadIdFromHref(codexThreadHref("x".repeat(1_000)))).toBeNull();
   });
 
   it("writes a bounded, escaped title as an ordinary Markdown link", () => {

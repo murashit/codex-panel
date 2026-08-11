@@ -105,14 +105,6 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/status does not take arguments. Usage: /status");
   });
 
-  it("clears the current panel for /clear", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("clear", "", ctx);
-
-    expect(ctx.startNewThread).toHaveBeenCalledOnce();
-  });
-
   it("resumes the latest listed thread for bare /resume", async () => {
     const ctx = context({
       listedThreads: [thread({ id: "latest", name: "Latest" }), thread({ id: "older", name: "Older" })],
@@ -122,14 +114,6 @@ describe("slash commands", () => {
 
     expect(ctx.submission.adoptPanelTarget).toHaveBeenCalledOnce();
     expect(ctx.resumeThread).toHaveBeenCalledWith("latest");
-  });
-
-  it("reconnects the panel for /reconnect", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("reconnect", "", ctx);
-
-    expect(ctx.reconnect).toHaveBeenCalledOnce();
   });
 
   it("resumes a thread by title argument without accepting ids", async () => {

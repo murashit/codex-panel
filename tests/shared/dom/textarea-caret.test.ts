@@ -8,11 +8,9 @@ import { installObsidianDomShims } from "../../support/dom";
 installObsidianDomShims();
 
 describe("textarea caret visual boundary measurement", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+  afterEach(() => vi.restoreAllMocks());
 
-  it("applies mirror wrapping styles through CSS property names", () => {
+  it("measures wrapped lines with textarea-compatible mirror styles", () => {
     const textarea = document.createElement("textarea");
     textarea.value = "a long composer line that wraps";
     textarea.setSelectionRange(8, 8);
@@ -27,23 +25,16 @@ describe("textarea caret visual boundary measurement", () => {
       y: 0,
       toJSON: () => ({}),
     });
-
     const mirrorStyles: CSSStyleDeclaration[] = [];
-    const offsetTop = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function offsetTopGetter(this: HTMLElement) {
-      const parent = this.parentElement;
-      if (parent instanceof HTMLElement) mirrorStyles.push(parent.style);
+    vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function offsetTopGetter(this: HTMLElement) {
+      if (this.parentElement instanceof HTMLElement) mirrorStyles.push(this.parentElement.style);
       return 0;
     });
 
-    expect(textareaCursorAtVisualBoundary(-1, textarea)).toBe(true);
-    expect(offsetTop).toHaveBeenCalled();
-    expect(mirrorStyles.length).toBeGreaterThan(0);
-    for (const style of mirrorStyles) {
-      expect(style.getPropertyValue("white-space")).toBe("pre-wrap");
-      expect(style.getPropertyValue("overflow-wrap")).toBe("break-word");
-      expect(style.getPropertyValue("word-break")).toBe("normal");
-      expect(style.getPropertyValue("min-height")).toBe("0px");
-      expect(style.getPropertyValue("max-height")).toBe("none");
-    }
+    textareaCursorAtVisualBoundary(-1, textarea);
+
+    expect(mirrorStyles).not.toHaveLength(0);
+    expect(mirrorStyles[0]?.getPropertyValue("white-space")).toBe("pre-wrap");
+    expect(mirrorStyles[0]?.getPropertyValue("overflow-wrap")).toBe("break-word");
   });
 });

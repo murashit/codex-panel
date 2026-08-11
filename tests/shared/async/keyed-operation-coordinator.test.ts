@@ -33,10 +33,12 @@ describe("KeyedOperationCoordinator", () => {
     await expect(coordinator.run("thread", async () => undefined)).rejects.toThrow("An operation is already in progress.");
     pending.resolve();
     await first;
+
+    await expect(coordinator.run("thread", async () => "next")).resolves.toBe("next");
   });
 
-  it("keeps reject-policy operations for different keys independent", async () => {
-    const coordinator = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
+  it.each(["queue", "reject"] as const)("keeps %s-policy operations for different keys independent", async (whenBusy) => {
+    const coordinator = createKeyedOperationCoordinator<string>({ whenBusy });
     const pending = deferred<void>();
 
     const first = coordinator.run("first", () => pending.promise);
@@ -44,24 +46,5 @@ describe("KeyedOperationCoordinator", () => {
     await expect(coordinator.run("second", async () => "second")).resolves.toBe("second");
     pending.resolve();
     await first;
-  });
-
-  it("does not serialize operations for different keys", async () => {
-    const coordinator = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-    const firstOperation = deferred<void>();
-    const blocked = coordinator.run("first", () => firstOperation.promise);
-
-    await expect(coordinator.run("second", async () => "saved")).resolves.toBe("saved");
-
-    firstOperation.resolve();
-    await blocked;
-  });
-
-  it("releases a reject-policy key before the completed operation settles to its caller", async () => {
-    const coordinator = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
-
-    await coordinator.run("thread", async () => "first");
-
-    await expect(coordinator.run("thread", async () => "second")).resolves.toBe("second");
   });
 });

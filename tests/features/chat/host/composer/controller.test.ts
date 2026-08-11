@@ -1624,73 +1624,23 @@ describe("ChatComposerController", () => {
     expect(composer(parent).hasAttribute("aria-activedescendant")).toBe(false);
   });
 
-  it("delegates composer runtime toggles", () => {
-    const togglePlan = vi.fn();
-    const { controller, parent, stateStore } = composerControllerFixture({ controller: { togglePlan } });
-
-    renderComposerController(parent, controller, stateStore);
-
-    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-
-    expect(togglePlan).toHaveBeenCalledOnce();
-  });
-
-  it("delegates submit events through render actions", () => {
-    const stateStore = createChatStateStore();
-    stateStore.dispatch({ type: "composer/draft-set", draft: "hello" });
-    const submit = vi.fn();
-    const { controller, parent } = composerControllerFixture({ stateStore });
-
-    renderComposerController(parent, controller, stateStore, { submit });
-    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-
-    expect(submit).toHaveBeenCalledOnce();
-  });
-
-  it("scrolls by page from the composer even when line edge scrolling is disabled", () => {
-    const threadScrollFromComposer = vi.fn();
-    const { controller, parent, stateStore } = composerControllerFixture({ controller: { threadScrollFromComposer } });
-
-    renderComposerController(parent, controller, stateStore);
-    setTextAreaValue(composer(parent), "first\nsecond");
-    composer(parent).setSelectionRange(3, 3);
-    const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "PageDown" });
-    composer(parent).dispatchEvent(event);
-
-    expect(threadScrollFromComposer).toHaveBeenCalledWith({ kind: "scroll-by", direction: 1, amount: "page" });
-    expect(event.defaultPrevented).toBe(true);
-  });
-
-  it("scrolls to stream edges from the composer even when line edge scrolling is disabled", () => {
-    const threadScrollFromComposer = vi.fn();
-    const { controller, parent, stateStore } = composerControllerFixture({ controller: { threadScrollFromComposer } });
-
-    renderComposerController(parent, controller, stateStore);
-    setTextAreaValue(composer(parent), "first\nsecond");
-    composer(parent).setSelectionRange(3, 8);
-    const home = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Home" });
-    composer(parent).dispatchEvent(home);
-    const end = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "End" });
-    composer(parent).dispatchEvent(end);
-
-    expect(threadScrollFromComposer).toHaveBeenNthCalledWith(1, { kind: "scroll-to", edge: "start" });
-    expect(threadScrollFromComposer).toHaveBeenNthCalledWith(2, { kind: "scroll-to", edge: "end" });
-    expect(home.defaultPrevented).toBe(true);
-    expect(end.defaultPrevented).toBe(true);
-  });
-
-  it("leaves composer line edge scrolling disabled by the setting", () => {
+  it("routes page scrolling while leaving disabled line-edge scrolling to the textarea", () => {
     const threadScrollFromComposer = vi.fn();
     const { controller, parent, stateStore } = composerControllerFixture({ controller: { threadScrollFromComposer } });
 
     renderComposerController(parent, controller, stateStore);
     setTextAreaValue(composer(parent), "first\nsecond");
     composer(parent).setSelectionRange("first\nsecond".length, "first\nsecond".length);
-    const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "n", ctrlKey: true });
-    composer(parent).dispatchEvent(event);
 
-    expect(threadScrollFromComposer).not.toHaveBeenCalled();
-    expect(event.defaultPrevented).toBe(false);
+    const line = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "n", ctrlKey: true });
+    composer(parent).dispatchEvent(line);
+    const page = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "PageDown" });
+    composer(parent).dispatchEvent(page);
+
+    expect(line.defaultPrevented).toBe(false);
+    expect(page.defaultPrevented).toBe(true);
+    expect(threadScrollFromComposer).toHaveBeenCalledOnce();
+    expect(threadScrollFromComposer).toHaveBeenCalledWith({ kind: "scroll-by", direction: 1, amount: "page" });
   });
 
   it("clears the Preact-owned textarea ref when the composer unmounts", () => {

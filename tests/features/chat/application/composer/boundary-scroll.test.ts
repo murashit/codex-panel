@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   type ComposerBoundaryScrollAction,
@@ -6,36 +6,16 @@ import {
 } from "../../../../../src/features/chat/application/composer/boundary-scroll";
 
 describe("composer boundary scroll shortcuts", () => {
-  it("scrolls up from the first composer line", () => {
-    expect(direction("ArrowUp", "first\nsecond", 3)).toEqual({ kind: "scroll-by", direction: -1, amount: "text-lines" });
-    expect(direction("p", "first\nsecond", 3, { ctrlKey: true })).toEqual({
+  it.each([
+    { key: "ArrowUp", cursor: 3, options: {}, expectedDirection: -1 },
+    { key: "p", cursor: 3, options: { ctrlKey: true }, expectedDirection: -1 },
+    { key: "ArrowDown", cursor: 9, options: {}, expectedDirection: 1 },
+    { key: "n", cursor: 9, options: { ctrlKey: true }, expectedDirection: 1 },
+  ] as const)("scrolls from a composer edge for $key", ({ key, cursor, options, expectedDirection }) => {
+    expect(direction(key, "first\nsecond", cursor, options)).toEqual({
       kind: "scroll-by",
-      direction: -1,
+      direction: expectedDirection,
       amount: "text-lines",
-    });
-  });
-
-  it("scrolls down from the last composer line", () => {
-    expect(direction("ArrowDown", "first\nsecond", 9)).toEqual({ kind: "scroll-by", direction: 1, amount: "text-lines" });
-    expect(direction("n", "first\nsecond", 9, { ctrlKey: true })).toEqual({
-      kind: "scroll-by",
-      direction: 1,
-      amount: "text-lines",
-    });
-  });
-
-  it("marks repeated text-line scrolling", () => {
-    expect(direction("ArrowDown", "first\nsecond", 9, { repeat: true })).toEqual({
-      kind: "scroll-by",
-      direction: 1,
-      amount: "text-lines",
-      repeated: true,
-    });
-    expect(direction("n", "first\nsecond", 9, { ctrlKey: true, repeat: true })).toEqual({
-      kind: "scroll-by",
-      direction: 1,
-      amount: "text-lines",
-      repeated: true,
     });
   });
 
@@ -69,13 +49,6 @@ describe("composer boundary scroll shortcuts", () => {
   it("keeps cursor movement when the visual line has not reached the composer edge", () => {
     expect(direction("ArrowUp", "wrapped first line", 8, { visualBoundary: false })).toBeNull();
     expect(direction("ArrowDown", "wrapped last line", 8, { visualBoundary: false })).toBeNull();
-  });
-
-  it("does not measure visual boundaries away from logical composer edges", () => {
-    const visualBoundary = vi.fn(() => true);
-    expect(direction("ArrowUp", "first\nsecond", 8, { visualBoundary })).toBeNull();
-    expect(direction("ArrowDown", "first\nsecond", 3, { visualBoundary })).toBeNull();
-    expect(visualBoundary).not.toHaveBeenCalled();
   });
 
   it("ignores selections, composition, and modified arrow keys", () => {

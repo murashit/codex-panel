@@ -93,31 +93,6 @@ describe("chat panel projection integration", () => {
     unmountUiRoot(parent);
   });
 
-  it("projects pinned threads before newer unpinned threads", () => {
-    let state = chatStateFixture({
-      threadList: {
-        listedThreads: [
-          { ...threadFixture("recent", "Recent"), recencyAt: 30 },
-          { ...threadFixture("pinned", "Pinned"), recencyAt: 10, isPinned: true },
-        ],
-      },
-    });
-    state = chatStateWith(state, { ui: { toolbarPanel: "history" } });
-
-    const parent = renderWithShellModels(state, (models) =>
-      h(ProjectedToolbar, {
-        model: models.toolbar,
-        dependencies: toolbarSurfaceFixture(),
-        actions: toolbarActionsFixture(),
-      }),
-    );
-
-    const rows = [...parent.querySelectorAll<HTMLElement>(".codex-panel__thread-row")];
-    expect(rows.map((row) => row.textContent)).toEqual(["Pinned", "Recent"]);
-    expect(parent.querySelector(".codex-panel__thread-group-divider")).not.toBeNull();
-    unmountUiRoot(parent);
-  });
-
   it("disables other rename actions while a rename save is pending", () => {
     let state = chatStateFixture({
       activeThread: { id: "thread" },

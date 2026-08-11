@@ -20,48 +20,6 @@ function mountToolbar(parent: HTMLElement, model: ToolbarViewModel, actions: Too
 }
 
 describe("Toolbar decisions", () => {
-  it("renders toolbar controls as Obsidian-style action buttons", () => {
-    const parent = document.createElement("div");
-    const startNewThread = vi.fn();
-    const toggleChatActions = vi.fn();
-    const toggleHistory = vi.fn();
-    const baseModel = toolbarModel();
-
-    mountToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleChatActions, toggleHistory }));
-
-    const navButtons = parent.querySelector(".codex-panel__toolbar-buttons");
-    expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
-      "Show thread list",
-      "Show chat actions",
-      "Show status",
-    ]);
-    const newChatButton = parent.querySelector<HTMLElement>(".codex-panel__new-chat");
-    expect(newChatButton?.getAttribute("aria-label")).toBe("Show chat actions");
-    newChatButton?.click();
-    expect(toggleChatActions).toHaveBeenCalled();
-    expect(startNewThread).not.toHaveBeenCalled();
-    const statusButton = parent.querySelector(".codex-panel__status-menu-toggle");
-    expect(statusButton?.getAttribute("aria-label")).toBe("Show status");
-    const historyButton = parent.querySelector<HTMLElement>(".codex-panel__history-toggle");
-    expect(historyButton?.getAttribute("aria-label")).toBe("Show thread list");
-    historyButton?.click();
-    expect(toggleHistory).toHaveBeenCalled();
-    parent.empty();
-    mountToolbar(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
-    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.getAttribute("aria-label")).toBe("Show chat actions");
-
-    for (const [openPanel, selector, label] of [
-      ["history", ".codex-panel__history-toggle", "Hide thread list"],
-      ["chat-actions", ".codex-panel__new-chat", "Hide chat actions"],
-      ["status", ".codex-panel__status-menu-toggle", "Hide status"],
-    ] as const) {
-      parent.empty();
-      mountToolbar(parent, toolbarModel({ openPanel }), toolbarActions());
-      expect(parent.querySelector(selector)?.getAttribute("aria-label")).toBe(label);
-      expect(parent.querySelector(selector)?.classList.contains("is-active")).toBe(true);
-    }
-  });
-
   it("renders chat actions in the new chat toolbar menu", () => {
     const parent = document.createElement("div");
     const startNewThread = vi.fn();

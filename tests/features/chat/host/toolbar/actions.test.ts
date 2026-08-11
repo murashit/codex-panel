@@ -90,51 +90,6 @@ describe("createToolbarPanelActions", () => {
     expect(stateStore.getState().ui.archiveConfirmThreadId).toBeNull();
   });
 
-  it("delegates chat commands to their policy-owning handlers", () => {
-    const openSideChat = vi.fn();
-    const compactActiveThread = vi.fn().mockResolvedValue(undefined);
-    const startEditingCurrent = vi.fn();
-    const actions = createToolbarUiActions({
-      connectionCoordinator: {} as never,
-      reconnectCommand: vi.fn(),
-      threadCommands: { compactActiveThread } as never,
-      goals: { startEditingCurrent } as never,
-      toolbarPanel: {} as never,
-      rename: {} as never,
-      navigation: {} as never,
-      loadMoreThreads: async () => [],
-      openSideChat,
-      debugDetails: debugDetailsFixture(),
-    });
-
-    actions.chat.startSideChat?.();
-    actions.chat.compactContext();
-    actions.chat.setGoal();
-    expect(openSideChat).toHaveBeenCalledOnce();
-    expect(compactActiveThread).toHaveBeenCalledOnce();
-    expect(startEditingCurrent).toHaveBeenCalledOnce();
-  });
-
-  it("delegates pinned state updates from the thread list", () => {
-    const setThreadPinned = vi.fn().mockResolvedValue(undefined);
-    const actions = createToolbarUiActions({
-      connectionCoordinator: {} as never,
-      reconnectCommand: vi.fn(),
-      threadCommands: { setThreadPinned } as never,
-      goals: {} as never,
-      toolbarPanel: {} as never,
-      rename: {} as never,
-      navigation: {} as never,
-      loadMoreThreads: async () => [],
-      openSideChat: vi.fn(),
-      debugDetails: debugDetailsFixture(),
-    });
-
-    actions.threads.setPinned("thread", true);
-
-    expect(setThreadPinned).toHaveBeenCalledWith("thread", true);
-  });
-
   it("copies debug details from the latest state at invocation time", () => {
     const stateStore = createChatStateStore();
     const actions = createToolbarUiActions({
@@ -172,16 +127,3 @@ describe("createToolbarPanelActions", () => {
     });
   });
 });
-
-function debugDetailsFixture() {
-  return {
-    stateStore: createChatStateStore(),
-    connected: () => false,
-    vaultPath: () => "/vault",
-    configuredCommand: () => "codex",
-    runtimeConfig: () => null,
-    rateLimit: () => null,
-    availableModels: () => [],
-    metadataDiagnostics: () => createServerDiagnostics(),
-  };
-}

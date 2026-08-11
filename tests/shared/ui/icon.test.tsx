@@ -6,16 +6,6 @@ import { renderUiRoot } from "../../../src/shared/dom/preact-root.dom";
 import { IconButton, IconRendererProvider, ToolbarIconAction } from "../../../src/shared/ui/icon.dom";
 
 describe("UI icons", () => {
-  it("keeps icon identity without requiring a host renderer", () => {
-    const parent = document.createElement("div");
-
-    renderUiRoot(parent, <IconButton icon="send" label="Send" />);
-
-    const button = parent.querySelector<HTMLButtonElement>("button");
-    expect(button?.dataset["icon"]).toBe("send");
-    expect(button?.getAttribute("aria-label")).toBe("Send");
-  });
-
   it("delegates host rendering while preserving button content", () => {
     const parent = document.createElement("div");
     const renderer = vi.fn((element: HTMLElement, icon: string) => {

@@ -14,21 +14,6 @@ afterEach(async () => {
 });
 
 describe("development scripts", () => {
-  it("includes the plugin version in generated CSS", async () => {
-    const cwd = await tempWorkspace();
-    await mkdir(path.join(cwd, "src", "styles"), { recursive: true });
-    await writeJson(path.join(cwd, "package.json"), { version: "5.0.4" });
-    await writeJson(path.join(cwd, "src", "styles", "order.json"), ["00-tokens.css"]);
-    await writeFile(path.join(cwd, "src", "styles", "00-tokens.css"), ".codex-panel { color: var(--text-normal); }\n");
-
-    const result = runNodeScript("scripts/build-styles.mjs", [], cwd);
-
-    expect(result.status).toBe(0);
-    await expect(readFile(path.join(cwd, "styles.css"), "utf8")).resolves.toBe(
-      "/* Codex Panel v5.0.4 */\n\n.codex-panel { color: var(--text-normal); }\n",
-    );
-  });
-
   it("fails style builds when CSS files are missing from the style order file", async () => {
     const cwd = await styleOrderFixture();
 

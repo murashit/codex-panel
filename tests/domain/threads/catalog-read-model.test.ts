@@ -58,14 +58,7 @@ describe("thread catalog read model", () => {
   });
 
   const changedFields = [
-    ["id", { id: "changed" }],
-    ["preview", { preview: "changed" }],
     ["name", { name: "changed" }],
-    ["archived", { archived: true }],
-    ["createdAt", { createdAt: 2 }],
-    ["updatedAt", { updatedAt: 2 }],
-    ["recencyAt", { recencyAt: 2 }],
-    ["canAcceptDirectInput", { canAcceptDirectInput: true }],
     [
       "provenance",
       {

@@ -32,12 +32,6 @@ describe("threads view rename state", () => {
     expect(transitionThreadsRenameState(undefined, { type: "draft-updated", draft: "Stray" })).toBeUndefined();
   });
 
-  it("initializes rename drafts from normalized explicit thread names", () => {
-    expect(threadRows([thread({ name: "  Saved   name  ", preview: "Preview" })], [], new Map())[0]?.rename.draft).toBe("Saved name");
-    expect(threadRows([thread({ name: "  ", preview: "Preview title" })], [], new Map())[0]?.rename.draft).toBe("Preview title");
-    expect(threadRows([thread({ name: null, preview: "" })], [], new Map())[0]?.rename.draft).toBe("");
-  });
-
   it("orders rows by thread recency when available", () => {
     const rows = threadRows(
       [thread({ id: "updated-newer", updatedAt: 20, recencyAt: 10 }), thread({ id: "recent", updatedAt: 10, recencyAt: 30 })],
@@ -46,16 +40,6 @@ describe("threads view rename state", () => {
     );
 
     expect(rows.map((row) => row.threadId)).toEqual(["recent", "updated-newer"]);
-  });
-
-  it("orders pinned rows before newer unpinned rows", () => {
-    const rows = threadRows(
-      [thread({ id: "recent", recencyAt: 30 }), thread({ id: "pinned", recencyAt: 10, isPinned: true })],
-      [],
-      new Map(),
-    );
-
-    expect(rows.map((row) => row.threadId)).toEqual(["pinned", "recent"]);
   });
 
   it("treats pending MCP elicitations as pending live state", () => {

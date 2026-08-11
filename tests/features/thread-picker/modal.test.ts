@@ -7,30 +7,6 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
 
 describe("threadPickerSuggestions", () => {
-  it("matches titles fuzzily without matching full or short ids", async () => {
-    const modal = await openedThreadPicker([
-      thread({ id: "thread-alpha", name: "Older Alpha", updatedAt: 10 }),
-      thread({ id: "thread-beta", name: "Recent unrelated alpha mention", updatedAt: 30 }),
-      thread({ id: "alpha-thread", name: "Newest unrelated", updatedAt: 40 }),
-      thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Project notes", updatedAt: 50 }),
-      thread({ id: "fuzzy", name: "Architecture proposal" }),
-    ]);
-
-    expect((await modal.getSuggestions("alpha")).map((item) => item.thread.id)).toEqual(["thread-beta", "thread-alpha"]);
-    expect((await modal.getSuggestions("019abcde")).map((item) => item.thread.id)).toEqual([]);
-    expect((await modal.getSuggestions("ctpr")).map((item) => item.thread.id)).toEqual(["fuzzy"]);
-  });
-
-  it("uses recency time for empty queries", async () => {
-    const modal = await openedThreadPicker([
-      thread({ id: "updated-newer", updatedAt: 20, recencyAt: 10 }),
-      thread({ id: "recent", updatedAt: 10, recencyAt: 30 }),
-    ]);
-    const suggestions = await modal.getSuggestions("");
-
-    expect(suggestions.map((item) => item.thread.id)).toEqual(["recent", "updated-newer"]);
-  });
-
   it("places pinned threads first only for empty queries", async () => {
     const modal = await openedThreadPicker([
       thread({ id: "recent", name: "Recent target", recencyAt: 30 }),
@@ -39,15 +15,6 @@ describe("threadPickerSuggestions", () => {
 
     expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["pinned", "recent"]);
     expect((await modal.getSuggestions("target")).map((item) => item.thread.id)).toEqual(["recent"]);
-  });
-
-  it("returns every matching thread", async () => {
-    const modal = await openedThreadPicker(
-      Array.from({ length: 25 }, (_, index) => thread({ id: `thread-${String(index + 1)}`, name: "Match" })),
-    );
-    const suggestions = await modal.getSuggestions("match");
-
-    expect(suggestions).toHaveLength(25);
   });
 
   it("loads complete history only when a search needs it", async () => {

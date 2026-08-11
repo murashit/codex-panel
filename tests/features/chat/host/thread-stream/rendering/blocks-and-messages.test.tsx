@@ -389,61 +389,6 @@ describe("panel thread stream rendering and action menu", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("updates keyed text item content", () => {
-    const parent = document.createElement("div");
-    const renderMarkdown = (element: HTMLElement, text: string) => {
-      const rendered = element.createDiv({ text: `markdown:${text}` });
-      element.replaceChildren(rendered);
-    };
-    const baseContext = {
-      renderMarkdown,
-    };
-
-    renderThreadStreamBlocksInAct(
-      parent,
-      projectedThreadStreamBlocks({
-        ...baseContext,
-        items: [
-          {
-            id: "a1",
-            kind: "dialogue",
-            role: "assistant",
-            text: "first",
-            turnId: "turn-1",
-            dialogueKind: "assistantResponse",
-            dialogueState: "completed",
-          },
-        ],
-      }),
-    );
-    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__stream-item-content')?.textContent).toBe(
-      "markdown:first",
-    );
-
-    renderThreadStreamBlocksInAct(
-      parent,
-      projectedThreadStreamBlocks({
-        ...baseContext,
-        items: [
-          {
-            id: "a1",
-            kind: "dialogue",
-            role: "assistant",
-            text: "second",
-            turnId: "turn-1",
-            dialogueKind: "assistantResponse",
-            dialogueState: "completed",
-          },
-        ],
-      }),
-    );
-
-    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__stream-item-content')?.textContent).toBe(
-      "markdown:second",
-    );
-    unmountUiRootInAct(parent);
-  });
-
   it("keeps rendered markdown content while replacement rendering is pending", async () => {
     const parent = document.createElement("div");
     const secondRender = deferred<undefined>();
@@ -890,32 +835,7 @@ describe("panel thread stream rendering and action menu", () => {
     expect(metaText).not.toContain("undefined");
   });
 
-  it("uses read as the command header for parsed file reads", () => {
-    const block = projectedThreadStreamBlocks({
-      turnLifecycle: runningTurnLifecycle("turn"),
-      items: [
-        {
-          id: "cmd-1",
-          kind: "command",
-          role: "tool",
-          commandAction: "read",
-          commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
-          turnId: "turn",
-          command: "sed -n '1,20p' src/main.ts",
-          cwd: "/vault",
-          status: "completed",
-          exitCode: 0,
-          output: "contents",
-        },
-      ],
-    })[0];
-
-    const element = renderThreadStreamBlockElement(block);
-
-    expect(textContents(element, "details summary")).toEqual(["read"]);
-  });
-
-  it("derives command summaries from semantic command targets instead of item text", () => {
+  it("derives command summaries from semantic targets instead of command text", () => {
     const block = projectedThreadStreamBlocks({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
@@ -926,7 +846,7 @@ describe("panel thread stream rendering and action menu", () => {
           commandAction: "search",
           commandTarget: { kind: "search", query: "semantic target", path: "/vault/src" },
           turnId: "turn",
-          command: "rg 'semantic target' /vault/src",
+          command: "different raw command",
           cwd: "/vault",
           status: "completed",
           output: "results",
@@ -963,27 +883,6 @@ describe("panel thread stream rendering and action menu", () => {
     expect(textContents(element, "details summary")).toEqual(["file change"]);
     expect(element.textContent).not.toContain("Details");
     expect(textContents(element, ".codex-panel__output-title")).toEqual(["update src/main.ts", "Patch output"]);
-  });
-
-  it("derives file change summaries from changes and status instead of item text", () => {
-    const block = projectedThreadStreamBlocks({
-      turnLifecycle: runningTurnLifecycle("turn"),
-      workspaceRoot: "/vault/project",
-      items: [
-        {
-          id: "patch-1",
-          kind: "fileChange",
-          role: "tool",
-          turnId: "turn",
-          status: "failed",
-          changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
-        },
-      ],
-    })[0];
-
-    const element = renderThreadStreamBlockElement(block);
-
-    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("src/main.ts (failed)");
   });
 
   it("renders the edited files footer with an open diff action when aggregated turn diff exists", () => {

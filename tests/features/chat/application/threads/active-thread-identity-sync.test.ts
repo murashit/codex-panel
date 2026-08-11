@@ -28,112 +28,67 @@ function createIdentitySyncHarness() {
 }
 
 describe("createActiveThreadIdentitySync", () => {
-  it("clears active thread identity as a complete archive transaction", () => {
+  it.each(["active", "awaiting-resume"] as const)("clears an %s thread identity as a complete archive transaction", (phase) => {
     const { sync, host, stateStore } = createIdentitySyncHarness();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
+    if (phase === "active") activateThread(stateStore);
+    else stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: "Restored" });
 
     sync.applyThreadUnavailableToActiveIdentity("thread");
 
     expect(activeThreadId(stateStore.getState())).toBeNull();
+    expect(stateStore.getState().panelThread.kind).toBe("empty");
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
   });
 
-  it("ignores archive notifications for non-active threads without identity side effects", () => {
+  it("ignores unavailable and rename notifications for unrelated threads", () => {
     const { sync, host, stateStore } = createIdentitySyncHarness();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("active"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
+    activateThread(stateStore, "active");
 
     sync.applyThreadUnavailableToActiveIdentity("other");
+    sync.applyThreadRenameToActiveIdentity("other", "New");
 
     expect(activeThreadId(stateStore.getState())).toBe("active");
+    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(host.invalidateThreadWork).not.toHaveBeenCalled();
     expect(host.resetThreadTurnPresence).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
   });
 
-  it("clears pending restored thread identity when that thread is archived", () => {
+  it.each(["active", "awaiting-resume"] as const)("routes %s thread renames through active identity refresh", (phase) => {
     const { sync, host, stateStore } = createIdentitySyncHarness();
-    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: "Restored" });
-
-    sync.applyThreadUnavailableToActiveIdentity("thread");
-
-    expect(activeThreadId(stateStore.getState())).toBeNull();
-    expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
-    expect(stateStore.getState().panelThread.kind).toBe("empty");
-    expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
-    expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
-  });
-
-  it("routes active thread rename notifications through active identity refresh", () => {
-    const { sync, host, stateStore } = createIdentitySyncHarness();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread", "Old"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
+    if (phase === "active") activateThread(stateStore, "thread", "Old");
+    else stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: "Old" });
 
     sync.applyThreadRenameToActiveIdentity("thread", "New");
 
+    const panelThread = stateStore.getState().panelThread;
+    if (panelThread.kind === "awaiting-resume") {
+      expect(panelThread).toEqual({
+        kind: "awaiting-resume",
+        threadId: "thread",
+        fallbackTitle: "New",
+        provenance: null,
+      });
+    }
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
-  });
-
-  it("routes pending restored thread rename notifications through active identity refresh", () => {
-    const { sync, host, stateStore } = createIdentitySyncHarness();
-    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: "Old" });
-
-    sync.applyThreadRenameToActiveIdentity("thread", "New");
-
-    expect(stateStore.getState().panelThread).toEqual({
-      kind: "awaiting-resume",
-      threadId: "thread",
-      fallbackTitle: "New",
-      provenance: null,
-    });
-    expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
-  });
-
-  it("ignores rename notifications for inactive and unrestored threads without identity side effects", () => {
-    const { sync, host, stateStore } = createIdentitySyncHarness();
-
-    sync.applyThreadRenameToActiveIdentity("other", "New");
-
-    expect(stateStore.getState()).not.toHaveProperty("threadList");
-    expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
   });
 });
+
+function activateThread(stateStore: ReturnType<typeof createChatStateStore>, id = "thread", name: string | null = null): void {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: thread(id, name),
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
+}

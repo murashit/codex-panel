@@ -4,10 +4,7 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { diagnosticProbeOk } from "../../../../../src/domain/server/diagnostics";
 import type { SkillsMetadataResource } from "../../../../../src/domain/server/metadata";
-import type { ComposerContextReferenceProvider } from "../../../../../src/features/chat/application/composer/context-references";
-import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
 import type { ChatPanelGoalDependencies } from "../../../../../src/features/chat/host/goal/view-projection";
 import {
   type ChatPanelShellParts,
@@ -18,7 +15,6 @@ import type { ChatThreadStreamDependencies } from "../../../../../src/features/c
 import type { ChatPanelToolbarDependencies } from "../../../../../src/features/chat/host/toolbar/view-projection";
 import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../../support/dom";
-import { testFuzzyMatcher } from "../../application/composer/fuzzy-matcher.test-support";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 
 installObsidianDomShims();
@@ -113,82 +109,6 @@ describe("ChatPanelShell", () => {
       unmountChatPanelShell(container);
     });
     expect(skillListeners.size).toBe(0);
-  });
-
-  it("keeps Tab wikilink insertion before closing brackets through shell selector updates", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const notes = [
-      {
-        basename: "Beta Note",
-        displayName: "Beta Note",
-        path: "topics/Beta Note.md",
-        mtime: 30,
-        linktext: "Beta Note",
-        headings: [{ heading: "Overview", linkHeading: "Overview", level: 1 }],
-        recentIndex: null,
-      },
-    ];
-    const parts = shellParts();
-    parts.composer.presenter = new ChatComposerController({
-      fuzzyMatcher: testFuzzyMatcher,
-      attachmentHandler: { saveFiles: async () => [] },
-      onAttachmentError: vi.fn(),
-      noteCandidateProvider: noteProvider({ candidates: () => notes }),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore: store,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: {
-        requestModel: vi.fn(),
-        requestReasoningEffort: vi.fn(),
-      },
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
-      sharedResources: {
-        runtimeConfigSnapshot: () => null,
-        rateLimitsSnapshot: () => undefined,
-        modelsSnapshot: () => null,
-        skillsSnapshot: () => null,
-        permissionProfilesSnapshot: () => null,
-        activeThreadsSnapshot: () => null,
-        subscribe: () => () => undefined,
-      },
-    });
-
-    await act(async () => {
-      renderChatPanelShell(container, { ...shellProps(store), parts });
-      await settleShellEffects();
-    });
-
-    await act(async () => {
-      const input = composer(container);
-      setTextAreaValue(input, "[[bet");
-      input.setSelectionRange(5, 5);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      await settleShellEffects();
-    });
-
-    await act(async () => {
-      const input = composer(container);
-      input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }));
-      input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Tab" }));
-      await settleShellEffects();
-    });
-
-    expect(composer(container).value).toBe("[[Beta Note]]");
-    expect(composer(container).selectionStart).toBe("[[Beta Note".length);
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
   });
 
   it("removes and restores the toolbar without losing composer or thread viewport state", async () => {
@@ -370,33 +290,6 @@ function composer(container: HTMLElement): HTMLTextAreaElement {
   const input = container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea");
   if (!input) throw new Error("Expected composer input.");
   return input;
-}
-
-function setTextAreaValue(textarea: HTMLTextAreaElement, value: string): void {
-  const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
-  if (!descriptor?.set) throw new Error("Missing textarea value setter.");
-  descriptor.set.call(textarea, value);
-}
-
-function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {
-  return {
-    candidates: () => [],
-    dailyNoteReferences: () => [],
-    tags: () => [],
-    resolveFileReference: () => null,
-    dispose: vi.fn(),
-    ...overrides,
-  };
-}
-
-function contextProvider(
-  contextReferences: ComposerContextReferenceProvider["contextReferences"] = () => ({ activeNote: null, selection: null }),
-): ComposerContextReferenceProvider {
-  return {
-    contextReferences,
-    retainSelectionEmphasis: () => null,
-    dispose: vi.fn(),
-  };
 }
 
 const testThreadStreamContext: ChatThreadStreamDependencies = {

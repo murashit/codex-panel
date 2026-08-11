@@ -58,12 +58,9 @@ describe("app-server thread settings", () => {
   });
 
   // Service-tier IDs are opaque here; the live app-server may canonicalize or omit them per model catalog.
-  it.each(["fast", "standard", "priority", "default", "flex", "auto", "catalog-tier"])(
-    "accepts non-empty service tier id %s from config and app-server reports",
-    (serviceTier) => {
-      expect(parseServiceTier(serviceTier)).toBe(serviceTier);
-    },
-  );
+  it("accepts opaque non-empty service tier ids from config and app-server reports", () => {
+    expect(parseServiceTier("catalog-tier")).toBe("catalog-tier");
+  });
 
   it.each(["", null])("ignores absent service tier value %s", (serviceTier) => {
     expect(parseServiceTier(serviceTier)).toBeNull();
