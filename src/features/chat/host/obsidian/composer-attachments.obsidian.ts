@@ -7,7 +7,7 @@ import {
   vaultRelativeFolderPath,
   withVaultWriteLock,
 } from "../../../../domain/vault/write-paths";
-import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/model";
+import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/preferences";
 import { createObsidianVaultPathDestination } from "../../../../shared/obsidian/vault-write-destination.obsidian";
 import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
 

@@ -5,7 +5,7 @@ import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/c
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost } from "../src/features/threads-view/session";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
-import { DEFAULT_SETTINGS } from "../src/settings/model";
+import { DEFAULT_SETTINGS } from "../src/settings/preferences";
 
 const { contextConnectionMock, openThreadPickerMock, runEphemeralStructuredTurnMock } = vi.hoisted(() => ({
   contextConnectionMock: {

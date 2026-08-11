@@ -1,7 +1,7 @@
-import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
-import type { Thread } from "../domain/threads/model";
+import type { HookItem, ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
+import type { Thread } from "../../domain/threads/model";
 
-export interface HelperSettingsState {
+export interface PanelHelpersViewModel {
   threadNamingModel: string | null;
   threadNamingEffort: ReasoningEffort | null;
   rewriteSelectionModel: string | null;
@@ -15,7 +15,7 @@ export interface HelperSettingsState {
   onRewriteSelectionEffortChange: (value: ReasoningEffort | null) => void;
 }
 
-export interface ArchivedThreadSectionState {
+export interface ArchivedThreadsViewModel {
   exportEnabled: boolean;
   exportFolderTemplate: string;
   exportFilenameTemplate: string;
@@ -35,7 +35,7 @@ export interface ArchivedThreadSectionState {
   onDelete: (threadId: string) => void;
 }
 
-export interface HookSectionState {
+export interface CodexHooksViewModel {
   hooks: readonly HookItem[];
   warnings: readonly string[];
   errors: readonly string[];
@@ -47,8 +47,8 @@ export interface HookSectionState {
   onToggleEnabled: (hook: HookItem, enabled: boolean) => void;
 }
 
-export interface SettingsSectionsState {
-  helper: HelperSettingsState;
-  archived: ArchivedThreadSectionState;
-  hooks: HookSectionState;
+export interface SettingsViewModel {
+  helper: PanelHelpersViewModel;
+  archived: ArchivedThreadsViewModel;
+  hooks: CodexHooksViewModel;
 }

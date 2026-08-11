@@ -10,7 +10,7 @@ import type { CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import { createThreadGoalCoordinator } from "../../src/features/threads/workflows/thread-goal-coordinator";
 import type CodexPanelPlugin from "../../src/main";
-import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../src/shared/async/keyed-operation-coordinator";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
 import { threadMutationCommandsMock } from "./thread-mutations";

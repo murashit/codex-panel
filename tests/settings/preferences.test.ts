@@ -1,15 +1,8 @@
-import { type App, FileSystemAdapter } from "obsidian";
 import { describe, expect, it } from "vitest";
 
-import {
-  type CodexPanelSettings,
-  DEFAULT_SETTINGS,
-  getVaultPath,
-  normalizeSettings,
-  settingsMatchStoredSettings,
-} from "../../src/settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS, normalizeSettings, settingsMatchStoredSettings } from "../../src/settings/preferences";
 
-describe("settings", () => {
+describe("settings preferences", () => {
   it("normalizes empty settings", () => {
     expect(normalizeSettings(null)).toEqual(DEFAULT_SETTINGS);
   });
@@ -153,16 +146,6 @@ describe("settings", () => {
     });
     expect(normalizeSettings({ archiveExportFolderTemplate: 1 }).archiveExportFolderTemplate).toBe(
       DEFAULT_SETTINGS.archiveExportFolderTemplate,
-    );
-  });
-
-  it("requires a desktop filesystem vault path", () => {
-    const adapter = Object.create(FileSystemAdapter.prototype) as FileSystemAdapter;
-    Object.defineProperty(adapter, "getBasePath", { value: () => "/vault" });
-
-    expect(getVaultPath({ vault: { adapter } } as unknown as App)).toBe("/vault");
-    expect(() => getVaultPath({ vault: { adapter: {} } } as unknown as App)).toThrow(
-      "This plugin requires a desktop vault with a local basePath.",
     );
   });
 });

@@ -1,15 +1,15 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { DEFAULT_CODEX_PATH } from "../constants";
-import type { SendShortcut } from "../domain/input/send-shortcut";
-import { IconButton } from "../shared/ui/icon.dom";
-import { ArchivedThreadSection } from "./archived-section";
+import { DEFAULT_CODEX_PATH } from "../../constants";
+import type { SendShortcut } from "../../domain/input/send-shortcut";
+import { IconButton } from "../../shared/ui/icon.dom";
+import { DEFAULT_ATTACHMENT_FOLDER } from "../preferences";
+import { ArchivedThreadsSection } from "./archived-threads";
+import { CodexHooksSection } from "./codex-hooks";
 import { ObsidianCommitTextInput, ObsidianDropdown, ObsidianToggle } from "./controls.obsidian";
-import { HelperSettingsSection } from "./helper-section";
-import { HookSection } from "./hook-section";
-import { DEFAULT_ATTACHMENT_FOLDER } from "./model";
-import type { SettingsSectionsState } from "./section-state";
-import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
+import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./layout";
+import { PanelHelpersSection } from "./panel-helpers";
+import type { SettingsViewModel } from "./view-model";
 
 const SEND_SHORTCUT_LABELS = {
   enter: "Enter",
@@ -20,7 +20,7 @@ const SEND_SHORTCUT_OPTIONS: { value: SendShortcut; label: string }[] = [
   { value: "mod-enter", label: SEND_SHORTCUT_LABELS["mod-enter"] },
 ];
 
-interface SettingsTabPanelState {
+interface LegacySettingsPanelState {
   codexPath: string;
   showToolbar: boolean;
   sendShortcut: SendShortcut;
@@ -29,8 +29,8 @@ interface SettingsTabPanelState {
   attachmentFolder: string;
 }
 
-interface SettingsTabShellActions {
-  refreshDynamicSections: () => void;
+interface LegacySettingsActions {
+  refreshResources: () => void;
   setCodexPath: (value: string) => void;
   setShowToolbar: (value: boolean) => void;
   setSendShortcut: (value: SendShortcut) => void;
@@ -39,23 +39,23 @@ interface SettingsTabShellActions {
   setAttachmentFolder: (value: string) => void;
 }
 
-interface SettingsTabShellProps {
+interface LegacySettingsViewProps {
   introText: string;
-  dynamicSectionsRefreshDisabled: boolean;
-  panel: SettingsTabPanelState;
-  sections: SettingsSectionsState;
-  actions: SettingsTabShellActions;
+  resourcesRefreshDisabled: boolean;
+  panel: LegacySettingsPanelState;
+  viewModel: SettingsViewModel;
+  actions: LegacySettingsActions;
 }
 
-export function SettingsTabShell({ introText, dynamicSectionsRefreshDisabled, panel, sections, actions }: SettingsTabShellProps): UiNode {
+export function LegacySettingsView({ introText, resourcesRefreshDisabled, panel, viewModel, actions }: LegacySettingsViewProps): UiNode {
   return (
     <>
-      <SettingsHeader introText={introText} refreshDisabled={dynamicSectionsRefreshDisabled} onRefresh={actions.refreshDynamicSections} />
+      <SettingsHeader introText={introText} refreshDisabled={resourcesRefreshDisabled} onRefresh={actions.refreshResources} />
       <GeneralSettingsSection panel={panel} actions={actions} />
-      <HelperSettingsSection state={sections.helper} />
+      <PanelHelpersSection state={viewModel.helper} />
       <ComposerSettingsSection panel={panel} actions={actions} />
-      <ArchivedThreadSection state={sections.archived} />
-      <HookSection state={sections.hooks} />
+      <ArchivedThreadsSection state={viewModel.archived} />
+      <CodexHooksSection state={viewModel.hooks} />
     </>
   );
 }
@@ -87,7 +87,7 @@ function SettingsHeader({
   );
 }
 
-function GeneralSettingsSection({ panel, actions }: { panel: SettingsTabPanelState; actions: SettingsTabShellActions }): UiNode {
+function GeneralSettingsSection({ panel, actions }: { panel: LegacySettingsPanelState; actions: LegacySettingsActions }): UiNode {
   return (
     <SettingsGroup className="codex-panel-settings__section codex-panel-settings__general-section">
       <SettingsItems>
@@ -110,7 +110,7 @@ function GeneralSettingsSection({ panel, actions }: { panel: SettingsTabPanelSta
   );
 }
 
-function ComposerSettingsSection({ panel, actions }: { panel: SettingsTabPanelState; actions: SettingsTabShellActions }): UiNode {
+function ComposerSettingsSection({ panel, actions }: { panel: LegacySettingsPanelState; actions: LegacySettingsActions }): UiNode {
   return (
     <SettingsGroup className="codex-panel-settings__section codex-panel-settings__composer-section">
       <SettingsHeading name="Composer" />

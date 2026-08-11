@@ -15,9 +15,9 @@ import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView, type ThreadsRuntimeView, type ThreadsViewRuntimeOwner } from "./features/threads-view/view.obsidian";
 import type { TurnDiffViewState } from "./features/turn-diff/model";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
-import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
-import type { CodexPanelSettingTabHost } from "./settings/host";
-import type { CodexPanelSettings } from "./settings/model";
+import type { SettingsResources } from "./settings/application/resources";
+import type { SettingsTabHost } from "./settings/host/contracts";
+import type { CodexPanelSettings } from "./settings/preferences";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 
 interface CodexPanelRuntimeSettingsRef {
@@ -118,20 +118,20 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     };
   }
 
-  settingTabHost(): CodexPanelSettingTabHost {
+  settingTabHost(): SettingsTabHost {
     return {
       settings: this.options.settingsRef.settings,
-      dynamicData: this.currentExecutionRuntime().settingsDynamicData,
+      resources: this.currentExecutionRuntime().settingsResources,
       publishSettings: (settings) => this.publishSettings(settings),
     };
   }
 
-  private async publishSettings(settings: CodexPanelSettings): Promise<{ replacementDynamicData: SettingsDynamicDataAccess | null }> {
+  private async publishSettings(settings: CodexPanelSettings): Promise<{ replacementResources: SettingsResources | null }> {
     const previousSettings = { ...this.options.settingsRef.settings };
     const previousRuntime = this.executionRuntime;
     await this.options.saveSettings(settings);
     const codexPathChanged = previousSettings.codexPath !== settings.codexPath;
-    let replacementDynamicData: SettingsDynamicDataAccess | null = null;
+    let replacementResources: SettingsResources | null = null;
     if (codexPathChanged) {
       if (!previousRuntime || this.executionRuntime !== previousRuntime) {
         throw new Error("Codex execution runtime reset while replacing the execution runtime.");
@@ -144,7 +144,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       const nextRuntime = this.createExecutionRuntime(settings.codexPath);
       this.executionRuntime = nextRuntime;
       this.reattachWorkspaceViews(nextRuntime);
-      replacementDynamicData = nextRuntime.settingsDynamicData;
+      replacementResources = nextRuntime.settingsResources;
     } else {
       Object.assign(this.options.settingsRef.settings, settings);
     }
@@ -152,7 +152,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       this.refreshChatViewSettings();
     }
     if (previousSettings.archiveExportEnabled !== settings.archiveExportEnabled) this.refreshThreadsViewSettings();
-    return { replacementDynamicData };
+    return { replacementResources };
   }
 
   private async openTurnDiff(state: TurnDiffViewState): Promise<void> {

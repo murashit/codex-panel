@@ -30,9 +30,8 @@ import {
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
-import { createSettingsAppServerDynamicData } from "./settings/app-server-dynamic-data";
-import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
-import type { CodexPanelSettings } from "./settings/model";
+import { createSettingsResources, type SettingsResources } from "./settings/application/resources";
+import type { CodexPanelSettings } from "./settings/preferences";
 import { createKeyedOperationCoordinator } from "./shared/async/keyed-operation-coordinator";
 import { createObsidianVaultMarkdownDestination } from "./shared/obsidian/vault-write-destination.obsidian";
 
@@ -60,7 +59,7 @@ export class CodexExecutionRuntime {
   private readonly threadReplacementPublication: ThreadReplacementPublicationOwner;
   private readonly threadMutations: ThreadMutationCommands;
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
-  readonly settingsDynamicData: SettingsDynamicDataAccess;
+  readonly settingsResources: SettingsResources;
   private readonly threadGoalCoordinator = createThreadGoalCoordinator();
   private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
   private readonly structuredTurnClients = new Set<EphemeralStructuredTurnClient>();
@@ -114,7 +113,7 @@ export class CodexExecutionRuntime {
       titlePort: this.threadTitlePort(),
       mutations: this.threadMutations,
     });
-    this.settingsDynamicData = createSettingsAppServerDynamicData({
+    this.settingsResources = createSettingsResources({
       vaultPath: this.context.vaultPath,
       clientAccess: this.appServerConnection,
       appServerQueries: this.appServerQueries,

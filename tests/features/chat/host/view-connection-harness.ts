@@ -17,7 +17,7 @@ import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../..
 import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import { createThreadGoalCoordinator } from "../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
-import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../../../src/shared/async/keyed-operation-coordinator";
 import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/shared/async/observed-result";
 import { notices } from "../../../mocks/obsidian";

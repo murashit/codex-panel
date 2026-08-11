@@ -58,7 +58,7 @@ const policyCases = [
       invalid: [
         {
           path: "src/app-server/services/escape.ts",
-          source: 'export const loadSettings = () => import("../../settings/model");',
+          source: 'export const loadSettings = () => import("../../settings/preferences");',
         },
       ],
       valid: [

@@ -2,13 +2,13 @@
 
 import { Setting } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
-import type { DeclarativeSettingDefinition, DeclarativeSettingDefinitionItem } from "../../src/settings/declarative-settings.compat";
-import { DEFAULT_SETTINGS } from "../../src/settings/model";
-import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
-import { notices } from "../mocks/obsidian";
-import { deferred } from "../support/async";
-import { installObsidianDomShims } from "../support/dom";
+import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
+import type { DeclarativeSettingDefinition, DeclarativeSettingDefinitionItem } from "../../../src/settings/host/declarative-api.compat";
+import { CodexPanelSettingTab } from "../../../src/settings/host/tab.obsidian";
+import { DEFAULT_SETTINGS } from "../../../src/settings/preferences";
+import { notices } from "../../mocks/obsidian";
+import { deferred } from "../../support/async";
+import { installObsidianDomShims } from "../../support/dom";
 import {
   expectRequestTimes,
   flushPromises,
@@ -21,7 +21,7 @@ import {
   settingsClient,
   settingsTabHost,
   useContextClients,
-} from "./test-support";
+} from "../test-support";
 
 installObsidianDomShims();
 
@@ -29,7 +29,7 @@ const { contextConnectionClientMock } = vi.hoisted(() => ({
   contextConnectionClientMock: vi.fn(),
 }));
 
-vi.mock("../../src/app-server/connection/context-connection", () => ({
+vi.mock("../../../src/app-server/connection/context-connection", () => ({
   AppServerContextConnection: class {
     constructor(
       private readonly codexPath: string,
@@ -165,7 +165,7 @@ describe("settings tab", () => {
     expect(input.value).toBe("{{date}} {{title}}.md");
   });
 
-  it("restores a thread through the declarative archived-section callback", async () => {
+  it("restores a thread through the declarative archived threads callback", async () => {
     const client = settingsClient();
     useContextClients(client);
     const tab = newSettingsTab({

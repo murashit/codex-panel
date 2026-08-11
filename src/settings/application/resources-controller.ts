@@ -1,70 +1,69 @@
-import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
-import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
-import type { Thread } from "../domain/threads/model";
-import { threadCommandDisplayTitle } from "../domain/threads/title";
-import type { ObservedResult } from "../shared/async/observed-result";
-import { OwnerLifetime } from "../shared/async/owner-lifetime";
-import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
-import type { SettingsDynamicSectionsHost } from "./host";
+import type { HookItem, ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
+import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../domain/catalog/metadata";
+import type { Thread } from "../../domain/threads/model";
+import { threadCommandDisplayTitle } from "../../domain/threads/title";
+import type { ObservedResult } from "../../shared/async/observed-result";
+import { OwnerLifetime } from "../../shared/async/owner-lifetime";
+import type { SettingsHookCatalog, SettingsResources } from "./resources";
 
-interface SettingsDynamicSectionsControllerCallbacks {
+interface SettingsResourcesControllerCallbacks {
   display(): void;
   notify(message: string): void;
 }
 
-type SettingsDynamicSectionLifecycleState =
+type SettingsResourceLifecycleState =
   | { kind: "idle"; status: "" }
   | { kind: "loading"; status: string }
   | { kind: "loaded"; status: string }
   | { kind: "failed"; status: string };
 
-type SettingsDynamicSectionLifecycleKey = "modelsLifecycle" | "hooksLifecycle" | "archivedThreadsLifecycle";
+type SettingsResourceLifecycleKey = "modelsLifecycle" | "hooksLifecycle" | "archivedThreadsLifecycle";
 
-interface SettingsDynamicSectionRefreshSpec<T> {
-  lifecycle: SettingsDynamicSectionLifecycleKey;
+interface SettingsResourceRefreshSpec<T> {
+  lifecycle: SettingsResourceLifecycleKey;
   loadingStatus: string;
-  load: (dynamicData: SettingsDynamicDataAccess) => Promise<T>;
+  load: (resources: SettingsResources) => Promise<T>;
   commit: (value: T) => string;
   failureStatus: (error: unknown) => string;
 }
 
-interface SettingsDynamicSectionsSnapshot {
+interface SettingsResourcesSnapshot {
   archivedThreads: readonly Thread[];
-  archivedThreadsLifecycle: SettingsDynamicSectionLifecycleState;
+  archivedThreadsLifecycle: SettingsResourceLifecycleState;
   archivedThreadsLoaded: boolean;
   hooks: readonly HookItem[];
   hookWarnings: readonly string[];
   hookErrors: readonly string[];
-  hooksLifecycle: SettingsDynamicSectionLifecycleState;
+  hooksLifecycle: SettingsResourceLifecycleState;
   hooksLoaded: boolean;
   models: readonly ModelMetadata[];
-  modelsLifecycle: SettingsDynamicSectionLifecycleState;
+  modelsLifecycle: SettingsResourceLifecycleState;
 }
 
-export class SettingsDynamicSectionsController {
+export class SettingsResourcesController {
   private readonly lifetime = new OwnerLifetime();
-  private dynamicSectionsAutoLoadStarted = false;
+  private autoLoadStarted = false;
   private hookMutationOperation: object | null = null;
 
   private archivedThreads: Thread[] = [];
   private archivedThreadsLoaded = false;
-  private archivedThreadsLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
+  private archivedThreadsLifecycle: SettingsResourceLifecycleState = createSettingsResourceLifecycle();
   private hooks: HookItem[] = [];
   private hookWarnings: string[] = [];
   private hookErrors: string[] = [];
   private hooksLoaded = false;
-  private hooksLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
+  private hooksLifecycle: SettingsResourceLifecycleState = createSettingsResourceLifecycle();
   private models: ModelMetadata[] = [];
-  private modelsLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
+  private modelsLifecycle: SettingsResourceLifecycleState = createSettingsResourceLifecycle();
   private unsubscribeModels: (() => void) | null = null;
   private unsubscribeArchivedThreads: (() => void) | null = null;
-  private dynamicData: SettingsDynamicDataAccess;
+  private resources: SettingsResources;
 
   constructor(
-    private readonly host: SettingsDynamicSectionsHost,
-    private readonly callbacks: SettingsDynamicSectionsControllerCallbacks,
+    resources: SettingsResources,
+    private readonly callbacks: SettingsResourcesControllerCallbacks,
   ) {
-    this.dynamicData = host.dynamicData;
+    this.resources = resources;
   }
 
   activate(): void {
@@ -74,69 +73,69 @@ export class SettingsDynamicSectionsController {
     this.subscribe();
   }
 
-  replaceDynamicData(next: SettingsDynamicDataAccess): void {
-    if (next === this.dynamicData) return;
+  replaceResources(next: SettingsResources): void {
+    if (next === this.resources) return;
     this.unsubscribe();
     this.hookMutationOperation = null;
-    this.dynamicData = next;
-    this.dynamicSectionsAutoLoadStarted = false;
-    this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
+    this.resources = next;
+    this.autoLoadStarted = false;
+    this.modelsLifecycle = createSettingsResourceLifecycle();
     this.hooks = [];
     this.hookWarnings = [];
     this.hookErrors = [];
     this.hooksLoaded = false;
-    this.hooksLifecycle = createSettingsDynamicSectionLifecycle();
+    this.hooksLifecycle = createSettingsResourceLifecycle();
     this.archivedThreads = [];
     this.archivedThreadsLoaded = false;
-    this.archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
+    this.archivedThreadsLifecycle = createSettingsResourceLifecycle();
     this.loadSnapshots();
     if (this.lifetime.isActive()) this.subscribe();
   }
 
   private loadSnapshots(): void {
-    this.models = [...(this.dynamicData.modelsSnapshot() ?? [])];
-    const archivedThreads = this.dynamicData.archivedThreadsSnapshot();
+    this.models = [...(this.resources.modelsSnapshot() ?? [])];
+    const archivedThreads = this.resources.archivedThreadsSnapshot();
     if (archivedThreads) {
       this.archivedThreads = [...archivedThreads];
       this.archivedThreadsLoaded = true;
-      this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(archivedThreadsStatus(archivedThreads.length));
+      this.archivedThreadsLifecycle = settingsResourceLoaded(archivedThreadsStatus(archivedThreads.length));
     }
   }
 
   private subscribe(): void {
-    const dynamicData = this.dynamicData;
-    this.unsubscribeModels = dynamicData.observeModels(
+    const resources = this.resources;
+    this.unsubscribeModels = resources.observeModels(
       (models) => {
-        if (!this.dynamicDataIsCurrent(dynamicData)) return;
+        if (!this.resourcesAreCurrent(resources)) return;
         this.models = [...models];
         this.callbacks.display();
       },
       { emitCurrent: false },
     );
-    this.unsubscribeArchivedThreads = dynamicData.observeArchivedThreadsResult(
+    this.unsubscribeArchivedThreads = resources.observeArchivedThreadsResult(
       (result) => {
-        if (!this.dynamicDataIsCurrent(dynamicData)) return;
+        if (!this.resourcesAreCurrent(resources)) return;
         this.receiveObservedArchivedThreadsResult(result);
       },
       { emitCurrent: false },
     );
   }
 
-  maybeAutoLoadDynamicSections(): void {
-    if (this.dynamicSectionsAutoLoadStarted) return;
-    this.dynamicSectionsAutoLoadStarted = true;
-    void this.refreshDynamicSections({ forceModels: false });
+  maybeAutoLoad(): void {
+    if (this.autoLoadStarted) return;
+    this.autoLoadStarted = true;
+    void this.refresh({ forceModels: false });
   }
 
   dispose(): void {
     this.lifetime.dispose();
-    this.dynamicSectionsAutoLoadStarted = false;
-    if (this.modelsLifecycle.kind === "loading") this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
+    this.autoLoadStarted = false;
+    if (this.modelsLifecycle.kind === "loading") this.modelsLifecycle = createSettingsResourceLifecycle();
     if (!this.hookMutationOperation && this.hooksLifecycle.kind === "loading") {
-      this.hooksLifecycle = createSettingsDynamicSectionLifecycle();
+      this.hooksLifecycle = createSettingsResourceLifecycle();
     }
     if (this.archivedThreadsLifecycle.kind === "loading") {
-      this.archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
+      this.archivedThreadsLifecycle = createSettingsResourceLifecycle();
     }
     this.unsubscribe();
   }
@@ -147,7 +146,7 @@ export class SettingsDynamicSectionsController {
     this.archivedThreads = [...observedThreads];
     this.archivedThreadsLoaded = true;
     if (this.archivedThreadsLifecycle.kind !== "loading") {
-      this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(archivedThreadsStatus(observedThreads.length));
+      this.archivedThreadsLifecycle = settingsResourceLoaded(archivedThreadsStatus(observedThreads.length));
     }
     this.callbacks.display();
   }
@@ -158,14 +157,14 @@ export class SettingsDynamicSectionsController {
     this.hookErrors = [...snapshot.errors];
     this.hooksLoaded = true;
     if (this.hooksLifecycle.kind !== "loading") {
-      this.hooksLifecycle = settingsDynamicSectionLoaded(snapshot.status);
+      this.hooksLifecycle = settingsResourceLoaded(snapshot.status);
     }
   }
 
-  async refreshDynamicSections(options: { forceModels?: boolean } = {}): Promise<void> {
+  async refresh(options: { forceModels?: boolean } = {}): Promise<void> {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime)) return;
-    this.dynamicSectionsAutoLoadStarted = true;
+    this.autoLoadStarted = true;
     let failureNotified = false;
     const notifyFailure = (): void => {
       if (failureNotified || !this.lifetime.isCurrent(lifetime)) return;
@@ -173,11 +172,11 @@ export class SettingsDynamicSectionsController {
       this.callbacks.notify("Could not refresh all Codex details.");
     };
     await Promise.all([
-      this.refreshSection(
+      this.refreshResource(
         {
           lifecycle: "modelsLifecycle",
           loadingStatus: "Loading models...",
-          load: (dynamicData) => (options.forceModels === false ? dynamicData.fetchModels() : dynamicData.refreshModels()),
+          load: (resources) => (options.forceModels === false ? resources.fetchModels() : resources.refreshModels()),
           commit: (models) => {
             this.models = [...models];
             return `Loaded ${String(models.length)} model${models.length === 1 ? "" : "s"}.`;
@@ -186,11 +185,11 @@ export class SettingsDynamicSectionsController {
         },
         notifyFailure,
       ),
-      this.refreshSection(
+      this.refreshResource(
         {
           lifecycle: "hooksLifecycle",
           loadingStatus: "Loading hooks...",
-          load: (dynamicData) => dynamicData.refreshHooks(),
+          load: (resources) => resources.refreshHooks(),
           commit: (catalog) => {
             this.receiveHookCatalog(catalog);
             return catalog.status;
@@ -199,11 +198,11 @@ export class SettingsDynamicSectionsController {
         },
         notifyFailure,
       ),
-      this.refreshSection(
+      this.refreshResource(
         {
           lifecycle: "archivedThreadsLifecycle",
           loadingStatus: "Loading archived threads...",
-          load: (dynamicData) => dynamicData.refreshArchivedThreads(),
+          load: (resources) => resources.refreshArchivedThreads(),
           commit: (archivedThreads) => {
             this.archivedThreads = [...archivedThreads];
             this.archivedThreadsLoaded = true;
@@ -216,13 +215,13 @@ export class SettingsDynamicSectionsController {
     ]);
   }
 
-  canRefreshDynamicSections(): boolean {
+  canRefresh(): boolean {
     return (
       this.modelsLifecycle.kind !== "loading" || this.hooksLifecycle.kind !== "loading" || this.archivedThreadsLifecycle.kind !== "loading"
     );
   }
 
-  snapshot(): SettingsDynamicSectionsSnapshot {
+  snapshot(): SettingsResourcesSnapshot {
     return {
       archivedThreads: [...this.archivedThreads],
       archivedThreadsLifecycle: { ...this.archivedThreadsLifecycle },
@@ -243,7 +242,7 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not trust hook: ${errorMessage(error)}`,
       failureNotice: "Could not trust Codex hook.",
       successStatus: "Trusted hook definition.",
-      operation: (dynamicData) => dynamicData.trustHook(hook),
+      operation: (resources) => resources.trustHook(hook),
     });
   }
 
@@ -253,7 +252,7 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not update hook: ${errorMessage(error)}`,
       failureNotice: "Could not update Codex hook.",
       successStatus: enabled ? "Enabled hook." : "Disabled hook.",
-      operation: (dynamicData) => dynamicData.setHookEnabled(hook, enabled),
+      operation: (resources) => resources.setHookEnabled(hook, enabled),
     });
   }
 
@@ -262,8 +261,8 @@ export class SettingsDynamicSectionsController {
       loadingStatus: "Loading archived threads...",
       failureStatus: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not restore archived Codex thread.",
-      operation: async (dynamicData) => {
-        const restoredThread = await dynamicData.restoreArchivedThread(threadId);
+      operation: async (resources) => {
+        const restoredThread = await resources.restoreArchivedThread(threadId);
         return `Restored "${threadCommandDisplayTitle(restoredThread)}".`;
       },
     });
@@ -276,8 +275,8 @@ export class SettingsDynamicSectionsController {
       loadingStatus: "Loading archived threads...",
       failureStatus: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not delete archived Codex thread.",
-      operation: async (dynamicData) => {
-        await dynamicData.deleteArchivedThread(threadId);
+      operation: async (resources) => {
+        await resources.deleteArchivedThread(threadId);
         return `Deleted "${title}".`;
       },
     });
@@ -292,12 +291,8 @@ export class SettingsDynamicSectionsController {
     return model ? supportedEffortsForModelMetadata(model) : [];
   }
 
-  namingEffortSupported(effort: ReasoningEffort | null): boolean {
-    return !effort || this.effortOptions(this.host.settings.threadNamingModel).includes(effort);
-  }
-
-  rewriteSelectionEffortSupported(effort: ReasoningEffort | null): boolean {
-    return !effort || this.effortOptions(this.host.settings.rewriteSelectionModel).includes(effort);
+  effortSupported(modelIdOrName: string | null, effort: ReasoningEffort | null): boolean {
+    return !effort || this.effortOptions(modelIdOrName).includes(effort);
   }
 
   private async runHookOperation(options: {
@@ -305,23 +300,23 @@ export class SettingsDynamicSectionsController {
     failureStatus: (error: unknown) => string;
     failureNotice: string;
     successStatus: string;
-    operation: (dynamicData: SettingsDynamicDataAccess) => Promise<SettingsHookCatalog>;
+    operation: (resources: SettingsResources) => Promise<SettingsHookCatalog>;
   }): Promise<void> {
     if (this.hooksLifecycle.kind === "loading") return;
-    const dynamicData = this.dynamicData;
+    const resources = this.resources;
     const operation = {};
     this.hookMutationOperation = operation;
-    const isCurrent = (): boolean => this.hookMutationOperation === operation && this.dynamicDataIsCurrent(dynamicData);
-    this.hooksLifecycle = settingsDynamicSectionLoading(options.loadingStatus);
+    const isCurrent = (): boolean => this.hookMutationOperation === operation && this.resourcesAreCurrent(resources);
+    this.hooksLifecycle = settingsResourceLoading(options.loadingStatus);
     this.callbacks.display();
     try {
-      const catalog = await options.operation(dynamicData);
+      const catalog = await options.operation(resources);
       if (!isCurrent()) return;
       this.receiveHookCatalog(catalog);
-      this.hooksLifecycle = settingsDynamicSectionLoaded(options.successStatus);
+      this.hooksLifecycle = settingsResourceLoaded(options.successStatus);
     } catch (error) {
       if (!isCurrent()) return;
-      this.hooksLifecycle = settingsDynamicSectionFailed(options.failureStatus(error));
+      this.hooksLifecycle = settingsResourceFailed(options.failureStatus(error));
       if (this.lifetime.isActive()) this.callbacks.notify(options.failureNotice);
     } finally {
       if (isCurrent()) {
@@ -335,51 +330,51 @@ export class SettingsDynamicSectionsController {
     loadingStatus: string;
     failureStatus: (error: unknown) => string;
     failureNotice: string;
-    operation: (dynamicData: SettingsDynamicDataAccess) => Promise<string>;
+    operation: (resources: SettingsResources) => Promise<string>;
   }): Promise<void> {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime) || this.archivedThreadsLifecycle.kind === "loading") return;
-    const dynamicData = this.dynamicData;
-    const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.dynamicDataIsCurrent(dynamicData);
+    const resources = this.resources;
+    const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.resourcesAreCurrent(resources);
 
-    this.archivedThreadsLifecycle = settingsDynamicSectionLoading(options.loadingStatus);
+    this.archivedThreadsLifecycle = settingsResourceLoading(options.loadingStatus);
     this.callbacks.display();
     try {
-      const successStatus = await options.operation(dynamicData);
+      const successStatus = await options.operation(resources);
       if (!isCurrent()) return;
-      this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(successStatus);
+      this.archivedThreadsLifecycle = settingsResourceLoaded(successStatus);
     } catch (error) {
       if (!isCurrent()) return;
-      this.archivedThreadsLifecycle = settingsDynamicSectionFailed(options.failureStatus(error));
+      this.archivedThreadsLifecycle = settingsResourceFailed(options.failureStatus(error));
       this.callbacks.notify(options.failureNotice);
     } finally {
       if (isCurrent()) this.callbacks.display();
     }
   }
 
-  private async refreshSection<T>(spec: SettingsDynamicSectionRefreshSpec<T>, notifyFailure: () => void): Promise<void> {
+  private async refreshResource<T>(spec: SettingsResourceRefreshSpec<T>, notifyFailure: () => void): Promise<void> {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime) || this[spec.lifecycle].kind === "loading") return;
-    const dynamicData = this.dynamicData;
-    const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.dynamicDataIsCurrent(dynamicData);
+    const resources = this.resources;
+    const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.resourcesAreCurrent(resources);
 
-    this[spec.lifecycle] = settingsDynamicSectionLoading(spec.loadingStatus);
+    this[spec.lifecycle] = settingsResourceLoading(spec.loadingStatus);
     this.callbacks.display();
     try {
-      const value = await spec.load(dynamicData);
+      const value = await spec.load(resources);
       if (!isCurrent()) return;
-      this[spec.lifecycle] = settingsDynamicSectionLoaded(spec.commit(value));
+      this[spec.lifecycle] = settingsResourceLoaded(spec.commit(value));
       this.callbacks.display();
     } catch (error) {
       if (!isCurrent()) return;
-      this[spec.lifecycle] = settingsDynamicSectionFailed(spec.failureStatus(error));
+      this[spec.lifecycle] = settingsResourceFailed(spec.failureStatus(error));
       this.callbacks.display();
       notifyFailure();
     }
   }
 
-  private dynamicDataIsCurrent(dynamicData: SettingsDynamicDataAccess): boolean {
-    return this.dynamicData === dynamicData;
+  private resourcesAreCurrent(resources: SettingsResources): boolean {
+    return this.resources === resources;
   }
 
   private unsubscribe(): void {
@@ -394,19 +389,19 @@ function archivedThreadsStatus(count: number): string {
   return `Loaded ${String(count)} archived thread${count === 1 ? "" : "s"}.`;
 }
 
-function createSettingsDynamicSectionLifecycle(): SettingsDynamicSectionLifecycleState {
+function createSettingsResourceLifecycle(): SettingsResourceLifecycleState {
   return { kind: "idle", status: "" };
 }
 
-function settingsDynamicSectionLoading(status: string): SettingsDynamicSectionLifecycleState {
+function settingsResourceLoading(status: string): SettingsResourceLifecycleState {
   return { kind: "loading", status };
 }
 
-function settingsDynamicSectionLoaded(status: string): SettingsDynamicSectionLifecycleState {
+function settingsResourceLoaded(status: string): SettingsResourceLifecycleState {
   return { kind: "loaded", status };
 }
 
-function settingsDynamicSectionFailed(status: string): SettingsDynamicSectionLifecycleState {
+function settingsResourceFailed(status: string): SettingsResourceLifecycleState {
   return { kind: "failed", status };
 }
 

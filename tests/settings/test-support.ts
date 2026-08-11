@@ -10,10 +10,9 @@ import type { Thread } from "../../src/domain/threads/model";
 import { createThreadMutationAdapter } from "../../src/features/threads/app-server/workflow-adapters";
 import type { ThreadFact } from "../../src/features/threads/workflows/thread-facts";
 import { createThreadMutationCommands } from "../../src/features/threads/workflows/thread-mutation-commands";
-import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
-import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
-import type { CodexPanelSettingTabHost } from "../../src/settings/host";
-import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
+import { createSettingsResources, type SettingsResources } from "../../src/settings/application/resources";
+import type { SettingsTabHost } from "../../src/settings/host/contracts";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/preferences";
 
 type ContextClientOperation = (
   codexPath: string,
@@ -188,15 +187,15 @@ export interface SettingsTabHostOptions {
   modelsSnapshot?: ModelMetadata[];
   fetchModels?: () => Promise<readonly ModelMetadata[]>;
   refreshModels?: () => Promise<readonly ModelMetadata[]>;
-  observeModels?: SettingsDynamicDataAccess["observeModels"];
+  observeModels?: SettingsResources["observeModels"];
   refreshChatViews?: () => void;
   refreshThreadsViews?: () => void;
   archivedThreads?: Thread[];
   archivedSnapshot?: Thread[] | null;
   refreshArchived?: () => Promise<readonly Thread[]>;
-  observeArchived?: SettingsDynamicDataAccess["observeArchivedThreadsResult"];
+  observeArchived?: SettingsResources["observeArchivedThreadsResult"];
   applyThreadFact?: (event: ThreadFact) => void;
-  dynamicData?: SettingsDynamicDataAccess;
+  resources?: SettingsResources;
   settings?: Partial<{
     threadNamingModel: string | null;
     threadNamingEffort: string | null;
@@ -205,7 +204,7 @@ export interface SettingsTabHostOptions {
   }>;
 }
 
-export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPanelSettingTabHost {
+export function settingsTabHost(options: SettingsTabHostOptions = {}): SettingsTabHost {
   const defaultArchivedThreads = [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })];
   const settings = {
     ...DEFAULT_SETTINGS,
@@ -235,7 +234,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     observeArchivedThreadsResult: options.observeArchived ?? (() => () => undefined),
   };
   const applyThreadFact = options.applyThreadFact ?? (() => undefined);
-  const createDynamicData = () => {
+  const createResources = () => {
     const contextKey = settings.codexPath;
     const contextIsCurrent = () => settings.codexPath === contextKey;
     const clientAccess = {
@@ -275,7 +274,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       referenceThreads: () => threadCatalog.archivedThreadsSnapshot() ?? [],
       threadIsBusy: () => false,
     });
-    return createSettingsAppServerDynamicData({
+    return createSettingsResources({
       vaultPath: "/vault",
       clientAccess,
       appServerQueries,
@@ -283,17 +282,17 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
       threadMutations,
     });
   };
-  let dynamicData = options.dynamicData ?? createDynamicData();
-  const host: CodexPanelSettingTabHost = {
+  let resources = options.resources ?? createResources();
+  const host: SettingsTabHost = {
     settings,
-    dynamicData,
+    resources,
     publishSettings: async (nextSettings) => {
       const previousSettings = { ...settings };
       await (options.saveSettings ?? (async () => undefined))(nextSettings);
       const codexPathChanged = previousSettings.codexPath !== nextSettings.codexPath;
       Object.assign(settings, nextSettings);
-      if (codexPathChanged && !options.dynamicData) {
-        dynamicData = createDynamicData();
+      if (codexPathChanged && !options.resources) {
+        resources = createResources();
       }
       if (
         previousSettings.showToolbar !== nextSettings.showToolbar ||
@@ -302,7 +301,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
         options.refreshChatViews?.();
       }
       if (previousSettings.archiveExportEnabled !== nextSettings.archiveExportEnabled) options.refreshThreadsViews?.();
-      return { replacementDynamicData: codexPathChanged ? dynamicData : null };
+      return { replacementResources: codexPathChanged ? resources : null };
     },
   };
   return host;

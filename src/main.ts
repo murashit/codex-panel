@@ -6,8 +6,9 @@ import { registerSelectionRewriteCommand } from "./features/selection-rewrite/co
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
 import { CodexPanelRuntime } from "./plugin-runtime";
-import { type CodexPanelSettings, DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchStoredSettings } from "./settings/model";
-import { CodexPanelSettingTab } from "./settings/tab.obsidian";
+import { getVaultPath } from "./plugin-vault.obsidian";
+import { CodexPanelSettingTab } from "./settings/host/tab.obsidian";
+import { type CodexPanelSettings, DEFAULT_SETTINGS, normalizeSettings, settingsMatchStoredSettings } from "./settings/preferences";
 import { disposeTextareaHeightMirrors } from "./shared/dom/textarea-autogrow.measure";
 import { editorSelectionEmphasisExtension } from "./shared/obsidian/editor-selection-emphasis.obsidian";
 

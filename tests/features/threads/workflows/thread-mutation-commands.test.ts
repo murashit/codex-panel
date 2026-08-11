@@ -11,7 +11,7 @@ import {
   createThreadMutationCommands,
   type ThreadMutationCommandsHost,
 } from "../../../../src/features/threads/workflows/thread-mutation-commands";
-import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { DEFAULT_SETTINGS } from "../../../../src/settings/preferences";
 import { deferred } from "../../../support/async";
 import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 

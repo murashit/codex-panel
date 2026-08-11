@@ -1,15 +1,15 @@
 import type { ComponentChild as UiNode } from "preact";
-import { shortThreadId } from "../domain/threads/id";
-import type { Thread } from "../domain/threads/model";
-import { threadCommandDisplayTitle } from "../domain/threads/title";
+import { shortThreadId } from "../../domain/threads/id";
+import type { Thread } from "../../domain/threads/model";
+import { threadCommandDisplayTitle } from "../../domain/threads/title";
+import { DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE } from "../preferences";
 import { ObsidianCommitTextInput, ObsidianExtraButton, ObsidianToggle } from "./controls.obsidian";
-import { DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE } from "./model";
-import type { ArchivedThreadSectionState } from "./section-state";
-import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./setting-components";
+import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./layout";
+import type { ArchivedThreadsViewModel } from "./view-model";
 
 const ARCHIVE_EXPORT_TAGS_PLACEHOLDER = "codex, archive";
 
-export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionState }): UiNode {
+export function ArchivedThreadsSection({ state }: { state: ArchivedThreadsViewModel }): UiNode {
   return (
     <>
       <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__archived-section">
@@ -24,7 +24,7 @@ export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionS
   );
 }
 
-export function ArchivedThreadsContent({ state }: { state: ArchivedThreadSectionState }): UiNode {
+export function ArchivedThreadsContent({ state }: { state: ArchivedThreadsViewModel }): UiNode {
   return state.contentAvailable ? (
     <ArchivedThreadList state={state} />
   ) : !state.loading && state.status ? (
@@ -32,7 +32,7 @@ export function ArchivedThreadsContent({ state }: { state: ArchivedThreadSection
   ) : null;
 }
 
-function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState }): UiNode {
+function ArchiveExportSettings({ state }: { state: ArchivedThreadsViewModel }): UiNode {
   return (
     <SettingsItems>
       <SettingRow name="Save note by default" desc="Makes Save and archive thread the default archive action.">
@@ -77,7 +77,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
   );
 }
 
-function ArchivedThreadList({ state }: { state: ArchivedThreadSectionState }): UiNode {
+function ArchivedThreadList({ state }: { state: ArchivedThreadsViewModel }): UiNode {
   return (
     <SettingsItems className="codex-panel-settings__dynamic-list codex-panel-settings__archived-list">
       {state.threads.length === 0 ? (
@@ -89,7 +89,7 @@ function ArchivedThreadList({ state }: { state: ArchivedThreadSectionState }): U
   );
 }
 
-function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedThreadSectionState }): UiNode {
+function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedThreadsViewModel }): UiNode {
   const title = threadCommandDisplayTitle(thread);
   const deleteConfirming = state.deleteConfirmThreadId === thread.id;
   return (

@@ -10,7 +10,7 @@ import { createSessionThreadFoundation } from "../../../../../src/features/chat/
 import { createThreadAutoTitleWork } from "../../../../../src/features/threads/workflows/thread-auto-title-work";
 import { createThreadGoalCoordinator } from "../../../../../src/features/threads/workflows/thread-goal-coordinator";
 import type { ThreadMutationCommands } from "../../../../../src/features/threads/workflows/thread-mutation-commands";
-import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
+import { DEFAULT_SETTINGS } from "../../../../../src/settings/preferences";
 import { deferred } from "../../../../support/async";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";

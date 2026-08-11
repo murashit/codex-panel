@@ -1,6 +1,6 @@
 import type { Setting, SettingGroup } from "obsidian";
 
-// Obsidian 1.13 declarative-settings subset used while the plugin continues to
+// Obsidian 1.13 declarative settings subset used while the plugin continues to
 // compile against its 1.12 runtime baseline. Remove this compatibility surface
 // when minAppVersion and the obsidian type package move to 1.13 or later.
 interface DeclarativeSettingBase {

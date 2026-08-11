@@ -1,20 +1,20 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { HookItem } from "../domain/catalog/metadata";
+import type { HookItem } from "../../domain/catalog/metadata";
 import { ObsidianButton } from "./controls.obsidian";
-import type { HookSectionState } from "./section-state";
-import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./setting-components";
+import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./layout";
+import type { CodexHooksViewModel } from "./view-model";
 
-export function HookSection({ state }: { state: HookSectionState }): UiNode {
+export function CodexHooksSection({ state }: { state: CodexHooksViewModel }): UiNode {
   return (
     <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__hook-section">
       <SettingsHeading dynamic name="Codex hooks" />
-      <HooksContent state={state} />
+      <CodexHooksContent state={state} />
     </SettingsGroup>
   );
 }
 
-export function HooksContent({ state }: { state: HookSectionState }): UiNode {
+export function CodexHooksContent({ state }: { state: CodexHooksViewModel }): UiNode {
   return state.contentAvailable ? (
     <Hooks state={state} />
   ) : !state.loading && state.status ? (
@@ -22,7 +22,7 @@ export function HooksContent({ state }: { state: HookSectionState }): UiNode {
   ) : null;
 }
 
-function Hooks({ state }: { state: HookSectionState }): UiNode {
+function Hooks({ state }: { state: CodexHooksViewModel }): UiNode {
   return (
     <>
       <SettingsItems className="codex-panel-settings__dynamic-list codex-panel-settings__hook-list">
@@ -46,7 +46,7 @@ function Hooks({ state }: { state: HookSectionState }): UiNode {
   );
 }
 
-function HookRow({ hook, state }: { hook: HookItem; state: HookSectionState }): UiNode {
+function HookRow({ hook, state }: { hook: HookItem; state: CodexHooksViewModel }): UiNode {
   const canTrust = !hook.isManaged && (hook.trustStatus === "untrusted" || hook.trustStatus === "modified");
   const canToggle = !hook.isManaged && hook.trustStatus === "trusted";
   const hookName = firstNonEmptyString(hook.statusMessage, hook.command, hook.matcher, hook.eventName);

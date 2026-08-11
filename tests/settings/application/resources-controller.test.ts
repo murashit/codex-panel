@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
-import type { ThreadRecord } from "../../src/app-server/protocol/thread";
-import type { ModelMetadata } from "../../src/domain/catalog/metadata";
-import type { Thread } from "../../src/domain/threads/model";
-import { SettingsDynamicSectionsController } from "../../src/settings/dynamic-sections-controller";
-import type { ObservedResult } from "../../src/shared/async/observed-result";
-import { deferred } from "../support/async";
+import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
+import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
+import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
+import type { Thread } from "../../../src/domain/threads/model";
+import { SettingsResourcesController } from "../../../src/settings/application/resources-controller";
+import type { SettingsTabHost } from "../../../src/settings/host/contracts";
+import type { ObservedResult } from "../../../src/shared/async/observed-result";
+import { deferred } from "../../support/async";
 import {
   appServerThread,
   flushPromises,
@@ -18,15 +19,15 @@ import {
   settingsRequestClient,
   settingsTabHost,
   useContextClients,
-} from "./test-support";
+} from "../test-support";
 
-type SettingsDynamicSectionsSnapshot = ReturnType<SettingsDynamicSectionsController["snapshot"]>;
+type SettingsResourcesSnapshot = ReturnType<SettingsResourcesController["snapshot"]>;
 
 const { contextConnectionClientMock } = vi.hoisted(() => ({
   contextConnectionClientMock: vi.fn(),
 }));
 
-vi.mock("../../src/app-server/connection/context-connection", () => ({
+vi.mock("../../../src/app-server/connection/context-connection", () => ({
   AppServerContextConnection: class {
     constructor(
       private readonly codexPath: string,
@@ -45,7 +46,14 @@ setSettingsContextClientMock(contextConnectionClientMock);
 
 const noop = (): void => undefined;
 
-describe("SettingsDynamicSectionsController", () => {
+function settingsResourcesController(
+  host: SettingsTabHost,
+  callbacks: { display(): void; notify(message: string): void },
+): SettingsResourcesController {
+  return new SettingsResourcesController(host.resources, callbacks);
+}
+
+describe("SettingsResourcesController", () => {
   beforeEach(() => {
     contextConnectionClientMock.mockReset();
   });
@@ -55,7 +63,7 @@ describe("SettingsDynamicSectionsController", () => {
       throw new Error("Expected archived thread observer");
     };
     const display = vi.fn();
-    const controller = new SettingsDynamicSectionsController(
+    const controller = settingsResourcesController(
       settingsTabHost({
         observeArchived: (listener) => {
           emitArchived = (threads) => {
@@ -84,17 +92,17 @@ describe("SettingsDynamicSectionsController", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New", archived: true })]);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
+    const controller = settingsResourcesController(settingsTabHost({ refreshModels, refreshArchived }), {
       display: noop,
       notify: noop,
     });
 
-    const firstRefresh = controller.refreshDynamicSections();
-    expect(controller.canRefreshDynamicSections()).toBe(false);
+    const firstRefresh = controller.refresh();
+    expect(controller.canRefresh()).toBe(false);
     await flushPromises();
-    expect(controller.canRefreshDynamicSections()).toBe(true);
+    expect(controller.canRefresh()).toBe(true);
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Old"]);
-    await controller.refreshDynamicSections();
+    await controller.refresh();
 
     expect(refreshModels).toHaveBeenCalledOnce();
     expect(refreshArchived).toHaveBeenCalledTimes(2);
@@ -112,7 +120,7 @@ describe("SettingsDynamicSectionsController", () => {
   it("does not display dynamic refresh results after disposal", async () => {
     const models = deferred<ModelMetadata[]>();
     const display = vi.fn();
-    const controller = new SettingsDynamicSectionsController(
+    const controller = settingsResourcesController(
       settingsTabHost({
         refreshModels: vi.fn(() => models.promise),
         refreshArchived: vi.fn().mockResolvedValue([]),
@@ -120,7 +128,7 @@ describe("SettingsDynamicSectionsController", () => {
       { display, notify: noop },
     );
 
-    const refresh = controller.refreshDynamicSections();
+    const refresh = controller.refresh();
     await flushPromises();
     display.mockClear();
     controller.dispose();
@@ -136,17 +144,17 @@ describe("SettingsDynamicSectionsController", () => {
     firstClient.requestHandlers["hooks/list"] = vi.fn(() => firstHooks.promise);
     const secondClient = settingsClient({ hooks: [hook({ key: "hook-after-reopen" })] });
     useContextClients(firstClient, secondClient);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
+    const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify: noop });
 
     controller.activate();
-    controller.maybeAutoLoadDynamicSections();
+    controller.maybeAutoLoad();
     await flushPromises();
     controller.dispose();
     firstHooks.resolve({ data: [{ cwd: "/vault", hooks: [], warnings: [], errors: [] }] });
     await flushPromises();
 
     controller.activate();
-    controller.maybeAutoLoadDynamicSections();
+    controller.maybeAutoLoad();
     await flushPromises();
 
     expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-after-reopen" })]);
@@ -159,14 +167,14 @@ describe("SettingsDynamicSectionsController", () => {
     const client = settingsClient({ hooks: [hook({ key: "hook-after-write", trustStatus: "trusted" })] });
     client.requestHandlers["config/batchWrite"] = vi.fn(() => write.promise);
     useContextClients(client);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
+    const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify: noop });
 
     controller.activate();
     const mutation = controller.trustHook(hook({ key: "hook-after-write", trustStatus: "untrusted" }));
     await flushPromises();
     controller.dispose();
     controller.activate();
-    controller.maybeAutoLoadDynamicSections();
+    controller.maybeAutoLoad();
 
     expect(contextConnectionClientMock).toHaveBeenCalledOnce();
 
@@ -182,7 +190,7 @@ describe("SettingsDynamicSectionsController", () => {
       hooks: [hook({ key: "hook-trusted", currentHash: "trusted-hash", trustStatus: "trusted" })],
     });
     useContextClients(client);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: noop, notify: noop });
+    const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify: noop });
 
     await controller.trustHook(hook({ key: "hook-trusted", currentHash: "untrusted-hash", trustStatus: "untrusted" }));
 
@@ -200,14 +208,14 @@ describe("SettingsDynamicSectionsController", () => {
     useContextClients(oldClient, newClient);
     const host = settingsTabHost();
     const notify = vi.fn();
-    const controller = new SettingsDynamicSectionsController(host, { display: noop, notify });
+    const controller = settingsResourcesController(host, { display: noop, notify });
     controller.activate();
 
     const oldMutation = controller.trustHook(hook({ key: "hook-old-context", trustStatus: "untrusted" }));
     await flushPromises();
     const publication = await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
-    controller.replaceDynamicData(publication.replacementDynamicData as NonNullable<typeof publication.replacementDynamicData>);
-    await controller.refreshDynamicSections();
+    controller.replaceResources(publication.replacementResources as NonNullable<typeof publication.replacementResources>);
+    await controller.refresh();
 
     expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
 
@@ -235,16 +243,16 @@ describe("SettingsDynamicSectionsController", () => {
       .fn()
       .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-old")]))
       .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-new")]));
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact, refreshArchived, refreshModels }), {
+    const controller = settingsResourcesController(settingsTabHost({ applyThreadFact, refreshArchived, refreshModels }), {
       display: noop,
       notify: noop,
     });
 
-    await controller.refreshDynamicSections();
+    await controller.refresh();
     const restore = controller.restoreArchivedThread("thread-old");
     await flushPromises();
-    expect(controller.canRefreshDynamicSections()).toBe(true);
-    await controller.refreshDynamicSections();
+    expect(controller.canRefresh()).toBe(true);
+    await controller.refresh();
 
     expect(refreshArchived).toHaveBeenCalledOnce();
     expect(refreshModels).toHaveBeenCalledTimes(2);
@@ -271,7 +279,7 @@ describe("SettingsDynamicSectionsController", () => {
     });
     const applyThreadFact = vi.fn();
     useContextClients(restoreClient, deleteClient);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact }), {
+    const controller = settingsResourcesController(settingsTabHost({ applyThreadFact }), {
       display: noop,
       notify: noop,
     });
@@ -300,7 +308,7 @@ describe("SettingsDynamicSectionsController", () => {
     const applyThreadFact = vi.fn();
     const display = vi.fn();
     useContextClients(restoreClient);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadFact }), {
+    const controller = settingsResourcesController(settingsTabHost({ applyThreadFact }), {
       display,
       notify: noop,
     });
@@ -325,7 +333,7 @@ describe("SettingsDynamicSectionsController", () => {
     const applyThreadFact = vi.fn();
     useContextClients(restoreClient);
     const host = settingsTabHost({ applyThreadFact });
-    const controller = new SettingsDynamicSectionsController(host, { display: noop, notify: noop });
+    const controller = settingsResourcesController(host, { display: noop, notify: noop });
 
     const restore = controller.restoreArchivedThread("thread-old");
     await flushPromises();
@@ -349,11 +357,11 @@ describe("SettingsDynamicSectionsController", () => {
     useContextClients(oldClient, newClient);
     const host = settingsTabHost();
 
-    const staleMutation = host.dynamicData.restoreArchivedThread("thread-shared");
+    const staleMutation = host.resources.restoreArchivedThread("thread-shared");
     await flushPromises();
     const publication = await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
-    if (!publication.replacementDynamicData) throw new Error("Expected replacement settings data.");
-    const currentMutation = publication.replacementDynamicData.restoreArchivedThread("thread-shared");
+    if (!publication.replacementResources) throw new Error("Expected replacement settings data.");
+    const currentMutation = publication.replacementResources.restoreArchivedThread("thread-shared");
 
     await expect(currentMutation).resolves.toMatchObject({ id: "thread-shared", preview: "New context" });
     expect(newClient.requestHandlers["thread/unarchive"]).toHaveBeenCalledOnce();
@@ -365,7 +373,7 @@ describe("SettingsDynamicSectionsController", () => {
   });
 
   it("displays restored archived thread state after recording the active catalog event", async () => {
-    const snapshots: SettingsDynamicSectionsSnapshot[] = [];
+    const snapshots: SettingsResourcesSnapshot[] = [];
     let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const initialClient = settingsClient();
     const restoreClient = settingsRequestClient({
@@ -375,8 +383,8 @@ describe("SettingsDynamicSectionsController", () => {
       }),
     });
     useContextClients(initialClient, restoreClient);
-    const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
-    const controller = new SettingsDynamicSectionsController(
+    const controllerRef: { current: SettingsResourcesController | null } = { current: null };
+    const controller = settingsResourcesController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
         observeArchived: (listener) => {
@@ -397,7 +405,7 @@ describe("SettingsDynamicSectionsController", () => {
     controllerRef.current = controller;
     controller.activate();
 
-    await controller.refreshDynamicSections();
+    await controller.refresh();
     snapshots.length = 0;
     await controller.restoreArchivedThread("thread-old");
 
@@ -407,7 +415,7 @@ describe("SettingsDynamicSectionsController", () => {
   });
 
   it("displays deleted archived thread status after recording the catalog event", async () => {
-    const snapshots: SettingsDynamicSectionsSnapshot[] = [];
+    const snapshots: SettingsResourcesSnapshot[] = [];
     let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const initialClient = settingsClient();
     const deleteClient = settingsRequestClient({
@@ -417,8 +425,8 @@ describe("SettingsDynamicSectionsController", () => {
       }),
     });
     useContextClients(initialClient, deleteClient);
-    const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
-    const controller = new SettingsDynamicSectionsController(
+    const controllerRef: { current: SettingsResourcesController | null } = { current: null };
+    const controller = settingsResourcesController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
         observeArchived: (listener) => {
@@ -439,7 +447,7 @@ describe("SettingsDynamicSectionsController", () => {
     controllerRef.current = controller;
     controller.activate();
 
-    await controller.refreshDynamicSections();
+    await controller.refresh();
     snapshots.length = 0;
     await controller.deleteArchivedThread("thread-old");
 

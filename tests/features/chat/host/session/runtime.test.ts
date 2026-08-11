@@ -11,7 +11,7 @@ import { createChatViewDeferredTasks } from "../../../../../src/features/chat/ho
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
 import { createThreadGoalCoordinator } from "../../../../../src/features/threads/workflows/thread-goal-coordinator";
-import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";

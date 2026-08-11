@@ -1,5 +1,3 @@
-import { type App, FileSystemAdapter } from "obsidian";
-
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
 import { normalizeReasoningEffort } from "../domain/catalog/metadata";
@@ -98,13 +96,4 @@ function modelOrDefault(value: unknown, fallback: string | null): string | null 
 
 function reasoningEffortOrDefault(value: unknown, fallback: ReasoningEffort | null): ReasoningEffort | null {
   return normalizeReasoningEffort(value) ?? fallback;
-}
-
-export function getVaultPath(app: App): string {
-  const adapter = app.vault.adapter;
-  if (adapter instanceof FileSystemAdapter) {
-    const basePath = adapter.getBasePath();
-    if (basePath.length > 0) return basePath;
-  }
-  throw new Error("This plugin requires a desktop vault with a local basePath.");
 }

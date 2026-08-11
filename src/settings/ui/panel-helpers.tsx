@@ -1,14 +1,14 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
-import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
+import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
+import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../domain/catalog/metadata";
 import { ObsidianDropdown } from "./controls.obsidian";
-import type { HelperSettingsState } from "./section-state";
-import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
+import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./layout";
+import type { PanelHelpersViewModel } from "./view-model";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";
 
-export function HelperSettingsSection({ state }: { state: HelperSettingsState }): UiNode {
+export function PanelHelpersSection({ state }: { state: PanelHelpersViewModel }): UiNode {
   return (
     <SettingsGroup className="codex-panel-settings__section codex-panel-settings__helper-section">
       <SettingsHeading name="Panel helpers" />
