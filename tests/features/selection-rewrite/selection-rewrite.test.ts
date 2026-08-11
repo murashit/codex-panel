@@ -144,19 +144,10 @@ describe("selection rewrite diff", () => {
 });
 
 describe("selection rewrite apply guard", () => {
-  it("allows apply only when the current range and surrounding note context still match the original selection", () => {
+  it("allows apply only while the selected text still matches", () => {
     const state = rewriteState();
-    expect(canApplySelectionRewrite({ currentText: "Revise this sentence.", currentNoteText: state.noteText }, state)).toBe(true);
-    expect(canApplySelectionRewrite({ currentText: "Changed sentence.", currentNoteText: state.noteText }, state)).toBe(false);
-    expect(
-      canApplySelectionRewrite(
-        {
-          currentText: "Revise this sentence.",
-          currentNoteText: "# Heading\n\nRevise this sentence.\n\nEdited next paragraph.",
-        },
-        state,
-      ),
-    ).toBe(false);
+    expect(canApplySelectionRewrite("Revise this sentence.", state)).toBe(true);
+    expect(canApplySelectionRewrite("Changed sentence.", state)).toBe(false);
   });
 
   it("converts a valid multi-line editor range to half-open text offsets", () => {
@@ -199,34 +190,6 @@ describe("selection rewrite apply guard", () => {
     expect(selectionRewriteTextRangeOffsets("a\n", { from: { line: 0, ch: 1 }, to: { line: 0, ch: 1 } })).toEqual({ from: 1, to: 1 });
     expect(selectionRewriteTextRangeOffsets("a\n", { from: { line: 1, ch: 0 }, to: { line: 1, ch: 0 } })).toEqual({ from: 2, to: 2 });
     expect(selectionRewriteTextRangeOffsets("text", { from: { line: 2, ch: 0 }, to: { line: 2, ch: 0 } }, "")).toBeNull();
-  });
-
-  it("guards nearby edits while ignoring note changes outside the bounded context", () => {
-    const prefix = "p".repeat(1_100);
-    const suffix = "s".repeat(1_100);
-    const noteText = `${prefix}target${suffix}`;
-    const state = rewriteState({
-      originalText: "target",
-      noteText,
-      targetRange: { from: { line: 0, ch: 1_100 }, to: { line: 0, ch: 1_106 } },
-    });
-
-    expect(canApplySelectionRewrite({ currentText: "target", currentNoteText: `X${noteText.slice(1)}` }, state)).toBe(true);
-    expect(canApplySelectionRewrite({ currentText: "target", currentNoteText: `${noteText.slice(0, -1)}X` }, state)).toBe(true);
-    expect(canApplySelectionRewrite({ currentText: "target", currentNoteText: `${prefix.slice(0, -1)}Xtarget${suffix}` }, state)).toBe(
-      false,
-    );
-  });
-
-  it("rejects apply when either saved or current target positions cannot be resolved", () => {
-    const invalid = rewriteState({
-      noteText: "no saved selection",
-      targetRange: { from: { line: 20, ch: 0 }, to: { line: 20, ch: 6 } },
-    });
-
-    expect(
-      canApplySelectionRewrite({ currentText: invalid.originalText, currentNoteText: `current ${invalid.originalText}` }, invalid),
-    ).toBe(false);
   });
 });
 

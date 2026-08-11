@@ -3,8 +3,6 @@ import type { ReasoningEffort } from "../../domain/catalog/metadata";
 
 export type SelectionRewriteInstructionHistoryDirection = -1 | 1;
 
-const APPLY_CONTEXT_RADIUS = 1_000;
-
 interface SelectionRewriteTextRange {
   from: EditorPosition;
   to: EditorPosition;
@@ -54,27 +52,13 @@ export interface SelectionRewriteRuntimeSettings {
   rewriteSelectionEffort: ReasoningEffort | null;
 }
 
-export interface SelectionRewriteApplyContext {
-  currentText: string;
-  currentNoteText: string;
-}
-
 export interface SelectionRewriteTextRangeOffsets {
   from: number;
   to: number;
 }
 
-export function canApplySelectionRewrite(current: SelectionRewriteApplyContext, state: SelectionRewriteState): boolean {
-  if (current.currentText !== state.originalText) return false;
-
-  const originalOffsets = selectionRewriteTextRangeOffsets(state.noteText, state.targetRange, state.originalText);
-  const currentOffsets = selectionRewriteTextRangeOffsets(current.currentNoteText, state.targetRange, state.originalText);
-  if (!originalOffsets || !currentOffsets) return false;
-
-  return (
-    selectionRewriteRangeContextFingerprint(state.noteText, originalOffsets) ===
-    selectionRewriteRangeContextFingerprint(current.currentNoteText, currentOffsets)
-  );
+export function canApplySelectionRewrite(currentText: string, state: SelectionRewriteState): boolean {
+  return currentText === state.originalText;
 }
 
 export function selectionRewriteTextRangeOffsets(
@@ -89,12 +73,6 @@ export function selectionRewriteTextRangeOffsets(
 
   const fallbackFrom = text.indexOf(expectedText);
   return fallbackFrom === -1 ? null : { from: fallbackFrom, to: fallbackFrom + expectedText.length };
-}
-
-function selectionRewriteRangeContextFingerprint(text: string, offsets: SelectionRewriteTextRangeOffsets): string {
-  const beforeStart = Math.max(0, offsets.from - APPLY_CONTEXT_RADIUS);
-  const afterEnd = Math.min(text.length, offsets.to + APPLY_CONTEXT_RADIUS);
-  return `${text.slice(beforeStart, offsets.from)}\0${text.slice(offsets.to, afterEnd)}`;
 }
 
 function editorPositionOffset(text: string, position: EditorPosition): number | null {
