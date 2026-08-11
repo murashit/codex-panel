@@ -1,11 +1,11 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
+import type { ThreadGoalCoordinator } from "../../../../domain/threads/goal-coordination";
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import type { GoalThreadStreamItem } from "../../domain/thread-stream/items";
 import type { LocalIdSource } from "../local-id-source";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { createThreadGoalCoordinator, type ThreadGoalCoordinator } from "./thread-goal-coordinator";
 
 export interface ThreadGoalSource {
   readThreadGoal(threadId: string): Promise<ThreadGoal | null | undefined>;
@@ -26,10 +26,7 @@ export interface ThreadGoalSync {
   syncThreadGoal: (threadId: string) => Promise<void>;
 }
 
-export function createThreadGoalSync(
-  host: ThreadGoalSyncHost,
-  goalCoordinator: ThreadGoalCoordinator = createThreadGoalCoordinator(),
-): ThreadGoalSync {
+export function createThreadGoalSync(host: ThreadGoalSyncHost, goalCoordinator: ThreadGoalCoordinator): ThreadGoalSync {
   return {
     syncThreadGoal: (threadId) => syncThreadGoal(host, threadId, goalCoordinator),
   };

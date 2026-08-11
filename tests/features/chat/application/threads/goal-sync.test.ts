@@ -4,10 +4,20 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createThreadGoalSync, type ThreadGoalSource } from "../../../../../src/features/chat/application/threads/goal-sync";
-import { createThreadGoalCoordinator } from "../../../../../src/features/chat/application/threads/thread-goal-coordinator";
+import {
+  createThreadGoalSync as createThreadGoalSyncImpl,
+  type ThreadGoalSource,
+} from "../../../../../src/features/chat/application/threads/goal-sync";
+import { createThreadGoalCoordinator } from "../../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
+
+function createThreadGoalSync(
+  host: Parameters<typeof createThreadGoalSyncImpl>[0],
+  coordinator: Parameters<typeof createThreadGoalSyncImpl>[1] = createThreadGoalCoordinator(),
+) {
+  return createThreadGoalSyncImpl(host, coordinator);
+}
 
 describe("createThreadGoalSync", () => {
   it("syncs the active thread goal into chat state", async () => {

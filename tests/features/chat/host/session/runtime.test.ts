@@ -6,11 +6,11 @@ import { createServerDiagnostics } from "../../../../../src/domain/server/diagno
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
-import { createThreadGoalCoordinator } from "../../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
 import { createChatViewDeferredTasks } from "../../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
+import { createThreadGoalCoordinator } from "../../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/model";
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/runtime/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";

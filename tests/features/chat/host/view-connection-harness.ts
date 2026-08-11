@@ -13,9 +13,9 @@ import type {
   SharedServerMetadataSnapshotValues,
 } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { createThreadGoalCoordinator } from "../../../../src/features/chat/application/threads/thread-goal-coordinator";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
+import { createThreadGoalCoordinator } from "../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { createKeyedOperationCoordinator } from "../../../../src/shared/runtime/keyed-operation-coordinator";

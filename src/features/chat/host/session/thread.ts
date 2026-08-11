@@ -1,4 +1,5 @@
 import { Notice } from "obsidian";
+import type { ThreadGoalCoordinator } from "../../../../domain/threads/goal-coordination";
 import type { ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import { recoverRolloutTokenUsage } from "../../app-server/rollout-token-usage";
@@ -25,7 +26,6 @@ import { RestorationController } from "../../application/threads/restoration-con
 import { createResumeCommand, type ResumeCommand } from "../../application/threads/resume-command";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadCommands, type ThreadCommandsHost } from "../../application/threads/thread-commands";
-import type { ThreadGoalCoordinator } from "../../application/threads/thread-goal-coordinator";
 import { createThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
 import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";

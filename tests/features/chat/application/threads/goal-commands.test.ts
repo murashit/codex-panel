@@ -8,7 +8,7 @@ import {
   createGoalCommands as createGoalCommandsImpl,
   type ThreadGoalEffects,
 } from "../../../../../src/features/chat/application/threads/goal-commands";
-import { createThreadGoalCoordinator } from "../../../../../src/features/chat/application/threads/thread-goal-coordinator";
+import { createThreadGoalCoordinator } from "../../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 

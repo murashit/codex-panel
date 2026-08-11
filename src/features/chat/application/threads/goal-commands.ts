@@ -1,10 +1,10 @@
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
+import type { ThreadGoalCoordinator } from "../../../../domain/threads/goal-coordination";
 import type { EffectOutcome } from "../effect-outcome";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, activeThreadState } from "../state/root-reducer";
 import { addThreadGoalSystemMessage, applyThreadGoalIfActive, type ThreadGoalProjectionHost } from "./goal-sync";
-import { createThreadGoalCoordinator, type ThreadGoalCoordinator } from "./thread-goal-coordinator";
 import type { ThreadStartOutcome } from "./thread-start-command";
 
 export interface ThreadGoalEffects {
@@ -46,10 +46,7 @@ interface GoalMutationScope {
 
 const EMPTY_GOAL_OBJECTIVE_MESSAGE = "Goal objective cannot be empty.";
 
-export function createGoalCommands(
-  host: GoalCommandsHost,
-  goalCoordinator: ThreadGoalCoordinator = createThreadGoalCoordinator(),
-): GoalCommands {
+export function createGoalCommands(host: GoalCommandsHost, goalCoordinator: ThreadGoalCoordinator): GoalCommands {
   const context: GoalCommandsContext = { ...host, goalCoordinator };
   return {
     activeGoal: () => activeThreadState(host.stateStore.getState())?.goal ?? null,
@@ -235,7 +232,7 @@ function enqueueGoalMutation(
   const scope = {
     panelTarget: capturePanelTargetLease(host.stateStore.getState()),
   };
-  return host.goalCoordinator.goalMutations.run(threadId, async () => {
+  return host.goalCoordinator.runMutation(threadId, async () => {
     if (!goalMutationAdmissionIsCurrent(host, threadId, scope)) return false;
     return operation(scope);
   });

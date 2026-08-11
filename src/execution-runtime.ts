@@ -11,7 +11,6 @@ import {
   type EphemeralStructuredTurnRunner,
   runEphemeralStructuredTurn,
 } from "./app-server/services/ephemeral-structured-turn";
-import { createThreadGoalCoordinator } from "./features/chat/application/threads/thread-goal-coordinator";
 import type { ChatPanelSettingsAccess, ChatRuntimeView, CodexChatHost, WorkspacePanels } from "./features/chat/host/contracts";
 import { createAppServerSelectionRewriteAdapter } from "./features/selection-rewrite/app-server-adapter";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
@@ -21,6 +20,7 @@ import { createThreadMutationAdapter, createThreadTitleAdapter } from "./feature
 import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
 import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/threads/workflows/thread-auto-title-work";
 import type { ThreadFact, ThreadFactSink } from "./features/threads/workflows/thread-facts";
+import { createThreadGoalCoordinator } from "./features/threads/workflows/thread-goal-coordinator";
 import { createThreadMutationCommands, type ThreadMutationCommands } from "./features/threads/workflows/thread-mutation-commands";
 import { projectThreadFacts } from "./features/threads/workflows/thread-projection";
 import {
