@@ -17,7 +17,6 @@ import {
   type PendingRuntimeSettingsPatch,
 } from "../../domain/runtime/thread-settings-patch";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
-import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import type { RuntimeSettingsPort } from "./settings-port";
@@ -40,11 +39,6 @@ export interface RuntimeSettingsCommandsHost {
 
 interface RuntimeSettingsCommandsContext extends RuntimeSettingsCommandsHost {
   threadCommits: KeyedOperationCoordinator<string>;
-}
-
-interface RuntimeSettingsCommandScope {
-  readonly threadId: string;
-  readonly panelTargetRevision: number;
 }
 
 export interface ChatRuntimeSettingsCommands {
@@ -112,34 +106,31 @@ async function commitPendingThreadSettings(
 ): Promise<RuntimeSettingsCommitResult> {
   const threadId = activeThreadId(state(host));
   if (!threadId) return { ok: true, collaborationModeApplied: true };
-  const panelTarget = capturePanelTargetLease(state(host));
-
   const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
   if (collaborationModeWarning) reportCollaborationModeWarning(host, collaborationModeWarning);
   const collaborationModeApplied = !collaborationModeWarning && "collaborationMode" in update;
   if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
 
   if (activePanelOperationBlocked(host, "thread-settings")) return { ok: false, collaborationModeApplied: false };
-  const scope = { threadId, panelTargetRevision: panelTarget.revision };
   const ok = fields
-    ? await commitRuntimeSettingsFields(host, scope, pickRuntimeSettingsFields(update, fields))
-    : await settleRuntimeSettings(host, scope);
+    ? await commitRuntimeSettingsFields(host, threadId, pickRuntimeSettingsFields(update, fields))
+    : await settleRuntimeSettings(host, threadId);
   return { ok, collaborationModeApplied: ok && collaborationModeApplied };
 }
 
 function commitRuntimeSettingsFields(
   host: RuntimeSettingsCommandsContext,
-  scope: RuntimeSettingsCommandScope,
+  threadId: string,
   update: RuntimeSettingsPatch,
 ): Promise<boolean> {
   if (patchEmpty(update)) return Promise.resolve(true);
   const command = { ...update };
-  return host.threadCommits.run(scope.threadId, async () => {
-    if (!runtimeSettingsScopeIsCurrent(host, scope)) return false;
+  return host.threadCommits.run(threadId, async () => {
+    if (!runtimeSettingsThreadIsCurrent(host, threadId)) return false;
     if (!patchEqual(matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command), command)) return false;
 
-    const updated = await updateRuntimeSettings(host, scope, command);
-    if (!updated || !runtimeSettingsScopeIsCurrent(host, scope)) return false;
+    const updated = await updateRuntimeSettings(host, threadId, command);
+    if (!updated || !runtimeSettingsThreadIsCurrent(host, threadId)) return false;
 
     const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command);
     if ("model" in command && committed.model !== command.model) return false;
@@ -148,14 +139,14 @@ function commitRuntimeSettingsFields(
   });
 }
 
-async function settleRuntimeSettings(host: RuntimeSettingsCommandsContext, scope: RuntimeSettingsCommandScope): Promise<boolean> {
-  while (runtimeSettingsScopeIsCurrent(host, scope)) {
-    const result = await host.threadCommits.run(scope.threadId, async (): Promise<"continue" | "failed" | "settled"> => {
-      if (!runtimeSettingsScopeIsCurrent(host, scope)) return "failed";
+async function settleRuntimeSettings(host: RuntimeSettingsCommandsContext, threadId: string): Promise<boolean> {
+  while (runtimeSettingsThreadIsCurrent(host, threadId)) {
+    const result = await host.threadCommits.run(threadId, async (): Promise<"continue" | "failed" | "settled"> => {
+      if (!runtimeSettingsThreadIsCurrent(host, threadId)) return "failed";
       const update = currentPendingRuntimeSettingsPatch(host);
       if (patchEmpty(update)) return "settled";
 
-      if (!(await updateRuntimeSettings(host, scope, update)) || !runtimeSettingsScopeIsCurrent(host, scope)) return "failed";
+      if (!(await updateRuntimeSettings(host, threadId, update)) || !runtimeSettingsThreadIsCurrent(host, threadId)) return "failed";
 
       const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), update);
       if (!patchEmpty(committed)) commitRuntimeSettingsPatch(host, committed);
@@ -168,28 +159,21 @@ async function settleRuntimeSettings(host: RuntimeSettingsCommandsContext, scope
 
 async function updateRuntimeSettings(
   host: RuntimeSettingsCommandsContext,
-  scope: RuntimeSettingsCommandScope,
+  threadId: string,
   update: RuntimeSettingsPatch,
 ): Promise<boolean> {
   try {
-    return await host.runtimeSettingsPort.updateThreadSettings(scope.threadId, update);
+    return await host.runtimeSettingsPort.updateThreadSettings(threadId, update);
   } catch (error) {
-    if (runtimeSettingsScopeIsCurrent(host, scope)) {
+    if (runtimeSettingsThreadIsCurrent(host, threadId)) {
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     return false;
   }
 }
 
-function runtimeSettingsScopeIsCurrent(host: RuntimeSettingsCommandsHost, scope: RuntimeSettingsCommandScope): boolean {
-  const currentState = state(host);
-  return (
-    activeThreadId(currentState) === scope.threadId &&
-    panelTargetLeaseIsCurrent(currentState, {
-      revision: scope.panelTargetRevision,
-      target: { kind: "thread", threadId: scope.threadId },
-    })
-  );
+function runtimeSettingsThreadIsCurrent(host: RuntimeSettingsCommandsHost, threadId: string): boolean {
+  return activeThreadId(state(host)) === threadId;
 }
 
 function commitRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost, update: RuntimeSettingsPatch): void {

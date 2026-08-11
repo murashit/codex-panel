@@ -893,24 +893,6 @@ describe("TurnSubmissionCommand", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("does not publish a steer rejection after the same thread and turn are re-owned", async () => {
-    const { host, stateStore, steerTurn } = createHost();
-    resumeThread(stateStore);
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    steerTurn.mockImplementation(async () => {
-      stateStore.dispatch({ type: "active-thread/cleared" });
-      resumeThread(stateStore);
-      stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-      return { kind: "failed", error: new Error("old ownership rejected the steer") };
-    });
-    const commands = createTurnSubmissionCommand(host);
-
-    await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
-
-    expect(activeThreadId(stateStore.getState())).toBe("thread");
-    expect(host.addSystemMessage).not.toHaveBeenCalled();
-  });
-
   it("reports busy turns that cannot be steered", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);

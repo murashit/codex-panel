@@ -117,7 +117,7 @@ async function sendTurnText(
         if (pendingRequestIsCurrent(host, request)) host.addSystemMessage(plan.message);
         return false;
       case "steer":
-        return await steerCurrentTurn(host, localItemIds, plan, prepared, request, panelTarget);
+        return await steerCurrentTurn(host, localItemIds, plan, prepared, request);
       case "start-thread-then-turn":
         if (!commitPendingRequest(host, request)) return false;
         {
@@ -269,7 +269,6 @@ async function steerCurrentTurn(
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
   prepared: PreparedInput,
   request: TurnSubmissionRequest,
-  panelTarget: PanelTargetLease,
 ): Promise<boolean> {
   if (!pendingRequestIsCurrent(host, request)) return false;
   if (!commitPendingRequest(host, request)) return false;
@@ -305,7 +304,7 @@ async function steerCurrentTurn(
   }
   if (outcome.kind === "delivery-unknown") return true;
   if (outcome.kind === "failed") {
-    const targetIsCurrent = steerTargetIsCurrent(host, plan, panelTarget);
+    const targetIsCurrent = steerTargetIsCurrent(host, plan);
     host.stateStore.dispatch({ type: "thread-stream/pending-steer-removed", clientId: localSteerId });
     if (targetIsCurrent) {
       failPendingRequest(host, request);
@@ -313,18 +312,14 @@ async function steerCurrentTurn(
     }
     return false;
   }
-  const targetIsCurrent = steerTargetIsCurrent(host, plan, panelTarget);
+  const targetIsCurrent = steerTargetIsCurrent(host, plan);
   if (!targetIsCurrent && !request.pendingSubmissionId) return true;
   if (targetIsCurrent) host.setStatus(STATUS_STEERED_CURRENT_TURN);
   return true;
 }
 
-function steerTargetIsCurrent(
-  host: TurnSubmissionCommandHost,
-  plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
-  panelTarget: PanelTargetLease,
-): boolean {
-  return panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) && isCurrentTurn(host, plan.threadId, plan.turnId);
+function steerTargetIsCurrent(host: TurnSubmissionCommandHost, plan: Extract<TurnSubmissionPlan, { kind: "steer" }>): boolean {
+  return isCurrentTurn(host, plan.threadId, plan.turnId);
 }
 
 function isCurrentTurn(host: TurnSubmissionCommandHost, threadId: string, turnId: string): boolean {

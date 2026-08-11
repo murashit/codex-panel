@@ -717,38 +717,6 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
   });
 
-  it("does not reuse an old settings drain after the panel leaves and returns to the same thread", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const store = createChatStateStore(state);
-    const oldUpdate = deferred(true);
-    const currentUpdate = deferred(true);
-    const port = settingsPortFixture({
-      updateThreadSettings: vi
-        .fn()
-        .mockImplementationOnce(() => oldUpdate.promise)
-        .mockImplementationOnce(() => currentUpdate.promise),
-    });
-    const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages);
-
-    const oldRequest = commands.requestModel("gpt-old");
-    await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" }));
-
-    resumeThread(store, "other");
-    resumeThread(store, "thread");
-    const currentRequest = commands.requestModel("gpt-new");
-
-    expect(port.updateThreadSettings).toHaveBeenCalledOnce();
-    oldUpdate.resolve();
-    await expect(oldRequest).resolves.toBe(false);
-    await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" }));
-    currentUpdate.resolve();
-    await expect(currentRequest).resolves.toBe(true);
-    expect(store.getState().runtime.active.model).toBe("gpt-new");
-    expect(messages).toEqual([]);
-  });
-
   it("serializes runtime settings commits for the same thread across panel sessions", async () => {
     const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
     const firstStore = createChatStateStore(panelState);
@@ -1021,31 +989,6 @@ function threadSettings(
     sandboxPolicy: null,
     activePermissionProfile: null,
   };
-}
-
-function resumeThread(store: ReturnType<typeof createChatStateStore>, threadId: string): void {
-  store.dispatch({
-    type: "active-thread/resumed",
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: {
-      id: threadId,
-      preview: "",
-      name: null,
-      archived: false,
-      createdAt: 1,
-      updatedAt: 1,
-      provenance: { kind: "interactive" },
-    },
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
-  });
 }
 
 function deferred<T>(initialValue: T): { promise: Promise<T>; resolve: (value?: T) => void } {

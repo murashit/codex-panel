@@ -142,7 +142,7 @@ describe("createGoalCommands", () => {
     expect(activeThreadState(stateStore.getState())?.goal).toMatchObject({ objective: "Updated", status: "paused" });
   });
 
-  it("serializes goal mutations for a thread across an A to B to A panel revision", async () => {
+  it("completes queued goal mutations after returning to the same thread", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-a", goal: goal({ threadId: "thread-a" }) } });
     const stateStore = createChatStateStore(state);
@@ -171,9 +171,10 @@ describe("createGoalCommands", () => {
     expect(effects.setThreadGoal).toHaveBeenCalledOnce();
 
     firstUpdate.resolve(completed(goal({ threadId: "thread-a", objective: "Old" })));
-    await expect(oldUpdate).resolves.toBe(false);
+    await expect(oldUpdate).resolves.toBe(true);
     await expect(latestUpdate).resolves.toBe(true);
     expect(effects.setThreadGoal).toHaveBeenNthCalledWith(2, "thread-a", { status: "paused" });
+    expect(activeThreadState(stateStore.getState())?.goal).toMatchObject({ objective: "Latest", status: "paused" });
   });
 
   it("serializes goal mutations for the same thread across panel sessions", async () => {

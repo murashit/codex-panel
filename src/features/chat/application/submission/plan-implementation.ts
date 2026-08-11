@@ -2,7 +2,6 @@ import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/selectors";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { chatThreadStreamViewState } from "../state/active-turn";
-import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { type ChatThreadStreamViewState, threadStreamItems } from "../state/thread-stream";
@@ -50,14 +49,9 @@ export function implementPlanTarget(state: PlanImplementationState): PlanImpleme
 }
 
 export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
-  const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId) return;
   if (!(await host.ensureConnected())) return;
-  if (
-    !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) ||
-    itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId ||
-    !activeThreadId(host.stateStore.getState())
-  ) {
+  if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId || !activeThreadId(host.stateStore.getState())) {
     return;
   }
 

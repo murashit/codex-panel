@@ -66,6 +66,35 @@ describe("createThreadGoalSync", () => {
     expect(activeThreadState(stateStore.getState())?.goal?.objective).toBe("Latest");
   });
 
+  it("does not let an earlier visit overwrite a newer goal sync after returning to the thread", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    resumeThread(stateStore, "thread");
+    const earlierRead = deferred<ThreadGoal | null>();
+    const currentRead = deferred<ThreadGoal | null>();
+    const source = goalReadPortFixture({
+      readThreadGoal: vi.fn().mockReturnValueOnce(earlierRead.promise).mockReturnValueOnce(currentRead.promise),
+    });
+    const sync = createThreadGoalSync({
+      stateStore,
+      source,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+    });
+
+    const earlierSync = sync.syncThreadGoal("thread");
+    resumeThread(stateStore, "other");
+    resumeThread(stateStore, "thread");
+    const currentSync = sync.syncThreadGoal("thread");
+
+    currentRead.resolve(goal({ objective: "Current" }));
+    await currentSync;
+    earlierRead.resolve(goal({ objective: "Earlier" }));
+    await earlierSync;
+
+    expect(activeThreadState(stateStore.getState())?.goal?.objective).toBe("Current");
+  });
+
   it("does not report an old goal read failure after a shared mutation completes", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Latest" }) } });
@@ -181,4 +210,29 @@ function goalReadPortFixture(overrides: Partial<ThreadGoalSource> = {}): ThreadG
     readThreadGoal: vi.fn().mockResolvedValue(null),
     ...overrides,
   };
+}
+
+function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, threadId: string): void {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: {
+      id: threadId,
+      preview: "",
+      name: null,
+      archived: false,
+      createdAt: 1,
+      updatedAt: 1,
+      provenance: { kind: "interactive" },
+    },
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
 }

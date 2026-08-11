@@ -10,7 +10,6 @@ import {
 } from "../../../../../src/features/chat/application/submission/plan-implementation";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import { deferred } from "../../../../support/async";
 
 const planItem = (id: string): ThreadStreamItem => ({
   id,
@@ -156,24 +155,6 @@ describe("implementPlan", () => {
     await implementPlan(host, first.id);
 
     expect(ensureConnected).not.toHaveBeenCalled();
-    expect(sendTurnText).not.toHaveBeenCalled();
-  });
-
-  it("does not implement an old plan intent after leaving and returning to the same panel target", async () => {
-    const { host, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createPlanImplementationHost();
-    const connection = deferred<boolean>();
-    host.ensureConnected = vi.fn(() => connection.promise);
-    const plan = planItem("plan");
-    resumeThread(stateStore, [plan]);
-
-    const implementing = implementPlan(host, plan.id);
-    await vi.waitFor(() => expect(host.ensureConnected).toHaveBeenCalledOnce());
-    resumeThread(stateStore, [plan], { kind: "persistent" }, "other");
-    resumeThread(stateStore, [plan]);
-    connection.resolve(true);
-    await implementing;
-
-    expect(requestDefaultCollaborationModeForNextTurn).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
   });
 });
