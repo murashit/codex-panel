@@ -168,18 +168,6 @@ describe("web context reader", () => {
     expect(mocks.htmlToMarkdown).not.toHaveBeenCalled();
   });
 
-  it("stops after conversion when the import is cancelled during processing", async () => {
-    const prepareInput = vi.fn(() => ({ text: "", input: [{ type: "text" as const, text: "" }] }));
-    const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(true).mockReturnValue(false);
-
-    await expect(
-      readWebUrl({ prepareInput, viewWindow: fakeDomWindow, isCurrent }, "https://example.com/article", "", {} as ComposerInputSnapshot),
-    ).rejects.toThrow("Web import cancelled.");
-
-    expect(mocks.htmlToMarkdown).toHaveBeenCalledOnce();
-    expect(prepareInput).not.toHaveBeenCalled();
-  });
-
   it("rejects web requests that do not respond before the timeout", async () => {
     vi.useFakeTimers();
     try {

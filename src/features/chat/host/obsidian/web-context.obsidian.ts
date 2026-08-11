@@ -28,7 +28,6 @@ export async function readWebUrl(
 
   const page = await fetchWebPage(options, parsedUrl);
   const content = htmlToMarkdown(page.content).trim();
-  assertCurrentWebImport(options);
   if (!content) throw new Error(`No readable web content found for ${parsedUrl}`);
 
   const messageInput = options.prepareInput(message.trim(), inputSnapshot);
