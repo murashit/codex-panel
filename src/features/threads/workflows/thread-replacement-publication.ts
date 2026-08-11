@@ -2,23 +2,27 @@ import type { Thread } from "../../../domain/threads/model";
 import type { ThreadFact, ThreadFactSink } from "./thread-facts";
 
 interface ThreadReplacementPublication {
-  finish(): void;
+  attach(replacementThread: Thread): void;
+  finish(sourceArchived: boolean): void;
 }
 
 export interface ThreadReplacementPublicationOwner {
   readonly facts: ThreadFactSink;
-  begin(sourceThreadId: string, replacementThread: Thread): ThreadReplacementPublication;
+  begin(sourceThreadId: string): ThreadReplacementPublication;
 }
 
 interface PendingReplacement {
   readonly sourceThreadId: string;
-  readonly replacementThreadId: string;
-  readonly initialReplacement: Thread;
+  initialReplacement: Thread | null;
   readonly facts: ThreadFact[];
+  readonly releaseActiveThreads: () => void;
   finished: boolean;
 }
 
-export function createThreadReplacementPublication(commit: (facts: readonly ThreadFact[]) => void): ThreadReplacementPublicationOwner {
+export function createThreadReplacementPublication(
+  commit: (facts: readonly ThreadFact[]) => void,
+  freezeActiveThreads: () => () => void = () => () => undefined,
+): ThreadReplacementPublicationOwner {
   const pendingByThreadId = new Map<string, PendingReplacement>();
 
   const applyBatch = (facts: readonly ThreadFact[]): void => {
@@ -45,33 +49,55 @@ export function createThreadReplacementPublication(commit: (facts: readonly Thre
 
   return {
     facts,
-    begin: (sourceThreadId, replacementThread) => {
-      if (pendingByThreadId.has(sourceThreadId) || pendingByThreadId.has(replacementThread.id)) {
+    begin: (sourceThreadId) => {
+      if (pendingByThreadId.has(sourceThreadId)) {
         throw new Error("A replacement publication is already in progress for this thread.");
       }
       const pending: PendingReplacement = {
         sourceThreadId,
-        replacementThreadId: replacementThread.id,
-        initialReplacement: replacementThread,
+        initialReplacement: null,
         facts: [],
+        releaseActiveThreads: freezeActiveThreads(),
         finished: false,
       };
       pendingByThreadId.set(sourceThreadId, pending);
-      pendingByThreadId.set(replacementThread.id, pending);
 
       return {
-        finish: () => {
+        attach: (replacementThread) => {
+          if (pending.finished) throw new Error("The replacement publication has already finished.");
+          if (pending.initialReplacement) throw new Error("A replacement thread is already attached.");
+          if (pendingByThreadId.has(replacementThread.id)) {
+            throw new Error("A replacement publication is already in progress for this thread.");
+          }
+          pending.initialReplacement = replacementThread;
+          pendingByThreadId.set(replacementThread.id, pending);
+        },
+        finish: (sourceArchived) => {
           if (pending.finished) return;
           pending.finished = true;
           pendingByThreadId.delete(pending.sourceThreadId);
-          pendingByThreadId.delete(pending.replacementThreadId);
+          if (pending.initialReplacement) pendingByThreadId.delete(pending.initialReplacement.id);
 
-          const completedFacts: ThreadFact[] = [{ type: "thread-upserted", thread: pending.initialReplacement }, ...pending.facts];
-          commit(completedFacts);
+          pending.releaseActiveThreads();
+          const completedFacts: ThreadFact[] = pending.initialReplacement
+            ? [{ type: "thread-upserted", thread: pending.initialReplacement }, ...pending.facts]
+            : [...pending.facts];
+          if (
+            pending.initialReplacement &&
+            sourceArchived &&
+            !pending.facts.some((fact) => factRemovesThread(fact, pending.sourceThreadId))
+          ) {
+            completedFacts.push({ type: "thread-archived", threadId: pending.sourceThreadId });
+          }
+          if (completedFacts.length > 0) commit(completedFacts);
         },
       };
     },
   };
+}
+
+function factRemovesThread(fact: ThreadFact, threadId: string): boolean {
+  return (fact.type === "thread-archived" || fact.type === "thread-deleted") && fact.threadId === threadId;
 }
 
 function threadIdForFact(fact: ThreadFact): string {

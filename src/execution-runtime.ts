@@ -17,7 +17,6 @@ import type { SelectionRewritePort } from "./features/selection-rewrite/port";
 import { openThreadPicker, type ThreadPickerController } from "./features/thread-picker/modal.obsidian";
 import { threadFactFromLifecycleNotification } from "./features/threads/app-server/thread-lifecycle-notifications";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
-import type { ThreadCatalog } from "./features/threads/catalog/thread-catalog";
 import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/threads/workflows/thread-auto-title-work";
 import type { ThreadFact, ThreadFactSink } from "./features/threads/workflows/thread-facts";
 import { createThreadGoalCoordinator } from "./features/threads/workflows/thread-goal-coordinator";
@@ -54,7 +53,7 @@ export class CodexExecutionRuntime {
   readonly appServerConnection: AppServerContextConnection;
   private readonly queryScope: AppServerQueryScope;
   private readonly appServerQueries: AppServerMetadataQueries;
-  private readonly threadCatalog: ThreadCatalog;
+  private readonly threadCatalog: AppServerThreadCatalog;
   private readonly threadFacts: ThreadFactSink;
   private readonly threadReplacementPublication: ThreadReplacementPublicationOwner;
   private readonly threadMutations: ThreadMutationCommands;
@@ -84,14 +83,16 @@ export class CodexExecutionRuntime {
     );
     this.queryScope = new AppServerQueryScope(this.context, this.appServerConnection);
     this.appServerQueries = new AppServerMetadataQueries(this.queryScope);
-    this.threadCatalog = new AppServerThreadCatalog(this.queryScope);
     const applyThreadFacts = (facts: readonly ThreadFact[]): void => {
       if (this.disposed) return;
       for (const fact of facts) this.threadAutoTitleWork?.applyThreadFact(fact);
       this.threadCatalog.applyThreadCatalogChanges(projectThreadFacts(this.threadCatalog, facts));
       options.onThreadFacts(facts);
     };
-    this.threadReplacementPublication = createThreadReplacementPublication(applyThreadFacts);
+    this.threadCatalog = new AppServerThreadCatalog(this.queryScope);
+    this.threadReplacementPublication = createThreadReplacementPublication(applyThreadFacts, () =>
+      this.threadCatalog.freezeActiveThreads(),
+    );
     this.threadFacts = this.threadReplacementPublication.facts;
     this.threadMutations = createThreadMutationCommands({
       port: createThreadMutationAdapter(this.appServerConnection),

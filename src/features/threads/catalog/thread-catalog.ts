@@ -1,4 +1,3 @@
-import type { ThreadCatalogChange } from "../../../domain/threads/catalog-read-model";
 import type { Thread } from "../../../domain/threads/model";
 import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../shared/async/observed-result";
 
@@ -24,13 +23,3 @@ export interface ThreadCatalogArchivedReader {
   refreshArchivedThreads(): Promise<readonly Thread[]>;
   observeArchivedThreadsResult(observer: ArchivedThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
-
-interface ThreadCatalogWriter {
-  applyThreadCatalogChanges(changes: readonly ThreadCatalogChange[]): void;
-}
-
-export interface ThreadCatalog
-  extends ThreadCatalogPaginatedActiveReader,
-    ThreadCatalogSearchReader,
-    ThreadCatalogArchivedReader,
-    ThreadCatalogWriter {}

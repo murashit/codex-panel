@@ -123,6 +123,45 @@ describe("app-server query resources", () => {
     await expect(Promise.all([first, second])).resolves.toEqual([[thread("shared")], [thread("shared")]]);
   });
 
+  it("keeps the visible active thread snapshot stable while replacement publication is frozen", async () => {
+    const fetchThreads = vi
+      .fn()
+      .mockResolvedValueOnce([thread("source")])
+      .mockResolvedValueOnce([thread("replacement")]);
+    const cache = cacheWithThreads(fetchThreads);
+    await cache.threadCatalog.refreshActiveThreads();
+
+    const release = cache.threadCatalog.freezeActiveThreads();
+
+    await expect(cache.threadCatalog.refreshActiveThreads()).resolves.toEqual([thread("source")]);
+    expect(fetchThreads).toHaveBeenCalledOnce();
+
+    release();
+    await expect(cache.threadCatalog.refreshActiveThreads()).resolves.toEqual([thread("replacement")]);
+  });
+
+  it("does not retry a cancelled initial active thread refresh while visibility is frozen", async () => {
+    const staleRequest = deferred<readonly ReturnType<typeof thread>[]>();
+    const fetchThreads = vi
+      .fn()
+      .mockReturnValueOnce(staleRequest.promise)
+      .mockResolvedValueOnce([thread("replacement")]);
+    const cache = cacheWithThreads(fetchThreads);
+    const initialRefresh = cache.threadCatalog.refreshActiveThreads();
+    await flushMicrotasks();
+
+    const release = cache.threadCatalog.freezeActiveThreads();
+
+    await expect(initialRefresh).resolves.toEqual([]);
+    expect(fetchThreads).toHaveBeenCalledOnce();
+    release();
+    await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]));
+
+    staleRequest.resolve([thread("source"), thread("replacement")]);
+    await flushMicrotasks();
+    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("replacement")]);
+  });
+
   it("keeps active and archived thread list snapshots separate", async () => {
     const fetchThreads = vi.fn((_context: AppServerExecutionContext, archived: boolean) =>
       Promise.resolve(archived ? [thread("archived", true)] : [thread("active")]),

@@ -290,7 +290,7 @@ describe("chat panel session runtime", () => {
           applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
         threadReplacementPublication: {
-          begin: vi.fn(() => ({ finish: vi.fn() })),
+          begin: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
         },
         threadMutations: threadMutationCommandsMock(),
         threadGoalCoordinator: createThreadGoalCoordinator(),

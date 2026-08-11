@@ -266,8 +266,7 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
       await input.activatePersistentThread(threadId, displaySnapshot);
       return activeThreadId(stateStore.getState()) === threadId;
     },
-    beginThreadReplacementPublication: (sourceThreadId, replacementThread) =>
-      environment.plugin.threadReplacementPublication.begin(sourceThreadId, replacementThread),
+    beginThreadReplacementPublication: (sourceThreadId) => environment.plugin.threadReplacementPublication.begin(sourceThreadId),
     applyThreadFact: (fact) => {
       environment.plugin.threadFacts.apply(fact);
     },

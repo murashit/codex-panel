@@ -33,7 +33,31 @@ const ARCHIVED_THREADS_QUERY_KEY = ["threads", "archived"] as const;
 type ActiveThreadsQueryKey = typeof ACTIVE_THREADS_QUERY_KEY;
 
 export class AppServerThreadCatalog {
+  private activeThreadsFreezeCount = 0;
+  private activeThreadsRefreshRequested = false;
+
   constructor(private readonly scope: AppServerQueryScope) {}
+
+  freezeActiveThreads(): () => void {
+    this.scope.assertUsable();
+    this.activeThreadsFreezeCount += 1;
+    if (this.scope.client.getQueryState(ACTIVE_THREADS_QUERY_KEY)?.fetchStatus === "fetching") {
+      this.activeThreadsRefreshRequested = true;
+    }
+    void this.scope.client.cancelQueries({ queryKey: ACTIVE_THREADS_QUERY_KEY, exact: true });
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.activeThreadsFreezeCount -= 1;
+      if (this.activeThreadsFreezeCount === 0 && this.activeThreadsRefreshRequested) {
+        this.activeThreadsRefreshRequested = false;
+        void this.fetchActiveThreads({ force: true }).catch(() => {
+          // Observers retain the last visible snapshot when the deferred refresh fails.
+        });
+      }
+    };
+  }
 
   activeThreadsSnapshot(): readonly Thread[] | null {
     if (this.scope.isDisposed()) return null;
@@ -81,6 +105,8 @@ export class AppServerThreadCatalog {
 
   async fetchActiveThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
     this.scope.assertUsable();
+    const frozenSnapshot = this.activeThreadsFrozenSnapshot();
+    if (frozenSnapshot) return frozenSnapshot;
     const key = ACTIVE_THREADS_QUERY_KEY;
     if (options.force) {
       if (this.scope.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward") {
@@ -91,6 +117,8 @@ export class AppServerThreadCatalog {
     }
     return this.readThroughQueryCancellation(
       async () => {
+        const retryFrozenSnapshot = this.activeThreadsFrozenSnapshot();
+        if (retryFrozenSnapshot) return retryFrozenSnapshot;
         const data = await this.scope.client.fetchInfiniteQuery(this.activeThreadsQueryOptions());
         return cloneThreads(activeThreadsFromData(data) ?? []);
       },
@@ -120,6 +148,8 @@ export class AppServerThreadCatalog {
 
   async loadMoreActiveThreads(): Promise<readonly Thread[]> {
     this.scope.assertUsable();
+    const frozenSnapshot = this.activeThreadsFrozenSnapshot();
+    if (frozenSnapshot) return frozenSnapshot;
     const current = this.activeThreadsSnapshot() ?? (await this.fetchActiveThreads());
     const observer = new InfiniteQueryObserver(this.scope.client, {
       ...this.activeThreadsQueryOptions(),
@@ -205,6 +235,12 @@ export class AppServerThreadCatalog {
     if (kind === "active") return this.activeThreadsSnapshot();
     const threads = this.scope.client.getQueryData<readonly Thread[]>(ARCHIVED_THREADS_QUERY_KEY);
     return threads ? cloneThreads(threads) : null;
+  }
+
+  private activeThreadsFrozenSnapshot(): readonly Thread[] | undefined {
+    if (this.activeThreadsFreezeCount === 0) return undefined;
+    this.activeThreadsRefreshRequested = true;
+    return this.activeThreadsSnapshot() ?? [];
   }
 
   private activeThreadsQueryOptions(): InfiniteQueryObserverOptions<
