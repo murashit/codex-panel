@@ -42,13 +42,13 @@ export interface ThreadMutationCommands {
 
 export function createThreadMutationCommands(host: ThreadMutationCommandsHost): ThreadMutationCommands {
   const nameMutations = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-  const lifecycleMutations = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
+  const archiveMutations = createKeyedOperationCoordinator<string>({ whenBusy: "reject" });
   return {
     renameThread: (threadId, value, options) => renameThread(host, nameMutations, threadId, value, options),
     setThreadPinned: (threadId, isPinned) => setThreadPinned(host, threadId, isPinned),
-    archiveThread: (threadId, options) => archiveThread(host, lifecycleMutations, threadId, options),
-    restoreThread: (threadId) => restoreThread(host, lifecycleMutations, threadId),
-    deleteThread: (threadId) => deleteThread(host, lifecycleMutations, threadId),
+    archiveThread: (threadId, options) => archiveThread(host, archiveMutations, threadId, options),
+    restoreThread: (threadId) => host.port.restoreThread(threadId),
+    deleteThread: (threadId) => host.port.deleteThread(threadId),
   };
 }
 
@@ -75,11 +75,11 @@ async function setThreadPinned(host: ThreadMutationCommandsHost, threadId: strin
 
 async function archiveThread(
   host: ThreadMutationCommandsHost,
-  lifecycleMutations: KeyedOperationCoordinator<string>,
+  archiveMutations: KeyedOperationCoordinator<string>,
   threadId: string,
   options: ArchiveThreadOptions = {},
 ): Promise<ArchiveThreadResult> {
-  return lifecycleMutations.run(threadId, async () => {
+  return archiveMutations.run(threadId, async () => {
     if (host.threadIsBusy(threadId)) return { kind: "blocked", reason: "thread-busy" };
     const shouldExport = options.saveMarkdown ?? host.archiveExport.enabled();
     const exportedPath = await host.port.archiveThread(
@@ -111,26 +111,5 @@ async function archiveThread(
     );
     options.afterArchive?.();
     return { kind: "archived", exportedPath };
-  });
-}
-
-async function restoreThread(
-  host: ThreadMutationCommandsHost,
-  lifecycleMutations: KeyedOperationCoordinator<string>,
-  threadId: string,
-): Promise<Thread> {
-  return lifecycleMutations.run(threadId, async () => {
-    const thread = await host.port.restoreThread(threadId);
-    return thread;
-  });
-}
-
-async function deleteThread(
-  host: ThreadMutationCommandsHost,
-  lifecycleMutations: KeyedOperationCoordinator<string>,
-  threadId: string,
-): Promise<void> {
-  await lifecycleMutations.run(threadId, async () => {
-    await host.port.deleteThread(threadId);
   });
 }
