@@ -1,6 +1,6 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
-import { IconButton } from "../../../../shared/obsidian/components.obsidian";
+import { IconButton } from "../../../../shared/ui/icon.dom";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
 import type {
   ContextItemTextView,

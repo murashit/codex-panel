@@ -2,11 +2,12 @@ import { type Editor, Notice } from "obsidian";
 import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { isComposerSendKey, type SendShortcut } from "../../domain/input/send-shortcut";
 import { listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../shared/dom/events.dom";
-import { renderUiRoot, unmountUiRoot } from "../../shared/dom/preact-root.dom";
+import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
 import { syncTextareaHeight } from "../../shared/dom/textarea-autogrow.measure";
 import { textareaCursorAtVisualBoundary } from "../../shared/dom/textarea-caret.measure";
-import { IconButton } from "../../shared/obsidian/components.obsidian";
+import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
 import { DiffLineList } from "../../shared/ui/diff-view";
+import { IconButton } from "../../shared/ui/icon.dom";
 import { buildSelectionDiffLines } from "./diff";
 import {
   canApplySelectionRewrite,
@@ -193,7 +194,7 @@ export class SelectionRewritePopover {
     if (!elements) return;
     const state = this.session.state;
     const replacement = state.replacementText;
-    renderUiRoot(
+    renderObsidianUiRoot(
       elements.root,
       <SelectionRewritePopoverView
         applyButtonRef={(element) => {

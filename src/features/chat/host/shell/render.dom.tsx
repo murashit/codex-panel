@@ -1,7 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useMemo } from "preact/hooks";
 import { listenDomEvent } from "../../../../shared/dom/events.dom";
-import { renderUiRoot, unmountUiRoot } from "../../../../shared/dom/preact-root.dom";
+import { unmountUiRoot } from "../../../../shared/dom/preact-root.dom";
+import { renderObsidianUiRoot } from "../../../../shared/obsidian/preact-root.obsidian";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
 import type { ChatStateStore } from "../../application/state/store";
 import { ComposerShell } from "../../ui/composer";
@@ -88,7 +89,7 @@ function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount, 
     container.replaceChildren();
   }
   syncStatusBarClearance(container);
-  renderUiRoot(container, <ChatPanelShell {...props} />);
+  renderObsidianUiRoot(container, <ChatPanelShell {...props} />);
   mount.props = props;
 }
 

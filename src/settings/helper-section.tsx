@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
-import { ObsidianDropdown } from "../shared/obsidian/components.obsidian";
+import { ObsidianDropdown } from "../shared/obsidian/controls.obsidian";
 import type { HelperSettingsState } from "./section-state";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
 

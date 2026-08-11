@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { IconButton } from "../../../shared/obsidian/components.obsidian";
+import { Icon, IconButton } from "../../../shared/ui/icon.dom";
 import {
   type ComposerMetaPickerState,
   type ComposerTextSelection,
@@ -9,7 +9,6 @@ import {
   composerMetaPickerState,
   observeComposerMetaStatusOverflow,
   preserveComposerSelection,
-  renderComposerMetaIcon,
   restoreComposerSelection,
   scrollComposerSuggestionIntoView,
   syncComposerHeight,
@@ -373,15 +372,9 @@ function ComposerMetaModeButton({
   disabled: boolean;
   onMouseDown: () => void;
 }): UiNode {
-  const iconRef = useRef<HTMLSpanElement | null>(null);
-  useLayoutEffect(() => {
-    const element = iconRef.current;
-    if (!element) return;
-    renderComposerMetaIcon(element, icon);
-  }, [icon]);
   return (
-    <span
-      ref={iconRef}
+    <Icon
+      icon={icon}
       aria-hidden="true"
       className={[
         "codex-panel__composer-meta-trigger",

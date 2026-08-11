@@ -2,7 +2,8 @@ import type { ComponentChild as UiNode } from "preact";
 
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { SendShortcut } from "../domain/input/send-shortcut";
-import { IconButton, ObsidianCommitTextInput, ObsidianDropdown, ObsidianToggle } from "../shared/obsidian/components.obsidian";
+import { ObsidianCommitTextInput, ObsidianDropdown, ObsidianToggle } from "../shared/obsidian/controls.obsidian";
+import { IconButton } from "../shared/ui/icon.dom";
 import { ArchivedThreadSection } from "./archived-section";
 import { HelperSettingsSection } from "./helper-section";
 import { HookSection } from "./hook-section";

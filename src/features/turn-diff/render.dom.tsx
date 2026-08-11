@@ -1,9 +1,9 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import { shortThreadId } from "../../domain/threads/id";
-import { renderUiRoot } from "../../shared/dom/preact-root.dom";
-import { IconButton } from "../../shared/obsidian/components.obsidian";
+import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
 import { UnifiedDiffView } from "../../shared/ui/diff-view";
+import { IconButton } from "../../shared/ui/icon.dom";
 import type { TurnDiffViewState } from "./model";
 
 export interface TurnDiffViewActions {
@@ -12,7 +12,7 @@ export interface TurnDiffViewActions {
 
 export function renderTurnDiffView(parent: HTMLElement, state: TurnDiffViewState | null, actions: TurnDiffViewActions = {}): void {
   parent.addClass("codex-panel-turn-diff");
-  renderUiRoot(parent, <TurnDiffView state={state} actions={actions} />);
+  renderObsidianUiRoot(parent, <TurnDiffView state={state} actions={actions} />);
 }
 
 function TurnDiffView({ state, actions }: { state: TurnDiffViewState | null; actions: TurnDiffViewActions }): UiNode {

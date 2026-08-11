@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../../shared/obsidian/components.obsidian";
+import { IconButton, ToolbarIconAction, type ToolbarIconActionProps } from "../../../shared/ui/icon.dom";
 import { pinnedThreadGroups } from "../../threads/list/pinned-groups";
 import { focusToolbarRenameInput } from "./toolbar.dom";
 import type { RateLimitSummary, ToolbarStatusRow, ToolbarStatusSection, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
@@ -89,9 +89,9 @@ function ToolbarIconButton({
   icon: string;
   label: string;
   className?: string;
-} & Omit<ObsidianToolbarActionProps, "className" | "icon" | "label">): UiNode {
+} & Omit<ToolbarIconActionProps, "className" | "icon" | "label">): UiNode {
   return (
-    <ObsidianToolbarAction
+    <ToolbarIconAction
       {...props}
       icon={icon}
       label={label}

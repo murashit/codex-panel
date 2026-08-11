@@ -1,5 +1,3 @@
-import { setIcon } from "obsidian";
-
 import { disposeDomListeners, listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../../shared/dom/events.dom";
 import { syncTextareaHeight } from "../../../shared/dom/textarea-autogrow.measure";
 
@@ -15,11 +13,6 @@ export interface ComposerTextSelection {
 export interface ComposerMetaPickerState {
   kind: "model" | "effort";
   left: number;
-}
-
-export function renderComposerMetaIcon(element: HTMLElement, icon: string): void {
-  element.replaceChildren();
-  setIcon(element, icon);
 }
 
 export function syncComposerHeight(composer: HTMLTextAreaElement | null): boolean {

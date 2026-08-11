@@ -1,7 +1,8 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { renderUiRoot, unmountUiRoot } from "../../shared/dom/preact-root.dom";
-import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../shared/obsidian/components.obsidian";
+import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
+import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
+import { IconButton, ToolbarIconAction, type ToolbarIconActionProps } from "../../shared/ui/icon.dom";
 import { pinnedThreadGroups } from "../threads/list/pinned-groups";
 import type { ThreadsRowModel } from "./state";
 
@@ -35,7 +36,7 @@ export interface ThreadsViewShellActions {
 
 export function renderThreadsViewShell(parent: HTMLElement, model: ThreadsViewShellModel, actions: ThreadsViewShellActions): void {
   parent.addClass("codex-panel-threads");
-  renderUiRoot(parent, <ThreadsViewShell model={model} actions={actions} />);
+  renderObsidianUiRoot(parent, <ThreadsViewShell model={model} actions={actions} />);
 }
 
 export function unmountThreadsViewShell(parent: HTMLElement | null): void {
@@ -328,9 +329,9 @@ function ThreadsToolbarButton({
 }: {
   icon: string;
   label: string;
-} & Omit<ObsidianToolbarActionProps, "className" | "icon" | "label">): UiNode {
+} & Omit<ToolbarIconActionProps, "className" | "icon" | "label">): UiNode {
   return (
-    <ObsidianToolbarAction
+    <ToolbarIconAction
       {...props}
       icon={icon}
       label={label}

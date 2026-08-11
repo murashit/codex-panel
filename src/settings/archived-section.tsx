@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { shortThreadId } from "../domain/threads/id";
 import type { Thread } from "../domain/threads/model";
 import { threadCommandDisplayTitle } from "../domain/threads/title";
-import { ObsidianCommitTextInput, ObsidianExtraButton, ObsidianToggle } from "../shared/obsidian/components.obsidian";
+import { ObsidianCommitTextInput, ObsidianExtraButton, ObsidianToggle } from "../shared/obsidian/controls.obsidian";
 import { DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE } from "./model";
 import type { ArchivedThreadSectionState } from "./section-state";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./setting-components";

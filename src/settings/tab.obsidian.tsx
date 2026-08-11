@@ -4,8 +4,10 @@ import type { ComponentChild as UiNode } from "preact";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
 import { listenDomEvent } from "../shared/dom/events.dom";
-import { renderUiRoot, unmountUiRoot } from "../shared/dom/preact-root.dom";
-import { IconButton, ObsidianCommitTextInput } from "../shared/obsidian/components.obsidian";
+import { unmountUiRoot } from "../shared/dom/preact-root.dom";
+import { ObsidianCommitTextInput } from "../shared/obsidian/controls.obsidian";
+import { renderObsidianUiRoot } from "../shared/obsidian/preact-root.obsidian";
+import { IconButton } from "../shared/ui/icon.dom";
 import { ArchivedThreadsContent } from "./archived-section";
 import type { DeclarativeSettingDefinition, DeclarativeSettingDefinitionItem } from "./declarative-settings.compat";
 import { SettingsDynamicSectionsController } from "./dynamic-sections-controller";
@@ -331,7 +333,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private renderDeclarativeIsland(container: HTMLElement, renderNode: () => UiNode): () => void {
     this.beginDeclarativeDisplay();
     const refresh = (): void => {
-      renderUiRoot(container, renderNode());
+      renderObsidianUiRoot(container, renderNode());
     };
     this.declarativeIslandRefreshers.add(refresh);
     refresh();
@@ -366,7 +368,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private renderSettingsShell(): void {
-    renderUiRoot(
+    renderObsidianUiRoot(
       this.containerEl,
       <SettingsTabShell
         key={this.settingsShellRevision}

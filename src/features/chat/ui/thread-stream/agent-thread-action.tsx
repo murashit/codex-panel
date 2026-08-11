@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { IconButton } from "../../../../shared/obsidian/components.obsidian";
+import { IconButton } from "../../../../shared/ui/icon.dom";
 
 export function OpenAgentThreadAction({
   threadId,

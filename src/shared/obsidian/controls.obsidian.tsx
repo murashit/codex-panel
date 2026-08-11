@@ -1,13 +1,8 @@
-import { ButtonComponent, DropdownComponent, ExtraButtonComponent, setIcon, TextComponent, ToggleComponent } from "obsidian";
-import type { ButtonHTMLAttributes, HTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
+import { ButtonComponent, DropdownComponent, ExtraButtonComponent, TextComponent, ToggleComponent } from "obsidian";
+import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { disposeDomListeners, listenDomEvent } from "../dom/events.dom";
-
-interface ObsidianIconProps {
-  icon: string;
-  className?: string;
-}
 
 export interface ObsidianDropdownOption {
   value: string;
@@ -18,97 +13,6 @@ function useLatestRef<T>(value: T): { current: T } {
   const ref = useRef(value);
   ref.current = value;
   return ref;
-}
-
-function ObsidianIcon({ icon, className }: ObsidianIconProps): UiNode {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.replaceChildren();
-    setIcon(element, icon);
-  }, [icon]);
-  return <span ref={ref} className={className} aria-hidden="true" />;
-}
-
-export interface IconButtonProps extends ButtonHTMLAttributes {
-  icon: string;
-  label: string;
-  buttonRef?: Ref<HTMLButtonElement>;
-  disabled?: boolean | undefined;
-  type?: "button" | "submit" | "reset" | undefined;
-}
-
-export function IconButton({ icon, label, buttonRef, className, children, ...props }: IconButtonProps): UiNode {
-  const ref = useRef<HTMLButtonElement | null>(null);
-  useLayoutEffect(() => {
-    const button = ref.current;
-    if (!button || children) return;
-    button.replaceChildren();
-    setIcon(button, icon);
-  }, [children, icon]);
-  return (
-    <button
-      {...props}
-      ref={(element) => {
-        ref.current = element;
-        if (typeof buttonRef === "function") {
-          buttonRef(element);
-        } else if (buttonRef) {
-          buttonRef.current = element;
-        }
-      }}
-      className={className}
-      aria-label={label}
-      type={props.type ?? "button"}
-    >
-      {children ? <ObsidianIcon icon={icon} /> : null}
-      {children}
-    </button>
-  );
-}
-
-export type ObsidianToolbarActionProps = Omit<HTMLAttributes<HTMLDivElement>, "className"> & {
-  icon: string;
-  label: string;
-  actionRef?: Ref<HTMLDivElement>;
-  className?: string | undefined;
-  disabled?: boolean | undefined;
-};
-
-export function ObsidianToolbarAction({
-  icon,
-  label,
-  actionRef,
-  className,
-  disabled,
-  onClick,
-  ...props
-}: ObsidianToolbarActionProps): UiNode {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const action = ref.current;
-    if (!action) return;
-    action.replaceChildren();
-    setIcon(action, icon);
-  }, [icon]);
-  return (
-    // biome-ignore lint/a11y: Obsidian core toolbar icons are div.clickable-icon nav-action-button elements with aria-label tooltips, not native buttons.
-    <div
-      {...props}
-      ref={(element) => {
-        ref.current = element;
-        if (typeof actionRef === "function") {
-          actionRef(element);
-        } else if (actionRef) {
-          actionRef.current = element;
-        }
-      }}
-      className={[className, disabled ? "is-disabled" : ""].filter(Boolean).join(" ")}
-      aria-label={label}
-      onClick={disabled ? undefined : onClick}
-    />
-  );
 }
 
 export function ObsidianDropdown({
