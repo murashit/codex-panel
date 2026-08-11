@@ -33,8 +33,8 @@ import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
 import { createSettingsAppServerDynamicData } from "./settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
 import type { CodexPanelSettings } from "./settings/model";
+import { createKeyedOperationCoordinator } from "./shared/async/keyed-operation-coordinator";
 import { createObsidianVaultMarkdownDestination } from "./shared/obsidian/vault-write-destination.obsidian";
-import { createKeyedOperationCoordinator } from "./shared/runtime/keyed-operation-coordinator";
 
 export interface CodexExecutionRuntimeOptions {
   app: App;

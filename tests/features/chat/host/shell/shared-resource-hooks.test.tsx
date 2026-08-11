@@ -13,8 +13,8 @@ import {
   useSkillsResource,
 } from "../../../../../src/features/chat/host/shell/shared-resource-hooks";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../../../src/features/threads/catalog/thread-catalog";
+import type { ObservedPaginatedResult } from "../../../../../src/shared/async/observed-result";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
-import type { ObservedPaginatedResult } from "../../../../../src/shared/runtime/observed-result";
 
 describe("shared display resource hooks", () => {
   it("subscribes panels directly to requested resources while retaining last-known-good values", async () => {

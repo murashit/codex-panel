@@ -1,4 +1,4 @@
-import { OwnerLifetime } from "../../../../shared/runtime/owner-lifetime";
+import { OwnerLifetime } from "../../../../shared/async/owner-lifetime";
 import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
 import { type ChatAction, type ChatState, panelThreadId } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";

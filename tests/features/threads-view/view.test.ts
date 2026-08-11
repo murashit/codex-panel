@@ -9,7 +9,7 @@ import type { ThreadFactSink } from "../../../src/features/threads/workflows/thr
 import { createThreadMutationCommands } from "../../../src/features/threads/workflows/thread-mutation-commands";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { ObservedPaginatedResult } from "../../../src/shared/runtime/observed-result";
+import type { ObservedPaginatedResult } from "../../../src/shared/async/observed-result";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";

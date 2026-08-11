@@ -1,6 +1,6 @@
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../domain/threads/title";
-import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
+import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ThreadMutationPort } from "./ports";
 import type { ThreadFactSink } from "./thread-facts";

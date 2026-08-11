@@ -51,7 +51,7 @@ const policyCases = [
   ),
   policyCase(
     "no-core-outer-layer-imports.grit",
-    "src/shared/runtime/escape.ts",
+    "src/shared/async/escape.ts",
     'import type { Feature } from "../../features/escape";',
     "export type Value = string;",
     {
@@ -93,7 +93,7 @@ const policyCases = [
     "no-external-app-server-query-imports.grit",
     "src/settings/escape.ts",
     'import type { QueryResult } from "../app-server/query/result";',
-    'import type { ObservedResult } from "../shared/runtime/observed-result";',
+    'import type { ObservedResult } from "../shared/async/observed-result";',
   ),
   policyCase(
     "no-app-server-protocol-boundary-imports.grit",

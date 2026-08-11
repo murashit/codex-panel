@@ -1,6 +1,6 @@
 import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
-import type { ObservedResultListener } from "../shared/runtime/observed-result";
+import type { ObservedResultListener } from "../shared/async/observed-result";
 
 export interface SettingsHookCatalog {
   hooks: readonly HookItem[];

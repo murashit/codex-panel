@@ -11,7 +11,7 @@ import type {
   SharedServerMetadataSnapshotValues,
 } from "../../../domain/server/metadata";
 import type { ThreadGoalCoordinator } from "../../../domain/threads/goal-coordination";
-import type { KeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
+import type { KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
 import type { ThreadAutoTitleWork } from "../../threads/workflows/thread-auto-title-work";

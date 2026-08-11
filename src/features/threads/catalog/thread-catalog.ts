@@ -1,6 +1,6 @@
 import type { ThreadCatalogChange } from "../../../domain/threads/catalog-read-model";
 import type { Thread } from "../../../domain/threads/model";
-import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../shared/runtime/observed-result";
+import type { ObservedPaginatedResultListener, ObservedResultListener } from "../../../shared/async/observed-result";
 
 type ActiveThreadListObserver = ObservedPaginatedResultListener<readonly Thread[]>;
 type ArchivedThreadListObserver = ObservedResultListener<readonly Thread[]>;

@@ -5,7 +5,7 @@ import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import { SettingsDynamicSectionsController } from "../../src/settings/dynamic-sections-controller";
-import type { ObservedResult } from "../../src/shared/runtime/observed-result";
+import type { ObservedResult } from "../../src/shared/async/observed-result";
 import { deferred } from "../support/async";
 import {
   appServerThread,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createKeyedOperationCoordinator } from "../../../src/shared/runtime/keyed-operation-coordinator";
+import { createKeyedOperationCoordinator } from "../../../src/shared/async/keyed-operation-coordinator";
 import { deferred } from "../../support/async";
 
 describe("KeyedOperationCoordinator", () => {

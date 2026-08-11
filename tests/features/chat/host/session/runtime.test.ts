@@ -12,7 +12,7 @@ import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
 import { createThreadGoalCoordinator } from "../../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/model";
-import { createKeyedOperationCoordinator } from "../../../../../src/shared/runtime/keyed-operation-coordinator";
+import { createKeyedOperationCoordinator } from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";

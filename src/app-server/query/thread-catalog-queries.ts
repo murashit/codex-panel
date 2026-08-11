@@ -13,7 +13,7 @@ import type {
   ObservedPaginatedResultListener,
   ObservedResult,
   ObservedResultListener,
-} from "../../shared/runtime/observed-result";
+} from "../../shared/async/observed-result";
 import { listPinnedThreads, listThreads, readThreadPage, type ThreadPage } from "../services/threads";
 import {
   type ActiveThreadCursor,

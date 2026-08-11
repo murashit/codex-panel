@@ -1,10 +1,10 @@
 import { Notice } from "obsidian";
 import type { Thread } from "../../domain/threads/model";
 import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
-import { DeferredTask } from "../../shared/runtime/deferred-task";
-import type { ObservedPaginatedResult } from "../../shared/runtime/observed-result";
-import { observedInitialError, observedInitialLoading } from "../../shared/runtime/observed-result";
-import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
+import { DeferredTask } from "../../shared/async/deferred-task";
+import type { ObservedPaginatedResult } from "../../shared/async/observed-result";
+import { observedInitialError, observedInitialLoading } from "../../shared/async/observed-result";
+import { OwnerLifetime } from "../../shared/async/owner-lifetime";
 import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ThreadTitlePort } from "../threads/workflows/ports";
 import type { ThreadMutationCommands } from "../threads/workflows/thread-mutation-commands";

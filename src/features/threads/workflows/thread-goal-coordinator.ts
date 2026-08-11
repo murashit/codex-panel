@@ -1,5 +1,5 @@
 import type { ThreadGoalCoordinator } from "../../../domain/threads/goal-coordination";
-import { createKeyedOperationCoordinator } from "../../../shared/runtime/keyed-operation-coordinator";
+import { createKeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 
 export function createThreadGoalCoordinator(): ThreadGoalCoordinator {
   const readRevisions = new Map<string, number>();

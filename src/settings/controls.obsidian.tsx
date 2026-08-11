@@ -2,7 +2,7 @@ import { ButtonComponent, DropdownComponent, ExtraButtonComponent, TextComponent
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { disposeDomListeners, listenDomEvent } from "../dom/events.dom";
+import { disposeDomListeners, listenDomEvent } from "../shared/dom/events.dom";
 
 export interface ObsidianDropdownOption {
   value: string;

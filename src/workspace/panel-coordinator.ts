@@ -12,7 +12,7 @@ import { parseChatPanelViewState } from "../features/chat/host/view-state";
 
 type ForkDisplaySnapshot = Parameters<WorkspacePanels["openThreadInNewView"]>[1];
 
-import { createKeyedOperationCoordinator } from "../shared/runtime/keyed-operation-coordinator";
+import { createKeyedOperationCoordinator } from "../shared/async/keyed-operation-coordinator";
 
 interface WorkspacePanelReconcileOptions {
   loadRestoredLeaves?: boolean;

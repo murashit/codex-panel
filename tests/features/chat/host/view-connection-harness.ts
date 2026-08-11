@@ -18,8 +18,8 @@ import type { ThreadFact } from "../../../../src/features/threads/workflows/thre
 import { createThreadGoalCoordinator } from "../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { createKeyedOperationCoordinator } from "../../../../src/shared/runtime/keyed-operation-coordinator";
-import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/shared/runtime/observed-result";
+import { createKeyedOperationCoordinator } from "../../../../src/shared/async/keyed-operation-coordinator";
+import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/shared/async/observed-result";
 import { notices } from "../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../support/dom";
 import { runtimeConfigFixture } from "../../../support/runtime-config";

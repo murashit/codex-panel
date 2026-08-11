@@ -9,7 +9,7 @@ import {
 } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadataResourceFor, SharedServerMetadataResourceId } from "../../../../domain/server/metadata";
 import type { Thread } from "../../../../domain/threads/model";
-import type { ObservedPaginatedResult } from "../../../../shared/runtime/observed-result";
+import type { ObservedPaginatedResult } from "../../../../shared/async/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
 
 export interface ChatSharedDisplayQueries {

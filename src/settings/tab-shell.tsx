@@ -2,9 +2,9 @@ import type { ComponentChild as UiNode } from "preact";
 
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { SendShortcut } from "../domain/input/send-shortcut";
-import { ObsidianCommitTextInput, ObsidianDropdown, ObsidianToggle } from "../shared/obsidian/controls.obsidian";
 import { IconButton } from "../shared/ui/icon.dom";
 import { ArchivedThreadSection } from "./archived-section";
+import { ObsidianCommitTextInput, ObsidianDropdown, ObsidianToggle } from "./controls.obsidian";
 import { HelperSettingsSection } from "./helper-section";
 import { HookSection } from "./hook-section";
 import { DEFAULT_ATTACHMENT_FOLDER } from "./model";

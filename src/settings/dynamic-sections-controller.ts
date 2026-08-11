@@ -2,8 +2,8 @@ import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { threadCommandDisplayTitle } from "../domain/threads/title";
-import type { ObservedResult } from "../shared/runtime/observed-result";
-import { OwnerLifetime } from "../shared/runtime/owner-lifetime";
+import type { ObservedResult } from "../shared/async/observed-result";
+import { OwnerLifetime } from "../shared/async/owner-lifetime";
 import type { SettingsDynamicDataAccess, SettingsHookCatalog } from "./dynamic-data";
 import type { SettingsDynamicSectionsHost } from "./host";
 

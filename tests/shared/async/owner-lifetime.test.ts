@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { OwnerLifetime } from "../../../src/shared/runtime/owner-lifetime";
+import { OwnerLifetime } from "../../../src/shared/async/owner-lifetime";
 
 describe("OwnerLifetime", () => {
   it("invalidates the owned signal on dispose and rotates it on reactivation", () => {

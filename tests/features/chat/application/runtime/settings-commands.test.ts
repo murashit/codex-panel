@@ -13,7 +13,7 @@ import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../.
 import {
   createKeyedOperationCoordinator,
   type KeyedOperationCoordinator,
-} from "../../../../../src/shared/runtime/keyed-operation-coordinator";
+} from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 

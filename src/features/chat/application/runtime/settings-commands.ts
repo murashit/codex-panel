@@ -7,7 +7,7 @@ import {
 } from "../../../../domain/catalog/reasoning-effort-compatibility";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/runtime/keyed-operation-coordinator";
+import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/async/keyed-operation-coordinator";
 import { type CollaborationModeSelection, nextCollaborationMode, type RequestedFastMode } from "../../domain/runtime/intent";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";

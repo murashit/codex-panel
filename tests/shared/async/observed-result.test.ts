@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ObservedResult } from "../../../src/shared/runtime/observed-result";
-import { observedInitialError, observedInitialLoading } from "../../../src/shared/runtime/observed-result";
+import type { ObservedResult } from "../../../src/shared/async/observed-result";
+import { observedInitialError, observedInitialLoading } from "../../../src/shared/async/observed-result";
 
 describe("observed result helpers", () => {
   it("treats successful empty arrays as current values", () => {
