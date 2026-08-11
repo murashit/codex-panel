@@ -1,19 +1,14 @@
 import Defuddle from "defuddle";
 import { htmlToMarkdown, type RequestUrlResponse, requestUrl } from "obsidian";
 
-import type { CodexInput } from "../../../../domain/turns/input";
 import { codexTextInputWithAttachments } from "../../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
+import type { PreparedInput } from "../../application/composer/prepared-input";
 import { normalizedHttpUrl } from "../../application/submission/web-submission";
 import { WEB_CONTEXT_KEY } from "../../domain/thread-stream/format/context-attachments";
 
-export interface WebUrlInput {
-  text: string;
-  input: CodexInput;
-}
-
 interface WebContextReaderOptions {
-  prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
+  prepareInput: (text: string, snapshot: ComposerInputSnapshot) => PreparedInput;
   viewWindow: () => Window | null;
   requestTimeoutMs?: number;
   isCurrent?: () => boolean;
@@ -26,7 +21,7 @@ export async function readWebUrl(
   url: string,
   message: string,
   inputSnapshot: ComposerInputSnapshot,
-): Promise<WebUrlInput> {
+): Promise<PreparedInput> {
   const parsedUrl = normalizedHttpUrl(url);
   if (!parsedUrl) throw new Error(`Unsupported web URL: ${url}`);
   assertCurrentWebImport(options);

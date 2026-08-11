@@ -2,7 +2,6 @@ import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../../../domain/markdown/code-ranges";
 import {
   ACTIVE_FILE_REFERENCE_NAME,
-  type CodexInput,
   codexTextInputWithReferences,
   type RequestAdditionalContext,
   type SkillReference,
@@ -14,6 +13,7 @@ import {
   type SelectionContextReference,
   selectionContextReferenceMarker,
 } from "./context-references";
+import type { PreparedInput } from "./prepared-input";
 
 interface ParsedWikiLink {
   raw: string;
@@ -33,11 +33,6 @@ export type WikiLinkFileReferenceResolver = (target: string) => VaultFileReferen
 const OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY = "codex_panel_obsidian_context";
 const WIKILINK_PATTERN = /\[\[([^\]\n]+?)\]\]/g;
 const SKILL_REFERENCE_PATTERN = /(^|[\s([{])\$([^\s\])}.,;!?]{1,120})(?=$|[\s\])}.,;!?])/g;
-
-export interface PreparedComposerInput {
-  text: string;
-  input: CodexInput;
-}
 
 interface PreparedComposerInputOptions {
   referenceActiveNoteOnSend: boolean;
@@ -67,7 +62,7 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   skills: readonly SkillMetadata[],
   contextReferences: ComposerContextReferences,
   options: PreparedComposerInputOptions,
-): PreparedComposerInput {
+): PreparedInput {
   const codeRanges = markdownReferenceCodeRanges(text);
   const contextReplacement = textWithContextReferences(text, contextReferences, codeRanges);
   const resolvedText = contextReplacement.text;

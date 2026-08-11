@@ -1,24 +1,19 @@
 import type { Thread } from "../../../../domain/threads/model";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { PreparedInput } from "../composer/prepared-input";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import type { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import { activeThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
-import {
-  executeSlashCommand as runSlashCommand,
-  type SlashCommandExecutionPorts,
-  type SlashCommandExecutionResult,
-  type ThreadReferenceInput,
-  type WebUrlInput,
-} from "./execute";
+import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionPorts, type SlashCommandExecutionResult } from "./execute";
 
 export interface PanelSlashCommandHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;
   connectionAvailable: () => boolean;
-  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput | null>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<PreparedInput>;
   sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1];
   listedThreads: () => readonly Thread[];
 }

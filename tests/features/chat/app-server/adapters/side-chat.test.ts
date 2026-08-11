@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerRequestClient } from "../../../../src/app-server/services/request-client";
-import { EphemeralThreadCleanupRequiredError, forkEphemeralThread } from "../../../../src/features/chat/app-server/side-chat";
+import type { AppServerRequestClient } from "../../../../../src/app-server/services/request-client";
+import { EphemeralThreadCleanupRequiredError, forkEphemeralThread } from "../../../../../src/features/chat/app-server/adapters/side-chat";
 
 describe("side-chat app-server adapter", () => {
   it("forks read-only ephemeral threads behind a model-visible boundary", async () => {

@@ -4,7 +4,7 @@ import { type App, type Component, MarkdownRenderer, Notice } from "obsidian";
 import { codexThreadIdFromHref } from "../../../../domain/threads/deep-link";
 import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../domain/vault/file-hrefs";
 import { vaultFileLinkTarget } from "../../../../shared/obsidian/vault-file-links.obsidian";
-import { notifyThreadStreamContentRendered } from "./content-rendered-event.dom";
+import { notifyThreadStreamContentRendered } from "../../ui/thread-stream/content-rendered-event.dom";
 
 interface ThreadStreamMarkdownRendererOptions {
   app: App;

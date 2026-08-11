@@ -3,7 +3,7 @@
 import { TFile } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { renderStreamMarkdown } from "../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
+import { renderStreamMarkdown } from "../../../../../src/features/chat/host/thread-stream/markdown-renderer.obsidian";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 

@@ -16,6 +16,7 @@ import {
 import type { FuzzyMatcher } from "../../application/composer/fuzzy-search";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
+import type { PreparedInput } from "../../application/composer/prepared-input";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
 import type { ComposerSubmissionClaim } from "../../application/composer/submission-claim";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
@@ -25,10 +26,7 @@ import {
   composerSuggestionNavigationDirection,
   nextComposerSuggestionIndex,
 } from "../../application/composer/suggestions";
-import {
-  type PreparedComposerInput,
-  preparedUserInputWithWikiLinkReferencesSkillsAndContext,
-} from "../../application/composer/wikilink-context";
+import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../application/composer/wikilink-context";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activePanelOperationForSlashCommandSuggestion } from "../../application/slash-commands/catalog";
@@ -364,7 +362,7 @@ export class ChatComposerController {
     });
   }
 
-  preparedInput(text: string, snapshot: ComposerInputSnapshot = this.captureInputSnapshot()): PreparedComposerInput {
+  preparedInput(text: string, snapshot: ComposerInputSnapshot = this.captureInputSnapshot()): PreparedInput {
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
       text,
       (target) => this.options.noteCandidateProvider.resolveFileReference(target, snapshot.sourcePath),

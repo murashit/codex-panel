@@ -1,5 +1,6 @@
 import { type CodexInput, codexTextInput } from "../../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { PreparedInput } from "../composer/prepared-input";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
@@ -35,7 +36,7 @@ export interface TurnSubmissionCommandHost {
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
-  prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
+  prepareInput: (text: string, snapshot: ComposerInputSnapshot) => PreparedInput;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
 }
@@ -266,7 +267,7 @@ async function steerCurrentTurn(
   host: TurnSubmissionCommandHost,
   localItemIds: LocalIdSource,
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
-  prepared: { text: string; input: CodexInput },
+  prepared: PreparedInput,
   request: TurnSubmissionRequest,
   panelTarget: PanelTargetLease,
 ): Promise<boolean> {

@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import type { CodexInput } from "../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
+import type { PreparedInput } from "../application/composer/prepared-input";
 import type { ServerDiagnosticsPort } from "../application/connection/server-diagnostics-port";
 import { createChatServerDiagnosticsAdapter } from "./adapters/server-diagnostics-adapter";
 import {
@@ -9,7 +9,7 @@ import {
   createChatConnectedSessionAdapters,
   createChatCurrentSessionAdapters,
 } from "./adapters/session-adapters";
-import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
+import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./adapters/thread-reference-resolver";
 
 export interface ChatCurrentAppServerGatewayHost {
   vaultPath: string;
@@ -23,7 +23,7 @@ export interface ChatConnectedAppServerGatewayHost {
 }
 
 interface ChatThreadReferenceResolverOptions {
-  prepareInput(text: string, snapshot: ComposerInputSnapshot): { text: string; input: CodexInput };
+  prepareInput(text: string, snapshot: ComposerInputSnapshot): PreparedInput;
   addSystemMessage(text: string): void;
   setStatus(status: string): void;
 }

@@ -1,13 +1,12 @@
 import type { Thread } from "../../../../domain/threads/model";
-import type { CodexInput } from "../../../../domain/turns/input";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { PreparedInput } from "../composer/prepared-input";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
 import type { ChatRuntimeSharedResources } from "../runtime/snapshot";
-import type { ThreadReferenceInput, WebUrlInput } from "../slash-commands/execute";
 import { executePanelSlashCommand, type PanelSlashCommandHost } from "../slash-commands/execute-with-state";
 import type { ChatStateStore } from "../state/store";
 import type { GoalCommands } from "../threads/goal-commands";
@@ -25,8 +24,8 @@ export interface SubmissionCommandsContext {
   sharedResources: ChatRuntimeSharedResources;
   listedThreads: () => readonly Thread[];
   turnPort: ChatTurnPort;
-  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput | null>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<PreparedInput>;
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -49,7 +48,7 @@ export interface SubmissionCommandsContext {
     openSideChat?: (threadId: string, message?: string) => Promise<void>;
   };
   composer: {
-    prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
+    prepareInput: (text: string, snapshot: ComposerInputSnapshot) => PreparedInput;
     claimSubmission: () => ComposerSubmissionClaim | null;
     isSubmissionPreparing: () => boolean;
     failActiveSubmissionClaim: () => void;

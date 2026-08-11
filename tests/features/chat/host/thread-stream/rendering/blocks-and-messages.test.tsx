@@ -5,7 +5,7 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { pendingWebSubmissionItem } from "../../../../../../src/features/chat/application/submission/web-submission";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
-import { ThreadStreamMarkdownRenderer } from "../../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
+import { ThreadStreamMarkdownRenderer } from "../../../../../../src/features/chat/host/thread-stream/markdown-renderer.obsidian";
 import { deferred } from "../../../../../support/async";
 import { attributeValues, textContents, topLevelDetailsSummaries } from "../../../../../support/dom";
 import "./setup";

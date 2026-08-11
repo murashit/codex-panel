@@ -9,6 +9,7 @@ import type { CodexInput } from "../../../../domain/turns/input";
 import { modelOverrideMessage, permissionProfileOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import type { ThreadStreamAuditFact, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { PreparedInput } from "../composer/prepared-input";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
@@ -71,8 +72,8 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
   activeThreadId: string | null;
   listedThreads: readonly Thread[];
   threadCommandTarget?: ThreadCommandTarget;
-  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput | null>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<PreparedInput>;
   inputSnapshot?: ComposerInputSnapshot;
   submission: ComposerSubmissionAdoption;
 }
@@ -81,16 +82,6 @@ export interface SlashCommandExecutionResult {
   sendText?: string;
   sendInput?: CodexInput;
   composerDraft?: string;
-}
-
-export interface ThreadReferenceInput {
-  text: string;
-  input: CodexInput;
-}
-
-export interface WebUrlInput {
-  text: string;
-  input: CodexInput;
 }
 
 export async function executeSlashCommand(

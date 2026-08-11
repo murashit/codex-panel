@@ -2,7 +2,7 @@ import { Notice } from "obsidian";
 import type { ThreadGoalCoordinator } from "../../../../domain/threads/goal-coordination";
 import type { ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
-import { recoverRolloutTokenUsage } from "../../app-server/rollout-token-usage";
+import { recoverRolloutTokenUsage } from "../../app-server/mappers/rollout-token-usage";
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { chatThreadStreamViewState } from "../../application/state/active-turn";

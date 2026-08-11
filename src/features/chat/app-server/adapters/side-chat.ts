@@ -1,6 +1,6 @@
-import type { AppServerRequestClient } from "../../../app-server/services/request-client";
-import { threadActivationSnapshotFromAppServerResponse, unsubscribeThread } from "../../../app-server/services/threads";
-import type { ThreadActivationSnapshot } from "../../../domain/threads/activation";
+import type { AppServerRequestClient } from "../../../../app-server/services/request-client";
+import { threadActivationSnapshotFromAppServerResponse, unsubscribeThread } from "../../../../app-server/services/threads";
+import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 
 type AppServerJsonValue = number | string | boolean | AppServerJsonValue[] | { [key: string]: AppServerJsonValue | undefined } | null;
 

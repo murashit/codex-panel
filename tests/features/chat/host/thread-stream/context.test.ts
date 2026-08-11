@@ -8,6 +8,7 @@ import { type ChatAction, type ChatState, chatReducer } from "../../../../../src
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { createChatThreadStreamDependencies } from "../../../../../src/features/chat/host/thread-stream/context.obsidian";
+import { ThreadStreamMarkdownRenderer } from "../../../../../src/features/chat/host/thread-stream/markdown-renderer.obsidian";
 import {
   type ChatThreadStreamScrollBinding,
   createChatThreadStreamScrollBinding,
@@ -16,7 +17,6 @@ import {
   type ChatThreadStreamDependencies,
   projectThreadStream,
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
-import { ThreadStreamMarkdownRenderer } from "../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
 import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread-stream/stream-blocks";
 import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
