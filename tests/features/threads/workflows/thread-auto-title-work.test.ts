@@ -21,7 +21,7 @@ describe("thread auto-title work", () => {
     expect(fixture.renameThread).not.toHaveBeenCalled();
   });
 
-  it("deduplicates the same thread across panel submissions", async () => {
+  it("does not start duplicate generation while title work is in flight", async () => {
     const fixture = workFixture(() => Promise.resolve("Generated title"));
 
     fixture.work.submit("thread", titleContext());

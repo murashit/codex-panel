@@ -16,7 +16,6 @@ interface ThreadAutoTitleWorkHost {
 
 export function createThreadAutoTitleWork(host: ThreadAutoTitleWorkHost): ThreadAutoTitleWork {
   let disposed = false;
-  const attemptedThreadIds = new Set<string>();
   const titledThreadIds = new Set<string>();
   const unavailableThreadIds = new Set<string>();
   const generationControllers = new Map<string, AbortController>();
@@ -47,8 +46,7 @@ export function createThreadAutoTitleWork(host: ThreadAutoTitleWorkHost): Thread
 
   return {
     submit(threadId, context) {
-      if (disposed || unavailableThreadIds.has(threadId) || titledThreadIds.has(threadId) || attemptedThreadIds.has(threadId)) return;
-      attemptedThreadIds.add(threadId);
+      if (disposed || unavailableThreadIds.has(threadId) || titledThreadIds.has(threadId) || generationControllers.has(threadId)) return;
       const controller = new AbortController();
       generationControllers.set(threadId, controller);
       void generateAndRename(threadId, context, controller);
