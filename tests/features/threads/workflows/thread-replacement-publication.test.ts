@@ -6,6 +6,45 @@ import { projectThreadFacts } from "../../../../src/features/threads/workflows/t
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
 
 describe("thread replacement visibility", () => {
+  it("keeps replacement activity on the source row until the replacement is visible", () => {
+    let active: readonly Thread[] | null = [thread("source")];
+    let archived: readonly Thread[] | null = [];
+    const frames: { phase: string; visibleThreadId: string | null }[] = [];
+    let publication: ReturnType<typeof createThreadReplacementPublication>;
+    const capture = (phase: string): void => {
+      frames.push({ phase, visibleThreadId: publication.visibleThreadId(active ?? [], "replacement") });
+    };
+    publication = createThreadReplacementPublication(
+      (facts) => {
+        const changes = projectThreadFacts(
+          {
+            activeThreadsSnapshot: () => active,
+            archivedThreadsSnapshot: () => archived,
+          },
+          facts,
+        );
+        for (const change of changes) {
+          if (change.list === "active") active = applyThreadCatalogChange(active, change);
+          else archived = applyThreadCatalogChange(archived, change);
+        }
+        capture("commit");
+      },
+      () => () => capture("release"),
+    );
+    const replacement = publication.begin("source");
+    replacement.attach(thread("replacement"));
+    capture("pending");
+
+    replacement.finish(true);
+
+    expect(frames).toEqual([
+      { phase: "pending", visibleThreadId: "source" },
+      { phase: "commit", visibleThreadId: "replacement" },
+      { phase: "release", visibleThreadId: "replacement" },
+    ]);
+    expect(publication.visibleThreadId(active ?? [], "replacement")).toBe("replacement");
+  });
+
   it("never exposes both source and replacement in the active Threads view when replacement succeeds", () => {
     const catalog = visibleCatalogPublication();
 

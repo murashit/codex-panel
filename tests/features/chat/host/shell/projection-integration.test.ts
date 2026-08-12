@@ -44,6 +44,28 @@ const selectChatPanelComposer = (state: ChatState) =>
   selectChatPanelComposerFromResources(state, composerSharedValues(sharedResourcesForChatState(state)));
 
 describe("chat panel projection integration", () => {
+  it("uses replacement visibility only for the selected toolbar row", () => {
+    let state = chatStateFixture({
+      activeThread: { id: "replacement" },
+      threadList: { listedThreads: [threadFixture("source", "Source")] },
+    });
+    state = chatStateWith(state, {
+      activeTurn: { lifecycle: { kind: "running", turnId: "turn" } },
+      ui: { toolbarPanel: "history" },
+    });
+    const parent = renderWithShellModels(state, (models) =>
+      h(ProjectedToolbar, {
+        model: models.toolbar,
+        dependencies: toolbarSurfaceFixture({ visibleThreadId: () => "source" }),
+        actions: toolbarActionsFixture(),
+      }),
+    );
+
+    expect(parent.querySelector(".codex-panel__thread-row--selected")?.textContent).toContain("Source");
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.disabled).toBe(false);
+    unmountUiRoot(parent);
+  });
+
   it("disables compact context without an active thread", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { ui: { toolbarPanel: "chat-actions" } });
@@ -816,11 +838,14 @@ function clickLabeledButton(parent: HTMLElement, label: string): void {
   button.click();
 }
 
-function toolbarSurfaceFixture(overrides: { archiveExportEnabled?: boolean } = {}) {
+function toolbarSurfaceFixture(
+  overrides: { archiveExportEnabled?: boolean; visibleThreadId?: ChatPanelToolbarDependencies["visibleThreadId"] } = {},
+) {
   return {
     connection: {
       connected: () => true,
     },
+    visibleThreadId: overrides.visibleThreadId ?? ((_threads: readonly Thread[], threadId: string | null) => threadId),
     settings: {
       vaultPath: () => "/vault",
       configuredCommand: () => "codex",

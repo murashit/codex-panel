@@ -151,7 +151,11 @@ export class CodexExecutionRuntime {
       threadTitlePort: this.threadTitlePort(),
       openNewPanel: () => this.options.workspace.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.options.workspace.openThreadInAvailableView(threadId),
-      openPanelActivities: () => this.options.workspace.openPanelActivities(),
+      visiblePanelActivities: (threads) =>
+        this.options.workspace.openPanelActivities().map((activity) => ({
+          ...activity,
+          threadId: this.threadReplacementPublication.visibleThreadId(threads, activity.threadId),
+        })),
     };
   }
 

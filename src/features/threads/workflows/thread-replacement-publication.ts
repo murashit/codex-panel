@@ -9,6 +9,7 @@ interface ThreadReplacementPublication {
 export interface ThreadReplacementPublicationOwner {
   readonly facts: ThreadFactSink;
   begin(sourceThreadId: string): ThreadReplacementPublication;
+  visibleThreadId(visibleThreads: readonly Thread[], threadId: string | null): string | null;
 }
 
 interface PendingReplacement {
@@ -29,7 +30,7 @@ export function createThreadReplacementPublication(
     const immediate: ThreadFact[] = [];
     for (const fact of facts) {
       const pending = pendingByThreadId.get(threadIdForFact(fact));
-      if (!pending) {
+      if (!pending || pending.finished) {
         immediate.push(fact);
         continue;
       }
@@ -49,6 +50,14 @@ export function createThreadReplacementPublication(
 
   return {
     facts,
+    visibleThreadId: (visibleThreads, threadId) => {
+      if (!threadId) return null;
+      const pending = pendingByThreadId.get(threadId);
+      if (!pending || pending.initialReplacement?.id !== threadId) return threadId;
+      const replacementVisible = visibleThreads.some((thread) => thread.id === threadId);
+      const sourceVisible = visibleThreads.some((thread) => thread.id === pending.sourceThreadId);
+      return !replacementVisible && sourceVisible ? pending.sourceThreadId : threadId;
+    },
     begin: (sourceThreadId) => {
       if (pendingByThreadId.has(sourceThreadId)) {
         throw new Error("A replacement publication is already in progress for this thread.");
@@ -75,10 +84,6 @@ export function createThreadReplacementPublication(
         finish: (sourceArchived) => {
           if (pending.finished) return;
           pending.finished = true;
-          pendingByThreadId.delete(pending.sourceThreadId);
-          if (pending.initialReplacement) pendingByThreadId.delete(pending.initialReplacement.id);
-
-          pending.releaseActiveThreads();
           const completedFacts: ThreadFact[] = pending.initialReplacement
             ? [{ type: "thread-upserted", thread: pending.initialReplacement }, ...pending.facts]
             : [...pending.facts];
@@ -89,7 +94,16 @@ export function createThreadReplacementPublication(
           ) {
             completedFacts.push({ type: "thread-archived", threadId: pending.sourceThreadId });
           }
-          if (completedFacts.length > 0) commit(completedFacts);
+          try {
+            if (completedFacts.length > 0) commit(completedFacts);
+          } finally {
+            try {
+              pending.releaseActiveThreads();
+            } finally {
+              pendingByThreadId.delete(pending.sourceThreadId);
+              if (pending.initialReplacement) pendingByThreadId.delete(pending.initialReplacement.id);
+            }
+          }
         },
       };
     },

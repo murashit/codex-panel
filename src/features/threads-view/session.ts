@@ -18,7 +18,7 @@ export interface ThreadsViewHost {
   readonly threadTitlePort: ThreadTitlePort;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
-  openPanelActivities(): readonly ThreadsViewPanelActivity[];
+  visiblePanelActivities(threads: readonly Thread[]): readonly ThreadsViewPanelActivity[];
 }
 
 type ThreadsViewThreadCatalog = ThreadCatalogPaginatedActiveReader;
@@ -176,6 +176,7 @@ export class ThreadsViewSession {
 
   private render(): void {
     if (!this.lifetime.isActive()) return;
+    const threads = this.host.threadCatalog.activeThreadsSnapshot() ?? this.threads;
     renderThreadsViewShell(
       this.environment.root,
       {
@@ -184,8 +185,8 @@ export class ThreadsViewSession {
         fetching: this.observedFetching,
         hasMore: this.host.threadCatalog.hasMoreActiveThreads(),
         rows: threadRows(
-          this.threads,
-          this.host.openPanelActivities(),
+          threads,
+          this.host.visiblePanelActivities(threads),
           this.renameStates,
           this.archiveConfirmThreadId,
           this.host.settings.archiveExportEnabled(),

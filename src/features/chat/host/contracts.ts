@@ -30,7 +30,7 @@ export interface CodexChatHost {
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadFacts: ThreadFactSink;
-  readonly threadReplacementPublication: Pick<ThreadReplacementPublicationOwner, "begin">;
+  readonly threadReplacementPublication: Pick<ThreadReplacementPublicationOwner, "begin" | "visibleThreadId">;
   readonly threadMutations: ThreadMutationCommands;
   readonly threadTitlePort: ThreadTitlePort;
   readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;

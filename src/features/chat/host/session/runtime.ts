@@ -1,5 +1,6 @@
 import { Notice } from "obsidian";
 
+import type { Thread } from "../../../../domain/threads/model";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import { createReconnectPanelCommand } from "../../application/connection/reconnect-command";
 import { createLocalIdSource, type LocalIdSource } from "../../application/local-id-source";
@@ -303,6 +304,8 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     connection: {
       connected: () => connection.isConnected(),
     },
+    visibleThreadId: (threads: readonly Thread[], threadId: string | null) =>
+      environment.plugin.threadReplacementPublication.visibleThreadId(threads, threadId),
     settings: {
       vaultPath: () => environment.plugin.appServerContext.vaultPath,
       configuredCommand: () => environment.plugin.appServerContext.codexPath,

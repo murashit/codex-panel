@@ -12,6 +12,7 @@ export interface ChatPanelToolbarDependencies {
   connection: {
     connected: () => boolean;
   };
+  visibleThreadId: (threads: readonly Thread[], threadId: string | null) => string | null;
   settings: {
     vaultPath: () => string;
     configuredCommand: () => string;
@@ -32,6 +33,7 @@ export function projectChatPanelToolbar(model: ChatPanelToolbarModel, dependenci
   const vaultPath = dependencies.settings.vaultPath();
   const configuredCommand = dependencies.settings.configuredCommand();
   const archiveExportEnabled = dependencies.settings.archiveExportEnabled();
+  const selectedRowId = dependencies.visibleThreadId(model.threads, model.activeThreadId);
   const limit = rateLimitSummary(snapshot, Date.now());
   const diagnostics = {
     initializeResponse: model.initializeResponse,
@@ -53,6 +55,7 @@ export function projectChatPanelToolbar(model: ChatPanelToolbarModel, dependenci
     threads: toolbarThreadRows({
       threads: model.threads,
       activeThreadId: model.activeThreadId,
+      selectedRowId,
       turnBusy: model.turnBusy,
       archiveConfirmThreadId: model.archiveConfirmThreadId,
       archiveExportEnabled,
@@ -81,6 +84,7 @@ export function projectChatPanelToolbar(model: ChatPanelToolbarModel, dependenci
 function toolbarThreadRows(input: {
   threads: readonly Thread[];
   activeThreadId: string | null;
+  selectedRowId: string | null;
   turnBusy: boolean;
   archiveConfirmThreadId: string | null;
   archiveExportEnabled: boolean;
@@ -90,7 +94,7 @@ function toolbarThreadRows(input: {
     const threadId = thread.id;
     const core = threadRowCoreProjection({
       thread,
-      selected: threadId === input.activeThreadId,
+      selected: threadId === input.selectedRowId,
       renameState: toolbarActiveRenameState(input.renameState, threadId),
       archiveConfirmActive: input.archiveConfirmThreadId === threadId,
       defaultArchiveSaveMarkdown: input.archiveExportEnabled,

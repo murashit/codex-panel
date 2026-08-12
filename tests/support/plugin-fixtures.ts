@@ -182,6 +182,7 @@ function chatHostFixture(): CodexChatHost {
     },
     threadReplacementPublication: {
       begin: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
+      visibleThreadId: vi.fn((_threads, threadId) => threadId),
     },
   };
 }

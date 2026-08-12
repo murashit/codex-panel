@@ -291,6 +291,7 @@ describe("chat panel session runtime", () => {
         },
         threadReplacementPublication: {
           begin: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
+          visibleThreadId: vi.fn((_threads, threadId) => threadId),
         },
         threadMutations: threadMutationCommandsMock(),
         threadGoalCoordinator: createThreadGoalCoordinator(),

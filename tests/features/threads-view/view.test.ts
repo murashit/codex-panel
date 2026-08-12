@@ -7,7 +7,9 @@ import type * as ThreadTitleGeneratorModule from "../../../src/features/threads/
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "../../../src/features/threads/app-server/workflow-adapters";
 import type { ThreadFactSink } from "../../../src/features/threads/workflows/thread-facts";
 import { createThreadMutationCommands } from "../../../src/features/threads/workflows/thread-mutation-commands";
+import { createThreadReplacementPublication } from "../../../src/features/threads/workflows/thread-replacement-publication";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
+import type { ThreadsViewPanelActivity } from "../../../src/features/threads-view/state";
 import { DEFAULT_SETTINGS } from "../../../src/settings/preferences";
 import type { ObservedPaginatedResult } from "../../../src/shared/async/observed-result";
 import { notices } from "../../mocks/obsidian";
@@ -320,6 +322,44 @@ describe("CodexThreadsView", () => {
     expect(archiveButton?.disabled).toBe(true);
     archiveButton?.click();
     expect(archiveThread).not.toHaveBeenCalled();
+  });
+
+  it("keeps replacement panel activity on a visible row while the catalog observer is delayed", async () => {
+    const source = threadFromRecord(threadFixture({ id: "source", preview: "Source" }));
+    const replacement = threadFromRecord(threadFixture({ id: "replacement", preview: "Replacement" }));
+    let cachedThreads: readonly Thread[] = [source];
+    let activities: readonly ThreadsViewPanelActivity[] = [{ threadId: "source", selected: true, pending: false, running: false }];
+    const publication = createThreadReplacementPublication((facts) => {
+      for (const fact of facts) {
+        if (fact.type === "thread-upserted") cachedThreads = [fact.thread, ...cachedThreads.filter((item) => item.id !== fact.thread.id)];
+        if (fact.type === "thread-archived") cachedThreads = cachedThreads.filter((item) => item.id !== fact.threadId);
+      }
+    });
+    const pending = publication.begin("source");
+    pending.attach(replacement);
+    const view = await threadsView(
+      threadsHost({
+        threadCatalog: {
+          activeThreadsSnapshot: () => cachedThreads,
+          refreshActiveThreads: async () => cachedThreads,
+        },
+        visiblePanelActivities: (threads: readonly Thread[]) =>
+          activities.map((activity) => ({
+            ...activity,
+            threadId: publication.visibleThreadId(threads, activity.threadId),
+          })),
+      }),
+    );
+
+    activities = [{ threadId: "replacement", selected: true, pending: false, running: false }];
+    view.refreshLiveState();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Source");
+
+    view.refreshLiveState();
+    pending.finish(true);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Replacement");
   });
 
   it("renames a thread through the shared client", async () => {
@@ -726,7 +766,9 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       ? (overrides["threadFacts"] as Partial<ThreadFactSink>)
       : {};
   const applyThreadFact = threadEventOverrides.apply ?? vi.fn();
-  const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadFacts"));
+  const hostOverrides = Object.fromEntries(
+    Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadFacts" && key !== "openPanelActivities"),
+  );
   const activeObservers = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
   const emitActive = (threads: readonly Thread[]): void => {
     for (const observer of activeObservers) observer(queryResult(threads));
@@ -739,8 +781,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     },
   };
   const openPanelActivities =
-    "openPanelActivities" in hostOverrides && typeof hostOverrides["openPanelActivities"] === "function"
-      ? (hostOverrides["openPanelActivities"] as ThreadsViewHost["openPanelActivities"])
+    "openPanelActivities" in overrides && typeof overrides["openPanelActivities"] === "function"
+      ? (overrides["openPanelActivities"] as () => readonly ThreadsViewPanelActivity[])
       : vi.fn(() => []);
   const threadMutations = createThreadMutationCommands({
     port: createThreadMutationAdapter(clientAccess),
@@ -780,7 +822,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     }),
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
-    openPanelActivities,
+    visiblePanelActivities: () => openPanelActivities(),
     threadCatalog: {
       hasMoreActiveThreads:
         typeof threadCatalogOverrides["hasMoreActiveThreads"] === "function"

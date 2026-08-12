@@ -100,6 +100,7 @@ function toolbarSurface(
     connection: {
       connected: () => false,
     },
+    visibleThreadId: (_threads, threadId) => threadId,
     settings: {
       vaultPath: () => "/vault",
       configuredCommand: () => "codex",

@@ -333,6 +333,7 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendSho
       connection: {
         connected: options.toolbarConnected ?? (() => false),
       },
+      visibleThreadId: (_threads, threadId) => threadId,
       settings: {
         vaultPath: () => "/vault",
         configuredCommand: () => "codex",
