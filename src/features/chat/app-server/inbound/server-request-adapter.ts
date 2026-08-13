@@ -545,10 +545,6 @@ function asRecordOrNull(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-function asRecordOrEmpty(value: unknown): Record<string, unknown> {
-  return asRecordOrNull(value) ?? {};
-}
-
 function pendingUserInputParams(params: UserInputParams): PendingUserInput["params"] | null {
   const questions: unknown = params.questions;
   if (!Array.isArray(questions)) return null;
@@ -569,7 +565,7 @@ function pendingUserInputQuestion(question: UserInputQuestion): PendingUserInput
     isSecret: question.isSecret,
     options: Array.isArray(options)
       ? options.map((option) => {
-          const record = asRecordOrEmpty(option);
+          const record = asRecordOrNull(option) ?? {};
           return { label: stringValue(record["label"]), description: stringValue(record["description"]) };
         })
       : null,

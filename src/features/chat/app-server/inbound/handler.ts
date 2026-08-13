@@ -80,9 +80,7 @@ export function createChatInboundHandler(
     handleNotification: (notification) => {
       handleNotification(context, notification);
     },
-    handleServerRequest: (request) => {
-      return handleServerRequest(context, request);
-    },
+    handleServerRequest: (request) => handleServerRequest(context, request),
     handleAppServerLog: (message) => {
       handleAppServerLog(context, message);
     },

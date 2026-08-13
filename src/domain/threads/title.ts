@@ -1,5 +1,5 @@
 import { shortThreadId } from "./id";
-import type { Thread } from "./model";
+import { normalizeExplicitThreadName, type Thread } from "./model";
 
 const MAX_THREAD_COMMAND_DISPLAY_TITLE_LENGTH = 96;
 const UNTITLED_THREAD_TITLE = "Untitled thread";
@@ -8,7 +8,7 @@ const GRAPHEME_SEGMENTER = new Intl.Segmenter(undefined, { granularity: "graphem
 
 export function threadMeaningfulTitle(thread: Thread): string | null {
   for (const value of [thread.name, thread.preview]) {
-    const title = normalizeThreadTitleText(value);
+    const title = normalizeExplicitThreadName(value);
     if (title && title !== thread.id && !UUID_PATTERN.test(title)) return title;
   }
   return null;
@@ -30,17 +30,9 @@ export function threadWindowTitle(activeThreadId: string | null, threads: readon
   if (!activeThreadId) return "Codex";
 
   const thread = threads.find((item) => item.id === activeThreadId);
-  const restoredTitle = normalizeThreadTitleText(fallbackTitle);
-  const title = thread
-    ? (threadMeaningfulTitle(thread) ?? shortThreadId(thread.id))
-    : restoredTitle.length > 0
-      ? restoredTitle
-      : shortThreadId(activeThreadId);
+  const restoredTitle = normalizeExplicitThreadName(fallbackTitle);
+  const title = thread ? (threadMeaningfulTitle(thread) ?? shortThreadId(thread.id)) : (restoredTitle ?? shortThreadId(activeThreadId));
   return title ? `Codex: ${title}` : "Codex";
-}
-
-function normalizeThreadTitleText(value: string | null | undefined): string {
-  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
 function truncateThreadDisplayTitle(title: string, maxLength: number): string {

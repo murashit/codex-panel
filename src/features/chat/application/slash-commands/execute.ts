@@ -253,7 +253,7 @@ export async function executeSlashCommand(
       if (args) return { sendText: args };
       return;
     case "goal":
-      return await executeGoalCommand(args, context);
+      return executeGoalCommand(args, context);
     case "status":
       context.addStructuredSystemMessage("Thread status", context.statusDetails());
       return;

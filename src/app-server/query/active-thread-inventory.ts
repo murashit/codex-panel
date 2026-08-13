@@ -67,13 +67,10 @@ function threadCatalogUpdateChangesEntry(thread: Thread, change: Extract<ThreadC
 function orderedUniqueThreads(threads: readonly Thread[]): readonly Thread[] {
   const seen = new Set<string>();
   return threads
-    .filter((thread) => isThreadVisibleInCatalog(thread))
     .filter((thread) => {
-      if (seen.has(thread.id)) return false;
+      if (!isThreadVisibleInCatalog(thread) || seen.has(thread.id)) return false;
       seen.add(thread.id);
       return true;
     })
-    .map((thread, index) => ({ thread, index }))
-    .sort((left, right) => compareThreadsPinnedFirst(left.thread, right.thread) || left.index - right.index)
-    .map(({ thread }) => thread);
+    .sort(compareThreadsPinnedFirst);
 }

@@ -13,7 +13,7 @@ export function subagentActivityPreview(item: ThreadStreamItem | null, workspace
     case "reasoning":
       return previewText(stripStreamingLabel(item.text, "reasoning")) ?? "Reasoning";
     case "taskProgress":
-      return previewText(currentTaskStep(item) ?? item.explanation) ?? "Updating plan";
+      return previewText(item.steps.find((step) => step.status === "inProgress")?.step ?? item.explanation) ?? "Updating plan";
     case "contextCompaction":
       return "Compacting context";
     case "wait":
@@ -26,10 +26,6 @@ export function subagentActivityPreview(item: ThreadStreamItem | null, workspace
     default:
       return previewText(detailPreviewSummary(item, workspaceRoot));
   }
-}
-
-function currentTaskStep(item: Extract<ThreadStreamItem, { kind: "taskProgress" }>): string | null {
-  return item.steps.find((step) => step.status === "inProgress")?.step ?? null;
 }
 
 function stripStreamingLabel(text: string | undefined, label: string): string | null {

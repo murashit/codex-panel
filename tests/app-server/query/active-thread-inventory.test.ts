@@ -12,11 +12,11 @@ import type { Thread } from "../../../src/domain/threads/model";
 describe("active thread inventory", () => {
   it("flattens pages, removes duplicate ids, and sorts by recency stably", () => {
     const data = inventory([
-      page([thread("older", 1), thread("same", 3)], "next", 2),
+      page([thread("older", 1), thread("same", 3), thread("peer", 3)], "next", 3),
       page([thread("same", 3), thread("newer", 5)], null, 2),
     ]);
 
-    expect(activeThreadsFromData(data)?.map((item) => item.id)).toEqual(["newer", "same", "older"]);
+    expect(activeThreadsFromData(data)?.map((item) => item.id)).toEqual(["newer", "same", "peer", "older"]);
   });
 
   it("keeps pinned threads before newer unpinned threads", () => {

@@ -12,26 +12,23 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
   const { currentItems, completedTurnId, turnItems } = input;
   if (turnItems.length === 0) return currentItems;
 
-  const localMetadataByClientId = new Map(
-    currentItems.flatMap((item) =>
-      isOptimisticUserDialogue(item)
-        ? [
-            [
-              optimisticDialogueClientId(item),
-              {
-                contextAttachments: item.contextAttachments,
-                referencedFiles: item.referencedFiles,
-                referencedThread: item.referencedThread,
-              },
-            ] as const,
-          ]
-        : [],
-    ),
-  );
-  const serverHasUserDialogueClientIds = turnItems.some((item) => isUserDialogue(item) && item.clientId);
-  const localMetadataByFallbackText = serverHasUserDialogueClientIds
-    ? new Map<string, LocalDialogueMetadata>()
-    : fallbackLocalMetadataByText(currentItems, completedTurnId);
+  const serverUserDialogueClientIds = new Set(turnItems.flatMap((item) => (isUserDialogue(item) && item.clientId ? [item.clientId] : [])));
+  const localMetadataByClientId = new Map<string, LocalDialogueMetadata>();
+  const localMetadataByFallbackText = new Map<string, LocalDialogueMetadata>();
+  for (const item of currentItems) {
+    if (!isOptimisticUserDialogue(item)) continue;
+    localMetadataByClientId.set(optimisticDialogueClientId(item), {
+      contextAttachments: item.contextAttachments,
+      referencedFiles: item.referencedFiles,
+      referencedThread: item.referencedThread,
+    });
+    if (serverUserDialogueClientIds.size > 0 || (!item.contextAttachments && !item.referencedFiles)) continue;
+    if (item.turnId && item.turnId !== completedTurnId) continue;
+    localMetadataByFallbackText.set(item.copyText ?? item.text, {
+      contextAttachments: item.contextAttachments,
+      referencedFiles: item.referencedFiles,
+    });
+  }
   const turnItemsWithLocalContext = turnItems.map((item) => {
     if (!isUserDialogue(item)) return item;
     const localMetadata = item.clientId ? localMetadataByClientId.get(item.clientId) : undefined;
@@ -49,53 +46,33 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
     };
   });
 
-  const serverUserDialogues = turnItemsWithLocalContext.filter(isUserDialogue);
-  const serverUserDialogueClientIds = new Set(serverUserDialogues.map((item) => item.clientId).filter(isString));
-  const serverUserDialoguesByClientId = new Map(
-    serverUserDialogues.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
-  );
-  const serverUserDialogueFallbackTexts =
-    serverUserDialogueClientIds.size > 0 ? new Set<string>() : new Set(serverUserDialogues.map((item) => item.text));
+  const serverUserDialoguesByClientId = new Map<string, ThreadStreamDialogueItem & { role: "user" }>();
+  const serverUserDialogueFallbackTexts = new Set<string>();
+  for (const item of turnItemsWithLocalContext) {
+    if (!isUserDialogue(item)) continue;
+    if (item.clientId) serverUserDialoguesByClientId.set(item.clientId, item);
+    else if (serverUserDialogueClientIds.size === 0) serverUserDialogueFallbackTexts.add(item.text);
+  }
   const currentWithServerDialogues = currentItems.map(
     (item) => serverUserDialogueForOptimisticItem(item, serverUserDialoguesByClientId) ?? item,
   );
 
-  let mergedTurnItems = currentWithServerDialogues
-    .filter((item) => item.turnId === completedTurnId)
-    .filter(
-      (item) => !isReconciledOptimisticUserDialogue(item, completedTurnId, serverUserDialogueClientIds, serverUserDialogueFallbackTexts),
-    );
+  const retainedItems: ThreadStreamItem[] = [];
+  let mergedTurnItems: ThreadStreamItem[] = [];
+  for (const item of currentWithServerDialogues) {
+    if (isReconciledOptimisticUserDialogue(item, completedTurnId, serverUserDialogueClientIds, serverUserDialogueFallbackTexts)) continue;
+    (item.turnId === completedTurnId ? mergedTurnItems : retainedItems).push(item);
+  }
   for (const item of turnItemsWithLocalContext) {
     mergedTurnItems = upsertThreadStreamItemById(mergedTurnItems, item);
   }
-
-  const retainedItems = currentWithServerDialogues
-    .filter((item) => item.turnId !== completedTurnId)
-    .filter(
-      (item) => !isReconciledOptimisticUserDialogue(item, completedTurnId, serverUserDialogueClientIds, serverUserDialogueFallbackTexts),
-    );
   return [...retainedItems, ...mergedTurnItems];
 }
 
 interface LocalDialogueMetadata {
   contextAttachments?: ThreadStreamDialogueItem["contextAttachments"];
   referencedFiles?: ThreadStreamDialogueItem["referencedFiles"];
-}
-
-function fallbackLocalMetadataByText(
-  currentItems: readonly ThreadStreamItem[],
-  completedTurnId: string,
-): Map<string, LocalDialogueMetadata> {
-  const metadataByText = new Map<string, LocalDialogueMetadata>();
-  for (const item of currentItems) {
-    if (!isOptimisticUserDialogue(item) || (!item.contextAttachments && !item.referencedFiles)) continue;
-    if (item.turnId && item.turnId !== completedTurnId) continue;
-    metadataByText.set(item.copyText ?? item.text, {
-      contextAttachments: item.contextAttachments,
-      referencedFiles: item.referencedFiles,
-    });
-  }
-  return metadataByText;
+  referencedThread?: ThreadStreamDialogueItem["referencedThread"];
 }
 
 function isUserDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {
@@ -142,8 +119,4 @@ function isFallbackOptimisticUserDialogueForTurn(
   if (serverUserDialogueFallbackTexts.size === 0) return false;
   if (item.turnId && item.turnId !== completedTurnId) return false;
   return serverUserDialogueFallbackTexts.has(item.copyText ?? item.text);
-}
-
-function isString(value: string | null | undefined): value is string {
-  return typeof value === "string";
 }

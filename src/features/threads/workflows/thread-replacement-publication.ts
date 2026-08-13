@@ -43,9 +43,7 @@ export function createThreadReplacementPublication(
     apply: (fact) => {
       applyBatch([fact]);
     },
-    applyBatch: (batch) => {
-      applyBatch(batch);
-    },
+    applyBatch,
   };
 
   return {

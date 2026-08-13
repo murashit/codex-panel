@@ -152,10 +152,7 @@ function createChatThreadResumeAdapter(host: ChatAppServerAdapterHost): ThreadRe
 
 function createChatThreadCommandAdapter(host: ChatAppServerAdapterHost): ThreadCommandEffects {
   return {
-    compactThread: (threadId) =>
-      runCurrentChatAppServerEffect(host, async (client) => {
-        await compactThread(client, threadId);
-      }),
+    compactThread: (threadId) => runCurrentChatAppServerEffect(host, async (client) => compactThread(client, threadId)),
     forkThread: (threadId, options) =>
       runCurrentChatAppServerEffect(host, (client) => forkThread(client, threadId, host.vaultPath, options)),
   };
@@ -222,13 +219,8 @@ function createChatThreadGoalReadAdapter(host: CurrentChatAppServerClientHost): 
 
 function createChatThreadGoalAdapter(host: CurrentChatAppServerClientHost): ThreadGoalEffects {
   return {
-    setThreadGoal: async (threadId, params) => {
-      return runCurrentChatAppServerEffect(host, (client) => setThreadGoal(client, threadId, params));
-    },
-    clearThreadGoal: (threadId) =>
-      runCurrentChatAppServerEffect(host, async (client) => {
-        await clearThreadGoal(client, threadId);
-      }),
+    setThreadGoal: async (threadId, params) => runCurrentChatAppServerEffect(host, (client) => setThreadGoal(client, threadId, params)),
+    clearThreadGoal: (threadId) => runCurrentChatAppServerEffect(host, async (client) => clearThreadGoal(client, threadId)),
   };
 }
 

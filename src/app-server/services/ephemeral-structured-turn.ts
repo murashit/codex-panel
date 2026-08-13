@@ -293,8 +293,7 @@ function transitionEphemeralStructuredTurnLifecycle(
 
 function ephemeralStructuredTurnMatches(state: EphemeralStructuredTurnLifecycleState, threadId: string, turnId: string): boolean {
   if (state.kind === "thread-started") return state.threadId === threadId;
-  if (state.kind === "turn-started") return state.threadId === threadId && state.turnId === turnId;
-  return false;
+  return state.kind === "turn-started" && state.threadId === threadId && state.turnId === turnId;
 }
 
 function turnWithCollectedItems(turn: TurnRecord, completedItems: readonly TurnItem[]): TurnRecord {

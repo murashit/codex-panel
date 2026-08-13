@@ -6,6 +6,5 @@ export function approvalsReviewerOrNull(value: unknown): ApprovalsReviewer | nul
 }
 
 export function parseServiceTier(value: unknown): ServiceTier | null {
-  if (typeof value === "string" && value.length > 0) return value;
-  return null;
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
