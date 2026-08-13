@@ -73,7 +73,7 @@
     "mdast-util-to-markdown": "^2.1.2",
     "micromark": "^4.0.2",
     "obsidian-daily-notes-interface": "^0.9.5",
-    "preact": "^10.29.7",
+    "preact": "^10.29.8",
     "unist-util-visit": "^5.1.0"
   }
 }
