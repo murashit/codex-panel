@@ -15,14 +15,15 @@ import { createKeyedOperationCoordinator } from "../../src/shared/async/keyed-op
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
 import { threadMutationCommandsMock } from "./thread-mutations";
 
+const { default: CodexPanelPluginClass } = await import("../../src/main");
+
 export async function pluginWithLeaves(
   leaves: TestLeaf[],
   options: { threadsLeaves?: TestLeaf[]; turnDiffLeaves?: TestLeaf[] } = {},
 ): Promise<CodexPanelPlugin> {
-  const { default: CodexPanelPlugin } = await import("../../src/main");
   const adapter = new FileSystemAdapter();
   vi.spyOn(adapter, "getBasePath").mockReturnValue("/vault");
-  const plugin = new CodexPanelPlugin(
+  const plugin = new CodexPanelPluginClass(
     {
       vault: { adapter },
       workspace: {

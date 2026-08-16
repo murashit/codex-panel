@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeAll, beforeEach, expect, vi } from "vitest";
+import { afterEach, beforeEach, expect, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
@@ -37,7 +37,6 @@ interface SharedServerMetadataFixture {
   rateLimit: SharedServerMetadataSnapshotValues["rateLimits"];
   serverDiagnostics: ReturnType<CodexChatHost["appServerQueries"]["metadataDiagnosticsSnapshot"]>;
 }
-let CodexChatView: typeof import("../../../../src/features/chat/host/view.obsidian")["CodexChatView"];
 interface TrackedView {
   view: { onClose(): Promise<void> | void };
   opened: boolean;
@@ -108,13 +107,10 @@ function contextConnectionMock(): CodexChatHost["appServerConnection"] {
 }
 
 installObsidianDomShims();
+const { CodexChatView } = await import("../../../../src/features/chat/host/view.obsidian");
 
 export function setupViewConnectionHarness(): void {
   let restoreDefaultThreadStreamViewportMetrics: (() => void) | null = null;
-
-  beforeAll(async () => {
-    ({ CodexChatView } = await import("../../../../src/features/chat/host/view.obsidian"));
-  }, 30_000);
 
   beforeEach(() => {
     vi.useRealTimers();
