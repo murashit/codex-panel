@@ -228,8 +228,18 @@ describe("createChatRuntimeSettingsCommands", () => {
     });
 
     await expect(commands.requestReasoningEffort("high")).resolves.toBe(true);
+    const pendingSnapshots: unknown[] = [];
+    store.subscribe(() => {
+      pendingSnapshots.push(store.getState().runtime.pending);
+    });
     await expect(commands.requestModel("gpt-5.4-mini")).resolves.toBe(true);
 
+    expect(pendingSnapshots).toEqual([
+      expect.objectContaining({
+        reasoningEffort: { kind: "set", value: "medium" },
+        model: { kind: "set", value: "gpt-5.4-mini" },
+      }),
+    ]);
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "medium" });
     expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.4-mini" });
     expect(port.updateThreadSettings).not.toHaveBeenCalled();
@@ -569,7 +579,10 @@ describe("createChatRuntimeSettingsCommands", () => {
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages);
 
-    store.dispatch({ type: "runtime/model-requested", model: "gpt-5.5" });
+    store.dispatch({
+      type: "runtime/pending-intent-patched",
+      patch: { model: { kind: "set", value: "gpt-5.5" } },
+    });
 
     await expect(commands.applyPendingThreadSettings()).resolves.toBe(false);
 
@@ -795,11 +808,11 @@ describe("createChatRuntimeSettingsCommands", () => {
     });
     const commands = runtimeCommandsFixture(store, port, []);
 
-    store.dispatch({ type: "runtime/model-requested", model: "gpt-old" });
+    store.dispatch({ type: "runtime/pending-intent-patched", patch: { model: { kind: "set", value: "gpt-old" } } });
     const settingsSettled = commands.applyPendingThreadSettings();
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" }));
 
-    store.dispatch({ type: "runtime/model-requested", model: "gpt-new" });
+    store.dispatch({ type: "runtime/pending-intent-patched", patch: { model: { kind: "set", value: "gpt-new" } } });
     firstUpdate.resolve();
 
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" }));
@@ -833,7 +846,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const firstCommands = runtimeCommandsFixture(firstStore, firstPort, [], threadCommits);
     const secondCommands = runtimeCommandsFixture(secondStore, secondPort, [], threadCommits);
 
-    firstStore.dispatch({ type: "runtime/model-requested", model: "a1" });
+    firstStore.dispatch({ type: "runtime/pending-intent-patched", patch: { model: { kind: "set", value: "a1" } } });
     const settled = firstCommands.applyPendingThreadSettings();
     await vi.waitFor(() => expect(firstPort.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "a1" }));
     const b = secondCommands.requestModel("b");

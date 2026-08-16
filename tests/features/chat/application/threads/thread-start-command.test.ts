@@ -60,12 +60,17 @@ describe("thread start commands", () => {
 
   it("keeps empty-panel runtime reservations when starting the first thread", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    stateStore.dispatch({ type: "runtime/model-requested", model: "gpt-5.5" });
-    stateStore.dispatch({ type: "runtime/permission-profile-requested", permissionProfile: ":workspace" });
-    stateStore.dispatch({ type: "runtime/reasoning-effort-requested", effort: "high" });
-    stateStore.dispatch({ type: "runtime/fast-mode-requested", fastMode: "enabled" });
-    stateStore.dispatch({ type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
-    stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
+    stateStore.dispatch({
+      type: "runtime/pending-intent-patched",
+      patch: {
+        model: { kind: "set", value: "gpt-5.5" },
+        permissionProfile: { kind: "set", value: ":workspace" },
+        reasoningEffort: { kind: "set", value: "high" },
+        fastMode: { kind: "set", value: "enabled" },
+        approvalsReviewer: { kind: "set", value: "auto_review" },
+        collaborationMode: { kind: "set", value: "plan" },
+      },
+    });
     const startThread = vi.fn().mockResolvedValue(
       completedActivation(
         activationFixture(threadFixture("started"), {

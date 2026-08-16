@@ -47,7 +47,10 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items
     approvalsReviewer: null,
     items,
   });
-  stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
+  stateStore.dispatch({
+    type: "runtime/pending-intent-patched",
+    patch: { collaborationMode: { kind: "set", value: "plan" } },
+  });
 }
 
 describe("createSubmissionCommands", () => {
@@ -117,7 +120,10 @@ describe("createSubmissionCommands", () => {
         runtimeSettings: {
           applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
           requestDefaultCollaborationModeForNextTurn: vi.fn(() => {
-            stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+            stateStore.dispatch({
+              type: "runtime/pending-intent-patched",
+              patch: { collaborationMode: { kind: "set", value: "default" } },
+            });
           }),
         } as never,
         threadCommands: {} as never,

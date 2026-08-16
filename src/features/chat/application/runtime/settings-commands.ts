@@ -8,10 +8,18 @@ import {
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/async/keyed-operation-coordinator";
-import { type CollaborationModeSelection, nextCollaborationMode, type RequestedFastMode } from "../../domain/runtime/intent";
+import {
+  type CollaborationModeSelection,
+  nextCollaborationMode,
+  type RequestedFastMode,
+  resetRuntimeIntentToConfig,
+  setCollaborationModeIntent,
+  setRuntimeIntentValue,
+} from "../../domain/runtime/intent";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { PendingRuntimeIntentState } from "../../domain/runtime/state";
 import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
@@ -184,8 +192,10 @@ function commitRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost, update: R
 async function requestModel(host: RuntimeSettingsCommandsContext, model: string): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   const normalization = normalizedReasoningEffortForModelChange(host, model);
-  dispatch(host, { type: "runtime/model-requested", model });
-  if (normalization.kind === "set") dispatch(host, { type: "runtime/reasoning-effort-requested", effort: normalization.effort });
+  requestPendingRuntime(host, {
+    model: setRuntimeIntentValue(model),
+    ...(normalization.kind === "set" ? { reasoningEffort: setRuntimeIntentValue(normalization.effort) } : {}),
+  });
   return applyPendingThreadSettings(host, modelUpdateFields(host));
 }
 
@@ -193,8 +203,10 @@ async function resetModelToConfig(host: RuntimeSettingsCommandsContext): Promise
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   const { config } = runtimeProjection(host);
   const normalization = normalizedReasoningEffortForModelChange(host, config.model);
-  dispatch(host, { type: "runtime/model-reset-to-config" });
-  if (normalization.kind === "set") dispatch(host, { type: "runtime/reasoning-effort-requested", effort: normalization.effort });
+  requestPendingRuntime(host, {
+    model: resetRuntimeIntentToConfig(),
+    ...(normalization.kind === "set" ? { reasoningEffort: setRuntimeIntentValue(normalization.effort) } : {}),
+  });
   return applyPendingThreadSettings(host, modelUpdateFields(host));
 }
 
@@ -221,13 +233,13 @@ async function requestReasoningEffort(host: RuntimeSettingsCommandsContext, effo
     host.addSystemMessage(unsupportedReasoningEffortMessage(unsupportedEffort));
     return false;
   }
-  dispatch(host, { type: "runtime/reasoning-effort-requested", effort });
+  requestPendingRuntime(host, { reasoningEffort: setRuntimeIntentValue(effort) });
   return applyPendingThreadSettings(host, ["effort"]);
 }
 
 async function resetReasoningEffortToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
-  dispatch(host, { type: "runtime/reasoning-effort-reset-to-config" });
+  requestPendingRuntime(host, { reasoningEffort: resetRuntimeIntentToConfig() });
   return applyPendingThreadSettings(host, ["effort"]);
 }
 
@@ -241,13 +253,13 @@ async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsCommandsC
 
 async function requestPermissionProfile(host: RuntimeSettingsCommandsContext, permissionProfile: string): Promise<boolean> {
   if (activePanelOperationBlocked(host, "permission-settings")) return false;
-  dispatch(host, { type: "runtime/permission-profile-requested", permissionProfile });
+  requestPendingRuntime(host, { permissionProfile: setRuntimeIntentValue(permissionProfile) });
   return applyPendingThreadSettings(host, ["permissions"]);
 }
 
 async function resetPermissionProfileToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "permission-settings")) return false;
-  dispatch(host, { type: "runtime/permission-profile-reset-to-config" });
+  requestPendingRuntime(host, { permissionProfile: resetRuntimeIntentToConfig() });
   return applyPendingThreadSettings(host, ["permissions"]);
 }
 
@@ -276,7 +288,7 @@ async function setFastMode(host: RuntimeSettingsCommandsContext, mode: FastModeS
   await runRuntimeUiCommand(
     host,
     async () => {
-      dispatch(host, { type: "runtime/fast-mode-requested", fastMode });
+      requestPendingRuntime(host, { fastMode: setRuntimeIntentValue(fastMode) });
       return applyPendingThreadSettings(host, ["serviceTier"]);
     },
     mode === "enabled" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.",
@@ -291,7 +303,7 @@ async function toggleCollaborationMode(host: RuntimeSettingsCommandsContext): Pr
 
 async function setCollaborationMode(host: RuntimeSettingsCommandsContext, collaborationMode: CollaborationModeSelection): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
-  dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode });
+  requestPendingRuntime(host, { collaborationMode: setCollaborationModeIntent(collaborationMode) });
   const result = await commitPendingThreadSettings(host, ["collaborationMode"]);
   if (result.ok) closeRuntimePanel(host);
   if (result.ok && result.collaborationModeApplied) {
@@ -302,7 +314,7 @@ async function setCollaborationMode(host: RuntimeSettingsCommandsContext, collab
 
 function requestDefaultCollaborationModeForNextTurn(host: RuntimeSettingsCommandsHost): void {
   if (activePanelOperationBlocked(host, "thread-settings")) return;
-  dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+  requestPendingRuntime(host, { collaborationMode: setCollaborationModeIntent("default") });
 }
 
 async function toggleAutoReview(host: RuntimeSettingsCommandsContext): Promise<void> {
@@ -316,7 +328,9 @@ async function setAutoReview(host: RuntimeSettingsCommandsContext, mode: AutoRev
   await runRuntimeUiCommand(
     host,
     async () => {
-      dispatch(host, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: mode === "enabled" ? "auto_review" : "user" });
+      requestPendingRuntime(host, {
+        approvalsReviewer: setRuntimeIntentValue(mode === "enabled" ? "auto_review" : "user"),
+      });
       return applyPendingThreadSettings(host, ["approvalsReviewer"]);
     },
     mode === "enabled" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.",
@@ -335,6 +349,10 @@ async function runRuntimeUiCommand(
 
 function closeRuntimePanel(host: RuntimeSettingsCommandsHost): void {
   dispatch(host, { type: "ui/panel-set", panel: null });
+}
+
+function requestPendingRuntime(host: RuntimeSettingsCommandsHost, patch: Partial<PendingRuntimeIntentState>): void {
+  dispatch(host, { type: "runtime/pending-intent-patched", patch });
 }
 
 function pendingRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost): PendingRuntimeSettingsPatch {

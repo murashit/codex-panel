@@ -1,25 +1,8 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { Diagnostics } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { CollaborationModeSelection, RequestedFastMode } from "../../domain/runtime/intent";
-import {
-  type ChatRuntimeState,
-  clearRequestedApprovalsReviewerRuntimeState,
-  clearRequestedFastModeRuntimeState,
-  commitAppliedRuntimeSettingsPatchState,
-  requestApprovalsReviewerRuntimeState,
-  requestFastModeRuntimeState,
-  requestModelRuntimeState,
-  requestPermissionProfileRuntimeState,
-  requestReasoningEffortRuntimeState,
-  resetModelToConfigRuntimeState,
-  resetPermissionProfileToConfigRuntimeState,
-  resetReasoningEffortToConfigRuntimeState,
-  setSelectedCollaborationModeRuntimeState,
-} from "../../domain/runtime/state";
+import { type ChatRuntimeState, commitAppliedRuntimeSettingsPatchState, type PendingRuntimeIntentState } from "../../domain/runtime/state";
 import { isRequestAction, type RequestAction, reduceRequestSlice } from "../pending-requests/state";
 import { type ComposerAction, reduceComposerSlice } from "./composer";
 import type { ChatConnectionPhase, ChatConnectionState, ChatPanelThreadState, ChatState } from "./model";
@@ -39,17 +22,7 @@ type ConnectionAction =
 type ActiveThreadAction = { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
 
 type RuntimeAction =
-  | { type: "runtime/model-requested"; model: string }
-  | { type: "runtime/model-reset-to-config" }
-  | { type: "runtime/reasoning-effort-requested"; effort: ReasoningEffort | null }
-  | { type: "runtime/reasoning-effort-reset-to-config" }
-  | { type: "runtime/permission-profile-requested"; permissionProfile: string }
-  | { type: "runtime/permission-profile-reset-to-config" }
-  | { type: "runtime/fast-mode-requested"; fastMode: RequestedFastMode }
-  | { type: "runtime/fast-mode-request-cleared" }
-  | { type: "runtime/approvals-reviewer-requested"; approvalsReviewer: ApprovalsReviewer }
-  | { type: "runtime/approvals-reviewer-request-cleared" }
-  | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: CollaborationModeSelection }
+  | { type: "runtime/pending-intent-patched"; patch: Partial<PendingRuntimeIntentState> }
   | { type: "runtime/pending-thread-settings-committed"; update: RuntimeSettingsPatch };
 
 type ChatSliceAction =
@@ -101,17 +74,7 @@ function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
       return patchObject(state, { connection: reduceConnectionSlice(state.connection, action) });
     case "active-thread/token-usage-set":
       return patchObject(state, { panelThread: reducePanelThreadSlice(state.panelThread, action) });
-    case "runtime/model-requested":
-    case "runtime/model-reset-to-config":
-    case "runtime/reasoning-effort-requested":
-    case "runtime/reasoning-effort-reset-to-config":
-    case "runtime/permission-profile-requested":
-    case "runtime/permission-profile-reset-to-config":
-    case "runtime/fast-mode-requested":
-    case "runtime/fast-mode-request-cleared":
-    case "runtime/approvals-reviewer-requested":
-    case "runtime/approvals-reviewer-request-cleared":
-    case "runtime/requested-collaboration-mode-set":
+    case "runtime/pending-intent-patched":
     case "runtime/pending-thread-settings-committed":
       return patchObject(state, { runtime: reduceRuntimeSlice(state.runtime, action) });
     case "composer/attachment-save-started":
@@ -153,28 +116,8 @@ function reducePanelThreadSlice(state: ChatPanelThreadState, action: ActiveThrea
 
 function reduceRuntimeSlice(state: ChatRuntimeState, action: RuntimeAction): ChatRuntimeState {
   switch (action.type) {
-    case "runtime/model-requested":
-      return patchObject(state, requestModelRuntimeState(state, action.model));
-    case "runtime/model-reset-to-config":
-      return patchObject(state, resetModelToConfigRuntimeState(state));
-    case "runtime/reasoning-effort-requested":
-      return patchObject(state, requestReasoningEffortRuntimeState(state, action.effort));
-    case "runtime/reasoning-effort-reset-to-config":
-      return patchObject(state, resetReasoningEffortToConfigRuntimeState(state));
-    case "runtime/permission-profile-requested":
-      return patchObject(state, requestPermissionProfileRuntimeState(state, action.permissionProfile));
-    case "runtime/permission-profile-reset-to-config":
-      return patchObject(state, resetPermissionProfileToConfigRuntimeState(state));
-    case "runtime/fast-mode-requested":
-      return patchObject(state, requestFastModeRuntimeState(state, action.fastMode));
-    case "runtime/fast-mode-request-cleared":
-      return patchObject(state, clearRequestedFastModeRuntimeState(state));
-    case "runtime/approvals-reviewer-requested":
-      return patchObject(state, requestApprovalsReviewerRuntimeState(state, action.approvalsReviewer));
-    case "runtime/approvals-reviewer-request-cleared":
-      return patchObject(state, clearRequestedApprovalsReviewerRuntimeState(state));
-    case "runtime/requested-collaboration-mode-set":
-      return patchObject(state, setSelectedCollaborationModeRuntimeState(state, action.collaborationMode));
+    case "runtime/pending-intent-patched":
+      return patchObject(state, { pending: patchObject(state.pending, action.patch) });
     case "runtime/pending-thread-settings-committed":
       return patchObject(state, commitAppliedRuntimeSettingsPatchState(state, action.update));
   }

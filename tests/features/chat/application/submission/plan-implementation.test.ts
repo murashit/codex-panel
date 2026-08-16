@@ -53,7 +53,10 @@ function resumeThread(
     items,
     lifetime,
   });
-  stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
+  stateStore.dispatch({
+    type: "runtime/pending-intent-patched",
+    patch: { collaborationMode: { kind: "set", value: "plan" } },
+  });
 }
 
 function createPlanImplementationHost() {
@@ -61,7 +64,10 @@ function createPlanImplementationHost() {
   const ensureConnected = vi.fn().mockResolvedValue(true);
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const requestDefaultCollaborationModeForNextTurn = vi.fn(() => {
-    stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+    stateStore.dispatch({
+      type: "runtime/pending-intent-patched",
+      patch: { collaborationMode: { kind: "set", value: "default" } },
+    });
   });
   const host: PlanImplementationHost = {
     stateStore,
@@ -101,10 +107,16 @@ describe("implementPlan", () => {
 
     expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: latest.id });
 
-    stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+    stateStore.dispatch({
+      type: "runtime/pending-intent-patched",
+      patch: { collaborationMode: { kind: "set", value: "default" } },
+    });
     expect(implementPlanTargetFromState(stateStore.getState())).toBeNull();
 
-    stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
+    stateStore.dispatch({
+      type: "runtime/pending-intent-patched",
+      patch: { collaborationMode: { kind: "set", value: "plan" } },
+    });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     expect(implementPlanTargetFromState(stateStore.getState())).toBeNull();
   });

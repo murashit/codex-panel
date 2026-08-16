@@ -113,7 +113,10 @@ describe("createToolbarPanelActions", () => {
         metadataDiagnostics: () => createServerDiagnostics(),
       },
     });
-    stateStore.dispatch({ type: "runtime/model-requested", model: "gpt-live" });
+    stateStore.dispatch({
+      type: "runtime/pending-intent-patched",
+      patch: { model: { kind: "set", value: "gpt-live" } },
+    });
 
     actions.status.copyDebugDetails();
 

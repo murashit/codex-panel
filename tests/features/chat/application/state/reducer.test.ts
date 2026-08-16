@@ -426,11 +426,16 @@ describe("chatReducer", () => {
         },
       },
     });
-    let pendingState = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.2" });
-    pendingState = chatReducer(pendingState, { type: "runtime/permission-profile-requested", permissionProfile: ":read-only" });
-    pendingState = chatReducer(pendingState, { type: "runtime/reasoning-effort-requested", effort: "medium" });
-    pendingState = chatReducer(pendingState, { type: "runtime/fast-mode-requested", fastMode: "disabled" });
-    pendingState = chatReducer(pendingState, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "user" });
+    const pendingState = chatReducer(state, {
+      type: "runtime/pending-intent-patched",
+      patch: {
+        model: { kind: "set", value: "gpt-5.2" },
+        permissionProfile: { kind: "set", value: ":read-only" },
+        reasoningEffort: { kind: "set", value: "medium" },
+        fastMode: { kind: "set", value: "disabled" },
+        approvalsReviewer: { kind: "set", value: "user" },
+      },
+    });
 
     const next = chatReducer(pendingState, { type: "active-thread/cleared" });
 
@@ -478,12 +483,17 @@ describe("chatReducer", () => {
 
   it("preserves empty-panel runtime reservations when thread activation explicitly requests it", () => {
     let state = chatStateFixture();
-    state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.5" });
-    state = chatReducer(state, { type: "runtime/permission-profile-requested", permissionProfile: ":workspace" });
-    state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
-    state = chatReducer(state, { type: "runtime/fast-mode-requested", fastMode: "enabled" });
-    state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
-    state = chatReducer(state, { type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
+    state = chatReducer(state, {
+      type: "runtime/pending-intent-patched",
+      patch: {
+        model: { kind: "set", value: "gpt-5.5" },
+        permissionProfile: { kind: "set", value: ":workspace" },
+        reasoningEffort: { kind: "set", value: "high" },
+        fastMode: { kind: "set", value: "enabled" },
+        approvalsReviewer: { kind: "set", value: "auto_review" },
+        collaborationMode: setCollaborationModeIntent("plan"),
+      },
+    });
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
@@ -518,11 +528,17 @@ describe("chatReducer", () => {
   it("keeps reset and set permission profile requests explicit", () => {
     let state = chatStateFixture();
 
-    state = chatReducer(state, { type: "runtime/permission-profile-requested", permissionProfile: ":workspace" });
+    state = chatReducer(state, {
+      type: "runtime/pending-intent-patched",
+      patch: { permissionProfile: setRuntimeIntentValue(":workspace") },
+    });
 
     expect(state.runtime.pending.permissionProfile).toEqual(setRuntimeIntentValue(":workspace"));
 
-    state = chatReducer(state, { type: "runtime/permission-profile-reset-to-config" });
+    state = chatReducer(state, {
+      type: "runtime/pending-intent-patched",
+      patch: { permissionProfile: { kind: "resetToConfig" } },
+    });
 
     expect(state.runtime.pending.permissionProfile).toEqual({ kind: "resetToConfig" });
   });

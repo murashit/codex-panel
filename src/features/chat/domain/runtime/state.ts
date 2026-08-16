@@ -11,12 +11,8 @@ import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-set
 import {
   type ActiveCollaborationMode,
   type CollaborationModeIntent,
-  type CollaborationModeSelection,
   type PendingRuntimeIntent,
   type RequestedFastMode,
-  resetRuntimeIntentToConfig,
-  setCollaborationModeIntent,
-  setRuntimeIntentValue,
   unchangedCollaborationModeIntent,
   unchangedRuntimeIntent,
 } from "./intent";
@@ -82,86 +78,6 @@ export function initialChatRuntimeState(): ChatRuntimeState {
   return {
     active: initialActiveChatRuntimeState(),
     pending: initialPendingRuntimeIntentState(),
-  };
-}
-
-export function requestModelRuntimeState(state: ChatRuntimeState, model: string): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, model: setRuntimeIntentValue(model) },
-  };
-}
-
-export function resetModelToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, model: resetRuntimeIntentToConfig() },
-  };
-}
-
-export function requestReasoningEffortRuntimeState(state: ChatRuntimeState, effort: ReasoningEffort | null): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, reasoningEffort: setRuntimeIntentValue(effort) },
-  };
-}
-
-export function resetReasoningEffortToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, reasoningEffort: resetRuntimeIntentToConfig() },
-  };
-}
-
-export function requestPermissionProfileRuntimeState(state: ChatRuntimeState, permissionProfile: string): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, permissionProfile: setRuntimeIntentValue(permissionProfile) },
-  };
-}
-
-export function resetPermissionProfileToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, permissionProfile: resetRuntimeIntentToConfig() },
-  };
-}
-
-export function requestFastModeRuntimeState(state: ChatRuntimeState, fastMode: RequestedFastMode): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, fastMode: setRuntimeIntentValue(fastMode) },
-  };
-}
-
-export function clearRequestedFastModeRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, fastMode: unchangedRuntimeIntent() },
-  };
-}
-
-export function requestApprovalsReviewerRuntimeState(state: ChatRuntimeState, approvalsReviewer: ApprovalsReviewer): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, approvalsReviewer: setRuntimeIntentValue(approvalsReviewer) },
-  };
-}
-
-export function clearRequestedApprovalsReviewerRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, approvalsReviewer: unchangedRuntimeIntent() },
-  };
-}
-
-export function setSelectedCollaborationModeRuntimeState(
-  state: ChatRuntimeState,
-  collaborationMode: CollaborationModeSelection,
-): ChatRuntimeState {
-  return {
-    ...state,
-    pending: { ...state.pending, collaborationMode: setCollaborationModeIntent(collaborationMode) },
   };
 }
 
