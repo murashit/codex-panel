@@ -4,6 +4,7 @@ import type { ReconnectPanelOptions } from "../../application/connection/reconne
 import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
+import type { ChatRuntimeSharedResources } from "../../application/runtime/snapshot";
 import type { ChatStateStore } from "../../application/state/store";
 import { createSubmissionCommands, type SubmissionCommands as SessionSubmissionCommands } from "../../application/submission/commands";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
@@ -49,6 +50,7 @@ interface SessionTurnInput {
   autoTitleCoordinator: AutoTitleCoordinator;
   reconnect: (options?: ReconnectPanelOptions) => Promise<void>;
   runtimeProjection: ChatPanelRuntimeNotices;
+  sharedResources: ChatRuntimeSharedResources;
   refreshDiagnostics: () => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
 }
@@ -69,6 +71,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     autoTitleCoordinator,
     reconnect,
     runtimeProjection,
+    sharedResources,
     refreshDiagnostics,
     notifyActiveThreadIdentityChanged,
   } = input;
@@ -90,11 +93,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
       stateStore: host.stateStore,
       localItemIds,
       connectionAvailable: () => appServer.connectionAvailable(),
-      sharedResources: {
-        runtimeConfigSnapshot: () => host.environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
-        rateLimitsSnapshot: () => host.environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
-        modelsSnapshot: () => host.environment.plugin.appServerQueries.metadataSnapshot("models"),
-      },
+      sharedResources,
       listedThreads: () => host.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
       turnPort: appServer.turn,
       referThread,

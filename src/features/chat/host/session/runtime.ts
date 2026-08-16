@@ -31,6 +31,7 @@ import { createToolbarUiActions } from "../toolbar/actions";
 import { toolbarOutsidePointerHit } from "../toolbar/hit-test.dom";
 import { createSessionConnection } from "./connection";
 import type { ChatViewDeferredTasks } from "./deferred-work";
+import { createSessionSharedResources } from "./shared-resources";
 import { createSessionThreadCommands, createSessionThreadFeatures, createSessionThreadFoundation } from "./thread";
 import { createSessionTurn } from "./turn";
 
@@ -52,13 +53,7 @@ interface ChatPanelSessionRuntimeHost {
 
 export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
   const { environment, stateStore } = host;
-  const sharedResources = {
-    runtimeConfigSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
-    rateLimitsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
-    modelsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("models"),
-    skillsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("skills"),
-    metadataDiagnosticsSnapshot: () => environment.plugin.appServerQueries.metadataDiagnosticsSnapshot(),
-  };
+  const sharedResources = createSessionSharedResources(environment);
   const localItemIds = createLocalIdSource();
   const resourceContext = environment.plugin.appServerContext;
   const connection = environment.plugin.appServerConnection.createLease();
@@ -183,26 +178,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     onAttachmentError: (message) => {
       new Notice(message);
     },
-    sharedResources: {
-      runtimeConfigSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
-      rateLimitsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
-      modelsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("models"),
-      skillsSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("skills"),
-      permissionProfilesSnapshot: () => environment.plugin.appServerQueries.metadataSnapshot("permissionProfiles"),
-      activeThreadsSnapshot: () => environment.plugin.threadCatalog.activeThreadsSnapshot(),
-      subscribe: (listener) => {
-        const unsubscribers = [
-          environment.plugin.appServerQueries.observeMetadataResource("runtimeConfig", listener),
-          environment.plugin.appServerQueries.observeMetadataResource("models", listener),
-          environment.plugin.appServerQueries.observeMetadataResource("skills", listener),
-          environment.plugin.appServerQueries.observeMetadataResource("permissionProfiles", listener),
-          environment.plugin.threadCatalog.observeActiveThreadsResult(listener),
-        ];
-        return () => {
-          for (const unsubscribe of unsubscribers) unsubscribe();
-        };
-      },
-    },
+    sharedResources,
   });
   const ephemeral = createEphemeralThreadLifecycle({
     stateStore,
@@ -269,6 +245,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
     reconnect,
     runtimeProjection,
+    sharedResources,
     refreshDiagnostics: () => connectionCoordinator.refreshDiagnostics(),
     notifyActiveThreadIdentityChanged,
   });
@@ -294,10 +271,10 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       connected: () => connection.isConnected(),
       vaultPath: () => environment.plugin.appServerContext.vaultPath,
       configuredCommand: () => environment.plugin.appServerContext.codexPath,
-      runtimeConfig: () => environment.plugin.appServerQueries.metadataSnapshot("runtimeConfig"),
-      rateLimit: () => environment.plugin.appServerQueries.metadataSnapshot("rateLimits"),
-      availableModels: () => environment.plugin.appServerQueries.metadataSnapshot("models") ?? [],
-      metadataDiagnostics: () => environment.plugin.appServerQueries.metadataDiagnosticsSnapshot(),
+      runtimeConfig: () => sharedResources.runtimeConfigSnapshot(),
+      rateLimit: () => sharedResources.rateLimitsSnapshot(),
+      availableModels: () => sharedResources.modelsSnapshot() ?? [],
+      metadataDiagnostics: () => sharedResources.metadataDiagnosticsSnapshot(),
     },
   });
   const toolbarDependencies = {
