@@ -4,8 +4,6 @@ import type { PreparedInput } from "../composer/prepared-input";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadStartOutcome } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
@@ -18,6 +16,8 @@ import {
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
 import { submissionStateSnapshot } from "./snapshot";
+import { TurnSubmissionAttempt } from "./turn-submission-attempt";
+import { planTurnSubmission, type TurnSubmissionPlan } from "./turn-submission-plan";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 
@@ -41,14 +41,6 @@ export interface TurnSubmissionCommandHost {
   addSystemMessage: (text: string) => void;
 }
 
-type TurnSubmissionSnapshot = ReturnType<typeof submissionStateSnapshot>;
-
-type TurnSubmissionPlan =
-  | { kind: "blocked"; message: string }
-  | { kind: "steer"; threadId: string; turnId: string }
-  | { kind: "start-thread-then-turn" }
-  | { kind: "start-turn"; threadId: string };
-
 export interface TurnSubmissionCommand {
   sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
 }
@@ -70,13 +62,14 @@ export function createTurnSubmissionCommand(host: TurnSubmissionCommandHost): Tu
         return false;
       }
       submissionInFlight = true;
+      const attempt = new TurnSubmissionAttempt(host.stateStore, request);
       let accepted = false;
       try {
-        accepted = await sendTurnText(host, host.localItemIds, request);
+        accepted = await sendTurnText(host, host.localItemIds, request, attempt);
         return accepted;
       } finally {
         submissionInFlight = false;
-        request.submissionClaim?.settle(accepted ? "accepted" : "failed");
+        attempt.settle(accepted);
       }
     },
   };
@@ -86,19 +79,19 @@ async function sendTurnText(
   host: TurnSubmissionCommandHost,
   localItemIds: LocalIdSource,
   request: TurnSubmissionRequest,
+  attempt: TurnSubmissionAttempt,
 ): Promise<boolean> {
   const { text, inputSnapshot, codexInputOverride } = request;
-  let panelTarget = capturePanelTargetLease(host.stateStore.getState());
   const prepared = codexInputOverride
     ? { text, input: codexInputOverride }
     : inputSnapshot
       ? host.prepareInput(text, inputSnapshot)
       : { text, input: codexTextInput(text) };
-  if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
+  if (!attempt.isCurrent()) return false;
   if (!(await host.turnPort.ensureConnected())) return false;
-  if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
+  if (!attempt.isCurrent()) return false;
   if (!(await host.ensureRestoredThreadLoaded())) return false;
-  if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
+  if (!attempt.isCurrent()) return false;
 
   const operationDecision = activePanelOperationDecision(host.stateStore.getState(), "submit");
   if (operationDecision.kind === "blocked") {
@@ -109,63 +102,53 @@ async function sendTurnText(
   const initialState = submissionStateSnapshot(host.stateStore.getState());
   const plan = planTurnSubmission(initialState);
 
-  let optimisticItemId: string | null = null;
-  let expectedThreadId: string | null = null;
   try {
     switch (plan.kind) {
       case "blocked":
-        if (pendingRequestIsCurrent(host, request)) host.addSystemMessage(plan.message);
+        if (attempt.isPendingCurrent()) host.addSystemMessage(plan.message);
         return false;
       case "steer":
-        return await steerCurrentTurn(host, localItemIds, plan, prepared, request);
+        return await steerCurrentTurn(host, localItemIds, plan, prepared, attempt);
       case "start-thread-then-turn":
-        if (!commitPendingRequest(host, request)) return false;
+        if (!attempt.commitPending()) return false;
         {
-          const started = await startThreadForTurn(
-            host,
-            prepared.text,
-            request.pendingSubmissionId,
-            request.submissionClaim?.adoptPanelTarget,
-          );
+          const started = await startThreadForTurn(host, prepared.text, attempt);
           if (started.kind === "not-started") {
-            failPendingRequest(host, request);
+            attempt.failPending();
             return false;
           }
           if (started.kind === "created-not-activated") {
-            failPendingRequest(host, request);
+            attempt.failPending();
             return true;
           }
         }
-        panelTarget = capturePanelTargetLease(host.stateStore.getState());
-        if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
+        attempt.refreshPanelTarget();
+        if (!attempt.isCurrent()) return false;
         break;
       case "start-turn":
         break;
     }
     const activeThreadId = plan.kind === "start-turn" ? plan.threadId : submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
     if (!activeThreadId) {
-      failPendingRequest(host, request);
+      attempt.failPending();
       return false;
     }
-    expectedThreadId = activeThreadId;
-    if (!commitPendingRequest(host, request)) return false;
-    if (request.pendingSubmissionId) request.submissionClaim?.markAdopted();
+    if (!attempt.commitPending()) return false;
+    if (attempt.pendingSubmissionId) attempt.markAdopted();
     if (!(await host.applyPendingThreadSettings())) {
-      failPendingRequest(host, request);
+      attempt.failPending();
       return false;
     }
-    if (
-      !submissionScopeIsCurrent(host, request, panelTarget) ||
-      submissionStateSnapshot(host.stateStore.getState()).activeThreadId !== activeThreadId
-    ) {
+    if (!attempt.isCurrent() || submissionStateSnapshot(host.stateStore.getState()).activeThreadId !== activeThreadId) {
       return false;
     }
 
     const clientUserMessageId = localItemIds.next("local-user");
-    optimisticItemId = request.pendingSubmissionId ?? clientUserMessageId;
+    const optimisticItemId = attempt.pendingSubmissionId ?? clientUserMessageId;
+    attempt.recordOptimistic(activeThreadId, optimisticItemId);
     const optimistic = optimisticTurnStart({
       id: optimisticItemId,
-      ...(request.pendingSubmissionId ? { clientId: clientUserMessageId } : {}),
+      ...(attempt.pendingSubmissionId ? { clientId: clientUserMessageId } : {}),
       text: prepared.text,
       codexInput: prepared.input,
     });
@@ -173,9 +156,9 @@ async function sendTurnText(
       type: "turn/optimistic-started",
       item: optimistic.item,
       pendingTurnStart: optimistic.pendingTurnStart,
-      ...(request.pendingSubmissionId ? { pendingSubmissionId: request.pendingSubmissionId } : {}),
+      ...(attempt.pendingSubmissionId ? { pendingSubmissionId: attempt.pendingSubmissionId } : {}),
     });
-    request.submissionClaim?.markAdopted();
+    attempt.markAdopted();
 
     const outcome = await host.turnPort.startTurn({
       threadId: activeThreadId,
@@ -218,43 +201,28 @@ async function sendTurnText(
     return true;
   } catch (error) {
     const failedState = submissionStateSnapshot(host.stateStore.getState());
-    const currentBeforeAdoption = !optimisticItemId && submissionScopeIsCurrent(host, request, panelTarget);
-    const currentAfterAdoption =
-      optimisticItemId !== null &&
-      failedState.activeThreadId === expectedThreadId &&
-      failedState.pendingTurnStart?.anchorItemId === optimisticItemId;
-    if (currentBeforeAdoption || currentAfterAdoption) {
+    if (attempt.failureStillApplies()) {
       const items = cleanupFailedTurnStart({
         items: failedState.items,
-        optimisticUserId: optimisticItemId,
+        optimisticUserId: attempt.optimisticId,
         pendingTurnStart: failedState.pendingTurnStart,
       });
       host.stateStore.dispatch({ type: "turn/start-failed", items });
-      failPendingRequest(host, request);
+      attempt.failPending();
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     return false;
   }
 }
 
-function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
-  if (state.busy) {
-    return state.activeThreadId && state.activeTurnId
-      ? { kind: "steer", threadId: state.activeThreadId, turnId: state.activeTurnId }
-      : { kind: "blocked", message: "Current turn is not steerable yet." };
-  }
-  return state.activeThreadId ? { kind: "start-turn", threadId: state.activeThreadId } : { kind: "start-thread-then-turn" };
-}
-
 async function startThreadForTurn(
   host: TurnSubmissionCommandHost,
   text: string,
-  pendingSubmissionId?: string,
-  adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"],
+  attempt: TurnSubmissionAttempt,
 ): Promise<ThreadStartOutcome> {
   const options = {
-    ...(pendingSubmissionId ? { preservePendingSubmissionId: pendingSubmissionId } : {}),
-    ...(adoptPanelTarget ? { adoptPanelTarget } : {}),
+    ...(attempt.pendingSubmissionId ? { preservePendingSubmissionId: attempt.pendingSubmissionId } : {}),
+    ...(attempt.adoptPanelTarget ? { adoptPanelTarget: attempt.adoptPanelTarget } : {}),
   };
   const started = Object.keys(options).length > 0 ? await host.startThread(text, options) : await host.startThread(text);
   if (started.kind !== "created-activated") return started;
@@ -268,14 +236,14 @@ async function steerCurrentTurn(
   localItemIds: LocalIdSource,
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
   prepared: PreparedInput,
-  request: TurnSubmissionRequest,
+  attempt: TurnSubmissionAttempt,
 ): Promise<boolean> {
-  if (!pendingRequestIsCurrent(host, request)) return false;
-  if (!commitPendingRequest(host, request)) return false;
-  request.submissionClaim?.markAdopted();
+  if (!attempt.isPendingCurrent()) return false;
+  if (!attempt.commitPending()) return false;
+  attempt.markAdopted();
   const localSteerId = localItemIds.next("local-steer");
   const item = localUserDialogueItemFromInput({
-    id: request.pendingSubmissionId ?? localSteerId,
+    id: attempt.pendingSubmissionId ?? localSteerId,
     clientId: localSteerId,
     interaction: "steer",
     text: prepared.text,
@@ -283,8 +251,8 @@ async function steerCurrentTurn(
     codexInput: prepared.input,
   });
   host.stateStore.dispatch(
-    request.pendingSubmissionId
-      ? { type: "web-submission/steer-pending", submissionId: request.pendingSubmissionId, item }
+    attempt.pendingSubmissionId
+      ? { type: "web-submission/steer-pending", submissionId: attempt.pendingSubmissionId, item }
       : { type: "thread-stream/pending-steer-added", item },
   );
   if (!host.stateStore.getState().activeTurn.pendingSteers.some((pending) => pending.clientId === localSteerId)) return false;
@@ -297,9 +265,7 @@ async function steerCurrentTurn(
   });
   if (outcome.kind === "not-started") {
     host.stateStore.dispatch({ type: "thread-stream/pending-steer-removed", clientId: localSteerId });
-    if (pendingRequestIsCurrent(host, request)) {
-      failPendingRequest(host, request);
-    }
+    if (attempt.isPendingCurrent()) attempt.failPending();
     return false;
   }
   if (outcome.kind === "delivery-unknown") return true;
@@ -307,13 +273,13 @@ async function steerCurrentTurn(
     const targetIsCurrent = steerTargetIsCurrent(host, plan);
     host.stateStore.dispatch({ type: "thread-stream/pending-steer-removed", clientId: localSteerId });
     if (targetIsCurrent) {
-      failPendingRequest(host, request);
+      attempt.failPending();
       host.addSystemMessage(outcome.error instanceof Error ? outcome.error.message : String(outcome.error));
     }
     return false;
   }
   const targetIsCurrent = steerTargetIsCurrent(host, plan);
-  if (!targetIsCurrent && !request.pendingSubmissionId) return true;
+  if (!targetIsCurrent && !attempt.pendingSubmissionId) return true;
   if (targetIsCurrent) host.setStatus(STATUS_STEERED_CURRENT_TURN);
   return true;
 }
@@ -325,30 +291,4 @@ function steerTargetIsCurrent(host: TurnSubmissionCommandHost, plan: Extract<Tur
 function isCurrentTurn(host: TurnSubmissionCommandHost, threadId: string, turnId: string): boolean {
   const state = submissionStateSnapshot(host.stateStore.getState());
   return state.activeThreadId === threadId && state.activeTurnId === turnId;
-}
-
-function pendingRequestIsCurrent(host: TurnSubmissionCommandHost, request: TurnSubmissionRequest): boolean {
-  if (!request.pendingSubmissionId) return true;
-  const state = host.stateStore.getState();
-  return pendingSubmissionMatches(
-    { pendingSubmission: state.pendingSubmission, activeThreadId: submissionStateSnapshot(state).activeThreadId },
-    request.pendingSubmissionId,
-  );
-}
-
-function submissionScopeIsCurrent(host: TurnSubmissionCommandHost, request: TurnSubmissionRequest, panelTarget: PanelTargetLease): boolean {
-  return pendingRequestIsCurrent(host, request) && panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget);
-}
-
-function commitPendingRequest(host: TurnSubmissionCommandHost, request: TurnSubmissionRequest): boolean {
-  if (!request.pendingSubmissionId) return true;
-  if (!pendingRequestIsCurrent(host, request)) return false;
-  host.stateStore.dispatch({ type: "web-submission/committed", submissionId: request.pendingSubmissionId });
-  return pendingRequestIsCurrent(host, request) && host.stateStore.getState().pendingSubmission?.phase === "committed";
-}
-
-function failPendingRequest(host: TurnSubmissionCommandHost, request: TurnSubmissionRequest): boolean {
-  if (!request.pendingSubmissionId || !pendingRequestIsCurrent(host, request)) return false;
-  host.stateStore.dispatch({ type: "web-submission/failed", submissionId: request.pendingSubmissionId });
-  return true;
 }
