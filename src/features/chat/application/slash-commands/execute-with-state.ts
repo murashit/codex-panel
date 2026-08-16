@@ -7,7 +7,8 @@ import type { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import { activeThreadId } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
-import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionPorts, type SlashCommandExecutionResult } from "./execute";
+import { executeSlashCommand as runSlashCommand } from "./execute";
+import type { SlashCommandExecutionPorts, SlashCommandExecutionResult } from "./execution-contracts";
 
 export interface PanelSlashCommandHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;

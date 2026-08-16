@@ -3,7 +3,7 @@ import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../com
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { type SlashCommandName, slashCommandRequiresConnection } from "../slash-commands/catalog";
-import type { SlashCommandExecutionResult } from "../slash-commands/execute";
+import type { SlashCommandExecutionResult } from "../slash-commands/execution-contracts";
 import { parseSlashCommand, parseWebCommandArgs } from "../slash-commands/parse";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { cancellablePendingSubmissionMatches } from "../state/pending-submission";
