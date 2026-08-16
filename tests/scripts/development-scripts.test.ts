@@ -14,6 +14,21 @@ afterEach(async () => {
 });
 
 describe("development scripts", () => {
+  it("keeps every configured mutation pattern attached to authored source", async () => {
+    const { unmatchedMutationPatterns } = await import(pathToFileURL(path.join(repoRoot, "scripts", "check-mutation-scope.mjs")).href);
+
+    await expect(unmatchedMutationPatterns()).resolves.toEqual([]);
+  });
+
+  it("reports mutation patterns that no longer match source", async () => {
+    const cwd = await tempWorkspace();
+    await mkdir(path.join(cwd, "src"), { recursive: true });
+    await writeFile(path.join(cwd, "src", "present.ts"), "export const present = true;\n");
+    const { unmatchedMutationPatterns } = await import(pathToFileURL(path.join(repoRoot, "scripts", "check-mutation-scope.mjs")).href);
+
+    await expect(unmatchedMutationPatterns(["src/**/*.ts", "src/removed.ts"], cwd)).resolves.toEqual(["src/removed.ts"]);
+  });
+
   it("fails style builds when CSS files are missing from the style order file", async () => {
     const cwd = await styleOrderFixture();
 
