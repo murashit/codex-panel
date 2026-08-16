@@ -7,13 +7,6 @@ export interface ChatPendingSubmissionState {
   readonly phase: "cancellable" | "committed";
 }
 
-export type PendingSubmissionAction =
-  | { type: "web-submission/pending"; submission: ChatPendingSubmissionState }
-  | { type: "web-submission/committed"; submissionId: string }
-  | { type: "web-submission/cancelled"; submissionId: string }
-  | { type: "web-submission/failed"; submissionId: string }
-  | { type: "web-submission/steer-pending"; submissionId: string; item: ThreadStreamDialogueItem };
-
 export function pendingSubmissionMatches(
   state: {
     readonly pendingSubmission: ChatPendingSubmissionState | null;

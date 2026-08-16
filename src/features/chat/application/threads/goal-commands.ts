@@ -2,8 +2,8 @@ import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../..
 import type { ThreadGoalCoordinator } from "../../../../domain/threads/goal-coordination";
 import type { EffectOutcome } from "../effect-outcome";
 import { activePanelOperationDecision } from "../panel-operation-policy";
+import { activeThreadId, activeThreadState } from "../state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { activeThreadId, activeThreadState } from "../state/root-reducer";
 import { addThreadGoalSystemMessage, applyThreadGoalIfActive, type ThreadGoalProjectionHost } from "./goal-sync";
 import type { ThreadStartOutcome } from "./thread-start-command";
 

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { chatThreadStreamViewState, initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/active-turn";
 import {
   initialChatThreadStreamState,
   reduceThreadStreamSlice,
@@ -9,6 +8,7 @@ import {
   threadStreamTurnsAfterTurnId,
   threadStreamWithActiveTurnItems,
 } from "../../../../../src/features/chat/application/state/thread-stream";
+import { chatThreadStreamViewState, initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/turn-scope";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("thread stream state", () => {

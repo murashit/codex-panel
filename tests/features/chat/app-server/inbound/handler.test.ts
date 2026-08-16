@@ -11,12 +11,8 @@ import {
   appServerUserInputRequest,
 } from "../../../../../src/features/chat/app-server/inbound/server-request-adapter";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import {
-  activeThreadState,
-  type ChatAction,
-  type ChatState,
-  chatReducer,
-} from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
+import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
 import { chatStateFixture, chatStateWith } from "../../support/state";

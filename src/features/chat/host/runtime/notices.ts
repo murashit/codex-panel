@@ -1,7 +1,7 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import { diagnosticsWithMetadataResourceProbes, type MetadataResourceDiagnostics } from "../../../../domain/server/diagnostics";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
-import type { ChatState } from "../../application/state/root-reducer";
+import type { ChatState } from "../../application/state/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ToolbarStatusRow as DiagnosticRow } from "../../ui/toolbar-model";

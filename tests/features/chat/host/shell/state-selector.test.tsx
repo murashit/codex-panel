@@ -3,7 +3,7 @@
 import type { ComponentChild } from "preact";
 import { act } from "preact/test-utils";
 import { describe, expect, it, type Mock, vi } from "vitest";
-import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {

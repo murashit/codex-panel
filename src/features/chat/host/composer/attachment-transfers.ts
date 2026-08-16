@@ -1,6 +1,7 @@
 import { OwnerLifetime } from "../../../../shared/async/owner-lifetime";
 import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
-import { type ChatAction, type ChatState, panelThreadId } from "../../application/state/root-reducer";
+import { type ChatState, panelThreadId } from "../../application/state/model";
+import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { ComposerPendingSelection } from "../../ui/composer";
 import {

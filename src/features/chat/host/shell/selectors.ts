@@ -6,9 +6,9 @@ import type { Thread } from "../../../../domain/threads/model";
 import { explicitThreadName } from "../../../../domain/threads/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { threadStreamItemsHaveThreadTurns } from "../../application/runtime/snapshot";
-import { chatThreadStreamViewState } from "../../application/state/active-turn";
-import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThreadProvenance } from "../../application/state/root-reducer";
+import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThreadProvenance } from "../../application/state/model";
 import { threadStreamItems } from "../../application/state/thread-stream";
+import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
 
 const composedDiagnosticsByPanel = new WeakMap<

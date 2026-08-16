@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/active-turn";
-import { chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
+import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture } from "../../support/state";

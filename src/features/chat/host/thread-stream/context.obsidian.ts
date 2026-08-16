@@ -1,6 +1,6 @@
 import type { App, Component } from "obsidian";
 import { copyTextWithNotice } from "../../../../shared/obsidian/clipboard.obsidian";
-import type { ChatAction } from "../../application/state/root-reducer";
+import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { renderStreamMarkdown, ThreadStreamMarkdownRenderer } from "./markdown-renderer.obsidian";
 import type { ChatThreadStreamActions, ChatThreadStreamDependencies, ChatThreadStreamRequests } from "./view-projection";

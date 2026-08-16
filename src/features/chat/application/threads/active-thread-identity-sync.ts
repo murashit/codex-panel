@@ -1,4 +1,4 @@
-import { activeThreadId, awaitingResumeThreadState } from "../state/root-reducer";
+import { activeThreadId, awaitingResumeThreadState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 
 export interface ActiveThreadIdentitySyncHost {

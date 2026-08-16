@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   createThreadGoalSync as createThreadGoalSyncImpl,

@@ -1,9 +1,10 @@
 import { reconcileCompletedTurnItems } from "../../domain/thread-stream/completed-turn-reconciliation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { attachHookRunsToTurn, completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
-import { chatThreadStreamViewState } from "../state/active-turn";
-import { type ChatAction, type ChatState, chatReducer } from "../state/root-reducer";
+import type { ChatState } from "../state/model";
+import { type ChatAction, chatReducer } from "../state/reducer";
 import { threadStreamItems, threadStreamPendingSteers } from "../state/thread-stream";
+import { chatThreadStreamViewState } from "../state/turn-scope";
 import type { TurnRuntimeFact } from "./runtime-facts";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "./turn-state";
 

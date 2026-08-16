@@ -6,11 +6,11 @@ import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import type { EffectOutcome } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
-import { chatThreadStreamViewState } from "../state/active-turn";
+import { activeThreadId, type ChatState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
+import { chatThreadStreamViewState } from "../state/turn-scope";
 import { chatTurnBusy } from "../turns/turn-state";
 import { captureForkDisplaySnapshot, type ForkDisplaySnapshot } from "./fork-display-snapshot";
 

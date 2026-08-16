@@ -1,5 +1,5 @@
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { ChatConnectionPhase } from "../state/root-reducer";
+import type { ChatConnectionPhase } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 
 const STATUS_CONNECTION_STOPPED = "Codex app-server stopped.";

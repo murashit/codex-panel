@@ -3,7 +3,7 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import type { CodexInput } from "../../../../../src/domain/turns/input";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { optimisticTurnStart } from "../../../../../src/features/chat/application/submission/optimistic-turn-start";
 import {

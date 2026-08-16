@@ -1,4 +1,4 @@
-import type { ChatState } from "./state/root-reducer";
+import type { ChatState } from "./state/model";
 
 /**
  * Operations whose availability derives from the panel's current thread mode.

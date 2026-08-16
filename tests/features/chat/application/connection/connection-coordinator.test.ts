@@ -3,7 +3,7 @@ import {
   type ChatConnectionCoordinatorHost,
   createChatConnectionCoordinator,
 } from "../../../../../src/features/chat/application/connection/connection-coordinator";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { deferred } from "../../../../support/async";
 

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import {
-  initialUiState,
-  maybeClearGoalObjectiveExpansion,
-  reduceUiSlice,
-} from "../../../../../src/features/chat/application/state/ui-state";
+import { initialUiState, maybeClearGoalObjectiveExpansion, reduceUiSlice } from "../../../../../src/features/chat/application/state/ui";
 
 describe("chat UI state", () => {
   it("keeps toolbar panels mutually exclusive", () => {

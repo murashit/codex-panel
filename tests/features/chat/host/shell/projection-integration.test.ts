@@ -8,7 +8,8 @@ import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/co
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import type { ChatState } from "../../../../../src/features/chat/application/state/model";
+import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ChatPanelComposerRuntimeActions } from "../../../../../src/features/chat/host/composer/view-projection";

@@ -7,7 +7,7 @@ import { createLocalIdSource, type LocalIdSource } from "../../application/local
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { createChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
-import { activeThreadId, type ChatConnectionPhase } from "../../application/state/root-reducer";
+import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { createEphemeralThreadLifecycle } from "../../application/threads/ephemeral-thread-lifecycle";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";

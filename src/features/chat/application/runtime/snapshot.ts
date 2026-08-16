@@ -2,9 +2,9 @@ import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { activeThreadRuntimeState, pendingRuntimeIntentState } from "../../domain/runtime/state";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { chatThreadStreamViewState } from "../state/active-turn";
-import { activeThreadState, type ChatState } from "../state/root-reducer";
+import { activeThreadState, type ChatState } from "../state/model";
 import { threadStreamItems } from "../state/thread-stream";
+import { chatThreadStreamViewState } from "../state/turn-scope";
 
 interface RuntimeSnapshotInput {
   runtimeConfig: RuntimeSnapshot["runtimeConfig"];

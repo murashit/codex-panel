@@ -3,8 +3,8 @@ import type { ThreadGoalCoordinator } from "../../../../domain/threads/goal-coor
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import type { GoalThreadStreamItem } from "../../domain/thread-stream/items";
 import type { LocalIdSource } from "../local-id-source";
+import { activeThreadId, activeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { activeThreadId, activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 export interface ThreadGoalSource {

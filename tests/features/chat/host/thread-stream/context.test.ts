@@ -4,7 +4,8 @@ import { MarkdownRenderer, TFile } from "obsidian";
 import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import type { ChatState } from "../../../../../src/features/chat/application/state/model";
+import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { createChatThreadStreamDependencies } from "../../../../../src/features/chat/host/thread-stream/context.obsidian";

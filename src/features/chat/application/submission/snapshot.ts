@@ -1,7 +1,7 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { chatThreadStreamViewState } from "../state/active-turn";
-import { activeThreadState, type ChatState } from "../state/root-reducer";
+import { activeThreadState, type ChatState } from "../state/model";
 import { threadStreamItems } from "../state/thread-stream";
+import { chatThreadStreamViewState } from "../state/turn-scope";
 import { activeTurnId, chatTurnBusy, type PendingTurnStart, pendingTurnStart } from "../turns/turn-state";
 
 export interface SubmissionStateSnapshot {

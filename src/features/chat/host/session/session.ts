@@ -5,7 +5,7 @@ import {
   type ChatState,
   panelThreadId,
   panelThreadProvenance,
-} from "../../application/state/root-reducer";
+} from "../../application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";

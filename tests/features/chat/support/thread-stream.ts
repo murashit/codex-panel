@@ -1,6 +1,6 @@
-import { chatThreadStreamViewState } from "../../../../src/features/chat/application/state/active-turn";
-import type { ChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import type { ChatState } from "../../../../src/features/chat/application/state/model";
 import { threadStreamItems, threadStreamWithItems } from "../../../../src/features/chat/application/state/thread-stream";
+import { chatThreadStreamViewState } from "../../../../src/features/chat/application/state/turn-scope";
 import type { ThreadStreamItem } from "../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateWith } from "./state";
 

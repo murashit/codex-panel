@@ -5,10 +5,10 @@ import { createThreadTitleService, type ThreadTitleService } from "../../../thre
 import { recoverRolloutTokenUsage } from "../../app-server/mappers/rollout-token-usage";
 import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
-import { chatThreadStreamViewState } from "../../application/state/active-turn";
-import { activeThreadId } from "../../application/state/root-reducer";
+import { activeThreadId } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
+import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";

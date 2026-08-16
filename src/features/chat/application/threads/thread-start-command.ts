@@ -6,11 +6,11 @@ import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import type { EffectOutcome } from "../effect-outcome";
-import { resumedThreadAction } from "../state/actions";
+import { activeThreadId, type ChatState } from "../state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
-import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import { resumedThreadAction } from "../state/transition-actions";
 
 interface ThreadStartRequest {
   serviceTier?: RuntimeServiceTierRequest;

@@ -1,5 +1,5 @@
+import { activeThreadId, activeThreadState, type ChatConnectionPhase, panelThreadId } from "../state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { activeThreadId, activeThreadState, type ChatConnectionPhase, panelThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadResumeActivation } from "../threads/resume-command";
 

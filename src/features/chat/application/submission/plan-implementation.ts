@@ -1,10 +1,10 @@
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/selectors";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import { chatThreadStreamViewState } from "../state/active-turn";
-import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/root-reducer";
+import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { type ChatThreadStreamViewState, threadStreamItems } from "../state/thread-stream";
+import { chatThreadStreamViewState } from "../state/turn-scope";
 import { type ChatTurnLifecycleState, chatTurnBusy } from "../turns/turn-state";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";

@@ -6,9 +6,9 @@ import {
 } from "../../../../../src/features/chat/application/runtime/settings-commands";
 import type { RuntimeSettingsPort } from "../../../../../src/features/chat/application/runtime/settings-port";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import type { ActiveThreadSettingsAppliedAction } from "../../../../../src/features/chat/application/state/actions";
-import { activeThreadId, type ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import type { ActiveThreadSettingsAppliedAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import {
   createKeyedOperationCoordinator,

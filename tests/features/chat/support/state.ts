@@ -1,10 +1,10 @@
-import type { ChatActiveTurnState } from "../../../../src/features/chat/application/state/active-turn";
 import {
   activeThreadState,
   type ChatActiveThreadState,
   type ChatState,
   createChatState,
-} from "../../../../src/features/chat/application/state/root-reducer";
+} from "../../../../src/features/chat/application/state/model";
+import type { ChatActiveTurnState } from "../../../../src/features/chat/application/state/turn-scope";
 import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "./shared-display-values";
 
 interface RuntimePatch {

@@ -3,7 +3,7 @@ import {
   type ChatReconnectCommandHost,
   createReconnectPanelCommand,
 } from "../../../../../src/features/chat/application/connection/reconnect-command";
-import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 
 function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {

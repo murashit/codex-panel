@@ -1,4 +1,4 @@
-import { activeThreadState } from "../state/root-reducer";
+import { activeThreadState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import type { EphemeralThreadLifecycle } from "./ephemeral-thread-lifecycle";
 

@@ -1,7 +1,7 @@
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import { ephemeralThreadActivatedAction } from "../state/actions";
-import { activeThreadState } from "../state/root-reducer";
+import { activeThreadState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
+import { ephemeralThreadActivatedAction } from "../state/transition-actions";
 import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
 
 export type EphemeralThreadForkResult =

@@ -2,7 +2,8 @@ import type { RequestId, ServerNotification, ServerRequest } from "../../../../a
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
 import type { LocalIdSource } from "../../application/local-id-source";
-import { activeThreadId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
+import { activeThreadId, type ChatState } from "../../application/state/model";
+import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { activeTurnId } from "../../application/turns/turn-state";
 import { contentForPendingMcpElicitation } from "../../domain/pending-requests/drafts";

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useReducer, useRef } from "preact/hooks";
-import type { ChatState } from "../../application/state/root-reducer";
+import type { ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 
 type ChatSelector<Selection> = (state: ChatState) => Selection;

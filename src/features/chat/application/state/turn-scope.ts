@@ -24,9 +24,9 @@ export interface ChatActiveTurnState extends ChatThreadStreamActiveState {
   readonly subagents: ChatSubagentActivityState;
 }
 
-export type ActiveTurnSliceAction = ThreadStreamAction | SubagentActivityAction;
+export type TurnScopeAction = ThreadStreamAction | SubagentActivityAction;
 
-export interface ActiveTurnSliceResult {
+export interface TurnScopeResult {
   readonly activeTurn: ChatActiveTurnState;
   readonly threadStream: ChatThreadStreamState;
 }
@@ -80,8 +80,7 @@ function sameTurnScope(left: ChatTurnLifecycleState, right: ChatTurnLifecycleSta
 }
 
 export function activeTurnCleared(state: ChatActiveTurnState): ChatActiveTurnState {
-  const initial = initialChatActiveTurnState(state.turnScopeRevision + 1);
-  return initial;
+  return initialChatActiveTurnState(state.turnScopeRevision + 1);
 }
 
 export function activeTurnStartedWithItems(
@@ -89,7 +88,7 @@ export function activeTurnStartedWithItems(
   threadStream: ChatThreadStreamState,
   turnId: string,
   items: readonly ThreadStreamItem[],
-): ActiveTurnSliceResult {
+): TurnScopeResult {
   const view = chatThreadStreamViewState(threadStream, state);
   const nextView = threadStreamWithActiveTurnItems(view, turnId, items);
   return splitViewState(state, nextView);
@@ -99,7 +98,7 @@ export function activeTurnStartedWithoutItems(
   state: ChatActiveTurnState,
   threadStream: ChatThreadStreamState,
   turnId: string,
-): ActiveTurnSliceResult {
+): TurnScopeResult {
   const view = chatThreadStreamViewState(threadStream, state);
   return splitViewState(state, threadStreamStartActiveSegment(view, turnId, []));
 }
@@ -108,18 +107,22 @@ export function activeTurnOptimisticallyStarted(
   state: ChatActiveTurnState,
   threadStream: ChatThreadStreamState,
   item: ThreadStreamItem,
-): ActiveTurnSliceResult {
+): TurnScopeResult {
   const view = chatThreadStreamViewState(threadStream, state);
   return splitViewState(state, threadStreamStartActiveSegment(view, null, [item]));
 }
 
-export function reduceActiveTurnSlice(
+export function isTurnScopeAction(action: { type: string }): action is TurnScopeAction {
+  return isThreadStreamAction(action) || isSubagentActivityAction(action);
+}
+
+export function reduceTurnScope(
   activeTurn: ChatActiveTurnState,
   threadStream: ChatThreadStreamState,
-  action: ActiveTurnSliceAction,
-): ActiveTurnSliceResult {
+  action: TurnScopeAction,
+): TurnScopeResult {
   if (isSubagentActivityAction(action)) return reduceSubagentAction(activeTurn, threadStream, action);
-  if (!isThreadStreamAction(action) || staleThreadStreamAction(activeTurn, action)) {
+  if (staleThreadStreamAction(activeTurn, action)) {
     return { activeTurn, threadStream };
   }
 
@@ -131,7 +134,7 @@ function reduceSubagentAction(
   activeTurn: ChatActiveTurnState,
   threadStream: ChatThreadStreamState,
   action: SubagentActivityAction,
-): ActiveTurnSliceResult {
+): TurnScopeResult {
   const parentTurnId = activeTurn.lifecycle.kind === "running" ? activeTurn.lifecycle.turnId : null;
   if (
     !parentTurnId ||
@@ -165,7 +168,7 @@ function staleThreadStreamAction(activeTurn: ChatActiveTurnState, action: Thread
   }
 }
 
-function splitViewState(activeTurn: ChatActiveTurnState, view: ChatThreadStreamViewState): ActiveTurnSliceResult {
+function splitViewState(activeTurn: ChatActiveTurnState, view: ChatThreadStreamViewState): TurnScopeResult {
   const nextActiveTurn =
     view.activeSegment === activeTurn.activeSegment && view.pendingSteers === activeTurn.pendingSteers
       ? activeTurn

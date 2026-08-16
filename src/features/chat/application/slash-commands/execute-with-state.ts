@@ -4,7 +4,7 @@ import type { PreparedInput } from "../composer/prepared-input";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import type { runtimeSnapshotForChatState } from "../runtime/snapshot";
-import { activeThreadId } from "../state/root-reducer";
+import { activeThreadId } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionPorts, type SlashCommandExecutionResult } from "./execute";

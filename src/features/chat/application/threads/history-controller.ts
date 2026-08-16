@@ -1,8 +1,9 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { chatThreadStreamViewState } from "../state/active-turn";
-import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
+import { activeThreadId, type ChatState } from "../state/model";
+import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
+import { chatThreadStreamViewState } from "../state/turn-scope";
 import { reconcileForkDisplayItems } from "./fork-display-snapshot";
 
 export interface ThreadHistoryPage {

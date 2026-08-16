@@ -3,7 +3,7 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import type { CodexInput } from "../../../../../src/domain/turns/input";
 import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createSubmissionCommands } from "../../../../../src/features/chat/application/submission/commands";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";

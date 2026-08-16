@@ -8,7 +8,6 @@ import {
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import { pendingRequestDerivedKeyPrefix } from "../../domain/pending-requests/drafts";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
-import type { DisclosureSetAction } from "./actions";
 import { patchObject } from "./patch";
 
 export type ChatRenameUiState = { readonly kind: "idle" } | (ThreadRenameActiveState & { readonly threadId: string });
@@ -88,7 +87,12 @@ export type UiAction =
   | { type: "ui/goal-editor-draft-updated"; objective: string }
   | { type: "ui/goal-editor-closed" }
   | { type: "ui/thread-stream-fork-menu-set"; itemId: string | null }
-  | DisclosureSetAction;
+  | {
+      type: "ui/disclosure-set";
+      bucket: "details" | "activityGroups" | "textDetails" | "userDialogueExpanded" | "goalObjectiveExpanded" | "approvalDetails";
+      id: string;
+      open: boolean;
+    };
 
 export function initialUiState(): ChatUiState {
   return {

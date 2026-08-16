@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/metrics";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
-import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/active-turn";
-import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
 import { HistoryController, type ThreadHistoryPage } from "../../../../../src/features/chat/application/threads/history-controller";
 import {
   createResumeCommand,

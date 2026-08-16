@@ -9,7 +9,7 @@ import { createServerDiagnosticsCoordinator } from "../../application/connection
 import type { ServerDiagnosticsPort } from "../../application/connection/server-diagnostics-port";
 import { handleAppServerResourceFact, type ServerResourceFactHost } from "../../application/connection/server-resource-facts";
 import type { LocalIdSource } from "../../application/local-id-source";
-import type { ChatConnectionPhase } from "../../application/state/root-reducer";
+import type { ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ChatPanelEnvironment } from "../contracts";

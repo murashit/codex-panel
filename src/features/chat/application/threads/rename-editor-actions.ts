@@ -1,11 +1,12 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
-import { chatThreadStreamViewState } from "../state/active-turn";
-import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
+import { activeThreadId, type ChatState } from "../state/model";
+import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
-import type { ChatRenameUiState } from "../state/ui-state";
+import { chatThreadStreamViewState } from "../state/turn-scope";
+import type { ChatRenameUiState } from "../state/ui";
 import { firstThreadTitleContextFromThreadStreamItems } from "./title-context";
 
 interface RenameEditState {

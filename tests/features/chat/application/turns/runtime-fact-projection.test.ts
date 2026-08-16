@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import type { ChatState } from "../../../../../src/features/chat/application/state/model";
+import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { projectTurnRuntimeFacts } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-facts";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";

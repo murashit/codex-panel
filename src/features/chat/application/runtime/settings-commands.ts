@@ -17,7 +17,8 @@ import {
   type PendingRuntimeSettingsPatch,
 } from "../../domain/runtime/thread-settings-patch";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
-import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
+import { activeThreadId, type ChatState } from "../state/model";
+import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
 import type { RuntimeSettingsPort } from "./settings-port";
 

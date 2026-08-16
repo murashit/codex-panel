@@ -1,4 +1,4 @@
-import { activeThreadId, activeThreadState, type ChatState } from "../state/root-reducer";
+import { activeThreadId, activeThreadState, type ChatState } from "../state/model";
 import { chatTurnBusy } from "../turns/turn-state";
 
 export function canSwitchToThread(state: ChatState, threadId: string): boolean {

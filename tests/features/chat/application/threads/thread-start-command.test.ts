@@ -3,9 +3,9 @@ import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import { resumedThreadAction } from "../../../../../src/features/chat/application/state/actions";
-import { activeThreadId } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";

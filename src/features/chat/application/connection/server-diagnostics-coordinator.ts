@@ -5,7 +5,7 @@ import {
   diagnosticsWithToolInventory,
   replaceMcpServerStatusDiagnostics,
 } from "../../../../domain/server/diagnostics";
-import { activeThreadId } from "../state/root-reducer";
+import { activeThreadId } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import type { ServerDiagnosticsPort } from "./server-diagnostics-port";
 

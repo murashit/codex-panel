@@ -2,7 +2,6 @@ import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
 import type { PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatRequestState } from "../../application/pending-requests/state";
-import { chatThreadStreamViewState } from "../../application/state/active-turn";
 import {
   type ThreadStreamRollbackCandidate,
   threadStreamActiveItems,
@@ -11,6 +10,7 @@ import {
   threadStreamRollbackCandidateFromItems,
   threadStreamStableItems,
 } from "../../application/state/thread-stream";
+import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { implementPlanTarget } from "../../application/submission/plan-implementation";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
 import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";

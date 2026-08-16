@@ -1,4 +1,5 @@
-import { type ChatAction, type ChatState, chatReducer, createChatState } from "./root-reducer";
+import { type ChatState, createChatState } from "./model";
+import { type ChatAction, chatReducer } from "./reducer";
 
 export interface ChatStateStore {
   getState(): ChatState;

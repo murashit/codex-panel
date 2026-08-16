@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { activePanelOperationDecision } from "../../../../../src/features/chat/application/panel-operation-policy";
-import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/active-turn";
-import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
 import {
   implementPlan,
   implementPlanTarget,

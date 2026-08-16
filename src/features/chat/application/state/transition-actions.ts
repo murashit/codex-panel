@@ -5,13 +5,15 @@ import {
   runtimePermissionStateOrDefault,
 } from "../../../../domain/runtime/permissions";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
-import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
+import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
+import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
-import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import type { PendingTurnStart } from "../turns/turn-state";
+import type { ChatPendingSubmissionState } from "./pending-submission";
 
 interface ResumedThreadActionParams {
   response: ThreadActivationSnapshot;
@@ -57,29 +59,17 @@ export interface ActiveThreadSettingsAppliedActionSettings extends RuntimePermis
   approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
 }
 
-export interface ConnectionInitializedAction {
-  type: "connection/initialized";
-  initializeResponse: ServerInitialization;
-}
-
-export interface ClearDisconnectedConnectionStateAction {
+interface ClearDisconnectedConnectionStateAction {
   type: "connection/scoped-cleared";
 }
 
-export interface ClearLocalTurnAction {
+interface ClearLocalTurnAction {
   type: "turn/scoped-cleared";
 }
 
-export interface ClearActiveThreadAction {
+interface ClearActiveThreadAction {
   type: "active-thread/cleared";
   expectedPanelTargetRevision?: number;
-}
-
-export interface DisclosureSetAction {
-  type: "ui/disclosure-set";
-  bucket: "details" | "activityGroups" | "textDetails" | "userDialogueExpanded" | "goalObjectiveExpanded" | "approvalDetails";
-  id: string;
-  open: boolean;
 }
 
 export interface TurnOptimisticStartedAction {
@@ -99,6 +89,58 @@ export interface TurnStartFailedAction {
   type: "turn/start-failed";
   items: readonly ThreadStreamItem[];
 }
+
+export interface TurnStartedAction {
+  type: "turn/started";
+  threadId: string;
+  turnId: string;
+  items?: readonly ThreadStreamItem[];
+}
+
+export interface TurnCompletedAction {
+  type: "turn/completed";
+  turnId: string;
+  status: string;
+  items: readonly ThreadStreamItem[];
+}
+
+export interface RequestResolvedAction {
+  type: "request/resolved";
+  requestId: PendingRequestId;
+  resultItem?: ThreadStreamItem;
+}
+
+export interface PendingStartHookUpsertedAction {
+  type: "turn/pending-start-hook-upserted";
+  item: ThreadStreamItem;
+  pendingTurnStart: PendingTurnStart | null;
+}
+
+type PendingSubmissionAction =
+  | { type: "web-submission/pending"; submission: ChatPendingSubmissionState }
+  | { type: "web-submission/committed"; submissionId: string }
+  | { type: "web-submission/cancelled"; submissionId: string }
+  | { type: "web-submission/failed"; submissionId: string }
+  | { type: "web-submission/steer-pending"; submissionId: string; item: ThreadStreamDialogueItem };
+
+export type ChatTransitionAction =
+  | ClearDisconnectedConnectionStateAction
+  | ClearActiveThreadAction
+  | ActiveThreadResumedAction
+  | ActiveThreadSettingsAppliedAction
+  | { type: "active-thread/goal-set"; goal: ThreadGoal | null }
+  | { type: "panel/restored-thread-applied"; threadId: string; fallbackTitle: string | null }
+  | { type: "panel/restored-thread-renamed"; threadId: string; name: string | null }
+  | { type: "panel/view-state-cleared" }
+  | TurnStartedAction
+  | TurnCompletedAction
+  | ClearLocalTurnAction
+  | TurnOptimisticStartedAction
+  | TurnStartAcknowledgedAction
+  | TurnStartFailedAction
+  | RequestResolvedAction
+  | PendingStartHookUpsertedAction
+  | PendingSubmissionAction;
 
 export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
   const { response } = params;

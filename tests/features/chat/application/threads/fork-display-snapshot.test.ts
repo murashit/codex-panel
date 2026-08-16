@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/active-turn";
 import {
   initialChatThreadStreamState,
   threadStreamStartActiveSegment,
 } from "../../../../../src/features/chat/application/state/thread-stream";
+import { initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/turn-scope";
 import {
   captureForkDisplaySnapshot,
   reconcileForkDisplayItems,

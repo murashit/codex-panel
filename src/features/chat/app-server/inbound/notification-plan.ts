@@ -2,9 +2,10 @@ import type { ServerNotification } from "../../../../app-server/connection/rpc-m
 import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
-import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
-import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
+import { activeThreadId, activeThreadState, type ChatState } from "../../application/state/model";
+import type { ChatAction } from "../../application/state/reducer";
 import type { SubagentActivityAction } from "../../application/state/subagent-activity";
+import { activeThreadSettingsAppliedAction } from "../../application/state/transition-actions";
 import { projectTurnRuntimeFacts, type TurnRuntimeProjectionOutcome } from "../../application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";

@@ -1,4 +1,4 @@
-import { type ChatState, panelThreadId } from "./root-reducer";
+import { type ChatState, panelThreadId } from "./model";
 
 type PanelTarget = { readonly kind: "empty" } | { readonly kind: "thread"; readonly threadId: string };
 

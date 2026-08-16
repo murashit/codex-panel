@@ -1,5 +1,5 @@
+import { activeThreadId, awaitingResumeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent, panelTargetLeasesMatch } from "../state/panel-target";
-import { activeThreadId, awaitingResumeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 export interface RestorationControllerHost {

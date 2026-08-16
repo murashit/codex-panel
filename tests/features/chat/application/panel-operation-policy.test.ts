@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../../../../src/features/chat/application/panel-operation-policy";
-import { type ChatState, createChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { type ChatState, createChatState } from "../../../../src/features/chat/application/state/model";
 
 type ActivePanelThreadFacts =
   | { readonly phase: "empty" }

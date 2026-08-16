@@ -1,4 +1,4 @@
-import { activeThreadState } from "../state/root-reducer";
+import { activeThreadState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { chatTurnBusy } from "../turns/turn-state";
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";

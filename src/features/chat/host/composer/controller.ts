@@ -31,13 +31,14 @@ import { activePanelOperationDecision } from "../../application/panel-operation-
 import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activePanelOperationForSlashCommandSuggestion } from "../../application/slash-commands/catalog";
 import { type ThreadCommandTarget, threadCommandTargetForDraft } from "../../application/slash-commands/thread-arguments";
+import { activeThreadState, type ChatState, panelThreadId } from "../../application/state/model";
 import {
   capturePanelTargetLease,
   type PanelTargetLease,
   panelTargetLeaseIsCurrent,
   panelTargetLeasesMatch,
 } from "../../application/state/panel-target";
-import { activeThreadState, type ChatAction, type ChatState, panelThreadId } from "../../application/state/root-reducer";
+import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer";
