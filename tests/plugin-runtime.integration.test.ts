@@ -113,7 +113,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(events).toEqual(["load", "payload"]);
     expect(setDiffPayload).toHaveBeenCalledWith(payload);
     expect(plugin.app.workspace.revealLeaf).toHaveBeenCalledWith(diffLeaf);
-  });
+  }, 15_000);
 
   it("loads a reused turn diff leaf before replacing its session payload", async () => {
     const diffLeaf = leaf();

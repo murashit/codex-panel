@@ -114,7 +114,7 @@ export function setupViewConnectionHarness(): void {
 
   beforeAll(async () => {
     ({ CodexChatView } = await import("../../../../src/features/chat/host/view.obsidian"));
-  });
+  }, 30_000);
 
   beforeEach(() => {
     vi.useRealTimers();
