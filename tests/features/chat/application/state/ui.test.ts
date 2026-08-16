@@ -37,43 +37,16 @@ describe("chat UI state", () => {
     });
   });
 
-  it("scopes rename generation state to the active thread", () => {
-    let state = reduceUiSlice(initialUiState(), {
-      type: "ui/rename-started",
+  it("stores and clears rename state selected by the workflow", () => {
+    const editing = reduceUiSlice(initialUiState(), {
+      type: "ui/rename-set",
       threadId: "thread",
-      draft: "Original",
+      state: { kind: "editing", draft: "Draft", autoName: { kind: "checking" } },
     });
-    const context = { userRequest: "Request", assistantResponse: "Response" };
-    state = reduceUiSlice(state, {
-      type: "ui/rename-auto-name-context-resolved",
-      threadId: "thread",
-      context,
-    });
-    state = reduceUiSlice(state, {
-      type: "ui/rename-generation-started",
-      threadId: "thread",
-    });
-    state = reduceUiSlice(state, {
-      type: "ui/rename-generation-succeeded",
-      threadId: "other-thread",
-      draft: "Wrong thread",
-    });
-    state = reduceUiSlice(state, {
-      type: "ui/rename-draft-updated",
-      threadId: "thread",
-      draft: "Manual draft",
-    });
-    state = reduceUiSlice(state, {
-      type: "ui/rename-generation-succeeded",
-      threadId: "thread",
-      draft: "Generated title",
-    });
-    state = reduceUiSlice(state, {
-      type: "ui/rename-generation-finished",
-      threadId: "thread",
-    });
+    const cleared = reduceUiSlice(editing, { type: "ui/rename-set", threadId: null, state: undefined });
 
-    expect(state.rename).toEqual({ kind: "editing", threadId: "thread", draft: "Generated title", autoName: { kind: "ready", context } });
+    expect(editing.rename).toEqual({ kind: "editing", threadId: "thread", draft: "Draft", autoName: { kind: "checking" } });
+    expect(cleared.rename).toEqual({ kind: "idle" });
   });
 
   it("clears goal expansion only when the displayed goal identity changes", () => {

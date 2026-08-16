@@ -1,34 +1,10 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
-import {
-  type ThreadRenameActiveState,
-  type ThreadRenameLifecycleEvent,
-  type ThreadRenameLifecycleState,
-  transitionThreadRenameLifecycleState,
-} from "../../../../domain/threads/rename-lifecycle";
-import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
+import type { ThreadRenameActiveState } from "../../../../domain/threads/rename-lifecycle";
 import { pendingRequestDerivedKeyPrefix } from "../../domain/pending-requests/drafts";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import { patchObject } from "./patch";
 
-export type ChatRenameUiState = { readonly kind: "idle" } | (ThreadRenameActiveState & { readonly threadId: string });
-
-type ChatRenameUiAction = Extract<
-  UiAction,
-  {
-    type:
-      | "ui/rename-started"
-      | "ui/rename-draft-updated"
-      | "ui/rename-auto-name-context-resolved"
-      | "ui/rename-cancelled"
-      | "ui/rename-save-started"
-      | "ui/rename-save-failed"
-      | "ui/rename-save-succeeded"
-      | "ui/rename-generation-started"
-      | "ui/rename-generation-succeeded"
-      | "ui/rename-generation-finished"
-      | "ui/rename-cleared";
-  }
->;
+type ChatRenameUiState = { readonly kind: "idle" } | (ThreadRenameActiveState & { readonly threadId: string });
 
 type ChatGoalEditorUiState =
   | { readonly kind: "closed" }
@@ -72,17 +48,7 @@ export type UiAction =
       toggle?: boolean;
     }
   | { type: "ui/archive-confirm-set"; threadId: string | null }
-  | { type: "ui/rename-started"; threadId: string; draft: string }
-  | { type: "ui/rename-draft-updated"; threadId: string; draft: string }
-  | { type: "ui/rename-auto-name-context-resolved"; threadId: string; context: ThreadTitleContext | null }
-  | { type: "ui/rename-cancelled"; threadId: string }
-  | { type: "ui/rename-save-started"; threadId: string }
-  | { type: "ui/rename-save-failed"; threadId: string }
-  | { type: "ui/rename-save-succeeded"; threadId: string }
-  | { type: "ui/rename-generation-started"; threadId: string }
-  | { type: "ui/rename-generation-succeeded"; threadId: string; draft: string }
-  | { type: "ui/rename-generation-finished"; threadId: string }
-  | { type: "ui/rename-cleared" }
+  | { type: "ui/rename-set"; threadId: string | null; state: ThreadRenameActiveState | undefined }
   | { type: "ui/goal-editor-started"; threadId: string | null; objective: string; tokenBudget: number | null }
   | { type: "ui/goal-editor-draft-updated"; objective: string }
   | { type: "ui/goal-editor-closed" }
@@ -109,17 +75,7 @@ export function isUiAction(action: { type: string }): action is UiAction {
   switch (action.type) {
     case "ui/panel-set":
     case "ui/archive-confirm-set":
-    case "ui/rename-started":
-    case "ui/rename-draft-updated":
-    case "ui/rename-auto-name-context-resolved":
-    case "ui/rename-cancelled":
-    case "ui/rename-save-started":
-    case "ui/rename-save-failed":
-    case "ui/rename-save-succeeded":
-    case "ui/rename-generation-started":
-    case "ui/rename-generation-succeeded":
-    case "ui/rename-generation-finished":
-    case "ui/rename-cleared":
+    case "ui/rename-set":
     case "ui/goal-editor-started":
     case "ui/goal-editor-draft-updated":
     case "ui/goal-editor-closed":
@@ -137,18 +93,8 @@ export function reduceUiSlice(state: ChatUiState, action: UiAction): ChatUiState
       return setPanelSlice(state, action.panel, action.toggle ?? false);
     case "ui/archive-confirm-set":
       return patchObject(state, { archiveConfirmThreadId: action.threadId });
-    case "ui/rename-started":
-    case "ui/rename-draft-updated":
-    case "ui/rename-auto-name-context-resolved":
-    case "ui/rename-cancelled":
-    case "ui/rename-save-started":
-    case "ui/rename-save-failed":
-    case "ui/rename-save-succeeded":
-    case "ui/rename-generation-started":
-    case "ui/rename-generation-succeeded":
-    case "ui/rename-generation-finished":
-    case "ui/rename-cleared":
-      return patchObject(state, { rename: transitionChatRenameUiState(state.rename, action) });
+    case "ui/rename-set":
+      return patchObject(state, { rename: chatRenameUiState(action.threadId, action.state) });
     case "ui/goal-editor-started":
       return patchObject(state, {
         goalEditor: {
@@ -262,81 +208,9 @@ function goalEditorDraftUpdated(state: ChatGoalEditorUiState, objective: string)
   return { ...state, objectiveDraft: objective };
 }
 
-function transitionChatRenameUiState(state: ChatRenameUiState, action: ChatRenameUiAction): ChatRenameUiState {
-  switch (action.type) {
-    case "ui/rename-started":
-      if (state.kind === "saving") return state;
-      return { kind: "editing", threadId: action.threadId, draft: action.draft, autoName: { kind: "checking" } };
-    case "ui/rename-draft-updated":
-      return transitionScopedChatRenameUiState(state, action.threadId, { type: "draft-updated", draft: action.draft });
-    case "ui/rename-auto-name-context-resolved":
-      return transitionScopedChatRenameUiState(state, action.threadId, {
-        type: "auto-name-context-resolved",
-        context: action.context,
-      });
-    case "ui/rename-cancelled":
-      return transitionScopedChatRenameUiState(state, action.threadId, { type: "cancelled" });
-    case "ui/rename-save-started":
-      return transitionScopedChatRenameUiState(state, action.threadId, { type: "save-started" });
-    case "ui/rename-save-failed":
-      return transitionScopedChatRenameUiState(state, action.threadId, { type: "save-failed" });
-    case "ui/rename-save-succeeded":
-      return transitionScopedChatRenameUiState(state, action.threadId, { type: "save-succeeded" });
-    case "ui/rename-generation-started":
-      return transitionScopedChatRenameUiState(state, action.threadId, { type: "generation-started" });
-    case "ui/rename-generation-succeeded":
-      return transitionScopedChatRenameUiState(state, action.threadId, {
-        type: "generation-succeeded",
-        draft: action.draft,
-      });
-    case "ui/rename-generation-finished":
-      return transitionScopedChatRenameUiState(state, action.threadId, { type: "generation-finished" });
-    case "ui/rename-cleared":
-      return chatRenameUiStateFromThreadRenameState(
-        state.kind === "idle" ? null : state.threadId,
-        transitionThreadRenameLifecycleState(chatRenameLifecycleStateWithoutThreadId(state), { type: "cleared" }),
-      );
-    default:
-      return unhandledChatRenameUiAction(action);
-  }
-}
-
-function transitionScopedChatRenameUiState(
-  state: ChatRenameUiState,
-  threadId: string,
-  event: ThreadRenameLifecycleEvent,
-): ChatRenameUiState {
-  if (state.kind === "idle" || state.threadId !== threadId) return state;
-  const lifecycleState = chatRenameLifecycleStateWithoutThreadId(state);
-  const nextLifecycleState = transitionThreadRenameLifecycleState(lifecycleState, event);
-  if (nextLifecycleState === lifecycleState) return state;
-  return chatRenameUiStateFromThreadRenameState(threadId, nextLifecycleState);
-}
-
-function chatRenameLifecycleStateWithoutThreadId(state: ChatRenameUiState): ThreadRenameLifecycleState {
-  if (state.kind === "idle") return state;
-  return chatRenameActiveStateWithoutThreadId(state);
-}
-
-function chatRenameActiveStateWithoutThreadId(state: Exclude<ChatRenameUiState, { kind: "idle" }>): ThreadRenameActiveState {
-  switch (state.kind) {
-    case "editing":
-      return { kind: "editing", draft: state.draft, autoName: state.autoName };
-    case "saving":
-      return { kind: "saving", draft: state.draft, autoName: state.autoName };
-    case "generating":
-      return { kind: "generating", draft: state.draft, autoName: state.autoName };
-  }
-}
-
-function chatRenameUiStateFromThreadRenameState(threadId: string | null, state: ThreadRenameLifecycleState): ChatRenameUiState {
-  if (state.kind === "idle") return state;
-  if (threadId === null) return initialRenameUiState();
+function chatRenameUiState(threadId: string | null, state: ThreadRenameActiveState | undefined): ChatRenameUiState {
+  if (threadId === null || state === undefined) return initialRenameUiState();
   return { ...state, threadId };
-}
-
-function unhandledChatRenameUiAction(action: never): never {
-  throw new Error(`Unhandled chat rename UI action: ${String(action)}`);
 }
 
 function filterStringSet(values: ReadonlySet<string>, keep: (value: string) => boolean): ReadonlySet<string> {

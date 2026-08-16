@@ -6,10 +6,10 @@ import { activeThreadState, type ChatState } from "../../application/state/model
 import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { GoalCommands } from "../../application/threads/goal-commands";
-import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
 import type { ThreadCommands } from "../../application/threads/thread-commands";
 import type { ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ToolbarActions } from "../../ui/toolbar";
+import type { ThreadRenameEditorActions } from "../session/rename-editor";
 
 interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;

@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
 import type { Thread } from "../../domain/threads/model";
-import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
+import { threadRenameDraftTitle } from "../../domain/threads/title";
 import { DeferredTask } from "../../shared/async/deferred-task";
 import type { ObservedPaginatedResult } from "../../shared/async/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../shared/async/observed-result";
@@ -8,9 +8,10 @@ import { OwnerLifetime } from "../../shared/async/owner-lifetime";
 import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ThreadTitlePort } from "../threads/workflows/ports";
 import type { ThreadMutationCommands } from "../threads/workflows/thread-mutation-commands";
+import { createThreadRenameEditor, type ThreadRenameEditor } from "../threads/workflows/thread-rename-editor";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
-import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows, transitionThreadsRenameState } from "./state";
+import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows } from "./state";
 export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly threadCatalog: ThreadsViewThreadCatalog;
@@ -36,18 +37,11 @@ export interface ThreadsViewSessionEnvironment {
 
 type ThreadsViewStatus = { kind: "idle" } | { kind: "loading"; message: string } | { kind: "error"; message: string };
 
-interface ThreadTitleContextPreparation {
-  readonly threadId: string;
-}
-
-interface ThreadTitleGeneration {
-  readonly controller: AbortController;
-}
-
 export class ThreadsViewSession {
   private readonly lifetime = new OwnerLifetime();
   private readonly mutations: ThreadMutationCommands;
   private readonly titleService: ThreadTitleService;
+  private readonly renameEditor: ThreadRenameEditor;
   private readonly renderTask: DeferredTask;
   private observedFetching = false;
   private observedFetchingNextPage = false;
@@ -55,9 +49,6 @@ export class ThreadsViewSession {
   private threads: readonly Thread[] = [];
   private threadsLoaded = false;
   private readonly renameStates = new Map<string, ThreadsRenameState>();
-  private readonly renameContextPreparations = new Map<string, ThreadTitleContextPreparation>();
-  private readonly renameGenerations = new Map<string, ThreadTitleGeneration>();
-  private readonly renameSaves = new Map<string, object>();
   private readonly lifecycleBusyThreadIds = new Set<string>();
   private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
@@ -67,6 +58,29 @@ export class ThreadsViewSession {
     this.mutations = this.host.threadMutations;
     this.titleService = createThreadTitleService({
       port: this.host.threadTitlePort,
+    });
+    this.renameEditor = createThreadRenameEditor({
+      state: {
+        get: (threadId) => this.renameStates.get(threadId),
+        replace: (threadId, state) => {
+          if (state) this.renameStates.set(threadId, state);
+          else this.renameStates.delete(threadId);
+          this.render();
+        },
+        clear: () => {
+          this.renameStates.clear();
+        },
+      },
+      initialDraft: (threadId) => {
+        const thread = (this.host.threadCatalog.activeThreadsSnapshot() ?? this.threads).find((item) => item.id === threadId);
+        return thread ? threadRenameDraftTitle(thread) : null;
+      },
+      renameThread: (threadId, value, shouldStart) => this.mutations.renameThread(threadId, value, { shouldStart }),
+      resolveTitleContext: (threadId) => this.titleService.resolveContext(threadId),
+      generateTitle: (context, signal) => this.titleService.generate(context, signal),
+      reportError: (error) => {
+        this.noticeError(error);
+      },
     });
   }
 
@@ -89,10 +103,7 @@ export class ThreadsViewSession {
 
   close(): void {
     this.lifetime.dispose();
-    for (const operation of this.renameGenerations.values()) operation.controller.abort();
-    this.renameGenerations.clear();
-    this.renameSaves.clear();
-    this.renameContextPreparations.clear();
+    this.renameEditor.invalidate();
     this.titleService.invalidate();
     this.observedFetching = false;
     this.observedFetchingNextPage = false;
@@ -198,20 +209,21 @@ export class ThreadsViewSession {
         loadMore: () => void this.loadMore(),
         openNewPanel: () => void this.openNewPanel(),
         openThread: (threadId) => void this.openThread(threadId),
-        startRename: (threadId, value) => {
-          this.startRename(threadId, value);
+        startRename: (threadId) => {
+          this.archiveConfirmThreadId = null;
+          this.renameEditor.start(threadId);
         },
         updateRename: (threadId, value) => {
-          this.updateRename(threadId, value);
+          this.renameEditor.updateDraft(threadId, value);
         },
-        saveRename: (threadId, value) => void this.saveRename(threadId, value),
+        saveRename: (threadId, value) => void this.renameEditor.save(threadId, value),
         cancelRename: (threadId) => {
-          this.cancelRename(threadId);
+          this.renameEditor.cancel(threadId);
         },
         cancelAutoName: (threadId) => {
-          this.cancelAutoName(threadId);
+          this.renameEditor.cancelAutoName(threadId);
         },
-        autoNameThread: (threadId) => void this.autoNameThread(threadId),
+        autoNameThread: (threadId) => void this.renameEditor.autoNameDraft(threadId),
         setThreadPinned: (threadId, isPinned) => void this.setThreadPinned(threadId, isPinned),
         startArchive: (threadId) => {
           this.startArchive(threadId);
@@ -234,101 +246,6 @@ export class ThreadsViewSession {
 
   private async openNewPanel(): Promise<void> {
     await this.host.openNewPanel();
-  }
-
-  private startRename(threadId: string, value: string): void {
-    const current = this.renameStates.get(threadId);
-    if (current?.kind === "saving") return;
-    this.archiveConfirmThreadId = null;
-    this.transitionRenameState(threadId, { type: "started", draft: value });
-    this.render();
-    void this.prepareAutoName(threadId);
-  }
-
-  private updateRename(threadId: string, value: string): void {
-    this.transitionRenameState(threadId, { type: "draft-updated", draft: value });
-    this.render();
-  }
-
-  private cancelRename(threadId: string): void {
-    if (this.renameStates.get(threadId)?.kind === "saving") return;
-    this.abortAutoName(threadId);
-    this.renameContextPreparations.delete(threadId);
-    this.transitionRenameState(threadId, { type: "cancelled" });
-    this.render();
-  }
-
-  private cancelAutoName(threadId: string): void {
-    const state = this.renameStates.get(threadId);
-    if (state?.kind !== "generating") return;
-    this.abortAutoName(threadId);
-    this.finishAutoNameThread(threadId);
-  }
-
-  private async saveRename(threadId: string, value: string): Promise<void> {
-    const viewLifetime = this.lifetime.signal();
-    const previousState = this.renameStates.get(threadId);
-    if (previousState?.kind !== "editing") return;
-    const savingState = this.transitionRenameState(threadId, { type: "save-started" });
-    if (savingState === previousState || savingState?.kind !== "saving") return;
-    const operation = {};
-    this.renameSaves.set(threadId, operation);
-    this.render();
-    try {
-      await this.mutations.renameThread(threadId, value, {
-        shouldStart: () => this.lifetime.isCurrent(viewLifetime) && this.renameSaves.get(threadId) === operation,
-      });
-      if (!this.lifetime.isCurrent(viewLifetime)) return;
-      const currentState = this.renameStates.get(threadId);
-      if (this.renameSaves.get(threadId) !== operation || currentState?.kind !== "saving") return;
-      this.renameSaves.delete(threadId);
-      const nextState = this.transitionRenameState(threadId, { type: "save-succeeded" });
-      if (nextState !== currentState) {
-        if (!nextState) this.renameContextPreparations.delete(threadId);
-        this.render();
-      }
-    } catch (error) {
-      if (
-        !this.lifetime.isCurrent(viewLifetime) ||
-        this.renameSaves.get(threadId) !== operation ||
-        this.renameStates.get(threadId)?.kind !== "saving"
-      ) {
-        return;
-      }
-      this.renameSaves.delete(threadId);
-      this.noticeError(error);
-      this.transitionRenameState(threadId, { type: "save-failed" });
-      this.render();
-    }
-  }
-
-  private async autoNameThread(threadId: string): Promise<void> {
-    const viewLifetime = this.lifetime.signal();
-    const previousState = this.renameStates.get(threadId);
-    const generatingState = this.transitionRenameState(threadId, { type: "generation-started" });
-    if (generatingState === previousState || generatingState?.kind !== "generating") return;
-    const controller = new AbortController();
-    const operation = { controller };
-    this.renameGenerations.set(threadId, operation);
-    this.render();
-
-    try {
-      const context = generatingState.autoName.context;
-      const title = await this.titleService.generate(context, controller.signal);
-      if (!title) throw new Error("Codex did not return a usable thread title.");
-      if (!this.lifetime.isCurrent(viewLifetime) || this.renameGenerations.get(threadId) !== operation) return;
-      this.transitionRenameState(threadId, { type: "generation-succeeded", draft: title });
-    } catch (error) {
-      if (!this.lifetime.isCurrent(viewLifetime)) return;
-      if (this.renameStates.get(threadId) === generatingState) {
-        this.noticeError(error);
-      }
-    } finally {
-      if (this.renameGenerations.get(threadId) === operation) {
-        this.renameGenerations.delete(threadId);
-        if (this.lifetime.isCurrent(viewLifetime)) this.finishAutoNameThread(threadId);
-      }
-    }
   }
 
   private startArchive(threadId: string): void {
@@ -381,44 +298,6 @@ export class ThreadsViewSession {
 
   private noticeError(error: unknown): void {
     new Notice(error instanceof Error ? error.message : String(error));
-  }
-
-  private finishAutoNameThread(threadId: string): void {
-    const previousState = this.renameStates.get(threadId);
-    const nextState = this.transitionRenameState(threadId, { type: "generation-finished" });
-    if (nextState !== previousState) this.render();
-  }
-
-  private async prepareAutoName(threadId: string): Promise<void> {
-    const preparation = { threadId };
-    this.renameContextPreparations.set(threadId, preparation);
-    let context = null;
-    try {
-      context = await this.titleService.resolveContext(threadId);
-    } catch {
-      // Auto-name availability is reflected by the disabled action.
-    }
-    if (!this.lifetime.isActive() || this.renameContextPreparations.get(threadId) !== preparation) return;
-    this.renameContextPreparations.delete(threadId);
-    const state = this.renameStates.get(threadId);
-    if (state?.kind !== "editing" && state?.kind !== "saving") return;
-    this.transitionRenameState(threadId, { type: "auto-name-context-resolved", context });
-    this.render();
-  }
-
-  private abortAutoName(threadId: string): void {
-    this.renameGenerations.get(threadId)?.controller.abort();
-    this.renameGenerations.delete(threadId);
-  }
-
-  private transitionRenameState(threadId: string, event: ThreadRenameLifecycleEvent): ThreadsRenameState | undefined {
-    const nextState = transitionThreadsRenameState(this.renameStates.get(threadId), event);
-    if (nextState) {
-      this.renameStates.set(threadId, nextState);
-    } else {
-      this.renameStates.delete(threadId);
-    }
-    return nextState;
   }
 
   private viewWindow(): Window {

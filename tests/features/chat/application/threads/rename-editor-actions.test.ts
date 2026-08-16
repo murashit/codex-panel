@@ -8,7 +8,7 @@ import {
   createThreadRenameEditorActions,
   type ThreadRenameEditorActions,
   type ThreadRenameEditorActionsHost,
-} from "../../../../../src/features/chat/application/threads/rename-editor-actions";
+} from "../../../../../src/features/chat/host/session/rename-editor";
 import { deferred } from "../../../../support/async";
 
 describe("ThreadRenameEditorActions", () => {

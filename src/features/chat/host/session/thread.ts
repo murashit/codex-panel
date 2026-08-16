@@ -17,11 +17,6 @@ import { createGoalEditorActions, type GoalEditorActions } from "../../applicati
 import { createThreadGoalSync, type ThreadGoalSync } from "../../application/threads/goal-sync";
 import { HistoryController } from "../../application/threads/history-controller";
 import type { PersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
-import {
-  activeThreadRenameTitleContext,
-  createThreadRenameEditorActions,
-  type ThreadRenameEditorActions,
-} from "../../application/threads/rename-editor-actions";
 import { RestorationController } from "../../application/threads/restoration-controller";
 import { createResumeCommand, type ResumeCommand } from "../../application/threads/resume-command";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
@@ -32,6 +27,7 @@ import { threadTitleContextFromThreadStreamItems } from "../../application/threa
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../toolbar/actions";
+import { activeThreadRenameTitleContext, createThreadRenameEditorActions, type ThreadRenameEditorActions } from "./rename-editor";
 
 type SessionGoalSync = ThreadGoalSync;
 export type SessionGoalCommands = GoalCommands & GoalEditorActions;

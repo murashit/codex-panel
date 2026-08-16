@@ -1,11 +1,5 @@
 import { compareThreadsPinnedFirst, type Thread } from "../../domain/threads/model";
-import {
-  initialThreadRenameLifecycleState,
-  type ThreadRenameActiveState,
-  type ThreadRenameLifecycleEvent,
-  type ThreadRenameLifecycleState,
-  transitionThreadRenameLifecycleState,
-} from "../../domain/threads/rename-lifecycle";
+import type { ThreadRenameActiveState } from "../../domain/threads/rename-lifecycle";
 import { type ThreadRowCoreProjection, threadRowCoreProjection } from "../threads/list/row-projection";
 
 type ThreadsLiveStatus = "pending" | "running" | "open";
@@ -27,7 +21,6 @@ export interface ThreadsRowModel extends ThreadRowCoreProjection {
 }
 
 export type ThreadsRenameState = ThreadRenameActiveState;
-export type ThreadsRenameLifecycleState = ThreadsRenameState | undefined;
 
 export function threadRows(
   threads: readonly Thread[],
@@ -59,17 +52,6 @@ export function threadRows(
 function liveStateForPanelActivity(activity: ThreadsViewPanelActivity | undefined): ThreadsLiveState | null {
   if (!activity) return null;
   return { status: panelActivityStatus(activity) };
-}
-
-export function transitionThreadsRenameState(
-  state: ThreadsRenameLifecycleState,
-  event: ThreadRenameLifecycleEvent,
-): ThreadsRenameLifecycleState {
-  return activeThreadsRenameState(transitionThreadRenameLifecycleState(state ?? initialThreadRenameLifecycleState(), event));
-}
-
-function activeThreadsRenameState(state: ThreadRenameLifecycleState): ThreadsRenameLifecycleState {
-  return state.kind === "idle" ? undefined : state;
 }
 
 function panelActivitiesForThreads(panelActivities: readonly ThreadsViewPanelActivity[]): Map<string, ThreadsViewPanelActivity> {
