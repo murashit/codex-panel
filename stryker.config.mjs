@@ -10,7 +10,6 @@ export default {
     "src/features/chat/application/turns/**/*.ts",
     "src/features/chat/application/pending-requests/**/*.ts",
     "src/features/chat/application/submission/optimistic-turn-start.ts",
-    "src/features/chat/application/submission/turn-submission-plan.ts",
     "src/app-server/query/{active-thread-inventory,invalidated-query-refresh,snapshots}.ts",
     "src/features/chat/app-server/adapters/thread-reference-resolver.ts",
     "src/features/threads/workflows/**/*.ts",

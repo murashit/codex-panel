@@ -17,7 +17,6 @@ import {
 } from "./optimistic-turn-start";
 import { submissionStateSnapshot } from "./snapshot";
 import { TurnSubmissionAttempt } from "./turn-submission-attempt";
-import { planTurnSubmission, type TurnSubmissionPlan } from "./turn-submission-plan";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 
@@ -44,6 +43,14 @@ export interface TurnSubmissionCommandHost {
 export interface TurnSubmissionCommand {
   sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
 }
+
+type TurnSubmissionSnapshot = ReturnType<typeof submissionStateSnapshot>;
+
+type TurnSubmissionPlan =
+  | { kind: "blocked"; message: string }
+  | { kind: "steer"; threadId: string; turnId: string }
+  | { kind: "start-thread-then-turn" }
+  | { kind: "start-turn"; threadId: string };
 
 export interface TurnSubmissionRequest {
   text: string;
@@ -229,6 +236,15 @@ async function startThreadForTurn(
   host.notifyActiveThreadIdentityChanged();
   host.resetThreadTurnPresence(false);
   return started;
+}
+
+function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
+  if (state.busy) {
+    return state.activeThreadId && state.activeTurnId
+      ? { kind: "steer", threadId: state.activeThreadId, turnId: state.activeTurnId }
+      : { kind: "blocked", message: "Current turn is not steerable yet." };
+  }
+  return state.activeThreadId ? { kind: "start-turn", threadId: state.activeThreadId } : { kind: "start-thread-then-turn" };
 }
 
 async function steerCurrentTurn(
