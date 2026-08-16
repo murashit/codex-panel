@@ -46,7 +46,7 @@ const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof CodexPanelSettings
 export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
   const record = asRecord(storedSettings);
   return {
-    codexPath: stringOrDefault(record["codexPath"], DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH,
+    codexPath: normalizeCodexPath(record["codexPath"]),
     threadNamingModel: modelOrDefault(record["threadNamingModel"], DEFAULT_SETTINGS.threadNamingModel),
     threadNamingEffort: reasoningEffortOrDefault(record["threadNamingEffort"], DEFAULT_SETTINGS.threadNamingEffort),
     rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"], DEFAULT_SETTINGS.rewriteSelectionModel),
@@ -58,17 +58,32 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
       DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
     ),
     referenceActiveNoteOnSend: booleanOrDefault(record["referenceActiveNoteOnSend"], DEFAULT_SETTINGS.referenceActiveNoteOnSend),
-    attachmentFolder:
-      stringOrDefault(record["attachmentFolder"], DEFAULT_SETTINGS.attachmentFolder).trim() || DEFAULT_SETTINGS.attachmentFolder,
+    attachmentFolder: normalizeAttachmentFolder(record["attachmentFolder"]),
     archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),
-    archiveExportFolderTemplate:
-      stringOrDefault(record["archiveExportFolderTemplate"], DEFAULT_SETTINGS.archiveExportFolderTemplate).trim() ||
-      DEFAULT_SETTINGS.archiveExportFolderTemplate,
-    archiveExportFilenameTemplate:
-      stringOrDefault(record["archiveExportFilenameTemplate"], DEFAULT_SETTINGS.archiveExportFilenameTemplate).trim() ||
-      DEFAULT_SETTINGS.archiveExportFilenameTemplate,
-    archiveExportTags: stringOrDefault(record["archiveExportTags"], DEFAULT_SETTINGS.archiveExportTags).trim(),
+    archiveExportFolderTemplate: normalizeArchiveExportFolderTemplate(record["archiveExportFolderTemplate"]),
+    archiveExportFilenameTemplate: normalizeArchiveExportFilenameTemplate(record["archiveExportFilenameTemplate"]),
+    archiveExportTags: normalizeArchiveExportTags(record["archiveExportTags"]),
   };
+}
+
+export function normalizeCodexPath(value: unknown): string {
+  return stringOrDefault(value, DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH;
+}
+
+export function normalizeAttachmentFolder(value: unknown): string {
+  return stringOrDefault(value, DEFAULT_ATTACHMENT_FOLDER).trim() || DEFAULT_ATTACHMENT_FOLDER;
+}
+
+export function normalizeArchiveExportFolderTemplate(value: unknown): string {
+  return stringOrDefault(value, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE).trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE;
+}
+
+export function normalizeArchiveExportFilenameTemplate(value: unknown): string {
+  return stringOrDefault(value, DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE).trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE;
+}
+
+export function normalizeArchiveExportTags(value: unknown): string {
+  return stringOrDefault(value, DEFAULT_SETTINGS.archiveExportTags).trim();
 }
 
 export function settingsMatchStoredSettings(storedSettings: unknown, settings: CodexPanelSettings): boolean {

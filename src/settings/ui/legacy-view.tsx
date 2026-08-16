@@ -1,24 +1,23 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { DEFAULT_CODEX_PATH } from "../../constants";
 import type { SendShortcut } from "../../domain/input/send-shortcut";
 import { IconButton } from "../../shared/ui/icon.dom";
-import { DEFAULT_ATTACHMENT_FOLDER } from "../preferences";
+import { normalizeAttachmentFolder, normalizeCodexPath } from "../preferences";
 import { ArchivedThreadsSection } from "./archived-threads";
 import { CodexHooksSection } from "./codex-hooks";
 import { ObsidianCommitTextInput, ObsidianDropdown, ObsidianToggle } from "./controls.obsidian";
+import {
+  ACTIVE_FILE_REFERENCE_SETTING,
+  ATTACHMENT_FOLDER_SETTING,
+  CODEX_EXECUTABLE_SETTING,
+  COMPOSER_SCROLL_SETTING,
+  SEND_SHORTCUT_OPTIONS,
+  SEND_SHORTCUT_SETTING,
+  SHOW_TOOLBAR_SETTING,
+} from "./definitions";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./layout";
 import { PanelHelpersSection } from "./panel-helpers";
 import type { SettingsViewModel } from "./view-model";
-
-const SEND_SHORTCUT_LABELS = {
-  enter: "Enter",
-  "mod-enter": "Cmd/Ctrl+Enter",
-} as const;
-const SEND_SHORTCUT_OPTIONS: { value: SendShortcut; label: string }[] = [
-  { value: "enter", label: SEND_SHORTCUT_LABELS.enter },
-  { value: "mod-enter", label: SEND_SHORTCUT_LABELS["mod-enter"] },
-];
 
 interface LegacySettingsPanelState {
   codexPath: string;
@@ -91,18 +90,15 @@ function GeneralSettingsSection({ panel, actions }: { panel: LegacySettingsPanel
   return (
     <SettingsGroup className="codex-panel-settings__section codex-panel-settings__general-section">
       <SettingsItems>
-        <SettingRow
-          name="Codex executable"
-          desc="Command used to start `codex app-server`. Use an absolute path when Obsidian cannot find `codex`."
-        >
+        <SettingRow name={CODEX_EXECUTABLE_SETTING.name} desc={CODEX_EXECUTABLE_SETTING.desc}>
           <ObsidianCommitTextInput
             value={panel.codexPath}
-            placeholder={DEFAULT_CODEX_PATH}
-            normalizeValue={(value) => value.trim() || DEFAULT_CODEX_PATH}
+            placeholder={CODEX_EXECUTABLE_SETTING.placeholder}
+            normalizeValue={normalizeCodexPath}
             onCommit={actions.setCodexPath}
           />
         </SettingRow>
-        <SettingRow name="Show chat toolbar" desc="Shows the toolbar above chat panels.">
+        <SettingRow name={SHOW_TOOLBAR_SETTING.name} desc={SHOW_TOOLBAR_SETTING.desc}>
           <ObsidianToggle checked={panel.showToolbar} onChange={actions.setShowToolbar} />
         </SettingRow>
       </SettingsItems>
@@ -115,10 +111,7 @@ function ComposerSettingsSection({ panel, actions }: { panel: LegacySettingsPane
     <SettingsGroup className="codex-panel-settings__section codex-panel-settings__composer-section">
       <SettingsHeading name="Composer" />
       <SettingsItems>
-        <SettingRow
-          name="Send shortcut"
-          desc="Controls whether Enter or Cmd/Ctrl+Enter sends composer-style inputs. Shift+Enter adds a newline."
-        >
+        <SettingRow name={SEND_SHORTCUT_SETTING.name} desc={SEND_SHORTCUT_SETTING.desc}>
           <ObsidianDropdown
             value={panel.sendShortcut}
             onChange={(value) => {
@@ -127,23 +120,17 @@ function ComposerSettingsSection({ panel, actions }: { panel: LegacySettingsPane
             options={SEND_SHORTCUT_OPTIONS}
           />
         </SettingRow>
-        <SettingRow
-          name="Scroll conversation from composer line edges"
-          desc="Lets Up/Ctrl+P and Down/Ctrl+N scroll the conversation from composer line edges."
-        >
+        <SettingRow name={COMPOSER_SCROLL_SETTING.name} desc={COMPOSER_SCROLL_SETTING.desc}>
           <ObsidianToggle checked={panel.scrollThreadFromComposerEdges} onChange={actions.setScrollThreadFromComposerEdges} />
         </SettingRow>
-        <SettingRow
-          name="Reference active file on send"
-          desc="Adds the active file as context on each send without changing the prompt text."
-        >
+        <SettingRow name={ACTIVE_FILE_REFERENCE_SETTING.name} desc={ACTIVE_FILE_REFERENCE_SETTING.desc}>
           <ObsidianToggle checked={panel.referenceActiveNoteOnSend} onChange={actions.setReferenceActiveNoteOnSend} />
         </SettingRow>
-        <SettingRow name="Attachment folder" desc="Vault-relative folder for files pasted or dropped into composer inputs.">
+        <SettingRow name={ATTACHMENT_FOLDER_SETTING.name} desc={ATTACHMENT_FOLDER_SETTING.desc}>
           <ObsidianCommitTextInput
             value={panel.attachmentFolder}
-            placeholder={DEFAULT_ATTACHMENT_FOLDER}
-            normalizeValue={(value) => value.trim() || DEFAULT_ATTACHMENT_FOLDER}
+            placeholder={ATTACHMENT_FOLDER_SETTING.placeholder}
+            normalizeValue={normalizeAttachmentFolder}
             onCommit={actions.setAttachmentFolder}
           />
         </SettingRow>

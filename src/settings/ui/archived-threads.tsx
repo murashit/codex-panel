@@ -2,12 +2,16 @@ import type { ComponentChild as UiNode } from "preact";
 import { shortThreadId } from "../../domain/threads/id";
 import type { Thread } from "../../domain/threads/model";
 import { threadCommandDisplayTitle } from "../../domain/threads/title";
-import { DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE } from "../preferences";
+import { normalizeArchiveExportFilenameTemplate, normalizeArchiveExportFolderTemplate, normalizeArchiveExportTags } from "../preferences";
 import { ObsidianCommitTextInput, ObsidianExtraButton, ObsidianToggle } from "./controls.obsidian";
+import {
+  ARCHIVE_EXPORT_ENABLED_SETTING,
+  ARCHIVE_EXPORT_FILENAME_SETTING,
+  ARCHIVE_EXPORT_FOLDER_SETTING,
+  ARCHIVE_EXPORT_TAGS_SETTING,
+} from "./definitions";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./layout";
 import type { ArchivedThreadsViewModel } from "./view-model";
-
-const ARCHIVE_EXPORT_TAGS_PLACEHOLDER = "codex, archive";
 
 export function ArchivedThreadsSection({ state }: { state: ArchivedThreadsViewModel }): UiNode {
   return (
@@ -35,7 +39,7 @@ export function ArchivedThreadsContent({ state }: { state: ArchivedThreadsViewMo
 function ArchiveExportSettings({ state }: { state: ArchivedThreadsViewModel }): UiNode {
   return (
     <SettingsItems>
-      <SettingRow name="Save note by default" desc="Makes Save and archive thread the default archive action.">
+      <SettingRow name={ARCHIVE_EXPORT_ENABLED_SETTING.name} desc={ARCHIVE_EXPORT_ENABLED_SETTING.desc}>
         <ObsidianToggle
           checked={state.exportEnabled}
           onChange={(checked) => {
@@ -43,31 +47,31 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadsViewModel }): 
           }}
         />
       </SettingRow>
-      <SettingRow name="Saved note folder" desc="Vault-relative folder for archived thread notes.">
+      <SettingRow name={ARCHIVE_EXPORT_FOLDER_SETTING.name} desc={ARCHIVE_EXPORT_FOLDER_SETTING.desc}>
         <ObsidianCommitTextInput
-          placeholder={DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE}
+          placeholder={ARCHIVE_EXPORT_FOLDER_SETTING.placeholder}
           value={state.exportFolderTemplate}
-          normalizeValue={(value) => value.trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE}
+          normalizeValue={normalizeArchiveExportFolderTemplate}
           onCommit={(value) => {
             state.onExportFolderTemplateChange(value);
           }}
         />
       </SettingRow>
-      <SettingRow name="Saved note filename" desc="Filename template. Supports {{date}}, {{time}}, {{title}}, {{id}}, and {{shortId}}.">
+      <SettingRow name={ARCHIVE_EXPORT_FILENAME_SETTING.name} desc={ARCHIVE_EXPORT_FILENAME_SETTING.desc}>
         <ObsidianCommitTextInput
-          placeholder={DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE}
+          placeholder={ARCHIVE_EXPORT_FILENAME_SETTING.placeholder}
           value={state.exportFilenameTemplate}
-          normalizeValue={(value) => value.trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE}
+          normalizeValue={normalizeArchiveExportFilenameTemplate}
           onCommit={(value) => {
             state.onExportFilenameTemplateChange(value);
           }}
         />
       </SettingRow>
-      <SettingRow name="Saved note tags" desc="Comma-separated tags added to saved thread notes.">
+      <SettingRow name={ARCHIVE_EXPORT_TAGS_SETTING.name} desc={ARCHIVE_EXPORT_TAGS_SETTING.desc}>
         <ObsidianCommitTextInput
-          placeholder={ARCHIVE_EXPORT_TAGS_PLACEHOLDER}
+          placeholder={ARCHIVE_EXPORT_TAGS_SETTING.placeholder}
           value={state.exportTags}
-          normalizeValue={(value) => value.trim()}
+          normalizeValue={normalizeArchiveExportTags}
           onCommit={(value) => {
             state.onExportTagsChange(value);
           }}

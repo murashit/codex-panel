@@ -1,30 +1,44 @@
 import { type App, Notice, type Plugin, PluginSettingTab, type Setting } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
-import { DEFAULT_CODEX_PATH } from "../../constants";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import { listenDomEvent } from "../../shared/dom/events.dom";
 import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
 import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
 import { IconButton } from "../../shared/ui/icon.dom";
 import { SettingsResourcesController } from "../application/resources-controller";
-import type { CodexPanelSettings } from "../preferences";
 import {
-  DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
-  DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
-  DEFAULT_ATTACHMENT_FOLDER,
+  type CodexPanelSettings,
+  normalizeArchiveExportFilenameTemplate,
+  normalizeArchiveExportFolderTemplate,
+  normalizeArchiveExportTags,
+  normalizeAttachmentFolder,
+  normalizeCodexPath,
 } from "../preferences";
 import { ArchivedThreadsContent } from "../ui/archived-threads";
 import { CodexHooksContent } from "../ui/codex-hooks";
 import { ObsidianCommitTextInput } from "../ui/controls.obsidian";
+import {
+  ACTIVE_FILE_REFERENCE_SETTING,
+  ARCHIVE_EXPORT_ENABLED_SETTING,
+  ARCHIVE_EXPORT_FILENAME_SETTING,
+  ARCHIVE_EXPORT_FOLDER_SETTING,
+  ARCHIVE_EXPORT_TAGS_SETTING,
+  ATTACHMENT_FOLDER_SETTING,
+  CODEX_EXECUTABLE_SETTING,
+  COMPOSER_SCROLL_SETTING,
+  SELECTION_REWRITE_SETTING,
+  SEND_SHORTCUT_LABELS,
+  SEND_SHORTCUT_SETTING,
+  SETTINGS_INTRO_TEXT,
+  SHOW_TOOLBAR_SETTING,
+  THREAD_NAMING_SETTING,
+} from "../ui/definitions";
 import { LegacySettingsView } from "../ui/legacy-view";
 import { ModelEffortControl } from "../ui/panel-helpers";
 import type { SettingsViewModel } from "../ui/view-model";
 import type { SettingsTabHost } from "./contracts";
 import type { DeclarativeSettingDefinition, DeclarativeSettingDefinitionItem } from "./declarative-api.compat";
-
-const SETTINGS_INTRO_TEXT = "Codex Panel stores panel preferences only. Runtime settings still come from Codex.";
-const ARCHIVE_EXPORT_TAGS_PLACEHOLDER = "codex, archive";
 
 export class CodexPanelSettingTab extends PluginSettingTab {
   private readonly resources: SettingsResourcesController;
@@ -88,22 +102,22 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           )),
       },
       {
-        name: "Codex executable",
-        desc: "Command used to start `codex app-server`. Use an absolute path when Obsidian cannot find `codex`.",
+        name: CODEX_EXECUTABLE_SETTING.name,
+        desc: CODEX_EXECUTABLE_SETTING.desc,
         render: (setting) =>
           this.renderDeclarativeControl(setting, () => (
             <ObsidianCommitTextInput
               key={this.renderRevision}
               value={this.plugin.settings.codexPath}
-              placeholder={DEFAULT_CODEX_PATH}
-              normalizeValue={(value) => value.trim() || DEFAULT_CODEX_PATH}
+              placeholder={CODEX_EXECUTABLE_SETTING.placeholder}
+              normalizeValue={normalizeCodexPath}
               onCommit={(value) => void this.setCodexPath(value)}
             />
           )),
       },
       {
-        name: "Show chat toolbar",
-        desc: "Shows the toolbar above chat panels.",
+        name: SHOW_TOOLBAR_SETTING.name,
+        desc: SHOW_TOOLBAR_SETTING.desc,
         control: { type: "toggle", key: "showToolbar" },
       },
       {
@@ -112,15 +126,15 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         cls: "codex-panel-settings__section",
         items: [
           {
-            name: "Automatic thread naming",
-            desc: "Model and effort used when Codex Panel generates thread names.",
+            name: THREAD_NAMING_SETTING.name,
+            desc: THREAD_NAMING_SETTING.desc,
             render: (setting) =>
               this.renderDeclarativeControl(setting, () => {
                 const helper = this.settingsViewModel().helper;
                 return (
                   <ModelEffortControl
-                    name="Automatic thread naming"
-                    desc="Model and effort used when Codex Panel generates thread names."
+                    name={THREAD_NAMING_SETTING.name}
+                    desc={THREAD_NAMING_SETTING.desc}
                     modelValue={helper.threadNamingModel}
                     effortValue={helper.threadNamingEffort}
                     models={helper.models}
@@ -132,20 +146,18 @@ export class CodexPanelSettingTab extends PluginSettingTab {
               }),
           },
           {
-            name: "Selection rewrite",
-            desc: "Model and effort used by Rewrite selection.",
+            name: SELECTION_REWRITE_SETTING.name,
+            desc: SELECTION_REWRITE_SETTING.desc,
             render: (setting) =>
               this.renderDeclarativeControl(setting, () => {
                 const helper = this.settingsViewModel().helper;
                 setting.setDesc(
-                  helper.modelLoadFailed
-                    ? `Model and effort used by Rewrite selection. ${helper.modelStatus}`
-                    : "Model and effort used by Rewrite selection.",
+                  helper.modelLoadFailed ? `${SELECTION_REWRITE_SETTING.desc} ${helper.modelStatus}` : SELECTION_REWRITE_SETTING.desc,
                 );
                 return (
                   <ModelEffortControl
-                    name="Selection rewrite"
-                    desc="Model and effort used by Rewrite selection."
+                    name={SELECTION_REWRITE_SETTING.name}
+                    desc={SELECTION_REWRITE_SETTING.desc}
                     modelValue={helper.rewriteSelectionModel}
                     effortValue={helper.rewriteSelectionEffort}
                     models={helper.models}
@@ -164,35 +176,35 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         cls: "codex-panel-settings__section",
         items: [
           {
-            name: "Send shortcut",
-            desc: "Controls whether Enter or Cmd/Ctrl+Enter sends composer-style inputs. Shift+Enter adds a newline.",
+            name: SEND_SHORTCUT_SETTING.name,
+            desc: SEND_SHORTCUT_SETTING.desc,
             control: {
               type: "dropdown",
               key: "sendShortcut",
               defaultValue: "enter",
-              options: { enter: "Enter", "mod-enter": "Cmd/Ctrl+Enter" },
+              options: SEND_SHORTCUT_LABELS,
             },
           },
           {
-            name: "Scroll conversation from composer line edges",
-            desc: "Lets Up/Ctrl+P and Down/Ctrl+N scroll the conversation from composer line edges.",
+            name: COMPOSER_SCROLL_SETTING.name,
+            desc: COMPOSER_SCROLL_SETTING.desc,
             control: { type: "toggle", key: "scrollThreadFromComposerEdges" },
           },
           {
-            name: "Reference active file on send",
-            desc: "Adds the active file as context on each send without changing the prompt text.",
+            name: ACTIVE_FILE_REFERENCE_SETTING.name,
+            desc: ACTIVE_FILE_REFERENCE_SETTING.desc,
             control: { type: "toggle", key: "referenceActiveNoteOnSend" },
           },
           {
-            name: "Attachment folder",
-            desc: "Vault-relative folder for files pasted or dropped into composer inputs.",
+            name: ATTACHMENT_FOLDER_SETTING.name,
+            desc: ATTACHMENT_FOLDER_SETTING.desc,
             render: (setting) =>
               this.renderDeclarativeControl(setting, () => (
                 <ObsidianCommitTextInput
                   key={this.renderRevision}
                   value={this.plugin.settings.attachmentFolder}
-                  placeholder={DEFAULT_ATTACHMENT_FOLDER}
-                  normalizeValue={(value) => value.trim() || DEFAULT_ATTACHMENT_FOLDER}
+                  placeholder={ATTACHMENT_FOLDER_SETTING.placeholder}
+                  normalizeValue={normalizeAttachmentFolder}
                   onCommit={(value) => void this.setAttachmentFolder(value)}
                 />
               )),
@@ -205,32 +217,32 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         cls: "codex-panel-settings__dynamic-section",
         items: [
           {
-            name: "Save note by default",
-            desc: "Makes Save and archive thread the default archive action.",
+            name: ARCHIVE_EXPORT_ENABLED_SETTING.name,
+            desc: ARCHIVE_EXPORT_ENABLED_SETTING.desc,
             control: { type: "toggle", key: "archiveExportEnabled" },
           },
           this.commitTextDefinition({
-            name: "Saved note folder",
-            desc: "Vault-relative folder for archived thread notes.",
+            name: ARCHIVE_EXPORT_FOLDER_SETTING.name,
+            desc: ARCHIVE_EXPORT_FOLDER_SETTING.desc,
             value: () => this.plugin.settings.archiveExportFolderTemplate,
-            placeholder: DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
-            normalizeValue: (value) => value.trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
+            placeholder: ARCHIVE_EXPORT_FOLDER_SETTING.placeholder,
+            normalizeValue: normalizeArchiveExportFolderTemplate,
             onCommit: (value) => this.setArchiveExportFolderTemplate(value),
           }),
           this.commitTextDefinition({
-            name: "Saved note filename",
-            desc: "Filename template. Supports {{date}}, {{time}}, {{title}}, {{id}}, and {{shortId}}.",
+            name: ARCHIVE_EXPORT_FILENAME_SETTING.name,
+            desc: ARCHIVE_EXPORT_FILENAME_SETTING.desc,
             value: () => this.plugin.settings.archiveExportFilenameTemplate,
-            placeholder: DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
-            normalizeValue: (value) => value.trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
+            placeholder: ARCHIVE_EXPORT_FILENAME_SETTING.placeholder,
+            normalizeValue: normalizeArchiveExportFilenameTemplate,
             onCommit: (value) => this.setArchiveExportFilenameTemplate(value),
           }),
           this.commitTextDefinition({
-            name: "Saved note tags",
-            desc: "Comma-separated tags added to saved thread notes.",
+            name: ARCHIVE_EXPORT_TAGS_SETTING.name,
+            desc: ARCHIVE_EXPORT_TAGS_SETTING.desc,
             value: () => this.plugin.settings.archiveExportTags,
-            placeholder: ARCHIVE_EXPORT_TAGS_PLACEHOLDER,
-            normalizeValue: (value) => value.trim(),
+            placeholder: ARCHIVE_EXPORT_TAGS_SETTING.placeholder,
+            normalizeValue: normalizeArchiveExportTags,
             onCommit: (value) => this.setArchiveExportTags(value),
           }),
         ],
@@ -482,7 +494,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private setCodexPath(value: string): Promise<void> {
-    const codexPath = value.trim() || DEFAULT_CODEX_PATH;
+    const codexPath = normalizeCodexPath(value);
     return this.queueSettingsMutation((settings) => {
       if (codexPath === settings.codexPath) return false;
       settings.codexPath = codexPath;
@@ -516,7 +528,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private setAttachmentFolder(value: string): Promise<void> {
     return this.queueSettingsMutation((settings) => {
-      settings.attachmentFolder = value.trim() || DEFAULT_ATTACHMENT_FOLDER;
+      settings.attachmentFolder = normalizeAttachmentFolder(value);
     });
   }
 
@@ -528,19 +540,19 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private setArchiveExportFolderTemplate(value: string): Promise<void> {
     return this.queueSettingsMutation((settings) => {
-      settings.archiveExportFolderTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE;
+      settings.archiveExportFolderTemplate = normalizeArchiveExportFolderTemplate(value);
     });
   }
 
   private setArchiveExportFilenameTemplate(value: string): Promise<void> {
     return this.queueSettingsMutation((settings) => {
-      settings.archiveExportFilenameTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE;
+      settings.archiveExportFilenameTemplate = normalizeArchiveExportFilenameTemplate(value);
     });
   }
 
   private setArchiveExportTags(value: string): Promise<void> {
     return this.queueSettingsMutation((settings) => {
-      settings.archiveExportTags = value.trim();
+      settings.archiveExportTags = normalizeArchiveExportTags(value);
     });
   }
 

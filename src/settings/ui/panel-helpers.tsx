@@ -3,6 +3,7 @@ import type { ComponentChild as UiNode } from "preact";
 import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../domain/catalog/metadata";
 import { ObsidianDropdown } from "./controls.obsidian";
+import { SELECTION_REWRITE_SETTING, THREAD_NAMING_SETTING } from "./definitions";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./layout";
 import type { PanelHelpersViewModel } from "./view-model";
 
@@ -14,8 +15,8 @@ export function PanelHelpersSection({ state }: { state: PanelHelpersViewModel })
       <SettingsHeading name="Panel helpers" />
       <SettingsItems>
         <ModelEffortControl
-          name="Automatic thread naming"
-          desc="Model and effort used when Codex Panel generates thread names."
+          name={THREAD_NAMING_SETTING.name}
+          desc={THREAD_NAMING_SETTING.desc}
           modelValue={state.threadNamingModel}
           effortValue={state.threadNamingEffort}
           models={state.models}
@@ -23,8 +24,8 @@ export function PanelHelpersSection({ state }: { state: PanelHelpersViewModel })
           onEffortChange={state.onThreadNamingEffortChange}
         />
         <ModelEffortControl
-          name="Selection rewrite"
-          desc="Model and effort used by Rewrite selection."
+          name={SELECTION_REWRITE_SETTING.name}
+          desc={SELECTION_REWRITE_SETTING.desc}
           modelValue={state.rewriteSelectionModel}
           effortValue={state.rewriteSelectionEffort}
           models={state.models}
