@@ -18,7 +18,8 @@ This repository contains the Codex Panel Obsidian plugin.
 ## Changes And Validation
 
 - Reproduce defects at the cheapest deterministic layer that exercises the suspected cause. Use live Obsidian validation only when material integration behavior remains outside automation.
-- Before fixing a review finding, identify the violated invariant and its semantic owner; reconsider the model when the cause or consequences are not genuinely local.
+- Review changes in proportion to their scope and risk, covering both regression risk and design quality. Use a fresh read-only subagent only when independence materially improves confidence; otherwise use a direct second pass. Before acting on a finding, identify the violated invariant and owner, and record why material findings are addressed or rejected.
+- After substantial implementation and review, finish the implementation change and use a fresh child for a dedicated simplification pass. Keep only refactoring that materially reduces ownership, indirection, branching, duplication, or code size while preserving behavior and clarity; otherwise leave no churn and report that no worthwhile simplification was found.
 - Document durable user behavior, design, or reusable workflow—not implementation narration that is readily derived from code and likely to drift.
 - Parallelize only substantial independent concerns with little shared-file contention; keep tightly coupled work together.
 - Jujutsu is the recommended local change-management workflow when available. Make each final change a coherent review unit with an honest description.
