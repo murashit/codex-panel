@@ -9,16 +9,16 @@ export interface AppServerRouteScope {
 }
 
 export function isAppServerRouteScopeInActiveRouteScope(routeScope: AppServerRouteScope, activeScope: ActiveRouteScope): boolean {
-  // Scope identifiers are filters only when both the app-server envelope and the active
-  // panel have one. Thread catalog and idle-thread notifications often omit
-  // active turn scope, so missing ids stay eligible for the active route.
-  if (routeScope.threadId && activeScope.activeThreadId && routeScope.threadId !== activeScope.activeThreadId) return false;
+  // A scoped message requires a panel that owns its thread. Unscoped messages remain
+  // eligible for every panel, and turn lifecycle routing decides whether an idle owner
+  // may adopt a newly started turn.
+  if (routeScope.threadId && routeScope.threadId !== activeScope.activeThreadId) return false;
   if (routeScope.turnId && activeScope.activeTurnId && routeScope.turnId !== activeScope.activeTurnId) return false;
   return true;
 }
 
-export function isTurnScopedAppServerRouteForIdleActiveThread(routeScope: AppServerRouteScope, activeScope: ActiveRouteScope): boolean {
-  return activeScope.activeThreadId !== null && activeScope.activeTurnId === null && routeScope.turnId !== null;
+export function isTurnScopedAppServerRouteForIdlePanelTurn(routeScope: AppServerRouteScope, activeScope: ActiveRouteScope): boolean {
+  return activeScope.activeTurnId === null && routeScope.turnId !== null;
 }
 
 export function fallbackAppServerRouteScope(envelope: { params?: unknown }): AppServerRouteScope {

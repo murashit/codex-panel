@@ -12,7 +12,7 @@ import {
   type AppServerRouteScope,
   fallbackAppServerRouteScope,
   isAppServerRouteScopeInActiveRouteScope,
-  isTurnScopedAppServerRouteForIdleActiveThread,
+  isTurnScopedAppServerRouteForIdlePanelTurn,
 } from "./route-scope";
 import {
   appServerApprovalDecisionSignature,
@@ -69,11 +69,11 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
   const routeScope = serverRequestScope(request);
   if (!isServerRequest(request)) {
     if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", request };
-    if (isTurnScopedAppServerRouteForIdleActiveThread(routeScope, scope)) return { kind: "inactive", request };
+    if (isTurnScopedAppServerRouteForIdlePanelTurn(routeScope, scope)) return { kind: "inactive", request };
     return { kind: "unknown", request };
   }
   if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", request };
-  if (isTurnScopedAppServerRouteForIdleActiveThread(routeScope, scope)) return { kind: "inactive", request };
+  if (isTurnScopedAppServerRouteForIdlePanelTurn(routeScope, scope)) return { kind: "inactive", request };
 
   switch (serverRequestDescriptor(request).routeKind) {
     case "approval": {

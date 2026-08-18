@@ -104,7 +104,7 @@ describe("chat inbound routing", () => {
     { name: "dynamic tool call", request: dynamicToolCallRequest(), kind: "unsupported" },
   ] as const)("classifies $name server requests and extracts scope", ({ request, kind }) => {
     expectRequestRouteKind(request, kind);
-    expectRequestRouteKind(request, kind, { activeThreadId: null, activeTurnId: null });
+    expectRequestRouteKind(request, "inactive", { activeThreadId: null, activeTurnId: null });
     if ("turnId" in request.params) {
       expectRequestRouteKind({ ...request, params: { ...request.params, turnId: "turn-other" } } as ServerRequest, "inactive");
     }
@@ -140,6 +140,22 @@ describe("chat inbound routing", () => {
 
     expectNotificationRouteKind(otherThread, "inactive");
     expectNotificationRouteKind(otherTurn, "inactive");
+  });
+
+  it("keeps scoped running-turn content out of an empty panel", () => {
+    const emptyState = chatStateFixture();
+    const notification = {
+      method: "turn/plan/updated",
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        explanation: "Private running turn content",
+        plan: [{ step: "Leaked step", status: "inProgress" }],
+      },
+    } satisfies Extract<ServerNotification, { method: "turn/plan/updated" }>;
+
+    expectNotificationRouteKind(notification, "inactive", { activeThreadId: null, activeTurnId: null });
+    expect(planChatInboundNotification(emptyState, notification, (prefix) => `${prefix}-1`)).toEqual({ actions: [], effects: [] });
   });
 
   it("marks delayed stream updates inactive after the active thread returns to idle", () => {

@@ -4,7 +4,7 @@ import {
   type AppServerRouteScope,
   fallbackAppServerRouteScope,
   isAppServerRouteScopeInActiveRouteScope,
-  isTurnScopedAppServerRouteForIdleActiveThread,
+  isTurnScopedAppServerRouteForIdlePanelTurn,
 } from "./route-scope";
 
 type ServerNotificationMethod = ServerNotification["method"];
@@ -158,7 +158,7 @@ export function routeServerNotification(notification: ServerNotification, scope:
     case "activeScope": {
       const routeScope = registered.scope;
       if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
-      if (isTurnScopedAppServerRouteForIdleActiveThread(routeScope, scope) && registered.kind === "streamUpdate") {
+      if (isTurnScopedAppServerRouteForIdlePanelTurn(routeScope, scope) && registered.kind === "streamUpdate") {
         return { kind: "inactive", notification, scope: routeScope };
       }
 

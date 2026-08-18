@@ -64,6 +64,13 @@ function activeRunningState(): ChatState {
   });
 }
 
+function activeRequestState(): ChatState {
+  return chatStateFixture({
+    activeThread: { id: "thread" },
+    activeTurn: { lifecycle: { kind: "running", turnId: "turn" } },
+  });
+}
+
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
@@ -620,6 +627,15 @@ describe("ChatInboundHandler", () => {
   });
 
   describe("interactive server requests", () => {
+    it("leaves requests for another panel unclaimed while this panel is empty", () => {
+      const handler = handlerForState(chatStateFixture());
+
+      const handled = handler.handleServerRequest(userInputRequest(40));
+
+      expect(handled).toBe(false);
+      expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
+    });
+
     it("keeps matching requests actionable while a subagent is active", () => {
       const state = chatStateFixture({
         activeThread: {
@@ -655,7 +671,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("queues and resolves requestUserInput server requests", () => {
-      let state = chatStateFixture();
+      let state = activeRunningState();
       state = chatStateWith(state, {
         requests: {
           mcpElicitationDrafts: new Map([
@@ -707,7 +723,7 @@ describe("ChatInboundHandler", () => {
       vi.stubGlobal("window", globalThis);
       try {
         const respondToServerRequest = vi.fn(() => true);
-        const handler = handlerForState(chatStateFixture(), { respondToServerRequest });
+        const handler = handlerForState(activeRunningState(), { respondToServerRequest });
 
         handler.handleServerRequest({
           id: 44,
@@ -742,7 +758,7 @@ describe("ChatInboundHandler", () => {
       vi.stubGlobal("window", globalThis);
       try {
         const respondToServerRequest = vi.fn(() => true);
-        const handler = handlerForState(chatStateFixture(), { respondToServerRequest });
+        const handler = handlerForState(activeRunningState(), { respondToServerRequest });
 
         handler.handleServerRequest({
           id: 45,
@@ -776,7 +792,7 @@ describe("ChatInboundHandler", () => {
       vi.stubGlobal("window", globalThis);
       try {
         const respondToServerRequest = vi.fn(() => true);
-        const handler = handlerForState(chatStateFixture(), { respondToServerRequest });
+        const handler = handlerForState(activeRunningState(), { respondToServerRequest });
         handler.handleServerRequest({
           id: 46,
           method: "item/tool/requestUserInput",
@@ -809,7 +825,7 @@ describe("ChatInboundHandler", () => {
       vi.stubGlobal("window", globalThis);
       try {
         const respondToServerRequest = vi.fn(() => true);
-        const handler = handlerForState(chatStateFixture(), { respondToServerRequest });
+        const handler = handlerForState(activeRunningState(), { respondToServerRequest });
         handler.handleServerRequest({
           id: 47,
           method: "item/tool/requestUserInput",
@@ -836,7 +852,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("rejects cancelled requestUserInput server requests", () => {
-      const state = chatStateFixture();
+      const state = activeRunningState();
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
 
@@ -865,7 +881,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("queues and accepts MCP elicitation form server requests", () => {
-      let state = chatStateFixture();
+      let state = activeRunningState();
       state = chatStateWith(state, {
         requests: {
           mcpElicitationDrafts: new Map([
@@ -919,7 +935,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("records the accepted URL in the MCP elicitation result item", () => {
-      const state = chatStateFixture();
+      const state = activeRunningState();
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
@@ -950,7 +966,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("declines MCP elicitation URL server requests", () => {
-      const state = chatStateFixture();
+      const state = activeRunningState();
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
@@ -983,7 +999,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("ignores missing requestUserInput ids", () => {
-      const state = chatStateFixture();
+      const state = activeRequestState();
       const respondToServerRequest = vi.fn(() => true);
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest, rejectServerRequest });
@@ -1001,7 +1017,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("ignores missing MCP elicitation ids", () => {
-      const state = chatStateFixture();
+      const state = activeRequestState();
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
@@ -1016,7 +1032,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("records manual permission approvals as colored result items", () => {
-      const state = chatStateFixture();
+      const state = activeRequestState();
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
@@ -1045,7 +1061,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("ignores missing approval ids", () => {
-      const state = chatStateFixture();
+      const state = activeRequestState();
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
@@ -1060,7 +1076,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("responds to current-time requests and rejects a representative known unsupported request", () => {
-      const state = chatStateFixture();
+      const state = activeRequestState();
       const rejectServerRequest = vi.fn(() => true);
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest, respondToServerRequest });
@@ -1324,7 +1340,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("keeps pending requests when response delivery fails", () => {
-      const state = chatStateFixture();
+      const state = activeRequestState();
       const respondToServerRequest = vi.fn(() => false);
       const handler = handlerForState(state, { respondToServerRequest });
 
@@ -1396,7 +1412,7 @@ describe("ChatInboundHandler", () => {
         pending: null,
       },
     ])("reports failed $name delivery without resolving pending actions", ({ actions, exercise, expectedMessages, pending }) => {
-      const handler = handlerForState(chatStateFixture(), actions);
+      const handler = handlerForState(activeRequestState(), actions);
 
       exercise(handler);
 
