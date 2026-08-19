@@ -22,6 +22,7 @@ import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
 import {
   completedTurnTranscriptSummariesFromTurnRecords,
   referencedThreadTurnsFromNewestFirstTurnRecords,
+  type TurnRecord,
   transcriptEntriesFromTurnRecords,
 } from "../protocol/turn";
 import type { AppServerRequestClient } from "./request-client";
@@ -164,11 +165,75 @@ export function threadFromAppServerRecord(thread: ThreadRecord, options: { archi
 }
 
 export async function readThreadForArchiveExport(client: AppServerRequestClient, threadId: string): Promise<ArchiveThreadInput> {
+  const metadata = await client.request("thread/read", { threadId, includeTurns: false });
+  const thread = threadFromThreadRecord(metadata.thread, { archived: true });
+  if (thread.historyMode !== "paginated") return readLegacyThreadForArchiveExport(client, threadId);
+
+  const turns = await readCompletePaginatedThreadHistory(client, threadId);
+  return {
+    ...thread,
+    transcriptEntries: transcriptEntriesFromTurnRecords(turns),
+  };
+}
+
+const ARCHIVE_HISTORY_PAGE_LIMIT = 100;
+
+async function readLegacyThreadForArchiveExport(client: AppServerRequestClient, threadId: string): Promise<ArchiveThreadInput> {
   const response = await client.request("thread/read", { threadId, includeTurns: true });
   return {
     ...threadFromThreadRecord(response.thread, { archived: true }),
     transcriptEntries: transcriptEntriesFromTurnRecords(response.thread.turns),
   };
+}
+
+async function readCompletePaginatedThreadHistory(client: AppServerRequestClient, threadId: string): Promise<TurnRecord[]> {
+  const turns = await readAllArchiveTurns(client, threadId);
+  const turnsById = new Map(turns.map((turn) => [turn.id, turn]));
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  for (;;) {
+    const page = await client.request("thread/items/list", {
+      threadId,
+      cursor,
+      limit: ARCHIVE_HISTORY_PAGE_LIMIT,
+      sortDirection: "asc",
+    });
+    for (const entry of page.data) {
+      const turn = turnsById.get(entry.turnId);
+      if (!turn) throw new Error(`Codex app-server returned an archive item for unknown turn ${entry.turnId}.`);
+      turn.items.push(entry.item);
+    }
+    cursor = advancingArchiveCursor(cursor, page.nextCursor, seenCursors, "item");
+    if (!cursor) break;
+  }
+  for (const turn of turns) turn.itemsView = "full";
+  return turns;
+}
+
+async function readAllArchiveTurns(client: AppServerRequestClient, threadId: string): Promise<TurnRecord[]> {
+  const turns: TurnRecord[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+  for (;;) {
+    const page = await client.request("thread/turns/list", {
+      threadId,
+      cursor,
+      limit: ARCHIVE_HISTORY_PAGE_LIMIT,
+      sortDirection: "asc",
+      itemsView: "notLoaded",
+    });
+    turns.push(...page.data.map((turn) => ({ ...turn, items: [] })));
+    cursor = advancingArchiveCursor(cursor, page.nextCursor, seenCursors, "turn");
+    if (!cursor) return turns;
+  }
+}
+
+function advancingArchiveCursor(current: string | null, next: string | null, seen: Set<string>, kind: "item" | "turn"): string | null {
+  if (!next) return null;
+  if (next === current || seen.has(next)) throw new Error(`Codex app-server returned a repeated archive ${kind} cursor.`);
+  seen.add(next);
+  return next;
 }
 
 export async function readCompletedTurnTranscriptSummariesPage(

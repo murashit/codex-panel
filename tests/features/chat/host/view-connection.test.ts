@@ -500,7 +500,11 @@ describe("CodexChatView connection lifecycle", () => {
     save.click();
 
     await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/start", { cwd: "/vault", serviceName: "codex-panel" });
+      expect(client.request).toHaveBeenCalledWith("thread/start", {
+        cwd: "/vault",
+        historyMode: "paginated",
+        serviceName: "codex-panel",
+      });
       expect(client.request).toHaveBeenCalledWith("thread/goal/set", {
         threadId: "thread-new",
         objective: "Ship the feature",

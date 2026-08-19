@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
+import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
-import { listThreads, startThread, threadFromAppServerRecord, unsubscribeThread } from "../../../src/app-server/services/threads";
+import {
+  listThreads,
+  readThreadForArchiveExport,
+  startThread,
+  threadFromAppServerRecord,
+  unsubscribeThread,
+} from "../../../src/app-server/services/threads";
 
 describe("app-server thread response adapters", () => {
   it("preserves spawned subagent provenance in the domain thread", () => {
@@ -142,6 +150,128 @@ describe("app-server thread response adapters", () => {
       historyMode: "paginated",
       serviceTier: "priority",
     });
+  });
+
+  it("reads every paginated turn and item page for archive export", async () => {
+    const request = vi.fn((method: string, params: { cursor?: string | null }) => {
+      if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
+      if (method === "thread/turns/list") {
+        return params.cursor === null
+          ? Promise.resolve({ data: [archiveTurn("turn-1")], nextCursor: "turn-page-2", backwardsCursor: null })
+          : Promise.resolve({ data: [archiveTurn("turn-2")], nextCursor: null, backwardsCursor: null });
+      }
+      if (method === "thread/items/list") {
+        return params.cursor === null
+          ? Promise.resolve({
+              data: [{ turnId: "turn-1", item: userMessage("user-1", "First question") }],
+              nextCursor: "item-page-2",
+              backwardsCursor: null,
+            })
+          : Promise.resolve({
+              data: [
+                { turnId: "turn-1", item: agentMessage("agent-1", "First answer") },
+                { turnId: "turn-2", item: userMessage("user-2", "Second question") },
+                { turnId: "turn-2", item: agentMessage("agent-2", "Second answer") },
+              ],
+              nextCursor: null,
+              backwardsCursor: null,
+            });
+      }
+      throw new Error(`Unexpected request: ${method}`);
+    });
+    const client = { request } as unknown as AppServerRequestClient;
+
+    const archived = await readThreadForArchiveExport(client, "thread");
+
+    expect(archived.historyMode).toBe("paginated");
+    expect(archived.transcriptEntries).toEqual([
+      { kind: "user", text: "First question", timestamp: 1 },
+      { kind: "assistant", text: "First answer", timestamp: 2 },
+      { kind: "user", text: "Second question", timestamp: 1 },
+      { kind: "assistant", text: "Second answer", timestamp: 2 },
+    ]);
+    expect(request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
+    expect(request).toHaveBeenNthCalledWith(2, "thread/turns/list", {
+      threadId: "thread",
+      cursor: null,
+      limit: 100,
+      sortDirection: "asc",
+      itemsView: "notLoaded",
+    });
+    expect(request).toHaveBeenNthCalledWith(4, "thread/items/list", {
+      threadId: "thread",
+      cursor: null,
+      limit: 100,
+      sortDirection: "asc",
+    });
+  });
+
+  it("retains the includeTurns compatibility path for legacy archives", async () => {
+    const legacy = archiveThread("legacy", [archiveTurn("turn-1", [userMessage("user", "Legacy prompt")])]);
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({ thread: archiveThread("legacy") })
+      .mockResolvedValueOnce({ thread: legacy });
+    const client = { request } as unknown as AppServerRequestClient;
+
+    await expect(readThreadForArchiveExport(client, "thread")).resolves.toMatchObject({
+      historyMode: "legacy",
+      transcriptEntries: [{ kind: "user", text: "Legacy prompt" }],
+    });
+    expect(request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
+    expect(request).toHaveBeenNthCalledWith(2, "thread/read", { threadId: "thread", includeTurns: true });
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects repeated archive pagination cursors", async () => {
+    const request = vi.fn((method: string) => {
+      if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
+      if (method === "thread/turns/list") {
+        return Promise.resolve({ data: [], nextCursor: "same", backwardsCursor: null });
+      }
+      throw new Error(`Unexpected request: ${method}`);
+    });
+    const client = { request } as unknown as AppServerRequestClient;
+
+    await expect(readThreadForArchiveExport(client, "thread")).rejects.toThrow("repeated archive turn cursor");
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects repeated archive item cursors", async () => {
+    const request = vi.fn((method: string) => {
+      if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
+      if (method === "thread/turns/list") {
+        return Promise.resolve({ data: [archiveTurn("turn-1")], nextCursor: null, backwardsCursor: null });
+      }
+      if (method === "thread/items/list") {
+        return Promise.resolve({ data: [], nextCursor: "same", backwardsCursor: null });
+      }
+      throw new Error(`Unexpected request: ${method}`);
+    });
+    const client = { request } as unknown as AppServerRequestClient;
+
+    await expect(readThreadForArchiveExport(client, "thread")).rejects.toThrow("repeated archive item cursor");
+    expect(request).toHaveBeenCalledTimes(4);
+  });
+
+  it("rejects archive items that reference an unknown turn", async () => {
+    const request = vi.fn((method: string) => {
+      if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
+      if (method === "thread/turns/list") {
+        return Promise.resolve({ data: [archiveTurn("turn-1")], nextCursor: null, backwardsCursor: null });
+      }
+      if (method === "thread/items/list") {
+        return Promise.resolve({
+          data: [{ turnId: "missing-turn", item: userMessage("user", "Orphaned") }],
+          nextCursor: null,
+          backwardsCursor: null,
+        });
+      }
+      throw new Error(`Unexpected request: ${method}`);
+    });
+    const client = { request } as unknown as AppServerRequestClient;
+
+    await expect(readThreadForArchiveExport(client, "thread")).rejects.toThrow("archive item for unknown turn missing-turn");
   });
 
   it("maps listed threads to domain threads with archive state", async () => {
@@ -291,4 +421,37 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     resolve = promiseResolve;
   });
   return { promise, resolve };
+}
+
+function archiveThread(historyMode: "legacy" | "paginated", turns: readonly TurnRecord[] = []): ThreadRecord {
+  return {
+    id: "thread",
+    historyMode,
+    preview: "Archive",
+    name: "Archive",
+    createdAt: 1,
+    updatedAt: 2,
+    turns,
+  };
+}
+
+function archiveTurn(id: string, items: readonly TurnItem[] = []): TurnRecord {
+  return {
+    id,
+    items: [...items],
+    itemsView: items.length > 0 ? "full" : "notLoaded",
+    status: "completed",
+    error: null,
+    startedAt: 1,
+    completedAt: 2,
+    durationMs: 1_000,
+  };
+}
+
+function userMessage(id: string, text: string): TurnItem {
+  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
+}
+
+function agentMessage(id: string, text: string): TurnItem {
+  return { type: "agentMessage", id, text, phase: null, memoryCitation: null };
 }

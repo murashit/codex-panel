@@ -97,7 +97,8 @@ describe("ThreadMutationCommands", () => {
       exportedPath: "Archive/Archived Thread abcdef12.md",
     });
 
-    expect(client?.request).toHaveBeenCalledWith("thread/read", { threadId: "thread", includeTurns: true });
+    expect(client?.request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
+    expect(client?.request).toHaveBeenNthCalledWith(2, "thread/read", { threadId: "thread", includeTurns: true });
     expect(archiveDestination.createMarkdownFile).toHaveBeenCalledWith(
       "Archive/Archived Thread abcdef12.md",
       expect.stringContaining('thread_id: "abcdef12-9999"'),
@@ -105,6 +106,32 @@ describe("ThreadMutationCommands", () => {
     expect(client?.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(callOrder(archiveDestination.createMarkdownFile)).toBeLessThan(requestCallOrder(client, "thread/archive"));
     expect(catalog.apply).not.toHaveBeenCalled();
+  });
+
+  it("does not write or archive when a later history page fails", async () => {
+    const pageFailure = new Error("item page failed");
+    const client = clientMock();
+    client.request.mockImplementation((method: string, params: { threadId?: string; name?: string; cursor?: string | null }) => {
+      if (method === "thread/read") {
+        return Promise.resolve({ thread: { ...archivedThread(), historyMode: "paginated" as const } });
+      }
+      if (method === "thread/turns/list") {
+        return Promise.resolve({ data: [], nextCursor: null, backwardsCursor: null });
+      }
+      if (method === "thread/items/list") {
+        return params.cursor === null
+          ? Promise.resolve({ data: [], nextCursor: "item-page-2", backwardsCursor: null })
+          : Promise.reject(pageFailure);
+      }
+      if (method === "thread/archive") return Promise.resolve({});
+      throw new Error(`Unexpected app-server request: ${method}`);
+    });
+    const { mutations, archiveDestination } = operationsFixture({ client });
+
+    await expect(mutations.archiveThread("thread", { saveMarkdown: true })).rejects.toBe(pageFailure);
+
+    expect(archiveDestination.createMarkdownFile).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/archive");
   });
 
   it("rejects a second archive for the same thread while the first is pending", async () => {
