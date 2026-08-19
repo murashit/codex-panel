@@ -49,7 +49,7 @@ function Hooks({ state }: { state: CodexHooksViewModel }): UiNode {
 function HookRow({ hook, state }: { hook: HookItem; state: CodexHooksViewModel }): UiNode {
   const canTrust = !hook.isManaged && (hook.trustStatus === "untrusted" || hook.trustStatus === "modified");
   const canToggle = !hook.isManaged && hook.trustStatus === "trusted";
-  const hookName = firstNonEmptyString(hook.statusMessage, hook.command, hook.matcher, hook.eventName);
+  const hookName = firstNonEmptyString(hook.statusMessage, hook.handlerSummary, hook.matcher, hook.eventName);
   const executionStatus =
     hook.trustStatus === "trusted" || hook.trustStatus === "managed" ? (hook.enabled ? "enabled" : "disabled") : "inactive";
   return (

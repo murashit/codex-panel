@@ -38,7 +38,7 @@ export interface HookItem {
   readonly key: string;
   readonly eventName: string;
   readonly matcher: string | null;
-  readonly command: string | null;
+  readonly handlerSummary: string | null;
   readonly statusMessage: string | null;
   readonly sourcePath: string;
   readonly enabled: boolean;

@@ -65,12 +65,31 @@ describe("app-server catalog mappers", () => {
         key: "hook-key",
         eventName: "postToolUse",
         matcher: "apply_patch",
-        command: "node hook.js",
+        handlerSummary: "node hook.js",
         statusMessage: null,
         sourcePath: "/vault/.codex/hooks.json",
         enabled: true,
         isManaged: false,
         currentHash: "hash",
+        trustStatus: "modified",
+      },
+    ]);
+  });
+
+  it("maps MCP tool hooks through their shared settings metadata", () => {
+    const hook: HookMetadata = {
+      ...hookFixture(),
+      handlerType: "mcpTool",
+      server: "github",
+      tool: "search_code",
+    };
+
+    expect(hookItemsFromCatalogHooks([hook])).toMatchObject([
+      {
+        key: "hook-key",
+        eventName: "postToolUse",
+        matcher: "apply_patch",
+        handlerSummary: "github/search_code",
         trustStatus: "modified",
       },
     ]);
@@ -247,6 +266,7 @@ function modelFixture(overrides: Partial<Model> = {}): Model {
     defaultReasoningEffort: "high",
     inputModalities: ["text"],
     supportsPersonality: false,
+    multiAgentVersion: null,
     additionalSpeedTiers: [],
     serviceTiers: [{ id: "priority", name: "Fast", description: "Fast tier" }],
     defaultServiceTier: "priority",
@@ -267,13 +287,16 @@ function skillFixture(): SkillMetadata {
   };
 }
 
-function hookFixture(overrides: Partial<HookMetadata> = {}): HookMetadata {
+type CommandHookMetadata = Extract<HookMetadata, { handlerType: "command" }>;
+
+function hookFixture(overrides: Partial<CommandHookMetadata> = {}): CommandHookMetadata {
   return {
     key: "hook-key",
     eventName: "postToolUse",
     handlerType: "command",
     matcher: "apply_patch",
     command: "node hook.js",
+    async: false,
     timeoutSec: 10n,
     statusMessage: null,
     additionalContextLimit: null,

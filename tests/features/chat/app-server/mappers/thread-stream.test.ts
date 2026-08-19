@@ -887,6 +887,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       revisedPrompt: "A precise UI mockup.",
       result: "image result",
       savedPath: "/vault/project/assets/generated.png",
+      failure: null,
     };
 
     expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({
@@ -910,6 +911,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       status: "completed",
       revisedPrompt: "A precise UI mockup.",
       result: "image result",
+      failure: null,
     };
 
     expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({

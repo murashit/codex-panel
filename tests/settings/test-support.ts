@@ -3,7 +3,7 @@ import { expect, vi } from "vitest";
 import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
-import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
+import type { HookItem, ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import { diagnosticProbeOk } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadataResourceFor } from "../../src/domain/server/metadata";
 import type { Thread } from "../../src/domain/threads/model";
@@ -91,13 +91,16 @@ export function model(modelId: string, isDefault = false, hidden = false, effort
   } satisfies CatalogModel;
 }
 
-export function hook(overrides: Partial<CatalogHookMetadata> = {}): CatalogHookMetadata {
+type SettingsHookFixture = Extract<CatalogHookMetadata, { handlerType: "command" }> & HookItem;
+
+export function hook(overrides: Partial<SettingsHookFixture> = {}): SettingsHookFixture {
   return {
     key: "hook-key",
     eventName: "postToolUse",
     handlerType: "command",
     matcher: "apply_patch",
     command: "node hook.js",
+    handlerSummary: "node hook.js",
     timeoutSec: 10n,
     statusMessage: null,
     sourcePath: "/vault/.codex/hooks.json",

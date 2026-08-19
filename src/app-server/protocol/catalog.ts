@@ -25,11 +25,10 @@ export interface CatalogSkillMetadata {
   [key: string]: unknown;
 }
 
-export interface CatalogHookMetadata {
+interface CatalogHookCommon {
   key: string;
   eventName: string;
   matcher: string | null;
-  command: string | null;
   statusMessage: string | null;
   sourcePath: string;
   enabled: boolean;
@@ -38,6 +37,13 @@ export interface CatalogHookMetadata {
   trustStatus: AppServerHookTrustStatus;
   [key: string]: unknown;
 }
+
+export type CatalogHookMetadata = CatalogHookCommon &
+  (
+    | { handlerType: "command"; command: string }
+    | { handlerType: "mcpTool"; server: string; tool: string }
+    | { handlerType: "prompt" | "agent" }
+  );
 
 type AppServerHookTrustStatus = "managed" | "untrusted" | "trusted" | "modified";
 
@@ -91,7 +97,7 @@ function hookItemFromCatalogHook(hook: CatalogHookMetadata): HookItem {
     key: hook.key,
     eventName: hook.eventName,
     matcher: hook.matcher,
-    command: hook.command,
+    handlerSummary: hookHandlerSummary(hook),
     statusMessage: hook.statusMessage,
     sourcePath: hook.sourcePath,
     enabled: hook.enabled,
@@ -99,6 +105,12 @@ function hookItemFromCatalogHook(hook: CatalogHookMetadata): HookItem {
     currentHash: hook.currentHash,
     trustStatus: hook.trustStatus,
   };
+}
+
+function hookHandlerSummary(hook: CatalogHookMetadata): string | null {
+  if (hook.handlerType === "command") return hook.command;
+  if (hook.handlerType !== "mcpTool") return null;
+  return `${hook.server}/${hook.tool}`;
 }
 
 export function hookItemsFromCatalogHooks(hooks: readonly CatalogHookMetadata[]): HookItem[] {

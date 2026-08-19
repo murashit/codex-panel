@@ -333,6 +333,7 @@ function appServerModel(model: string, efforts: readonly string[]): ClientRespon
     defaultReasoningEffort: (efforts[0] ?? "medium") as never,
     inputModalities: ["text"],
     supportsPersonality: false,
+    multiAgentVersion: null,
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,

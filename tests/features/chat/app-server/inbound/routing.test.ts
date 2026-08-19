@@ -24,6 +24,8 @@ describe("chat inbound routing", () => {
       "thread/compacted",
       "thread/deleted",
       "thread/name/updated",
+      "thread/queue/changed",
+      "thread/reverted",
       "thread/unarchived",
     ]);
   });
