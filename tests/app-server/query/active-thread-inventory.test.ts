@@ -116,6 +116,7 @@ function page(threads: readonly Thread[], nextCursor: string | null, fetchedSize
 
 function thread(id: string, recencyAt: number): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: id,
     name: null,

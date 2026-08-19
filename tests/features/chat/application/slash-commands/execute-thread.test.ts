@@ -28,6 +28,7 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
+    historyMode: "unknown",
     id: "thread-1",
     preview: "Preview",
     createdAt: 1,

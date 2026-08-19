@@ -234,6 +234,7 @@ export function resumedThread(threadId: string, threadOverrides: Record<string, 
 
 function threadFromRecord(record: ThreadRecord): Thread {
   return {
+    historyMode: "unknown",
     id: record.id,
     preview: record.preview,
     name: record.name,
@@ -271,6 +272,7 @@ export function threadFixture(threadId: string): ThreadRecord {
 
 export function panelThread(overrides: Partial<Thread> = {}): Thread {
   return {
+    historyMode: "unknown",
     id: "thread-1",
     preview: "",
     createdAt: 1,

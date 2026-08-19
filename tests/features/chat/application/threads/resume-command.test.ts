@@ -320,6 +320,7 @@ describe("ResumeCommand", () => {
 function panelThread(id: string): PanelThread {
   return {
     id,
+    historyMode: "paginated",
     preview: "",
     createdAt: 0,
     updatedAt: 0,

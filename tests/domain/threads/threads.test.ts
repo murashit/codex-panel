@@ -81,6 +81,7 @@ describe("thread helpers", () => {
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
+    historyMode: "unknown",
     id: "thread-1",
     preview: "",
     createdAt: 1,

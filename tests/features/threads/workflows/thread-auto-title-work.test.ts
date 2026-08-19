@@ -66,6 +66,7 @@ describe("thread auto-title work", () => {
     fixture.work.applyThreadFact({
       type: "thread-upserted",
       thread: {
+        historyMode: "unknown",
         id: "thread",
         preview: "Thread preview",
         name: "Existing title",

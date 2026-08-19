@@ -72,6 +72,7 @@ describe("thread search", () => {
 
 function thread(options: Partial<Thread> & { id: string }): Thread {
   return {
+    historyMode: "unknown",
     id: options.id,
     preview: options.preview ?? options.id,
     createdAt: options.createdAt ?? 1,

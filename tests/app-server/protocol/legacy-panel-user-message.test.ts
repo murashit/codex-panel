@@ -16,6 +16,7 @@ import { legacyTurnContextManifestText } from "../../support/legacy-turn-context
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
+    historyMode: "unknown",
     id: "019abcde-0000-7000-8000-000000000001",
     preview: "Preview",
     createdAt: 1,

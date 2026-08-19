@@ -255,6 +255,7 @@ describe("ChatConnectionCoordinator", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: {
+        historyMode: "unknown",
         id: "thread-1",
         preview: "Thread 1",
         name: "Thread 1",

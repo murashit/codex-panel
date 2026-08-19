@@ -393,6 +393,7 @@ describe("createGoalCommands", () => {
         sandboxPolicy: null,
         activePermissionProfile: null,
         thread: {
+          historyMode: "unknown",
           id: "thread-new",
           name: null,
           preview: "Plan release",
@@ -485,6 +486,7 @@ describe("createGoalCommands", () => {
         sandboxPolicy: null,
         activePermissionProfile: null,
         thread: {
+          historyMode: "unknown",
           id: "restored",
           preview: "Restored",
           createdAt: 1,
@@ -623,6 +625,7 @@ function resumeInteractiveThread(stateStore: ChatStateStore, threadId: string): 
     sandboxPolicy: null,
     activePermissionProfile: null,
     thread: {
+      historyMode: "unknown",
       id: threadId,
       name: null,
       preview: threadId,

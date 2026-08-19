@@ -168,6 +168,7 @@ function threadResult(value: readonly Thread[]): ObservedPaginatedResult<readonl
 
 function thread(id: string): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: id,
     name: null,

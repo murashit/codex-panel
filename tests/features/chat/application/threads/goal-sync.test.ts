@@ -222,6 +222,7 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, threa
     sandboxPolicy: null,
     activePermissionProfile: null,
     thread: {
+      historyMode: "unknown",
       id: threadId,
       preview: "",
       name: null,

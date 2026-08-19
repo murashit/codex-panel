@@ -45,6 +45,7 @@ describe("chat app-server adapters", () => {
 
     expect(request).toHaveBeenCalledWith("thread/start", {
       cwd: "/vault",
+      historyMode: "paginated",
       serviceName: "codex-panel",
       serviceTier: "priority",
       permissions: ":workspace",
@@ -191,7 +192,7 @@ describe("chat app-server adapters", () => {
     expect(request).toHaveBeenCalledWith("thread/fork", { threadId: "source", cwd: "/vault", excludeTurns: true });
     expect(outcome).toMatchObject({
       kind: "completed",
-      value: { id: "forked", preview: "Preview", archived: false },
+      value: { id: "forked", historyMode: "paginated", preview: "Preview", archived: false },
     });
   });
 
@@ -235,7 +236,7 @@ describe("chat app-server adapters", () => {
     });
     expect(outcome).toMatchObject({
       kind: "completed",
-      value: { id: "forked" },
+      value: { id: "forked", historyMode: "paginated" },
     });
   });
 
@@ -356,7 +357,7 @@ describe("chat app-server adapters", () => {
     expect(snapshot).toMatchObject({
       kind: "completed",
       value: {
-        activation: { thread: { id: "thread" } },
+        activation: { thread: { id: "thread", historyMode: "paginated" } },
         rolloutPath: "/tmp/rollout.jsonl",
         initialHistoryPage: {
           nextCursor: "older",
@@ -584,6 +585,7 @@ function createTestGateway(options: {
 function threadRecord(id: string, turns: readonly TurnRecord[] = [], overrides: Partial<ThreadRecord> = {}): ThreadRecord {
   return {
     id,
+    historyMode: "paginated",
     sessionId: id,
     forkedFromId: null,
     parentThreadId: null,

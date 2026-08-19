@@ -123,6 +123,7 @@ describe("thread reference resolver", () => {
 
 function threadFixture(): Thread {
   return {
+    historyMode: "unknown",
     id: "019abcde-0000-7000-8000-000000000001",
     preview: "",
     name: "Other",

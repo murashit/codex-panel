@@ -35,6 +35,7 @@ function replacements(items: ReturnType<typeof suggestions>): string[] {
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
+    historyMode: "unknown",
     id: "019abcde-0000-7000-8000-000000000001",
     preview: "Preview",
     createdAt: 1,

@@ -42,6 +42,7 @@ export function threadCatalogEntryEqual(left: Thread | undefined, right: Thread)
   if (!left) return false;
   return (
     left.id === right.id &&
+    left.historyMode === right.historyMode &&
     left.preview === right.preview &&
     left.name === right.name &&
     left.archived === right.archived &&

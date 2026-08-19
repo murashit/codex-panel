@@ -1,5 +1,6 @@
 export interface Thread {
   readonly id: string;
+  readonly historyMode: ThreadHistoryMode;
   readonly preview: string;
   readonly name: string | null;
   readonly archived: boolean;
@@ -14,6 +15,8 @@ export interface Thread {
   readonly canAcceptDirectInput?: boolean | null;
   readonly provenance: ThreadProvenance;
 }
+
+export type ThreadHistoryMode = "legacy" | "paginated" | "unknown";
 
 export type ThreadProvenance =
   | { readonly kind: "interactive" }

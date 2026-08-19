@@ -76,6 +76,7 @@ export function startThread(
   return client.request("thread/start", {
     cwd,
     serviceName: "codex-panel",
+    historyMode: "paginated",
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(permissions !== undefined ? { permissions } : {}),
   });

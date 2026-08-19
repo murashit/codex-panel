@@ -5,6 +5,7 @@ import type { ThreadMutationCommands } from "../../src/features/threads/workflow
 
 export function threadMutationCommandsMock(overrides: Partial<ThreadMutationCommands> = {}): ThreadMutationCommands {
   const restored: Thread = {
+    historyMode: "unknown",
     id: "restored-thread",
     preview: "Restored thread",
     name: null,

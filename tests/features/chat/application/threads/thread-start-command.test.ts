@@ -275,6 +275,7 @@ const runtimeSnapshotForTestState = (state: Parameters<typeof runtimeSnapshotFor
 
 function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: "",
     name: null,

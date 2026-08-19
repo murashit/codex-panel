@@ -290,6 +290,7 @@ function thread(
   overrides: Partial<Thread & { transcriptEntries: ThreadTranscriptEntry[] }> = {},
 ): Thread & { transcriptEntries: ThreadTranscriptEntry[] } {
   return {
+    historyMode: "unknown",
     id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
     preview: "Preview",
     createdAt: 1,

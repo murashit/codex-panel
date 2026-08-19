@@ -6,6 +6,7 @@ import { createActiveThreadIdentitySync } from "../../../../../src/features/chat
 
 function thread(id: string, name: string | null = null): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,

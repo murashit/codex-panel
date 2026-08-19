@@ -265,6 +265,7 @@ describe("chat panel projection integration", () => {
       threadList: {
         listedThreads: [
           {
+            historyMode: "unknown",
             id: "thread-reference",
             name: "Readable reference title",
             preview: "",
@@ -930,6 +931,7 @@ function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSna
 
 function threadFixture(id: string, name: string | null): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 1,

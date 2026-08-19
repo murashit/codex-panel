@@ -919,6 +919,7 @@ function uiDisclosureCount(state: ChatState): number {
 function thread(id: string): Thread {
   return {
     id,
+    historyMode: "paginated",
     preview: "",
     createdAt: 1,
     updatedAt: 1,

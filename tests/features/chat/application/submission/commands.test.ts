@@ -21,6 +21,7 @@ const planItem = (id: string): ThreadStreamItem => ({
 
 function thread(id: string): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,

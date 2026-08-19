@@ -13,6 +13,7 @@ import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 function thread(id: string): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,

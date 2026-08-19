@@ -355,6 +355,7 @@ describe("chat panel session runtime", () => {
 
   function threadFixture(overrides: Partial<Thread> = {}): Thread {
     return {
+      historyMode: "unknown",
       id: "thread",
       preview: "",
       name: null,

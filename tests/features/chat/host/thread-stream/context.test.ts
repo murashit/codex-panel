@@ -64,6 +64,7 @@ describe("thread stream surface", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: {
+        historyMode: "unknown",
         id: "thread-1",
         preview: "",
         archived: false,

@@ -75,6 +75,24 @@ describe("app-server thread response adapters", () => {
     expect(thread.canAcceptDirectInput).toBe(false);
   });
 
+  it.each([
+    ["legacy", "legacy"],
+    ["paginated", "paginated"],
+    [undefined, "unknown"],
+    ["future-mode", "unknown"],
+  ] as const)("normalizes app-server history mode %s", (historyMode, expected) => {
+    const thread = threadFromAppServerRecord({
+      id: "thread",
+      preview: "",
+      name: null,
+      createdAt: 1,
+      updatedAt: 2,
+      ...(historyMode === undefined ? {} : { historyMode }),
+    });
+
+    expect(thread.historyMode).toBe(expected);
+  });
+
   it("unsubscribes ephemeral threads instead of deleting them", async () => {
     const client = { request: vi.fn().mockResolvedValue({ status: "unsubscribed" }) } as unknown as AppServerRequestClient;
 
@@ -93,6 +111,7 @@ describe("app-server thread response adapters", () => {
     expect(client.request).toHaveBeenCalledWith("thread/start", {
       cwd: "/vault",
       serviceName: "codex-panel",
+      historyMode: "paginated",
     });
   });
 
@@ -120,6 +139,7 @@ describe("app-server thread response adapters", () => {
     expect(client.request).toHaveBeenCalledWith("thread/start", {
       cwd: "/vault",
       serviceName: "codex-panel",
+      historyMode: "paginated",
       serviceTier: "priority",
     });
   });
@@ -135,6 +155,7 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault", { archived: true })).resolves.toEqual([
       {
         id: "thread-1",
+        historyMode: "unknown",
         preview: "Preview",
         name: null,
         archived: true,
@@ -162,6 +183,7 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       {
         id: "thread-1",
+        historyMode: "unknown",
         preview: "Preview",
         name: null,
         archived: false,
@@ -184,6 +206,7 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       {
         id: "thread-1",
+        historyMode: "unknown",
         preview: "Preview",
         name: null,
         archived: false,
@@ -214,6 +237,7 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       {
         id: "thread-1",
+        historyMode: "unknown",
         preview: "First",
         name: null,
         archived: false,
@@ -224,6 +248,7 @@ describe("app-server thread response adapters", () => {
       },
       {
         id: "thread-2",
+        historyMode: "unknown",
         preview: "Second",
         name: null,
         archived: false,

@@ -11,6 +11,7 @@ describe("app-server thread activation", () => {
     expect(snapshot).toMatchObject({
       thread: {
         id: "thread",
+        historyMode: "paginated",
         name: "Resumed",
         archived: false,
       },

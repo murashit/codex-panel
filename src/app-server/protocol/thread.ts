@@ -1,11 +1,13 @@
-import type { Thread, ThreadProvenance } from "../../domain/threads/model";
+import type { Thread, ThreadHistoryMode, ThreadProvenance } from "../../domain/threads/model";
 import type { Thread as GeneratedThread } from "../../generated/app-server/v2/Thread";
 
 type RequiredThreadRecordFields = "id" | "preview" | "name" | "createdAt" | "updatedAt";
 export const BUILT_IN_PINNED_THREAD_SECTION_NAME = "Pinned";
 
 export type ThreadRecord = Pick<GeneratedThread, RequiredThreadRecordFields> &
-  Partial<Omit<GeneratedThread, RequiredThreadRecordFields | "source" | "status" | "turns">> & {
+  Partial<Omit<GeneratedThread, RequiredThreadRecordFields | "historyMode" | "source" | "status" | "turns">> & {
+    /** Kept unknown so a newer history mode degrades to `unknown` instead of breaking thread lists. */
+    historyMode?: unknown;
     /** Kept unknown at the protocol edge so a newer SessionSource variant degrades to `other` instead of breaking thread lists. */
     source?: unknown;
     status?: unknown;
@@ -17,6 +19,7 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
   const recencyAt = hasRecencyAt ? thread.recencyAt : undefined;
   return {
     id: thread.id,
+    historyMode: threadHistoryMode(thread.historyMode),
     preview: normalizeString(thread.preview),
     name: thread.name === null ? null : normalizeString(thread.name),
     archived: options.archived ?? false,
@@ -27,6 +30,10 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
     provenance: threadProvenance(thread),
     ...(hasRecencyAt ? { recencyAt: typeof recencyAt === "number" && Number.isFinite(recencyAt) ? recencyAt : null } : {}),
   };
+}
+
+function threadHistoryMode(value: unknown): ThreadHistoryMode {
+  return value === "legacy" || value === "paginated" ? value : "unknown";
 }
 
 function threadProvenance(thread: ThreadRecord): ThreadProvenance {

@@ -97,6 +97,7 @@ function listedThreadState(_name: string | null = null) {
 function catalogThreadById(name: string | null = null) {
   const threads: Thread[] = [
     {
+      historyMode: "unknown",
       id: "thread",
       preview: "Thread preview",
       name,
@@ -106,6 +107,7 @@ function catalogThreadById(name: string | null = null) {
       updatedAt: 1,
     },
     {
+      historyMode: "unknown",
       id: "thread-b",
       preview: "Another thread",
       name: null,

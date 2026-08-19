@@ -907,6 +907,7 @@ function adoptThread(host: Pick<ThreadCommandsHost, "stateStore">, threadId: str
 
 function panelThread(id: string, overrides: Partial<Thread> = {}): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,

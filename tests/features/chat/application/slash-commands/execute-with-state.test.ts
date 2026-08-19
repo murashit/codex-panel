@@ -13,6 +13,7 @@ const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 function thread(id: string, name: string | null = null): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,

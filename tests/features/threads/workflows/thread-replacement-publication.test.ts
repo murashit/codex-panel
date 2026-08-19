@@ -189,6 +189,7 @@ function visibleCatalogPublication(): {
 
 function thread(id: string, overrides: Partial<Thread> = {}): Thread {
   return {
+    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 1,

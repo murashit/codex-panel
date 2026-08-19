@@ -265,6 +265,7 @@ function activationFixture(): ThreadActivationSnapshot {
   return {
     thread: {
       id: "side",
+      historyMode: "paginated",
       preview: "",
       name: null,
       archived: false,

@@ -56,6 +56,7 @@ describe("createSessionTurn", () => {
     const stateStore = createChatStateStore();
     const thread = {
       id: "thread-1",
+      historyMode: "unknown" as const,
       preview: "Other",
       name: "Other",
       createdAt: 1,

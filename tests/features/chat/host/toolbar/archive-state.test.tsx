@@ -286,6 +286,7 @@ const testThreadStreamContext: ChatThreadStreamDependencies = {
 
 function threadFixture(id: string, name: string): Thread {
   return {
+    historyMode: "unknown",
     id,
     name,
     preview: "",
