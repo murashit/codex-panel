@@ -98,6 +98,32 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([{ id: "a1", text: "hello" }]);
     });
 
+    it("shows asynchronous agent messages without completing the active turn", () => {
+      const handler = handlerForState(activeRunningState());
+
+      handler.handleNotification({
+        method: "item/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          completedAtMs: 2,
+          item: {
+            type: "agentMessage",
+            id: "a1",
+            text: "Progress update",
+            phase: null,
+            memoryCitation: null,
+            delivery: "async",
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "item/completed" }>);
+
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: "a1", dialogueKind: "assistantResponse", text: "Progress update" })]),
+      );
+      expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn-active" });
+    });
+
     it("marks active reasoning completed when assistant text starts", () => {
       let state = activeRunningState();
       state = withChatStateStableThreadStreamItems(state, [
