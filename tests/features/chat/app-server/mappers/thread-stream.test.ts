@@ -23,7 +23,14 @@ describe("turn item conversion preserves app-server semantics", () => {
       clientId: null,
       content: [{ type: "text", text: "hello", text_elements: [] }],
     };
-    const assistantMessage: TurnItem = { type: "agentMessage", id: "a1", text: "world", phase: null, memoryCitation: null };
+    const assistantMessage: TurnItem = {
+      type: "agentMessage",
+      id: "a1",
+      text: "world",
+      phase: null,
+      memoryCitation: null,
+      delivery: null,
+    };
     const turns: TurnRecord[] = [
       {
         id: "new",

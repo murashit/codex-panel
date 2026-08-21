@@ -487,7 +487,14 @@ describe("CodexThreadsView", () => {
             clientId: null,
             content: [{ type: "text", text: "threads viewのrenameを直したい", text_elements: [] }],
           },
-          { type: "agentMessage", id: "a1", text: "rename UIを調整しました。", phase: "final_answer", memoryCitation: null },
+          {
+            type: "agentMessage",
+            id: "a1",
+            text: "rename UIを調整しました。",
+            phase: "final_answer",
+            memoryCitation: null,
+            delivery: null,
+          },
         ]),
       ],
       nextCursor: null,
@@ -547,7 +554,7 @@ describe("CodexThreadsView", () => {
       data: [
         turnFixture([
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "Name this", text_elements: [] }] },
-          { type: "agentMessage", id: "a1", text: "Done.", phase: "final_answer", memoryCitation: null },
+          { type: "agentMessage", id: "a1", text: "Done.", phase: "final_answer", memoryCitation: null, delivery: null },
         ]),
       ],
       nextCursor: null,
@@ -593,7 +600,7 @@ describe("CodexThreadsView", () => {
             clientId: null,
             content: [{ type: "text", text: "rename stale handling", text_elements: [] }],
           },
-          { type: "agentMessage", id: "a1", text: "Handled.", phase: "final_answer", memoryCitation: null },
+          { type: "agentMessage", id: "a1", text: "Handled.", phase: "final_answer", memoryCitation: null, delivery: null },
         ]),
       ],
       nextCursor: null,
@@ -634,7 +641,7 @@ describe("CodexThreadsView", () => {
         data: [
           turnFixture([
             { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "name this", text_elements: [] }] },
-            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null },
           ]),
         ],
         nextCursor: null,
@@ -671,7 +678,7 @@ describe("CodexThreadsView", () => {
             clientId: null,
             content: [{ type: "text", text: "rename stale handling", text_elements: [] }],
           },
-          { type: "agentMessage", id: "a1", text: "Handled.", phase: "final_answer", memoryCitation: null },
+          { type: "agentMessage", id: "a1", text: "Handled.", phase: "final_answer", memoryCitation: null, delivery: null },
         ]),
       ],
       nextCursor: null,

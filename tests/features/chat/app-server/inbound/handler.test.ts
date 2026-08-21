@@ -481,7 +481,7 @@ describe("ChatInboundHandler", () => {
             itemsView: "full",
             items: [
               { type: "userMessage", id: "u1", clientId: "local-user-1", content: [{ type: "text", text: "hello", text_elements: [] }] },
-              { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+              { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null },
             ],
           },
         },
@@ -535,7 +535,7 @@ describe("ChatInboundHandler", () => {
             durationMs: 1,
             error: null,
             itemsView: "full",
-            items: [{ type: "agentMessage", id: "a1", text: "stale", phase: "final_answer", memoryCitation: null }],
+            items: [{ type: "agentMessage", id: "a1", text: "stale", phase: "final_answer", memoryCitation: null, delivery: null }],
           },
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
@@ -1882,7 +1882,7 @@ describe("ChatInboundHandler", () => {
             completedAt: null,
             durationMs: null,
             itemsView: "summary",
-            items: [{ type: "agentMessage", id: "a2", text: "second done", phase: "final_answer", memoryCitation: null }],
+            items: [{ type: "agentMessage", id: "a2", text: "second done", phase: "final_answer", memoryCitation: null, delivery: null }],
           },
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
@@ -1918,7 +1918,7 @@ describe("ChatInboundHandler", () => {
         itemsView: "full",
         items: [
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null },
         ],
       } satisfies TurnRecord;
 
@@ -2486,6 +2486,7 @@ function appServerThread(id: string, cwd: string): ThreadStartedNotification["pa
     preview: "",
     ephemeral: false,
     historyMode: "paginated",
+    projectId: null,
     modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,

@@ -108,6 +108,7 @@ const SERVER_NOTIFICATION_REGISTRY = {
   "model/verification": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
   "turn/moderationMetadata": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
   "model/safetyBuffering/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
+  "autoApprovalReview/strictReviewRequired": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
   "fuzzyFileSearch/sessionUpdated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
   "fuzzyFileSearch/sessionCompleted": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
   "thread/realtime/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },

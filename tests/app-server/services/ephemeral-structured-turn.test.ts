@@ -506,6 +506,7 @@ function thread(id: string): AppServerThread {
     preview: "",
     ephemeral: true,
     historyMode: "paginated",
+    projectId: null,
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
@@ -542,7 +543,7 @@ function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): 
 }
 
 function agentMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
+  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null };
 }
 
 function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {

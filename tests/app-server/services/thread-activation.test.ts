@@ -58,6 +58,7 @@ function threadFixture(id: string, name: string): AppServerThread {
     preview: "",
     ephemeral: false,
     historyMode: "paginated",
+    projectId: null,
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,

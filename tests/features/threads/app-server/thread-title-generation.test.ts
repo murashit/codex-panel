@@ -68,6 +68,7 @@ describe("thread title", () => {
           text: '```json\n{"title":"Codex Panelの自動命名"}\n```',
           phase: "final_answer",
           memoryCitation: null,
+          delivery: null,
         },
       ]),
     );

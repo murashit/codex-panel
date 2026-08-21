@@ -20,10 +20,12 @@ describe("chat inbound routing", () => {
 
     expect(unhandled).toEqual([
       "item/fileChange/outputDelta",
+      "project/changed",
       "thread/archived",
       "thread/compacted",
       "thread/deleted",
       "thread/name/updated",
+      "thread/project/updated",
       "thread/queue/changed",
       "thread/reverted",
       "thread/unarchived",
@@ -304,6 +306,7 @@ describe("chat inbound routing", () => {
     { name: "turn moderation metadata", notification: turnModerationMetadataNotification },
     { name: "terminal interaction", notification: terminalInteractionNotification },
     { name: "model verification", notification: modelVerificationNotification },
+    { name: "strict review required", notification: strictReviewRequiredNotification },
   ])("still scopes ignored turn notification $name", ({ notification }) => {
     expectNotificationRouteKind(notification("thread-active", "turn-active"), "ignored");
     expectNotificationRouteKind(notification("thread-other", "turn-active"), "inactive");
@@ -521,7 +524,7 @@ function turnCompletedNotification(): ServerNotification {
         itemsView: "full",
         items: [
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null },
         ],
       },
     },
@@ -717,6 +720,16 @@ function modelVerificationNotification(threadId: string, turnId: string): Extrac
   };
 }
 
+function strictReviewRequiredNotification(
+  threadId: string,
+  turnId: string,
+): Extract<ServerNotification, { method: "autoApprovalReview/strictReviewRequired" }> {
+  return {
+    method: "autoApprovalReview/strictReviewRequired",
+    params: { threadId, turnId, startedAtMs: 1 },
+  };
+}
+
 function threadStatusChangedNotification(threadId: string): Extract<ServerNotification, { method: "thread/status/changed" }> {
   return {
     method: "thread/status/changed",
@@ -784,6 +797,7 @@ function threadSnapshot(id: string): Extract<ServerNotification, { method: "thre
     preview: "Preview",
     ephemeral: false,
     historyMode: "paginated",
+    projectId: null,
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
