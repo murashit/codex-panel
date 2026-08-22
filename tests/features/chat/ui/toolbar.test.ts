@@ -184,9 +184,8 @@ describe("Toolbar decisions", () => {
     expect(copyDebugDetails).toHaveBeenCalledOnce();
   });
 
-  it("renders thread list rename actions and an inline rename editor", () => {
+  it("adapts thread row controls and the inline editor to toolbar actions", () => {
     const parent = document.createElement("div");
-    document.body.append(parent);
     const startRenameThread = vi.fn();
     const updateRenameDraft = vi.fn();
     const saveRenameThread = vi.fn();
@@ -231,51 +230,14 @@ describe("Toolbar decisions", () => {
     const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
     if (!input) throw new Error("Missing thread rename input");
     expect(input.value).toBe("Draft title");
-    expect(document.activeElement).toBe(input);
-    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
     changeInputValue(input, "New title");
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
-
-    mountToolbar(
-      parent,
-      toolbarModel({
-        openPanel: "history",
-        threads: [
-          {
-            title: "Thread",
-            threadId: "thread",
-            selected: true,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
-            rename: null,
-          },
-          {
-            title: "Editing",
-            threadId: "editing",
-            selected: false,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
-            rename: { draft: "New title", generating: false, saving: false, autoNameDisabled: false },
-          },
-        ],
-      }),
-      actions,
-    );
-    const renamedInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input"));
-    renamedInput.dispatchEvent(new FocusEvent("blur"));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
-    saveRenameThread.mockClear();
-    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, isComposing: true }));
-    expect(saveRenameThread).not.toHaveBeenCalled();
-    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
-    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(cancelRenameThread).toHaveBeenCalledWith("editing");
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     expect(autoNameThread).toHaveBeenCalledWith("editing");
-    parent.remove();
   });
 
   it("groups mixed pinned threads and routes the rightmost star action", () => {
@@ -320,9 +282,8 @@ describe("Toolbar decisions", () => {
     expect(setPinnedThread).toHaveBeenCalledWith("pinned", false);
   });
 
-  it("disables the rename draft and exposes auto-name cancellation while loading", () => {
+  it("adapts auto-name cancellation while loading", () => {
     const parent = document.createElement("div");
-    document.body.append(parent);
     const cancelAutoName = vi.fn();
 
     mountToolbar(
@@ -344,106 +305,15 @@ describe("Toolbar decisions", () => {
       toolbarActions({ cancelAutoName }),
     );
 
-    expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")?.disabled).toBe(true);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
     const cancelAutoNameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
-    expect(cancelAutoNameButton.disabled).toBe(false);
     cancelAutoNameButton.click();
     expect(cancelAutoName).toHaveBeenCalledWith("editing");
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
-
-    mountToolbar(
-      parent,
-      toolbarModel({
-        openPanel: "history",
-        threads: [
-          {
-            title: "Editing",
-            threadId: "editing",
-            selected: false,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
-            rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: false },
-          },
-        ],
-      }),
-      toolbarActions(),
-    );
-    expect(document.activeElement).toBe(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input"));
-    parent.remove();
   });
 
-  it("locks rename controls while saving", () => {
+  it("keeps chat navigation active while adapting archive confirmation", () => {
     const parent = document.createElement("div");
-    const saveRenameThread = vi.fn();
-    const cancelRenameThread = vi.fn();
-    const autoNameThread = vi.fn();
-
-    mountToolbar(
-      parent,
-      toolbarModel({
-        openPanel: "history",
-        threads: [
-          {
-            title: "Editing",
-            threadId: "editing",
-            selected: false,
-            renameDisabled: true,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
-            rename: { draft: "Draft title", generating: false, saving: true, autoNameDisabled: false },
-          },
-        ],
-      }),
-      toolbarActions({ saveRenameThread, cancelRenameThread, autoNameThread }),
-    );
-
-    const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input"));
-    expect(input.disabled).toBe(true);
-    input.dispatchEvent(new FocusEvent("blur"));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    const autoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
-    expect(autoName.disabled).toBe(true);
-    autoName.click();
-    expect(saveRenameThread).not.toHaveBeenCalled();
-    expect(cancelRenameThread).not.toHaveBeenCalled();
-    expect(autoNameThread).not.toHaveBeenCalled();
-  });
-
-  it("disables auto-name while title context is unavailable", () => {
-    const parent = document.createElement("div");
-    const autoNameThread = vi.fn();
-
-    mountToolbar(
-      parent,
-      toolbarModel({
-        openPanel: "history",
-        threads: [
-          {
-            title: "Editing",
-            threadId: "editing",
-            selected: false,
-            renameDisabled: false,
-            archiveDisabled: false,
-            archiveConfirm: { active: false, defaultSaveMarkdown: false },
-            rename: { draft: "Draft title", generating: false, saving: false, autoNameDisabled: true },
-          },
-        ],
-      }),
-      toolbarActions({ autoNameThread }),
-    );
-
-    const autoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
-    expect(autoName.disabled).toBe(true);
-    autoName.click();
-    expect(autoNameThread).not.toHaveBeenCalled();
-  });
-
-  it("renders toolbar archive confirmation with the default action in the original position", () => {
-    const parent = document.createElement("div");
-    const startArchiveThread = vi.fn();
     const archiveThread = vi.fn();
+    const resumeThread = vi.fn();
 
     mountToolbar(
       parent,
@@ -461,51 +331,19 @@ describe("Toolbar decisions", () => {
           },
         ],
       }),
-      toolbarActions({ startArchiveThread, archiveThread }),
+      toolbarActions({ archiveThread, resumeThread }),
     );
 
     const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__archive-confirm"));
     const archiveActions = expectPresent(confirm.querySelector<HTMLElement>(".codex-panel__thread-actions"));
     const defaultArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel__archive-default"));
     const alternateArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel__archive-alternate"));
-    expect(archiveActions.firstElementChild).toBe(defaultArchiveButton);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
+    expectPresent(confirm.querySelector<HTMLElement>(".codex-panel__thread")).click();
+    expect(resumeThread).toHaveBeenCalledWith("thread");
     defaultArchiveButton.click();
     expect(archiveThread).toHaveBeenCalledWith("thread", true);
     alternateArchiveButton.click();
     expect(archiveThread).toHaveBeenCalledWith("thread", false);
-    expect(startArchiveThread).not.toHaveBeenCalled();
-  });
-
-  it("keeps archive confirmation disabled when the thread becomes busy", () => {
-    const parent = document.createElement("div");
-    const archiveThread = vi.fn();
-    mountToolbar(
-      parent,
-      toolbarModel({
-        openPanel: "history",
-        threads: [
-          {
-            title: "Thread",
-            threadId: "thread",
-            selected: true,
-            renameDisabled: false,
-            archiveDisabled: true,
-            archiveConfirm: { active: true, defaultSaveMarkdown: true },
-            rename: null,
-          },
-        ],
-      }),
-      toolbarActions({ archiveThread }),
-    );
-
-    const archiveButtons = [
-      ...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__archive-alternate, .codex-panel__archive-default"),
-    ];
-    expect(archiveButtons).toHaveLength(2);
-    expect(archiveButtons.every((button) => button.disabled)).toBe(true);
-    for (const button of archiveButtons) button.click();
-    expect(archiveThread).not.toHaveBeenCalled();
   });
 
   it("renders shared history expansion as a nav-list item", () => {

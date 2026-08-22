@@ -1,13 +1,8 @@
-import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
-import { IconButton, ToolbarIconAction, type ToolbarIconActionProps } from "../../../shared/ui/icon.dom";
+import type { ComponentChild as UiNode } from "preact";
+import { ToolbarIconAction, type ToolbarIconActionProps } from "../../../shared/ui/icon.dom";
 import { pinnedThreadGroups } from "../../threads/list/pinned-groups";
-import { focusToolbarRenameInput } from "./toolbar.dom";
+import { ThreadAutoNameButton, ThreadRenameInput, ThreadRowControls } from "../../threads/list/row-controls.dom";
 import type { RateLimitSummary, ToolbarStatusRow, ToolbarStatusSection, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
-
-type ButtonProps = ButtonHTMLAttributes & {
-  disabled?: boolean | undefined;
-};
 
 interface ToolbarPrimaryActions {
   toggleHistory: () => void;
@@ -344,7 +339,7 @@ function ThreadList({
 }
 
 function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
-  const archiveConfirm = archiveConfirmState(thread);
+  const archiveConfirm = thread.archiveConfirm;
   return (
     <div
       className={[
@@ -373,20 +368,31 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
             }}
           />
           <div className="codex-panel__thread-actions">
-            {!archiveConfirm.active ? (
-              <ToolbarRowActionButton
-                icon="pencil"
-                label="Rename thread"
-                className="codex-panel__thread-action"
-                disabled={thread.renameDisabled}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  actions.rename.start(thread.threadId);
-                }}
-              />
-            ) : null}
-            <ArchiveControls thread={thread} actions={actions} />
-            {!archiveConfirm.active ? <PinThreadButton thread={thread} actions={actions} /> : null}
+            <ThreadRowControls
+              isPinned={thread.isPinned === true}
+              renameDisabled={thread.renameDisabled}
+              archiveDisabled={thread.archiveDisabled}
+              archiveConfirm={archiveConfirm}
+              classNames={{
+                action: "codex-panel__thread-action",
+                pin: "codex-panel__thread-action codex-panel__thread-pin",
+                pinned: "codex-panel__thread-pin--pinned",
+                archivePrimary: "codex-panel__thread-action codex-panel__archive-default",
+                archiveAlternate: "codex-panel__thread-action codex-panel__archive-alternate",
+              }}
+              onRename={() => {
+                actions.rename.start(thread.threadId);
+              }}
+              onPinChange={(isPinned) => {
+                actions.setPinned(thread.threadId, isPinned);
+              }}
+              onArchiveStart={() => {
+                actions.archive.start(thread.threadId);
+              }}
+              onArchiveConfirm={(saveMarkdown) => {
+                actions.archive.confirm(thread.threadId, saveMarkdown);
+              }}
+            />
           </div>
         </>
       )}
@@ -394,87 +400,11 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
   );
 }
 
-function PinThreadButton({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
-  return (
-    <ToolbarRowActionButton
-      icon="star"
-      label={thread.isPinned === true ? "Unpin thread" : "Pin thread"}
-      className={[
-        "codex-panel__thread-action",
-        "codex-panel__thread-pin",
-        thread.isPinned === true ? "codex-panel__thread-pin--pinned" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      aria-pressed={thread.isPinned === true}
-      onClick={(event) => {
-        event.stopPropagation();
-        actions.setPinned(thread.threadId, thread.isPinned !== true);
-      }}
-    />
-  );
-}
-
-function ArchiveControls({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
-  const archiveConfirm = archiveConfirmState(thread);
-  if (!archiveConfirm.active) {
-    return (
-      <ToolbarRowActionButton
-        icon="archive"
-        label="Archive thread"
-        className="codex-panel__thread-action"
-        disabled={thread.archiveDisabled}
-        onClick={(event) => {
-          event.stopPropagation();
-          actions.archive.start(thread.threadId);
-        }}
-      />
-    );
-  }
-  const defaultSaveMarkdown = archiveConfirm.defaultSaveMarkdown;
-  return (
-    <>
-      <ArchiveModeButton thread={thread} saveMarkdown={defaultSaveMarkdown} primary={true} actions={actions} />
-      <ArchiveModeButton thread={thread} saveMarkdown={!defaultSaveMarkdown} primary={false} actions={actions} />
-    </>
-  );
-}
-
-function ArchiveModeButton({
-  thread,
-  saveMarkdown,
-  primary,
-  actions,
-}: {
-  thread: ToolbarThreadRow;
-  saveMarkdown: boolean;
-  primary: boolean;
-  actions: ToolbarThreadActions;
-}): UiNode {
-  const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
-  return (
-    <ToolbarRowActionButton
-      icon={saveMarkdown ? "save" : "trash"}
-      label={label}
-      className={`codex-panel__thread-action ${primary ? "codex-panel__archive-default" : "codex-panel__archive-alternate"}`}
-      disabled={thread.archiveDisabled}
-      onClick={(event) => {
-        event.stopPropagation();
-        actions.archive.confirm(thread.threadId, saveMarkdown);
-      }}
-    />
-  );
-}
-
 function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const generating = thread.rename?.generating ?? false;
   const saving = thread.rename?.saving ?? false;
   const renameBusy = generating || saving;
   const draft = thread.rename?.draft ?? thread.title;
-  useLayoutEffect(() => {
-    if (!renameBusy) focusToolbarRenameInput(inputRef.current);
-  }, [draft, renameBusy]);
 
   return (
     <>
@@ -484,46 +414,33 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
         interactive={false}
         renderContent={() => (
           <div className="codex-panel__thread-rename-field">
-            <input
-              ref={inputRef}
-              className="codex-panel-ui__nav-inline-input codex-panel__thread-rename-input"
-              type="text"
+            <ThreadRenameInput
+              className="codex-panel__thread-rename-input"
               value={draft}
-              disabled={renameBusy}
-              onInput={(event) => {
-                actions.rename.updateDraft(thread.threadId, event.currentTarget.value);
+              busy={renameBusy}
+              onUpdate={(value) => {
+                actions.rename.updateDraft(thread.threadId, value);
               }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  if (!event.isComposing && !renameBusy) actions.rename.save(thread.threadId, event.currentTarget.value);
-                  return;
-                }
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  if (!renameBusy) actions.rename.cancel(thread.threadId);
-                }
+              onSave={(value) => {
+                actions.rename.save(thread.threadId, value);
               }}
-              onBlur={(event) => {
-                if (!renameBusy) actions.rename.save(thread.threadId, event.currentTarget.value);
+              onCancel={() => {
+                actions.rename.cancel(thread.threadId);
               }}
             />
           </div>
         )}
       />
-      <ToolbarRowActionButton
-        icon={generating ? "x" : "sparkles"}
-        label={generating ? "Cancel auto-name" : "Auto-name thread"}
+      <ThreadAutoNameButton
         className="codex-panel__thread-action"
-        disabled={saving || (!generating && (thread.rename?.autoNameDisabled ?? true))}
-        onPointerDown={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
+        generating={generating}
+        saving={saving}
+        autoNameDisabled={thread.rename?.autoNameDisabled ?? true}
+        onStart={() => {
+          actions.rename.autoName(thread.threadId);
         }}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (generating) actions.rename.cancelAutoName(thread.threadId);
-          else actions.rename.autoName(thread.threadId);
+        onCancel={() => {
+          actions.rename.cancelAutoName(thread.threadId);
         }}
       />
     </>
@@ -586,21 +503,4 @@ function ToolbarPanelItem({
       {content}
     </div>
   );
-}
-
-function ToolbarRowActionButton({
-  icon,
-  label,
-  className,
-  ...props
-}: {
-  icon: string;
-  label: string;
-  className: string;
-} & Omit<ButtonProps, "className" | "type">): UiNode {
-  return <IconButton {...props} icon={icon} label={label} className={`clickable-icon codex-panel-ui__nav-row-action ${className}`} />;
-}
-
-function archiveConfirmState(thread: ToolbarThreadRow): { active: boolean; defaultSaveMarkdown: boolean } {
-  return thread.archiveConfirm;
 }

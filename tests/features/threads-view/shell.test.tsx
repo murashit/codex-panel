@@ -172,7 +172,8 @@ describe("threads view renderer decisions", () => {
     const openNewPanel = expectPresent(parent.querySelector<HTMLElement>('[aria-label="Open new panel"]'));
     openNewPanel.click();
     expect(actions.openNewPanel).toHaveBeenCalledOnce();
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).not.toBeNull();
+    expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).click();
+    expect(actions.startRename).toHaveBeenCalledWith("open", "Open thread");
     main.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");
   });
@@ -196,7 +197,7 @@ describe("threads view renderer decisions", () => {
     expect(actions.setThreadPinned).toHaveBeenCalledWith("pinned", false);
   });
 
-  it("renders threads view archive confirmation with the default action in the original position", () => {
+  it("blocks threads view navigation while adapting archive confirmation", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
     const row = rowFixture({
@@ -206,13 +207,10 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
 
     const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__archive-confirm"));
-    const archiveActions = confirm;
-    const defaultArchiveButton = expectPresent(archiveActions.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-default"));
-    const alternateArchiveButton = expectPresent(
-      archiveActions.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-alternate"),
-    );
-    expect(archiveActions.firstElementChild).toBe(defaultArchiveButton);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
+    const defaultArchiveButton = expectPresent(confirm.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-default"));
+    const alternateArchiveButton = expectPresent(confirm.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-alternate"));
+    expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main")).click();
+    expect(actions.openThread).not.toHaveBeenCalled();
     defaultArchiveButton.click();
     expect(actions.archiveThread).toHaveBeenCalledWith("thread", false);
     alternateArchiveButton.click();
@@ -231,9 +229,8 @@ describe("threads view renderer decisions", () => {
     expect(actions.archiveThread).not.toHaveBeenCalled();
   });
 
-  it("renders rename rows and saves entered values", () => {
+  it("adapts the inline rename editor while keeping row navigation inactive", () => {
     const parent = document.createElement("div");
-    document.body.append(parent);
     const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
@@ -243,34 +240,11 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
 
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
-    expect(document.activeElement).toBe(input);
-    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
     changeInputValue(input, "New name");
     expect(actions.updateRename).toHaveBeenCalledWith("thread", "New name");
 
-    renderThreadsViewShell(
-      parent,
-      {
-        status: null,
-        loading: false,
-        rows: [{ ...row, rename: { active: true, draft: "New name", generating: false, saving: false, autoNameDisabled: false } }],
-      },
-      actions,
-    );
-    const renamedInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
-    renamedInput.dispatchEvent(new FocusEvent("blur"));
-    expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
-    actions.saveRename.mockClear();
-    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, isComposing: true }));
-    expect(actions.saveRename).not.toHaveBeenCalled();
-    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
-    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    expect(actions.cancelRename).toHaveBeenCalledWith("thread");
-
     expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main")).click();
     expect(actions.openThread).not.toHaveBeenCalled();
-    parent.remove();
   });
 
   it("renders threads view rename actions inline with auto-name", () => {
@@ -304,28 +278,6 @@ describe("threads view renderer decisions", () => {
     expect(cancelAutoName.disabled).toBe(false);
     cancelAutoName.click();
     expect(actions.cancelAutoName).toHaveBeenCalledWith("thread");
-  });
-
-  it("locks threads view rename controls while saving", () => {
-    const parent = document.createElement("div");
-    const actions = threadsViewActions();
-    const row = rowFixture({
-      title: "Old name",
-      rename: { active: true, draft: "Old name", generating: false, saving: true, autoNameDisabled: false },
-    });
-
-    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
-
-    const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
-    expect(input.disabled).toBe(true);
-    input.dispatchEvent(new FocusEvent("blur"));
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    const autoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]'));
-    expect(autoName.disabled).toBe(true);
-    autoName.click();
-    expect(actions.saveRename).not.toHaveBeenCalled();
-    expect(actions.cancelRename).not.toHaveBeenCalled();
-    expect(actions.autoNameThread).not.toHaveBeenCalled();
   });
 
   it("disables history expansion during any shared thread fetch", () => {

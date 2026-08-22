@@ -1,14 +1,10 @@
-import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import type { ComponentChild as UiNode } from "preact";
 import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
 import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
-import { IconButton, ToolbarIconAction, type ToolbarIconActionProps } from "../../shared/ui/icon.dom";
+import { ToolbarIconAction, type ToolbarIconActionProps } from "../../shared/ui/icon.dom";
 import { pinnedThreadGroups } from "../threads/list/pinned-groups";
+import { ThreadAutoNameButton, ThreadRenameInput, ThreadRowControls } from "../threads/list/row-controls.dom";
 import type { ThreadsRowModel } from "./state";
-
-type ButtonProps = ButtonHTMLAttributes & {
-  disabled?: boolean | undefined;
-};
 
 export interface ThreadsViewShellModel {
   status: { kind: "loading" | "error"; message: string } | null;
@@ -49,13 +45,6 @@ export function isThreadsArchiveConfirmPointer(event: PointerEvent, root: HTMLEl
   if (!(target instanceof domWindow.Element)) return false;
   const archiveConfirm = target.closest(".codex-panel-threads__archive-confirm");
   return Boolean(archiveConfirm && root.contains(archiveConfirm));
-}
-
-function focusThreadsRenameInput(input: HTMLInputElement | null): void {
-  if (!input) return;
-  if (input.ownerDocument.activeElement === input) return;
-  input.focus();
-  input.select();
 }
 
 function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; actions: ThreadsViewShellActions }): UiNode {
@@ -154,103 +143,34 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
               .filter(Boolean)
               .join(" ")}
           >
-            {!archiveConfirm.active ? (
-              <ThreadsRowButton
-                icon="pencil"
-                label="Rename thread"
-                className="codex-panel-threads__row-button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  actions.startRename(row.threadId, row.rename.draft);
-                }}
-              />
-            ) : null}
-            <ArchiveControls row={row} archiveConfirm={archiveConfirm} actions={actions} />
-            {!archiveConfirm.active ? <PinThreadButton row={row} actions={actions} /> : null}
+            <ThreadRowControls
+              isPinned={row.isPinned}
+              archiveDisabled={threadArchiveDisabled(row)}
+              archiveConfirm={archiveConfirm}
+              classNames={{
+                action: "codex-panel-threads__row-button",
+                pin: "codex-panel-threads__row-button codex-panel-threads__pin-button",
+                pinned: "codex-panel-threads__pin-button--pinned",
+                archivePrimary: "codex-panel-threads__archive-default",
+                archiveAlternate: "codex-panel-threads__archive-alternate",
+              }}
+              onRename={() => {
+                actions.startRename(row.threadId, row.rename.draft);
+              }}
+              onPinChange={(isPinned) => {
+                actions.setThreadPinned(row.threadId, isPinned);
+              }}
+              onArchiveStart={() => {
+                actions.startArchive(row.threadId);
+              }}
+              onArchiveConfirm={(saveMarkdown) => {
+                actions.archiveThread(row.threadId, saveMarkdown);
+              }}
+            />
           </div>
         </>
       )}
     </div>
-  );
-}
-
-function PinThreadButton({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewShellActions }): UiNode {
-  return (
-    <ThreadsRowButton
-      icon="star"
-      label={row.isPinned ? "Unpin thread" : "Pin thread"}
-      className={[
-        "codex-panel-threads__row-button",
-        "codex-panel-threads__pin-button",
-        row.isPinned ? "codex-panel-threads__pin-button--pinned" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      aria-pressed={row.isPinned}
-      onClick={(event) => {
-        event.stopPropagation();
-        actions.setThreadPinned(row.threadId, !row.isPinned);
-      }}
-    />
-  );
-}
-
-function ArchiveControls({
-  row,
-  archiveConfirm,
-  actions,
-}: {
-  row: ThreadsRowModel;
-  archiveConfirm: ThreadsRowModel["archiveConfirm"];
-  actions: ThreadsViewShellActions;
-}): UiNode {
-  if (!archiveConfirm.active) {
-    return (
-      <ThreadsRowButton
-        icon="archive"
-        label="Archive thread"
-        className="codex-panel-threads__row-button"
-        disabled={threadArchiveDisabled(row)}
-        onClick={(event) => {
-          event.stopPropagation();
-          actions.startArchive(row.threadId);
-        }}
-      />
-    );
-  }
-
-  const defaultSaveMarkdown = archiveConfirm.defaultSaveMarkdown;
-  return (
-    <>
-      <ArchiveModeButton row={row} saveMarkdown={defaultSaveMarkdown} primary={true} actions={actions} />
-      <ArchiveModeButton row={row} saveMarkdown={!defaultSaveMarkdown} primary={false} actions={actions} />
-    </>
-  );
-}
-
-function ArchiveModeButton({
-  row,
-  saveMarkdown,
-  primary,
-  actions,
-}: {
-  row: ThreadsRowModel;
-  saveMarkdown: boolean;
-  primary: boolean;
-  actions: ThreadsViewShellActions;
-}): UiNode {
-  const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
-  return (
-    <ThreadsRowButton
-      icon={saveMarkdown ? "save" : "trash"}
-      label={label}
-      className={primary ? "codex-panel-threads__archive-default" : "codex-panel-threads__archive-alternate"}
-      disabled={threadArchiveDisabled(row)}
-      onClick={(event) => {
-        event.stopPropagation();
-        actions.archiveThread(row.threadId, saveMarkdown);
-      }}
-    />
   );
 }
 
@@ -259,56 +179,39 @@ function threadArchiveDisabled(row: ThreadsRowModel): boolean {
 }
 
 function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const renameBusy = row.rename.generating || row.rename.saving;
-  useLayoutEffect(() => {
-    if (!renameBusy) focusThreadsRenameInput(inputRef.current);
-  }, [row.rename.draft, renameBusy]);
 
   return (
     <>
       <div className={`${className} codex-panel-threads__rename-form`}>
         <div className="codex-panel-threads__rename-field">
-          <input
-            ref={inputRef}
-            className="codex-panel-ui__nav-inline-input codex-panel-threads__rename-input"
-            type="text"
+          <ThreadRenameInput
+            className="codex-panel-threads__rename-input"
             value={row.rename.draft}
-            disabled={renameBusy}
-            onInput={(event) => {
-              actions.updateRename(row.threadId, event.currentTarget.value);
+            busy={renameBusy}
+            onUpdate={(value) => {
+              actions.updateRename(row.threadId, value);
             }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                if (!event.isComposing && !renameBusy) actions.saveRename(row.threadId, event.currentTarget.value);
-                return;
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                if (!renameBusy) actions.cancelRename(row.threadId);
-              }
+            onSave={(value) => {
+              actions.saveRename(row.threadId, value);
             }}
-            onBlur={(event) => {
-              if (!renameBusy) actions.saveRename(row.threadId, event.currentTarget.value);
+            onCancel={() => {
+              actions.cancelRename(row.threadId);
             }}
           />
         </div>
       </div>
       <div className="codex-panel-threads__actions codex-panel-threads__rename-actions">
-        <ThreadsRowButton
-          icon={row.rename.generating ? "x" : "sparkles"}
-          label={row.rename.generating ? "Cancel auto-name" : "Auto-name thread"}
+        <ThreadAutoNameButton
           className="codex-panel-threads__row-button"
-          disabled={row.rename.saving || (!row.rename.generating && row.rename.autoNameDisabled)}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
+          generating={row.rename.generating}
+          saving={row.rename.saving}
+          autoNameDisabled={row.rename.autoNameDisabled}
+          onStart={() => {
+            actions.autoNameThread(row.threadId);
           }}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (row.rename.generating) actions.cancelAutoName(row.threadId);
-            else actions.autoNameThread(row.threadId);
+          onCancel={() => {
+            actions.cancelAutoName(row.threadId);
           }}
         />
       </div>
@@ -338,17 +241,4 @@ function ThreadsToolbarButton({
       className="clickable-icon nav-action-button codex-panel-ui__toolbar-action codex-panel-threads__toolbar-button"
     />
   );
-}
-
-function ThreadsRowButton({
-  icon,
-  label,
-  className,
-  ...props
-}: {
-  icon: string;
-  label: string;
-  className: string;
-} & Omit<ButtonProps, "className" | "type">): UiNode {
-  return <IconButton {...props} icon={icon} label={label} className={`clickable-icon codex-panel-ui__nav-row-action ${className}`} />;
 }
