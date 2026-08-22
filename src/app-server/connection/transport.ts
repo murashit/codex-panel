@@ -1,4 +1,5 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import * as path from "node:path";
 import * as readline from "node:readline";
 
 import type { RpcOutboundMessage } from "./rpc-messages";
@@ -47,6 +48,17 @@ function quoteWindowsCmdArgument(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
+function createAppServerEnvironment(codexPath: string): NodeJS.ProcessEnv | undefined {
+  if (process.platform === "win32" || !path.isAbsolute(codexPath)) return undefined;
+
+  const executableDirectory = path.dirname(codexPath);
+  const inheritedPath = process.env["PATH"];
+  return {
+    ...process.env,
+    PATH: inheritedPath ? `${executableDirectory}${path.delimiter}${inheritedPath}` : executableDirectory,
+  };
+}
+
 export class StdioAppServerTransport implements AppServerTransport {
   private process: ChildProcessWithoutNullStreams | null = null;
   private reader: readline.Interface | null = null;
@@ -66,10 +78,12 @@ export class StdioAppServerTransport implements AppServerTransport {
 
     const launch = createAppServerSpawnSpec(this.codexPath);
     this.killProcessTreeOnStop = launch.killProcessTreeOnStop;
+    const environment = createAppServerEnvironment(this.codexPath);
     this.process = spawn(launch.command, launch.args, {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
       windowsVerbatimArguments: launch.windowsVerbatimArguments,
+      ...(environment ? { env: environment } : {}),
     });
 
     this.process.once("error", (error) => {

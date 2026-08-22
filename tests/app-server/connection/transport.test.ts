@@ -58,6 +58,27 @@ describe("StdioAppServerTransport", () => {
     });
   });
 
+  it.each(["darwin", "linux"] as const)("exposes an absolute %s executable's directory to its runtime dependencies", (platform) => {
+    vi.spyOn(process, "platform", "get").mockReturnValue(platform);
+    vi.stubEnv("PATH", "/usr/bin:/bin");
+    vi.stubEnv("CODEX_PANEL_TEST_ENV", "preserved");
+    const child = fakeChildProcess();
+    const codexPath = "/opt/homebrew/bin/codex";
+    spawnMock.mockReturnValue(child);
+
+    transportInstance(codexPath).instance.start();
+
+    expect(spawnMock).toHaveBeenCalledWith(codexPath, ["app-server"], {
+      cwd: "/vault",
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsVerbatimArguments: undefined,
+      env: expect.objectContaining({
+        CODEX_PANEL_TEST_ENV: "preserved",
+        PATH: "/opt/homebrew/bin:/usr/bin:/bin",
+      }),
+    });
+  });
+
   it("quotes Windows command shim paths that contain spaces", () => {
     vi.spyOn(process, "platform", "get").mockReturnValue("win32");
     vi.stubEnv("ComSpec", " ");
