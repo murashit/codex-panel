@@ -65,7 +65,9 @@ class FakeTransport implements AppServerTransport {
   }
 }
 
-async function connectedClient(): Promise<{ client: AppServerClient; transport: FakeTransport }> {
+async function connectedClient(
+  handlerOverrides: Partial<AppServerClientHandlers> = {},
+): Promise<{ client: AppServerClient; transport: FakeTransport }> {
   let transport!: FakeTransport;
   const client = createTestClient({
     handlers: {
@@ -73,6 +75,7 @@ async function connectedClient(): Promise<{ client: AppServerClient; transport: 
       onServerRequest: () => undefined,
       onLog: () => undefined,
       onExit: () => undefined,
+      ...handlerOverrides,
     },
     transportFactory: (handlers) => {
       transport = new FakeTransport(handlers);
@@ -223,26 +226,72 @@ describe("AppServerClient", () => {
     expect(latestSent(getTransport())).toEqual({ id: 99, error: { code: -32601, message: "Request not handled." } });
   });
 
+  it("routes valid MCP elicitation form modes and URL requests with nullable turn correlation", async () => {
+    const serverRequests: ServerRequest[] = [];
+    const { transport } = await connectedClient({
+      onServerRequest: (request) => serverRequests.push(request),
+    });
+
+    const requests = [
+      {
+        id: 12,
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thread",
+          turnId: null,
+          serverName: "github",
+          mode: "form",
+          _meta: null,
+          message: "Provide issue details",
+          requestedSchema: { type: "object", properties: {} },
+        },
+      },
+      {
+        id: 13,
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thread",
+          turnId: null,
+          serverName: "github",
+          mode: "openai/form",
+          _meta: null,
+          message: "Provide extended issue details",
+          requestedSchema: {
+            type: "object",
+            properties: { issue: { type: "string", format: "uri" } },
+            "x-openai-title": "Issue",
+          },
+        },
+      },
+      {
+        id: 14,
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thread",
+          turnId: "turn",
+          serverName: "github",
+          mode: "url",
+          _meta: null,
+          message: "Confirm in browser",
+          url: "https://example.com/confirm",
+          elicitationId: "elicit-1",
+        },
+      },
+    ] satisfies ServerRequest[];
+    for (const request of requests) transport.emitLine(request);
+
+    expect(serverRequests).toEqual(requests);
+  });
+
   it("logs malformed JSON-RPC envelopes without throwing from the transport callback", async () => {
     const logs: string[] = [];
     const notifications = vi.fn();
     const serverRequests = vi.fn();
-    let transport!: FakeTransport;
-    const client = createTestClient({
-      handlers: {
-        onNotification: notifications,
-        onServerRequest: serverRequests,
-        onLog: (message) => logs.push(message),
-        onExit: () => undefined,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
+    const { transport } = await connectedClient({
+      onNotification: notifications,
+      onServerRequest: serverRequests,
+      onLog: (message) => logs.push(message),
     });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
 
     for (const message of [null, 42, "text", [], {}, { method: "warning" }, { id: 4 }, { id: 5, method: "request", params: null }]) {
       expect(() => transport.emitLine(message)).not.toThrow();
@@ -256,22 +305,9 @@ describe("AppServerClient", () => {
 
   it("logs invalid raw JSON without throwing from the transport callback", async () => {
     const logs: string[] = [];
-    let transport!: FakeTransport;
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: (message) => logs.push(message),
-        onExit: () => undefined,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
+    const { transport } = await connectedClient({
+      onLog: (message) => logs.push(message),
     });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
 
     expect(() => transport.emitRawLine("{not JSON")).not.toThrow();
     expect(logs).toHaveLength(1);
@@ -280,24 +316,12 @@ describe("AppServerClient", () => {
 
   it("contains notification handler failures at the JSON-RPC boundary", async () => {
     const logs: string[] = [];
-    let transport!: FakeTransport;
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => {
-          throw new Error("notification failed");
-        },
-        onServerRequest: () => undefined,
-        onLog: (message) => logs.push(message),
-        onExit: () => undefined,
+    const { transport } = await connectedClient({
+      onNotification: () => {
+        throw new Error("notification failed");
       },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
+      onLog: (message) => logs.push(message),
     });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
 
     expect(() => transport.emitLine({ method: "warning", params: { message: "careful" } })).not.toThrow();
     expect(logs).toEqual(["App-server notification handler failed: notification failed"]);
@@ -305,24 +329,12 @@ describe("AppServerClient", () => {
 
   it("contains server-request handler failures and sends an internal-error response", async () => {
     const logs: string[] = [];
-    let transport!: FakeTransport;
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => {
-          throw new Error("request failed");
-        },
-        onLog: (message) => logs.push(message),
-        onExit: () => undefined,
+    const { transport } = await connectedClient({
+      onServerRequest: () => {
+        throw new Error("request failed");
       },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
+      onLog: (message) => logs.push(message),
     });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
 
     expect(() => transport.emitLine({ id: 12, method: "currentTime/read", params: { threadId: "thread" } })).not.toThrow();
     expect(logs).toEqual(["App-server request handler failed: request failed"]);
@@ -333,26 +345,49 @@ describe("AppServerClient", () => {
   });
 
   it("rejects known server requests with malformed required params", async () => {
-    let transport!: FakeTransport;
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit: () => undefined,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
-    });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
+    const { transport } = await connectedClient();
 
     transport.emitLine({ id: 12, method: "currentTime/read", params: { threadId: 42 } });
 
     expect(latestSent(transport)).toEqual({ id: 12, error: { code: -32602, message: "Invalid params." } });
+  });
+
+  it("rejects malformed MCP elicitation correlation and mode payloads", async () => {
+    const serverRequests = vi.fn();
+    const { transport } = await connectedClient({ onServerRequest: serverRequests });
+
+    transport.emitLine({
+      id: 12,
+      method: "mcpServer/elicitation/request",
+      params: {
+        threadId: "thread",
+        turnId: 42,
+        serverName: "github",
+        mode: "form",
+        _meta: null,
+        message: "Provide issue details",
+        requestedSchema: { type: "object", properties: {} },
+      },
+    });
+    transport.emitLine({
+      id: 13,
+      method: "mcpServer/elicitation/request",
+      params: {
+        threadId: "thread",
+        turnId: "turn",
+        serverName: "github",
+        mode: "url",
+        _meta: null,
+        message: "Confirm in browser",
+        url: "https://example.com/confirm",
+      },
+    });
+
+    expect(serverRequests).not.toHaveBeenCalled();
+    expect(transport.sent.slice(-2)).toEqual([
+      { id: 12, error: { code: -32602, message: "Invalid params." } },
+      { id: 13, error: { code: -32602, message: "Invalid params." } },
+    ]);
   });
 
   it("sends typed client requests", async () => {

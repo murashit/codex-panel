@@ -212,19 +212,46 @@ function invalidKnownParamsRequest(value: unknown): { id: RequestId; method: str
   const method = value["method"];
   const id = value["id"];
   const params = value["params"];
+  const invalid = isRequestId(id) ? { id, method } : null;
+  if (method === "mcpServer/elicitation/request") {
+    return isRecord(params) && hasRequiredMcpElicitationParams(params) ? null : invalid;
+  }
   const required = requiredStringFields(method);
   if (!required) return null;
-  if (!isRecord(params)) return isRequestId(id) ? { id, method } : null;
-  return required.every((field) => typeof params[field] === "string") ? null : isRequestId(id) ? { id, method } : null;
+  if (!isRecord(params)) return invalid;
+  return required.every((field) => typeof params[field] === "string") ? null : invalid;
+}
+
+function hasRequiredMcpElicitationParams(params: Record<string, unknown>): boolean {
+  if (
+    typeof params["threadId"] !== "string" ||
+    (params["turnId"] !== null && typeof params["turnId"] !== "string") ||
+    typeof params["serverName"] !== "string" ||
+    !Object.hasOwn(params, "_meta") ||
+    typeof params["message"] !== "string"
+  ) {
+    return false;
+  }
+
+  switch (params["mode"]) {
+    case "form": {
+      const schema = params["requestedSchema"];
+      return isRecord(schema) && schema["type"] === "object" && isRecord(schema["properties"]);
+    }
+    case "openai/form":
+      return Object.hasOwn(params, "requestedSchema");
+    case "url":
+      return typeof params["url"] === "string" && typeof params["elicitationId"] === "string";
+    default:
+      return false;
+  }
 }
 
 function requiredStringFields(method: string): readonly string[] | null {
   switch (method) {
     case "item/commandExecution/requestApproval":
     case "item/fileChange/requestApproval":
-      return ["threadId", "turnId", "itemId"];
     case "item/tool/requestUserInput":
-    case "mcpServer/elicitation/request":
       return ["threadId", "turnId", "itemId"];
     case "currentTime/read":
       return ["threadId"];
