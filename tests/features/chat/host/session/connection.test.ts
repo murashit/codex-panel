@@ -20,17 +20,28 @@ describe("session connection", () => {
     expect(responder.respond).toHaveBeenCalledWith({ answers: { note: { answers: ["Continue"] } } });
   });
 
-  it("rejects and forgets a responder when its panel connection scope is invalidated", async () => {
+  it("rejects each pending root and child responder once when its panel connection scope is invalidated", async () => {
     const fixture = sessionConnectionFixture();
     await fixture.connect();
-    const responder = { respond: vi.fn(), reject: vi.fn() };
+    const rootResponder = { respond: vi.fn(), reject: vi.fn() };
+    const childResponder = { respond: vi.fn(), reject: vi.fn() };
 
-    fixture.deliver(userInputRequest(1), responder);
+    fixture.deliver(userInputRequest(1), rootResponder);
+    fixture.stateStore.dispatch({ type: "subagent-activity/tracked", threadId: "child", parentTurnId: "turn-active" });
+    fixture.stateStore.dispatch({ type: "subagent-activity/turn-started", threadId: "child", childTurnId: "child-turn" });
+    fixture.deliver(commandApprovalRequest(2, "child", "child-turn"), childResponder);
+    expect(fixture.stateStore.getState().requests.pendingUserInputs).toHaveLength(1);
+    expect(fixture.stateStore.getState().requests.approvals).toHaveLength(1);
+    fixture.invalidate();
     fixture.invalidate();
     fixture.resolveUserInput(1, { note: "Continue" });
+    fixture.resolveApproval(2, "accept");
 
-    expect(responder.respond).not.toHaveBeenCalled();
-    expect(responder.reject).toHaveBeenCalledWith(-32000, "Codex Panel disconnected before the request was answered.");
+    for (const responder of [rootResponder, childResponder]) {
+      expect(responder.respond).not.toHaveBeenCalled();
+      expect(responder.reject).toHaveBeenCalledOnce();
+      expect(responder.reject).toHaveBeenCalledWith(-32000, "Codex Panel disconnected before the request was answered.");
+    }
   });
 
   it("retains a responder when synchronous delivery throws", async () => {

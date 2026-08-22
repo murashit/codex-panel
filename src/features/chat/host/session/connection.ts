@@ -16,7 +16,6 @@ import type { ChatPanelEnvironment } from "../contracts";
 import type { ChatViewDeferredTasks } from "./deferred-work";
 
 type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
-type RejectRequestId = Parameters<AppServerClient["rejectServerRequest"]>[0];
 
 interface SessionConnectionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -47,73 +46,40 @@ export interface SessionConnection {
   refreshSharedThreads: () => Promise<void>;
 }
 
-interface DeferredDiagnosticsRefreshHost {
-  scheduleDiagnostics(callback: () => void): void;
-  isConnected(): boolean;
-  refreshServerDiagnostics(): Promise<void>;
-  addSystemMessage(text: string): void;
-}
-
-function scheduleDeferredDiagnosticsRefresh(host: DeferredDiagnosticsRefreshHost): void {
-  host.scheduleDiagnostics(() => {
-    if (!host.isConnected()) return;
-    void host.refreshServerDiagnostics().catch((error: unknown) => {
-      host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    });
-  });
-}
-
-interface ServerRequestResponderRegistry {
-  remember(requestId: RespondRequestId, responder: AppServerServerRequestResponder): void;
-  forget(requestId: RespondRequestId): void;
-  respond(requestId: RespondRequestId, result: unknown): boolean;
-  reject(requestId: RejectRequestId, code: number, message: string): boolean;
-  rejectAll(code: number, message: string): void;
-  clear(): void;
-}
-
-function createServerRequestResponderRegistry(): ServerRequestResponderRegistry {
+function createServerRequestResponderRegistry() {
   const responders = new Map<RespondRequestId, AppServerServerRequestResponder>();
+  const settle = (requestId: RespondRequestId, deliver: (responder: AppServerServerRequestResponder) => void): boolean => {
+    const responder = responders.get(requestId) ?? null;
+    if (!responder) return false;
+    try {
+      deliver(responder);
+      responders.delete(requestId);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   return {
-    remember: (requestId, responder) => {
+    remember: (requestId: RespondRequestId, responder: AppServerServerRequestResponder) => {
       responders.set(requestId, responder);
     },
-    forget: (requestId) => {
+    forget: (requestId: RespondRequestId) => {
       responders.delete(requestId);
     },
-    respond: (requestId, result) => {
-      const responder = responders.get(requestId) ?? null;
-      if (!responder) return false;
-      try {
+    respond: (requestId: RespondRequestId, result: unknown) =>
+      settle(requestId, (responder) => {
         responder.respond(result);
-        responders.delete(requestId);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    reject: (requestId, code, message) => {
-      const responder = responders.get(requestId) ?? null;
-      if (!responder) return false;
-      try {
+      }),
+    reject: (requestId: RespondRequestId, code: number, message: string) =>
+      settle(requestId, (responder) => {
         responder.reject(code, message);
-        responders.delete(requestId);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    rejectAll: (code, message) => {
-      for (const responder of responders.values()) {
-        try {
+      }),
+    rejectAll: (code: number, message: string) => {
+      for (const requestId of responders.keys()) {
+        settle(requestId, (responder) => {
           responder.reject(code, message);
-        } catch {
-          // The shared transport may already have settled this request.
-        }
+        });
       }
-      responders.clear();
-    },
-    clear: () => {
       responders.clear();
     },
   };
@@ -159,6 +125,11 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     },
     localItemIds,
   );
+  const invalidateConnectionScope = () => {
+    inboundHandler.clearServerRequests();
+    serverRequestResponders.rejectAll(-32000, "Codex Panel disconnected before the request was answered.");
+    diagnosticsCoordinator.invalidate();
+  };
   const connectionExitHost = {
     stateStore,
     invalidateThreadWork: () => {
@@ -188,9 +159,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
             inboundHandler.handleAppServerLog(message);
           },
           onExit: () => {
-            inboundHandler.clearServerRequests();
-            serverRequestResponders.clear();
-            diagnosticsCoordinator.invalidate();
+            invalidateConnectionScope();
             connectionCoordinator.handleExit();
           },
         }),
@@ -200,15 +169,11 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     refreshServerDiagnostics: () => diagnosticsCoordinator.refreshServerDiagnostics(),
     refreshSharedThreads,
     scheduleDeferredDiagnostics: () => {
-      scheduleDeferredDiagnosticsRefresh({
-        scheduleDiagnostics: (callback) => {
-          host.deferredTasks.scheduleDiagnostics(callback);
-        },
-        isConnected: () => connection.isConnected(),
-        refreshServerDiagnostics: () => diagnosticsCoordinator.refreshServerDiagnostics(),
-        addSystemMessage: (text) => {
-          status.addSystemMessage(text);
-        },
+      host.deferredTasks.scheduleDiagnostics(() => {
+        if (!connection.isConnected()) return;
+        void diagnosticsCoordinator.refreshServerDiagnostics().catch((error: unknown) => {
+          status.addSystemMessage(error instanceof Error ? error.message : String(error));
+        });
       });
     },
     clearDeferredDiagnostics: () => {
@@ -229,11 +194,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   return {
     coordinator: connectionCoordinator,
     inboundHandler,
-    invalidateConnectionScope: () => {
-      inboundHandler.clearServerRequests();
-      serverRequestResponders.rejectAll(-32000, "Codex Panel disconnected before the request was answered.");
-      diagnosticsCoordinator.invalidate();
-    },
+    invalidateConnectionScope,
     refreshSharedThreads,
   };
 }

@@ -1,28 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Thread } from "../../../../../src/domain/threads/model";
 import {
   type ChatReconnectCommandHost,
   createReconnectPanelCommand,
 } from "../../../../../src/features/chat/application/connection/reconnect-command";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import type { ActiveThreadResumedAction } from "../../../../../src/features/chat/application/state/transition-actions";
 
 function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
-  stateStore.dispatch({
-    type: "active-thread/resumed",
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: { id: "thread" } as never,
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
-  });
+  resumeActiveThread(stateStore);
   stateStore.dispatch({
     type: "request/user-input-queued",
     input: {
@@ -42,20 +31,7 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
     ensureConnected: vi.fn().mockResolvedValue(undefined),
     isConnected: vi.fn(() => true),
     resumeThread: vi.fn(async (threadId: string) => {
-      stateStore.dispatch({
-        type: "active-thread/resumed",
-        approvalPolicyKnown: true,
-        sandboxPolicyKnown: true,
-        permissionProfileKnown: true,
-        approvalPolicy: null,
-        sandboxPolicy: null,
-        activePermissionProfile: null,
-        thread: { id: threadId } as never,
-        model: null,
-        reasoningEffort: null,
-        serviceTier: null,
-        approvalsReviewer: null,
-      });
+      resumeActiveThread(stateStore, { thread: threadFixture({ id: threadId }) });
       return {
         hydrate: vi.fn().mockResolvedValue(true),
       };
@@ -118,21 +94,7 @@ describe("createReconnectPanelCommand", () => {
     },
   ] as const)("resumes the same $label thread after an unexpected exit", async ({ thread }) => {
     const { host, stateStore, reconnect } = createHost();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread,
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-      lifetime: { kind: "persistent" },
-    });
+    resumeActiveThread(stateStore, { thread, lifetime: { kind: "persistent" } });
     stateStore.dispatch({ type: "connection/scoped-cleared" });
     expect(stateStore.getState().panelThread).toEqual({
       kind: "awaiting-resume",
@@ -150,21 +112,7 @@ describe("createReconnectPanelCommand", () => {
   it("does not resume an ephemeral thread after an unexpected exit", async () => {
     const { host, stateStore, reconnect } = createHost();
     const beforeTargetReset = vi.fn();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: { id: "side-thread", preview: "Side chat", name: null } as never,
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-      lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
-    });
+    resumeSideThread(stateStore);
 
     await reconnect({ beforeTargetReset });
 
@@ -229,3 +177,45 @@ describe("createReconnectPanelCommand", () => {
     expect(host.resumeThread).not.toHaveBeenCalled();
   });
 });
+
+function resumeActiveThread(
+  stateStore: ReturnType<typeof createChatStateStore>,
+  options: { thread?: Thread; lifetime?: ActiveThreadResumedAction["lifetime"] } = {},
+): void {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: options.thread ?? threadFixture(),
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+    ...(options.lifetime ? { lifetime: options.lifetime } : {}),
+  });
+}
+
+function resumeSideThread(stateStore: ReturnType<typeof createChatStateStore>): void {
+  resumeActiveThread(stateStore, {
+    thread: threadFixture({ id: "side-thread", preview: "Side chat" }),
+    lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+  });
+}
+
+function threadFixture(overrides: Partial<Thread> = {}): Thread {
+  return {
+    id: "thread",
+    historyMode: "unknown",
+    preview: "",
+    name: null,
+    archived: false,
+    createdAt: 1,
+    updatedAt: 1,
+    provenance: { kind: "interactive" },
+    ...overrides,
+  };
+}

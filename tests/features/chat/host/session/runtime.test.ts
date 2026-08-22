@@ -161,10 +161,11 @@ describe("chat panel session runtime", () => {
     const unsubscribeSharedState = vi.spyOn(runtime.observers.threadCatalog, "unsubscribe");
     const disposeComposer = vi.spyOn(runtime.composer.controller, "dispose");
     const disposeScrollBinding = vi.spyOn(threadStreamScrollBinding, "dispose");
-    const disposeEphemeralThread = vi.spyOn(runtime.thread.ephemeral, "dispose");
+    const ephemeralCleanup = deferred<void>();
+    const disposeEphemeralThread = vi.spyOn(runtime.thread.ephemeral, "dispose").mockReturnValue(ephemeralCleanup.promise);
     const unmount = vi.fn();
 
-    await runtime.dispose(unmount);
+    const disposal = runtime.dispose(unmount);
 
     expect(disconnect).toHaveBeenCalledOnce();
     expect(invalidateConnection).toHaveBeenCalledOnce();
@@ -175,6 +176,11 @@ describe("chat panel session runtime", () => {
     expect(disposeScrollBinding).toHaveBeenCalledOnce();
     expect(unmount).toHaveBeenCalledOnce();
     expect(disposeEphemeralThread).toHaveBeenCalledOnce();
+    expect(disconnect.mock.invocationCallOrder[0]).toBeLessThan(disposeEphemeralThread.mock.invocationCallOrder[0] ?? 0);
+
+    ephemeralCleanup.resolve(undefined);
+    await disposal;
+
     expect(unsubscribeThreads).toHaveBeenCalled();
     expect(unsubscribeMetadata).toHaveBeenCalled();
     expect(runtime.composer.controller.hasFocus()).toBe(false);

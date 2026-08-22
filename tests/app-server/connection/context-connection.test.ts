@@ -119,13 +119,21 @@ describe("AppServerContextConnection", () => {
     expect(responder.reject).not.toHaveBeenCalled();
   });
 
-  it("rejects a server request once when no panel owns its scope", async () => {
+  it.each([
+    "item/commandExecution/requestApproval",
+    "item/fileChange/requestApproval",
+    "item/permissions/requestApproval",
+    "item/tool/requestUserInput",
+    "mcpServer/elicitation/request",
+    "currentTime/read",
+    "future/request",
+  ] as const)("rejects unclaimed request %s once", async (method) => {
     const manager = managerFixture();
     const connection = contextConnection(manager);
     await connection.createLease().connect(leaseHandlers({ onServerRequest: vi.fn(() => false) }));
     const responder = responderFixture();
 
-    manager.handlers?.onServerRequest(serverRequest(), responder);
+    manager.handlers?.onServerRequest(serverRequestWithMethod(method), responder);
 
     expect(responder.reject).toHaveBeenCalledOnce();
     expect(responder.reject).toHaveBeenCalledWith(-32601, expect.stringContaining("No Codex Panel view"));
@@ -207,4 +215,8 @@ function serverRequest(): ServerRequest {
     id: 1,
     params: { threadId: "thread" },
   } satisfies Extract<ServerRequest, { method: "currentTime/read" }>;
+}
+
+function serverRequestWithMethod(method: string): ServerRequest {
+  return { method, id: 1, params: {} } as unknown as ServerRequest;
 }
