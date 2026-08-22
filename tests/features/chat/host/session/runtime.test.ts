@@ -129,6 +129,48 @@ describe("chat panel session runtime", () => {
     expect(stateStore.getState().connection.statusText).toBe("Reconnecting...");
   });
 
+  it("keeps a Side Chat /reconnect submission adopted across the runtime target reset", async () => {
+    const { runtime, stateStore } = sessionRuntimeFixture();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: threadFixture({ id: "side-thread", preview: "Side chat" }),
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+      lifetime: { kind: "ephemeral", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
+    });
+    const reconnecting = deferred<void>();
+    const ensureConnected = vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockReturnValue(reconnecting.promise);
+    runtime.composer.controller.setDraft("/reconnect");
+
+    const reconnectSubmission = runtime.turn.submissionCommands.composerSubmit.submit();
+    await waitForAsyncWork(() => {
+      expect(ensureConnected).toHaveBeenCalledOnce();
+    });
+
+    expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
+    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(true);
+
+    runtime.composer.controller.setDraft("next message");
+    await runtime.turn.submissionCommands.composerSubmit.submit();
+
+    expect(runtime.composer.controller.draft).toBe("next message");
+    expect(ensureConnected).toHaveBeenCalledOnce();
+
+    reconnecting.resolve(undefined);
+    await reconnectSubmission;
+
+    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
+    expect(runtime.composer.controller.draft).toBe("next message");
+  });
+
   it("disposes scheduled, subscribed, composer, scroll, and connection resources", async () => {
     vi.useFakeTimers();
     const unsubscribeThreads = vi.fn();

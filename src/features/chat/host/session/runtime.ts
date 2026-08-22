@@ -2,7 +2,7 @@ import { Notice } from "obsidian";
 
 import type { Thread } from "../../../../domain/threads/model";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../app-server/session-gateway";
-import { createReconnectPanelCommand } from "../../application/connection/reconnect-command";
+import { createReconnectPanelCommand, type ReconnectPanelOptions } from "../../application/connection/reconnect-command";
 import { createLocalIdSource, type LocalIdSource } from "../../application/local-id-source";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { createChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
@@ -227,8 +227,8 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
   };
   const reconnectPanel = createReconnectPanelCommand(reconnectHost);
-  const reconnect = async () => {
-    await reconnectPanel();
+  const reconnect = async (options?: ReconnectPanelOptions) => {
+    await reconnectPanel(options);
   };
   const turn = createSessionTurn(host, {
     localItemIds,
