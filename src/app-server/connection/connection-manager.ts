@@ -46,10 +46,6 @@ export class ConnectionManager {
     return this.state.kind === "connected" && this.state.client.isConnected() ? this.state.client : null;
   }
 
-  isConnected(): boolean {
-    return Boolean(this.currentClient());
-  }
-
   async connect(handlers: ConnectionManagerHandlers): Promise<ServerInitialization> {
     const currentClient = this.currentClient();
     if (currentClient) {

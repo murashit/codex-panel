@@ -30,7 +30,6 @@ interface ActiveLease {
 interface ContextConnectionManager {
   connect(handlers: ConnectionManagerHandlers): Promise<ServerInitialization>;
   currentClient(): AppServerClient | null;
-  isConnected(): boolean;
   disconnect(): void;
 }
 
@@ -52,32 +51,31 @@ export class AppServerContextConnection implements AppServerClientAccess {
   createLease(): AppServerContextConnectionLease {
     this.assertActive();
     let active: ActiveLease | null = null;
-    let generation = 0;
+    const isAttached = (): boolean => {
+      return active !== null && this.leases.has(active);
+    };
     return {
       connect: async (handlers) => {
         this.assertActive();
-        generation += 1;
-        const connectionGeneration = generation;
         if (active) this.leases.delete(active);
         const nextActive = { handlers };
         active = nextActive;
         this.leases.add(nextActive);
         try {
           const initialization = await this.connect();
-          if (connectionGeneration !== generation) throw new StaleConnectionError();
+          if (active !== nextActive || !this.leases.has(nextActive)) throw new StaleConnectionError();
           return initialization;
         } catch (error) {
-          if (connectionGeneration === generation) {
+          if (active === nextActive) {
             this.leases.delete(nextActive);
             active = null;
           }
           throw error;
         }
       },
-      currentClient: () => (active ? this.manager.currentClient() : null),
-      isConnected: () => Boolean(active && this.manager.isConnected()),
+      currentClient: () => (isAttached() ? this.manager.currentClient() : null),
+      isConnected: () => isAttached() && this.manager.currentClient() !== null,
       disconnect: () => {
-        generation += 1;
         if (active) this.leases.delete(active);
         active = null;
       },
@@ -121,7 +119,9 @@ export class AppServerContextConnection implements AppServerClientAccess {
         for (const lease of this.activeLeases()) lease.handlers.onLog(message);
       },
       onExit: () => {
-        for (const lease of this.activeLeases()) lease.handlers.onExit();
+        const exitedLeases = this.activeLeases();
+        this.leases.clear();
+        for (const lease of exitedLeases) lease.handlers.onExit();
       },
     };
   }

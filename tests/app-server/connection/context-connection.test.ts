@@ -119,6 +119,81 @@ describe("AppServerContextConnection", () => {
     expect(responder.reject).not.toHaveBeenCalled();
   });
 
+  it("expires every lease before invoking the first process-exit callback", async () => {
+    const manager = managerFixture();
+    const connection = contextConnection(manager);
+    const first = connection.createLease();
+    const second = connection.createLease();
+    const firstHandlers = leaseHandlers({
+      onExit: vi.fn(() => {
+        expect(first.currentClient()).toBeNull();
+        expect(first.isConnected()).toBe(false);
+        expect(second.currentClient()).toBeNull();
+        expect(second.isConnected()).toBe(false);
+      }),
+    });
+    const secondHandlers = leaseHandlers();
+    await first.connect(firstHandlers);
+    await second.connect(secondHandlers);
+
+    manager.handlers?.onExit();
+
+    expect(firstHandlers.onExit).toHaveBeenCalledOnce();
+    expect(secondHandlers.onExit).toHaveBeenCalledOnce();
+  });
+
+  it("does not reactivate exited panel leases when a context operation reconnects the process", async () => {
+    const manager = managerFixture();
+    const connection = contextConnection(manager);
+    const firstHandlers = leaseHandlers();
+    const secondHandlers = leaseHandlers();
+    const first = connection.createLease();
+    const second = connection.createLease();
+    await first.connect(firstHandlers);
+    await second.connect(secondHandlers);
+    manager.exit();
+
+    await connection.withClient(async (client) => client);
+    const responder = responderFixture();
+    manager.handlers?.onNotification(threadNameNotification());
+    manager.handlers?.onServerRequest(serverRequest(), responder);
+
+    expect(first.currentClient()).toBeNull();
+    expect(second.currentClient()).toBeNull();
+    expect(firstHandlers.onNotification).not.toHaveBeenCalled();
+    expect(secondHandlers.onNotification).not.toHaveBeenCalled();
+    expect(firstHandlers.onServerRequest).not.toHaveBeenCalled();
+    expect(secondHandlers.onServerRequest).not.toHaveBeenCalled();
+    expect(responder.reject).toHaveBeenCalledOnce();
+  });
+
+  it("reattaches only the panel lease that explicitly reconnects after process exit", async () => {
+    const manager = managerFixture();
+    const connection = contextConnection(manager);
+    const firstHandlers = leaseHandlers();
+    const secondHandlers = leaseHandlers();
+    const first = connection.createLease();
+    const second = connection.createLease();
+    await first.connect(firstHandlers);
+    await second.connect(secondHandlers);
+    manager.exit();
+    const reconnectedHandlers = leaseHandlers({ onServerRequest: vi.fn(() => true) });
+
+    await first.connect(reconnectedHandlers);
+    const responder = responderFixture();
+    manager.handlers?.onNotification(threadNameNotification());
+    manager.handlers?.onServerRequest(serverRequest(), responder);
+
+    expect(first.currentClient()).toBe(manager.client);
+    expect(second.currentClient()).toBeNull();
+    expect(reconnectedHandlers.onNotification).toHaveBeenCalledOnce();
+    expect(reconnectedHandlers.onServerRequest).toHaveBeenCalledOnce();
+    expect(firstHandlers.onNotification).not.toHaveBeenCalled();
+    expect(secondHandlers.onNotification).not.toHaveBeenCalled();
+    expect(secondHandlers.onServerRequest).not.toHaveBeenCalled();
+    expect(responder.reject).not.toHaveBeenCalled();
+  });
+
   it.each([
     "item/commandExecution/requestApproval",
     "item/fileChange/requestApproval",
@@ -183,7 +258,10 @@ function managerFixture() {
       return INITIALIZATION;
     }),
     currentClient: vi.fn(() => (connected ? client : null)),
-    isConnected: vi.fn(() => connected),
+    exit: () => {
+      connected = false;
+      handlers?.onExit();
+    },
     disconnect: vi.fn(() => {
       connected = false;
     }),
@@ -219,4 +297,8 @@ function serverRequest(): ServerRequest {
 
 function serverRequestWithMethod(method: string): ServerRequest {
   return { method, id: 1, params: {} } as unknown as ServerRequest;
+}
+
+function threadNameNotification(): Extract<ServerNotification, { method: "thread/name/updated" }> {
+  return { method: "thread/name/updated", params: { threadId: "thread", threadName: "Renamed" } };
 }
