@@ -21,6 +21,7 @@ export interface SubmissionCommandsContext {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
   connectionAvailable: () => boolean;
+  ensureConnected: () => Promise<boolean>;
   sharedResources: ChatRuntimeSharedResources;
   listedThreads: () => readonly Thread[];
   turnPort: ChatTurnPort;
@@ -90,12 +91,25 @@ export interface SubmissionCommands {
 }
 
 export function createSubmissionCommands(context: SubmissionCommandsContext, refs: SubmissionCommandsRefs): SubmissionCommands {
-  const { stateStore, localItemIds, connectionAvailable, turnPort, referThread, readWebUrl, status, runtime, thread, composer, scroll } =
-    context;
+  const {
+    stateStore,
+    localItemIds,
+    connectionAvailable,
+    ensureConnected,
+    turnPort,
+    referThread,
+    readWebUrl,
+    status,
+    runtime,
+    thread,
+    composer,
+    scroll,
+  } = context;
   const turnSubmissionCommand = createTurnSubmissionCommand({
     stateStore,
     localItemIds,
     turnPort,
+    ensureConnected,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     startThread: (preview, options) => refs.threadStartCommand.startThread(preview, options),
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
@@ -131,7 +145,7 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
   };
   const planImplementationHost: PlanImplementationHost = {
     stateStore,
-    ensureConnected: () => turnPort.ensureConnected(),
+    ensureConnected,
     sendTurnText: async (text) => {
       await turnSubmissionCommand.sendTurnText({ text });
     },
@@ -160,7 +174,7 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
     },
     turnSubmissionCommand,
     connection: {
-      ensureConnected: () => turnPort.ensureConnected(),
+      ensureConnected,
     },
     turnPort,
     status: {

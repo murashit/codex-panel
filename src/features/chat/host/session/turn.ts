@@ -38,6 +38,7 @@ export interface SessionTurn {
 interface SessionTurnInput {
   localItemIds: LocalIdSource;
   appServer: ChatAppServerGateway;
+  ensureConnected: () => Promise<boolean>;
   status: SessionTurnStatus;
   inboundHandler: ChatInboundHandler;
   threadLifecycle: SessionThreadLifecycle;
@@ -59,6 +60,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
   const {
     localItemIds,
     appServer,
+    ensureConnected,
     status,
     inboundHandler,
     threadLifecycle,
@@ -93,6 +95,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
       stateStore: host.stateStore,
       localItemIds,
       connectionAvailable: () => appServer.connectionAvailable(),
+      ensureConnected,
       sharedResources,
       listedThreads: () => host.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
       turnPort: appServer.turn,

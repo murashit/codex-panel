@@ -2,7 +2,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { AppServerClient } from "../../../../../src/app-server/connection/client";
+import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
+import type { ServerInitialization } from "../../../../../src/domain/server/initialization";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
@@ -69,6 +72,67 @@ describe("chat panel session runtime", () => {
     await expect(runtime.commands.refreshSharedThreads()).rejects.toBe(error);
 
     expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("does not connect for a submission after the panel starts closing", async () => {
+    const request = vi.fn();
+    const client = { request } as unknown as AppServerClient;
+    const contextConnection = contextConnectionHarness({ currentClient: () => client });
+    const { runtime } = sessionRuntimeFixture({
+      getClosing: () => true,
+      environment: { plugin: { appServerConnection: contextConnection.connection } },
+    });
+    runtime.composer.controller.setDraft("hello");
+
+    await runtime.turn.submissionCommands.composerSubmit.submit();
+
+    expect(contextConnection.connect).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(runtime.composer.controller.draft).toBe("hello");
+    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
+  });
+
+  it("does not submit when the panel starts closing during connection", async () => {
+    let closing = false;
+    let currentClient: AppServerClient | null = null;
+    const connecting = deferred<ServerInitialization>();
+    const request = vi.fn();
+    const client = { request } as unknown as AppServerClient;
+    const contextConnection = contextConnectionHarness({
+      initialization: connecting.promise,
+      currentClient: () => currentClient,
+    });
+    const { runtime } = sessionRuntimeFixture({
+      getClosing: () => closing,
+      environment: { plugin: { appServerConnection: contextConnection.connection } },
+    });
+    runtime.composer.controller.setDraft("hello");
+
+    const submission = runtime.turn.submissionCommands.composerSubmit.submit();
+    await vi.waitFor(() => expect(contextConnection.connect).toHaveBeenCalledOnce());
+    closing = true;
+    currentClient = client;
+    connecting.resolve(serverInitializationFixture());
+    await submission;
+
+    expect(request).not.toHaveBeenCalled();
+    expect(runtime.composer.controller.draft).toBe("hello");
+    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
+  });
+
+  it("retains a submission when initialization settles without a current client", async () => {
+    const contextConnection = contextConnectionHarness({ currentClient: () => null });
+    const { runtime, stateStore } = sessionRuntimeFixture({
+      environment: { plugin: { appServerConnection: contextConnection.connection } },
+    });
+    runtime.composer.controller.setDraft("hello");
+
+    await runtime.turn.submissionCommands.composerSubmit.submit();
+
+    expect(contextConnection.connect).toHaveBeenCalledOnce();
+    expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
+    expect(runtime.composer.controller.draft).toBe("hello");
+    expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
   });
 
   it("refreshes persisted view identity after starting a new thread", async () => {
@@ -234,7 +298,7 @@ describe("chat panel session runtime", () => {
     expect(warmup).not.toHaveBeenCalled();
   });
 
-  function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment } = {}): {
+  function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment; getClosing?: () => boolean } = {}): {
     runtime: ReturnType<typeof createChatPanelSessionRuntime>;
     stateStore: ChatStateStore;
     resumeWork: ChatResumeWorkTracker;
@@ -252,7 +316,7 @@ describe("chat panel session runtime", () => {
       deferredTasks,
       resumeWork,
       threadStreamScrollBinding,
-      getClosing: () => false,
+      getClosing: options.getClosing ?? (() => false),
       activatePersistentThread: vi.fn().mockResolvedValue(undefined),
     });
     return { runtime, stateStore, resumeWork, deferredTasks, threadStreamScrollBinding };
@@ -261,6 +325,7 @@ describe("chat panel session runtime", () => {
   interface PartialChatPanelEnvironment {
     obsidian?: Partial<ChatPanelEnvironment["obsidian"]>;
     plugin?: {
+      appServerConnection?: ChatPanelEnvironment["plugin"]["appServerConnection"];
       workspace?: Partial<ChatPanelEnvironment["plugin"]["workspace"]>;
       threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
       threadFacts?: Partial<ChatPanelEnvironment["plugin"]["threadFacts"]>;
@@ -314,7 +379,7 @@ describe("chat panel session runtime", () => {
         ...overrides.obsidian,
       },
       plugin: {
-        appServerConnection: contextConnectionFixture(),
+        appServerConnection: overrides.plugin?.appServerConnection ?? contextConnectionFixture(),
         appServerContext: overrides.plugin?.appServerContext ?? { codexPath: "codex", vaultPath: "/vault" },
         threadTitlePort: {
           persistedContext: vi.fn().mockResolvedValue(null),
@@ -357,16 +422,39 @@ describe("chat panel session runtime", () => {
   function contextConnectionFixture(): CodexChatHost["appServerConnection"] {
     return {
       createLease: () => ({
-        connect: vi.fn().mockResolvedValue({
-          codexHome: "/tmp/codex",
-          platformFamily: "unix",
-          platformOs: "macos",
-          userAgent: "codex-test",
-        }),
+        connect: vi.fn().mockResolvedValue(serverInitializationFixture()),
         currentClient: () => null,
         isConnected: () => false,
         disconnect: vi.fn(),
       }),
+    };
+  }
+
+  function contextConnectionHarness(options: {
+    currentClient: () => AppServerClient | null;
+    initialization?: Promise<ServerInitialization>;
+  }) {
+    const connect = vi.fn(() => options.initialization ?? Promise.resolve(serverInitializationFixture()));
+    const connection = new AppServerContextConnection(
+      "codex",
+      "/vault",
+      {} as never,
+      { onNotification: () => false },
+      {
+        connect,
+        currentClient: options.currentClient,
+        disconnect: vi.fn(),
+      },
+    );
+    return { connection, connect };
+  }
+
+  function serverInitializationFixture(): ServerInitialization {
+    return {
+      codexHome: "/tmp/codex",
+      platformFamily: "unix",
+      platformOs: "macos",
+      userAgent: "codex-test",
     };
   }
 

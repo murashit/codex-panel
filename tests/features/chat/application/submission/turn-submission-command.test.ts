@@ -41,8 +41,8 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const steerTurn = vi.fn().mockResolvedValue(completed(undefined));
   const host: TurnSubmissionCommandHost & { setDraft: ReturnType<typeof vi.fn> } = {
     stateStore,
+    ensureConnected: vi.fn().mockResolvedValue(true),
     turnPort: {
-      ensureConnected: vi.fn().mockResolvedValue(true),
       startTurn,
       steerTurn,
       interruptTurn: vi.fn().mockResolvedValue(true),
@@ -158,8 +158,8 @@ describe("TurnSubmissionCommand", () => {
     const connection = deferred<boolean>();
     const ensureConnected = vi.fn(() => connection.promise);
     const { host, startTurn, stateStore } = createHost({
+      ensureConnected,
       turnPort: {
-        ensureConnected,
         startTurn: vi.fn().mockResolvedValue(completed({ turnId: "turn" })),
         steerTurn: vi.fn().mockResolvedValue(completed(undefined)),
         interruptTurn: vi.fn().mockResolvedValue(true),

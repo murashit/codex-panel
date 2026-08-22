@@ -34,34 +34,21 @@ interface CurrentChatAppServerClientHost {
   currentClient(): AppServerClient | null;
 }
 
-interface ConnectedChatAppServerClientHost extends CurrentChatAppServerClientHost {
-  connectedClient(): Promise<AppServerClient | null>;
-}
-
-interface ChatCurrentAppServerAdapterHost extends CurrentChatAppServerClientHost {
+interface ChatAppServerAdapterHost extends CurrentChatAppServerClientHost {
   vaultPath: string;
 }
-
-interface ChatAppServerAdapterHost extends ConnectedChatAppServerClientHost, ChatCurrentAppServerAdapterHost {}
 
 interface AppServerThreadTurnsPage {
   readonly data: ThreadTurnsPage["turns"];
   readonly nextCursor: string | null;
 }
 
-export function createChatCurrentSessionAdapters(host: ChatCurrentAppServerAdapterHost) {
+export function createChatSessionAdapters(host: ChatAppServerAdapterHost) {
   return {
     runtimeSettings: createChatRuntimeSettingsAdapter(host),
     threadStart: createChatThreadStartAdapter(host),
     threadHistory: createChatThreadHistoryAdapter(host),
     threadGoalRead: createChatThreadGoalReadAdapter(host),
-  } as const;
-}
-
-export type ChatCurrentSessionAdapters = ReturnType<typeof createChatCurrentSessionAdapters>;
-
-export function createChatConnectedSessionAdapters(host: ChatAppServerAdapterHost) {
-  return {
     turn: createChatTurnAdapter(host),
     threadResume: createChatThreadResumeAdapter(host),
     threadCommands: createChatThreadCommandAdapter(host),
@@ -71,9 +58,9 @@ export function createChatConnectedSessionAdapters(host: ChatAppServerAdapterHos
   } as const;
 }
 
-export type ChatConnectedSessionAdapters = ReturnType<typeof createChatConnectedSessionAdapters>;
+export type ChatSessionAdapters = ReturnType<typeof createChatSessionAdapters>;
 
-function createChatThreadStartAdapter(host: ChatCurrentAppServerAdapterHost): ThreadStartEffects {
+function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadStartEffects {
   return {
     startThread: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
@@ -89,7 +76,6 @@ function createChatThreadStartAdapter(host: ChatCurrentAppServerAdapterHost): Th
 
 function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
   return {
-    ensureConnected: async () => (await host.connectedClient()) !== null,
     startTurn: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
         const response = await startTurn(client, {

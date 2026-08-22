@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { Thread } from "../../../../domain/threads/model";
-import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../app-server/session-gateway";
+import { createChatAppServerGateway } from "../../app-server/session-gateway";
 import { createReconnectPanelCommand, type ReconnectPanelOptions } from "../../application/connection/reconnect-command";
 import { createLocalIdSource, type LocalIdSource } from "../../application/local-id-source";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
@@ -58,7 +58,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const resourceContext = environment.plugin.appServerContext;
   const connection = environment.plugin.appServerConnection.createLease();
   const currentClient = () => connection.currentClient();
-  const currentAppServer = createChatCurrentAppServerGateway({
+  const appServer = createChatAppServerGateway({
     vaultPath: resourceContext.vaultPath,
     currentClient,
   });
@@ -72,7 +72,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   };
 
   const threadFoundation = createSessionThreadFoundation(host, {
-    appServer: currentAppServer,
+    appServer,
     localItemIds,
     status,
   });
@@ -90,7 +90,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     {
       connection,
-      diagnosticsPort: currentAppServer.serverDiagnostics,
+      diagnosticsPort: appServer.serverDiagnostics,
       localItemIds,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
       status,
@@ -98,16 +98,12 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   );
   const { coordinator: connectionCoordinator, inboundHandler } = sessionConnection;
   const ensureConnected = () => connectionCoordinator.ensureConnected();
-  const appServer = createChatAppServerGateway(currentAppServer, {
-    vaultPath: resourceContext.vaultPath,
-    currentClient,
-    connectedClient: async () => {
-      if (host.getClosing()) return null;
-      await connectionCoordinator.ensureConnected();
-      if (host.getClosing()) return null;
-      return currentClient();
-    },
-  });
+  const ensureSubmissionConnected = async (): Promise<boolean> => {
+    if (host.getClosing()) return false;
+    await connectionCoordinator.ensureConnected();
+    if (host.getClosing()) return false;
+    return currentClient() !== null;
+  };
   const runtimeSettings = createChatRuntimeSettingsCommands(
     {
       stateStore,
@@ -233,6 +229,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const turn = createSessionTurn(host, {
     localItemIds,
     appServer,
+    ensureConnected: ensureSubmissionConnected,
     status,
     inboundHandler,
     threadLifecycle: threadFeatures,

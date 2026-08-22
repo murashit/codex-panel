@@ -128,8 +128,9 @@ function sessionTurnFixture(
       appServer: {
         connectionAvailable: vi.fn(() => true),
         threadReferences: vi.fn(() => referThread),
-        turn: { ensureConnected: vi.fn().mockResolvedValue(true) },
+        turn: {},
       },
+      ensureConnected: vi.fn().mockResolvedValue(true),
       status,
       inboundHandler: {},
       threadLifecycle: {

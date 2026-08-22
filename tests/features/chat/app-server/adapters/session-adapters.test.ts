@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import { AppServerRpcError } from "../../../../../src/app-server/connection/json-rpc-client";
-import { createChatConnectedSessionAdapters } from "../../../../../src/features/chat/app-server/adapters/session-adapters";
+import { createChatSessionAdapters } from "../../../../../src/features/chat/app-server/adapters/session-adapters";
 
 describe("chat session adapters", () => {
   it("classifies an app-server steer error as a definitive rejection", async () => {
@@ -60,10 +60,9 @@ describe("chat session adapters", () => {
       }),
     } as unknown as AppServerClient;
     currentClient = client;
-    const adapters = createChatConnectedSessionAdapters({
+    const adapters = createChatSessionAdapters({
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      connectedClient: async () => currentClient,
     });
 
     await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "failed", error });
@@ -78,10 +77,9 @@ function adaptersWithSteerError(error: Error) {
 }
 
 function adaptersWithClient(client: AppServerClient) {
-  return createChatConnectedSessionAdapters({
+  return createChatSessionAdapters({
     vaultPath: "/vault",
     currentClient: () => client,
-    connectedClient: async () => client,
   });
 }
 

@@ -78,8 +78,8 @@ describe("createSubmissionCommands", () => {
         listedThreads: () => [],
         localItemIds: createLocalIdSource(),
         connectionAvailable: () => true,
+        ensureConnected: vi.fn().mockResolvedValue(true),
         turnPort: {
-          ensureConnected: vi.fn().mockResolvedValue(true),
           startTurn,
           steerTurn: vi.fn().mockResolvedValue({ kind: "completed" as const, value: undefined }),
           interruptTurn: vi.fn().mockResolvedValue(true),

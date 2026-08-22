@@ -5,40 +5,18 @@ import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
 import type { CodexInput } from "../../../../src/domain/turns/input";
-import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
+import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
 import { deferred } from "../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 describe("chat app-server adapters", () => {
-  it("adds connection-requiring capabilities only after the connected client host exists", async () => {
-    const client = { request: vi.fn() } as unknown as AppServerClient;
-    const currentGateway = createChatCurrentAppServerGateway({
-      vaultPath: "/vault",
-      currentClient: () => client,
-    });
-    const connectedClient = vi.fn().mockResolvedValue(client);
-
-    expect(currentGateway.connectionAvailable()).toBe(true);
-    expect(currentGateway).not.toHaveProperty("turn");
-
-    const gateway = createChatAppServerGateway(currentGateway, {
-      vaultPath: "/vault",
-      currentClient: () => client,
-      connectedClient,
-    });
-
-    await expect(gateway.turn.ensureConnected()).resolves.toBe(true);
-    expect(connectedClient).toHaveBeenCalledOnce();
-  });
-
   it("starts threads with the session vault path and projects activation snapshots", async () => {
     const request = vi.fn().mockResolvedValue(threadStartResponse("thread"));
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadStart;
 
     const snapshot = await adapter.startThread({ serviceTier: "priority", permissions: ":workspace" });
@@ -61,7 +39,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).turn;
 
     await expect(
@@ -85,7 +62,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).turn;
     const text = "Compare [[Alpha]] with the active file.";
     const prepared = preparedUserInputWithWikiLinkReferencesSkillsAndContext(
@@ -128,7 +104,6 @@ describe("chat app-server adapters", () => {
     let currentClient = firstClient;
     const adapter = createTestGateway({
       currentClient: () => currentClient,
-      connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).turn;
 
     const starting = adapter.startTurn({ threadId: "thread", input: textInput("hello"), clientUserMessageId: "local-user" });
@@ -143,7 +118,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).turn;
 
     await adapter.steerTurn({
@@ -171,7 +145,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
     await expect(adapter.compactThread("thread")).resolves.toEqual({ kind: "completed", value: undefined });
@@ -184,7 +157,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
     const outcome = await adapter.forkThread("source");
@@ -201,7 +173,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
     await adapter.forkThread("source", { position: { kind: "through-turn", turnId: "turn-2" } });
@@ -219,7 +190,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
     const outcome = await adapter.forkThread("source", {
@@ -245,7 +215,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
     await adapter.forkThread("source", {
@@ -281,7 +250,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadCommands;
 
     await adapter.forkThread("source", {
@@ -307,7 +275,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadHistory;
 
     const page = await adapter.readHistoryPage("thread", "cursor", 20);
@@ -343,7 +310,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadResume;
 
     const snapshot = await adapter.resumeThread("thread");
@@ -371,7 +337,6 @@ describe("chat app-server adapters", () => {
   it("returns no resume snapshot when no connected client is available", async () => {
     const adapter = createTestGateway({
       currentClient: () => null,
-      connectedClient: vi.fn().mockResolvedValue(null),
     }).threadResume;
 
     await expect(adapter.resumeThread("thread")).resolves.toEqual({ kind: "not-started" });
@@ -405,7 +370,6 @@ describe("chat app-server adapters", () => {
     let currentClient = firstClient;
     const adapter = createTestGateway({
       currentClient: () => currentClient,
-      connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).threadEphemeral;
 
     const forking = adapter.forkEphemeralThread("source");
@@ -423,7 +387,6 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadSubscription;
 
     await expect(adapter.unsubscribeThread("child")).resolves.toBe(true);
@@ -436,15 +399,12 @@ describe("chat app-server adapters", () => {
     const client = { request: vi.fn().mockResolvedValue({ goal: null }) } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-      connectedClient: vi.fn().mockResolvedValue(client),
     }).threadGoalRead;
     const unavailable = createTestGateway({
       currentClient: () => null,
-      connectedClient: vi.fn().mockResolvedValue(null),
     }).threadGoalRead;
     const readOnlyUnavailable = createTestGateway({
       currentClient: () => null,
-      connectedClient: vi.fn().mockResolvedValue(null),
     }).threadGoalRead;
 
     await expect(adapter.readThreadGoal("thread")).resolves.toBeNull();
@@ -460,7 +420,6 @@ describe("chat app-server adapters", () => {
     let currentClient = firstClient;
     const adapter = createTestGateway({
       currentClient: () => currentClient,
-      connectedClient: vi.fn().mockResolvedValue(firstClient),
     }).runtimeSettings;
 
     const updating = adapter.updateThreadSettings("thread", { model: "gpt-5.5" });
@@ -565,20 +524,10 @@ describe("chat app-server adapters", () => {
 
 type AppServerThreadStartResponse = ClientResponseByMethod["thread/start"];
 
-function createTestGateway(options: {
-  vaultPath?: string;
-  currentClient: () => AppServerClient | null;
-  connectedClient?: () => Promise<AppServerClient | null>;
-}) {
-  const vaultPath = options.vaultPath ?? "/vault";
-  const currentGateway = createChatCurrentAppServerGateway({
-    vaultPath,
-    currentClient: options.currentClient,
-  });
-  return createChatAppServerGateway(currentGateway, {
+function createTestGateway(options: { vaultPath?: string; currentClient: () => AppServerClient | null }) {
+  return createChatAppServerGateway({
     vaultPath: options.vaultPath ?? "/vault",
     currentClient: options.currentClient,
-    connectedClient: options.connectedClient ?? (async () => options.currentClient()),
   });
 }
 

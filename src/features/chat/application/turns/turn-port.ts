@@ -24,7 +24,6 @@ type ChatTurnSteerOutcome =
   | { readonly kind: "delivery-unknown" };
 
 export interface ChatTurnPort {
-  ensureConnected(): Promise<boolean>;
   startTurn(request: ChatTurnStartRequest): Promise<EffectOutcome<ChatTurnStartResult>>;
   steerTurn(request: ChatTurnSteerRequest): Promise<ChatTurnSteerOutcome>;
   interruptTurn(threadId: string, turnId: string): Promise<boolean>;

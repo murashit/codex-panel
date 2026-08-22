@@ -24,6 +24,7 @@ export interface TurnSubmissionCommandHost {
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
   turnPort: ChatTurnPort;
+  ensureConnected: () => Promise<boolean>;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startThread: (
     preview?: string,
@@ -95,7 +96,7 @@ async function sendTurnText(
       ? host.prepareInput(text, inputSnapshot)
       : { text, input: codexTextInput(text) };
   if (!attempt.isCurrent()) return false;
-  if (!(await host.turnPort.ensureConnected())) return false;
+  if (!(await host.ensureConnected())) return false;
   if (!attempt.isCurrent()) return false;
   if (!(await host.ensureRestoredThreadLoaded())) return false;
   if (!attempt.isCurrent()) return false;
