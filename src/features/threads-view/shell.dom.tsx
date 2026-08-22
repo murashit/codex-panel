@@ -112,6 +112,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
     row.selected ? "is-selected" : "",
     row.rename.active ? "codex-panel-threads__row--renaming" : "",
     archiveConfirm.active ? "codex-panel-threads__row--archive-confirming" : "",
+    archiveConfirm.active ? "codex-panel-threads__archive-confirm" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -125,7 +126,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
     .join(" ");
 
   const open = () => {
-    if (row.rename.active || archiveConfirm.active) return;
+    if (row.rename.active) return;
     actions.openThread(row.threadId);
   };
   return (
@@ -138,11 +139,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
           <div className={mainClassName} onClick={open}>
             <span className="codex-panel-threads__row-title">{row.title}</span>
           </div>
-          <div
-            className={["codex-panel-threads__actions", archiveConfirm.active ? "codex-panel-threads__archive-confirm" : ""]
-              .filter(Boolean)
-              .join(" ")}
-          >
+          <div className="codex-panel-threads__actions">
             <ThreadRowControls
               isPinned={row.isPinned}
               archiveDisabled={threadArchiveDisabled(row)}

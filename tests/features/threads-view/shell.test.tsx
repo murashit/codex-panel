@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
-import { renderThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
+import { isThreadsArchiveConfirmPointer, renderThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
 import { type ThreadsRowModel, type ThreadsViewPanelActivity, threadRows } from "../../../src/features/threads-view/state";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
@@ -197,7 +197,7 @@ describe("threads view renderer decisions", () => {
     expect(actions.setThreadPinned).toHaveBeenCalledWith("pinned", false);
   });
 
-  it("blocks threads view navigation while adapting archive confirmation", () => {
+  it("keeps threads view navigation active while adapting archive confirmation", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
     const row = rowFixture({
@@ -209,8 +209,12 @@ describe("threads view renderer decisions", () => {
     const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__archive-confirm"));
     const defaultArchiveButton = expectPresent(confirm.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-default"));
     const alternateArchiveButton = expectPresent(confirm.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-alternate"));
-    expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main")).click();
-    expect(actions.openThread).not.toHaveBeenCalled();
+    const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main"));
+    const pointerDown = new Event("pointerdown", { bubbles: true }) as PointerEvent;
+    main.dispatchEvent(pointerDown);
+    expect(isThreadsArchiveConfirmPointer(pointerDown, parent, window)).toBe(true);
+    main.click();
+    expect(actions.openThread).toHaveBeenCalledWith("thread");
     defaultArchiveButton.click();
     expect(actions.archiveThread).toHaveBeenCalledWith("thread", false);
     alternateArchiveButton.click();
