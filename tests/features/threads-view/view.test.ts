@@ -161,6 +161,59 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("keeps archive confirmation through title pointerdown, then clears it before navigation", async () => {
+    const opened = deferred<void>();
+    const archiveThread = vi.fn().mockResolvedValue({});
+    let archiveConfirmVisibleWhenOpening: boolean | null = null;
+    let view!: Awaited<ReturnType<typeof threadsView>>;
+    const openThreadInAvailableView = vi.fn(() => {
+      view.refreshSettings();
+      archiveConfirmVisibleWhenOpening = view.containerEl.querySelector(".codex-panel-threads__archive-confirm") !== null;
+      return opened.promise;
+    });
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/archive": archiveThread,
+    });
+    view = await threadsView(threadsHost({ openThreadInAvailableView }));
+    document.body.append(view.containerEl);
+
+    try {
+      await view.refresh();
+      view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+      const title = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__row-title");
+      expect(title).not.toBeNull();
+      if (!title) return;
+
+      title.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).not.toBeNull();
+      title.click();
+
+      expect(openThreadInAvailableView).toHaveBeenCalledWith("thread");
+      expect(archiveConfirmVisibleWhenOpening).toBe(false);
+      expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).toBeNull();
+
+      view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+      document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).toBeNull();
+
+      view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+      const archiveWithoutSaving = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]');
+      expect(archiveWithoutSaving).not.toBeNull();
+      if (!archiveWithoutSaving) return;
+      archiveWithoutSaving.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).not.toBeNull();
+      archiveWithoutSaving.click();
+
+      await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" }));
+      expect(openThreadInAvailableView).toHaveBeenCalledOnce();
+    } finally {
+      opened.resolve(undefined);
+      await view.onClose();
+      view.containerEl.remove();
+    }
+  });
+
   it("opens a new panel from the threads view toolbar", async () => {
     connectionMock.state.client = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),

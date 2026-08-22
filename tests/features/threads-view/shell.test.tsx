@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
-import { isThreadsArchiveConfirmPointer, renderThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
+import { renderThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
 import { type ThreadsRowModel, type ThreadsViewPanelActivity, threadRows } from "../../../src/features/threads-view/state";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
@@ -197,7 +197,7 @@ describe("threads view renderer decisions", () => {
     expect(actions.setThreadPinned).toHaveBeenCalledWith("pinned", false);
   });
 
-  it("keeps threads view navigation active while adapting archive confirmation", () => {
+  it("keeps row navigation active while routing archive confirmation actions", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
     const row = rowFixture({
@@ -210,9 +210,6 @@ describe("threads view renderer decisions", () => {
     const defaultArchiveButton = expectPresent(confirm.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-default"));
     const alternateArchiveButton = expectPresent(confirm.querySelector<HTMLButtonElement>(".codex-panel-threads__archive-alternate"));
     const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main"));
-    const pointerDown = new Event("pointerdown", { bubbles: true }) as PointerEvent;
-    main.dispatchEvent(pointerDown);
-    expect(isThreadsArchiveConfirmPointer(pointerDown, parent, window)).toBe(true);
     main.click();
     expect(actions.openThread).toHaveBeenCalledWith("thread");
     defaultArchiveButton.click();
