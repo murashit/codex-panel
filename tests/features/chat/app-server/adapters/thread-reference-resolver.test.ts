@@ -123,14 +123,12 @@ describe("thread reference resolver", () => {
 
 function threadFixture(): Thread {
   return {
-    historyMode: "unknown",
     id: "019abcde-0000-7000-8000-000000000001",
     preview: "",
     name: "Other",
     createdAt: 1,
     updatedAt: 1,
     archived: false,
-    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
   };
 }

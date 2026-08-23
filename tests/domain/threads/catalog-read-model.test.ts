@@ -58,7 +58,6 @@ describe("thread catalog read model", () => {
   });
 
   const changedFields = [
-    ["historyMode", { historyMode: "paginated" }],
     ["name", { name: "changed" }],
     [
       "provenance",
@@ -83,7 +82,6 @@ describe("thread catalog read model", () => {
 
 function thread(id: string): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: `Preview ${id}`,
     name: id,
@@ -91,7 +89,6 @@ function thread(id: string): Thread {
     createdAt: 1,
     updatedAt: 1,
     recencyAt: 1,
-    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
   };
 }

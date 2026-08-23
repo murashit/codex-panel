@@ -40,7 +40,6 @@ describe("thread row core projection", () => {
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
-    historyMode: "unknown",
     id: "thread",
     preview: "",
     name: null,

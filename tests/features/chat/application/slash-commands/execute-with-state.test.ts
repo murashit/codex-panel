@@ -13,7 +13,6 @@ const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 function thread(id: string, name: string | null = null): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,
@@ -104,6 +103,7 @@ describe("executePanelSlashCommand", () => {
     const { compactThread, host, stateStore } = createHost({ connectionAvailable: () => false });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -135,6 +135,7 @@ describe("executePanelSlashCommand", () => {
     const { host, stateStore } = createHost();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -159,6 +160,7 @@ describe("executePanelSlashCommand", () => {
     const { host, stateStore } = createHost();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -206,6 +208,7 @@ describe("executePanelSlashCommand", () => {
     const { compactThread, host, stateStore } = createHost();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,

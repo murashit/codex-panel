@@ -1,6 +1,5 @@
 export interface Thread {
   readonly id: string;
-  readonly historyMode: ThreadHistoryMode;
   readonly preview: string;
   readonly name: string | null;
   readonly archived: boolean;
@@ -8,15 +7,8 @@ export interface Thread {
   readonly createdAt: number;
   readonly updatedAt: number;
   readonly recencyAt?: number | null;
-  /**
-   * Whether the loaded app-server thread accepts direct turn input.
-   * `null` means the capability is unavailable, so panel mode policy decides.
-   */
-  readonly canAcceptDirectInput?: boolean | null;
   readonly provenance: ThreadProvenance;
 }
-
-export type ThreadHistoryMode = "legacy" | "paginated" | "unknown";
 
 export type ThreadProvenance =
   | { readonly kind: "interactive" }

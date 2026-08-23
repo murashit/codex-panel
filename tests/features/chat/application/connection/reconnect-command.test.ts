@@ -65,7 +65,6 @@ describe("createReconnectPanelCommand", () => {
       label: "persistent",
       thread: {
         id: "persistent-thread",
-        historyMode: "unknown",
         preview: "Persistent preview",
         name: "Persistent title",
         archived: false,
@@ -78,7 +77,6 @@ describe("createReconnectPanelCommand", () => {
       label: "subagent",
       thread: {
         id: "subagent-thread",
-        historyMode: "unknown",
         preview: "Subagent preview",
         name: "Subagent title",
         archived: false,
@@ -229,6 +227,7 @@ function resumeActiveThread(
 ): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -254,7 +253,6 @@ function resumeSideThread(stateStore: ReturnType<typeof createChatStateStore>): 
 function threadFixture(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "thread",
-    historyMode: "unknown",
     preview: "",
     name: null,
     archived: false,

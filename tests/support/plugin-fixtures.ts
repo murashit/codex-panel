@@ -206,13 +206,11 @@ export async function flushMicrotasks(): Promise<void> {
 export function thread(id: string): Thread {
   return {
     id,
-    historyMode: "unknown",
     preview: id,
     createdAt: 1,
     updatedAt: 1,
     name: null,
     archived: false,
-    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
   };
 }

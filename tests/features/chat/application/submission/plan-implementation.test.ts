@@ -39,6 +39,7 @@ function resumeThread(
 ): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,

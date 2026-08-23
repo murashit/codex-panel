@@ -42,7 +42,6 @@ export function threadCatalogEntryEqual(left: Thread | undefined, right: Thread)
   if (!left) return false;
   return (
     left.id === right.id &&
-    left.historyMode === right.historyMode &&
     left.preview === right.preview &&
     left.name === right.name &&
     left.archived === right.archived &&
@@ -50,7 +49,6 @@ export function threadCatalogEntryEqual(left: Thread | undefined, right: Thread)
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt &&
     left.recencyAt === right.recencyAt &&
-    left.canAcceptDirectInput === right.canAcceptDirectInput &&
     JSON.stringify(left.provenance) === JSON.stringify(right.provenance)
   );
 }

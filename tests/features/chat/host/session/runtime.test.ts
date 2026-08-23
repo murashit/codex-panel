@@ -147,6 +147,7 @@ describe("chat panel session runtime", () => {
     });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -168,6 +169,7 @@ describe("chat panel session runtime", () => {
     const { runtime, stateStore } = sessionRuntimeFixture();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -198,6 +200,7 @@ describe("chat panel session runtime", () => {
     const { runtime, stateStore } = sessionRuntimeFixture();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -337,6 +340,7 @@ describe("chat panel session runtime", () => {
     });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -598,7 +602,6 @@ describe("chat panel session runtime", () => {
 
   function threadFixture(overrides: Partial<Thread> = {}): Thread {
     return {
-      historyMode: "unknown",
       id: "thread",
       preview: "",
       name: null,

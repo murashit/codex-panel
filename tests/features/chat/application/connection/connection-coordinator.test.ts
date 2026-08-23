@@ -248,6 +248,7 @@ describe("ChatConnectionCoordinator", () => {
     stateStore.dispatch({ type: "connection/initialized", initializeResponse });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -255,7 +256,6 @@ describe("ChatConnectionCoordinator", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: {
-        historyMode: "unknown",
         id: "thread-1",
         preview: "Thread 1",
         name: "Thread 1",

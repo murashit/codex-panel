@@ -70,37 +70,6 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).resolves.toMatchObject([{ id: "interactive" }]);
   });
 
-  it("preserves direct-input capability from app-server threads", () => {
-    const thread = threadFromAppServerRecord({
-      id: "thread",
-      preview: "",
-      name: null,
-      createdAt: 1,
-      updatedAt: 2,
-      canAcceptDirectInput: false,
-    });
-
-    expect(thread.canAcceptDirectInput).toBe(false);
-  });
-
-  it.each([
-    ["legacy", "legacy"],
-    ["paginated", "paginated"],
-    [undefined, "unknown"],
-    ["future-mode", "unknown"],
-  ] as const)("normalizes app-server history mode %s", (historyMode, expected) => {
-    const thread = threadFromAppServerRecord({
-      id: "thread",
-      preview: "",
-      name: null,
-      createdAt: 1,
-      updatedAt: 2,
-      ...(historyMode === undefined ? {} : { historyMode }),
-    });
-
-    expect(thread.historyMode).toBe(expected);
-  });
-
   it("unsubscribes ephemeral threads instead of deleting them", async () => {
     const client = { request: vi.fn().mockResolvedValue({ status: "unsubscribed" }) } as unknown as AppServerRequestClient;
 
@@ -183,7 +152,6 @@ describe("app-server thread response adapters", () => {
 
     const archived = await readThreadForArchiveExport(client, "thread");
 
-    expect(archived.historyMode).toBe("paginated");
     expect(archived.transcriptEntries).toEqual([
       { kind: "user", text: "First question", timestamp: 1 },
       { kind: "assistant", text: "First answer", timestamp: 2 },
@@ -206,22 +174,24 @@ describe("app-server thread response adapters", () => {
     });
   });
 
-  it("retains the includeTurns compatibility path for legacy archives", async () => {
-    const legacy = archiveThread("legacy", [archiveTurn("turn-1", [userMessage("user", "Legacy prompt")])]);
-    const request = vi
-      .fn()
-      .mockResolvedValueOnce({ thread: archiveThread("legacy") })
-      .mockResolvedValueOnce({ thread: legacy });
-    const client = { request } as unknown as AppServerRequestClient;
+  it.each(["legacy", undefined, "future-mode"] as const)(
+    "retains the includeTurns compatibility path for %s archive history modes",
+    async (historyMode) => {
+      const legacy = archiveThread(historyMode, [archiveTurn("turn-1", [userMessage("user", "Legacy prompt")])]);
+      const request = vi
+        .fn()
+        .mockResolvedValueOnce({ thread: archiveThread(historyMode) })
+        .mockResolvedValueOnce({ thread: legacy });
+      const client = { request } as unknown as AppServerRequestClient;
 
-    await expect(readThreadForArchiveExport(client, "thread")).resolves.toMatchObject({
-      historyMode: "legacy",
-      transcriptEntries: [{ kind: "user", text: "Legacy prompt" }],
-    });
-    expect(request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
-    expect(request).toHaveBeenNthCalledWith(2, "thread/read", { threadId: "thread", includeTurns: true });
-    expect(request).toHaveBeenCalledTimes(2);
-  });
+      await expect(readThreadForArchiveExport(client, "thread")).resolves.toMatchObject({
+        transcriptEntries: [{ kind: "user", text: "Legacy prompt" }],
+      });
+      expect(request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
+      expect(request).toHaveBeenNthCalledWith(2, "thread/read", { threadId: "thread", includeTurns: true });
+      expect(request).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it("rejects repeated archive pagination cursors", async () => {
     const request = vi.fn((method: string) => {
@@ -285,13 +255,11 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault", { archived: true })).resolves.toEqual([
       {
         id: "thread-1",
-        historyMode: "unknown",
         preview: "Preview",
         name: null,
         archived: true,
         createdAt: 10,
         updatedAt: 20,
-        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
     ]);
@@ -313,14 +281,12 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       {
         id: "thread-1",
-        historyMode: "unknown",
         preview: "Preview",
         name: null,
         archived: false,
         createdAt: 10,
         updatedAt: 20,
         recencyAt: 30,
-        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
     ]);
@@ -336,14 +302,12 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       {
         id: "thread-1",
-        historyMode: "unknown",
         preview: "Preview",
         name: null,
         archived: false,
         createdAt: 10,
         updatedAt: 20,
         recencyAt: null,
-        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
     ]);
@@ -367,24 +331,20 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       {
         id: "thread-1",
-        historyMode: "unknown",
         preview: "First",
         name: null,
         archived: false,
         createdAt: 10,
         updatedAt: 20,
-        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
       {
         id: "thread-2",
-        historyMode: "unknown",
         preview: "Second",
         name: null,
         archived: false,
         createdAt: 30,
         updatedAt: 40,
-        canAcceptDirectInput: null,
         provenance: { kind: "interactive" },
       },
     ]);
@@ -423,10 +383,10 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   return { promise, resolve };
 }
 
-function archiveThread(historyMode: "legacy" | "paginated", turns: readonly TurnRecord[] = []): ThreadRecord {
+function archiveThread(historyMode: unknown, turns: readonly TurnRecord[] = []): ThreadRecord {
   return {
     id: "thread",
-    historyMode,
+    ...(historyMode === undefined ? {} : { historyMode }),
     preview: "Archive",
     name: "Archive",
     createdAt: 1,

@@ -13,7 +13,6 @@ import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 function thread(id: string): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,
@@ -201,6 +200,7 @@ describe("submitComposer", () => {
     const submitting = submitComposer(hostWithRestoration);
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -449,6 +449,7 @@ describe("submitComposer", () => {
     const { host, execute, sendTurnText, stateStore } = createHost("/web https://example.com summarize");
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -597,6 +598,7 @@ describe("submitComposer", () => {
     const { host, interruptTurn, showLatest, stateStore } = createHost("");
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -621,13 +623,14 @@ describe("submitComposer", () => {
     const { host, interruptTurn, sendTurnText, stateStore } = createHost("unsent draft");
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: false,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
-      thread: { ...thread("thread"), canAcceptDirectInput: false },
+      thread: thread("thread"),
       model: null,
       reasoningEffort: null,
       serviceTier: null,
@@ -646,6 +649,7 @@ describe("submitComposer", () => {
 function resumeActiveThread(stateStore: ReturnType<typeof createChatStateStore>, id: string): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,

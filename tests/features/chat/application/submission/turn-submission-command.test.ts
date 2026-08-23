@@ -21,14 +21,12 @@ const notStarted = <T>(): EffectOutcome<T> => ({ kind: "not-started" });
 
 function thread(id: string): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,
     updatedAt: 0,
     name: null,
     archived: false,
-    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
   };
 }
@@ -69,6 +67,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
 function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, preservePendingSubmissionId?: string, threadId = "thread") {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -87,7 +86,6 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, prese
 function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore>, canAcceptDirectInput: boolean | null = null) {
   const child: Thread = {
     ...thread("child"),
-    canAcceptDirectInput,
     provenance: {
       kind: "subagent",
       subagentKind: "thread-spawn",
@@ -100,6 +98,7 @@ function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore
   };
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -117,6 +116,7 @@ function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore
 function resumeSideChat(stateStore: ReturnType<typeof createChatStateStore>) {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -211,13 +211,14 @@ describe("TurnSubmissionCommand", () => {
     const { host, startTurn, stateStore } = createHost();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: false,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
-      thread: { ...thread("thread"), canAcceptDirectInput: false },
+      thread: thread("thread"),
       model: null,
       reasoningEffort: null,
       serviceTier: null,

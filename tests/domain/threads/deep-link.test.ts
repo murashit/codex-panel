@@ -38,14 +38,12 @@ describe("Codex thread deep links", () => {
 
 function thread(overrides: Partial<Thread>): Thread {
   return {
-    historyMode: "unknown",
     id: "thread",
     preview: "",
     name: null,
     createdAt: 1,
     updatedAt: 1,
     archived: false,
-    canAcceptDirectInput: null,
     provenance: { kind: "interactive" },
     ...overrides,
   };

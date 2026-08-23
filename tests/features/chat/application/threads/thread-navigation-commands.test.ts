@@ -17,6 +17,7 @@ import { deferred } from "../../../../support/async";
 function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagent = false): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,

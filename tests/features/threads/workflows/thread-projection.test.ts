@@ -87,7 +87,6 @@ describe("thread projection", () => {
 
 function thread(id: string, archived = false): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: id,
     name: null,

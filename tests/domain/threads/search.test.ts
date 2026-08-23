@@ -72,7 +72,6 @@ describe("thread search", () => {
 
 function thread(options: Partial<Thread> & { id: string }): Thread {
   return {
-    historyMode: "unknown",
     id: options.id,
     preview: options.preview ?? options.id,
     createdAt: options.createdAt ?? 1,
@@ -80,7 +79,6 @@ function thread(options: Partial<Thread> & { id: string }): Thread {
     ...(options.recencyAt === undefined ? {} : { recencyAt: options.recencyAt }),
     name: options.name ?? null,
     archived: false,
-    canAcceptDirectInput: options.canAcceptDirectInput ?? null,
     provenance: options.provenance ?? { kind: "interactive" },
   };
 }

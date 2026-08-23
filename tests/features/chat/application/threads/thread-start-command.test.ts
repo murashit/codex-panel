@@ -3,7 +3,7 @@ import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import { activeThreadId } from "../../../../../src/features/chat/application/state/model";
+import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
@@ -23,7 +23,9 @@ describe("thread start commands", () => {
 
     const commands = createThreadStartCommand({
       stateStore,
-      effects: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
+      effects: {
+        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started, { canAcceptDirectInput: false }))),
+      },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
       syncThreadGoal,
@@ -34,6 +36,7 @@ describe("thread start commands", () => {
     expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(recordStartedThread).toHaveBeenCalledWith(optimistic);
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
+    expect(activeThreadState(stateStore.getState())?.canAcceptDirectInput).toBe(false);
   });
 
   it("identifies the created target before activating it", async () => {
@@ -275,7 +278,6 @@ const runtimeSnapshotForTestState = (state: Parameters<typeof runtimeSnapshotFor
 
 function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: "",
     name: null,
@@ -291,6 +293,7 @@ function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
 function activationFixture(thread: Thread, overrides: Partial<ThreadActivationSnapshot> = {}): ThreadActivationSnapshot {
   return {
     thread,
+    canAcceptDirectInput: null,
     model: "gpt-5",
     serviceTier: null,
     approvalsReviewer: null,

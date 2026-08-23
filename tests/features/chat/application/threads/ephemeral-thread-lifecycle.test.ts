@@ -12,6 +12,11 @@ describe("ephemeral thread lifecycle", () => {
   it("activates an ephemeral fork without adding it to the thread list", async () => {
     const store = createChatStateStore();
     const port = transportMock();
+    port.forkEphemeralThread = vi.fn().mockResolvedValue({
+      kind: "ready",
+      sourceThreadId: "source",
+      activation: activationFixture({ canAcceptDirectInput: false }),
+    });
     const lifecycle = createEphemeralThreadLifecycle({
       stateStore: store,
       effects: port,
@@ -27,6 +32,7 @@ describe("ephemeral thread lifecycle", () => {
     expect(activeThreadState(store.getState())).toMatchObject({
       id: "side",
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      canAcceptDirectInput: false,
     });
     expect(store.getState()).not.toHaveProperty("threadList");
   });
@@ -289,11 +295,10 @@ function transportMock(): EphemeralThreadEffects {
   };
 }
 
-function activationFixture(): ThreadActivationSnapshot {
+function activationFixture(overrides: Partial<ThreadActivationSnapshot> = {}): ThreadActivationSnapshot {
   return {
     thread: {
       id: "side",
-      historyMode: "paginated",
       preview: "",
       name: null,
       archived: false,
@@ -301,6 +306,7 @@ function activationFixture(): ThreadActivationSnapshot {
       updatedAt: 1,
       provenance: { kind: "interactive" },
     },
+    canAcceptDirectInput: null,
     model: "gpt-5.5",
     serviceTier: null,
     approvalsReviewer: null,
@@ -311,5 +317,6 @@ function activationFixture(): ThreadActivationSnapshot {
     approvalPolicy: "never",
     sandboxPolicy: { type: "readOnly", networkAccess: false },
     activePermissionProfile: null,
+    ...overrides,
   };
 }

@@ -21,7 +21,6 @@ const planItem = (id: string): ThreadStreamItem => ({
 
 function thread(id: string): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,
@@ -35,6 +34,7 @@ function thread(id: string): Thread {
 function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items: readonly ThreadStreamItem[]): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,

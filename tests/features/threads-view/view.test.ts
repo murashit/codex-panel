@@ -986,7 +986,6 @@ async function threadsView(host = threadsHost()) {
 
 function threadFromRecord(record: Record<string, unknown>): Thread {
   return {
-    historyMode: "unknown",
     id: String(record["id"]),
     preview: typeof record["preview"] === "string" ? record["preview"] : "",
     name: typeof record["name"] === "string" ? record["name"] : null,

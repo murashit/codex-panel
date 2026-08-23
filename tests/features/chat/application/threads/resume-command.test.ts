@@ -19,6 +19,7 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
   return {
     activation: {
       thread: panelThread(threadId),
+      canAcceptDirectInput: null,
       model: "gpt-test",
       serviceTier: null,
       approvalPolicyKnown: true,
@@ -72,7 +73,11 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
 
 describe("ResumeCommand", () => {
   it("resumes the thread and loads its latest history", async () => {
-    const { commands, host, loadLatest, resumeThread, stateStore } = createActions();
+    const response = activation("thread");
+    const { commands, host, loadLatest, resumeThread, stateStore } = createActions({
+      ...response,
+      activation: { ...response.activation, canAcceptDirectInput: false },
+    });
 
     const resumed = await commands.resumeThread("thread");
     await resumed?.hydrate();
@@ -84,6 +89,7 @@ describe("ResumeCommand", () => {
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.recordResumedThread).toHaveBeenCalledWith(panelThread("thread"));
+    expect(activeThreadState(stateStore.getState())?.canAcceptDirectInput).toBe(false);
   });
 
   it("hydrates resumed threads from the initial turns page when app-server returns one", async () => {
@@ -160,6 +166,7 @@ describe("ResumeCommand", () => {
     host.resumeWork.begin("other");
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -220,6 +227,7 @@ describe("ResumeCommand", () => {
     const { commands, host, resumeThread, stateStore } = createActions();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -269,6 +277,7 @@ describe("ResumeCommand", () => {
     await resumed?.hydrate();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -320,7 +329,6 @@ describe("ResumeCommand", () => {
 function panelThread(id: string): PanelThread {
   return {
     id,
-    historyMode: "paginated",
     preview: "",
     createdAt: 0,
     updatedAt: 0,

@@ -6,7 +6,6 @@ import { createActiveThreadIdentitySync } from "../../../../../src/features/chat
 
 function thread(id: string, name: string | null = null): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,
@@ -80,6 +79,7 @@ describe("createActiveThreadIdentitySync", () => {
 function activateThread(stateStore: ReturnType<typeof createChatStateStore>, id = "thread", name: string | null = null): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,

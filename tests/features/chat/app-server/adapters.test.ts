@@ -30,7 +30,7 @@ describe("chat app-server adapters", () => {
     });
     expect(snapshot).toMatchObject({
       kind: "completed",
-      value: { thread: { id: "thread" } },
+      value: { thread: { id: "thread" }, canAcceptDirectInput: null },
     });
   });
 
@@ -164,7 +164,7 @@ describe("chat app-server adapters", () => {
     expect(request).toHaveBeenCalledWith("thread/fork", { threadId: "source", cwd: "/vault", excludeTurns: true });
     expect(outcome).toMatchObject({
       kind: "completed",
-      value: { id: "forked", historyMode: "paginated", preview: "Preview", archived: false },
+      value: { id: "forked", preview: "Preview", archived: false },
     });
   });
 
@@ -206,7 +206,7 @@ describe("chat app-server adapters", () => {
     });
     expect(outcome).toMatchObject({
       kind: "completed",
-      value: { id: "forked", historyMode: "paginated" },
+      value: { id: "forked" },
     });
   });
 
@@ -323,7 +323,7 @@ describe("chat app-server adapters", () => {
     expect(snapshot).toMatchObject({
       kind: "completed",
       value: {
-        activation: { thread: { id: "thread", historyMode: "paginated" } },
+        activation: { thread: { id: "thread" }, canAcceptDirectInput: null },
         rolloutPath: "/tmp/rollout.jsonl",
         initialHistoryPage: {
           nextCursor: "older",

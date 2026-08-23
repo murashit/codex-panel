@@ -23,7 +23,6 @@ describe("threads view state", () => {
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
-    historyMode: "unknown",
     id: "thread",
     preview: "",
     name: null,

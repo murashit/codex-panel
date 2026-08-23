@@ -92,6 +92,7 @@ function subagentStore(busy: boolean) {
   const store = createChatStateStore();
   store.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -123,6 +124,7 @@ function subagentStore(busy: boolean) {
 function resumeInteractiveThread(store: ReturnType<typeof createChatStateStore>, threadId: string): void {
   store.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,

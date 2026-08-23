@@ -401,7 +401,6 @@ function fakeClient(options: { renameThreadRequest?: ReturnType<typeof vi.fn> } 
 
 function threadFixture(id: string): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: "Thread preview",
     createdAt: 1,

@@ -215,6 +215,7 @@ function goalReadPortFixture(overrides: Partial<ThreadGoalSource> = {}): ThreadG
 function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, threadId: string): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -222,7 +223,6 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, threa
     sandboxPolicy: null,
     activePermissionProfile: null,
     thread: {
-      historyMode: "unknown",
       id: threadId,
       preview: "",
       name: null,

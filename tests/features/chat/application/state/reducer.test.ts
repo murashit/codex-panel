@@ -461,6 +461,7 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -497,6 +498,7 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -549,6 +551,7 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -706,6 +709,7 @@ describe("chatReducer", () => {
   it("preserves unknown service tier state when resuming from active runtime", () => {
     const state = chatReducer(chatStateFixture(), {
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -730,6 +734,7 @@ describe("chatReducer", () => {
 
     panelA.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -748,6 +753,7 @@ describe("chatReducer", () => {
 
     panelB.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -919,7 +925,6 @@ function uiDisclosureCount(state: ChatState): number {
 function thread(id: string): Thread {
   return {
     id,
-    historyMode: "paginated",
     preview: "",
     createdAt: 1,
     updatedAt: 1,
@@ -932,6 +937,7 @@ function thread(id: string): Thread {
 function resumedThreadAction(threadId: string) {
   return {
     type: "active-thread/resumed" as const,
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,

@@ -386,6 +386,7 @@ describe("createGoalCommands", () => {
     const startThread = vi.fn().mockImplementation(async () => {
       stateStore.dispatch({
         type: "active-thread/resumed",
+        canAcceptDirectInput: null,
         approvalPolicyKnown: true,
         sandboxPolicyKnown: true,
         permissionProfileKnown: true,
@@ -393,7 +394,6 @@ describe("createGoalCommands", () => {
         sandboxPolicy: null,
         activePermissionProfile: null,
         thread: {
-          historyMode: "unknown",
           id: "thread-new",
           name: null,
           preview: "Plan release",
@@ -479,6 +479,7 @@ describe("createGoalCommands", () => {
     const ensureRestoredThreadLoaded = vi.fn(async () => {
       stateStore.dispatch({
         type: "active-thread/resumed",
+        canAcceptDirectInput: null,
         approvalPolicyKnown: true,
         sandboxPolicyKnown: true,
         permissionProfileKnown: true,
@@ -486,7 +487,6 @@ describe("createGoalCommands", () => {
         sandboxPolicy: null,
         activePermissionProfile: null,
         thread: {
-          historyMode: "unknown",
           id: "restored",
           preview: "Restored",
           createdAt: 1,
@@ -618,6 +618,7 @@ function effectsFixture(overrides: Partial<ThreadGoalEffects> = {}): ThreadGoalE
 function resumeInteractiveThread(stateStore: ChatStateStore, threadId: string): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -625,7 +626,6 @@ function resumeInteractiveThread(stateStore: ChatStateStore, threadId: string): 
     sandboxPolicy: null,
     activePermissionProfile: null,
     thread: {
-      historyMode: "unknown",
       id: threadId,
       name: null,
       preview: threadId,

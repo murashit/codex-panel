@@ -57,6 +57,7 @@ describe("thread stream surface", () => {
     const store = createChatStateStore(chatStateFixture());
     store.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -64,7 +65,6 @@ describe("thread stream surface", () => {
       sandboxPolicy: null,
       activePermissionProfile: null,
       thread: {
-        historyMode: "unknown",
         id: "thread-1",
         preview: "",
         archived: false,

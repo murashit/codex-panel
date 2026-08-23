@@ -126,7 +126,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
         goal: null,
         tokenUsage: null,
         lifetime: action.lifetime ?? { kind: "persistent" },
-        canAcceptDirectInput: action.thread.canAcceptDirectInput ?? null,
+        canAcceptDirectInput: action.canAcceptDirectInput,
         provenance: action.thread.provenance,
       },
     },

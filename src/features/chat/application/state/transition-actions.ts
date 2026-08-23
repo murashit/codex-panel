@@ -27,6 +27,7 @@ interface ResumedThreadActionParams {
 export interface ActiveThreadResumedAction extends RuntimePermissionState, RuntimePermissionKnownState {
   type: "active-thread/resumed";
   thread: Thread;
+  canAcceptDirectInput: boolean | null;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
   serviceTier: ServiceTier | null;
@@ -148,6 +149,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
   return {
     type: "active-thread/resumed",
     thread: response.thread,
+    canAcceptDirectInput: response.canAcceptDirectInput,
     model: response.model,
     reasoningEffort: response.reasoningEffort,
     serviceTier: response.serviceTier,

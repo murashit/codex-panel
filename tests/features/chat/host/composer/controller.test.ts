@@ -55,6 +55,7 @@ function trackComposerControllerTestCleanup(cleanup: () => void): void {
 function resumeComposerThread(stateStore: ChatStateStore, threadId: string): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -62,7 +63,6 @@ function resumeComposerThread(stateStore: ChatStateStore, threadId: string): voi
     sandboxPolicy: null,
     activePermissionProfile: null,
     thread: {
-      historyMode: "unknown",
       id: threadId,
       preview: "",
       name: null,
@@ -443,7 +443,6 @@ describe("ChatComposerController", () => {
     const completedTitle = `${preview.slice(0, 93)}...`;
     const threads: import("../../../../../src/domain/threads/model").Thread[] = [
       {
-        historyMode: "unknown",
         id: "target-thread",
         preview,
         name: null,

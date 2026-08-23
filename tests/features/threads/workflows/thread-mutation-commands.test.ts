@@ -236,7 +236,6 @@ describe("ThreadMutationCommands", () => {
       throw new Error(`Unexpected app-server request: ${method} ${params.threadId}`);
     });
     const reference: Thread = {
-      historyMode: "unknown",
       id: "thread-reference",
       name: "Readable reference title",
       preview: "",

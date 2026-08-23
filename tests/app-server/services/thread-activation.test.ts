@@ -6,15 +6,17 @@ import type { ThreadResumeResponse } from "../../../src/generated/app-server/v2/
 
 describe("app-server thread activation", () => {
   it("maps app-server activation responses into panel-owned snapshots", () => {
-    const snapshot = threadActivationSnapshotFromAppServerResponse(responseFixture(threadFixture("thread", "Resumed")));
+    const snapshot = threadActivationSnapshotFromAppServerResponse(
+      responseFixture({ ...threadFixture("thread", "Resumed"), canAcceptDirectInput: false }),
+    );
 
     expect(snapshot).toMatchObject({
       thread: {
         id: "thread",
-        historyMode: "paginated",
         name: "Resumed",
         archived: false,
       },
+      canAcceptDirectInput: false,
       model: "gpt-5.5",
       serviceTier: "fast",
       approvalsReviewer: "user",

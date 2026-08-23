@@ -167,7 +167,7 @@ export function threadFromAppServerRecord(thread: ThreadRecord, options: { archi
 export async function readThreadForArchiveExport(client: AppServerRequestClient, threadId: string): Promise<ArchiveThreadInput> {
   const metadata = await client.request("thread/read", { threadId, includeTurns: false });
   const thread = threadFromThreadRecord(metadata.thread, { archived: true });
-  if (thread.historyMode !== "paginated") return readLegacyThreadForArchiveExport(client, threadId);
+  if (metadata.thread.historyMode !== "paginated") return readLegacyThreadForArchiveExport(client, threadId);
 
   const turns = await readCompletePaginatedThreadHistory(client, threadId);
   return {
@@ -350,6 +350,7 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
   });
   return {
     thread: threadFromThreadRecord(response.thread),
+    canAcceptDirectInput: typeof response.thread.canAcceptDirectInput === "boolean" ? response.thread.canAcceptDirectInput : null,
     approvalPolicyKnown: "approvalPolicy" in response,
     sandboxPolicyKnown: "sandbox" in response || "sandboxPolicy" in response,
     permissionProfileKnown: "activePermissionProfile" in response,

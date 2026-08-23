@@ -25,7 +25,6 @@ function panelActivity(overrides: Partial<ThreadsViewPanelActivity> = {}): Threa
 
 function threadFixture(overrides: Partial<Thread> = {}): Thread {
   return {
-    historyMode: "unknown",
     id: "thread",
     preview: "",
     createdAt: 1,

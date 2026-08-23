@@ -82,6 +82,7 @@ describe("thread management commands", () => {
 
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -211,6 +212,7 @@ describe("thread management commands", () => {
     host.effects.compactThread.mockReturnValue(compact.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -231,6 +233,7 @@ describe("thread management commands", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -381,6 +384,7 @@ describe("thread management commands", () => {
     host.effects.forkThread.mockReturnValue(fork.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -401,6 +405,7 @@ describe("thread management commands", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -433,6 +438,7 @@ describe("thread management commands", () => {
     await waitForAsyncWork(() => expect(host.mutations.archiveThread).toHaveBeenCalledWith("source", replacementArchiveOptions()));
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -474,6 +480,7 @@ describe("thread management commands", () => {
     const host = hostMock({ items });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -536,6 +543,7 @@ describe("thread management commands", () => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -657,6 +665,7 @@ describe("thread management commands", () => {
     host.effects.forkThread.mockReturnValue(rollback.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -687,6 +696,7 @@ describe("thread management commands", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -715,6 +725,7 @@ describe("thread management commands", () => {
     host.effects.forkThread.mockReturnValue(rollback.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -752,6 +763,7 @@ describe("thread management commands", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      canAcceptDirectInput: null,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,
       permissionProfileKnown: true,
@@ -891,6 +903,7 @@ function hostMock({
 function adoptThread(host: Pick<ThreadCommandsHost, "stateStore">, threadId: string): void {
   host.stateStore.dispatch({
     type: "active-thread/resumed",
+    canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
     permissionProfileKnown: true,
@@ -907,7 +920,6 @@ function adoptThread(host: Pick<ThreadCommandsHost, "stateStore">, threadId: str
 
 function panelThread(id: string, overrides: Partial<Thread> = {}): Thread {
   return {
-    historyMode: "unknown",
     id,
     preview: "",
     createdAt: 0,

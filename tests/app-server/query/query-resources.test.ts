@@ -1011,13 +1011,11 @@ function appServerRateLimit(usedPercent: number): RateLimitSnapshot {
 function thread(id: string, archived = false): Thread {
   return {
     id,
-    historyMode: "unknown",
     preview: "",
     name: null,
     archived,
     createdAt: 1,
     updatedAt: 1,
-    canAcceptDirectInput: null,
     provenance: { kind: "interactive" as const },
   };
 }

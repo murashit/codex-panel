@@ -83,7 +83,6 @@ describe("chat thread foundation auto-title handoff", () => {
 
 function threadFixture(): Thread {
   return {
-    historyMode: "unknown",
     id: "thread",
     preview: "Thread preview",
     name: null,
