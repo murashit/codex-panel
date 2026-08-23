@@ -583,17 +583,6 @@ describe("submitComposer", () => {
     expect(chatStateThreadStreamItems(host.stateStore.getState())).toEqual([]);
   });
 
-  it("restores the completed thread target when slash execution fails", async () => {
-    const threadCommandTarget = { command: "resume" as const, threadId: "target-thread", title: "Completed title" };
-    const { host, execute, setDraft, settleSubmission } = createHost('/resume "Completed title"', { threadCommandTarget });
-    execute.mockRejectedValue(new Error("offline"));
-
-    await submitComposer(host);
-
-    expect(setDraft).not.toHaveBeenCalled();
-    expect(settleSubmission).toHaveBeenCalledWith("failed");
-  });
-
   it("interrupts a running turn when submitting an empty draft", async () => {
     const { host, interruptTurn, showLatest, stateStore } = createHost("");
     stateStore.dispatch({

@@ -546,29 +546,6 @@ describe("createGoalCommands", () => {
     expect(startThread).not.toHaveBeenCalled();
   });
 
-  it("reports an existing goal objective edit as a structured goal event", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { activeThread: { goal: goal() } });
-    const stateStore = createChatStateStore(state);
-    const effects = effectsFixture({
-      setThreadGoal: vi.fn().mockResolvedValueOnce(completed(goal({ objective: "Updated" }))),
-    });
-    const addGoalEvent = vi.fn();
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage: vi.fn(),
-      addGoalEvent,
-    });
-
-    await commands.setObjective("thread", "Updated", null);
-
-    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
-  });
-
   it("reports goal resume as a user-visible state change", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });

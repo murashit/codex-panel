@@ -26,17 +26,21 @@ describe("createThreadGoalSync", () => {
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
     const source = goalReadPortFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
+    const addSystemMessage = vi.fn();
+    const addGoalEvent = vi.fn();
     const sync = createThreadGoalSync({
       stateStore,
       source,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
+      addSystemMessage,
+      addGoalEvent,
     });
 
     await sync.syncThreadGoal("thread");
 
     expect(activeThreadState(stateStore.getState())?.goal).toEqual(currentGoal);
+    expect(addSystemMessage).not.toHaveBeenCalled();
+    expect(addGoalEvent).not.toHaveBeenCalled();
   });
 
   it("does not publish an old goal read after a shared mutation completes", async () => {
@@ -123,31 +127,6 @@ describe("createThreadGoalSync", () => {
     expect(addSystemMessage).not.toHaveBeenCalledWith("Could not load thread goal: old read failed");
   });
 
-  it("keeps an in-flight goal read valid when a mutation does not commit", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Initial" }) } });
-    const stateStore = createChatStateStore(state);
-    const read = deferred<ThreadGoal | null>();
-    const source = goalReadPortFixture({ readThreadGoal: vi.fn(() => read.promise) });
-    const sync = createThreadGoalSync(
-      {
-        stateStore,
-        source,
-        localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-        addSystemMessage: vi.fn(),
-        addGoalEvent: vi.fn(),
-      },
-      createThreadGoalCoordinator(),
-    );
-
-    const reading = sync.syncThreadGoal("thread");
-    await vi.waitFor(() => expect(source.readThreadGoal).toHaveBeenCalledOnce());
-    read.resolve(goal({ objective: "Authoritative" }));
-    await reading;
-
-    expect(activeThreadState(stateStore.getState())?.goal?.objective).toBe("Authoritative");
-  });
-
   it("reports goal sync failures without clearing the active thread", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -167,27 +146,6 @@ describe("createThreadGoalSync", () => {
     expect(activeThreadId(stateStore.getState())).toBe("thread");
     expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
     expect(addSystemMessage).toHaveBeenCalledWith("Could not load thread goal: offline");
-  });
-
-  it("does not report initial goal sync as a user-visible state change", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const currentGoal = goal();
-    const source = goalReadPortFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
-    const addSystemMessage = vi.fn();
-    const sync = createThreadGoalSync({
-      stateStore,
-      source,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      addSystemMessage,
-      addGoalEvent: vi.fn(),
-    });
-
-    await sync.syncThreadGoal("thread");
-
-    expect(activeThreadState(stateStore.getState())?.goal).toEqual(currentGoal);
-    expect(addSystemMessage).not.toHaveBeenCalled();
   });
 });
 

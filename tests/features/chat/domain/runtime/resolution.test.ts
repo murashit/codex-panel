@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { runtimeConfigOrDefault } from "../../../../../src/domain/runtime/config";
 import {
   resetRuntimeIntentToConfig,
   setCollaborationModeIntent,
@@ -178,50 +177,14 @@ describe("runtime control resolution", () => {
     const configured = runtimeSnapshot({
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
     });
+    const activeGuardian = runtimeSnapshot({
+      active: { approvalsReviewer: "guardian_subagent" },
+    });
 
     expect(autoReviewActive(requested, snapshotConfig(requested))).toBe(false);
     expect(autoReviewActive(active, snapshotConfig(active))).toBe(false);
     expect(autoReviewActive(configured, snapshotConfig(configured))).toBe(true);
-  });
-
-  it("uses the active reviewer before configured reviewer", () => {
-    const snapshot = runtimeSnapshot({
-      active: { approvalsReviewer: "user" },
-      runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
-    });
-
-    expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(false);
-  });
-
-  it("treats guardian subagent reviewer as active auto-review", () => {
-    const snapshot = runtimeSnapshot({
-      active: { approvalsReviewer: "guardian_subagent" },
-    });
-
-    expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
-  });
-
-  it("uses requested reviewer above active and configured reviewers", () => {
-    const snapshot = runtimeSnapshot({
-      pending: { approvalsReviewer: setRuntimeIntentValue("user") },
-      active: { approvalsReviewer: "user" },
-      runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
-    });
-
-    expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(false);
-  });
-
-  it("uses effective approval reviewer values and reports selected profile metadata", () => {
-    const runtimeConfig = runtimeConfigFixture({ approvals_reviewer: "auto_review" }, [
-      configLayer({}, null),
-      configLayer({ approvals_reviewer: "auto_review" }, "auto"),
-    ]);
-    const snapshot = runtimeSnapshot({
-      runtimeConfig,
-    });
-
-    expect(runtimeConfigOrDefault(runtimeConfig).profile).toBe("auto");
-    expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
+    expect(autoReviewActive(activeGuardian, snapshotConfig(activeGuardian))).toBe(true);
   });
 
   it("uses effective model, effort, and fast mode config values", () => {

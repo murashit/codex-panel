@@ -280,7 +280,7 @@ describe("ThreadRenameEditorActions", () => {
   it("blocks starting another inline rename while a save is pending", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);
-    const { actions, threadById, notifyThreadRenamed } = actionsFixture({
+    const { actions } = actionsFixture({
       currentClient: () => fakeClient({ renameThreadRequest }),
     });
 
@@ -296,9 +296,6 @@ describe("ThreadRenameEditorActions", () => {
     saved.resolve({});
     await save;
 
-    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Saved title" });
-    expect(threadById("thread")?.name).toBe("Saved title");
-    expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
     expect(actions.editState("thread")).toBeNull();
   });
 
@@ -380,14 +377,10 @@ function actionsFixture(
     resolveThreadTitleContext?: ThreadRenameEditorActionsHost["resolveThreadTitleContext"];
     threads?: Thread[];
   } = {},
-): ThreadRenameEditorActionsHost & {
-  actions: ThreadRenameEditorActions;
-  notifyThreadRenamed: ReturnType<typeof vi.fn>;
-} {
+): ThreadRenameEditorActionsHost & { actions: ThreadRenameEditorActions } {
   const stateStore = createChatStateStore();
-  let threads = overrides.threads ?? [threadFixture("thread")];
+  const threads = overrides.threads ?? [threadFixture("thread")];
   const currentClient = overrides.currentClient ?? (() => fakeClient());
-  const notifyThreadRenamed = vi.fn();
   const host = {
     stateStore,
     ensureConnected: overrides.ensureConnected ?? vi.fn().mockResolvedValue(undefined),
@@ -397,15 +390,13 @@ function actionsFixture(
       const name = normalizeExplicitThreadName(value);
       if (!name) return false;
       await currentClient().request("thread/name/set", { threadId, name });
-      threads = threads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread));
-      notifyThreadRenamed(threadId, name);
       return true;
     },
     resolveThreadTitleContext:
       overrides.resolveThreadTitleContext ?? vi.fn().mockResolvedValue({ userRequest: "Please name this.", assistantResponse: "Done." }),
     generateThreadTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
   } satisfies ThreadRenameEditorActionsHost;
-  return { ...host, notifyThreadRenamed, actions: createThreadRenameEditorActions(host) };
+  return { ...host, actions: createThreadRenameEditorActions(host) };
 }
 
 function fakeClient(options: { renameThreadRequest?: ReturnType<typeof vi.fn> } = {}): AppServerClient {

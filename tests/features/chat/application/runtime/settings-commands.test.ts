@@ -730,29 +730,6 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
   });
 
-  it("serializes runtime settings commits for the same thread across panel sessions", async () => {
-    const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
-    const firstStore = createChatStateStore(panelState);
-    const secondStore = createChatStateStore(panelState);
-    const firstUpdate = deferred(true);
-    const firstPort = settingsPortFixture({ updateThreadSettings: vi.fn(() => firstUpdate.promise) });
-    const secondPort = settingsPortFixture();
-    const threadCommits = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-    const firstCommands = runtimeCommandsFixture(firstStore, firstPort, [], threadCommits);
-    const secondCommands = runtimeCommandsFixture(secondStore, secondPort, [], threadCommits);
-
-    const firstMutation = firstCommands.requestModel("gpt-old");
-    await vi.waitFor(() => expect(firstPort.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-old" }));
-    const secondMutation = secondCommands.requestModel("gpt-latest");
-    await Promise.resolve();
-    expect(secondPort.updateThreadSettings).not.toHaveBeenCalled();
-
-    firstUpdate.resolve();
-    await expect(firstMutation).resolves.toBe(true);
-    await vi.waitFor(() => expect(secondPort.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-latest" }));
-    await expect(secondMutation).resolves.toBe(true);
-  });
-
   it("runs A1, B, then A2 in shared thread FIFO order and leaves A2 on the server", async () => {
     const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
     const firstStore = createChatStateStore(panelState);

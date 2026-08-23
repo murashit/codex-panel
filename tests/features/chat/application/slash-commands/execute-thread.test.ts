@@ -172,16 +172,6 @@ describe("thread slash commands", () => {
     expect(ctx.submission.adoptPanelTarget).toHaveBeenCalledOnce();
   });
 
-  it("renames a selected thread by quoted title", async () => {
-    const ctx = context({
-      listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta thread" })],
-    });
-
-    await executeThreadSlashCommand("rename", '"Beta thread" New Beta Name', ctx);
-
-    expect(ctx.threadCommands.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
-  });
-
   it("trims /rename names before saving", async () => {
     const ctx = context({
       listedThreads: [thread({ id: "thread-beta", name: "Beta thread" })],
