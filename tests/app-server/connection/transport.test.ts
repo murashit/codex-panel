@@ -10,11 +10,6 @@ vi.mock("node:child_process", () => ({
   spawn: spawnMock,
 }));
 
-interface TestableTransport {
-  handleStderr(text: string): void;
-  flushStderr(): void;
-}
-
 describe("StdioAppServerTransport", () => {
   beforeEach(() => {
     spawnMock.mockReset();
@@ -196,25 +191,31 @@ describe("StdioAppServerTransport", () => {
   });
 
   it("emits complete stderr lines and flushes the final partial line", () => {
-    const { onLog, transport } = transportFixture();
+    const child = fakeChildProcess();
+    spawnMock.mockReturnValue(child);
+    const { handlers, instance } = transportInstance();
+    instance.start();
 
-    transport.handleStderr("first line\npartial");
+    child.stderr.write("first line\npartial");
 
-    expect(onLog).toHaveBeenCalledWith("first line");
-    expect(onLog).not.toHaveBeenCalledWith("partial");
+    expect(handlers.onLog).toHaveBeenCalledWith("first line");
+    expect(handlers.onLog).not.toHaveBeenCalledWith("partial");
 
-    transport.flushStderr();
+    instance.stop();
 
-    expect(onLog).toHaveBeenCalledWith("partial");
+    expect(handlers.onLog).toHaveBeenCalledWith("partial");
   });
 
   it("ignores whitespace-only stderr fragments when flushing", () => {
-    const { onLog, transport } = transportFixture();
+    const child = fakeChildProcess();
+    spawnMock.mockReturnValue(child);
+    const { handlers, instance } = transportInstance();
+    instance.start();
 
-    transport.handleStderr("   ");
-    transport.flushStderr();
+    child.stderr.write("   ");
+    child.emit("exit", 0, null);
 
-    expect(onLog).not.toHaveBeenCalled();
+    expect(handlers.onLog).not.toHaveBeenCalled();
   });
 });
 
@@ -228,20 +229,6 @@ function transportInstance(codexPath = "codex") {
   return {
     handlers,
     instance: new StdioAppServerTransport(codexPath, "/vault", handlers),
-  };
-}
-
-function transportFixture(): { onLog: ReturnType<typeof vi.fn>; transport: TestableTransport } {
-  const onLog = vi.fn();
-  const handlers: AppServerTransportHandlers = {
-    onLine: vi.fn(),
-    onLog,
-    onExit: vi.fn(),
-    onError: vi.fn(),
-  };
-  return {
-    onLog,
-    transport: new StdioAppServerTransport("codex", "/vault", handlers) as unknown as TestableTransport,
   };
 }
 

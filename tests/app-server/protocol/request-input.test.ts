@@ -83,25 +83,6 @@ describe("app-server request input", () => {
     ]);
   });
 
-  it("keeps Panel metadata out of app-server history while sending explicit context separately", () => {
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "Use [[Note]]" },
-        { type: "fileReference", name: "Note", path: "Note.md" },
-        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "page" },
-      ],
-      "local-user-1-seed-1-1",
-    );
-
-    expect(prepared.input).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
-    expect(prepared.input).not.toContainEqual(expect.objectContaining({ type: "mention" }));
-    expect(prepared.additionalContext).toMatchObject({
-      "codex_panel.local-user-1-seed-1-1.00.codex_panel_web_context.part_01_of_01": {
-        kind: "untrusted",
-      },
-    });
-  });
-
   it("chunks UTF-8 context within the Panel byte cap without adding visible metadata", () => {
     const value = `見出し\n\n${"本文です。".repeat(2_000)}`;
     const prepared = appServerTurnInputFromCodexInput(

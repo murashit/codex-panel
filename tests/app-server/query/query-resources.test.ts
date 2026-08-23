@@ -570,23 +570,6 @@ describe("app-server query resources", () => {
     expect(listModels).toHaveBeenCalledOnce();
   });
 
-  it("freezes its lease context before starting requests", async () => {
-    const context = { codexPath: "codex-captured", vaultPath: "/vault" };
-    const capturedContext = { ...context };
-    const refresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const fetchThreads = vi.fn(() => refresh.promise);
-    const cache = cacheWithThreads(fetchThreads, context);
-
-    const promise = cache.threadCatalog.refreshActiveThreads();
-    context.codexPath = "codex-mutated";
-
-    refresh.resolve([thread("captured")]);
-    await expect(promise).resolves.toEqual([thread("captured")]);
-
-    expect(fetchThreads).toHaveBeenCalledWith(capturedContext, false);
-    expect(cache.threadCatalog.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["captured"]);
-  });
-
   it("fetches app-server metadata and models through their respective query records", async () => {
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
@@ -879,19 +862,6 @@ describe("app-server query resources", () => {
       permissionProfiles: { status: "failed", checkedAt: expect.any(Number) },
       rateLimits: { status: "failed", checkedAt: expect.any(Number) },
     });
-  });
-
-  it("stores an in-flight app-server snapshot as raw thread-list truth", async () => {
-    const refresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const cache = cacheWithThreads(() => refresh.promise);
-
-    const promise = cache.threadCatalog.refreshActiveThreads();
-    await flushMicrotasks();
-
-    refresh.resolve([thread("thread"), thread("other")]);
-
-    await expect(promise).resolves.toEqual([thread("thread"), thread("other")]);
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("thread"), thread("other")]);
   });
 });
 

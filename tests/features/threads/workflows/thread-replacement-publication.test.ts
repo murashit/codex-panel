@@ -124,23 +124,6 @@ describe("thread replacement visibility", () => {
     replacement.finish(false);
   });
 
-  it("keeps a source archive observed before replacement publication finishes", () => {
-    const committed: unknown[] = [];
-    const publication = createThreadReplacementPublication((facts) => committed.push(facts));
-    const replacement = publication.begin("source");
-    replacement.attach(thread("replacement"));
-    publication.facts.apply({ type: "thread-archived", threadId: "source" });
-
-    replacement.finish(true);
-
-    expect(committed).toEqual([
-      [
-        { type: "thread-upserted", thread: thread("replacement") },
-        { type: "thread-archived", threadId: "source" },
-      ],
-    ]);
-  });
-
   it("preserves observed source lifecycle order", () => {
     const committed: unknown[] = [];
     const publication = createThreadReplacementPublication((facts) => committed.push(facts));

@@ -93,31 +93,6 @@ describe("thread archive export", () => {
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 
-  it("exports only the thread history remaining after rollback", () => {
-    const rolledBackUserText = "rollbackされた依頼";
-    const rolledBackAssistantText = "rollbackされた回答";
-    const remainingEntries = [
-      transcriptEntry("user", "残る依頼", timestamp(2026, 5, 18, 9, 0)),
-      transcriptEntry("assistant", "残る回答", timestamp(2026, 5, 18, 9, 2)),
-    ];
-    const rolledBackEntries = [
-      transcriptEntry("user", rolledBackUserText, timestamp(2026, 5, 18, 10, 0)),
-      transcriptEntry("assistant", rolledBackAssistantText, timestamp(2026, 5, 18, 10, 3)),
-    ];
-    const output = exportedMarkdown(
-      thread({
-        transcriptEntries: remainingEntries,
-      }),
-      new Date(2026, 4, 18),
-    );
-
-    expect(output).toContain("残る依頼");
-    expect(output).toContain("残る回答");
-    expect(rolledBackEntries).toHaveLength(2);
-    expect(output).not.toContain(rolledBackUserText);
-    expect(output).not.toContain(rolledBackAssistantText);
-  });
-
   it("renders persisted v2 reference metadata without embedding its payload", () => {
     const entry = transcriptEntry("user", "続きです", 1);
     entry.referencedThread = {

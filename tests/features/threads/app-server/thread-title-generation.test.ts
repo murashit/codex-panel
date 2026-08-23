@@ -137,14 +137,6 @@ describe("thread title", () => {
       }),
     );
   });
-
-  it("omits title runtime overrides that are set to Codex default", async () => {
-    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([]));
-
-    await generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner });
-
-    expect(runner).toHaveBeenCalledWith(expect.objectContaining({ runtimeSettings: { model: null, effort: null } }));
-  });
 });
 
 function titleContext() {

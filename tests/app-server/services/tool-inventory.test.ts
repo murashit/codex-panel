@@ -39,27 +39,11 @@ describe("tool inventory", () => {
     expect(result.inventory.mcpError).toContain("repeated MCP server status list cursor");
   });
 
-  it("reads installed plugins without loading plugin details", async () => {
+  it("reads and sorts installed plugins without loading plugin details", async () => {
     const readPlugin = vi.fn();
     const client = toolInventoryClient({
       "plugin/installed": vi.fn().mockResolvedValue({
         marketplaces: [
-          {
-            name: "local-marketplace",
-            path: "/marketplaces/local.json",
-            plugins: [
-              {
-                id: "local-plugin@local-marketplace",
-                name: "local-plugin",
-                interface: { displayName: "Local Plugin" },
-                localVersion: "1.0.0",
-                installed: true,
-                enabled: true,
-                availability: "AVAILABLE",
-                source: { type: "local", path: "/plugins/local-plugin" },
-              },
-            ],
-          },
           {
             name: "remote-marketplace",
             path: null,
@@ -73,6 +57,22 @@ describe("tool inventory", () => {
                 enabled: true,
                 availability: "AVAILABLE",
                 source: { type: "remote" },
+              },
+            ],
+          },
+          {
+            name: "local-marketplace",
+            path: "/marketplaces/local.json",
+            plugins: [
+              {
+                id: "local-plugin@local-marketplace",
+                name: "local-plugin",
+                interface: { displayName: "Local Plugin" },
+                localVersion: "1.0.0",
+                installed: true,
+                enabled: true,
+                availability: "AVAILABLE",
+                source: { type: "local", path: "/plugins/local-plugin" },
               },
             ],
           },
@@ -95,23 +95,6 @@ describe("tool inventory", () => {
 
     expect(client.request).not.toHaveBeenCalledWith("app/list", expect.anything());
     expect(result.probes.map((probe) => probe.id)).toEqual(["plugins", "mcpServers"]);
-  });
-
-  it("preserves plugin order from installed plugin summaries", async () => {
-    const plugins = Array.from({ length: 10 }, (_, index) => installedPlugin(`plugin-${String(index)}`));
-    const readPlugin = vi.fn();
-    const client = toolInventoryClient({
-      "plugin/installed": vi.fn().mockResolvedValue({
-        marketplaces: [{ name: "local-marketplace", path: "/marketplaces/local.json", plugins }],
-        marketplaceLoadErrors: [],
-      }),
-      "plugin/read": readPlugin,
-    });
-
-    const result = await readToolInventory(client, "/vault");
-
-    expect(readPlugin).not.toHaveBeenCalled();
-    expect(result.inventory.plugins?.map((plugin) => plugin.name)).toEqual(plugins.map((plugin) => plugin.name));
   });
 });
 
@@ -156,27 +139,5 @@ function mcpServerStatus(name: string) {
     resources: [],
     resourceTemplates: [],
     authStatus: "oAuth",
-  };
-}
-
-function installedPlugin(name: string): {
-  id: string;
-  name: string;
-  interface: { displayName: string };
-  localVersion: string;
-  installed: boolean;
-  enabled: boolean;
-  availability: string;
-  source: { type: string; path: string };
-} {
-  return {
-    id: `${name}@local-marketplace`,
-    name,
-    interface: { displayName: name },
-    localVersion: "1.0.0",
-    installed: true,
-    enabled: true,
-    availability: "AVAILABLE",
-    source: { type: "local", path: `/plugins/${name}` },
   };
 }

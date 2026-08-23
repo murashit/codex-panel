@@ -5,7 +5,8 @@ import { deferred } from "../../../support/async";
 
 describe("thread rename editor", () => {
   it("keeps independent thread-list editors concurrent", async () => {
-    const firstContext = deferred<null>();
+    const readyContext = { userRequest: "First request", assistantResponse: "First response" };
+    const firstContext = deferred<typeof readyContext>();
     const secondContext = deferred<null>();
     const { editor, states } = fixture({
       resolveTitleContext: vi.fn((threadId) => (threadId === "first" ? firstContext.promise : secondContext.promise)),
@@ -16,9 +17,12 @@ describe("thread rename editor", () => {
 
     expect(states.get("first")?.kind).toBe("editing");
     expect(states.get("second")?.kind).toBe("editing");
-    firstContext.resolve(null);
+    firstContext.resolve(readyContext);
     secondContext.resolve(null);
-    await Promise.all([firstContext.promise, secondContext.promise]);
+    await flushPromises();
+
+    expect(states.get("first")).toMatchObject({ kind: "editing", autoName: { kind: "ready", context: readyContext } });
+    expect(states.get("second")).toMatchObject({ kind: "editing", autoName: { kind: "unavailable" } });
   });
 
   it("aborts replaced title work for an exclusive chat editor", async () => {

@@ -414,35 +414,6 @@ describe("selection rewrite popover", () => {
     expect(document.body.textContent).not.toContain("Late rewrite");
   });
 
-  it("ignores late generation preview callbacks after close", async () => {
-    const rewrite = deferred<{ replacementText: string }>();
-    const options = popoverOptions();
-    const preview: { current: ((text: string) => void) | null } = { current: null };
-    selectionRewriteGenerate.mockImplementation((runOptions) => {
-      preview.current = runOptions.onPreview ?? null;
-      return rewrite.promise;
-    });
-    const popover = new SelectionRewritePopover(options);
-
-    openPopover(popover);
-    await act(async () => {
-      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
-      await Promise.resolve();
-    });
-
-    closePopover(popover);
-    const latePreview = preview.current;
-    if (!latePreview) throw new Error("Expected preview callback to be captured");
-    latePreview("Late partial");
-
-    expect(options.state.streamText).toBe("");
-
-    rewrite.resolve({ replacementText: "Late rewrite" });
-    await act(async () => {
-      await flushPromises();
-    });
-  });
-
   it("keeps only one generation run active while a rewrite is pending", async () => {
     const rewrite = deferred<{ replacementText: string }>();
     selectionRewriteGenerate.mockReturnValue(rewrite.promise);

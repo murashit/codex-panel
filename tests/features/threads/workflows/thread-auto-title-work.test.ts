@@ -105,13 +105,21 @@ describe("thread auto-title work", () => {
 
   it("lets the shared rename owner recheck staleness before starting", async () => {
     const fixture = workFixture(() => Promise.resolve("Generated title"));
-    fixture.renameThread.mockImplementationOnce(async (_threadId, _title, options) => {
-      expect(options?.shouldStart?.()).toBe(true);
-      return true;
+    const rename = deferred<boolean>();
+    let shouldStart: (() => boolean) | undefined;
+    fixture.renameThread.mockImplementationOnce((_threadId, _title, options) => {
+      shouldStart = options?.shouldStart;
+      return rename.promise;
     });
 
     fixture.work.submit("thread", titleContext());
     await vi.waitFor(() => expect(fixture.renameThread).toHaveBeenCalledOnce());
+
+    expect(shouldStart?.()).toBe(true);
+    fixture.work.applyThreadFact({ type: "thread-renamed", threadId: "thread", name: "Manual title" });
+    expect(shouldStart?.()).toBe(false);
+
+    rename.resolve(false);
     await flushPromises();
   });
 });

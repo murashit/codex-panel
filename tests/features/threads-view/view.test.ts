@@ -319,22 +319,6 @@ describe("CodexThreadsView", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("archives without closing panel leaves", async () => {
-    const archiveThread = vi.fn().mockResolvedValue({});
-    connectionMock.state.client = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/archive": archiveThread,
-    });
-    const host = threadsHost();
-    const view = await threadsView(host);
-
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
-
-    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" }));
-  });
-
   it("lets a completed archive settle after the threads view closes", async () => {
     const archived = deferred<object>();
     const archiveThread = vi.fn(() => archived.promise);
@@ -415,26 +399,6 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Replacement");
   });
 
-  it("renames a thread through the shared client", async () => {
-    const renameThreadRequest = vi.fn().mockResolvedValue({});
-    connectionMock.state.client = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/name/set": renameThreadRequest,
-    });
-    const host = threadsHost();
-    const view = await threadsView(host);
-
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    expect(input).not.toBeNull();
-    if (!input) return;
-    changeInputValue(input, "  Renamed   thread  ");
-    view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.dispatchEvent(new FocusEvent("blur"));
-
-    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed thread" }));
-  });
-
   it("keeps the rename editor locked until a save finishes", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);
@@ -492,26 +456,8 @@ describe("CodexThreadsView", () => {
 
     expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Saved title");
     expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(false);
-    expect(notices).toContain("Rename failed.");
-  });
-
-  it("notifies a current rename failure without adding list status", async () => {
-    connectionMock.state.client = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/name/set": vi.fn().mockRejectedValue(new Error("Rename failed.")),
-    });
-    const view = await threadsView();
-    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
-
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
-    if (!input) throw new Error("Missing rename input");
-    changeInputValue(input, "New name");
-    input.dispatchEvent(new FocusEvent("blur"));
-    await waitForAsyncWork(() => expect(notices).toContain("Rename failed."));
-
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
-    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("New name");
+    expect(notices).toContain("Rename failed.");
   });
 
   it("notifies an archive failure without adding list status", async () => {

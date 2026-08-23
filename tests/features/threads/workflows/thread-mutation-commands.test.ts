@@ -188,10 +188,21 @@ describe("ThreadMutationCommands", () => {
   });
 
   it("runs the post-archive callback after the request succeeds", async () => {
-    const { mutations, catalog } = operationsFixture();
+    const archive = deferred<object>();
+    const client = clientMock();
+    client.request.mockImplementation((method: string) => {
+      if (method === "thread/archive") return archive.promise;
+      throw new Error(`Unexpected app-server request: ${method}`);
+    });
+    const { mutations, catalog } = operationsFixture({ client });
     const afterArchive = vi.fn();
 
-    await mutations.archiveThread("thread", { saveMarkdown: false, afterArchive });
+    const operation = mutations.archiveThread("thread", { saveMarkdown: false, afterArchive });
+    await vi.waitFor(() => expect(client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" }));
+
+    expect(afterArchive).not.toHaveBeenCalled();
+    archive.resolve({});
+    await operation;
 
     expect(afterArchive).toHaveBeenCalledOnce();
     expect(catalog.apply).not.toHaveBeenCalled();

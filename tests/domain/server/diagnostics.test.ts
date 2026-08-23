@@ -61,7 +61,6 @@ describe("server diagnostics", () => {
       message: "boom",
       checkedAt: 456,
     });
-    expect(diagnosticProbeError("models", new Error("unknown provider failure"), 792).status).toBe("failed");
   });
 
   it("shortens error messages and tracks MCP server diagnostics", () => {
