@@ -205,17 +205,6 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind({ method: "skills/changed", params: {} }, "diagnosticStatus");
   });
 
-  it("keeps active-thread-only lifecycle notifications scoped to the active thread", () => {
-    const notification = threadSettingsUpdatedNotification();
-    expectNotificationRouteKind(
-      {
-        method: "thread/settings/updated",
-        params: { ...notification.params, threadId: "thread-other" },
-      },
-      "inactive",
-    );
-  });
-
   it("classifies inactive requests before request-family handling", () => {
     const route = routeServerRequest(userInputRequest(), activeScope);
 

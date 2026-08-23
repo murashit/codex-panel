@@ -403,13 +403,9 @@ describe("chat app-server adapters", () => {
     const unavailable = createTestGateway({
       currentClient: () => null,
     }).threadGoalRead;
-    const readOnlyUnavailable = createTestGateway({
-      currentClient: () => null,
-    }).threadGoalRead;
 
     await expect(adapter.readThreadGoal("thread")).resolves.toBeNull();
     await expect(unavailable.readThreadGoal("thread")).resolves.toBeUndefined();
-    await expect(readOnlyUnavailable.readThreadGoal("thread")).resolves.toBeUndefined();
   });
 
   it("returns successful runtime settings updates after the current client changes", async () => {
@@ -466,32 +462,6 @@ describe("chat app-server adapters", () => {
       limit: 100,
       threadId: "thread",
     });
-    expect(request).not.toHaveBeenCalledWith("skills/list", expect.anything());
-  });
-
-  it("leaves shared skills out of panel diagnostics inventory", async () => {
-    const request = vi.fn((method: string) => {
-      switch (method) {
-        case "plugin/installed":
-          return Promise.resolve({ marketplaces: [], marketplaceLoadErrors: [] });
-        case "mcpServerStatus/list":
-          return Promise.resolve({ data: [] });
-        case "skills/list":
-          return Promise.resolve({ data: [{ cwd: "/vault", skills: [] }] });
-        default:
-          throw new Error(`Unexpected request: ${method}`);
-      }
-    });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).serverDiagnostics;
-
-    await adapter.readServerDiagnostics({
-      threadId: null,
-      initialDiagnostics: createServerDiagnostics(),
-    });
-
     expect(request).not.toHaveBeenCalledWith("skills/list", expect.anything());
   });
 

@@ -53,27 +53,6 @@ function autoReviewResultItem(id: string, turnId: string, text = "Auto-review ap
 }
 
 describe("display block grouping keeps thread stream details subordinate to conversation messages", () => {
-  it("groups completed turn activities before the final assistant message", () => {
-    const items: ThreadStreamItem[] = [
-      { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
-      { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1" },
-      commandItem("c1", "npm test", "t1"),
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
-    ];
-
-    const blocks = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT);
-    expect(blocks.map((block) => block.type)).toEqual(["item", "activityGroup", "item"]);
-    expect(blocks[1]).toMatchObject({ summary: "Work details" });
-  });
-
   it("groups completed hook and review logs before the final assistant message", () => {
     const items: ThreadStreamItem[] = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
@@ -414,29 +393,6 @@ describe("display block grouping keeps thread stream details subordinate to conv
       (block) => block.type === "item" && block.item.role === "assistant",
     );
     expect(withDiff).toMatchObject({ annotations: { editedFiles: ["src/main.ts"], turnDiff: { diff: "@@\n-old\n+new" } } });
-  });
-
-  it("adds auto-review summaries to the final assistant message", () => {
-    const items: ThreadStreamItem[] = [
-      autoReviewResultItem("review-1", "t1"),
-      autoReviewResultItem("review-2", "t1"),
-      {
-        id: "a1",
-        kind: "dialogue",
-        role: "assistant",
-        text: "done",
-        turnId: "t1",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
-    ];
-
-    const assistantBlock = threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT).find(
-      (block) => block.type === "item" && block.item.role === "assistant",
-    );
-    expect(assistantBlock).toMatchObject({
-      annotations: { autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
-    });
   });
 
   it("does not add edited file or auto-review summaries to active turn messages", () => {

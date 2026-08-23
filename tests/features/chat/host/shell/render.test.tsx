@@ -117,9 +117,10 @@ describe("ChatPanelShell", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const parts = shellParts();
+    const props = shellProps(store);
 
     await act(async () => {
-      renderChatPanelShell(container, { ...shellProps(store), showToolbar: false, parts });
+      renderChatPanelShell(container, { ...props, showToolbar: false, parts });
       await settleShellEffects();
     });
 
@@ -134,7 +135,7 @@ describe("ChatPanelShell", () => {
     initialThreadStream.scrollTop = 42;
 
     await act(async () => {
-      renderChatPanelShell(container, { ...shellProps(store), showToolbar: true, parts });
+      renderChatPanelShell(container, { ...props, showToolbar: true, parts });
       await settleShellEffects();
     });
 
@@ -145,7 +146,7 @@ describe("ChatPanelShell", () => {
     expect(container.querySelector<HTMLElement>(".codex-panel__region--thread-stream")?.scrollTop).toBe(42);
 
     await act(async () => {
-      renderChatPanelShell(container, { ...shellProps(store), showToolbar: false, parts });
+      renderChatPanelShell(container, { ...props, showToolbar: false, parts });
       await settleShellEffects();
     });
 
@@ -164,6 +165,7 @@ describe("ChatPanelShell", () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     const statusBar = document.createElement("div");
+    const props = shellProps(store);
     statusBar.className = "status-bar";
     document.body.appendChild(statusBar);
     document.body.appendChild(container);
@@ -175,14 +177,14 @@ describe("ChatPanelShell", () => {
     await act(async () => {
       statusBar.style.display = "flex";
       statusBar.style.position = "fixed";
-      renderChatPanelShell(container, shellProps(store));
+      renderChatPanelShell(container, props);
       await settleShellEffects();
     });
     expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("26px");
 
     await act(async () => {
       statusBar.style.position = "static";
-      renderChatPanelShell(container, shellProps(store));
+      renderChatPanelShell(container, props);
       await settleShellEffects();
     });
     expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("0px");
@@ -195,17 +197,13 @@ describe("ChatPanelShell", () => {
 });
 
 function shellProps(store: ReturnType<typeof createChatStateStore>) {
-  const sharedSources = sharedSourcesByStore.get(store) ?? chatSharedSourcesFixture();
-  sharedSourcesByStore.set(store, sharedSources);
   return {
     stateStore: store,
-    ...sharedSources,
+    ...chatSharedSourcesFixture(),
     showToolbar: true,
     parts: shellParts(),
   };
 }
-
-const sharedSourcesByStore = new WeakMap<ReturnType<typeof createChatStateStore>, ReturnType<typeof chatSharedSourcesFixture>>();
 
 function shellParts(
   options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter" } = {},

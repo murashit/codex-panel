@@ -28,6 +28,7 @@ describe("rollout token usage recovery", () => {
       },
       modelContextWindow: 2000,
     });
+    expect(readFileBase64).toHaveBeenCalledWith("/tmp/rollout.jsonl", { timeoutMs: 2_000 });
   });
 
   it("returns null for missing or invalid token usage shapes", async () => {
@@ -51,16 +52,6 @@ describe("rollout token usage recovery", () => {
       ),
     ).resolves.toBeNull();
     await expect(recoverRolloutTokenUsage("/tmp/invalid.jsonl", vi.fn().mockResolvedValue(btoa(invalidShape)))).resolves.toBeNull();
-  });
-
-  it("recovers usage from an absolute rollout path through app-server file reads", async () => {
-    const readFileBase64 = vi.fn().mockResolvedValue(btoa(tokenCountLine({ input: 42, total: 50, context: 1000 })));
-
-    await expect(recoverRolloutTokenUsage("/tmp/rollout.jsonl", readFileBase64)).resolves.toMatchObject({
-      last: { inputTokens: 42, totalTokens: 50 },
-      modelContextWindow: 1000,
-    });
-    expect(readFileBase64).toHaveBeenCalledWith("/tmp/rollout.jsonl", { timeoutMs: 2_000 });
   });
 
   it("skips relative paths, read failures, invalid base64, and oversized payloads", async () => {

@@ -224,9 +224,14 @@ describe("VaultNoteCandidateProvider", () => {
     const app = appFixture();
     const provider = new VaultNoteCandidateProvider(app);
 
+    expect(app.registeredEventNames("vault")).toContain("create");
+    expect(app.registeredEventNames("metadata")).toContain("changed");
+    expect(app.registeredEventNames("workspace")).toContain("file-open");
     provider.dispose();
 
-    expect(app.offref).toHaveBeenCalledTimes(8);
+    expect(app.registeredEventNames("vault")).toEqual([]);
+    expect(app.registeredEventNames("metadata")).toEqual([]);
+    expect(app.registeredEventNames("workspace")).toEqual([]);
   });
 
   it("shares candidate caches and event subscriptions across panel providers", () => {
@@ -240,10 +245,14 @@ describe("VaultNoteCandidateProvider", () => {
     first.dispose();
 
     expect(getFiles).toHaveBeenCalledOnce();
-    expect(app.offref).not.toHaveBeenCalled();
+    expect(app.registeredEventNames("vault")).toContain("create");
+    expect(app.registeredEventNames("metadata")).toContain("changed");
+    expect(app.registeredEventNames("workspace")).toContain("file-open");
 
     second.dispose();
-    expect(app.offref).toHaveBeenCalledTimes(8);
+    expect(app.registeredEventNames("vault")).toEqual([]);
+    expect(app.registeredEventNames("metadata")).toEqual([]);
+    expect(app.registeredEventNames("workspace")).toEqual([]);
   });
 
   it("resolves wikilinks through metadata cache before direct path fallback", () => {
@@ -482,15 +491,18 @@ describe("VaultNoteCandidateProvider", () => {
     const second = new VaultComposerContextReferenceProvider(app, () => false);
 
     first.dispose();
-    expect(app.offref).toHaveBeenCalledOnce();
+    expect(app.registeredEventNames("workspace")).toContain("file-open");
+    expect(app.registeredEventNames("workspace")).toContain("active-leaf-change");
 
     second.dispose();
-    expect(app.offref).toHaveBeenCalledTimes(4);
+    expect(app.registeredEventNames("workspace")).toEqual([]);
   });
 });
 
+type AppFixtureEventSource = "vault" | "metadata" | "workspace";
+
 interface AppFixture extends App {
-  offref: ReturnType<typeof vi.fn>;
+  registeredEventNames(source: AppFixtureEventSource): string[];
   setActiveView(view: unknown): void;
   triggerVaultEvent(name: string): void;
   triggerWorkspaceEvent(name: string): void;
@@ -514,20 +526,22 @@ function appFixture(
   } = {},
 ): AppFixture {
   let activeView: unknown = options.activeView ?? null;
-  const refs: { source: "vault" | "metadata" | "workspace"; name: string; callback: () => void; ref: EventRef }[] = [];
-  const offref = vi.fn((ref: EventRef) => {
-    const index = refs.findIndex((event) => event.ref === ref);
-    if (index !== -1) refs.splice(index, 1);
-  });
+  const refs: { source: AppFixtureEventSource; name: string; callback: () => void; ref: EventRef }[] = [];
+  const offref =
+    (source: AppFixtureEventSource) =>
+    (ref: EventRef): void => {
+      const index = refs.findIndex((event) => event.source === source && event.ref === ref);
+      if (index !== -1) refs.splice(index, 1);
+    };
   const on =
-    (source: "vault" | "metadata" | "workspace") =>
+    (source: AppFixtureEventSource) =>
     (name: string, callback: () => void): EventRef => {
       const ref = { id: `${source}:${name}:${refs.length.toString()}` } as unknown as EventRef;
       refs.push({ source, name, callback, ref });
       return ref;
     };
   return {
-    offref,
+    registeredEventNames: (source: AppFixtureEventSource) => refs.filter((event) => event.source === source).map((event) => event.name),
     setActiveView: (view: unknown) => {
       activeView = view;
     },
@@ -543,14 +557,14 @@ function appFixture(
     },
     workspace: {
       on: on("workspace"),
-      offref,
+      offref: offref("workspace"),
       getActiveFile: () => options.activeFile ?? null,
       getActiveViewOfType: () => activeView,
       getLastOpenFiles: () => options.lastOpenFiles ?? [],
     },
     metadataCache: {
       on: on("metadata"),
-      offref,
+      offref: offref("metadata"),
       getTags: options.getTags,
       getFirstLinkpathDest: options.getFirstLinkpathDest ?? (() => options.linkDestination ?? null),
       fileToLinktext:
@@ -565,7 +579,7 @@ function appFixture(
     },
     vault: {
       on: on("vault"),
-      offref,
+      offref: offref("vault"),
       getFiles: options.getFiles ?? (() => vaultFiles(options.files ?? [])),
       getAbstractFileByPath: (path: string) => options.abstractFiles?.get(path) ?? null,
     },

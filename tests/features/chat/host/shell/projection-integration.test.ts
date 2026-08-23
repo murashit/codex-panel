@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
-import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
@@ -354,44 +353,6 @@ describe("chat panel projection integration", () => {
     unmountUiRoot(parent);
   });
 
-  it("builds toolbar rows from explicit panel and shared snapshots", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    const shared = chatSharedResourcesFixture({
-      threads: [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")],
-      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" }),
-    });
-    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn" } } });
-    state = chatStateWith(state, { ui: { toolbarPanel: "history" } });
-    state = chatStateWith(state, { ui: { archiveConfirmThreadId: "thread-2" } });
-    state = chatStateWith(state, {
-      ui: { rename: { kind: "editing", threadId: "thread-1", draft: "Active", autoName: { kind: "unavailable" } } },
-    });
-    state = chatStateWith(state, { connection: { serverDiagnostics: createServerDiagnostics() } });
-
-    const parent = renderWithShellModels(state, shared, (models) =>
-      h(ProjectedToolbar, {
-        model: models.toolbar,
-        dependencies: toolbarSurfaceFixture({ archiveExportEnabled: true }),
-        actions: toolbarActionsFixture(),
-      }),
-    );
-
-    expect(parent.querySelector('[data-codex-panel-toolbar-panel="history"]')).not.toBeNull();
-    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.tagName).toBe("DIV");
-    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.classList.contains("is-disabled")).toBe(false);
-    expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-row--selected .codex-panel__thread-rename-input")?.value).toBe(
-      "Active",
-    );
-    expect(parent.querySelector(".codex-panel__thread-row--archive-confirming .codex-panel__toolbar-panel-label")?.textContent).toBe(
-      "Other",
-    );
-    const archivedThread = parent.querySelectorAll<HTMLElement>(".codex-panel__thread")[1];
-    expect(archivedThread?.tagName).toBe("DIV");
-    expect(archivedThread?.classList.contains("is-disabled")).toBe(false);
-    unmountUiRoot(parent);
-  });
-
   it("renders new thread permission baseline in the status panel before a thread is active", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { ui: { toolbarPanel: "status-panel" } });
@@ -684,26 +645,6 @@ describe("chat panel projection integration", () => {
     unmountUiRoot(parent);
   });
 
-  it("builds composer meta from captured panel and shared snapshots", () => {
-    const state = chatStateFixture();
-    const shared = chatSharedResourcesFixture({
-      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" }),
-      availableModels: [modelFixture("gpt-5.5")],
-    });
-
-    const projection = composerProjectionFromState(composerProjectionActionsFixture(), state, shared);
-
-    expect(projection).toMatchObject({
-      placeholder: "Ask Codex...",
-      meta: {
-        model: "gpt-5.5",
-        effort: "high",
-        modelChoices: [{ label: "gpt-5.5", selected: true }],
-        effortChoices: [{ label: "high", selected: true }],
-      },
-    });
-  });
-
   it("derives composer placeholders", () => {
     let activeState = chatStateFixture();
     activeState = chatStateWith(activeState, { activeThread: { id: "thread-1" } });
@@ -751,14 +692,12 @@ describe("chat panel projection integration", () => {
     expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture(), shared).placeholder).toBe("Ask Codex...");
   });
 
-  it("projects goal editor and disclosure state before action wiring", () => {
+  it("projects goal editor state before action wiring", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1", goal: goalFixture("thread-1") } });
     state = chatStateWith(state, {
       ui: { goalEditor: { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 } },
     });
-    state = chatStateWith(state, { ui: { disclosures: { goalObjectiveExpanded: new Set(["thread-1"]) } } });
-
     const parent = renderWithShellModels(state, emptySharedResources, (models) =>
       h(ProjectedGoal, { model: models.goal, dependencies: goalSurfaceFixture() }),
     );

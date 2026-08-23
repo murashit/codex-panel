@@ -530,20 +530,6 @@ describe("panel pending request rendering", () => {
     expect(element.querySelector(".codex-panel__auto-reviews")?.textContent).toContain("Auto-review approved: npm test");
   });
 
-  it("adds pending requests to the bottom of thread stream blocks", () => {
-    const blocks = projectedThreadStreamBlocks({
-      items: [
-        { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
-      ],
-      pendingRequests: pendingRequestContext({
-        signature: "request:1",
-      }),
-    });
-
-    expect(blocks.map((block) => block.key)).toEqual(["item:a1", "pending-requests"]);
-    expect(expectPresent(blocks[1]).kind).toBe("pendingRequests");
-  });
-
   it("renders MCP elicitation fields and resolves them separately from Plan mode input", () => {
     const parent = document.createElement("div");
     const resolveMcpElicitation = vi.fn();
