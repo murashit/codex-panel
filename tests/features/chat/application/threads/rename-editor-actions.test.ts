@@ -250,6 +250,33 @@ describe("ThreadRenameEditorActions", () => {
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
+  it("forwards inline save validity to the rename host", async () => {
+    const renamed = deferred<boolean>();
+    const renameThread = vi.fn<ThreadRenameEditorActionsHost["renameThread"]>(() => renamed.promise);
+    const stateStore = createChatStateStore();
+    const actions = createThreadRenameEditorActions({
+      stateStore,
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      addSystemMessage: vi.fn(),
+      threadById: () => threadFixture("thread"),
+      renameThread,
+      resolveThreadTitleContext: vi.fn().mockResolvedValue(null),
+      generateThreadTitle: vi.fn(),
+    });
+
+    actions.start("thread");
+    const saving = actions.save("thread", "Queued title");
+    await vi.waitFor(() => expect(renameThread).toHaveBeenCalledOnce());
+    const shouldStart = renameThread.mock.calls[0]?.[2]?.shouldStart;
+    if (!shouldStart) throw new Error("Expected inline rename validity to be forwarded");
+    expect(shouldStart()).toBe(true);
+
+    actions.invalidate();
+    expect(shouldStart()).toBe(false);
+    renamed.resolve(false);
+    await saving;
+  });
+
   it("blocks starting another inline rename while a save is pending", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);

@@ -33,7 +33,7 @@ interface RenameThreadOptions {
 }
 
 export interface ThreadMutationCommands {
-  renameThread(threadId: string, value: string, options?: RenameThreadOptions): Promise<boolean>;
+  renameThread: (threadId: string, value: string, options?: RenameThreadOptions) => Promise<boolean>;
   setThreadPinned(threadId: string, isPinned: boolean): Promise<void>;
   archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult>;
   restoreThread(threadId: string): Promise<Thread>;

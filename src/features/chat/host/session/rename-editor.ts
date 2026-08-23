@@ -1,6 +1,7 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
+import type { ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
 import { createThreadRenameEditor, type ThreadRenameEditor } from "../../../threads/workflows/thread-rename-editor";
 import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
@@ -17,7 +18,7 @@ export interface ThreadRenameEditorActionsHost {
   stateStore: ChatStateStore;
   ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
-  renameThread(threadId: string, value: string): Promise<boolean>;
+  renameThread: ThreadMutationCommands["renameThread"];
   resolveThreadTitleContext(threadId: string): Promise<ThreadTitleContext | null>;
   generateThreadTitle(context: ThreadTitleContext, signal?: AbortSignal): Promise<string | null>;
   threadById(threadId: string): Thread | undefined;
@@ -45,7 +46,7 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
       return threadRenameDraftTitle(thread);
     },
     prepare: () => host.ensureConnected(),
-    renameThread: (threadId, value) => host.renameThread(threadId, value),
+    renameThread: (threadId, value, shouldStart) => host.renameThread(threadId, value, { shouldStart }),
     resolveTitleContext: (threadId) => host.resolveThreadTitleContext(threadId),
     generateTitle: (context, signal) => host.generateThreadTitle(context, signal),
     reportError: (error) => {

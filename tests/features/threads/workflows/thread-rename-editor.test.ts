@@ -96,6 +96,20 @@ describe("thread rename editor", () => {
     saved.resolve();
     await save;
   });
+
+  it("releases an exclusive save after its externally owned state is replaced", async () => {
+    const saved = deferred<void>();
+    const { editor, states } = fixture({ exclusive: true, renameThread: vi.fn(() => saved.promise) });
+
+    editor.start("first");
+    const save = editor.save("first", "Stale title");
+    states.delete("first");
+    saved.resolve();
+    await save;
+    editor.start("second");
+
+    expect(states.get("second")?.kind).toBe("editing");
+  });
 });
 
 function fixture(overrides: Partial<ThreadRenameEditorHost> = {}) {

@@ -213,7 +213,7 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     threadById: (threadId) => host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),
     ensureConnected,
     addSystemMessage: status.addSystemMessage,
-    renameThread: (threadId, value) => foundation.threadMutations.renameThread(threadId, value),
+    renameThread: foundation.threadMutations.renameThread,
     resolveThreadTitleContext: (threadId) => foundation.titleService.resolveContext(threadId),
     generateThreadTitle: (context, signal) => foundation.titleService.generate(context, signal),
   });

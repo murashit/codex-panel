@@ -25,13 +25,26 @@ describe("ThreadMutationCommands", () => {
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
-  it("can skip a rename before contacting the app server", async () => {
-    const { mutations, client, catalog } = operationsFixture();
+  it("evaluates rename admission after queued work reaches the front", async () => {
+    const occupiedRename = deferred<object>();
+    const client = clientMock();
+    client.request.mockImplementationOnce(async (method: string) => {
+      if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
+      return occupiedRename.promise;
+    });
+    const { mutations, catalog } = operationsFixture({ client });
+    let shouldStart = true;
 
-    await expect(mutations.renameThread("thread", "Title", { shouldStart: () => false })).resolves.toBe(false);
+    const occupying = mutations.renameThread("thread", "Current title");
+    await vi.waitFor(() => expect(client.request).toHaveBeenCalledOnce());
+    const queued = mutations.renameThread("thread", "Obsolete title", { shouldStart: () => shouldStart });
+    shouldStart = false;
+    occupiedRename.resolve({});
+
+    await expect(occupying).resolves.toBe(true);
+    await expect(queued).resolves.toBe(false);
     await expect(mutations.renameThread("thread", "   ")).resolves.toBe(false);
-
-    expect(client?.request).not.toHaveBeenCalled();
+    expect(client.request).toHaveBeenCalledOnce();
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 

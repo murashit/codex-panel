@@ -311,6 +311,33 @@ describe("chat panel session runtime", () => {
     expect(warmup).not.toHaveBeenCalled();
   });
 
+  it("invalidates an inline rename before releasing the panel runtime", async () => {
+    const renamed = deferred<boolean>();
+    const renameThread = vi.fn<ReturnType<typeof threadMutationCommandsMock>["renameThread"]>(() => renamed.promise);
+    const { runtime, stateStore } = sessionRuntimeFixture({
+      environment: {
+        plugin: {
+          threadCatalog: { activeThreadsSnapshot: vi.fn(() => [threadFixture({ id: "thread", name: "Current" })]) },
+          threadMutations: threadMutationCommandsMock({ renameThread }),
+        },
+      },
+    });
+
+    runtime.shell.parts.toolbar.actions.threads.rename.start("thread");
+    runtime.shell.parts.toolbar.actions.threads.rename.save("thread", "Queued title");
+    await vi.waitFor(() => expect(renameThread).toHaveBeenCalledOnce());
+    const shouldStart = renameThread.mock.calls[0]?.[2]?.shouldStart;
+    if (!shouldStart) throw new Error("Expected inline rename validity to be forwarded");
+    expect(shouldStart()).toBe(true);
+
+    await runtime.dispose(vi.fn());
+
+    expect(shouldStart()).toBe(false);
+    expect(stateStore.getState().ui.rename.kind).toBe("idle");
+    renamed.resolve(false);
+    await Promise.resolve();
+  });
+
   it("cleans up a running Side Chat before releasing only its panel lease", async () => {
     const interrupt = deferred<unknown>();
     const request = vi.fn((method: string) => (method === "turn/interrupt" ? interrupt.promise : Promise.resolve({})));
@@ -446,6 +473,7 @@ describe("chat panel session runtime", () => {
       threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
       threadFacts?: Partial<ChatPanelEnvironment["plugin"]["threadFacts"]>;
       appServerQueries?: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]>;
+      threadMutations?: ChatPanelEnvironment["plugin"]["threadMutations"];
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
     };
@@ -522,7 +550,7 @@ describe("chat panel session runtime", () => {
           begin: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
           visibleThreadId: vi.fn((_threads, threadId) => threadId),
         },
-        threadMutations: threadMutationCommandsMock(),
+        threadMutations: overrides.plugin?.threadMutations ?? threadMutationCommandsMock(),
         threadGoalCoordinator: createThreadGoalCoordinator(),
         runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
       },

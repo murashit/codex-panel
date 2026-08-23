@@ -387,6 +387,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
         commands.invalidateThreadWork();
         host.deferredTasks.clearAll();
         threadCatalogObserver.unsubscribe();
+        threadFeatures.rename.invalidate();
         composerController.dispose();
         host.threadStreamScrollBinding.dispose();
         unmount();

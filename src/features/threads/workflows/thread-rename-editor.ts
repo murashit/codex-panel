@@ -92,6 +92,8 @@ export function createThreadRenameEditor(host: ThreadRenameEditorHost): ThreadRe
         host.reportError(error);
         const current = host.state.get(threadId);
         if (current?.kind === "saving") host.state.replace(threadId, editingState(current));
+      } finally {
+        saves.delete(threadId);
       }
     },
 
