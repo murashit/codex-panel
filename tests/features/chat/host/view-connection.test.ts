@@ -227,8 +227,9 @@ describe("CodexChatView connection lifecycle", () => {
     const nextClient = connectedClient({
       "thread/resume": vi.fn(() => resumed.promise),
     });
-    connectionMockState().client = nextClient;
-    owner.replace(nextHost);
+    owner.replace(nextHost, () => {
+      connectionMockState().client = nextClient;
+    });
 
     expect(requestMethods(nextClient)).not.toContain("thread/resume");
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
@@ -305,10 +306,12 @@ describe("CodexChatView connection lifecycle", () => {
     await view.surface.activateThread("thread-a");
     view.surface.setComposerText("Thread A draft");
 
-    connectionMockState().client = connectedClient({
+    const nextClient = connectedClient({
       "thread/resume": vi.fn((params) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
     });
-    owner.replace(chatHost());
+    owner.replace(chatHost(), () => {
+      connectionMockState().client = nextClient;
+    });
 
     await view.surface.activateThread("thread-b");
 
@@ -321,6 +324,7 @@ describe("CodexChatView connection lifecycle", () => {
     const firstClient = connectedClient({
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-a") }),
+      "thread/unsubscribe": vi.fn().mockResolvedValue({}),
     });
     connectionMockState().client = firstClient;
     const view = await chatView({ runtimeOwner: owner });
@@ -335,8 +339,15 @@ describe("CodexChatView connection lifecycle", () => {
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-b") }),
     });
-    connectionMockState().client = nextClient;
-    owner.replace(nextHost);
+    owner.replace(nextHost, () => {
+      connectionMockState().client = nextClient;
+    });
+
+    expect(firstClient.request).toHaveBeenCalledWith(
+      "thread/unsubscribe",
+      { threadId: "ephemeral-a" },
+      expect.objectContaining({ timeoutMs: 5_000 }),
+    );
 
     await waitForAsyncWork(() => {
       expect(nextClient.request).toHaveBeenCalledWith("thread/fork", expect.objectContaining({ threadId: "source", cwd: "/vault" }));
@@ -344,6 +355,52 @@ describe("CodexChatView connection lifecycle", () => {
       expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Side draft");
     });
     expect(view.surface.openPanelSnapshot().threadId).not.toBe("ephemeral-a");
+  });
+
+  it("settles a restored side chat request that rejects in the background", async () => {
+    const owner = chatViewRuntimeOwner(chatHost());
+    const firstClient = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-a") }),
+      "thread/unsubscribe": vi.fn().mockResolvedValue({}),
+    });
+    connectionMockState().client = firstClient;
+    const view = await chatView({ runtimeOwner: owner });
+    await view.onOpen();
+    await view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" });
+
+    const restoredFork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
+    const nextClient = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn(() => restoredFork.promise),
+    });
+    owner.replace(chatHost(), () => {
+      connectionMockState().client = nextClient;
+    });
+    await waitForAsyncWork(() => expectRequestTimes(nextClient, "thread/fork", 1));
+
+    restoredFork.reject(new Error("Codex app-server disconnected."));
+    await Promise.resolve();
+
+    expect(view.isRuntimeAttached()).toBe(true);
+  });
+
+  it("settles a pending side chat request when its view closes", async () => {
+    const fork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
+    const client = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn(() => fork.promise),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    const opening = view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" }, { focus: false });
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/fork", 1));
+    await view.onClose();
+    fork.reject(new Error("Codex app-server disconnected."));
+
+    await expect(opening).resolves.toBe(false);
   });
 
   it("sends an initial message after opening a side chat", async () => {

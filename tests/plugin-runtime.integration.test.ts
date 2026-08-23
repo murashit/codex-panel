@@ -67,7 +67,7 @@ function currentChatHost(plugin: CodexPanelPlugin): CodexChatHost {
       attachRuntime: (host: CodexChatHost) => {
         createdCapture.current = host;
       },
-      detachRuntime: () => {
+      detachRuntime: async () => {
         createdCapture.current = null;
       },
     }) as ChatRuntimeView;
@@ -295,9 +295,35 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(plugin.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ codexPath: "codex-next" }));
   });
 
+  it("does not publish a replacement after a synchronous reset during view detachment", async () => {
+    let plugin!: CodexPanelPlugin;
+    let detached = false;
+    const attachRuntime = vi.fn();
+    const runtimeView = Object.assign(Object.create(CodexChatView.prototype), {
+      attachRuntime,
+      detachRuntime: vi.fn(() => {
+        if (detached) return Promise.resolve();
+        detached = true;
+        plugin.runtime.reset();
+        return Promise.reject(new Error("cleanup failed"));
+      }),
+      isRuntimeAttached: () => !detached,
+    }) as ChatRuntimeView;
+    const runtimeLeaf = leaf();
+    runtimeLeaf.view = runtimeView;
+    plugin = await pluginWithLeaves([runtimeLeaf]);
+    plugin.runtime.attachChatView(runtimeView);
+    attachRuntime.mockClear();
+
+    await expect(publishCodexPath(plugin, "codex-next")).rejects.toThrow("runtime reset");
+
+    expect(plugin.settings.codexPath).toBe("codex");
+    expect(attachRuntime).not.toHaveBeenCalled();
+  });
+
   it("detaches and reattaches every open Chat view to the new execution runtime", async () => {
     const attachRuntime = vi.fn();
-    const detachRuntime = vi.fn();
+    const detachRuntime = vi.fn().mockResolvedValue(undefined);
     const runtimeView = Object.assign(Object.create(CodexChatView.prototype), {
       attachRuntime,
       detachRuntime,
@@ -315,6 +341,30 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(attachRuntime).toHaveBeenCalledOnce();
     expect(attachRuntime.mock.calls[0]?.[0].appServerContext.codexPath).toBe("codex-next");
     expect(attachRuntime.mock.calls[0]?.[0].appServerContext.vaultPath).toBe("/vault");
+  });
+
+  it("publishes a replacement after starting Chat target cleanup", async () => {
+    const cleanup = deferred<void>();
+    const attachRuntime = vi.fn();
+    const detachRuntime = vi.fn(() => cleanup.promise);
+    const runtimeView = Object.assign(Object.create(CodexChatView.prototype), {
+      attachRuntime,
+      detachRuntime,
+      isRuntimeAttached: () => false,
+    }) as ChatRuntimeView;
+    const runtimeLeaf = leaf();
+    runtimeLeaf.view = runtimeView;
+    const plugin = await pluginWithLeaves([runtimeLeaf]);
+    plugin.runtime.attachChatView(runtimeView);
+    attachRuntime.mockClear();
+
+    const publication = publishCodexPath(plugin, "codex-next");
+    await publication;
+
+    expect(detachRuntime).toHaveBeenCalledOnce();
+    expect(attachRuntime).toHaveBeenCalledOnce();
+    expect(plugin.settings.codexPath).toBe("codex-next");
+    cleanup.resolve(undefined);
   });
 
   it("detaches and reattaches every open Threads view to the new execution runtime", async () => {

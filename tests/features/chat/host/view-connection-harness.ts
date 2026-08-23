@@ -76,11 +76,13 @@ function contextConnectionMock(): CodexChatHost["appServerConnection"] {
   return {
     createLease: () => {
       let connected = false;
+      let client: Record<string, unknown> | null = null;
       return {
         connect: async (handlers) => {
           connectionMock.state.connectCalls += 1;
           connectionMock.state.connected = true;
           connected = true;
+          client = connectionMock.state.client;
           connectionMock.state.onNotification = handlers.onNotification;
           connectionMock.state.onServerRequest = (request, responder) => {
             handlers.onServerRequest(request, responder);
@@ -96,7 +98,7 @@ function contextConnectionMock(): CodexChatHost["appServerConnection"] {
             platformOs: "macos",
           };
         },
-        currentClient: () => (connected ? (connectionMock.state.client as never) : null),
+        currentClient: () => (connected ? (client as never) : null),
         isConnected: () => connected && connectionMock.state.connected,
         disconnect: () => {
           connected = false;
@@ -670,7 +672,7 @@ function queryResult<T>(value: T | null): ObservedResult<T> {
 }
 
 export interface TestChatViewRuntimeOwner extends ChatViewRuntimeOwner {
-  replace(host: CodexChatHost): void;
+  replace(host: CodexChatHost, beforeAttach?: () => void): void;
 }
 
 export function chatViewRuntimeOwner(initialHost: CodexChatHost): TestChatViewRuntimeOwner {
@@ -681,9 +683,11 @@ export function chatViewRuntimeOwner(initialHost: CodexChatHost): TestChatViewRu
       view = nextView;
       nextView.attachRuntime(host);
     },
-    replace: (nextHost) => {
+    replace: (nextHost, beforeAttach) => {
+      const cleanup = view?.detachRuntime();
+      void cleanup?.catch(() => undefined);
       host = nextHost;
-      view?.detachRuntime();
+      beforeAttach?.();
       view?.attachRuntime(host);
     },
   };

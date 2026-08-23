@@ -7,6 +7,7 @@ import {
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ActiveThreadResumedAction } from "../../../../../src/features/chat/application/state/transition-actions";
+import { deferred } from "../../../../support/async";
 
 function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -26,6 +27,7 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
   });
   const host: ChatReconnectCommandHost = {
     stateStore,
+    cleanupForConnectionReset: vi.fn().mockResolvedValue(undefined),
     resetConnectionScope: vi.fn(),
     setStatus: vi.fn(),
     ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -53,6 +55,7 @@ describe("createReconnectPanelCommand", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
     expect(stateStore.getState()).not.toHaveProperty("threadList");
+    expect(host.cleanupForConnectionReset).toHaveBeenCalledOnce();
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
   });
@@ -117,8 +120,49 @@ describe("createReconnectPanelCommand", () => {
     await reconnect({ beforeTargetReset });
 
     expect(host.resumeThread).not.toHaveBeenCalled();
+    expect(host.cleanupForConnectionReset).toHaveBeenCalledOnce();
     expect(beforeTargetReset).toHaveBeenCalledOnce();
     expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
+    expect(vi.mocked(host.cleanupForConnectionReset).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(host.resetConnectionScope).mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it("keeps an ephemeral target intact until its connection cleanup settles", async () => {
+    const cleanup = deferred<void>();
+    const { host, stateStore, reconnect } = createHost({
+      cleanupForConnectionReset: vi.fn(() => cleanup.promise),
+    });
+    resumeSideThread(stateStore);
+
+    const operation = reconnect();
+    await Promise.resolve();
+
+    expect(activeThreadId(stateStore.getState())).toBe("side-thread");
+    expect(host.resetConnectionScope).not.toHaveBeenCalled();
+
+    cleanup.resolve(undefined);
+    await expect(operation).resolves.toBe(false);
+
+    expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
+    expect(host.resetConnectionScope).toHaveBeenCalledOnce();
+  });
+
+  it("does not reset a newer target after ephemeral cleanup settles", async () => {
+    const cleanup = deferred<void>();
+    const { host, stateStore, reconnect } = createHost({
+      cleanupForConnectionReset: vi.fn(() => cleanup.promise),
+    });
+    const beforeTargetReset = vi.fn();
+    resumeSideThread(stateStore);
+
+    const operation = reconnect({ beforeTargetReset });
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    cleanup.resolve(undefined);
+
+    await expect(operation).resolves.toBe(false);
+    expect(beforeTargetReset).not.toHaveBeenCalled();
+    expect(host.resetConnectionScope).not.toHaveBeenCalled();
   });
 
   it("does not announce a target reset when reconnecting a persistent thread", async () => {
@@ -152,8 +196,8 @@ describe("createReconnectPanelCommand", () => {
     const first = reconnect();
     const second = reconnect();
 
+    await vi.waitFor(() => expect(host.ensureConnected).toHaveBeenCalledOnce());
     expect(host.resetConnectionScope).toHaveBeenCalledOnce();
-    expect(host.ensureConnected).toHaveBeenCalledOnce();
 
     finishConnecting();
     await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
@@ -170,6 +214,7 @@ describe("createReconnectPanelCommand", () => {
     });
 
     const operation = reconnect();
+    await vi.waitFor(() => expect(host.ensureConnected).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
     finishConnecting();
 

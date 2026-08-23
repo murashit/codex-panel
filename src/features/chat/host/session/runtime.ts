@@ -205,6 +205,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   });
   const reconnectHost = {
     stateStore,
+    cleanupForConnectionReset: () => ephemeral.cleanupForConnectionReset(),
     resetConnectionScope: () => {
       connectionCoordinator.invalidate();
       invalidateThreadWork();
@@ -381,16 +382,21 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       threadCatalog: threadCatalogObserver,
     },
     dispose: async (unmount: () => void): Promise<void> => {
-      connection.disconnect();
-      connectionCoordinator.invalidate();
-      commands.invalidateThreadWork();
-      host.deferredTasks.clearAll();
-      threadCatalogObserver.unsubscribe();
-      sessionConnection.invalidateConnectionScope();
-      composerController.dispose();
-      host.threadStreamScrollBinding.dispose();
-      unmount();
-      await ephemeral.dispose();
+      try {
+        sessionConnection.deactivate();
+        commands.invalidateThreadWork();
+        host.deferredTasks.clearAll();
+        threadCatalogObserver.unsubscribe();
+        composerController.dispose();
+        host.threadStreamScrollBinding.dispose();
+        unmount();
+      } finally {
+        try {
+          await ephemeral.dispose();
+        } finally {
+          connection.disconnect();
+        }
+      }
     },
   } as const;
 }

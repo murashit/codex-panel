@@ -80,16 +80,16 @@ export class CodexChatView extends ItemView {
     }
   }
 
-  detachRuntime(): void {
+  detachRuntime(): Promise<void> {
     const session = this.session;
-    if (!session) return;
+    if (!session) return Promise.resolve();
     try {
       this.runtimeSnapshot = session.runtimeSnapshot();
     } catch {
       // Preserve the previous snapshot if collecting the latest one fails.
     }
     this.session = null;
-    void session.close().catch(() => undefined);
+    const cleanup = session.close().catch(() => undefined);
     const owner = this.sessionOwner;
     this.sessionOwner = null;
     try {
@@ -97,6 +97,7 @@ export class CodexChatView extends ItemView {
     } catch {
       // The session is already detached; leave DOM cleanup to the owner lifecycle.
     }
+    return cleanup;
   }
 
   override getViewType(): string {
@@ -137,7 +138,7 @@ export class CodexChatView extends ItemView {
 
   override async onClose(): Promise<void> {
     this.opened = false;
-    this.detachRuntime();
+    await this.detachRuntime();
   }
 
   private refreshTabHeader(): void {

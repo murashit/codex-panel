@@ -2,7 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
+import type { AppServerClient, AppServerServerRequestResponder } from "../../../../../src/app-server/connection/client";
+import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../../src/domain/server/initialization";
@@ -212,12 +213,15 @@ describe("chat panel session runtime", () => {
     });
     const reconnecting = deferred<void>();
     const ensureConnected = vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockReturnValue(reconnecting.promise);
+    const cleanupForConnectionReset = vi.spyOn(runtime.thread.ephemeral, "cleanupForConnectionReset");
     runtime.composer.controller.setDraft("/reconnect");
 
     const reconnectSubmission = runtime.turn.submissionCommands.composerSubmit.submit();
     await waitForAsyncWork(() => {
       expect(ensureConnected).toHaveBeenCalledOnce();
     });
+    expect(cleanupForConnectionReset).toHaveBeenCalledOnce();
+    expect(cleanupForConnectionReset.mock.invocationCallOrder[0]).toBeLessThan(ensureConnected.mock.invocationCallOrder[0] ?? 0);
 
     expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
     expect(runtime.composer.controller.isSubmissionPreparing()).toBe(true);
@@ -273,7 +277,7 @@ describe("chat panel session runtime", () => {
 
     const disposal = runtime.dispose(unmount);
 
-    expect(disconnect).toHaveBeenCalledOnce();
+    expect(disconnect).not.toHaveBeenCalled();
     expect(invalidateConnection).toHaveBeenCalledOnce();
     expect(invalidateThreadWork).toHaveBeenCalledOnce();
     expect(clearDeferredTasks).toHaveBeenCalledOnce();
@@ -282,11 +286,12 @@ describe("chat panel session runtime", () => {
     expect(disposeScrollBinding).toHaveBeenCalledOnce();
     expect(unmount).toHaveBeenCalledOnce();
     expect(disposeEphemeralThread).toHaveBeenCalledOnce();
-    expect(disconnect.mock.invocationCallOrder[0]).toBeLessThan(disposeEphemeralThread.mock.invocationCallOrder[0] ?? 0);
 
     ephemeralCleanup.resolve(undefined);
     await disposal;
 
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(disposeEphemeralThread.mock.invocationCallOrder[0]).toBeLessThan(disconnect.mock.invocationCallOrder[0] ?? 0);
     expect(unsubscribeThreads).toHaveBeenCalled();
     expect(unsubscribeMetadata).toHaveBeenCalled();
     expect(runtime.composer.controller.hasFocus()).toBe(false);
@@ -296,6 +301,108 @@ describe("chat panel session runtime", () => {
     await vi.runAllTimersAsync();
     expect(diagnostics).not.toHaveBeenCalled();
     expect(warmup).not.toHaveBeenCalled();
+  });
+
+  it("cleans up a running Side Chat before releasing only its panel lease", async () => {
+    const interrupt = deferred<unknown>();
+    const request = vi.fn((method: string) => (method === "turn/interrupt" ? interrupt.promise : Promise.resolve({})));
+    const client = { request } as unknown as AppServerClient;
+    const managerState: { handlers: ConnectionManagerHandlers | null } = { handlers: null };
+    const disconnectSharedProcess = vi.fn();
+    const contextConnection = new AppServerContextConnection(
+      "codex",
+      "/vault",
+      {} as never,
+      { onNotification: () => false },
+      {
+        connect: vi.fn(async (handlers: ConnectionManagerHandlers) => {
+          managerState.handlers ??= handlers;
+          return serverInitializationFixture();
+        }),
+        currentClient: () => client,
+        disconnect: disconnectSharedProcess,
+      },
+    );
+    const { runtime, stateStore } = sessionRuntimeFixture({
+      environment: { plugin: { appServerConnection: contextConnection } },
+    });
+    await runtime.connection.coordinator.ensureConnected();
+    const otherPanelRequest = vi.fn(() => true);
+    const otherLease = contextConnection.createLease();
+    await otherLease.connect({
+      onNotification: vi.fn(),
+      onServerRequest: otherPanelRequest,
+      onLog: vi.fn(),
+      onExit: vi.fn(),
+    });
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: threadFixture({ id: "side-thread", preview: "Side chat" }),
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+      lifetime: { kind: "ephemeral", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
+    });
+    stateStore.dispatch({ type: "turn/started", threadId: "side-thread", turnId: "turn-1" });
+    const releasePanelLease = vi.spyOn(runtime.connection.manager, "disconnect");
+
+    const disposal = runtime.dispose(vi.fn());
+    expect(request).toHaveBeenCalledWith("turn/interrupt", { threadId: "side-thread", turnId: "turn-1" });
+    expect(releasePanelLease).not.toHaveBeenCalled();
+
+    const responder = { respond: vi.fn(), reject: vi.fn() } as unknown as AppServerServerRequestResponder;
+    const handlers = managerState.handlers;
+    if (!handlers) throw new Error("Expected shared connection handlers.");
+    handlers.onServerRequest(
+      {
+        id: 7,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "side-thread",
+          turnId: "turn-1",
+          itemId: "input-1",
+          questions: [],
+          isBlocking: true,
+          autoResolutionMs: null,
+        },
+      },
+      responder,
+    );
+    expect(otherPanelRequest).toHaveBeenCalledOnce();
+    expect(responder.reject).not.toHaveBeenCalled();
+
+    interrupt.resolve({});
+    await disposal;
+
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["turn/interrupt", "thread/unsubscribe"]);
+    expect(releasePanelLease).toHaveBeenCalledOnce();
+    expect(request.mock.invocationCallOrder.at(-1)).toBeLessThan(releasePanelLease.mock.invocationCallOrder[0] ?? 0);
+    expect(otherLease.currentClient()).toBe(client);
+    expect(disconnectSharedProcess).not.toHaveBeenCalled();
+  });
+
+  it("still cleans the target before releasing its lease when UI teardown fails", async () => {
+    const { runtime } = sessionRuntimeFixture();
+    const cleanupTarget = vi.spyOn(runtime.thread.ephemeral, "dispose").mockResolvedValue(undefined);
+    const releasePanelLease = vi.spyOn(runtime.connection.manager, "disconnect");
+    const teardownError = new Error("unmount failed");
+
+    await expect(
+      runtime.dispose(() => {
+        throw teardownError;
+      }),
+    ).rejects.toBe(teardownError);
+
+    expect(cleanupTarget).toHaveBeenCalledOnce();
+    expect(releasePanelLease).toHaveBeenCalledOnce();
+    expect(cleanupTarget.mock.invocationCallOrder[0]).toBeLessThan(releasePanelLease.mock.invocationCallOrder[0] ?? 0);
   });
 
   function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment; getClosing?: () => boolean } = {}): {

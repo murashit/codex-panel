@@ -213,7 +213,7 @@ function attachChatHost(runtime: CodexExecutionRuntime): CodexChatHost {
     attachRuntime: (nextHost) => {
       host = nextHost;
     },
-    detachRuntime: vi.fn(),
+    detachRuntime: vi.fn().mockResolvedValue(undefined),
   };
   runtime.attachChatView(view);
   if (!host) throw new Error("Runtime did not attach a chat host");

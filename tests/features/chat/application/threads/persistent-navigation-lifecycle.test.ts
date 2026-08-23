@@ -159,6 +159,7 @@ function ephemeralLifecycle(): EphemeralThreadLifecycle {
   return {
     open: vi.fn(),
     prepareForPersistentNavigation: vi.fn().mockResolvedValue(true),
+    cleanupForConnectionReset: vi.fn().mockResolvedValue(undefined),
     dispose: vi.fn().mockResolvedValue(undefined),
   };
 }

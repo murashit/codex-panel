@@ -13,7 +13,7 @@ export interface EphemeralThreadEffects {
   unsubscribeEphemeralThread(threadId: string): Promise<boolean>;
 }
 
-const EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS = 1_000;
+const EPHEMERAL_INTERRUPT_RELEASE_TIMEOUT_MS = 1_000;
 
 interface OpenEphemeralThreadInput {
   sourceThreadId: string;
@@ -23,6 +23,7 @@ interface OpenEphemeralThreadInput {
 export interface EphemeralThreadLifecycle {
   open(input: OpenEphemeralThreadInput, options?: { isCurrent?: () => boolean }): Promise<boolean>;
   prepareForPersistentNavigation(): Promise<boolean>;
+  cleanupForConnectionReset(): Promise<void>;
   dispose(): Promise<void>;
 }
 
@@ -52,12 +53,16 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
     }
   };
   const openIsStale = (isCurrent: () => boolean): boolean => disposed || !isCurrent();
-  const unsubscribeActiveEphemeralThread = async (): Promise<boolean> => {
-    const active = activeThreadState(host.stateStore.getState());
-    if (active?.lifetime?.kind === "ephemeral") {
-      return host.effects.unsubscribeEphemeralThread(active.id);
+  const prepareActiveEphemeralThreadForRelease = async (): Promise<void> => {
+    const state = host.stateStore.getState();
+    const activeThread = activeThreadState(state);
+    const threadId = activeThread?.lifetime?.kind === "ephemeral" ? activeThread.id : null;
+    const turnId = activeTurnId(state.activeTurn);
+    if (threadId && turnId) {
+      await settleWithin(host.interruptTurn(threadId, turnId), EPHEMERAL_INTERRUPT_RELEASE_TIMEOUT_MS);
     }
-    return true;
+    if (threadId) cleanupRequiredThreadIds.add(threadId);
+    await retryRequiredCleanup();
   };
 
   return {
@@ -124,21 +129,11 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       return true;
     },
 
+    cleanupForConnectionReset: prepareActiveEphemeralThreadForRelease,
+
     async dispose(): Promise<void> {
       disposed = true;
-      const state = host.stateStore.getState();
-      const activeThread = activeThreadState(state);
-      const threadId = activeThread?.lifetime?.kind === "ephemeral" ? activeThread.id : null;
-      const turnId = activeTurnId(state.activeTurn);
-      if (threadId && turnId) {
-        await settleWithin(host.interruptTurn(threadId, turnId), EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS);
-      }
-      try {
-        await unsubscribeActiveEphemeralThread();
-      } catch {
-        // Ephemeral cleanup must not prevent the panel from closing.
-      }
-      await retryRequiredCleanup();
+      await prepareActiveEphemeralThreadForRelease();
     },
   };
 }

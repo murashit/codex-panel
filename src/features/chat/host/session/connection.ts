@@ -43,6 +43,7 @@ export interface SessionConnection {
   coordinator: ChatConnectionCoordinator;
   inboundHandler: ChatInboundHandler;
   invalidateConnectionScope: () => void;
+  deactivate: () => void;
   refreshSharedThreads: () => Promise<void>;
 }
 
@@ -88,6 +89,7 @@ function createServerRequestResponderRegistry() {
 export function createSessionConnection(host: SessionConnectionHost, input: SessionConnectionInput): SessionConnection {
   const { environment, stateStore } = host;
   const { connection, diagnosticsPort, localItemIds, status, autoTitleCoordinator } = input;
+  let active = true;
   const serverRequestResponders = createServerRequestResponderRegistry();
   const serverResourceFactHost: ServerResourceFactHost = {
     stateStore,
@@ -147,18 +149,22 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
       connect: () =>
         connection.connect({
           onNotification: (notification) => {
+            if (!active) return;
             inboundHandler.handleNotification(notification);
           },
           onServerRequest: (request, responder) => {
+            if (!active) return false;
             serverRequestResponders.remember(request.id, responder);
             const handled = inboundHandler.handleServerRequest(request);
             if (!handled) serverRequestResponders.forget(request.id);
             return handled;
           },
           onLog: (message) => {
+            if (!active) return;
             inboundHandler.handleAppServerLog(message);
           },
           onExit: () => {
+            if (!active) return;
             invalidateConnectionScope();
             connectionCoordinator.handleExit();
           },
@@ -195,6 +201,11 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     coordinator: connectionCoordinator,
     inboundHandler,
     invalidateConnectionScope,
+    deactivate: () => {
+      active = false;
+      connectionCoordinator.invalidate();
+      invalidateConnectionScope();
+    },
     refreshSharedThreads,
   };
 }

@@ -60,7 +60,7 @@ describe("CodexPanelPlugin lifecycle", () => {
   it("disposes execution-runtime views on unload", async () => {
     const view = {
       attachRuntime: vi.fn(),
-      detachRuntime: vi.fn(),
+      detachRuntime: vi.fn().mockResolvedValue(undefined),
     };
     const viewLeaf = leaf();
     const runtimeView = Object.assign(Object.create(CodexChatView.prototype), view) as ChatRuntimeView;

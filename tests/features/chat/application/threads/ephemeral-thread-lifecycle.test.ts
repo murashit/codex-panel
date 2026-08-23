@@ -71,6 +71,34 @@ describe("ephemeral thread lifecycle", () => {
     expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
   });
 
+  it("cleans up a running side thread before a connection reset without disposing the panel lifecycle", async () => {
+    const store = createChatStateStore();
+    const port = transportMock();
+    const interruptTurn = vi.fn().mockResolvedValue(true);
+    const lifecycle = createEphemeralThreadLifecycle({
+      stateStore: store,
+      effects: port,
+      ensureConnected: vi.fn().mockResolvedValue(true),
+      addSystemMessage: vi.fn(),
+      notifyActiveThreadIdentityChanged: vi.fn(),
+      interruptTurn,
+    });
+    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+    store.dispatch({ type: "turn/started", threadId: "side", turnId: "turn" });
+
+    await lifecycle.cleanupForConnectionReset();
+
+    expect(interruptTurn).toHaveBeenCalledWith("side", "turn");
+    expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
+    expect(interruptTurn.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(port.unsubscribeEphemeralThread).mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(activeThreadId(store.getState())).toBe("side");
+
+    store.dispatch({ type: "active-thread/cleared" });
+    await expect(lifecycle.open({ sourceThreadId: "source-2", sourceThreadTitle: null })).resolves.toBe(true);
+  });
+
   it("unsubscribes a fork that resolves after the lifecycle is disposed without activating it", async () => {
     const store = createChatStateStore();
     let resolveFork!: (value: Awaited<ReturnType<EphemeralThreadEffects["forkEphemeralThread"]>>) => void;

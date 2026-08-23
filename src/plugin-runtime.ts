@@ -58,9 +58,10 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     this.selectionRewriteController?.closeAll();
     this.selectionRewriteController = null;
     const executionRuntime = this.executionRuntime;
-    if (executionRuntime) this.detachWorkspaceViews();
+    const viewCleanup = executionRuntime ? this.detachWorkspaceViews() : Promise.resolve();
     this.executionRuntime = null;
     executionRuntime?.dispose();
+    void viewCleanup.catch(() => undefined);
     this.panels.reset();
   }
 
@@ -137,7 +138,11 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
         throw new Error("Codex execution runtime reset while replacing the execution runtime.");
       }
       this.selectionRewriteController?.closeAll();
-      this.detachWorkspaceViews();
+      const cleanup = this.detachWorkspaceViews();
+      void cleanup.catch(() => undefined);
+      if (this.executionRuntime !== previousRuntime) {
+        throw new Error("Codex execution runtime reset while replacing the execution runtime.");
+      }
       this.executionRuntime = null;
       previousRuntime.dispose();
       Object.assign(this.options.settingsRef.settings, settings);
@@ -238,9 +243,10 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       .flatMap((leaf) => (leaf.view instanceof CodexChatView ? [leaf.view] : []));
   }
 
-  private detachWorkspaceViews(): void {
-    for (const view of this.chatRuntimeViews()) view.detachRuntime();
+  private async detachWorkspaceViews(): Promise<void> {
+    const chatCleanup = this.chatRuntimeViews().map((view) => view.detachRuntime());
     for (const view of this.threadsViews()) view.detachRuntime();
+    await Promise.all(chatCleanup);
   }
 
   private reattachWorkspaceViews(runtime: CodexExecutionRuntime): void {

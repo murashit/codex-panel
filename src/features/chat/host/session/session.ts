@@ -272,6 +272,9 @@ export class ChatPanelSession implements ChatPanelHandle {
         }
       }
       return true;
+    } catch (error) {
+      if (this.closing) return false;
+      throw error;
     } finally {
       if (this.pendingEphemeralSource === pendingSource) {
         this.setPendingEphemeralSource(null);
@@ -316,9 +319,12 @@ export class ChatPanelSession implements ChatPanelHandle {
           sourceThreadTitle: snapshot.ephemeralSource.title,
         },
         { focus: false },
-      ).then((opened) => {
-        if (opened && !this.closing) this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
-      });
+      ).then(
+        (opened) => {
+          if (opened && !this.closing) this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
+        },
+        () => undefined,
+      );
       return;
     }
     this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);

@@ -112,7 +112,7 @@ export interface ChatViewRuntimeOwner {
 
 export interface ChatRuntimeView {
   attachRuntime(host: CodexChatHost): void;
-  detachRuntime(): void;
+  detachRuntime(): Promise<void>;
 }
 
 export interface ChatWorkspacePanelSnapshot {

@@ -55,7 +55,7 @@ describe("CodexChatView workspace restoration", () => {
   it("keeps workspace state readable while detached from an execution runtime", async () => {
     const view = await chatView();
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
-    view.detachRuntime();
+    await view.detachRuntime();
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
     expect(view.getDisplayText()).toBe("Restored thread");
@@ -71,7 +71,7 @@ describe("CodexChatView workspace restoration", () => {
       throw new Error("snapshot failed");
     });
 
-    expect(() => view.detachRuntime()).not.toThrow();
+    await expect(view.detachRuntime()).resolves.toBeUndefined();
     expect(close).toHaveBeenCalledOnce();
     expect(view.isRuntimeAttached()).toBe(false);
   });
