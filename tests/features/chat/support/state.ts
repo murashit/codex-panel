@@ -5,7 +5,6 @@ import {
   createChatState,
 } from "../../../../src/features/chat/application/state/model";
 import type { ChatActiveTurnState } from "../../../../src/features/chat/application/state/turn-scope";
-import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "./shared-display-values";
 
 interface RuntimePatch {
   active?: Partial<ChatState["runtime"]["active"]>;
@@ -13,19 +12,7 @@ interface RuntimePatch {
 }
 
 interface ChatStateFixturePatch {
-  connection?: Partial<ChatState["connection"]> & {
-    runtimeConfig?: ChatSharedDisplayValues["runtimeConfig"];
-    availableModels?: ChatSharedDisplayValues["availableModels"];
-    availableSkills?: ChatSharedDisplayValues["availableSkills"];
-    rateLimit?: ChatSharedDisplayValues["rateLimit"];
-  };
-  threadList?: {
-    listedThreads?: ChatSharedDisplayValues["threads"];
-    hasMore?: boolean;
-    isFetching?: boolean;
-    isFetchingNextPage?: boolean;
-    error?: string | null;
-  };
+  connection?: Partial<ChatState["connection"]>;
   activeThread?: Partial<Omit<ChatActiveThreadState, "id">> & { id?: string | null };
   runtime?: RuntimePatch;
   activeTurn?: Partial<ChatActiveTurnState>;
@@ -37,8 +24,6 @@ interface ChatStateFixturePatch {
   };
 }
 
-const sharedResourcesByState = new WeakMap<ChatState, ChatSharedDisplayValues>();
-
 export function chatStateFixture(patch: ChatStateFixturePatch = {}): ChatState {
   return chatStateWith(createChatState(), patch);
 }
@@ -46,10 +31,9 @@ export function chatStateFixture(patch: ChatStateFixturePatch = {}): ChatState {
 export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): ChatState {
   const uiPatch = patch.ui;
   const { disclosures: disclosurePatch, ...uiFieldsPatch } = uiPatch ?? {};
-  const { runtimeConfig, availableModels, availableSkills, rateLimit, ...panelConnectionPatch } = patch.connection ?? {};
-  const next = {
+  return {
     ...state,
-    ...(patch.connection ? { connection: { ...state.connection, ...panelConnectionPatch } } : {}),
+    ...(patch.connection ? { connection: { ...state.connection, ...patch.connection } } : {}),
     ...(patch.activeThread ? { panelThread: panelThreadWithPatch(state, patch.activeThread) } : {}),
     ...(patch.runtime ? { runtime: runtimeWithPatch(state.runtime, patch.runtime) } : {}),
     ...(patch.activeTurn ? { activeTurn: { ...state.activeTurn, ...patch.activeTurn } } : {}),
@@ -66,28 +50,6 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
         }
       : {}),
   };
-  const currentShared = sharedResourcesForChatState(state);
-  const threadList = patch.threadList;
-  sharedResourcesByState.set(
-    next,
-    chatSharedResourcesFixture({
-      ...currentShared,
-      ...(runtimeConfig !== undefined ? { runtimeConfig } : {}),
-      ...(availableModels !== undefined ? { availableModels } : {}),
-      ...(availableSkills !== undefined ? { availableSkills } : {}),
-      ...(rateLimit !== undefined ? { rateLimit } : {}),
-      ...(threadList?.listedThreads !== undefined ? { threads: threadList.listedThreads } : {}),
-      ...(threadList?.hasMore !== undefined ? { hasMoreThreads: threadList.hasMore } : {}),
-      ...(threadList?.isFetching !== undefined ? { threadListFetching: threadList.isFetching } : {}),
-      ...(threadList?.isFetchingNextPage !== undefined ? { isFetchingNextPage: threadList.isFetchingNextPage } : {}),
-      ...(threadList?.error !== undefined ? { threadListError: threadList.error } : {}),
-    }),
-  );
-  return next;
-}
-
-export function sharedResourcesForChatState(state: ChatState): ChatSharedDisplayValues {
-  return sharedResourcesByState.get(state) ?? chatSharedResourcesFixture();
 }
 
 function panelThreadWithPatch(state: ChatState, patch: NonNullable<ChatStateFixturePatch["activeThread"]>): ChatState["panelThread"] {

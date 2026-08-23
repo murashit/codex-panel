@@ -21,9 +21,12 @@ import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
+import { chatSharedResourcesFixture } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 
 installObsidianDomShims();
+
+const emptySharedResources = chatSharedResourcesFixture();
 
 describe("chat panel session runtime", () => {
   let panelRoot: HTMLElement;
@@ -264,7 +267,9 @@ describe("chat panel session runtime", () => {
     const dispatchScrollCommand = vi.fn();
     threadStreamScrollBinding.mountScrollPort({ dispatchScrollCommand });
     const composer = document.body.createEl("textarea");
-    runtime.composer.controller.renderState(composerModelFromChatState(stateStore.getState()), { submit: vi.fn() }).onComposer(composer);
+    runtime.composer.controller
+      .renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit: vi.fn() })
+      .onComposer(composer);
     composer.focus();
     expect(runtime.composer.controller.hasFocus()).toBe(true);
     const disconnect = vi.spyOn(runtime.connection.manager, "disconnect");

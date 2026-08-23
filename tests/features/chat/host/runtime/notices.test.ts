@@ -10,29 +10,28 @@ import {
 } from "../../../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
 import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/host/runtime/notices";
-import { chatStateFixture, chatStateWith, sharedResourcesForChatState } from "../../support/state";
+import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "../../support/shared-display-values";
+import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatPanelRuntimeNotices", () => {
-  it("builds slash-command runtime details from chat state", () => {
+  it("builds slash-command runtime details from panel state and shared resources", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = chatStateWith(state, {
-      connection: {
-        runtimeConfig: runtimeConfigFixture({
-          model: "gpt-5.5",
-          model_provider: "openai",
-          model_reasoning_effort: "high",
-          service_tier: "fast",
-        }),
-      },
+    const shared = chatSharedResourcesFixture({
+      runtimeConfig: runtimeConfigFixture({
+        model: "gpt-5.5",
+        model_provider: "openai",
+        model_reasoning_effort: "high",
+        service_tier: "fast",
+      }),
+      availableModels: [modelFixture("gpt-5.5")],
     });
-    state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5")] } });
     const projection = createChatPanelRuntimeNotices({
       state: () => state,
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(state),
+      sharedResources: runtimeShared(shared),
     });
 
     expect(projection.statusDetails()).toEqual([
@@ -90,7 +89,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(state),
+      sharedResources: runtimeShared(chatSharedResourcesFixture()),
     });
 
     expect(projection.permissionDetails()).toEqual([
@@ -116,24 +115,24 @@ describe("createChatPanelRuntimeNotices", () => {
   it("keeps pending approval reviewer out of diagnostic permission details", () => {
     const state = chatStateWith(chatStateFixture(), {
       activeThread: { id: "thread-1" },
-      connection: {
-        runtimeConfig: runtimeConfigFixture({
-          approvals_reviewer: "user",
-          approval_policy: "on-request",
-        }),
-      },
       runtime: {
         pending: {
           approvalsReviewer: { kind: "set", value: "auto_review" },
         },
       },
     });
+    const shared = chatSharedResourcesFixture({
+      runtimeConfig: runtimeConfigFixture({
+        approvals_reviewer: "user",
+        approval_policy: "on-request",
+      }),
+    });
     const projection = createChatPanelRuntimeNotices({
       state: () => state,
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(state),
+      sharedResources: runtimeShared(shared),
     });
 
     expect(projection.permissionDetails()).toEqual([
@@ -169,7 +168,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(state),
+      sharedResources: runtimeShared(chatSharedResourcesFixture()),
     });
 
     expect(projection.permissionDetails()[0]?.auditFacts).toEqual([
@@ -225,7 +224,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(state),
+      sharedResources: runtimeShared(chatSharedResourcesFixture()),
     });
 
     expect(projection.connectionDiagnosticDetails()[0]).toMatchObject({
@@ -244,8 +243,7 @@ describe("createChatPanelRuntimeNotices", () => {
   });
 });
 
-function runtimeShared(state: Parameters<typeof sharedResourcesForChatState>[0]) {
-  const shared = sharedResourcesForChatState(state);
+function runtimeShared(shared: ChatSharedDisplayValues) {
   return {
     runtimeConfigSnapshot: () => shared.runtimeConfig,
     skillsSnapshot: () => shared.availableSkills,

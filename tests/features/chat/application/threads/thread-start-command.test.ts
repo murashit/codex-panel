@@ -11,7 +11,8 @@ import { createThreadStartCommand } from "../../../../../src/features/chat/appli
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
-import { chatStateFixture, chatStateWith, sharedResourcesForChatState } from "../../support/state";
+import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "../../support/shared-display-values";
+import { chatStateFixture } from "../../support/state";
 
 describe("thread start commands", () => {
   it("publishes newly started threads before the first turn completes", async () => {
@@ -185,16 +186,15 @@ describe("thread start commands", () => {
   });
 
   it("starts threads with service tier from explicit effective config", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { connection: { runtimeConfig: { ...runtimeConfigFixture(), serviceTier: "flex" } } });
-    const stateStore = createChatStateStore(state);
+    const stateStore = createChatStateStore(chatStateFixture());
+    const shared = chatSharedResourcesFixture({ runtimeConfig: { ...runtimeConfigFixture(), serviceTier: "flex" } });
     const startThread = vi
       .fn()
       .mockResolvedValue(completedActivation(activationFixture(threadFixture("started"), { serviceTier: "flex" })));
     const commands = createThreadStartCommand({
       stateStore,
       effects: { startThread },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
+      runtimeSnapshotForState: runtimeSnapshotForShared(shared),
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
@@ -205,24 +205,21 @@ describe("thread start commands", () => {
   });
 
   it("starts threads with permission profile from explicit config", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, {
-      connection: {
-        runtimeConfig: {
-          ...runtimeConfigFixture(),
-          startupPermissions: {
-            ...runtimeConfigFixture().startupPermissions,
-            activePermissionProfile: { id: ":workspace", extends: null },
-          },
+    const stateStore = createChatStateStore(chatStateFixture());
+    const shared = chatSharedResourcesFixture({
+      runtimeConfig: {
+        ...runtimeConfigFixture(),
+        startupPermissions: {
+          ...runtimeConfigFixture().startupPermissions,
+          activePermissionProfile: { id: ":workspace", extends: null },
         },
       },
     });
-    const stateStore = createChatStateStore(state);
     const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started"))));
     const commands = createThreadStartCommand({
       stateStore,
       effects: { startThread },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
+      runtimeSnapshotForState: runtimeSnapshotForShared(shared),
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
@@ -269,12 +266,16 @@ describe("thread start commands", () => {
   });
 });
 
-const runtimeSnapshotForTestState = (state: Parameters<typeof runtimeSnapshotForChatState>[0]) =>
-  runtimeSnapshotForChatState(state, {
-    runtimeConfigSnapshot: () => sharedResourcesForChatState(state).runtimeConfig,
-    rateLimitsSnapshot: () => sharedResourcesForChatState(state).rateLimit,
-    modelsSnapshot: () => sharedResourcesForChatState(state).availableModels,
-  });
+const runtimeSnapshotForTestState = runtimeSnapshotForShared(chatSharedResourcesFixture());
+
+function runtimeSnapshotForShared(shared: ChatSharedDisplayValues) {
+  return (state: Parameters<typeof runtimeSnapshotForChatState>[0]) =>
+    runtimeSnapshotForChatState(state, {
+      runtimeConfigSnapshot: () => shared.runtimeConfig,
+      rateLimitsSnapshot: () => shared.rateLimit,
+      modelsSnapshot: () => shared.availableModels,
+    });
+}
 
 function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
   return {

@@ -22,6 +22,7 @@ import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread
 import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { chatSharedResourcesFixture } from "../../support/shared-display-values";
 import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -29,13 +30,15 @@ import { installThreadStreamViewportMetrics, pendingApproval } from "./rendering
 
 installObsidianDomShims();
 
+const emptySharedResources = chatSharedResourcesFixture();
+
 function renderThreadStreamSurface(
   parent: HTMLElement,
   context: ChatThreadStreamDependencies,
   scrollPortBinding: ChatThreadStreamScrollBinding,
   state: ChatState,
 ): void {
-  const projection = projectThreadStream(threadStreamModelFromChatState(state), context);
+  const projection = projectThreadStream(threadStreamModelFromChatState(state, emptySharedResources), context);
   renderUiRoot(
     parent,
     h(ThreadStreamViewport, {
@@ -80,7 +83,7 @@ describe("thread stream surface", () => {
     });
 
     const projection = projectThreadStream(
-      threadStreamModelFromChatState(store.getState()),
+      threadStreamModelFromChatState(store.getState(), emptySharedResources),
       testThreadStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: (action) => {
@@ -104,7 +107,7 @@ describe("thread stream surface", () => {
       },
     });
 
-    const context = projectThreadStream(threadStreamModelFromChatState(store.getState()), surfaceContext).context;
+    const context = projectThreadStream(threadStreamModelFromChatState(store.getState(), emptySharedResources), surfaceContext).context;
     if (!context.onDisclosureToggle) throw new Error("Expected thread stream disclosure action");
     context.onDisclosureToggle("textDetails", "message:details", true);
 
@@ -126,7 +129,7 @@ describe("thread stream surface", () => {
     state = withChatStateStableThreadStreamItems(state, [{ id: "system", kind: "system", role: "system", text: "Waiting for approval." }]);
     state = chatStateWith(state, { requests: { approvals: [pendingApproval()] } });
     const projection = projectThreadStream(
-      threadStreamModelFromChatState(state),
+      threadStreamModelFromChatState(state, emptySharedResources),
       testThreadStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: () => undefined,
@@ -165,7 +168,7 @@ describe("thread stream surface", () => {
     });
 
     const projection = projectThreadStream(
-      threadStreamModelFromChatState(store.getState()),
+      threadStreamModelFromChatState(store.getState(), emptySharedResources),
       testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
     );
 
@@ -203,7 +206,7 @@ describe("thread stream surface", () => {
     });
 
     const projection = projectThreadStream(
-      threadStreamModelFromChatState(state),
+      threadStreamModelFromChatState(state, emptySharedResources),
       testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
     );
 

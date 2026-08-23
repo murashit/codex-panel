@@ -22,10 +22,13 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preac
 import { deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { testFuzzyMatcher } from "../../application/composer/fuzzy-matcher.test-support";
+import { chatSharedResourcesFixture } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 installObsidianDomShims();
+
+const emptySharedResources = chatSharedResourcesFixture();
 
 type ChatComposerRenderActions = Parameters<ChatComposerController["renderState"]>[1];
 
@@ -45,7 +48,10 @@ function renderComposerController(
   actions: ChatComposerRenderActions = { submit: vi.fn() },
 ): void {
   renderedComposerParents.add(parent);
-  renderUiRoot(parent, h(ComposerShell, controller.renderState(composerModelFromChatState(stateStore.getState()), actions)));
+  renderUiRoot(
+    parent,
+    h(ComposerShell, controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), actions)),
+  );
 }
 
 function trackComposerControllerTestCleanup(cleanup: () => void): void {
@@ -344,7 +350,7 @@ describe("ChatComposerController", () => {
       },
     });
 
-    const props = controller.renderState(composerModelFromChatState(stateStore.getState()), { submit: vi.fn() });
+    const props = controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit: vi.fn() });
 
     expect(props.submissionDisabled).toBe(true);
     expect(props.webSubmissionCancellable).toBe(true);
@@ -364,7 +370,7 @@ describe("ChatComposerController", () => {
       },
     } as never);
 
-    const props = controller.renderState(composerModelFromChatState(stateStore.getState()), { submit: vi.fn() });
+    const props = controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit: vi.fn() });
 
     expect(props.submissionDisabled).toBe(true);
     expect(props.webSubmissionCancellable).toBe(false);
@@ -530,7 +536,7 @@ describe("ChatComposerController", () => {
     const { controller, parent } = composerControllerFixture({ stateStore });
 
     renderComposerController(parent, controller, stateStore);
-    const props = controller.renderState(composerModelFromChatState(stateStore.getState()), { submit: vi.fn() });
+    const props = controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit: vi.fn() });
     setTextAreaValue(composer(parent), "/");
     composer(parent).setSelectionRange(1, 1);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
