@@ -20,7 +20,11 @@ export interface ChatPanelToolbarDependencies {
   };
 }
 
-export function projectChatPanelToolbar(model: ChatPanelToolbarModel, dependencies: ChatPanelToolbarDependencies): ToolbarViewModel {
+export function projectChatPanelToolbar(
+  model: ChatPanelToolbarModel,
+  dependencies: ChatPanelToolbarDependencies,
+  nowMs: number,
+): ToolbarViewModel {
   const snapshot = runtimeSnapshotForChatSlices({
     runtimeConfig: model.runtimeConfig,
     activeThread: { id: model.activeThreadId, tokenUsage: model.activeThreadTokenUsage },
@@ -34,7 +38,7 @@ export function projectChatPanelToolbar(model: ChatPanelToolbarModel, dependenci
   const configuredCommand = dependencies.settings.configuredCommand();
   const archiveExportEnabled = dependencies.settings.archiveExportEnabled();
   const selectedRowId = dependencies.visibleThreadId(model.threads, model.activeThreadId);
-  const limit = rateLimitSummary(snapshot, Date.now());
+  const limit = rateLimitSummary(snapshot, nowMs);
   const diagnostics = {
     initializeResponse: model.initializeResponse,
     serverDiagnostics: model.serverDiagnostics,

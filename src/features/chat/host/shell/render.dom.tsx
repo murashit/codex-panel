@@ -182,7 +182,7 @@ function ChatPanelToolbarRegion({
     [activeThreads, runtimeConfig, models, skills, rateLimits, metadataDiagnostics],
   );
   const model = useChatSelector(stateStore, selector);
-  return <Toolbar model={projectChatPanelToolbar(model, dependencies)} actions={actions} />;
+  return <Toolbar model={projectChatPanelToolbar(model, dependencies, Date.now())} actions={actions} />;
 }
 
 function ChatPanelGoalRegion({

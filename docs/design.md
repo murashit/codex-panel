@@ -2,7 +2,7 @@
 
 Codex Panel is an Obsidian surface for Codex. It exists to put Codex beside vault notes without becoming a separate AI client, runtime policy editor, terminal, search product, or writing suite.
 
-This document records durable design direction. User-facing behavior belongs in `README.md`; daily workflow, source layout, generated files, and compatibility checks belong in `docs/development.md`. Do not record current call paths or transient mechanisms that are readily derived from code and likely to drift.
+This document records durable design direction. User-facing behavior belongs in `README.md`; daily workflow, generated files, validation, and compatibility checks belong in `docs/development.md`. Do not record current call paths or transient mechanisms that are readily derived from code and likely to drift.
 
 ## Product Boundary
 
@@ -44,9 +44,9 @@ Organize modules by reason to change. Add an abstraction only when it owns a lif
 
 ## UI Ownership
 
-Runtime UI composition is Preact-owned. Obsidian and app-server lifecycles and imperative host bridges stay outside components; those bridges should remain narrow rather than becoming a second UI composition system.
+Runtime UI composition is Preact-owned. Imperative Obsidian bridges remain narrow and outside component composition.
 
-The chat host owns session lifecycle and the display projections that adapt application state to pure UI contracts. Do not insert a separate panel presentation layer between host and UI; keep projection helpers local to host and keep UI independent of host, application, app-server, and Obsidian ownership.
+The chat application owns panel-local workflows and state transitions. The chat host owns session lifecycle and the display projections that adapt application state to pure UI contracts.
 
 Chat-visible state should have one authoritative owner. Components should consume narrow projections of that state rather than mirror it into another reactive store.
 
@@ -64,7 +64,7 @@ Asynchronous work may publish panel-local results only while the panel still own
 
 Coordinate work only where a user-visible invariant is genuinely shared, and do so at the narrowest semantic owner. Keep independent panels and threads independent.
 
-Prefer interface structure and state over explanatory copy. Add text only for irreducible information that materially helps users decide, act, or recover; do not expose implementation concepts merely to explain current behavior.
+Prefer interface structure and state over explanatory copy. Add text only for irreducible information that materially helps users decide, act, or recover; do not expose implementation concepts merely to explain current behavior. Normalize absent or unknown protocol values before display; do not expose raw transport values or fallback labels that imply Panel ownership of Codex runtime state.
 
 Agent activity may use temporary panels outside ordinary thread history. Such panels preserve their visible parent relationship but do not become ordinary persistent targets.
 

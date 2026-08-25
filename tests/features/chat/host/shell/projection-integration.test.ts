@@ -392,6 +392,24 @@ describe("chat panel projection integration", () => {
     unmountUiRoot(parent);
   });
 
+  it("projects usage-limit reset labels from the supplied current time", () => {
+    const state = chatStateFixture();
+    const shared = chatSharedResourcesFixture({
+      rateLimit: {
+        limitId: "codex",
+        limitName: "Codex",
+        primary: { usedPercent: 72.4, windowDurationMins: 300, resetsAt: 1_800_000_000 },
+        secondary: null,
+        individualLimit: null,
+        rateLimitReachedType: null,
+      },
+    });
+
+    const projection = projectChatPanelToolbar(selectChatPanelToolbar(state, shared), toolbarSurfaceFixture(), 1_799_991_600_000);
+
+    expect(projection.rateLimit?.rows).toEqual([expect.objectContaining({ label: "5h", value: "72%", resetLabel: "reset in 2h 20m" })]);
+  });
+
   it("builds composer meta from context and runtime state", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
@@ -716,7 +734,7 @@ function ProjectedToolbar({
   dependencies: ChatPanelToolbarDependencies;
   actions: ToolbarActions;
 }): ComponentChild {
-  return h(Toolbar, { model: projectChatPanelToolbar(model, dependencies), actions });
+  return h(Toolbar, { model: projectChatPanelToolbar(model, dependencies, 0), actions });
 }
 
 function ProjectedGoal({

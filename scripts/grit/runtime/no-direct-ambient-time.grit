@@ -4,5 +4,5 @@ or {
   `Date.now()` as $stmt,
   `new Date()` as $stmt
 } where {
-  register_diagnostic(span=$stmt, message="Keep direct ambient time out of state and fact modules; record time at the boundary that creates the fact.", severity="error")
+  register_diagnostic(span=$stmt, message="Keep direct ambient time out of state, fact, and projection modules; record time at the boundary and pass it as data.", severity="error")
 }

@@ -27,7 +27,7 @@
     // Cross-cutting source-layer import boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-domain-outer-layer-imports.grit",
-      "includes": ["**/src/domain/**/*.{ts,tsx}", "**/src/features/chat/domain/**/*.{ts,tsx}"]
+      "includes": ["**/src/domain/**/*.{ts,tsx}", "**/src/features/*/domain/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-core-outer-layer-imports.grit",
@@ -75,15 +75,15 @@
       "includes": ["**/src/features/**/*.{ts,tsx}"]
     },
     {
-      "path": "./scripts/grit/import-boundaries/no-external-chat-domain-imports.grit",
-      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/features/chat/**"]
+      "path": "./scripts/grit/import-boundaries/no-external-feature-domain-imports.grit",
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/features/*/domain/**"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-workspace-chat-internal-imports.grit",
       "includes": ["**/src/workspace/**/*.{ts,tsx}"]
     },
     {
-      "path": "./scripts/grit/import-boundaries/no-thread-workflow-app-server-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-thread-workflow-outer-layer-imports.grit",
       "includes": ["**/src/features/threads/workflows/**/*.{ts,tsx}"]
     },
 
@@ -112,7 +112,7 @@
     },
     {
       "path": "./scripts/grit/runtime/no-direct-ambient-time.grit",
-      "includes": ["**/src/features/chat/application/state/**/*.{ts,tsx}", "**/src/**/*-facts.{ts,tsx}"]
+      "includes": ["**/src/features/chat/application/state/**/*.{ts,tsx}", "**/src/**/*-facts.{ts,tsx}", "**/src/**/*-projection.{ts,tsx}"]
     },
 
     // DOM bridge and Preact root boundaries.

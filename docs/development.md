@@ -1,6 +1,6 @@
 # Development
 
-Use this document for day-to-day implementation mechanics: commands, generated files, loaded artifacts, source layout, naming, validation, and common pitfalls. For product boundaries and design rationale, see `docs/design.md`.
+Use this document for day-to-day implementation mechanics: commands, generated and loaded artifacts, executable policies, naming, validation, and compatibility. For product boundaries and design rationale, see `docs/design.md`.
 
 ## Commands
 
@@ -53,31 +53,17 @@ Do not hand-edit the bindings. `src/app-server/connection/compatibility.json` re
 
 ## Executable Policies
 
-Source placement, imports, DOM bridge suffixes, CSS constraints, and direct ambient effects in state, fact, and projection modules are defined by `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks. When intentionally changing a boundary, update the implementation, matcher, and policy tests together rather than preserving a documentation-only exception.
+Executable source policies live in `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks. When intentionally changing one, update the implementation, matcher, and its representative policy case together.
 
 Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
 
-Grit policy cases protect matcher semantics rather than diagnostic wording, source locations, or the exact shape of Biome configuration. Cover each materially distinct matcher family and exemption, and change a case only when that policy's accepted or rejected source shape intentionally changes.
+Keep one representative rejection and acceptance per Grit policy. Add another case only when it protects a materially different matcher behavior; do not mirror every regex branch or diagnostic detail in tests.
 
 ## Naming Conventions
 
 Name modules by owned responsibility. Use lifecycle or boundary nouns only when the object owns that lifecycle or boundary, and passive-data names for values.
 
 Prefer functions and factories. Reserve classes for mutable resource ownership, external class APIs, and `Error` types.
-
-## Source Ownership
-
-- `src/domain/` contains Panel-owned vocabulary and pure rules shared across protocol boundaries or product features.
-- `src/features/<feature>/domain/` contains pure semantics owned and consumed only by that feature.
-- `src/features/chat/application/` owns panel-local workflows and state transitions, including active-thread adoption, history hydration, and visible-turn actions.
-- `src/features/threads/workflows/` owns context-wide thread capabilities such as mutation coordination, lifecycle facts, catalog projection, archive export, and title work.
-- Surface hosts translate shared workflow outcomes into UI feedback; shared workflows do not emit Obsidian notices or own confirmation UI.
-
-## Common Pitfalls
-
-- Preserve last-known-good app-server state on refresh failure. Do not turn disconnected reads into authoritative empty thread lists, settings snapshots, hook inventories, or diagnostics.
-- Normalize optional and nullable app-server values before display. Users should not see raw `undefined`, `null`, protocol enum gaps, or fallback labels that imply Panel owns a Codex runtime setting.
-- Do not use DOM order as thread history state. Thread stream DOM is a presentation surface, and delayed Markdown rendering can change heights after initial render.
 
 ## API Baselines
 

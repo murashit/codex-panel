@@ -15,12 +15,14 @@ private pattern root_outer_layer_source() {
   }
 }
 
-private pattern chat_domain_outer_layer_source() { r"^[\"'](?:\.\./)+(?:application|host|ui)(?:/.*)?[\"']$" }
+private pattern feature_domain_outer_layer_source() {
+  r"^[\"'](?:\.\./)+(?:application|app-server|host|ui|[^./\"'][^/\"']*/domain)(?:/.*)?[\"']$"
+}
 
 private pattern domain_outer_layer_source() {
   or {
     root_outer_layer_source(),
-    chat_domain_outer_layer_source()
+    feature_domain_outer_layer_source()
   }
 }
 

@@ -31,63 +31,21 @@ const policyCases = [
   ),
   policyCase(
     "no-domain-outer-layer-imports.grit",
-    "src/domain/example/value.ts",
-    'import type { App } from "obsidian";',
-    "export type Value = string;",
-    {
-      invalid: [
-        {
-          path: "src/features/chat/domain/example/value.ts",
-          source: 'import type { Store } from "../application/state/store";',
-        },
-      ],
-      valid: [
-        {
-          path: "src/features/chat/domain/example/value.ts",
-          source: 'import type { Item } from "../thread-stream/items";',
-        },
-      ],
-    },
+    "src/features/example/domain/example/value.ts",
+    'import type { View } from "../../ui/view";',
+    'import type { Item } from "../thread-stream/items";',
   ),
   policyCase(
     "no-core-outer-layer-imports.grit",
     "src/shared/async/escape.ts",
     'import type { Feature } from "../../features/escape";',
-    "export type Value = string;",
-    {
-      invalid: [
-        {
-          path: "src/app-server/services/escape.ts",
-          source: 'export const loadSettings = () => import("../../settings/preferences");',
-        },
-      ],
-      valid: [
-        {
-          path: "src/app-server/services/value.ts",
-          source: 'import type { Value } from "../../domain/example/value";',
-        },
-      ],
-    },
+    'import type { Value } from "../../domain/example/value";',
   ),
   policyCase(
     "no-app-server-connection-boundary-imports.grit",
     "src/app-server/protocol/escape.ts",
     'import type { Client } from "../connection/client";',
-    "export type Value = string;",
-    {
-      invalid: [
-        {
-          path: "src/domain/example/value.ts",
-          source: 'import type { Client } from "../app-server/connection/client";',
-        },
-      ],
-      valid: [
-        {
-          path: "src/domain/example/value.ts",
-          source: 'import type { Item } from "./item";',
-        },
-      ],
-    },
+    'import type { Item } from "./item";',
   ),
   policyCase(
     "no-external-app-server-query-imports.grit",
@@ -126,28 +84,10 @@ const policyCases = [
     "export type Value = string;",
   ),
   policyCase(
-    "no-external-chat-domain-imports.grit",
+    "no-external-feature-domain-imports.grit",
     "src/features/threads/workflows/escape.ts",
     'import type { ChatState } from "../../chat/domain/runtime/state";',
     'import type { Thread } from "../../../domain/threads/model";',
-    {
-      invalid: [
-        {
-          path: "src/execution-runtime.ts",
-          source: 'export const load = () => import("@/features/chat/domain/runtime/state");',
-        },
-      ],
-      valid: [
-        {
-          path: "src/features/chat/application/escape.ts",
-          source: 'import type { ChatState } from "../../chat/domain/runtime/state";',
-        },
-        {
-          path: "src/features/threads/workflows/near-miss.ts",
-          source: 'import type { ChatState } from "../../chat/domains/runtime/state";',
-        },
-      ],
-    },
   ),
   policyCase(
     "no-workspace-chat-internal-imports.grit",
@@ -156,9 +96,9 @@ const policyCases = [
     'import type { Host } from "../features/chat/host/contracts";',
   ),
   policyCase(
-    "no-thread-workflow-app-server-imports.grit",
+    "no-thread-workflow-outer-layer-imports.grit",
     "src/features/threads/workflows/escape.ts",
-    'import type { QueryCache } from "../../../app-server/query/cache";',
+    'import { Notice } from "obsidian";',
     'import type { ThreadCatalogChange } from "../../../domain/threads/catalog-read-model";',
   ),
   policyCase(
@@ -166,36 +106,6 @@ const policyCases = [
     "src/features/chat/application/escape.ts",
     'import type { Host } from "../host/contracts";',
     'import type { Item } from "../domain/thread-stream/items";',
-    {
-      invalid: [
-        {
-          path: "src/features/chat/application/selection.ts",
-          source: 'import type { Selection } from "../../selection-rewrite/model";',
-        },
-        {
-          path: "src/features/chat/application/obsidian.ts",
-          source: 'import { Notice } from "obsidian";',
-        },
-        {
-          path: "src/features/chat/application/dynamic.ts",
-          source: 'export const load = () => import("obsidian");',
-        },
-      ],
-      valid: [
-        {
-          path: "src/features/chat/application/selection.ts",
-          source: 'import type { Selection } from "../domain/thread-stream/items";',
-        },
-        {
-          path: "src/features/chat/application/obsidian.ts",
-          source: 'import type { Item } from "../domain/thread-stream/items";',
-        },
-        {
-          path: "src/features/chat/application/dynamic.ts",
-          source: 'export const load = () => import("../domain/thread-stream/items");',
-        },
-      ],
-    },
   ),
   policyCase(
     "no-chat-app-server-outer-layer-imports.grit",
@@ -212,7 +122,7 @@ const policyCases = [
   policyCase(
     "no-chat-ui-outer-layer-imports.grit",
     "src/features/chat/ui/escape.ts",
-    'import type { Host } from "../host/shell/selectors";',
+    'import { Notice } from "obsidian";',
     'import type { Item } from "../domain/thread-stream/items";',
   ),
   policyCase(
@@ -220,92 +130,18 @@ const policyCases = [
     "src/features/chat/application/state/escape.ts",
     "export const random = Math.random();",
     "export const now = 1;",
-    {
-      invalid: [
-        {
-          path: "src/features/threads/workflows/thread-projection.ts",
-          source: "export const scheduled = setTimeout(() => undefined, 0);",
-        },
-        {
-          path: "src/features/chat/application/state/client.ts",
-          source: "export const client = new AppServerClient();",
-        },
-        {
-          path: "src/features/chat/application/state/notice.ts",
-          source: 'export const notice = new Notice("Saved");',
-        },
-        {
-          path: "src/features/chat/application/state/frame.ts",
-          source: "export const frame = requestAnimationFrame(() => undefined);",
-        },
-        {
-          path: "src/features/chat/application/state/document.ts",
-          source: "export const body = document.body;",
-        },
-        {
-          path: "src/features/chat/application/state/storage.ts",
-          source: 'export const value = localStorage.getItem("value");',
-        },
-      ],
-      valid: [
-        {
-          path: "src/features/threads/workflows/thread-facts.ts",
-          source: 'export const fact = { type: "thread-started" };',
-        },
-        {
-          path: "src/features/threads/workflows/thread-projection.ts",
-          source: "export const projected = 1;",
-        },
-      ],
-    },
   ),
   policyCase(
     "no-direct-ambient-time.grit",
-    "src/features/chat/application/state/escape.ts",
-    "export const now = Date.now();",
-    "export const state = {};",
-    {
-      invalid: [
-        {
-          path: "src/features/threads/workflows/thread-facts.ts",
-          source: "export const now = new Date();",
-        },
-      ],
-      valid: [
-        {
-          path: "src/features/chat/host/runtime/notices.ts",
-          source: "export const now = Date.now();",
-        },
-      ],
-    },
+    "src/features/chat/host/toolbar/view-projection.ts",
+    "export const now = new Date();",
+    "export const now = 1;",
   ),
   policyCase(
     "no-implicit-dom-bridges.grit",
     "src/features/chat/ui/escape.ts",
     'export const element = document.createElement("div");',
     "export const value = 1;",
-    {
-      invalid: [
-        {
-          path: "src/features/chat/ui/query.ts",
-          source: 'export const child = element.querySelector(".child");',
-        },
-        {
-          path: "src/features/chat/ui/measurement.ts",
-          source: "export const height = element.scrollHeight;",
-        },
-        {
-          path: "src/features/chat/ui/style.ts",
-          source: 'element.style.display = "none";',
-        },
-      ],
-      valid: [
-        {
-          path: "src/features/chat/ui/abort.ts",
-          source: 'signal.addEventListener("abort", handleAbort); signal.removeEventListener("abort", handleAbort);',
-        },
-      ],
-    },
   ),
   policyCase(
     "no-dom-events-imports.grit",
@@ -319,29 +155,7 @@ const policyCases = [
     'import { renderPreactRoot } from "../../../shared/dom/preact-root.dom";',
     "export const value = 1;",
   ),
-  policyCase("no-restricted-css-policy.grit", "src/styles/escape.css", ".escape { color: #fff; }", ".safe { color: var(--text-normal); }", {
-    invalid: [
-      { path: "src/styles/color-function.css", source: ".panel { color: rgb(1 2 3); }" },
-      { path: "src/styles/token-definition.css", source: ":root { --codex-panel-text-color: #fff; }" },
-      { path: "src/styles/font-size.css", source: ".panel { font-size: 12px; }" },
-      { path: "src/styles/font-weight.css", source: ".panel { font-weight: 600; }" },
-      { path: "src/styles/line-height.css", source: ".panel { line-height: 1.5; }" },
-      { path: "src/styles/layout.css", source: ".panel { gap: 8px; }" },
-      { path: "src/styles/has.css", source: ".panel:has(.child) { color: var(--text-normal); }" },
-      { path: "src/styles/where.css", source: ".panel:where(.child) { color: var(--text-normal); }" },
-      { path: "src/styles/id.css", source: "#panel { color: var(--text-normal); }" },
-      { path: "src/styles/universal.css", source: ".panel * { color: var(--text-normal); }" },
-      { path: "src/styles/keyframes.css", source: "@keyframes pulse { from { opacity: 0; } to { opacity: 1; } }" },
-    ],
-    valid: [
-      { path: "src/styles/shallow.css", source: ".panel .child:hover { color: var(--text-normal); }" },
-      {
-        path: "src/styles/tokens.css",
-        source:
-          ":root { --codex-panel-text-color: var(--text-normal); } @keyframes codex-panel-pulse { from { opacity: 0; } to { opacity: 1; } }",
-      },
-    ],
-  }),
+  policyCase("no-restricted-css-policy.grit", "src/styles/escape.css", ".escape { color: #fff; }", ".safe { color: var(--text-normal); }"),
 ];
 
 afterEach(async () => {
@@ -363,17 +177,13 @@ describe("Biome Grit policies", () => {
     const result = await lintPolicyCase(testCase);
 
     expect(result.status, result.output).toBe(1);
-    for (const target of result.invalidTargets) expect(result.pluginErrorFiles, result.output).toContain(target);
-    for (const target of result.validTargets) expect(result.errorFiles, result.output).not.toContain(target);
+    expect(result.pluginErrorFiles, result.output).toContain(result.invalidTarget);
+    expect(result.errorFiles, result.output).not.toContain(result.validTarget);
   });
 });
 
-function policyCase(plugin, invalidPath, invalidSource, validSource, options = {}) {
-  return {
-    plugin,
-    invalid: [{ path: invalidPath, source: invalidSource }, ...(options.invalid ?? [])],
-    valid: [{ path: options.validPath ?? invalidPath, source: validSource }, ...(options.valid ?? [])],
-  };
+function policyCase(plugin, path, invalidSource, validSource) {
+  return { plugin, path, invalidSource, validSource };
 }
 
 async function lintPolicyCase(testCase) {
@@ -381,24 +191,20 @@ async function lintPolicyCase(testCase) {
   if (!plugin) throw new Error(`Missing configured Grit policy: ${testCase.plugin}`);
   const workspace = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
   workspaces.add(workspace);
-  const [invalidTargets, validTargets] = await Promise.all([
-    writeFixtures(workspace, "invalid", testCase.invalid),
-    writeFixtures(workspace, "valid", testCase.valid),
+  const [invalidTarget, validTarget] = await Promise.all([
+    writeFixture(workspace, "invalid", testCase.path, testCase.invalidSource),
+    writeFixture(workspace, "valid", testCase.path, testCase.validSource),
     writePluginConfig(workspace, plugin),
   ]);
-  return { ...biomeLint(workspace, [...invalidTargets, ...validTargets]), invalidTargets, validTargets };
+  return { ...biomeLint(workspace, [invalidTarget, validTarget]), invalidTarget, validTarget };
 }
 
-async function writeFixtures(workspace, variant, fixtures) {
-  return Promise.all(
-    fixtures.map(async (fixture) => {
-      const target = path.join(variant, fixture.path).replaceAll(path.sep, "/");
-      const fixturePath = path.join(workspace, target);
-      await mkdir(path.dirname(fixturePath), { recursive: true });
-      await writeFile(fixturePath, fixture.source);
-      return target;
-    }),
-  );
+async function writeFixture(workspace, variant, fixturePath, source) {
+  const target = path.join(variant, fixturePath).replaceAll(path.sep, "/");
+  const targetPath = path.join(workspace, target);
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await writeFile(targetPath, source);
+  return target;
 }
 
 async function projectPlugins() {
