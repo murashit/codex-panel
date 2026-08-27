@@ -348,6 +348,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
         thread.selected ? "codex-panel__thread-row--selected" : "",
         thread.selected ? "is-selected" : "",
         thread.rename ? "codex-panel__thread-row--renaming" : "",
+        thread.rename?.generating ? "codex-panel__thread-row--auto-name-running" : "",
         archiveConfirm.active ? "codex-panel__thread-row--archive-confirming" : "",
         archiveConfirm.active ? "codex-panel__archive-confirm" : "",
       ]

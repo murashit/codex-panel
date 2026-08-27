@@ -115,6 +115,8 @@
 }
 
 .codex-panel-threads__row--renaming {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--codex-panel-panel-gap);
   cursor: default;
 }
 
@@ -150,7 +152,6 @@
   min-width: 0;
   width: 100%;
   min-height: var(--nav-item-size, var(--codex-panel-size-nav-item));
-  padding-right: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2 + var(--codex-panel-item-gap));
 }
 
 .codex-panel-threads__rename-field {

@@ -306,6 +306,7 @@ describe("Toolbar decisions", () => {
     );
 
     const cancelAutoNameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
+    expect(cancelAutoNameButton.closest(".codex-panel__thread-row--auto-name-running")).not.toBeNull();
     cancelAutoNameButton.click();
     expect(cancelAutoName).toHaveBeenCalledWith("editing");
   });

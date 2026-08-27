@@ -62,4 +62,21 @@ describe("panel CSS layout invariants", () => {
     expect(ruleBody(actions)).not.toMatch(/^\s+(?:position:\s*absolute|background:)/m);
     expect(ruleBody(activeActions)).toContain("width: auto");
   });
+
+  it("keeps threads view rename actions aligned without hover or focus", () => {
+    const renamingRow = ruleBody(".codex-panel-threads__row--renaming");
+
+    expect(renamingRow).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(renamingRow).toContain("gap: var(--codex-panel-panel-gap)");
+  });
+
+  it("keeps the toolbar auto-name cancel action visible without hover or focus", () => {
+    const runningRow = ruleBody(".codex-panel__thread-row--auto-name-running");
+    const runningAction = ruleBody(".codex-panel__thread-row--auto-name-running .codex-panel__thread-action");
+
+    expect(runningRow).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(runningRow).toContain("gap: var(--codex-panel-panel-gap)");
+    expect(runningAction).toContain("width: auto");
+    expect(runningAction).toContain("opacity: 1");
+  });
 });
