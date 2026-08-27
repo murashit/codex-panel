@@ -214,6 +214,7 @@ function commandApprovalRequest(
     id,
     method: "item/commandExecution/requestApproval",
     params: {
+      kind: "command",
       command: "npm test",
       cwd: "/vault",
       threadId,

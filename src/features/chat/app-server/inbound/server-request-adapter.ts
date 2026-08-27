@@ -210,13 +210,15 @@ export function appServerMcpElicitationResponse(
 
 function commandApprovalRequest(requestId: PendingApproval["requestId"], params: CommandApprovalParams): PendingApproval {
   const details = commandApprovalDetails(params);
+  const isWriteStdin = params.kind === "writeStdin";
+  const fallback = isWriteStdin ? "Terminal input requested." : "Command execution requested.";
   return {
     requestId,
     kind: "command",
     turnId: nullableString(params.turnId),
-    title: "Command approval",
-    summary: approvalSummary(params.reason, params.command, "Command execution requested."),
-    resultSummary: approvalResultSummary(params.reason, params.command, "Command execution requested."),
+    title: isWriteStdin ? "Terminal input approval" : "Command approval",
+    summary: approvalSummary(params.reason, params.command, fallback),
+    resultSummary: approvalResultSummary(params.reason, params.command, fallback),
     details,
     actionOptions: commandApprovalActionOptions(params.availableDecisions),
   };

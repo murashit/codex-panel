@@ -284,6 +284,7 @@ function skillFixture(): SkillMetadata {
     path: "/skills/writer",
     scope: "repo",
     enabled: true,
+    pluginId: null,
   };
 }
 

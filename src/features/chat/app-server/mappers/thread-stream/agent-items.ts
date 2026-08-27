@@ -1,16 +1,5 @@
 import type { AgentStateSummary, AgentThreadStreamItem, ExecutionState } from "../../../domain/thread-stream/items";
-import {
-  collabAgentStateExecutionState,
-  type ExecutionStateByStatus,
-  executionStateFromStatus,
-  RUNNING_EXECUTION_STATE,
-} from "./execution-state";
-
-const STANDARD_TOOL_STATES: ExecutionStateByStatus = {
-  inProgress: RUNNING_EXECUTION_STATE,
-  completed: "completed",
-  failed: "failed",
-};
+import { collabAgentStateExecutionState } from "./execution-state";
 
 interface ThreadStreamCollabAgentToolCall {
   id: string;
@@ -51,7 +40,7 @@ export function agentThreadStreamItem(item: ThreadStreamCollabAgentToolCall, tur
 }
 
 export function subagentActivityThreadStreamItem(
-  item: { id: string; kind: "started" | "interacted" | "interrupted"; agentThreadId: string; agentPath: string },
+  item: { id: string; kind: "started" | "interacted" | "interrupted" | "completed"; agentThreadId: string; agentPath: string },
   turnId?: string,
 ): AgentThreadStreamItem {
   const id = `subagent-activity:${item.id}`;
@@ -73,10 +62,11 @@ export function subagentActivityThreadStreamItem(
   };
 }
 
-function subagentActivityAction(kind: "started" | "interacted" | "interrupted"): string {
+function subagentActivityAction(kind: "started" | "interacted" | "interrupted" | "completed"): string {
   if (kind === "started") return "spawn";
   if (kind === "interacted") return "interact";
-  return "interrupt";
+  if (kind === "interrupted") return "interrupt";
+  return "complete";
 }
 
 function agentCoordinationAction(tool: string): string {
@@ -102,20 +92,16 @@ function agentStatesDisplay(states: ThreadStreamCollabAgentToolCall["agentsState
 }
 
 function collabAgentExecutionState(tool: string, status: string, receiverThreadIds: string[], agents: AgentStateSummary[]): ExecutionState {
-  if (tool === "spawnAgent") return collabAgentToolCallExecutionState(status);
+  if (tool === "spawnAgent") return collabAgentStateExecutionState(status);
   if (agents.some((agent) => agent.executionState === "failed")) return "failed";
   if (agents.some((agent) => agent.executionState === "running")) return "running";
   if (agents.length > 0 && agents.every((agent) => agent.executionState === "completed")) {
     return "completed";
   }
-  if (receiverThreadIds.length > 0 && collabAgentToolCallExecutionState(status) === "completed") return "running";
-  const state = collabAgentToolCallExecutionState(status);
+  if (receiverThreadIds.length > 0 && collabAgentStateExecutionState(status) === "completed") return "running";
+  const state = collabAgentStateExecutionState(status);
   if (state) return state;
   return null;
-}
-
-function collabAgentToolCallExecutionState(status: string): ExecutionState {
-  return executionStateFromStatus(status, STANDARD_TOOL_STATES);
 }
 
 function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {

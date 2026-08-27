@@ -217,6 +217,23 @@ describe("subagent activity state", () => {
       outcome: null,
     });
   });
+
+  it("records a v2 completion as a terminal successful outcome", () => {
+    let state = trackedState();
+    state = reduceSubagentActivitySlice(state, {
+      type: "subagent-activity/coordination-observed",
+      threadId: "child",
+      parentTurnId: "parent-turn",
+      agentLabel: "/root/scout",
+      coordinationUpdate: "completed",
+    });
+
+    expect(state.byThreadId.get("child")).toMatchObject({
+      agentLabel: "/root/scout",
+      liveness: "stopped",
+      outcome: "completed",
+    });
+  });
 });
 
 function trackedState() {

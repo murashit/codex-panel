@@ -20,6 +20,7 @@ describe("chat inbound routing", () => {
 
     expect(unhandled).toEqual([
       "item/fileChange/outputDelta",
+      "mcpServer/event/stream/notification",
       "project/changed",
       "thread/archived",
       "thread/compacted",
@@ -27,6 +28,9 @@ describe("chat inbound routing", () => {
       "thread/name/updated",
       "thread/project/updated",
       "thread/queue/changed",
+      "thread/realtime/item/completed",
+      "thread/realtime/item/started",
+      "thread/realtime/item/transcript/delta",
       "thread/reverted",
       "thread/unarchived",
     ]);
@@ -335,6 +339,7 @@ function commandApprovalRequest(): ServerRequest {
     id: 1,
     method: "item/commandExecution/requestApproval",
     params: {
+      kind: "command",
       command: "npm test",
       cwd: "/tmp/project",
       threadId: "thread-active",

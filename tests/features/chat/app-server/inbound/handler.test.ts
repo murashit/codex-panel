@@ -2377,6 +2377,7 @@ function supportedApprovalRequests(): ServerRequest[] {
       id: 10,
       method: "item/commandExecution/requestApproval",
       params: {
+        kind: "command",
         command: "npm test",
         cwd: "/tmp/project",
         threadId: "thread",
@@ -2462,6 +2463,7 @@ function commandApprovalRequest(
     id,
     method: "item/commandExecution/requestApproval",
     params: {
+      kind: "command",
       command: "npm test",
       cwd: "/tmp/project",
       threadId,

@@ -1,4 +1,4 @@
-export type AgentCoordinationUpdate = "snapshot" | "started" | "interacted" | "interrupted";
+export type AgentCoordinationUpdate = "snapshot" | "started" | "interacted" | "interrupted" | "completed";
 type AgentCoordinationLiveness = "unknown" | "running" | "stopped";
 export type AgentCoordinationOutcome = "completed" | "failed" | null;
 export type AgentCoordinationExecutionState = "running" | AgentCoordinationOutcome;
@@ -22,6 +22,9 @@ export function applyAgentCoordinationUpdate(
   }
   if (update === "interrupted") {
     return lifecycle.liveness === "stopped" ? lifecycle : { ...lifecycle, liveness: "stopped" };
+  }
+  if (update === "completed") {
+    return lifecycle.outcome ? lifecycle : { liveness: "stopped", outcome: "completed" };
   }
   return lifecycle;
 }

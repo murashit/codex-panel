@@ -35,6 +35,7 @@ describe("approval model", () => {
       id: 1,
       method: "item/commandExecution/requestApproval",
       params: {
+        kind: "command",
         command: "npm run build",
         cwd: "/tmp/project",
         threadId: "thread",
@@ -55,6 +56,29 @@ describe("approval model", () => {
     expect(approval.summary).toBe("npm run build");
     expect(approvalActionLabels(approval)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
     expect(approvalResponseAt(request, approval, 1)).toEqual({ decision: "acceptForSession" });
+  });
+
+  it("distinguishes terminal input approvals from new command execution", () => {
+    const request: ApprovalRequest = {
+      id: 34,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        kind: "writeStdin",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        approvalId: "approval-1",
+        environmentId: null,
+        startedAtMs: 1,
+      },
+    };
+
+    const approval = expectPresent(toPendingApproval(request));
+    expect(approval).toMatchObject({
+      title: "Terminal input approval",
+      summary: "Terminal input requested.",
+      resultSummary: "Terminal input requested.",
+    });
   });
 
   it("builds permission grants only for accept actions", () => {
@@ -109,6 +133,7 @@ describe("approval model", () => {
       id: 30,
       method: "item/commandExecution/requestApproval",
       params: {
+        kind: "command",
         command: null,
         cwd: "/tmp/project",
         threadId: "thread",
@@ -152,6 +177,7 @@ describe("approval model", () => {
       id: 33,
       method: "item/commandExecution/requestApproval",
       params: {
+        kind: "command",
         command: "npm test",
         cwd: "/tmp/project",
         threadId: "thread",
@@ -206,6 +232,7 @@ describe("approval model", () => {
       id: 32,
       method: "item/commandExecution/requestApproval",
       params: {
+        kind: "command",
         command: null,
         cwd: "/tmp/project",
         threadId: "thread",
@@ -238,6 +265,7 @@ describe("approval model", () => {
       id: 31,
       method: "item/commandExecution/requestApproval",
       params: {
+        kind: "command",
         command: "npm run build",
         cwd: "/tmp/project",
         threadId: "thread",
@@ -263,6 +291,7 @@ describe("approval model", () => {
         id: 20,
         method: "item/commandExecution/requestApproval",
         params: {
+          kind: "command",
           command: "npm run build",
           cwd: "/tmp/project",
           threadId: "thread",
@@ -344,6 +373,7 @@ describe("approval model", () => {
         id: 25,
         method: "item/commandExecution/requestApproval",
         params: {
+          kind: "command",
           command: "rg TODO src && sed -n '1,20p' src/main.ts",
           cwd: "/tmp/project",
           threadId: "thread",
@@ -394,6 +424,7 @@ describe("approval model", () => {
         id: 26,
         method: "item/commandExecution/requestApproval",
         params: {
+          kind: "command",
           command: null,
           cwd: "/tmp/project",
           threadId: "thread",
@@ -422,6 +453,7 @@ describe("approval model", () => {
         id: 24,
         method: "item/commandExecution/requestApproval",
         params: {
+          kind: "command",
           command: "npm test",
           cwd: "/tmp/project",
           threadId: "thread",
@@ -450,6 +482,7 @@ describe("approval model", () => {
         id: 3,
         method: "item/commandExecution/requestApproval",
         params: {
+          kind: "command",
           command: "npm test",
           cwd: "/tmp/project",
           threadId: "thread",

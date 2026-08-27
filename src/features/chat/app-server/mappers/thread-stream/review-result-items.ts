@@ -38,6 +38,7 @@ interface AutoReview {
 type AutoReviewAction =
   | { type: "command"; source: string; command: string; cwd: string }
   | { type: "execve"; source: string; program: string; argv: readonly string[]; cwd: string }
+  | { type: "writeStdin"; approvalId: string; processId: string; stdin: string; cwd: string }
   | { type: "applyPatch"; cwd: string; files: readonly string[] }
   | { type: "networkAccess"; target: string; host: string; protocol: string; port: number }
   | {
@@ -142,6 +143,14 @@ function autoReviewActionRows(action: AutoReviewAction): ThreadStreamAuditFact[]
       { key: "action source", value: action.source },
     ];
   }
+  if (action.type === "writeStdin") {
+    return [
+      { key: "action", value: "terminal input" },
+      { key: "process", value: action.processId },
+      { key: "input", value: action.stdin },
+      { key: "cwd", value: action.cwd },
+    ];
+  }
   if (action.type === "applyPatch") {
     return [
       { key: "action", value: "apply patch" },
@@ -181,6 +190,7 @@ function autoReviewActionRows(action: AutoReviewAction): ThreadStreamAuditFact[]
 function autoReviewActionLabel(action: AutoReviewAction): string {
   if (action.type === "command") return action.command;
   if (action.type === "execve") return [action.program, ...action.argv].join(" ");
+  if (action.type === "writeStdin") return `write stdin to ${action.processId}`;
   if (action.type === "applyPatch") return `apply patch (${String(action.files.length)} files)`;
   if (action.type === "networkAccess") return `${action.protocol}://${action.host}:${String(action.port)}`;
   if (action.type === "mcpToolCall") return `${action.server}.${action.toolName}`;

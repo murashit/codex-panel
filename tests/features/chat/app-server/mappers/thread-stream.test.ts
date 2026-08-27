@@ -410,7 +410,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it.each(["started", "interacted", "interrupted"] as const)(
+  it.each(["started", "interacted", "interrupted", "completed"] as const)(
     "preserves v2 %s activity and canonical agent identity in live and restored turns",
     (kind) => {
       const item: TurnItem = {
@@ -424,7 +424,7 @@ describe("turn item conversion preserves app-server semantics", () => {
         id: `subagent-activity:activity-${kind}`,
         kind: "agent",
         role: "tool",
-        action: kind === "started" ? "spawn" : kind === "interacted" ? "interact" : "interrupt",
+        action: kind === "started" ? "spawn" : kind === "interacted" ? "interact" : kind === "interrupted" ? "interrupt" : "complete",
         coordinationUpdate: kind,
         status: kind,
         senderThreadId: null,
@@ -1057,6 +1057,23 @@ describe("turn item conversion preserves app-server semantics", () => {
 
   it.each([
     {
+      name: "terminal input",
+      action: {
+        type: "writeStdin",
+        approvalId: "approval-1",
+        processId: "process-1",
+        stdin: "yes\n",
+        cwd: "/vault",
+      },
+      summary: "write stdin to process-1",
+      auditFacts: [
+        { key: "action", value: "terminal input" },
+        { key: "process", value: "process-1" },
+        { key: "input", value: "yes\n" },
+        { key: "cwd", value: "/vault" },
+      ],
+    },
+    {
       name: "network access",
       action: {
         type: "networkAccess",
@@ -1254,6 +1271,9 @@ describe("execution state uses typed status adapters before rendered text", () =
     expect(hookRunThreadStreamItem(hookRun(), "turn", "stopped")).toMatchObject({ executionState: "failed" });
     expect(collabAgentStateExecutionState("inProgress")).toBe("running");
     expect(collabAgentStateExecutionState("failed")).toBe("failed");
+    expect(threadStreamItemFromTurnItem(collabAgentToolCall({ status: "interrupted" }), "turn")).toMatchObject({
+      executionState: "failed",
+    });
   });
 
   it("uses dynamic tool success as a display fallback", () => {

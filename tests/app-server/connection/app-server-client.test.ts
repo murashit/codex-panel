@@ -209,6 +209,7 @@ describe("AppServerClient", () => {
       id: 99,
       method: "item/commandExecution/requestApproval",
       params: {
+        kind: "command",
         command: "npm run build",
         cwd: "/vault",
         threadId: "thread",
