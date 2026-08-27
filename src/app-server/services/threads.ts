@@ -48,6 +48,7 @@ export interface AppServerStartThreadOptions {
   cwd: string;
   serviceTier?: RuntimeServiceTierRequest;
   permissions?: RuntimeSettingsPatch["permissions"];
+  dynamicTools?: ClientRequestParams<"thread/start">["dynamicTools"];
 }
 
 export interface AppServerStartEphemeralThreadOptions {
@@ -103,13 +104,14 @@ export function startThread(
   client: AppServerRequestClient,
   options: AppServerStartThreadOptions,
 ): Promise<ClientResponseByMethod["thread/start"]> {
-  const { cwd, serviceTier, permissions } = options;
+  const { cwd, serviceTier, permissions, dynamicTools } = options;
   return client.request("thread/start", {
     cwd,
     serviceName: "codex-panel",
     historyMode: "paginated",
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(permissions !== undefined ? { permissions } : {}),
+    ...(dynamicTools !== undefined ? { dynamicTools } : {}),
   });
 }
 

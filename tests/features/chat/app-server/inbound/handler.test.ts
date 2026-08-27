@@ -36,6 +36,7 @@ function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboun
       observeThreadGoal: vi.fn(),
       respondToServerRequest: vi.fn(() => true),
       rejectServerRequest: vi.fn(() => true),
+      executeDynamicTool: vi.fn(async () => ({ success: false, contentItems: [] })),
       ...actions,
     },
     createLocalIdSource({ nowMs: () => 1, seed: "test" }),
@@ -1102,27 +1103,62 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
-    it("responds to current-time requests and rejects a representative known unsupported request", () => {
+    it("responds to current-time and dynamic-tool requests", async () => {
       const state = activeRequestState();
-      const rejectServerRequest = vi.fn(() => true);
       const respondToServerRequest = vi.fn(() => true);
-      const handler = handlerForState(state, { rejectServerRequest, respondToServerRequest });
+      const executeDynamicTool = vi.fn(async () => ({
+        success: true as const,
+        contentItems: [{ type: "inputText" as const, text: "result" }],
+      }));
+      const handler = handlerForState(state, { executeDynamicTool, respondToServerRequest });
 
       const dateNow = vi.spyOn(Date, "now").mockReturnValue(1_700_000_123_456);
       handler.handleServerRequest(currentTimeRequest(28, "thread"));
       dateNow.mockRestore();
-      const unsupported = {
+      const toolCall = {
         id: 22,
         method: "item/tool/call",
         params: { threadId: "thread", turnId: "turn", callId: "call", namespace: null, tool: "tool", arguments: {} },
       } satisfies Extract<ServerRequest, { method: "item/tool/call" }>;
-      handler.handleServerRequest(unsupported);
+      handler.handleServerRequest(toolCall);
+      await vi.waitFor(() => expect(respondToServerRequest).toHaveBeenCalledTimes(2));
 
       expect(respondToServerRequest).toHaveBeenCalledWith(28, { currentTimeAt: 1_700_000_123 });
-      expect(rejectServerRequest).toHaveBeenCalledWith(22, -32601, "Rejected unsupported app-server request: item/tool/call");
-      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual([
-        "Rejected unsupported app-server request: item/tool/call",
-      ]);
+      expect(executeDynamicTool).toHaveBeenCalledWith(toolCall.params);
+      expect(respondToServerRequest).toHaveBeenCalledWith(22, {
+        success: true,
+        contentItems: [{ type: "inputText", text: "result" }],
+      });
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
+    });
+
+    it("turns dynamic-tool executor failures into failed tool responses", async () => {
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(activeRequestState(), {
+        executeDynamicTool: vi.fn(async () => {
+          throw new Error("Resolver unavailable");
+        }),
+        respondToServerRequest,
+      });
+
+      handler.handleServerRequest({
+        id: 29,
+        method: "item/tool/call",
+        params: {
+          threadId: "thread",
+          turnId: "turn",
+          callId: "call",
+          namespace: "codex_panel",
+          tool: "resolve_wikilinks",
+          arguments: {},
+        },
+      });
+      await vi.waitFor(() => expect(respondToServerRequest).toHaveBeenCalledOnce());
+
+      expect(respondToServerRequest).toHaveBeenCalledWith(29, {
+        success: false,
+        contentItems: [{ type: "inputText", text: "Resolver unavailable" }],
+      });
     });
 
     it("keeps unknown server request fallback out of the normal thread stream", () => {
@@ -1424,18 +1460,6 @@ describe("ChatInboundHandler", () => {
           handler.handleServerRequest(currentTimeRequest(58, "thread"));
         },
         expectedMessages: ["Could not send current time because Codex app-server is not connected."],
-        pending: null,
-      },
-      {
-        name: "unsupported-request rejection",
-        actions: { rejectServerRequest: vi.fn(() => false) },
-        exercise(handler: TestChatInboundHandler) {
-          handler.handleServerRequest(unsupportedToolCallRequest(59));
-        },
-        expectedMessages: [
-          "Rejected unsupported app-server request: item/tool/call",
-          "Could not reject app-server request because Codex app-server is not connected.",
-        ],
         pending: null,
       },
     ])("reports failed $name delivery without resolving pending actions", ({ actions, exercise, expectedMessages, pending }) => {
@@ -2581,14 +2605,6 @@ function currentTimeRequest(id: number, threadId: string): ServerRequest {
     id,
     method: "currentTime/read",
     params: { threadId },
-  };
-}
-
-function unsupportedToolCallRequest(id: number): ServerRequest {
-  return {
-    id,
-    method: "item/tool/call",
-    params: { threadId: "thread", turnId: "turn", callId: "call", namespace: null, tool: "tool", arguments: {} },
   };
 }
 

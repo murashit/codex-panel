@@ -46,6 +46,29 @@ describe("panel thread stream item rendering", () => {
     expect(textContents(element, ".codex-panel__output-title")).toEqual(["Arguments JSON", "Result JSON"]);
   });
 
+  it("renders dynamic tool type and qualified identity separately", () => {
+    const block = projectedThreadStreamBlocks({
+      turnLifecycle: runningTurnLifecycle("turn"),
+      items: [
+        {
+          id: "dynamic-tool-1",
+          kind: "tool",
+          role: "tool",
+          toolName: "dynamic tool",
+          primaryTarget: { kind: "value", value: "codex_panel.resolve_wikilinks" },
+          turnId: "turn",
+          status: "completed",
+          diagnostics: [{ title: "Arguments JSON", body: '{"wikilinks":["[[Note]]"]}' }],
+        },
+      ],
+    })[0];
+
+    const element = renderThreadStreamBlockElement(block);
+
+    expect(topLevelDetailsSummaries(element)).toEqual(["dynamic tool"]);
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("codex_panel.resolve_wikilinks");
+  });
+
   it("renders steering activity as a compact two-line tool summary", () => {
     const block = projectedThreadStreamBlocks({
       items: [

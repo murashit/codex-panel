@@ -9,11 +9,13 @@ import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from 
 import { createServerDiagnosticsCoordinator } from "../../application/connection/server-diagnostics-coordinator";
 import type { ServerDiagnosticsPort } from "../../application/connection/server-diagnostics-port";
 import { handleAppServerResourceFact, type ServerResourceFactHost } from "../../application/connection/server-resource-facts";
+import { executePanelDynamicTool } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ChatPanelEnvironment } from "../contracts";
+import { resolveObsidianWikilinks } from "../obsidian/wikilink-resolution.obsidian";
 import type { ChatViewDeferredTasks } from "./deferred-work";
 
 type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
@@ -140,6 +142,10 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
       },
       respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
       rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),
+      executeDynamicTool: async (call) =>
+        executePanelDynamicTool(call, {
+          resolveWikilinks: (argumentsValue) => resolveObsidianWikilinks(environment.obsidian.app, argumentsValue),
+        }),
     },
     localItemIds,
   );

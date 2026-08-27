@@ -27,6 +27,13 @@ describe("chat app-server adapters", () => {
       serviceName: "codex-panel",
       serviceTier: "priority",
       permissions: ":workspace",
+      dynamicTools: [
+        expect.objectContaining({
+          type: "namespace",
+          name: "codex_panel",
+          tools: [expect.objectContaining({ type: "function", name: "resolve_wikilinks" })],
+        }),
+      ],
     });
     expect(snapshot).toMatchObject({
       kind: "completed",

@@ -230,15 +230,14 @@ function mcpToolCallThreadStreamItem(item: McpToolCallItem, turnId?: string): Th
 }
 
 function dynamicToolCallThreadStreamItem(item: DynamicToolCallItem, turnId?: string): ThreadStreamItem {
-  const name = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
-  const target = jsonTargetLabel(item.arguments);
+  const qualifiedName = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
   const failure = item.success === false ? "failed" : appServerFailedStatusLabel(item.status);
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "tool",
     role: "tool",
-    toolName: name,
-    ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
+    toolName: "dynamic tool",
+    primaryTarget: { kind: "value", value: qualifiedName },
     ...(failure ? { failureReason: failure } : {}),
     status: item.status,
     ...definedProp(

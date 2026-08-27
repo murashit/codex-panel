@@ -34,6 +34,7 @@ export type ServerRequestRoute =
   | { kind: "userInput"; request: ServerRequest; input: PendingUserInput }
   | { kind: "mcpElicitation"; request: ServerRequest; elicitation: PendingMcpElicitation }
   | { kind: "currentTime"; request: Extract<ServerRequest, { method: "currentTime/read" }> }
+  | { kind: "dynamicTool"; request: Extract<ServerRequest, { method: "item/tool/call" }> }
   | { kind: "unsupported"; request: ServerRequest }
   | { kind: "unknown"; request: ServerRequest }
   | { kind: "inactive"; request: ServerRequest };
@@ -52,7 +53,7 @@ const SERVER_REQUEST_DESCRIPTORS = {
   "item/permissions/requestApproval": { routeKind: "approval", scope: threadTurnRequestScope },
   "item/tool/requestUserInput": { routeKind: "userInput", scope: threadTurnRequestScope },
   "mcpServer/elicitation/request": { routeKind: "mcpElicitation", scope: threadTurnRequestScope },
-  "item/tool/call": { routeKind: "unsupported", scope: threadTurnRequestScope },
+  "item/tool/call": { routeKind: "dynamicTool", scope: threadTurnRequestScope },
   "account/chatgptAuthTokens/refresh": { routeKind: "unsupported", scope: unscopedRequestScope },
   "attestation/generate": { routeKind: "unsupported", scope: unscopedRequestScope },
   "currentTime/read": { routeKind: "currentTime", scope: threadOnlyRequestScope },
@@ -93,6 +94,8 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
     }
     case "currentTime":
       return { kind: "currentTime", request: request as Extract<ServerRequest, { method: "currentTime/read" }> };
+    case "dynamicTool":
+      return { kind: "dynamicTool", request: request as Extract<ServerRequest, { method: "item/tool/call" }> };
     case "unsupported":
       return { kind: "unsupported", request };
   }

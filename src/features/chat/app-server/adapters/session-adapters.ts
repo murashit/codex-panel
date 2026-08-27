@@ -28,6 +28,7 @@ import type { ThreadCommandEffects } from "../../application/threads/thread-comm
 import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";
 import { threadStreamItemsFromTurns } from "../mappers/thread-stream/turn-items";
+import { panelDynamicTools } from "./dynamic-tool-registration";
 import { EphemeralThreadCleanupRequiredError, forkEphemeralThread } from "./side-chat";
 
 interface CurrentChatAppServerClientHost {
@@ -68,6 +69,7 @@ function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadSta
           cwd: host.vaultPath,
           serviceTier: request.serviceTier,
           permissions: request.permissions,
+          dynamicTools: panelDynamicTools(),
         });
         return threadActivationSnapshotFromAppServerResponse(response);
       }),

@@ -840,7 +840,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("summarizes dynamic tool calls from structured arguments only", () => {
+  it("summarizes dynamic tool calls by their qualified identity", () => {
     expect(
       dynamicToolCallItem({
         contentItems: [{ type: "inputText", text: "ok" }],
@@ -848,8 +848,8 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       kind: "tool",
-      primaryTarget: { kind: "value", value: "https://example.com" },
-      toolName: "web.open",
+      primaryTarget: { kind: "value", value: "web.open" },
+      toolName: "dynamic tool",
       diagnostics: expect.arrayContaining([
         { title: "Arguments JSON", body: expect.stringContaining("https://example.com") },
         { title: "Result JSON", body: expect.stringContaining("inputText") },

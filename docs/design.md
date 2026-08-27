@@ -16,6 +16,8 @@ The panel may acquire bounded prompt context through explicit user action. It re
 
 Vault file and thread references are prompt handoff data, not Panel-owned durable metadata. Preserve their human-readable representation and keep derived display state local.
 
+Panel-provided client tools may expose narrow, read-only Obsidian semantics that Codex cannot reproduce from the filesystem alone. Register them only for new persistent Panel-created threads, keep calls scoped to the active thread and turn, return bounded untrusted results rather than file contents, and leave subsequent filesystem access to Codex permissions.
+
 Panel settings should store only panel-specific preferences. Do not mirror Codex configuration in Obsidian settings just to display or inspect it.
 
 ## Sources of Truth

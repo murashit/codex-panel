@@ -56,6 +56,8 @@ The composer lets you point Codex to relevant material without pasting it into t
 
 When Daily Notes or Periodic Notes is enabled, `@today`, `@tomorrow`, and `@yesterday` reference daily notes. Paste or drop files to add attachments, or use `/web <url> [message]` to attach content from a web page.
 
+Codex Panel bundles its own read-only Obsidian tools as Codex dynamic tools. The current bundle contains a wikilink resolver.
+
 ### Guide a running turn
 
 While a turn runs, you can answer questions, approve or reject actions, send additional guidance, interrupt the turn, and inspect its progress.

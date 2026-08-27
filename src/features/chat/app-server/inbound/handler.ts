@@ -1,6 +1,7 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
+import { dynamicToolFailure, type PanelDynamicToolCall, type PanelDynamicToolResponse } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatAction } from "../../application/state/reducer";
@@ -42,6 +43,7 @@ export interface ChatInboundHandlerEffects {
   observeThreadGoal: (threadId: string) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
+  executeDynamicTool: (call: PanelDynamicToolCall) => Promise<PanelDynamicToolResponse>;
 }
 
 export interface ChatInboundHandler {
@@ -191,6 +193,9 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
         addSystemMessage(context, "Could not send current time because Codex app-server is not connected.");
       }
       return true;
+    case "dynamicTool":
+      void respondToDynamicToolCall(context, route.request.id, route.request.params);
+      return true;
     case "inactive": {
       return false;
     }
@@ -202,6 +207,22 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
       context.effects.rejectServerRequest(request.id, -32601, message);
       return true;
     }
+  }
+}
+
+async function respondToDynamicToolCall(
+  context: ChatInboundHandlerContext,
+  requestId: RequestId,
+  call: PanelDynamicToolCall,
+): Promise<void> {
+  let response: PanelDynamicToolResponse;
+  try {
+    response = await context.effects.executeDynamicTool(call);
+  } catch (error) {
+    response = dynamicToolFailure(error instanceof Error ? error.message : String(error));
+  }
+  if (!context.effects.respondToServerRequest(requestId, response)) {
+    addSystemMessage(context, "Could not send the dynamic tool response because Codex app-server is not connected.");
   }
 }
 

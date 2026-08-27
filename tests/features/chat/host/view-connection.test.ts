@@ -559,6 +559,7 @@ describe("CodexChatView connection lifecycle", () => {
     await waitForAsyncWork(() => {
       expect(client.request).toHaveBeenCalledWith("thread/start", {
         cwd: "/vault",
+        dynamicTools: expect.any(Array),
         historyMode: "paginated",
         serviceName: "codex-panel",
       });

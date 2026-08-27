@@ -109,7 +109,7 @@ describe("chat inbound routing", () => {
     { name: "user input", request: userInputRequest({ threadId: "thread-active" }), kind: "userInput" },
     { name: "MCP elicitation", request: mcpElicitationRequest(), kind: "mcpElicitation" },
     { name: "current time", request: currentTimeRequest("thread-active"), kind: "currentTime" },
-    { name: "dynamic tool call", request: dynamicToolCallRequest(), kind: "unsupported" },
+    { name: "dynamic tool call", request: dynamicToolCallRequest(), kind: "dynamicTool" },
   ] as const)("classifies $name server requests and extracts scope", ({ request, kind }) => {
     expectRequestRouteKind(request, kind);
     expectRequestRouteKind(request, "inactive", { activeThreadId: null, activeTurnId: null });
