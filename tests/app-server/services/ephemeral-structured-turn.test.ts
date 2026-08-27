@@ -205,6 +205,62 @@ describe("runEphemeralStructuredTurn", () => {
     });
   });
 
+  it("isolates the ephemeral thread from configured tools and capabilities", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.effectiveConfig = {
+        mcp_servers: {
+          docs: { url: "https://example.com/mcp" },
+          required: { command: "required-mcp", required: true },
+        },
+      };
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await runEphemeralStructuredTurn(runOptions(), { clientFactory });
+
+    const fake = expectPresent(client.current);
+    expect(fake.configReadRequests).toEqual([{ cwd: "/vault", includeLayers: false }]);
+    expect(fake.startEphemeralThreadParams).toEqual(
+      expect.objectContaining({
+        ephemeral: true,
+        sandbox: "read-only",
+        approvalPolicy: "never",
+        environments: [],
+        runtimeWorkspaceRoots: [],
+        dynamicTools: [],
+        selectedCapabilityRoots: [],
+        config: expect.objectContaining({
+          "features.apps": false,
+          "features.memories": false,
+          "features.multi_agent": false,
+          "features.plugins": false,
+          "features.shell_tool": false,
+          "orchestrator.skills.enabled": false,
+          "skills.include_instructions": false,
+          web_search: "disabled",
+          mcp_servers: {
+            docs: { enabled: false },
+            required: { enabled: false },
+          },
+        }),
+      }),
+    );
+  });
+
+  it("does not start an ephemeral thread when its effective configuration cannot be isolated", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.configReadImpl = async () => {
+        throw new Error("config unavailable");
+      };
+    });
+
+    await expect(runEphemeralStructuredTurn(runOptions(), { clientFactory })).rejects.toThrow("config unavailable");
+
+    const fake = expectPresent(client.current);
+    expect(fake.startEphemeralThreadParams).toBeNull();
+    expect(fake.deleteThreadRequest).not.toHaveBeenCalled();
+  });
+
   it("rejects a known unsupported reasoning effort before creating the ephemeral thread", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.modelListImpl = async () => ({ data: [appServerModel("gpt-5.4-mini", ["low", "medium"])], nextCursor: null });
@@ -360,11 +416,15 @@ function fakeStructuredTurnClientFactory(configure?: (client: FakeStructuredTurn
 
 class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   connectImpl: (() => Promise<InitializeResponse>) | null = null;
+  configReadImpl: (() => Promise<ClientResponseByMethod["config/read"]>) | null = null;
   modelListImpl: (() => Promise<ClientResponseByMethod["model/list"]>) | null = null;
   startEphemeralThreadImpl: (() => Promise<ThreadStartResponse>) | null = null;
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
+  effectiveConfig: Record<string, unknown> = {};
   startEphemeralThreadOptions: AppServerStartEphemeralThreadOptions | null = null;
+  startEphemeralThreadParams: ClientRequestParams<"thread/start"> | null = null;
   startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
+  readonly configReadRequests: ClientRequestParams<"config/read">[] = [];
   readonly modelListRequests: ClientRequestParams<"model/list">[] = [];
   readonly rejectServerRequest = vi.fn();
   readonly deleteThreadRequest = vi.fn(
@@ -390,10 +450,16 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
     options: { timeoutMs?: number } = {},
   ): Promise<ClientResponseByMethod[M]> {
     switch (method) {
+      case "config/read":
+        this.configReadRequests.push(params as ClientRequestParams<"config/read">);
+        return (
+          this.configReadImpl ? await this.configReadImpl() : { config: this.effectiveConfig, origins: {}, layers: null }
+        ) as ClientResponseByMethod[M];
       case "model/list":
         this.modelListRequests.push(params as ClientRequestParams<"model/list">);
         return (this.modelListImpl ? await this.modelListImpl() : { data: [], nextCursor: null }) as ClientResponseByMethod[M];
       case "thread/start":
+        this.startEphemeralThreadParams = params as ClientRequestParams<"thread/start">;
         this.startEphemeralThreadOptions = ephemeralThreadOptionsFromParams(params as ClientRequestParams<"thread/start">);
         return (this.startEphemeralThreadImpl
           ? await this.startEphemeralThreadImpl()

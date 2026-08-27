@@ -56,6 +56,36 @@ export interface AppServerStartEphemeralThreadOptions {
   developerInstructions: string;
 }
 
+const ISOLATED_EPHEMERAL_THREAD_CONFIG: Record<string, boolean | string> = {
+  "features.apps": false,
+  "features.code_mode": false,
+  "features.code_mode_only": false,
+  "features.current_time_reminder": false,
+  "features.deferred_executor": false,
+  "features.enable_fanout": false,
+  "features.goals": false,
+  "features.hooks": false,
+  "features.image_generation": false,
+  "features.memories": false,
+  "features.multi_agent": false,
+  "features.multi_agent_v2": false,
+  "features.plugins": false,
+  "features.request_permissions_tool": false,
+  "features.shell_snapshot": false,
+  "features.shell_tool": false,
+  "features.standalone_web_search": false,
+  "features.token_budget": false,
+  "features.tool_suggest": false,
+  "features.unified_exec": false,
+  "features.view_image": false,
+  "orchestrator.skills.enabled": false,
+  "skills.include_instructions": false,
+  "token_budget.use_history_notes_extension": false,
+  "tools.experimental_request_user_input.enabled": false,
+  "tools.update_plan.enabled": false,
+  web_search: "disabled",
+};
+
 export interface AppServerThreadListOptions {
   archived?: boolean;
   sectionId?: string | null;
@@ -83,12 +113,13 @@ export function startThread(
   });
 }
 
-export function startEphemeralThread(
+export async function startEphemeralThread(
   client: AppServerRequestClient,
   options: AppServerStartEphemeralThreadOptions,
 ): Promise<ClientResponseByMethod["thread/start"]> {
   const { cwd, serviceName, developerInstructions } = options;
-  return client.request("thread/start", {
+  const effectiveConfig = await client.request("config/read", { cwd, includeLayers: false });
+  return await client.request("thread/start", {
     cwd,
     serviceName,
     developerInstructions,
@@ -96,7 +127,19 @@ export function startEphemeralThread(
     sandbox: "read-only",
     approvalPolicy: "never",
     environments: [],
+    runtimeWorkspaceRoots: [],
+    dynamicTools: [],
+    selectedCapabilityRoots: [],
+    config: {
+      ...ISOLATED_EPHEMERAL_THREAD_CONFIG,
+      mcp_servers: disabledMcpServers(effectiveConfig.config["mcp_servers"]),
+    },
   });
+}
+
+function disabledMcpServers(value: unknown): Record<string, { enabled: boolean }> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.keys(value).map((name) => [name, { enabled: false }]));
 }
 
 export function resumeThread(
