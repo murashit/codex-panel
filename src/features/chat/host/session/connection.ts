@@ -3,13 +3,14 @@ import { Notice } from "obsidian";
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerContextConnectionLease } from "../../../../app-server/connection/context-connection";
+import { cloneServerDiagnostics, invalidateMcpServerRuntimeDiagnostics } from "../../../../domain/server/diagnostics";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { createServerDiagnosticsCoordinator } from "../../application/connection/server-diagnostics-coordinator";
 import type { ServerDiagnosticsPort } from "../../application/connection/server-diagnostics-port";
 import { handleAppServerResourceFact, type ServerResourceFactHost } from "../../application/connection/server-resource-facts";
 import type { LocalIdSource } from "../../application/local-id-source";
-import type { ChatConnectionPhase } from "../../application/state/model";
+import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ChatPanelEnvironment } from "../contracts";
@@ -99,6 +100,21 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   const diagnosticsCoordinator = createServerDiagnosticsCoordinator({
     stateStore,
     diagnosticsPort,
+  });
+  let observedActiveThreadId = activeThreadId(stateStore.getState());
+  const unsubscribeActiveThreadDiagnostics = stateStore.subscribe(() => {
+    const nextActiveThreadId = activeThreadId(stateStore.getState());
+    if (nextActiveThreadId === observedActiveThreadId) return;
+    observedActiveThreadId = nextActiveThreadId;
+    diagnosticsCoordinator.invalidate();
+    stateStore.dispatch({
+      type: "connection/diagnostics-applied",
+      serverDiagnostics: invalidateMcpServerRuntimeDiagnostics(cloneServerDiagnostics(stateStore.getState().connection.serverDiagnostics)),
+    });
+    if (!connection.isConnected() || !host.canConnect()) return;
+    void diagnosticsCoordinator.refreshServerDiagnostics().catch((error: unknown) => {
+      status.addSystemMessage(error instanceof Error ? error.message : String(error));
+    });
   });
   const refreshSharedThreads = async (): Promise<void> => {
     await environment.plugin.threadCatalog.refreshActiveThreads();
@@ -203,6 +219,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     invalidateConnectionScope,
     deactivate: () => {
       active = false;
+      unsubscribeActiveThreadDiagnostics();
       connectionCoordinator.invalidate();
       invalidateConnectionScope();
     },

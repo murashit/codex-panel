@@ -69,45 +69,57 @@ describe("server diagnostics", () => {
 
     let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",
-      startupStatus: "failed",
+      connectionStatus: "failed",
       authStatus: null,
       toolCount: null,
       message: "missing token",
+      authenticationIssue: null,
     });
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "github",
-      startupStatus: "unknown",
+      connectionStatus: "unknown",
       authStatus: "notLoggedIn",
       toolCount: 2,
       message: null,
+      authenticationIssue: null,
     });
 
     expect(diagnostics.mcpServers).toEqual([
-      { name: "github", startupStatus: "failed", authStatus: "notLoggedIn", toolCount: 2, message: "missing token" },
+      {
+        name: "github",
+        connectionStatus: "failed",
+        authStatus: "notLoggedIn",
+        toolCount: 2,
+        message: "missing token",
+        authenticationIssue: null,
+      },
     ]);
 
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "github",
-      startupStatus: "ready",
+      connectionStatus: "connected",
       authStatus: null,
       toolCount: null,
       message: null,
+      authenticationIssue: null,
     });
 
     expect(diagnostics.mcpServers[0]).toEqual({
       name: "github",
-      startupStatus: "ready",
+      connectionStatus: "connected",
       authStatus: "notLoggedIn",
       toolCount: 2,
       message: null,
+      authenticationIssue: null,
     });
 
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "docs",
-      startupStatus: "ready",
+      connectionStatus: "connected",
       authStatus: "oAuth",
       toolCount: 1,
       message: null,
+      authenticationIssue: null,
     });
     expect(diagnostics.mcpServers.map((server) => server.name)).toEqual(["docs", "github"]);
     expect(shortDiagnosticErrorMessage("1234567890", 10)).toBe("1234567890");
@@ -117,6 +129,7 @@ describe("server diagnostics", () => {
     const summaries = mcpServerStatusSummariesFromStatuses([
       {
         name: "codex_apps",
+        runtimeStatus: "connected",
         authStatus: "oAuth",
         tools: {
           "github.fetch_issue": { name: "github.fetch_issue" },
@@ -129,6 +142,7 @@ describe("server diagnostics", () => {
       },
       {
         name: "github",
+        runtimeStatus: null,
         authStatus: "oAuth",
         tools: {
           "github.fetch_issue": { name: "github.fetch_issue" },
@@ -174,12 +188,20 @@ describe("server diagnostics", () => {
           name: "codex_apps",
           authStatus: "oAuth",
           toolCount: 1,
-          resourceCount: 0,
-          resourceTemplateCount: 0,
+          connectionStatus: "connected",
           codexAppIds: ["github"],
         },
       ],
-      mcpDiagnostics: [{ name: "codex_apps", startupStatus: "ready", authStatus: "oAuth", toolCount: 1, message: null }],
+      mcpDiagnostics: [
+        {
+          name: "codex_apps",
+          connectionStatus: "connected",
+          authStatus: "oAuth",
+          toolCount: 1,
+          message: null,
+          authenticationIssue: null,
+        },
+      ],
       mcpError: null,
     };
 
@@ -209,20 +231,61 @@ describe("server diagnostics", () => {
   it("replaces MCP status diagnostics while retaining known startup facts", () => {
     let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",
-      startupStatus: "failed",
+      connectionStatus: "failed",
       authStatus: "notLoggedIn",
       toolCount: 2,
       message: "missing token",
+      authenticationIssue: null,
     });
 
     diagnostics = replaceMcpServerStatusDiagnostics(diagnostics, [
-      { name: "github", authStatus: "oAuth", toolCount: 3, resourceCount: 2, resourceTemplateCount: 1 },
-      { name: "docs", authStatus: "oAuth", toolCount: 1, resourceCount: 0, resourceTemplateCount: 0 },
+      { name: "github", authStatus: "oAuth", toolCount: 3, connectionStatus: "failed" },
+      { name: "docs", authStatus: "oAuth", toolCount: 1, connectionStatus: null },
     ]);
 
     expect(diagnostics.mcpServers).toEqual([
-      { name: "docs", startupStatus: "unknown", authStatus: "oAuth", toolCount: 1, message: null },
-      { name: "github", startupStatus: "failed", authStatus: "oAuth", toolCount: 3, message: "missing token" },
+      {
+        name: "docs",
+        connectionStatus: "unknown",
+        authStatus: "oAuth",
+        toolCount: 1,
+        message: null,
+        authenticationIssue: null,
+      },
+      {
+        name: "github",
+        connectionStatus: "failed",
+        authStatus: "oAuth",
+        toolCount: 3,
+        message: "missing token",
+        authenticationIssue: null,
+      },
+    ]);
+  });
+
+  it("lets a runtime snapshot refine a startup failure into a re-authentication requirement", () => {
+    const eventDiagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
+      name: "github",
+      connectionStatus: "failed",
+      authStatus: null,
+      toolCount: null,
+      message: "OAuth token expired",
+      authenticationIssue: "reauthenticationRequired",
+    });
+
+    const diagnostics = replaceMcpServerStatusDiagnostics(eventDiagnostics, [
+      { name: "github", authStatus: "notLoggedIn", toolCount: 3, connectionStatus: "authenticationRequired" },
+    ]);
+
+    expect(diagnostics.mcpServers).toEqual([
+      {
+        name: "github",
+        connectionStatus: "authenticationRequired",
+        authStatus: "notLoggedIn",
+        toolCount: 3,
+        message: "OAuth token expired",
+        authenticationIssue: "reauthenticationRequired",
+      },
     ]);
   });
 });

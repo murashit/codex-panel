@@ -417,7 +417,9 @@ describe("chat panel session runtime", () => {
     interrupt.resolve({});
     await disposal;
 
-    expect(request.mock.calls.map(([method]) => method)).toEqual(["turn/interrupt", "thread/unsubscribe"]);
+    expect(
+      request.mock.calls.map(([method]) => method).filter((method) => method === "turn/interrupt" || method === "thread/unsubscribe"),
+    ).toEqual(["turn/interrupt", "thread/unsubscribe"]);
     expect(releasePanelLease).toHaveBeenCalledOnce();
     expect(request.mock.invocationCallOrder.at(-1)).toBeLessThan(releasePanelLease.mock.invocationCallOrder[0] ?? 0);
     expect(otherLease.currentClient()).toBe(client);

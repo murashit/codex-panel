@@ -120,6 +120,12 @@ async function readMcpServers(
 }
 
 function mcpSummary(servers: readonly McpServerStatusSummary[]): string {
-  const issueCount = servers.filter((server) => server.authStatus === "notLoggedIn").length;
-  return issueCount > 0 ? `${String(servers.length)} servers, ${String(issueCount)} auth issues` : `${String(servers.length)} servers`;
+  const issueCount = servers.filter(
+    (server) =>
+      server.authStatus === "notLoggedIn" ||
+      server.connectionStatus === "authenticationRequired" ||
+      server.connectionStatus === "failed" ||
+      server.connectionStatus === "cancelled",
+  ).length;
+  return issueCount > 0 ? `${String(servers.length)} servers, ${String(issueCount)} issues` : `${String(servers.length)} servers`;
 }

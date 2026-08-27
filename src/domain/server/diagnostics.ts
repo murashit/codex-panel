@@ -146,12 +146,28 @@ export function replaceMcpServerStatusDiagnostics(diagnostics: Diagnostics, serv
     ...diagnostics,
     mcpServers: servers
       .map((server) =>
-        mergeMcpServerDiagnostic(
+        mcpServerStatusDiagnostic(
           diagnostics.mcpServers.find((item) => item.name === server.name),
-          mcpServerDiagnosticFromStatus(server),
+          server,
         ),
       )
       .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+export function invalidateMcpServerRuntimeDiagnostics(diagnostics: Diagnostics): Diagnostics {
+  return {
+    ...diagnostics,
+    probes: {
+      ...diagnostics.probes,
+      mcpServers: createDiagnosticProbeResult("mcpServers"),
+    },
+    mcpServers: diagnostics.mcpServers.map((server) => ({
+      ...server,
+      connectionStatus: "unknown",
+      message: null,
+      authenticationIssue: null,
+    })),
   };
 }
 
@@ -162,12 +178,25 @@ export function shortDiagnosticErrorMessage(error: unknown, maxLength = 160): st
 }
 
 function mergeMcpServerDiagnostic(current: McpServerDiagnostic | undefined, update: McpServerDiagnostic): McpServerDiagnostic {
-  const startupUpdated = update.startupStatus !== "unknown";
+  const connectionUpdated = update.connectionStatus !== "unknown";
   return {
     name: update.name,
-    startupStatus: startupUpdated ? update.startupStatus : (current?.startupStatus ?? "unknown"),
+    connectionStatus: connectionUpdated ? update.connectionStatus : (current?.connectionStatus ?? "unknown"),
     authStatus: update.authStatus ?? current?.authStatus ?? null,
     toolCount: update.toolCount ?? current?.toolCount ?? null,
-    message: update.message ?? (startupUpdated ? null : (current?.message ?? null)),
+    message: update.message ?? (connectionUpdated ? null : (current?.message ?? null)),
+    authenticationIssue: update.authenticationIssue ?? (connectionUpdated ? null : (current?.authenticationIssue ?? null)),
+  };
+}
+
+function mcpServerStatusDiagnostic(current: McpServerDiagnostic | undefined, server: McpServerStatusSummary): McpServerDiagnostic {
+  const next = mcpServerDiagnosticFromStatus(server);
+  const sameKnownConnection = next.connectionStatus !== "unknown" && current?.connectionStatus === next.connectionStatus;
+  const reauthenticationRequired =
+    next.connectionStatus === "authenticationRequired" && current?.authenticationIssue === "reauthenticationRequired";
+  return {
+    ...next,
+    message: sameKnownConnection || reauthenticationRequired ? current.message : null,
+    authenticationIssue: reauthenticationRequired ? "reauthenticationRequired" : null,
   };
 }

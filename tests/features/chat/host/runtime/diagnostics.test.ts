@@ -27,17 +27,19 @@ describe("connection diagnostics", () => {
     diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeError("skills", new Error("unknown method skills/list"), 3));
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "github",
-      startupStatus: "failed",
+      connectionStatus: "failed",
       authStatus: null,
       toolCount: null,
       message: "missing token",
+      authenticationIssue: null,
     });
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "docs",
-      startupStatus: "ready",
+      connectionStatus: "connected",
       authStatus: "notLoggedIn",
       toolCount: 2,
       message: null,
+      authenticationIssue: null,
     });
 
     const sections = appServerDiagnosticSections({
@@ -161,32 +163,32 @@ describe("connection diagnostics", () => {
           name: "codex_apps",
           authStatus: "oAuth",
           toolCount: 219,
-          resourceCount: 0,
-          resourceTemplateCount: 0,
+          connectionStatus: "connected",
           codexAppIds: ["apple_music", "github", "google_drive"],
         },
         {
           name: "github",
           authStatus: "oAuth",
           toolCount: 2,
-          resourceCount: 0,
-          resourceTemplateCount: 0,
+          connectionStatus: "connected",
         },
       ],
       mcpDiagnostics: [
         {
           name: "codex_apps",
-          startupStatus: "ready",
+          connectionStatus: "connected",
           authStatus: "oAuth",
           toolCount: 219,
           message: null,
+          authenticationIssue: null,
         },
         {
           name: "github",
-          startupStatus: "ready",
+          connectionStatus: "connected",
           authStatus: "oAuth",
           toolCount: 2,
           message: null,
+          authenticationIssue: null,
         },
       ],
       mcpError: null,
@@ -207,7 +209,7 @@ describe("connection diagnostics", () => {
     ]);
     expect(toolProviderRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "codex_apps: apple_music, github, google_drive",
-      "github: MCP server, ready, auth oAuth, 2 tools, 0 resources",
+      "github: MCP server, connected, auth OAuth, 2 tools",
     ]);
     expect(skillRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "codex-panel: codex-panel-local",
@@ -228,8 +230,7 @@ describe("connection diagnostics", () => {
           name: "github",
           authStatus: "oAuth",
           toolCount: 1,
-          resourceCount: 0,
-          resourceTemplateCount: 0,
+          connectionStatus: null,
         },
       ],
       mcpDiagnostics: [],
@@ -237,10 +238,11 @@ describe("connection diagnostics", () => {
     };
     let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",
-      startupStatus: "ready",
+      connectionStatus: "connected",
       authStatus: null,
       toolCount: null,
       message: null,
+      authenticationIssue: null,
     });
     diagnostics = {
       ...diagnostics,
@@ -253,7 +255,7 @@ describe("connection diagnostics", () => {
         probe: diagnosticProbeOk("skills", "0 skills", 1),
       }).find((section) => section.title === "Tool providers")?.rows ?? [];
 
-    expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, ready, auth oAuth, 1 tool, 0 resources"]);
+    expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, connected, auth OAuth, 1 tool"]);
   });
 
   it("keeps diagnostic-only MCP server failures in MCP servers", () => {
@@ -266,10 +268,11 @@ describe("connection diagnostics", () => {
       mcpDiagnostics: [
         {
           name: "figma",
-          startupStatus: "failed",
+          connectionStatus: "failed",
           authStatus: null,
           toolCount: null,
           message: "command not found",
+          authenticationIssue: "reauthenticationRequired",
         },
       ],
       mcpError: null,
@@ -282,8 +285,51 @@ describe("connection diagnostics", () => {
       }).find((section) => section.title === "Tool providers")?.rows ?? [];
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
-      "figma: MCP server, failed, auth unknown, tools unknown, command not found",
+      "figma: MCP server, failed, auth unknown, tools unknown, re-authentication required, command not found",
     ]);
     expect(mcpRows.find((row) => row.label === "figma")?.level).toBe("error");
+  });
+
+  it("keeps codex app provider failures visible alongside the app inventory", () => {
+    const inventory: ToolInventorySnapshot = {
+      checkedAt: 1,
+      plugins: [],
+      pluginMarketplaceErrors: [],
+      pluginsError: null,
+      mcpServers: [
+        {
+          name: "codex_apps",
+          authStatus: "notLoggedIn",
+          toolCount: 2,
+          connectionStatus: "authenticationRequired",
+          codexAppIds: ["github", "google_drive"],
+        },
+      ],
+      mcpDiagnostics: [
+        {
+          name: "codex_apps",
+          connectionStatus: "authenticationRequired",
+          authStatus: "notLoggedIn",
+          toolCount: 2,
+          message: "OAuth token expired",
+          authenticationIssue: "reauthenticationRequired",
+        },
+      ],
+      mcpError: null,
+    };
+
+    const rows =
+      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory), {
+        value: [],
+        probe: diagnosticProbeOk("skills", "0 skills", 1),
+      }).find((section) => section.title === "Tool providers")?.rows ?? [];
+
+    expect(rows).toEqual([
+      {
+        label: "codex_apps",
+        value: "github, google_drive, authentication required, auth not logged in, re-authentication required, OAuth token expired",
+        level: "warning",
+      },
+    ]);
   });
 });

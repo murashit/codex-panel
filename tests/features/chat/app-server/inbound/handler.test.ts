@@ -612,7 +612,7 @@ describe("ChatInboundHandler", () => {
           name: "github",
           status: "failed",
           error: "missing token",
-          failureReason: null,
+          failureReason: "reauthenticationRequired",
         },
       } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
 
@@ -621,6 +621,7 @@ describe("ChatInboundHandler", () => {
         name: "github",
         status: "failed",
         message: "missing token",
+        authenticationIssue: "reauthenticationRequired",
       });
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });

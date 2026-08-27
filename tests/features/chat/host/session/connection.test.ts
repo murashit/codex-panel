@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import {
+  createServerDiagnostics,
+  diagnosticProbeOk,
+  diagnosticsWithProbe,
+  upsertMcpServerDiagnostic,
+} from "../../../../../src/domain/server/diagnostics";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createSessionConnection } from "../../../../../src/features/chat/host/session/connection";
 import { chatStateFixture } from "../../support/state";
@@ -102,6 +108,38 @@ describe("session connection", () => {
 
     expect(readServerDiagnostics).not.toHaveBeenCalled();
   });
+
+  it("invalidates and refreshes thread-scoped MCP runtime diagnostics when the active thread changes", async () => {
+    const readServerDiagnostics = vi.fn().mockResolvedValue(null);
+    const fixture = sessionConnectionFixture({ readServerDiagnostics });
+    await fixture.connect();
+    const diagnostics = upsertMcpServerDiagnostic(
+      diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("mcpServers", "1 servers, 1 issues", 1)),
+      {
+        name: "github",
+        connectionStatus: "connected",
+        authStatus: "oAuth",
+        toolCount: 2,
+        message: null,
+        authenticationIssue: null,
+      },
+    );
+    fixture.stateStore.dispatch({ type: "connection/diagnostics-applied", serverDiagnostics: diagnostics });
+
+    fixture.stateStore.dispatch(resumedThreadAction("thread-next"));
+
+    expect(fixture.stateStore.getState().connection.serverDiagnostics.mcpServers).toMatchObject([
+      { name: "github", connectionStatus: "unknown", authStatus: "oAuth", toolCount: 2 },
+    ]);
+    expect(fixture.stateStore.getState().connection.serverDiagnostics.probes.mcpServers).toMatchObject({
+      status: "unknown",
+      summary: null,
+      checkedAt: null,
+    });
+    await vi.waitFor(() => {
+      expect(readServerDiagnostics).toHaveBeenCalledWith({ threadId: "thread-next", initialDiagnostics: expect.anything() });
+    });
+  });
 });
 
 function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnType<typeof vi.fn> } = {}) {
@@ -187,6 +225,32 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
     setConnected: (value: boolean) => {
       connected = value;
     },
+  };
+}
+
+function resumedThreadAction(threadId: string) {
+  return {
+    type: "active-thread/resumed" as const,
+    canAcceptDirectInput: null,
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: {
+      id: threadId,
+      preview: "",
+      name: null,
+      archived: false,
+      createdAt: 1,
+      updatedAt: 1,
+      provenance: { kind: "interactive" as const },
+    },
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
   };
 }
 

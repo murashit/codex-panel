@@ -57,17 +57,19 @@ describe("server diagnostics coordinator", () => {
   it("replaces thread-scoped MCP status while retaining startup facts for present providers", async () => {
     let initial = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",
-      startupStatus: "ready",
+      connectionStatus: "connected",
       authStatus: null,
       toolCount: null,
       message: null,
+      authenticationIssue: null,
     });
     initial = upsertMcpServerDiagnostic(initial, {
       name: "removed",
-      startupStatus: "ready",
+      connectionStatus: "connected",
       authStatus: null,
       toolCount: null,
       message: null,
+      authenticationIssue: null,
     });
     const stateStore = createChatStateStore(chatStateFixture({ connection: { serverDiagnostics: initial } }));
     const diagnostics = createServerDiagnosticsCoordinator({
@@ -80,7 +82,7 @@ describe("server diagnostics coordinator", () => {
     await diagnostics.refreshServerDiagnostics();
 
     expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([
-      expect.objectContaining({ name: "github", startupStatus: "ready", authStatus: "oAuth" }),
+      expect.objectContaining({ name: "github", connectionStatus: "connected", authStatus: "oAuth" }),
     ]);
   });
 });
@@ -116,7 +118,6 @@ function mcpServerStatus(): McpServerStatusSummary {
     name: "github",
     authStatus: "oAuth",
     toolCount: 1,
-    resourceCount: 0,
-    resourceTemplateCount: 0,
+    connectionStatus: "connected",
   };
 }

@@ -1,11 +1,21 @@
 import { cloneServerDiagnostics, upsertMcpServerDiagnostic } from "../../../../domain/server/diagnostics";
-import type { McpServerStartupStatus } from "../../../../domain/server/mcp-status";
+import {
+  type McpServerAuthenticationIssue,
+  type McpServerStartupStatus,
+  mcpConnectionStatusFromStartupStatus,
+} from "../../../../domain/server/mcp-status";
 import type { ChatStateStore } from "../state/store";
 
 export type AppServerResourceFact =
   | { type: "skills-changed" }
   | { type: "rate-limits-updated" }
-  | { type: "mcp-startup-status-updated"; name: string; status: McpServerStartupStatus; message: string | null };
+  | {
+      type: "mcp-startup-status-updated";
+      name: string;
+      status: McpServerStartupStatus;
+      message: string | null;
+      authenticationIssue: McpServerAuthenticationIssue | null;
+    };
 
 export interface ServerResourceFactHost {
   stateStore: ChatStateStore;
@@ -22,7 +32,7 @@ export async function handleAppServerResourceFact(host: ServerResourceFactHost, 
       await host.refreshRateLimits();
       return;
     case "mcp-startup-status-updated":
-      if (fact.name.length > 0) applyMcpStartupStatusEvent(host, fact.name, fact.status, fact.message);
+      if (fact.name.length > 0) applyMcpStartupStatusEvent(host, fact.name, fact.status, fact.message, fact.authenticationIssue);
       return;
   }
 }
@@ -32,13 +42,15 @@ function applyMcpStartupStatusEvent(
   name: string,
   startupStatus: McpServerStartupStatus,
   message: string | null,
+  authenticationIssue: McpServerAuthenticationIssue | null,
 ): void {
   const diagnostics = upsertMcpServerDiagnostic(cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics), {
     name,
-    startupStatus,
+    connectionStatus: mcpConnectionStatusFromStartupStatus(startupStatus),
     authStatus: null,
     toolCount: null,
     message,
+    authenticationIssue,
   });
   host.stateStore.dispatch({
     type: "connection/diagnostics-applied",

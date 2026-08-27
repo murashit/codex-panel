@@ -276,6 +276,7 @@ function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatI
           name: notification.params.name,
           status: notification.params.status,
           message: notification.params.error,
+          authenticationIssue: notification.params.failureReason,
         },
       });
   }

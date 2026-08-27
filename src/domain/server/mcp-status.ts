@@ -1,6 +1,16 @@
 type McpAuthStatus = "unknown" | "unsupported" | "notLoggedIn" | "bearerToken" | "oAuth";
 
 export type McpServerStartupStatus = "starting" | "ready" | "failed" | "cancelled";
+export type McpServerConnectionStatus =
+  | "unknown"
+  | "notStarted"
+  | "starting"
+  | "connected"
+  | "authenticationRequired"
+  | "failed"
+  | "cancelled"
+  | "disabled";
+export type McpServerAuthenticationIssue = "reauthenticationRequired";
 
 export interface McpServerStatus {
   readonly name: string;
@@ -8,22 +18,23 @@ export interface McpServerStatus {
   readonly resources: readonly unknown[];
   readonly resourceTemplates: readonly unknown[];
   readonly authStatus: McpAuthStatus;
+  readonly runtimeStatus: Exclude<McpServerConnectionStatus, "unknown"> | null;
 }
 
 export interface McpServerDiagnostic {
   readonly name: string;
-  readonly startupStatus: McpServerStartupStatus | "unknown";
+  readonly connectionStatus: McpServerConnectionStatus;
   readonly authStatus: McpAuthStatus | null;
   readonly toolCount: number | null;
   readonly message: string | null;
+  readonly authenticationIssue: McpServerAuthenticationIssue | null;
 }
 
 export interface McpServerStatusSummary {
   readonly name: string;
   readonly authStatus: McpAuthStatus;
   readonly toolCount: number;
-  readonly resourceCount: number;
-  readonly resourceTemplateCount: number;
+  readonly connectionStatus: Exclude<McpServerConnectionStatus, "unknown"> | null;
   readonly codexAppIds?: readonly string[];
 }
 
@@ -34,11 +45,16 @@ export function mcpServerStatusSummariesFromStatuses(servers: readonly McpServer
 export function mcpServerDiagnosticFromStatus(server: McpServerStatusSummary): McpServerDiagnostic {
   return {
     name: server.name,
-    startupStatus: "unknown",
+    connectionStatus: server.connectionStatus ?? "unknown",
     authStatus: server.authStatus,
     toolCount: server.toolCount,
     message: null,
+    authenticationIssue: null,
   };
+}
+
+export function mcpConnectionStatusFromStartupStatus(status: McpServerStartupStatus): McpServerConnectionStatus {
+  return status === "ready" ? "connected" : status;
 }
 
 export function cloneMcpServerStatusSummary(server: McpServerStatusSummary): McpServerStatusSummary {
@@ -50,8 +66,7 @@ function mcpServerStatusSummaryFromStatus(server: McpServerStatus): McpServerSta
     name: server.name,
     authStatus: server.authStatus,
     toolCount: Object.keys(server.tools).length,
-    resourceCount: server.resources.length,
-    resourceTemplateCount: server.resourceTemplates.length,
+    connectionStatus: server.runtimeStatus,
     codexAppIds: server.name === "codex_apps" ? codexAppIdsFromTools(server.tools) : [],
   };
 }

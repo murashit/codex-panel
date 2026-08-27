@@ -26,6 +26,26 @@ describe("tool inventory", () => {
       limit: 100,
       threadId: "thread",
     });
+    expect(result.inventory.mcpServers).toEqual([
+      expect.objectContaining({ name: "first", connectionStatus: "connected" }),
+      expect.objectContaining({ name: "second", connectionStatus: "connected" }),
+    ]);
+  });
+
+  it("reports runtime connection and authentication issues without loading resource inventories", async () => {
+    const client = toolInventoryClient({
+      "mcpServerStatus/list": vi.fn().mockResolvedValue({
+        data: [{ ...mcpServerStatus("github"), runtimeStatus: "authenticationRequired", authStatus: "notLoggedIn" }],
+        nextCursor: null,
+      }),
+    });
+
+    const result = await readToolInventory(client, "/vault", { threadId: "thread" });
+
+    expect(result.inventory.mcpServers).toEqual([
+      { name: "github", authStatus: "notLoggedIn", toolCount: 0, connectionStatus: "authenticationRequired", codexAppIds: [] },
+    ]);
+    expect(result.probes.find((probe) => probe.id === "mcpServers")?.summary).toBe("1 servers, 1 issues");
   });
 
   it("reports repeated MCP server status cursors", async () => {
@@ -134,6 +154,7 @@ function toolInventoryClient(
 function mcpServerStatus(name: string) {
   return {
     name,
+    runtimeStatus: "connected",
     serverInfo: null,
     tools: {},
     resources: [],

@@ -210,7 +210,16 @@ describe("chatReducer", () => {
     serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("plugins", "1 plugin", 3));
     serverDiagnostics = {
       ...serverDiagnostics,
-      mcpServers: [{ name: "local", startupStatus: "ready", authStatus: null, toolCount: 1, message: null }],
+      mcpServers: [
+        {
+          name: "local",
+          connectionStatus: "connected",
+          authStatus: null,
+          toolCount: 1,
+          message: null,
+          authenticationIssue: null,
+        },
+      ],
       toolInventory: {
         checkedAt: 3,
         plugins: [],

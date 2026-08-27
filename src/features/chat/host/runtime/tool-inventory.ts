@@ -87,15 +87,9 @@ function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] 
 function mcpToolProviderStatusRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
   if (server.name === "codex_apps") return codexAppsToolProviderRow(server, diagnostic);
 
-  const startup = diagnostic?.startupStatus && diagnostic.startupStatus !== "unknown" ? diagnostic.startupStatus : "available";
-  const parts = [
-    "MCP server",
-    startup,
-    `auth ${server.authStatus}`,
-    countLabel(server.toolCount, "tool"),
-    countLabel(server.resourceCount, "resource"),
-  ];
-  if (server.resourceTemplateCount > 0) parts.push(countLabel(server.resourceTemplateCount, "resource template"));
+  const connection = diagnostic?.connectionStatus ? mcpConnectionStatusLabel(diagnostic.connectionStatus, true) : "configured";
+  const parts = ["MCP server", connection, `auth ${mcpAuthStatusLabel(server.authStatus)}`, countLabel(server.toolCount, "tool")];
+  if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
   if (diagnostic?.message) parts.push(diagnostic.message);
   return {
     label: server.name,
@@ -105,19 +99,33 @@ function mcpToolProviderStatusRow(server: McpServerStatusSummary, diagnostic: Mc
 }
 
 function codexAppsToolProviderRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
+  const level = mcpToolProviderLevel(diagnostic, server.authStatus);
+  const apps = server.codexAppIds && server.codexAppIds.length > 0 ? listSummary(server.codexAppIds) : "(none)";
+  if (level === "normal" && !diagnostic?.message && !diagnostic?.authenticationIssue) {
+    return { label: server.name, value: apps, level };
+  }
+
+  const parts = [
+    apps,
+    mcpConnectionStatusLabel(diagnostic?.connectionStatus ?? "unknown", true),
+    `auth ${mcpAuthStatusLabel(server.authStatus)}`,
+  ];
+  if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
+  if (diagnostic?.message) parts.push(diagnostic.message);
   return {
     label: server.name,
-    value: server.codexAppIds && server.codexAppIds.length > 0 ? listSummary(server.codexAppIds) : "(none)",
-    level: mcpToolProviderLevel(diagnostic, server.authStatus),
+    value: parts.join(", "),
+    level,
   };
 }
 
 function mcpToolProviderDiagnosticRow(name: string, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
-  const startup = diagnostic?.startupStatus ?? "unknown";
-  const auth = diagnostic?.authStatus ? `auth ${diagnostic.authStatus}` : "auth unknown";
+  const connection = mcpConnectionStatusLabel(diagnostic?.connectionStatus ?? "unknown", false);
+  const auth = diagnostic?.authStatus ? `auth ${mcpAuthStatusLabel(diagnostic.authStatus)}` : "auth unknown";
   const tools =
     diagnostic?.toolCount === null || diagnostic?.toolCount === undefined ? "tools unknown" : countLabel(diagnostic.toolCount, "tool");
-  const parts = ["MCP server", startup, auth, tools];
+  const parts = ["MCP server", connection, auth, tools];
+  if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
   if (diagnostic?.message) parts.push(diagnostic.message);
   return {
     label: name,
@@ -130,9 +138,41 @@ function mcpToolProviderLevel(
   diagnostic: McpServerDiagnostic | undefined,
   authStatus: McpServerDiagnostic["authStatus"] | McpServerStatusSummary["authStatus"],
 ): NonNullable<DiagnosticRow["level"]> {
-  if (diagnostic?.startupStatus === "failed") return "error";
-  if (authStatus === "notLoggedIn" || diagnostic?.startupStatus === "cancelled") return "warning";
+  if (diagnostic?.connectionStatus === "failed") return "error";
+  if (
+    authStatus === "notLoggedIn" ||
+    diagnostic?.connectionStatus === "authenticationRequired" ||
+    diagnostic?.connectionStatus === "cancelled"
+  ) {
+    return "warning";
+  }
   return "normal";
+}
+
+function mcpConnectionStatusLabel(status: McpServerDiagnostic["connectionStatus"], configuredWhenUnknown: boolean): string {
+  switch (status) {
+    case "unknown":
+      return configuredWhenUnknown ? "configured" : "connection unknown";
+    case "notStarted":
+      return "not started";
+    case "authenticationRequired":
+      return "authentication required";
+    default:
+      return status;
+  }
+}
+
+function mcpAuthStatusLabel(status: NonNullable<McpServerDiagnostic["authStatus"]>): string {
+  switch (status) {
+    case "notLoggedIn":
+      return "not logged in";
+    case "bearerToken":
+      return "bearer token";
+    case "oAuth":
+      return "OAuth";
+    default:
+      return status;
+  }
 }
 
 function skillRows(skills: readonly SkillMetadata[], probe: DiagnosticProbeResult): DiagnosticRow[] {

@@ -190,17 +190,17 @@ describe("createChatPanelRuntimeNotices", () => {
           name: "github",
           authStatus: "oAuth",
           toolCount: 1,
-          resourceCount: 0,
-          resourceTemplateCount: 0,
+          connectionStatus: "connected",
         },
       ],
       mcpDiagnostics: [
         {
           name: "github",
-          startupStatus: "ready",
+          connectionStatus: "connected",
           authStatus: "oAuth",
           toolCount: 1,
           message: null,
+          authenticationIssue: null,
         },
       ],
       mcpError: null,
@@ -238,7 +238,7 @@ describe("createChatPanelRuntimeNotices", () => {
     expect(toolSections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
     expect(toolSections.slice(0, 2)).toEqual([
       { title: "Plugins", auditFacts: [{ key: "Plugins", value: "(none)" }] },
-      { title: "Tool providers", auditFacts: [{ key: "github", value: "MCP server, ready, auth oAuth, 1 tool, 0 resources" }] },
+      { title: "Tool providers", auditFacts: [{ key: "github", value: "MCP server, connected, auth OAuth, 1 tool" }] },
     ]);
   });
 });
