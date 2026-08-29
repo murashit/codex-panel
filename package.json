@@ -1,6 +1,6 @@
 {
   "name": "codex-panel",
-  "version": "5.6.0",
+  "version": "5.6.1",
   "description": "Codex in your Obsidian sidebar.",
   "main": "main.js",
   "author": "murashit",
