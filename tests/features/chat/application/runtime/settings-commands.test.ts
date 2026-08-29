@@ -3,8 +3,8 @@ import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import {
   type ChatRuntimeSettingsCommands,
   createChatRuntimeSettingsCommands,
+  type RuntimeSettingsPort,
 } from "../../../../../src/features/chat/application/runtime/settings-commands";
-import type { RuntimeSettingsPort } from "../../../../../src/features/chat/application/runtime/settings-port";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { activeThreadId, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";

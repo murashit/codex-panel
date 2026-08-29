@@ -3,9 +3,9 @@ import type { ThreadStreamContext } from "./context";
 import { detailNode } from "./detail";
 import { ThreadStreamFlowFrame, type ThreadStreamScrollPortBinding } from "./flow-scroll.measure";
 import type { ThreadStreamActivityItemView, ThreadStreamRenderedItemView, ThreadStreamViewBlock } from "./model";
-import { pendingRequestBlockNode } from "./pending-request-block";
+import { pendingRequestBlockNode } from "./pending-request-block.dom";
 import { agentRunSummaryNode, statusNode } from "./status";
-import { textNode } from "./text";
+import { textNode } from "./text.dom";
 
 interface ThreadStreamViewportState {
   blocks: readonly ThreadStreamViewBlock[];

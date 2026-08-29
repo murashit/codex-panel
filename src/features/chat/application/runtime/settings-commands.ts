@@ -28,7 +28,10 @@ import { type ActivePanelOperation, activePanelOperationDecision } from "../pane
 import { activeThreadId, type ChatState } from "../state/model";
 import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
-import type { RuntimeSettingsPort } from "./settings-port";
+
+export interface RuntimeSettingsPort {
+  updateThreadSettings(threadId: string, update: RuntimeSettingsPatch): Promise<boolean>;
+}
 
 interface RuntimeSettingsCommitResult {
   ok: boolean;

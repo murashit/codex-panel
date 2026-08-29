@@ -1,5 +1,6 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
+import { listenOutsideDomEvent } from "../../../../shared/dom/events.dom";
 import { IconButton } from "../../../../shared/ui/icon.dom";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
 import type {
@@ -9,8 +10,11 @@ import type {
   TextItemDetailSectionView,
   ThreadStreamTextView,
 } from "./model";
-import { closeStreamItemRoleMenuOnOutsidePointer } from "./text.dom";
 import { CollapsibleTextContent, TextContent } from "./text-content.dom";
+
+function closeStreamItemRoleMenuOnOutsidePointer(root: HTMLElement, onClose: () => void): () => void {
+  return listenOutsideDomEvent(root, "pointerdown", onClose, true);
+}
 
 export function textNode(view: ThreadStreamTextView, context: TextItemContext): UiNode {
   return <Text view={view} context={context} />;

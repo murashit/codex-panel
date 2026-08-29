@@ -18,7 +18,7 @@ import type {
   ThreadStreamTextActionTargets,
   ThreadStreamViewBlock,
 } from "../../../../../../src/features/chat/ui/thread-stream/model";
-import { pendingRequestBlockNode } from "../../../../../../src/features/chat/ui/thread-stream/pending-request-block";
+import { pendingRequestBlockNode } from "../../../../../../src/features/chat/ui/thread-stream/pending-request-block.dom";
 import { ThreadStreamViewport } from "../../../../../../src/features/chat/ui/thread-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../../src/shared/dom/preact-root.dom";
 
