@@ -769,7 +769,7 @@ function rawResponseCompletedNotification(
 ): Extract<ServerNotification, { method: "rawResponse/completed" }> {
   return {
     method: "rawResponse/completed",
-    params: { threadId, turnId, responseId: "response", usage: null },
+    params: { threadId, turnId, responseId: "response", usage: null, usageMetadata: null },
   };
 }
 

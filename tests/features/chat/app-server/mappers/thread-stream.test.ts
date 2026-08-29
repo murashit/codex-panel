@@ -1008,6 +1008,18 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it("does not render standalone function-call outputs from durable history", () => {
+    const item: TurnItem = {
+      type: "functionCallOutput",
+      id: "function-output-1",
+      name: "resolve_wikilink",
+      namespace: "codex_panel",
+      output: "resolved",
+    };
+
+    expect(threadStreamItemFromTurnItem(item, "t1")).toBeNull();
+  });
+
   it("structures automatic approval review summary messages", () => {
     expect(
       createReviewResultItem(

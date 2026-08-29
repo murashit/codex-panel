@@ -106,6 +106,8 @@ function threadStreamItemFromTurnItemCore(item: TurnItem, turnId?: string): Thre
       return reviewModeThreadStreamItem(item, turnId);
     case "contextCompaction":
       return contextCompactionThreadStreamItem(item, turnId);
+    case "functionCallOutput":
+      return null;
     default:
       return ignoredUnsupportedTurnItem(item);
   }
