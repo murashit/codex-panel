@@ -6,6 +6,21 @@ import {
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("subagent activity state", () => {
+  it("shows auth recovery as a temporary preview until child activity resumes", () => {
+    let state = trackedState();
+    state = reduceSubagentActivitySlice(state, {
+      type: "subagent-activity/auth-recovery-updated",
+      threadId: "child",
+      childTurnId: "child-turn",
+      message: "Refreshing AWS authentication.",
+    });
+
+    expect(state.byThreadId.get("child")?.statusPreview).toBe("Refreshing AWS authentication.");
+
+    state = observe(state, reasoningItem("next", "Continuing", "child-turn"), true);
+    expect(state.byThreadId.get("child")?.statusPreview).toBeNull();
+  });
+
   it("keeps v2 identity, liveness, and outcome as separate facts", () => {
     let state = reduceSubagentActivitySlice(initialSubagentActivityState(), {
       type: "subagent-activity/coordination-observed",

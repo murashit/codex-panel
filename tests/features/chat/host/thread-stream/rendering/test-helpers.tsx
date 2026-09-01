@@ -37,6 +37,7 @@ export function projectedThreadStreamBlocks(context: TestThreadStreamContext): [
     textActionTargetsByItemId: normalized.textActionTargetsByItemId ?? new Map(),
     pendingRequests: pendingRequestBlockInput(normalized),
     subagentActivities: new Map(),
+    authRecovery: null,
   });
   if (blocks.length === 0) throw new Error("Expected at least one thread stream block.");
   for (const block of blocks) threadStreamContextByBlock.set(block, normalized);

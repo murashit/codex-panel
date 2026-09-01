@@ -1,3 +1,4 @@
+import type { AuthRecoveryProgress } from "../../application/turns/auth-recovery";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamSegmentsEmpty } from "../../domain/thread-stream/selectors";
 import { activeTurnLiveItems, threadStreamItemsWithoutActiveTaskProgress } from "../../domain/thread-stream/semantics/active-turn";
@@ -33,13 +34,14 @@ interface ThreadStreamBlockProjectionInput {
   textActionTargetsByItemId: ReadonlyMap<string, ThreadStreamTextActionTargets>;
   pendingRequests: PendingRequestThreadStreamBlockInput | null;
   subagentActivities: ReadonlyMap<string, ActiveSubagentActivity>;
+  authRecovery: AuthRecoveryProgress | null;
 }
 
 type ThreadStreamRenderFamily = "text" | "detail" | "status";
 
 export function threadStreamViewBlocks(input: ThreadStreamBlockProjectionInput): ThreadStreamViewBlock[] {
   const headerBlocks = historyViewBlocks(input);
-  if (threadStreamSegmentsEmpty(input.stableItems, input.activeItems)) {
+  if (threadStreamSegmentsEmpty(input.stableItems, input.activeItems) && !input.authRecovery) {
     return [...headerBlocks, { kind: "empty", key: "empty" }];
   }
 
@@ -84,7 +86,7 @@ function threadStreamItemViewKey(item: ThreadStreamItem): string {
 function activeTurnViewBlocks(input: ThreadStreamBlockProjectionInput): readonly ThreadStreamViewBlock[] {
   const { activeTurnId } = input;
   if (!activeTurnId) return [];
-  return activeTurnLiveItems(input, activeTurnId).map((item): ThreadStreamViewBlock => {
+  const liveBlocks = activeTurnLiveItems(input, activeTurnId).map((item): ThreadStreamViewBlock => {
     if (item.kind === "taskProgress") {
       return {
         kind: "status",
@@ -98,6 +100,23 @@ function activeTurnViewBlocks(input: ThreadStreamBlockProjectionInput): readonly
       view: agentRunSummaryView(item.summary),
     };
   });
+  const authRecovery = input.authRecovery;
+  return authRecovery
+    ? [
+        ...liveBlocks,
+        {
+          kind: "status",
+          key: `live-auth-recovery:${activeTurnId}`,
+          view: {
+            kind: "generic",
+            label: "auth",
+            className: "codex-panel__status-item",
+            state: authRecovery.phase,
+            text: authRecovery.message,
+          },
+        },
+      ]
+    : liveBlocks;
 }
 
 function pendingRequestViewBlocks(input: ThreadStreamBlockProjectionInput): readonly ThreadStreamViewBlock[] {

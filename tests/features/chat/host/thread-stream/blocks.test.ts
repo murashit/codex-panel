@@ -67,6 +67,30 @@ describe("thread stream presentation blocks", () => {
     expect(blocks.map((block) => block.key)).toEqual(["item:u1", "item:agent", "live-agents:turn", "live-task:task", "pending-requests"]);
   });
 
+  it("appends transient auth recovery with the active live blocks before requests", () => {
+    const blocks = threadStreamViewBlocks(
+      blockInput({
+        activeThreadId: "thread",
+        activeTurnId: "turn",
+        historyCursor: null,
+        loadingHistory: false,
+        items: [userDialogue("u1", "turn"), taskProgressItem("task", "turn")],
+        workspaceRoot: "/vault",
+        authRecovery: {
+          message: "Refreshing AWS authentication.",
+          phase: "running",
+        },
+        pendingRequests: { signature: "request:1", snapshot: emptyPendingRequestSnapshot() },
+      }),
+    );
+
+    expect(blocks.map((block) => block.key)).toEqual(["item:u1", "live-task:task", "live-auth-recovery:turn", "pending-requests"]);
+    expect(blocks[2]).toMatchObject({
+      kind: "status",
+      view: { kind: "generic", label: "auth", state: "running", text: "Refreshing AWS authentication." },
+    });
+  });
+
   it("uses the client message id as the stable user-dialogue view key", () => {
     const blocks = threadStreamViewBlocks(
       blockInput({
@@ -130,12 +154,18 @@ describe("thread stream presentation blocks", () => {
 function blockInput(
   input: Omit<
     Parameters<typeof threadStreamViewBlocks>[0],
-    "stableItems" | "activeItems" | "turnDiffs" | "textActionTargetsByItemId" | "pendingRequests" | "subagentActivities"
+    "stableItems" | "activeItems" | "turnDiffs" | "textActionTargetsByItemId" | "pendingRequests" | "subagentActivities" | "authRecovery"
   > &
     Partial<
       Pick<
         Parameters<typeof threadStreamViewBlocks>[0],
-        "stableItems" | "activeItems" | "turnDiffs" | "textActionTargetsByItemId" | "pendingRequests" | "subagentActivities"
+        | "stableItems"
+        | "activeItems"
+        | "turnDiffs"
+        | "textActionTargetsByItemId"
+        | "pendingRequests"
+        | "subagentActivities"
+        | "authRecovery"
       >
     >,
 ): Parameters<typeof threadStreamViewBlocks>[0] {
@@ -147,6 +177,7 @@ function blockInput(
     textActionTargetsByItemId: input.textActionTargetsByItemId ?? new Map(),
     pendingRequests: input.pendingRequests ?? null,
     subagentActivities: input.subagentActivities ?? new Map(),
+    authRecovery: input.authRecovery ?? null,
   };
 }
 

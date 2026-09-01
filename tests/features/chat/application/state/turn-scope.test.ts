@@ -92,15 +92,25 @@ describe("active turn aggregate", () => {
     expect(withMoreDelta.activeTurn.turnScopeRevision).toBe(runningRevision);
     expect(withMoreDelta.activeTurn.subagents.byThreadId.has("child-thread")).toBe(true);
 
-    const stale = chatReducer(withMoreDelta, {
+    const withAuthRecovery = chatReducer(withMoreDelta, {
+      type: "auth-recovery/updated",
+      turnId: "turn-1",
+      progress: {
+        message: "Authentication refreshed.",
+        phase: "completed",
+      },
+    });
+    expect(withAuthRecovery.activeTurn.authRecovery).toMatchObject({ phase: "completed" });
+
+    const stale = chatReducer(withAuthRecovery, {
       type: "thread-stream/assistant-delta-appended",
       itemId: "stale-assistant",
       turnId: "old-turn",
       delta: "stale",
     });
-    expect(stale).toBe(withMoreDelta);
+    expect(stale).toBe(withAuthRecovery);
 
-    const completed = chatReducer(withMoreDelta, {
+    const completed = chatReducer(withAuthRecovery, {
       type: "turn/completed",
       turnId: "turn-1",
       status: "completed",
@@ -114,6 +124,7 @@ describe("active turn aggregate", () => {
     expect(completed.activeTurn.activeSegment).toBeNull();
     expect(completed.activeTurn.pendingSteers).toEqual([]);
     expect(completed.activeTurn.subagents.byThreadId).toEqual(new Map());
+    expect(completed.activeTurn.authRecovery).toBeNull();
     expect(threadStreamItems(chatThreadStreamViewState(completed.threadStream, completed.activeTurn))).toEqual([
       userItem("local-user", "turn-1"),
       assistantItem("assistant", "turn-1", "working more"),

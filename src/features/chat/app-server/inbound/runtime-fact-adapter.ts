@@ -1,5 +1,6 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { jsonPreview } from "../../../../domain/display/json-preview";
+import { authRecoveryProgress } from "../../application/turns/auth-recovery";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
 import { STREAMED_COMMAND_RUNNING_TEXT, STREAMED_MCP_PROGRESS_LABEL } from "../../domain/thread-stream/factories/streaming-items";
 import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
@@ -28,6 +29,19 @@ export function turnRuntimeFactsFromNotification(
   localItemId: (prefix: string) => string,
 ): readonly TurnRuntimeFact[] {
   switch (notification.method) {
+    case "modelProvider/authRecoveryStarted":
+    case "modelProvider/authRecoveryCompleted":
+      return [
+        {
+          type: "authRecoveryUpdated",
+          turnId: notification.params.turnId,
+          progress: authRecoveryProgress(
+            notification.params.provider,
+            notification.params.message,
+            notification.method === "modelProvider/authRecoveryStarted" ? "running" : "completed",
+          ),
+        },
+      ];
     case "item/agentMessage/delta":
       return [
         {

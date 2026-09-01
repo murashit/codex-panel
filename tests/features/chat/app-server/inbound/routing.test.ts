@@ -5,6 +5,7 @@ import type { ServerNotification, ServerRequest } from "../../../../../src/app-s
 import { planChatInboundNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
 import { routeServerNotification } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
 import { routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/server-request-routing";
+import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
@@ -21,8 +22,6 @@ describe("chat inbound routing", () => {
     expect(unhandled).toEqual([
       "item/fileChange/outputDelta",
       "mcpServer/event/stream/notification",
-      "modelProvider/authRecoveryCompleted",
-      "modelProvider/authRecoveryStarted",
       "project/changed",
       "thread/archived",
       "thread/compacted",
@@ -75,6 +74,45 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, "turnLifecycle");
     expectNotificationRouteKind(notification, "inactive", { activeThreadId: "thread-other", activeTurnId: "turn-active" });
     expectNotificationRouteKind(notification, "inactive", { activeThreadId: "thread-active", activeTurnId: "turn-other" });
+  });
+
+  it("routes auth recovery only to the matching active turn", () => {
+    const notification = authRecoveryNotification("modelProvider/authRecoveryStarted");
+
+    expectNotificationRouteKind(notification, "streamUpdate");
+    expectNotificationRouteKind(notification, "inactive", { activeThreadId: "thread-active", activeTurnId: "turn-other" });
+    expectNotificationRouteKind(notification, "inactive", { activeThreadId: "thread-active", activeTurnId: null });
+  });
+
+  it("projects tracked child auth recovery into its temporary activity preview", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+    state = chatReducer(state, { type: "subagent-activity/tracked", threadId: "thread-child", parentTurnId: "turn-active" });
+    state = chatReducer(state, { type: "subagent-activity/turn-started", threadId: "thread-child", childTurnId: "turn-child" });
+
+    const plan = planChatInboundNotification(
+      state,
+      {
+        method: "modelProvider/authRecoveryCompleted",
+        params: {
+          threadId: "thread-child",
+          turnId: "turn-child",
+          provider: "aws",
+          message: "Authentication refreshed.",
+        },
+      },
+      () => "unused",
+    );
+
+    expect(plan.actions).toEqual([
+      {
+        type: "subagent-activity/auth-recovery-updated",
+        threadId: "thread-child",
+        childTurnId: "turn-child",
+        message: "Authentication refreshed.",
+      },
+    ]);
   });
 
   it("does not turn live turn-start state into thread catalog work", () => {
@@ -744,6 +782,20 @@ function warningNotification(): ServerNotification {
   return {
     method: "warning",
     params: { threadId: null, message: "careful" },
+  };
+}
+
+function authRecoveryNotification(
+  method: "modelProvider/authRecoveryStarted" | "modelProvider/authRecoveryCompleted",
+): Extract<ServerNotification, { method: typeof method }> {
+  return {
+    method,
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      provider: "aws",
+      message: "Refreshing AWS authentication.",
+    },
   };
 }
 

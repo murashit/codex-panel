@@ -18,6 +18,44 @@ function applyActions(state: ChatState, actions: readonly ChatAction[]): ChatSta
 }
 
 describe("TurnRuntimeFact projection", () => {
+  it("keeps completed auth recovery visible until the next normal activity", () => {
+    const state = activeRunningState();
+    const completed = projectTurnRuntimeFacts(state, [
+      {
+        type: "authRecoveryUpdated",
+        turnId: "turn-active",
+        progress: {
+          message: "Authentication refreshed.",
+          phase: "completed",
+        },
+      },
+    ]);
+    const completedState = applyActions(state, completed.actions);
+
+    expect(completedState.activeTurn.authRecovery).toMatchObject({ phase: "completed", message: "Authentication refreshed." });
+
+    const nextActivity = projectTurnRuntimeFacts(completedState, [
+      { type: "assistantDelta", turnId: "turn-active", itemId: "assistant", delta: "Continuing", completeReasoning: true },
+    ]);
+    const nextState = applyActions(completedState, nextActivity.actions);
+
+    expect(nextActivity.actions[0]).toEqual({ type: "auth-recovery/cleared" });
+    expect(nextState.activeTurn.authRecovery).toBeNull();
+  });
+
+  it("does not apply auth recovery state from another turn", () => {
+    const state = activeRunningState();
+    const projection = projectTurnRuntimeFacts(state, [
+      {
+        type: "authRecoveryUpdated",
+        turnId: "turn-other",
+        progress: { message: "Refreshing credentials...", phase: "running" },
+      },
+    ]);
+
+    expect(applyActions(state, projection.actions).activeTurn.authRecovery).toBeNull();
+  });
+
   it("projects turn starts without completion outcomes", () => {
     const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
 

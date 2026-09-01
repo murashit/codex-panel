@@ -1,11 +1,17 @@
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { AuthRecoveryProgress } from "./auth-recovery";
 
 type TurnRuntimeTextItemKind = "tool" | "hook" | "reasoning";
 type TurnRuntimeOutputItemKind = "command" | "fileChange";
 
 export type TurnRuntimeFact =
+  | {
+      type: "authRecoveryUpdated";
+      turnId: string;
+      progress: AuthRecoveryProgress;
+    }
   | {
       type: "assistantDelta";
       turnId: string;

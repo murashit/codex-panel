@@ -3,6 +3,42 @@ import type { ServerNotification } from "../../../../../src/app-server/connectio
 import { turnRuntimeFactsFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
 
 describe("app-server turn runtime fact adapter", () => {
+  it.each([
+    ["modelProvider/authRecoveryStarted", "running"],
+    ["modelProvider/authRecoveryCompleted", "completed"],
+  ] as const)("maps %s to transient auth recovery state", (method, phase) => {
+    const notification = {
+      method,
+      params: { threadId: "thread-active", turnId: "turn-active", provider: " aws ", message: " Refreshing AWS authentication. " },
+    } satisfies Extract<ServerNotification, { method: typeof method }>;
+
+    expect(turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`)).toEqual([
+      {
+        type: "authRecoveryUpdated",
+        turnId: "turn-active",
+        progress: {
+          message: "Refreshing AWS authentication.",
+          phase,
+        },
+      },
+    ]);
+  });
+
+  it("provides an auth recovery fallback without exposing blank protocol values", () => {
+    const notification = {
+      method: "modelProvider/authRecoveryCompleted",
+      params: { threadId: "thread-active", turnId: "turn-active", provider: "", message: " " },
+    } satisfies Extract<ServerNotification, { method: "modelProvider/authRecoveryCompleted" }>;
+
+    expect(turnRuntimeFactsFromNotification(notification, () => "unused")).toEqual([
+      {
+        type: "authRecoveryUpdated",
+        turnId: "turn-active",
+        progress: { message: "Credentials refreshed.", phase: "completed" },
+      },
+    ]);
+  });
+
   it("maps assistant deltas to panel-owned runtime facts", () => {
     const notification = {
       method: "item/agentMessage/delta",

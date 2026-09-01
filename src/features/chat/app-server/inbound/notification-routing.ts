@@ -68,6 +68,8 @@ const SERVER_NOTIFICATION_REGISTRY = {
   "item/mcpToolCall/progress": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
   "item/autoApprovalReview/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
   "item/autoApprovalReview/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "modelProvider/authRecoveryStarted": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
+  "modelProvider/authRecoveryCompleted": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
   guardianWarning: { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadOnlyNotificationScope },
 
   "turn/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "turnLifecycle", scope: turnNotificationScope },

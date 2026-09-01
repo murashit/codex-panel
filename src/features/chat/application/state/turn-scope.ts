@@ -1,4 +1,5 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { AuthRecoveryProgress } from "../turns/auth-recovery";
 import type { ChatTurnLifecycleState } from "../turns/turn-state";
 import {
   type ChatSubagentActivityState,
@@ -22,9 +23,14 @@ export interface ChatActiveTurnState extends ChatThreadStreamActiveState {
   readonly lifecycle: ChatTurnLifecycleState;
   readonly turnScopeRevision: number;
   readonly subagents: ChatSubagentActivityState;
+  readonly authRecovery: AuthRecoveryProgress | null;
 }
 
-export type TurnScopeAction = ThreadStreamAction | SubagentActivityAction;
+type AuthRecoveryAction =
+  | { type: "auth-recovery/updated"; turnId: string; progress: AuthRecoveryProgress }
+  | { type: "auth-recovery/cleared" };
+
+export type TurnScopeAction = ThreadStreamAction | SubagentActivityAction | AuthRecoveryAction;
 
 export interface TurnScopeResult {
   readonly activeTurn: ChatActiveTurnState;
@@ -39,6 +45,7 @@ export function initialChatActiveTurnState(turnScopeRevision = 0): ChatActiveTur
     activeSegment: null,
     pendingSteers: [],
     subagents: initialSubagentActivityState(),
+    authRecovery: null,
   };
 }
 
@@ -58,9 +65,9 @@ export function activeTurnWithLifecycle(state: ChatActiveTurnState, lifecycle: C
   const scopeChanged = !sameTurnScope(state.lifecycle, lifecycle);
   const transientReset =
     lifecycle.kind === "idle" && state.lifecycle.kind !== "idle"
-      ? { activeSegment: null, pendingSteers: [], subagents: initialSubagentActivityState() }
+      ? { activeSegment: null, pendingSteers: [], subagents: initialSubagentActivityState(), authRecovery: null }
       : scopeChanged
-        ? { subagents: initialSubagentActivityState() }
+        ? { subagents: initialSubagentActivityState(), authRecovery: null }
         : {};
   return {
     ...state,
@@ -113,7 +120,7 @@ export function activeTurnOptimisticallyStarted(
 }
 
 export function isTurnScopeAction(action: { type: string }): action is TurnScopeAction {
-  return isThreadStreamAction(action) || isSubagentActivityAction(action);
+  return isThreadStreamAction(action) || isSubagentActivityAction(action) || action.type.startsWith("auth-recovery/");
 }
 
 export function reduceTurnScope(
@@ -121,6 +128,15 @@ export function reduceTurnScope(
   threadStream: ChatThreadStreamState,
   action: TurnScopeAction,
 ): TurnScopeResult {
+  if (action.type === "auth-recovery/updated") {
+    const activeTurnId = activeTurn.lifecycle.kind === "running" ? activeTurn.lifecycle.turnId : null;
+    return activeTurnId === action.turnId
+      ? { activeTurn: { ...activeTurn, authRecovery: action.progress }, threadStream }
+      : { activeTurn, threadStream };
+  }
+  if (action.type === "auth-recovery/cleared") {
+    return activeTurn.authRecovery ? { activeTurn: { ...activeTurn, authRecovery: null }, threadStream } : { activeTurn, threadStream };
+  }
   if (isSubagentActivityAction(action)) return reduceSubagentAction(activeTurn, threadStream, action);
   if (staleThreadStreamAction(activeTurn, action)) {
     return { activeTurn, threadStream };

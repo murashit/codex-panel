@@ -19,6 +19,7 @@ interface SubagentActivityEntry extends AgentCoordinationLifecycle {
   readonly childTurnId: string | null;
   readonly latestItem: ThreadStreamItem | null;
   readonly agentLabel: string | null;
+  readonly statusPreview: string | null;
 }
 
 export interface ChatSubagentActivityState {
@@ -35,6 +36,7 @@ export type SubagentActivityAction =
       coordinationUpdate: Exclude<AgentCoordinationUpdate, "snapshot">;
     }
   | { type: "subagent-activity/turn-started"; threadId: string; childTurnId: string }
+  | { type: "subagent-activity/auth-recovery-updated"; threadId: string; childTurnId: string; message: string }
   | { type: "subagent-activity/item-observed"; threadId: string; item: ThreadStreamItem; advance: boolean }
   | { type: "subagent-activity/assistant-delta-appended"; threadId: string; childTurnId: string; itemId: string; delta: string }
   | { type: "subagent-activity/plan-delta-appended"; threadId: string; childTurnId: string; itemId: string; delta: string }
@@ -82,6 +84,7 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
         ...entry,
         childTurnId: action.childTurnId,
         latestItem: null,
+        statusPreview: null,
         liveness: "running",
         outcome: null,
       }));
@@ -92,6 +95,7 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
           ...entry,
           childTurnId: action.item.turnId ?? entry.childTurnId,
           latestItem: observedLatestItem(entry.latestItem, action.item, action.advance),
+          statusPreview: null,
         };
       });
     case "subagent-activity/assistant-delta-appended":
@@ -99,24 +103,34 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
         ...entry,
         childTurnId: action.childTurnId,
         latestItem: appendAssistantStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta),
+        statusPreview: null,
       }));
     case "subagent-activity/plan-delta-appended":
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
         ...entry,
         childTurnId: action.childTurnId,
         latestItem: appendPlanStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta),
+        statusPreview: null,
       }));
     case "subagent-activity/text-delta-appended":
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
         ...entry,
         childTurnId: action.childTurnId,
         latestItem: appendTextStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.label, action.delta, action.kind),
+        statusPreview: null,
       }));
     case "subagent-activity/tool-output-appended":
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
         ...entry,
         childTurnId: action.childTurnId,
         latestItem: appendToolOutputStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta, action.fallbackLabel),
+        statusPreview: null,
+      }));
+    case "subagent-activity/auth-recovery-updated":
+      return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
+        ...entry,
+        childTurnId: action.childTurnId,
+        statusPreview: action.message,
       }));
     case "subagent-activity/turn-completed":
       return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
@@ -125,6 +139,7 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
         latestItem: latestDisplayableItem(action.items) ?? entry.latestItem,
         liveness: "stopped",
         outcome: action.outcome,
+        statusPreview: null,
       }));
   }
 }
@@ -137,6 +152,7 @@ function trackSubagent(state: ChatSubagentActivityState, threadId: string): Chat
     childTurnId: null,
     latestItem: null,
     agentLabel: null,
+    statusPreview: null,
     ...UNKNOWN_AGENT_COORDINATION_LIFECYCLE,
   });
   return { ...state, byThreadId };

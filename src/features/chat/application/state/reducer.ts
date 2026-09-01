@@ -7,11 +7,9 @@ import { isRequestAction, type RequestAction, reduceRequestSlice } from "../pend
 import { type ComposerAction, reduceComposerSlice } from "./composer";
 import type { ChatConnectionPhase, ChatConnectionState, ChatPanelThreadState, ChatState } from "./model";
 import { definedPatch, patchObject } from "./patch";
-import type { SubagentActivityAction } from "./subagent-activity";
-import type { ThreadStreamAction } from "./thread-stream";
 import type { ChatTransitionAction } from "./transition-actions";
 import { reduceChatTransition } from "./transitions";
-import { isTurnScopeAction, reduceTurnScope } from "./turn-scope";
+import { isTurnScopeAction, reduceTurnScope, type TurnScopeAction } from "./turn-scope";
 import { isUiAction, reduceUiSlice, type UiAction } from "./ui";
 
 type ConnectionAction =
@@ -25,15 +23,7 @@ type RuntimeAction =
   | { type: "runtime/pending-intent-patched"; patch: Partial<PendingRuntimeIntentState> }
   | { type: "runtime/pending-thread-settings-committed"; update: RuntimeSettingsPatch };
 
-type ChatSliceAction =
-  | ConnectionAction
-  | ActiveThreadAction
-  | RuntimeAction
-  | RequestAction
-  | ThreadStreamAction
-  | SubagentActivityAction
-  | ComposerAction
-  | UiAction;
+type ChatSliceAction = ConnectionAction | ActiveThreadAction | RuntimeAction | RequestAction | TurnScopeAction | ComposerAction | UiAction;
 
 export type ChatAction = ChatTransitionAction | ChatSliceAction;
 
@@ -88,7 +78,7 @@ function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
   }
 }
 
-function reduceGuardedSlice(state: ChatState, action: RequestAction | ThreadStreamAction | SubagentActivityAction | UiAction): ChatState {
+function reduceGuardedSlice(state: ChatState, action: RequestAction | TurnScopeAction | UiAction): ChatState {
   if (isRequestAction(action)) return patchObject(state, { requests: reduceRequestSlice(state.requests, action) });
   if (isTurnScopeAction(action)) {
     const turnScope = reduceTurnScope(state.activeTurn, state.threadStream, action);

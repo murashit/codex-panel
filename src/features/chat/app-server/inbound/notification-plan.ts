@@ -107,6 +107,8 @@ function subagentRuntimeFacts(notification: ServerNotification, localItemId: Loc
     case "guardianWarning":
     case "turn/started":
     case "turn/completed":
+    case "modelProvider/authRecoveryStarted":
+    case "modelProvider/authRecoveryCompleted":
       return turnRuntimeFactsFromNotification(notification, localItemId);
     default:
       return null;
@@ -119,6 +121,15 @@ function subagentActivityActionsFromRuntimeFact(
   fact: TurnRuntimeFact,
 ): SubagentActivityAction[] {
   switch (fact.type) {
+    case "authRecoveryUpdated":
+      return [
+        {
+          type: "subagent-activity/auth-recovery-updated",
+          threadId,
+          childTurnId: fact.turnId,
+          message: fact.progress.message,
+        },
+      ];
     case "turnStarted":
       return [{ type: "subagent-activity/turn-started", threadId, childTurnId: fact.turnId }];
     case "turnCompleted":

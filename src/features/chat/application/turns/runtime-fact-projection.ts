@@ -29,7 +29,7 @@ export function projectTurnRuntimeFacts(state: ChatState, facts: readonly TurnRu
   const actions: ChatAction[] = [];
   const outcomes: TurnRuntimeProjectionOutcome[] = [];
   for (const fact of facts) {
-    const projection = projectTurnRuntimeFact(currentState, fact);
+    const projection = withCompletedAuthRecoveryCleared(currentState, fact, projectTurnRuntimeFact(currentState, fact));
     actions.push(...projection.actions);
     outcomes.push(...projection.outcomes);
     currentState = reduceProjectedActions(currentState, projection.actions);
@@ -39,6 +39,8 @@ export function projectTurnRuntimeFacts(state: ChatState, facts: readonly TurnRu
 
 function projectTurnRuntimeFact(state: ChatState, fact: TurnRuntimeFact): TurnRuntimeProjection {
   switch (fact.type) {
+    case "authRecoveryUpdated":
+      return actionProjection({ type: "auth-recovery/updated", turnId: fact.turnId, progress: fact.progress });
     case "assistantDelta":
       return actionProjection({
         type: "thread-stream/assistant-delta-appended",
@@ -107,6 +109,42 @@ function projectTurnRuntimeFact(state: ChatState, fact: TurnRuntimeFact): TurnRu
       return reviewWarningProjection(state, fact.item);
     case "systemNotice":
       return actionProjection({ type: "thread-stream/system-item-added", item: fact.item });
+  }
+}
+
+function withCompletedAuthRecoveryCleared(
+  state: ChatState,
+  fact: TurnRuntimeFact,
+  projection: TurnRuntimeProjection,
+): TurnRuntimeProjection {
+  if (state.activeTurn.authRecovery?.phase !== "completed" || !turnRuntimeFactAdvancesActivity(fact)) return projection;
+  return {
+    actions: [{ type: "auth-recovery/cleared" }, ...projection.actions],
+    outcomes: projection.outcomes,
+  };
+}
+
+function turnRuntimeFactAdvancesActivity(fact: TurnRuntimeFact): boolean {
+  switch (fact.type) {
+    case "assistantDelta":
+    case "planDelta":
+    case "textDelta":
+    case "toolOutputDelta":
+    case "itemOutputDelta":
+    case "itemUpserted":
+    case "userMessageObserved":
+    case "itemCompleted":
+    case "autoReviewUpdated":
+    case "turnDiffUpdated":
+    case "hookRunObserved":
+    case "reviewWarning":
+    case "systemNotice":
+      return true;
+    case "authRecoveryUpdated":
+    case "turnStarted":
+    case "turnCompleted":
+    case "requestResolved":
+      return false;
   }
 }
 

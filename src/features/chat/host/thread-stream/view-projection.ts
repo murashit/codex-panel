@@ -142,7 +142,7 @@ function threadStreamStateProjection(
   const workspaceRoot = dependencies.vaultPath;
   const subagentActivities = new Map<string, ActiveSubagentActivity>();
   for (const [threadId, activity] of model.activeTurn.subagents.byThreadId) {
-    const preview = subagentActivityPreview(activity.latestItem, workspaceRoot);
+    const preview = activity.statusPreview ?? subagentActivityPreview(activity.latestItem, workspaceRoot);
     subagentActivities.set(threadId, {
       agentLabel: activity.agentLabel,
       liveness: activity.liveness,
@@ -182,6 +182,7 @@ function threadStreamStateProjection(
       textActionTargetsByItemId,
       pendingRequests,
       subagentActivities,
+      authRecovery: model.activeTurn.authRecovery,
     }),
   };
 }
