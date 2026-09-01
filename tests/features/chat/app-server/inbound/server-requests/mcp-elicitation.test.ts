@@ -78,8 +78,8 @@ describe("MCP elicitation request model", () => {
     });
   });
 
-  it("maps OpenAI form mode through the normal form model", () => {
-    const input = expectPresent(toPendingMcpElicitation(openAiFormRequest()));
+  it.each(["openai/form", "openaiForm"] as const)("maps OpenAI %s mode through the normal form model", (mode) => {
+    const input = expectPresent(toPendingMcpElicitation(openAiFormRequest(mode)));
 
     expect(input).toMatchObject({
       requestId: 45,
@@ -189,7 +189,7 @@ function urlRequest(): ServerRequest {
   };
 }
 
-function openAiFormRequest(): ServerRequest {
+function openAiFormRequest(mode: "openai/form" | "openaiForm"): ServerRequest {
   return {
     id: 45,
     method: "mcpServer/elicitation/request",
@@ -197,7 +197,7 @@ function openAiFormRequest(): ServerRequest {
       threadId: "thread",
       turnId: null,
       serverName: "github",
-      mode: "openai/form",
+      mode,
       _meta: null,
       message: "Provide issue details",
       requestedSchema: {

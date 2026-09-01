@@ -578,6 +578,7 @@ function normalizeMcpElicitationParams(params: McpElicitationParams): Normalized
   switch (params.mode) {
     case "form":
     case "openai/form":
+    case "openaiForm":
       return {
         turnId: nullableString(params.turnId),
         serverName: stringValue(params.serverName),

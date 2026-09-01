@@ -269,6 +269,19 @@ describe("AppServerClient", () => {
         method: "mcpServer/elicitation/request",
         params: {
           threadId: "thread",
+          turnId: null,
+          serverName: "github",
+          mode: "openaiForm",
+          _meta: null,
+          message: "Provide extended issue details",
+          requestedSchema: { type: "object", properties: { issue: { type: "string" } } },
+        },
+      },
+      {
+        id: 15,
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thread",
           turnId: "turn",
           serverName: "github",
           mode: "url",

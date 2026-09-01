@@ -21,6 +21,8 @@ describe("chat inbound routing", () => {
     expect(unhandled).toEqual([
       "item/fileChange/outputDelta",
       "mcpServer/event/stream/notification",
+      "modelProvider/authRecoveryCompleted",
+      "modelProvider/authRecoveryStarted",
       "project/changed",
       "thread/archived",
       "thread/compacted",

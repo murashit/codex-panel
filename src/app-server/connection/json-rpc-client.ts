@@ -239,6 +239,7 @@ function hasRequiredMcpElicitationParams(params: Record<string, unknown>): boole
       return isRecord(schema) && schema["type"] === "object" && isRecord(schema["properties"]);
     }
     case "openai/form":
+    case "openaiForm":
       return Object.hasOwn(params, "requestedSchema");
     case "url":
       return typeof params["url"] === "string" && typeof params["elicitationId"] === "string";
