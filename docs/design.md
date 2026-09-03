@@ -1,89 +1,57 @@
 # Design
 
-Codex Panel is an Obsidian surface for Codex. It exists to put Codex beside vault notes without becoming a separate AI client, runtime policy editor, terminal, search product, or writing suite.
+Codex Panel is the Obsidian interaction surface for Codex, not an independent runtime or general-purpose productivity suite.
 
 This document records durable design direction. User-facing behavior belongs in `README.md`; daily workflow, generated files, validation, and compatibility checks belong in `docs/development.md`. Do not record current call paths or transient mechanisms that are readily derived from code and likely to drift.
 
 ## Product Boundary
 
-Keep the panel thin. Codex Panel owns the Obsidian experience around Codex: panels, composing, vault-aware link handoff, approvals and user input, file-change review, archive export, panel preferences, diagnostics, and selection rewrite.
+Keep the Panel thin. It owns interaction and presentation in Obsidian; `codex app-server` owns runtime behavior and thread semantics.
 
-Codex owns runtime behavior and thread state: models, credentials, sandboxing, approval policy, MCP servers, hooks, providers, agent-initiated network access, thread history, archived state, goals, and runtime settings. The panel should read and update that state through `codex app-server`, not redefine it.
+The panel may provide a narrow management surface for Codex-owned state when direct configuration is impractical, provided app-server retains the semantics. Panel settings should contain only Panel-owned preferences.
 
-The panel may provide a narrow management surface for Codex-owned state when direct configuration is impractical, provided app-server retains the semantics. Hook controls are one such surface: they help users recognize and manage hooks they added or changed without turning the panel into a code-audit surface or runtime policy editor.
-
-The panel may acquire bounded prompt context through explicit user action. It remains untrusted reference material and ephemeral turn context, not user authorization, agent network policy, or durable thread metadata. Compatibility for context persisted by older Panel versions should remain read-only and must not shape new submissions.
-
-Vault file and thread references are prompt handoff data, not Panel-owned durable metadata. Preserve their human-readable representation and keep derived display state local.
-
-Panel-provided client tools may expose narrow, read-only Obsidian semantics that Codex cannot reproduce from the filesystem alone. Register them only for new persistent Panel-created threads, keep calls scoped to the active thread and turn, return bounded untrusted results rather than file contents, and leave subsequent filesystem access to Codex permissions.
-
-Panel settings should store only panel-specific preferences. Do not mirror Codex configuration in Obsidian settings just to display or inspect it.
+User-supplied context and bounded, read-only Obsidian tool results are untrusted prompt input. They confer no authority, do not become Panel-owned thread metadata, and leave resource access governed by Codex permissions.
 
 ## Sources of Truth
 
-`codex app-server` is the source of truth for Codex state. Panel-side caches exist to keep the UI stable across transient failures; failed reads or stale panels must not become authoritative empty state.
+`codex app-server` is the source of truth for Codex state. Each cached resource has one Panel owner; transient failures and partial reads must not replace a more authoritative view.
 
-Panel-originated commands should project their successful results promptly into the shared read model. Opening or closing another Panel surface must not by itself change whether a persistent-thread read or mutation can proceed. Changes made by external clients may appear through app-server notifications, an explicit refresh, or a later manual sync, and intermediate cross-client ordering is not guaranteed.
+Successful Panel actions should appear coherently across affected surfaces. Changes from independent clients may converge eventually; do not impose global ordering unless a user-visible invariant requires it.
 
-The app-server API is experimental, so favor a clean current flow over broad compatibility layers; preserve compatibility when it is a supported product contract.
+Because app-server is experimental, favor a clean current flow over speculative compatibility layers.
 
-Runtime controls should express visible user intent for the active thread rather than copy Codex configuration. Diagnostics should expose only actionable troubleshooting facts.
-
-An app-server context is the pair of Codex executable and Vault root. Replacing it disposes the old context's clients, observers, and background work and stops that context from publishing events or shared facts before the new context is exposed. Already-dispatched operations may still settle; the owner of a panel or feature operation decides whether a returned value still applies to its target. Preserve last-known-good state only across transient failures within the same context.
-
-Vault root is the Panel-owned workspace root for that context. Panel operations always use it as the thread working directory and do not project mutable protocol thread cwd values into panel state.
+The Codex executable and Vault root define an app-server context, with the Vault root as its workspace and working directory. Retired contexts must not change active UI or shared state.
 
 ## Code Boundaries
 
-Translate app-server payloads into Panel-owned domain data before they reach feature state or UI. Turn stream conversion is the narrow exception because Codex's event set is broad and experimental; it must still reduce payloads into Panel-owned display and diagnostic models.
+Translate app-server payloads at the boundary into Panel-owned concepts suitable for user interaction. Keep protocol decisions and response shapes inside adapters.
 
-Root domain modules own Panel vocabulary and pure rules shared across protocol boundaries or product features. Feature domain modules own pure semantics that change with one feature and must not become an alternate shared kernel; promote a concept to the root domain only when another boundary genuinely consumes the same contract.
-
-Server request adapters should expose user-answerable intent while leaving protocol decisions and response payloads at the boundary.
-
-Organize modules by reason to change. Add an abstraction only when it owns a lifecycle, boundary, state transition, or reusable capability.
+Share domain vocabulary only when multiple boundaries genuinely use the same contract.
 
 ## UI Ownership
 
-Runtime UI composition is Preact-owned. Imperative Obsidian bridges remain narrow and outside component composition.
-
-The chat application owns panel-local workflows and state transitions. The chat host owns session lifecycle and the display projections that adapt application state to pure UI contracts.
+Keep declarative UI composition under one owner and imperative Obsidian integration at the boundary.
 
 Chat-visible state should have one authoritative owner. Components should consume narrow projections of that state rather than mirror it into another reactive store.
 
-Panel-side cached app-server resources have one authoritative owner. Reads with different completeness or freshness requirements must not overwrite one another's contracts; reconcile partial read models only at explicit lifecycle boundaries. Features may project authoritative event results into that state without introducing parallel caches or global continuous synchronization.
-
-Thread lifecycle changes should be projected from authoritative lifecycle facts into the shared read model. When one Panel action replaces multiple visible projections, publish that result coherently without building a general transaction layer for independently initiated client changes.
-
-Panel-owned thread lifecycle and catalog work that spans surfaces has one execution-context owner and publishes successful facts to the shared read model. Do not add Panel-side ordering or conflict resolution for independent app-server operations unless it protects a user-visible invariant.
+Thread-state restrictions must remain consistent wherever an action is offered and be defined in one place.
 
 ## Interaction Principles
 
-Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent turn state, composer, and pending requests. A persistent thread has one panel owner at a time, while different threads remain independent.
+Each panel is an independent Codex working surface. A persistent thread has at most one panel owner, while different threads remain independent.
 
-Asynchronous work may publish panel-local results only while the panel still owns their target. App-server client identity is a resource-lifecycle detail, not an application-level validity scope; panel target, thread, and operation ownership decide whether results remain relevant. Facts completed in the current app-server context remain shared truth even if the initiating view has moved on, and cleanup created by a committed state transition must outlive the action that initiated it.
+Asynchronous work may publish local results only while its owner still targets them. Committed shared facts and required cleanup must not depend on the initiating view remaining open.
 
-Coordinate work only where a user-visible invariant is genuinely shared, and do so at the narrowest semantic owner. Keep independent panels and threads independent.
+Runtime controls should express visible intent for the active thread rather than copy Codex configuration. Diagnostics should expose only actionable troubleshooting facts.
 
-Prefer interface structure and state over explanatory copy. Add text only for irreducible information that materially helps users decide, act, or recover; do not expose implementation concepts merely to explain current behavior. Normalize absent or unknown protocol values before display; do not expose raw transport values or fallback labels that imply Panel ownership of Codex runtime state.
+Prefer interface structure and state over explanatory copy. Normalize absent or unknown protocol values before display rather than exposing transport details.
 
-Agent activity may use temporary panels outside ordinary thread history. Such panels preserve their visible parent relationship but do not become ordinary persistent targets.
+Server requests should become Panel UI only when the user can naturally answer them in context; unsupported requests remain diagnostic.
 
-Restrictions derived from the active thread's mode must remain consistent across actions and UI and belong to one owning policy.
+Thread streams should separate conversation from diagnostics and preserve item identity across history and streaming updates.
 
-Selection rewrite is intentionally scoped to a focused edit-and-review workflow. Avoid expanding it into a broader writing assistant without a separate design decision.
-
-Server requests should become panel UI only when the user can naturally answer them in context. Unknown or unsupported requests should stay diagnostic instead of pretending to be normal conversation text.
-
-Thread stream display should separate primary conversation from diagnostic detail and progress/status. Preserve stable item identity across history, streaming, and rendering updates.
-
-Codex Panel UI should feel native inside Obsidian. Prefer Obsidian variables, standard classes, and side-panel patterns. Add custom visual treatment only when Codex-specific state would otherwise be hard to read.
+Follow Obsidian's interaction and visual conventions; reserve custom treatment for Codex-specific states.
 
 ## Testing Direction
 
-Tests should protect user-visible behavior, app-server/Panel responsibility boundaries, and state-transition invariants across panels, threads, requests, streams, and display fallbacks.
-
-Use representative cases for durable contracts without freezing incidental implementation details.
-
-Panel tests may define how received structured values are displayed, retained, or normalized. They should not redefine Codex-owned runtime policy, model lists, sandbox behavior, approval policy, or thread history semantics.
+Tests should protect user-visible behavior, ownership boundaries, and meaningful state transitions without freezing implementation details or redefining app-server semantics.
