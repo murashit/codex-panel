@@ -8,7 +8,6 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import { createSessionThreadFoundation } from "../../../../../src/features/chat/host/session/thread";
 import { createThreadAutoTitleWork } from "../../../../../src/features/threads/workflows/thread-auto-title-work";
-import { createThreadGoalCoordinator } from "../../../../../src/features/threads/workflows/thread-goal-coordinator";
 import type { ThreadMutationCommands } from "../../../../../src/features/threads/workflows/thread-mutation-commands";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/preferences";
 import { deferred } from "../../../../support/async";
@@ -48,7 +47,6 @@ describe("chat thread foundation auto-title handoff", () => {
             threadAutoTitleWork: sharedTitleWork,
             threadMutations: threadMutationCommandsMock(),
             threadFacts: { apply: vi.fn(), applyBatch: vi.fn() },
-            threadGoalCoordinator: createThreadGoalCoordinator(),
             threadCatalog: {
               activeThreadsSnapshot: () => [threadFixture()],
             },

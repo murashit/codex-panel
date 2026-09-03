@@ -14,7 +14,6 @@ import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/fea
 import { createChatViewDeferredTasks } from "../../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
-import { createThreadGoalCoordinator } from "../../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
@@ -553,7 +552,6 @@ describe("chat panel session runtime", () => {
           visibleThreadId: vi.fn((_threads, threadId) => threadId),
         },
         threadMutations: overrides.plugin?.threadMutations ?? threadMutationCommandsMock(),
-        threadGoalCoordinator: createThreadGoalCoordinator(),
         runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
       },
       view: {

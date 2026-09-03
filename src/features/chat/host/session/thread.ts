@@ -1,5 +1,4 @@
 import { Notice } from "obsidian";
-import type { ThreadGoalCoordinator } from "../../../../domain/threads/goal-coordination";
 import type { ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import { recoverRolloutTokenUsage } from "../../app-server/mappers/rollout-token-usage";
@@ -67,7 +66,6 @@ interface SessionThreadFoundation {
   autoTitleCoordinator: AutoTitleCoordinator;
   history: HistoryController;
   goalSync: SessionGoalSync;
-  goalCoordinator: ThreadGoalCoordinator;
   threadMutations: ThreadMutationCommands;
   invalidateActiveThreadWork(): void;
 }
@@ -144,28 +142,23 @@ export function createSessionThreadFoundation(host: SessionThreadHost, input: Se
     history.invalidate();
     titleService.invalidate();
   };
-  const goalCoordinator = environment.plugin.threadGoalCoordinator;
-  const goalSync = createThreadGoalSync(
-    {
-      stateStore,
-      source: appServer.threadGoalRead,
-      localItemIds,
-      addSystemMessage: (text) => {
-        status.addSystemMessage(text);
-      },
-      addGoalEvent: (item) => {
-        stateStore.dispatch({ type: "thread-stream/item-upserted", item });
-      },
+  const goalSync = createThreadGoalSync({
+    stateStore,
+    source: appServer.threadGoalRead,
+    localItemIds,
+    addSystemMessage: (text) => {
+      status.addSystemMessage(text);
     },
-    goalCoordinator,
-  );
+    addGoalEvent: (item) => {
+      stateStore.dispatch({ type: "thread-stream/item-upserted", item });
+    },
+  });
 
   return {
     titleService,
     autoTitleCoordinator,
     history,
     goalSync,
-    goalCoordinator,
     threadMutations,
     invalidateActiveThreadWork,
   };
@@ -186,27 +179,25 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     notifyActiveThreadIdentityChanged,
   });
   const goalEditor = createGoalEditorActions({ stateStore: host.stateStore });
-  const goalCommands = createGoalCommands(
-    {
-      stateStore: host.stateStore,
-      effects: appServer.threadGoal,
-      ensureConnected: async () => {
-        await ensureConnected();
-        return appServer.connectionAvailable();
-      },
-      localItemIds,
-      startThread: (preview, options) => threadStart.startThread(preview, options),
-      ensureRestoredThreadLoaded: lifecycle.ensureRestoredThreadLoaded,
-      startEditingGoal: goalEditor.startEditing,
-      addSystemMessage: (text) => {
-        status.addSystemMessage(text);
-      },
-      addGoalEvent: (item) => {
-        host.stateStore.dispatch({ type: "thread-stream/item-upserted", item });
-      },
+  const goalCommands = createGoalCommands({
+    stateStore: host.stateStore,
+    effects: appServer.threadGoal,
+    ensureConnected: async () => {
+      await ensureConnected();
+      return appServer.connectionAvailable();
     },
-    foundation.goalCoordinator,
-  );
+    localItemIds,
+    startThread: (preview, options) => threadStart.startThread(preview, options),
+    ensureRestoredThreadLoaded: lifecycle.ensureRestoredThreadLoaded,
+    startEditingGoal: goalEditor.startEditing,
+    observeThreadGoal: foundation.goalSync.observeThreadGoal,
+    addSystemMessage: (text) => {
+      status.addSystemMessage(text);
+    },
+    addGoalEvent: (item) => {
+      host.stateStore.dispatch({ type: "thread-stream/item-upserted", item });
+    },
+  });
   const goals: SessionGoalCommands = { ...goalCommands, ...goalEditor };
   const rename = createThreadRenameEditorActions({
     stateStore: host.stateStore,

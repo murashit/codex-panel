@@ -204,6 +204,9 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
       maybeAutoTitleThread: vi.fn(),
       resetThreadTurnPresence: vi.fn(),
     },
+    goalSync: {
+      observeThreadGoal: vi.fn(),
+    },
   } as unknown as SessionConnectionInput;
   const connection = createSessionConnection(host, input);
   return {

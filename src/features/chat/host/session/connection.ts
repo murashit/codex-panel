@@ -14,6 +14,7 @@ import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import type { ThreadGoalSync } from "../../application/threads/goal-sync";
 import type { ChatPanelEnvironment } from "../contracts";
 import { resolveObsidianWikilinks } from "../obsidian/wikilink-resolution.obsidian";
 import type { ChatViewDeferredTasks } from "./deferred-work";
@@ -31,6 +32,7 @@ interface SessionConnectionInput {
   localItemIds: LocalIdSource;
   status: SessionConnectionStatus;
   autoTitleCoordinator: AutoTitleCoordinator;
+  goalSync: Pick<ThreadGoalSync, "observeThreadGoal">;
 }
 
 interface SessionConnectionHost {
@@ -91,7 +93,7 @@ function createServerRequestResponderRegistry() {
 
 export function createSessionConnection(host: SessionConnectionHost, input: SessionConnectionInput): SessionConnection {
   const { environment, stateStore } = host;
-  const { connection, diagnosticsPort, localItemIds, status, autoTitleCoordinator } = input;
+  const { connection, diagnosticsPort, localItemIds, status, autoTitleCoordinator, goalSync } = input;
   let active = true;
   const serverRequestResponders = createServerRequestResponderRegistry();
   const serverResourceFactHost: ServerResourceFactHost = {
@@ -138,7 +140,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
       },
       observeThreadGoal: (threadId) => {
-        environment.plugin.threadGoalCoordinator.markAuthoritativeObservation(threadId);
+        goalSync.observeThreadGoal(threadId);
       },
       respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
       rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),

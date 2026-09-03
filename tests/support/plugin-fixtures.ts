@@ -8,7 +8,6 @@ import { createServerDiagnostics } from "../../src/domain/server/diagnostics";
 import type { Thread } from "../../src/domain/threads/model";
 import type { CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
-import { createThreadGoalCoordinator } from "../../src/features/threads/workflows/thread-goal-coordinator";
 import type CodexPanelPlugin from "../../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../src/shared/async/keyed-operation-coordinator";
@@ -147,7 +146,6 @@ function chatHostFixture(): CodexChatHost {
       generateTitle: vi.fn().mockResolvedValue(null),
     },
     threadAutoTitleWork: { submit: vi.fn() },
-    threadGoalCoordinator: createThreadGoalCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
     workspace: {

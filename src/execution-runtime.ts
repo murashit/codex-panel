@@ -19,7 +19,6 @@ import { threadFactFromLifecycleNotification } from "./features/threads/app-serv
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "./features/threads/app-server/workflow-adapters";
 import { createThreadAutoTitleWork, type ThreadAutoTitleWork } from "./features/threads/workflows/thread-auto-title-work";
 import type { ThreadFact, ThreadFactSink } from "./features/threads/workflows/thread-facts";
-import { createThreadGoalCoordinator } from "./features/threads/workflows/thread-goal-coordinator";
 import { createThreadMutationCommands, type ThreadMutationCommands } from "./features/threads/workflows/thread-mutation-commands";
 import { projectThreadFacts } from "./features/threads/workflows/thread-projection";
 import {
@@ -59,7 +58,6 @@ export class CodexExecutionRuntime {
   private readonly threadMutations: ThreadMutationCommands;
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsResources: SettingsResources;
-  private readonly threadGoalCoordinator = createThreadGoalCoordinator();
   private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
   private readonly structuredTurnClients = new Set<EphemeralStructuredTurnClient>();
   private readonly structuredTurnOperations = new Set<AbortController>();
@@ -137,7 +135,6 @@ export class CodexExecutionRuntime {
       threadMutations: this.threadMutations,
       threadTitlePort: this.threadTitlePort(),
       threadAutoTitleWork: this.currentThreadAutoTitleWork(),
-      threadGoalCoordinator: this.threadGoalCoordinator,
       runtimeSettingsCommitQueue: this.runtimeSettingsCommitQueue,
     };
   }

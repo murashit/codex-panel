@@ -93,6 +93,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       diagnosticsPort: appServer.serverDiagnostics,
       localItemIds,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
+      goalSync: threadFoundation.goalSync,
       status,
     },
   );

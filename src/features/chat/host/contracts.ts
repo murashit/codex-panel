@@ -10,7 +10,6 @@ import type {
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
 } from "../../../domain/server/metadata";
-import type { ThreadGoalCoordinator } from "../../../domain/threads/goal-coordination";
 import type { KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
@@ -34,7 +33,6 @@ export interface CodexChatHost {
   readonly threadMutations: ThreadMutationCommands;
   readonly threadTitlePort: ThreadTitlePort;
   readonly threadAutoTitleWork: Pick<ThreadAutoTitleWork, "submit">;
-  readonly threadGoalCoordinator: ThreadGoalCoordinator;
   readonly runtimeSettingsCommitQueue: KeyedOperationCoordinator<string>;
 }
 

@@ -56,7 +56,7 @@ Panel-side cached app-server resources have one authoritative owner. Reads with 
 
 Thread lifecycle changes should be projected from authoritative lifecycle facts into the shared read model. When one Panel action replaces multiple visible projections, publish that result coherently without building a general transaction layer for independently initiated client changes.
 
-Context-wide thread mutations have one execution-context owner. That owner coordinates Panel-owned lifecycle work and user-intent ordering that span surfaces, then publishes successful mutation facts; chat, thread lists, and settings may adapt outcomes for their own UI but must not reimplement the mutation. App-server and its store remain responsible for deciding the validity of independent protocol mutations and resolving their conflicts.
+Panel-owned thread lifecycle and catalog work that spans surfaces has one execution-context owner and publishes successful facts to the shared read model. Do not add Panel-side ordering or conflict resolution for independent app-server operations unless it protects a user-visible invariant.
 
 ## Interaction Principles
 

@@ -1,5 +1,4 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
-import type { ThreadGoalCoordinator } from "../../../../domain/threads/goal-coordination";
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import type { GoalThreadStreamItem } from "../../domain/thread-stream/items";
 import type { LocalIdSource } from "../local-id-source";
@@ -24,25 +23,28 @@ export interface ThreadGoalSyncHost extends ThreadGoalProjectionHost {
 
 export interface ThreadGoalSync {
   syncThreadGoal: (threadId: string) => Promise<void>;
+  observeThreadGoal: (threadId: string) => void;
 }
 
-export function createThreadGoalSync(host: ThreadGoalSyncHost, goalCoordinator: ThreadGoalCoordinator): ThreadGoalSync {
+export function createThreadGoalSync(host: ThreadGoalSyncHost): ThreadGoalSync {
+  let observationRevision = 0;
   return {
-    syncThreadGoal: (threadId) => syncThreadGoal(host, threadId, goalCoordinator),
+    async syncThreadGoal(threadId) {
+      const readRevision = observationRevision;
+      const panelTarget = capturePanelTargetLease(host.stateStore.getState());
+      try {
+        const goal = await host.source.readThreadGoal(threadId);
+        if (goal === undefined || observationRevision !== readRevision) return;
+        applyThreadGoalIfActive(host, threadId, goal, { reportChange: false, panelTarget });
+      } catch (error) {
+        if (observationRevision !== readRevision) return;
+        addThreadGoalSystemMessage(host, threadId, `Could not load thread goal: ${errorMessage(error)}`, panelTarget);
+      }
+    },
+    observeThreadGoal: (threadId) => {
+      if (activeThreadId(host.stateStore.getState()) === threadId) observationRevision += 1;
+    },
   };
-}
-
-async function syncThreadGoal(host: ThreadGoalSyncHost, threadId: string, goalCoordinator: ThreadGoalCoordinator): Promise<void> {
-  const panelTarget = capturePanelTargetLease(host.stateStore.getState());
-  const readRevision = goalCoordinator.captureReadRevision(threadId);
-  try {
-    const goal = await host.source.readThreadGoal(threadId);
-    if (goal === undefined || !goalCoordinator.readRevisionIsCurrent(threadId, readRevision)) return;
-    applyThreadGoalIfActive(host, threadId, goal, { reportChange: false, panelTarget });
-  } catch (error) {
-    if (!goalCoordinator.readRevisionIsCurrent(threadId, readRevision)) return;
-    addThreadGoalSystemMessage(host, threadId, `Could not load thread goal: ${errorMessage(error)}`, panelTarget);
-  }
 }
 
 export function applyThreadGoalIfActive(

@@ -15,7 +15,6 @@ import type {
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
-import { createThreadGoalCoordinator } from "../../../../src/features/threads/workflows/thread-goal-coordinator";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../../../src/shared/async/keyed-operation-coordinator";
@@ -568,7 +567,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       generateTitle: vi.fn().mockResolvedValue(null),
     },
     threadAutoTitleWork: { submit: vi.fn() },
-    threadGoalCoordinator: createThreadGoalCoordinator(),
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
     workspace: {
