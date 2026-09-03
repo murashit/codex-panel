@@ -30,6 +30,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       phase: null,
       memoryCitation: null,
       delivery: null,
+      questions: null,
     };
     const turns: TurnRecord[] = [
       {

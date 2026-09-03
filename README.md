@@ -76,7 +76,7 @@ Use `/help` for the current slash command list.
 | -------------------------------------- | --------- | --------------------------------------------------------------------------------------------------- |
 | `manifest.minAppVersion`               | `1.12.0`  | Minimum Obsidian desktop version declared for plugin loading.                                       |
 | `obsidian` API types                   | `1.12.3`  | TypeScript API package used for compile-time checks; kept in the same minor as `manifest` baseline. |
-| `codexAppServer.testedCliVersion`      | `0.152.0` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version.    |
+| `codexAppServer.testedCliVersion`      | `0.153.0` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version.    |
 
 Codex Panel depends on the experimental `codex app-server` API.
 

@@ -69,6 +69,7 @@ describe("thread title", () => {
           phase: "final_answer",
           memoryCitation: null,
           delivery: null,
+          questions: null,
         },
       ]),
     );

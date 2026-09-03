@@ -744,5 +744,5 @@ function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): 
 }
 
 function agentMessage(id: string, text: string): Extract<TurnRecord["items"][number], { type: "agentMessage" }> {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null };
+  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null, questions: null };
 }

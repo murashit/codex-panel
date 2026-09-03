@@ -413,5 +413,5 @@ function userMessage(id: string, text: string): TurnItem {
 }
 
 function agentMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", id, text, phase: null, memoryCitation: null, delivery: null };
+  return { type: "agentMessage", id, text, phase: null, memoryCitation: null, delivery: null, questions: null };
 }

@@ -96,7 +96,9 @@ describe("app-server turn runtime fact adapter", () => {
           completedAt: 2,
           durationMs: 1,
           itemsView: "summary",
-          items: [{ type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null }],
+          items: [
+            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
+          ],
         },
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;

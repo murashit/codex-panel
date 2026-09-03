@@ -558,7 +558,7 @@ function turnCompletedNotification(): ServerNotification {
         itemsView: "full",
         items: [
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null },
+          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
         ],
       },
     },
@@ -847,6 +847,8 @@ function threadSnapshot(id: string): Extract<ServerNotification, { method: "thre
     historyMode: "paginated",
     projectId: null,
     modelProvider: "openai",
+    model: null,
+    reasoningEffort: null,
     createdAt: 1,
     updatedAt: 1,
     recencyAt: null,
