@@ -1,3 +1,4 @@
+import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { ReconnectPanelOptions } from "../../application/connection/reconnect-command";
@@ -5,6 +6,7 @@ import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import type { ChatRuntimeSharedResources } from "../../application/runtime/snapshot";
+import { activeThreadId } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { createSubmissionCommands, type SubmissionCommands as SessionSubmissionCommands } from "../../application/submission/commands";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
@@ -51,8 +53,10 @@ interface SessionTurnInput {
   autoTitleCoordinator: AutoTitleCoordinator;
   reconnect: (options?: ReconnectPanelOptions) => Promise<void>;
   runtimeProjection: ChatPanelRuntimeNotices;
-  sharedResources: ChatRuntimeSharedResources;
-  refreshDiagnostics: () => Promise<void>;
+  sharedResources: ChatRuntimeSharedResources & {
+    toolInventorySnapshot(threadId: string | null): ToolInventorySnapshot | null;
+    ensureToolInventory(threadId: string | null): Promise<ToolInventorySnapshot>;
+  };
   notifyActiveThreadIdentityChanged: () => void;
 }
 
@@ -74,7 +78,6 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     reconnect,
     runtimeProjection,
     sharedResources,
-    refreshDiagnostics,
     notifyActiveThreadIdentityChanged,
   } = input;
   const pendingRequests = createPendingRequestActions({
@@ -119,14 +122,8 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
         statusDetails: runtimeProjection.statusDetails,
         permissionDetails: runtimeProjection.permissionDetails,
         toolInventoryDetails: async () => {
-          if (host.stateStore.getState().connection.serverDiagnostics.toolInventory) {
-            return runtimeProjection.toolInventoryDetails();
-          }
-          try {
-            await refreshDiagnostics();
-          } catch (error) {
-            if (!host.stateStore.getState().connection.serverDiagnostics.toolInventory) throw error;
-          }
+          const threadId = activeThreadId(host.stateStore.getState());
+          await sharedResources.ensureToolInventory(threadId);
           return runtimeProjection.toolInventoryDetails();
         },
       },

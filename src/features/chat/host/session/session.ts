@@ -292,6 +292,8 @@ export class ChatPanelSession implements ChatPanelHandle {
     renderChatPanelShell(root, {
       stateStore: this.stateStore,
       appServerQueries: this.environment.plugin.appServerQueries,
+      toolInventoryQueries: this.environment.plugin.toolInventoryQueries,
+      threadGoalQueries: this.environment.plugin.threadGoalQueries,
       threadCatalog: this.environment.plugin.threadCatalog,
       showToolbar: this.environment.plugin.settings.showToolbar(),
       parts: this.runtime.shell.parts,

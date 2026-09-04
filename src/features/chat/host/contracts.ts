@@ -2,6 +2,7 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerContextConnectionLease } from "../../../app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
+import type { ServerNotification } from "../../../app-server/connection/rpc-messages";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { MetadataResourceDiagnostics } from "../../../domain/server/diagnostics";
@@ -10,6 +11,8 @@ import type {
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
 } from "../../../domain/server/metadata";
+import type { ToolInventorySnapshot } from "../../../domain/server/tool-inventory";
+import type { ThreadGoal } from "../../../domain/threads/goal";
 import type { KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";
 import type { ThreadTitlePort } from "../../threads/workflows/ports";
@@ -27,6 +30,8 @@ export interface CodexChatHost {
   readonly settings: ChatPanelSettingsAccess;
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
+  readonly toolInventoryQueries: ChatToolInventoryQueries;
+  readonly threadGoalQueries: ChatThreadGoalQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadFacts: ThreadFactSink;
   readonly threadReplacementPublication: Pick<ThreadReplacementPublicationOwner, "begin" | "visibleThreadId">;
@@ -68,6 +73,20 @@ interface ChatAppServerQueries {
   ): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
+}
+
+interface ChatToolInventoryQueries {
+  snapshot(threadId: string | null): ToolInventorySnapshot | null;
+  observe(threadId: string | null, listener: (snapshot: ToolInventorySnapshot | null) => void): () => void;
+  ensure(threadId: string | null): Promise<ToolInventorySnapshot>;
+  refresh(threadId: string | null): Promise<ToolInventorySnapshot>;
+}
+
+export interface ChatThreadGoalQueries {
+  snapshot(threadId: string): ThreadGoal | null | undefined;
+  observe(threadId: string, listener: (goal: ThreadGoal | null, error: string | null) => void): () => void;
+  observeChanges(listener: (threadId: string, previous: ThreadGoal | null, next: ThreadGoal | null) => void): () => void;
+  applyNotification(notification: Extract<ServerNotification, { method: "thread/goal/updated" | "thread/goal/cleared" }>): void;
 }
 
 export interface ChatPanelEnvironment {

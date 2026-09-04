@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../../../../src/domain/server/diagnostics";
-import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
@@ -203,33 +201,7 @@ describe("chatReducer", () => {
     expect(next.activeTurn.pendingSteers).toEqual([adoptedItem]);
   });
 
-  it("clears panel-scoped diagnostics on disconnect without owning shared resources", () => {
-    let serverDiagnostics = createServerDiagnostics();
-    serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("models", "1 model", 1));
-    serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("skills", "1 skill", 2));
-    serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("plugins", "1 plugin", 3));
-    serverDiagnostics = {
-      ...serverDiagnostics,
-      mcpServers: [
-        {
-          name: "local",
-          connectionStatus: "connected",
-          authStatus: null,
-          toolCount: 1,
-          message: null,
-          authenticationIssue: null,
-        },
-      ],
-      toolInventory: {
-        checkedAt: 3,
-        plugins: [],
-        pluginMarketplaceErrors: [],
-        pluginsError: null,
-        mcpServers: [],
-        mcpDiagnostics: [],
-        mcpError: null,
-      },
-    };
+  it("keeps server identity on disconnect without owning shared resources", () => {
     const state = chatStateWith(chatStateFixture(), {
       connection: {
         initializeResponse: {
@@ -238,7 +210,6 @@ describe("chatReducer", () => {
           platformOs: "macos",
           userAgent: "codex-old",
         },
-        serverDiagnostics,
       },
     });
 
@@ -246,11 +217,6 @@ describe("chatReducer", () => {
     expect(disconnected.connection.initializeResponse).toEqual(state.connection.initializeResponse);
     expect(disconnected.connection).not.toHaveProperty("runtimeConfig");
     expect(disconnected).not.toHaveProperty("threadList");
-    expect(disconnected.connection.serverDiagnostics.probes.models.status).toBe("unknown");
-    expect(disconnected.connection.serverDiagnostics.probes.skills.status).toBe("unknown");
-    expect(disconnected.connection.serverDiagnostics.probes.plugins.status).toBe("unknown");
-    expect(disconnected.connection.serverDiagnostics.mcpServers).toEqual([]);
-    expect(disconnected.connection.serverDiagnostics.toolInventory).toBeNull();
   });
 
   it.each([
@@ -415,7 +381,6 @@ describe("chatReducer", () => {
       modelContextWindow: 100,
     };
     state = chatReducer(state, { type: "active-thread/token-usage-set", tokenUsage: usage });
-    state = chatReducer(state, { type: "active-thread/goal-set", goal: goal("restored-thread") });
     state = chatReducer(state, { type: "turn/started", threadId: "other-thread", turnId: "stale-turn" });
 
     expect(state.panelThread).toEqual(awaitingResume);
@@ -485,7 +450,7 @@ describe("chatReducer", () => {
       items: resumedItems,
     });
 
-    expect(activeThreadState(next)).toMatchObject({ id: "resumed-thread", goal: null });
+    expect(activeThreadState(next)).toMatchObject({ id: "resumed-thread" });
     expect(next.runtime.active.collaborationMode).toBeNull();
     expect(next.runtime.pending.collaborationMode).toEqual({ kind: "unchanged" });
     expectThreadScopeReset(next, { items: resumedItems });
@@ -820,7 +785,7 @@ function threadScopedResidue(options: { threadId?: string; turnId?: string; draf
   const threadId = options.threadId ?? "thread";
   const turnId = options.turnId ?? "turn";
   let state = chatStateFixture({
-    activeThread: { id: threadId, goal: goal(threadId) },
+    activeThread: { id: threadId },
     activeTurn: { lifecycle: { kind: "running", turnId } },
     runtime: {
       active: { collaborationMode: "plan" },
@@ -903,19 +868,6 @@ function userInput(requestId: number): ChatState["requests"]["pendingUserInputs"
       isBlocking: true,
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
     },
-  };
-}
-
-function goal(threadId: string): ThreadGoal {
-  return {
-    threadId,
-    objective: "Finish",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    createdAt: 1,
-    updatedAt: 1,
   };
 }
 

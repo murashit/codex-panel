@@ -285,7 +285,7 @@ describe("chat inbound routing", () => {
     { name: "agent delta", notification: agentDeltaNotification(), kind: "streamUpdate" },
     { name: "turn started", notification: turnStartedNotification(), kind: "turnLifecycle" },
     { name: "thread settings updated", notification: threadSettingsUpdatedNotification(), kind: "threadLifecycle" },
-    { name: "thread goal updated", notification: threadGoalUpdatedNotification(), kind: "threadLifecycle" },
+    { name: "thread goal updated", notification: threadGoalUpdatedNotification(), kind: "ignored" },
     { name: "server request resolved", notification: serverRequestResolvedNotification(), kind: "requestResolved" },
     { name: "MCP startup status", notification: mcpStartupStatusNotification(), kind: "diagnosticStatus" },
     { name: "warning", notification: warningNotification(), kind: "userVisibleNotice" },

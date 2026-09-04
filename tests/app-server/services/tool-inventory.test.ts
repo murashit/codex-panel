@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
-import { readToolInventory } from "../../../src/app-server/services/tool-inventory";
+import { readInstalledPluginInventory, readMcpServerInventory } from "../../../src/app-server/services/tool-inventory";
 
 describe("tool inventory", () => {
   it("loads every MCP server status page", async () => {
@@ -11,9 +11,9 @@ describe("tool inventory", () => {
       .mockResolvedValueOnce({ data: [mcpServerStatus("second")], nextCursor: null });
     const client = toolInventoryClient({ "mcpServerStatus/list": listMcpServers });
 
-    const result = await readToolInventory(client, "/vault", { threadId: "thread" });
+    const result = await readMcpServerInventory(client, "thread");
 
-    expect(result.inventory.mcpServers?.map((server) => server.name)).toEqual(["first", "second"]);
+    expect(result.servers.map((server) => server.name)).toEqual(["first", "second"]);
     expect(listMcpServers).toHaveBeenNthCalledWith(1, {
       detail: "toolsAndAuthOnly",
       cursor: null,
@@ -26,7 +26,7 @@ describe("tool inventory", () => {
       limit: 100,
       threadId: "thread",
     });
-    expect(result.inventory.mcpServers).toEqual([
+    expect(result.servers).toEqual([
       expect.objectContaining({ name: "first", connectionStatus: "connected" }),
       expect.objectContaining({ name: "second", connectionStatus: "connected" }),
     ]);
@@ -40,12 +40,11 @@ describe("tool inventory", () => {
       }),
     });
 
-    const result = await readToolInventory(client, "/vault", { threadId: "thread" });
+    const result = await readMcpServerInventory(client, "thread");
 
-    expect(result.inventory.mcpServers).toEqual([
+    expect(result.servers).toEqual([
       { name: "github", authStatus: "notLoggedIn", toolCount: 0, connectionStatus: "authenticationRequired", codexAppIds: [] },
     ]);
-    expect(result.probes.find((probe) => probe.id === "mcpServers")?.summary).toBe("1 servers, 1 issues");
   });
 
   it("reports repeated MCP server status cursors", async () => {
@@ -53,10 +52,7 @@ describe("tool inventory", () => {
       "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [mcpServerStatus("github")], nextCursor: "repeat" }),
     });
 
-    const result = await readToolInventory(client, "/vault");
-
-    expect(result.inventory.mcpServers).toBeNull();
-    expect(result.inventory.mcpError).toContain("repeated MCP server status list cursor");
+    await expect(readMcpServerInventory(client, null)).rejects.toThrow("repeated MCP server status list cursor");
   });
 
   it("reads and sorts installed plugins without loading plugin details", async () => {
@@ -102,19 +98,18 @@ describe("tool inventory", () => {
       "plugin/read": readPlugin,
     });
 
-    const result = await readToolInventory(client, "/vault");
+    const result = await readInstalledPluginInventory(client, "/vault");
 
     expect(readPlugin).not.toHaveBeenCalled();
-    expect(result.inventory.plugins?.map((plugin) => plugin.name)).toEqual(["local-plugin", "remote-plugin"]);
+    expect(result.plugins.map((plugin) => plugin.name)).toEqual(["local-plugin", "remote-plugin"]);
   });
 
   it("skips app catalog loading during diagnostics", async () => {
     const client = toolInventoryClient();
 
-    const result = await readToolInventory(client, "/vault");
+    await Promise.all([readInstalledPluginInventory(client, "/vault"), readMcpServerInventory(client, null)]);
 
     expect(client.request).not.toHaveBeenCalledWith("app/list", expect.anything());
-    expect(result.probes.map((probe) => probe.id)).toEqual(["plugins", "mcpServers"]);
   });
 });
 

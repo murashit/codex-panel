@@ -3,7 +3,6 @@ import type { ThreadMutationCommands } from "../../../threads/workflows/thread-m
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import { recoverRolloutTokenUsage } from "../../app-server/mappers/rollout-token-usage";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
-import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
@@ -13,7 +12,6 @@ import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../app
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import { createGoalCommands, type GoalCommands } from "../../application/threads/goal-commands";
 import { createGoalEditorActions, type GoalEditorActions } from "../../application/threads/goal-editor-actions";
-import { createThreadGoalSync, type ThreadGoalSync } from "../../application/threads/goal-sync";
 import { HistoryController } from "../../application/threads/history-controller";
 import type { PersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import { RestorationController } from "../../application/threads/restoration-controller";
@@ -28,7 +26,6 @@ import type { ChatPanelEnvironment } from "../contracts";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../toolbar/actions";
 import { activeThreadRenameTitleContext, createThreadRenameEditorActions, type ThreadRenameEditorActions } from "./rename-editor";
 
-type SessionGoalSync = ThreadGoalSync;
 export type SessionGoalCommands = GoalCommands & GoalEditorActions;
 export type SessionThreadCommands = ReturnType<typeof createThreadCommands>;
 export type SessionThreadNavigationCommands = ReturnType<typeof createThreadNavigationCommands>;
@@ -56,8 +53,7 @@ interface SessionThreadHost {
 }
 
 interface SessionThreadFoundationInput {
-  appServer: Pick<ChatAppServerGateway, "threadGoalRead" | "threadHistory">;
-  localItemIds: LocalIdSource;
+  appServer: Pick<ChatAppServerGateway, "threadHistory">;
   status: SessionThreadStatus;
 }
 
@@ -65,14 +61,12 @@ interface SessionThreadFoundation {
   titleService: ThreadTitleService;
   autoTitleCoordinator: AutoTitleCoordinator;
   history: HistoryController;
-  goalSync: SessionGoalSync;
   threadMutations: ThreadMutationCommands;
   invalidateActiveThreadWork(): void;
 }
 
 interface SessionThreadFeaturesInput {
   appServer: ChatAppServerGateway;
-  localItemIds: LocalIdSource;
   ensureConnected: () => Promise<void>;
   status: SessionThreadStatus;
   threadStart: ThreadStartCommand;
@@ -103,7 +97,7 @@ interface SessionThreadCommandsResult {
 }
 
 export function createSessionThreadFoundation(host: SessionThreadHost, input: SessionThreadFoundationInput): SessionThreadFoundation {
-  const { appServer, localItemIds, status } = input;
+  const { appServer, status } = input;
   const { environment, stateStore } = host;
   const titleService = createThreadTitleService({
     port: environment.plugin.threadTitlePort,
@@ -142,35 +136,21 @@ export function createSessionThreadFoundation(host: SessionThreadHost, input: Se
     history.invalidate();
     titleService.invalidate();
   };
-  const goalSync = createThreadGoalSync({
-    stateStore,
-    source: appServer.threadGoalRead,
-    localItemIds,
-    addSystemMessage: (text) => {
-      status.addSystemMessage(text);
-    },
-    addGoalEvent: (item) => {
-      stateStore.dispatch({ type: "thread-stream/item-upserted", item });
-    },
-  });
-
   return {
     titleService,
     autoTitleCoordinator,
     history,
-    goalSync,
     threadMutations,
     invalidateActiveThreadWork,
   };
 }
 
 export function createSessionThreadFeatures(host: SessionThreadHost, input: SessionThreadFeaturesInput): SessionThreadFeatures {
-  const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, notifyActiveThreadIdentityChanged } = input;
+  const { appServer, ensureConnected, status, threadStart, foundation, notifyActiveThreadIdentityChanged } = input;
   const lifecycle = createSessionThreadLifecycle(host, {
     appServer,
     ensureConnected,
     status,
-    goalSync: foundation.goalSync,
     autoTitleCoordinator: foundation.autoTitleCoordinator,
     history: foundation.history,
     invalidateThreadWork: () => {
@@ -182,20 +162,16 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
   const goalCommands = createGoalCommands({
     stateStore: host.stateStore,
     effects: appServer.threadGoal,
+    goalQueries: host.environment.plugin.threadGoalQueries,
     ensureConnected: async () => {
       await ensureConnected();
       return appServer.connectionAvailable();
     },
-    localItemIds,
-    startThread: (preview, options) => threadStart.startThread(preview, options),
+    startThread: (preview) => threadStart.startThread(preview),
     ensureRestoredThreadLoaded: lifecycle.ensureRestoredThreadLoaded,
     startEditingGoal: goalEditor.startEditing,
-    observeThreadGoal: foundation.goalSync.observeThreadGoal,
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
-    },
-    addGoalEvent: (item) => {
-      host.stateStore.dispatch({ type: "thread-stream/item-upserted", item });
     },
   });
   const goals: SessionGoalCommands = { ...goalCommands, ...goalEditor };
@@ -287,23 +263,14 @@ function createSessionThreadLifecycle(
     appServer: ChatAppServerGateway;
     ensureConnected: () => Promise<void>;
     status: SessionThreadStatus;
-    goalSync: SessionGoalSync;
     autoTitleCoordinator: AutoTitleCoordinator;
     history: HistoryController;
     invalidateThreadWork: () => void;
     notifyActiveThreadIdentityChanged: () => void;
   },
 ): SessionThreadLifecycle {
-  const {
-    appServer,
-    ensureConnected,
-    status,
-    goalSync,
-    autoTitleCoordinator,
-    history,
-    invalidateThreadWork,
-    notifyActiveThreadIdentityChanged,
-  } = input;
+  const { appServer, ensureConnected, status, autoTitleCoordinator, history, invalidateThreadWork, notifyActiveThreadIdentityChanged } =
+    input;
   const restoration = new RestorationController({
     stateStore: host.stateStore,
   });
@@ -326,7 +293,6 @@ function createSessionThreadLifecycle(
       host.environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });
     },
     addSystemMessage: status.addSystemMessage,
-    syncThreadGoal: (threadId) => goalSync.syncThreadGoal(threadId),
     recoverTokenUsageFromRollout: (path) =>
       recoverRolloutTokenUsage(path, (filePath, options) => appServer.readFileBase64(filePath, options)),
   });

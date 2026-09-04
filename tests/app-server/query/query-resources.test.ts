@@ -11,11 +11,261 @@ import {
 import { AppServerMetadataQueries } from "../../../src/app-server/query/metadata-queries";
 import { AppServerQueryScope } from "../../../src/app-server/query/query-scope";
 import { AppServerThreadCatalog } from "../../../src/app-server/query/thread-catalog-queries";
+import { AppServerThreadGoalQueries } from "../../../src/app-server/query/thread-goal-queries";
+import { AppServerToolInventoryQueries } from "../../../src/app-server/query/tool-inventory-queries";
 import type { RateLimitSnapshot } from "../../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../../src/domain/runtime/permissions";
+import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { Thread } from "../../../src/domain/threads/model";
 
 describe("app-server query resources", () => {
+  it("shares thread goal reads and scopes them by thread", async () => {
+    const reads = vi.fn().mockResolvedValue({ goal: null });
+    const cache = cacheWithRequestHandlers({ "thread/goal/get": reads });
+    const observed: (ThreadGoal | null)[] = [];
+
+    const unsubscribeA = cache.threadGoalQueries.observe("thread-a", (goal) => observed.push(goal));
+    const unsubscribeB = cache.threadGoalQueries.observe("thread-a", (goal) => observed.push(goal));
+    cache.threadGoalQueries.observe("thread-b", () => undefined)();
+
+    await vi.waitFor(() => expect(reads).toHaveBeenCalledTimes(2));
+    expect(reads).toHaveBeenCalledWith({ threadId: "thread-a" });
+    expect(reads).toHaveBeenCalledWith({ threadId: "thread-b" });
+    await vi.waitFor(() => expect(observed.length).toBeGreaterThanOrEqual(2));
+    expect(observed.every((goal) => goal === null)).toBe(true);
+    unsubscribeA();
+    unsubscribeB();
+  });
+
+  it("publishes exact goal notification transitions once", () => {
+    const cache = cacheWithRequestHandlers({});
+    const current = goalFixture({ objective: "Current" });
+    const next = goalFixture({ objective: "Next", updatedAt: 2 });
+    cache.threadGoalQueries.applyNotification({
+      method: "thread/goal/updated",
+      params: { threadId: "thread", turnId: null, goal: current },
+    });
+    const firstPanelChanges = vi.fn();
+    const secondPanelChanges = vi.fn();
+    cache.threadGoalQueries.observeChanges(firstPanelChanges);
+    cache.threadGoalQueries.observeChanges(secondPanelChanges);
+    const notification = {
+      method: "thread/goal/updated",
+      params: { threadId: "thread", turnId: null, goal: next },
+    } as const;
+
+    cache.threadGoalQueries.applyNotification(notification);
+    expect(cache.threadGoalQueries.snapshot("thread")).toEqual(next);
+    expect(firstPanelChanges).toHaveBeenCalledOnce();
+    expect(firstPanelChanges).toHaveBeenCalledWith("thread", current, next);
+    expect(secondPanelChanges).toHaveBeenCalledOnce();
+    expect(secondPanelChanges).toHaveBeenCalledWith("thread", current, next);
+  });
+
+  it("shares tool inventory requests and scopes MCP status by thread", async () => {
+    const plugins = vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] });
+    const mcpServers = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
+    const cache = cacheWithRequestHandlers({
+      "plugin/installed": plugins,
+      "mcpServerStatus/list": mcpServers,
+    });
+
+    await Promise.all([cache.toolInventoryQueries.ensure("thread-a"), cache.toolInventoryQueries.ensure("thread-a")]);
+    await cache.toolInventoryQueries.ensure("thread-b");
+
+    expect(plugins).toHaveBeenCalledOnce();
+    expect(mcpServers).toHaveBeenCalledTimes(2);
+    expect(mcpServers).toHaveBeenNthCalledWith(1, expect.objectContaining({ threadId: "thread-a" }));
+    expect(mcpServers).toHaveBeenNthCalledWith(2, expect.objectContaining({ threadId: "thread-b" }));
+  });
+
+  it("keeps last-known-good tool inventory when independent refreshes fail", async () => {
+    const plugins = vi
+      .fn()
+      .mockResolvedValueOnce({ marketplaces: [], marketplaceLoadErrors: [] })
+      .mockRejectedValueOnce(new Error("plugins offline"));
+    const mcpServers = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [{ name: "github", tools: {}, resources: [], resourceTemplates: [] }], nextCursor: null })
+      .mockRejectedValueOnce(new Error("MCP offline"));
+    const cache = cacheWithRequestHandlers({
+      "plugin/installed": plugins,
+      "mcpServerStatus/list": mcpServers,
+    });
+    await cache.toolInventoryQueries.ensure("thread");
+
+    const refreshed = await cache.toolInventoryQueries.refresh("thread");
+
+    expect(refreshed.plugins).toEqual([]);
+    expect(refreshed.mcpServers?.map((server) => server.name)).toEqual(["github"]);
+    expect(refreshed.pluginsError).toBe("plugins offline");
+    expect(refreshed.mcpError).toBe("MCP offline");
+  });
+
+  it("revalidates only the observed thread-scoped MCP resource named by OAuth", async () => {
+    const mcpServers = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
+    const cache = cacheWithRequestHandlers({
+      "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
+      "mcpServerStatus/list": mcpServers,
+    });
+    const unsubscribe = cache.toolInventoryQueries.observe("thread-a", () => undefined);
+    await cache.toolInventoryQueries.ensure("thread-a");
+    expect(mcpServers).toHaveBeenCalledOnce();
+    cache.toolInventoryQueries.handleMcpOauthLoginCompleted("thread-b");
+    await Promise.resolve();
+    expect(mcpServers).toHaveBeenCalledOnce();
+
+    cache.toolInventoryQueries.handleMcpOauthLoginCompleted("thread-a");
+
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledTimes(2));
+    unsubscribe();
+  });
+
+  it("settles an initial tool inventory read only after notification revalidation finishes", async () => {
+    const stale = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
+    const fresh = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
+    const mcpServers = vi.fn().mockReturnValueOnce(stale.promise).mockReturnValueOnce(fresh.promise);
+    const cache = cacheWithRequestHandlers({
+      "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
+      "mcpServerStatus/list": mcpServers,
+    });
+    const ensuring = cache.toolInventoryQueries.ensure("thread");
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledOnce());
+
+    cache.toolInventoryQueries.handleMcpOauthLoginCompleted("thread");
+    let settled = false;
+    void ensuring.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    stale.resolve({ data: [mcpStatus("old")], nextCursor: null });
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledTimes(2));
+    fresh.resolve({ data: [mcpStatus("new")], nextCursor: null });
+    await expect(ensuring).resolves.toMatchObject({ mcpServers: [{ name: "new" }] });
+    expect(settled).toBe(true);
+    expect(cache.toolInventoryQueries.snapshot("thread")?.mcpServers?.map((server) => server.name)).toEqual(["new"]);
+  });
+
+  it("settles consecutive notification revalidations before publishing tool inventory", async () => {
+    const stale = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
+    const intermediate = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
+    const finalRefresh = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
+    const mcpServers = vi
+      .fn()
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(intermediate.promise)
+      .mockReturnValueOnce(finalRefresh.promise);
+    const cache = cacheWithRequestHandlers({
+      "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
+      "mcpServerStatus/list": mcpServers,
+    });
+    const ensuring = cache.toolInventoryQueries.ensure("thread");
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledOnce());
+
+    cache.toolInventoryQueries.handleMcpOauthLoginCompleted("thread");
+    stale.resolve({ data: [mcpStatus("stale")], nextCursor: null });
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledTimes(2));
+    cache.toolInventoryQueries.handleMcpOauthLoginCompleted("thread");
+    intermediate.resolve({ data: [mcpStatus("intermediate")], nextCursor: null });
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledTimes(3));
+    let settled = false;
+    void ensuring.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    finalRefresh.resolve({ data: [mcpStatus("final")], nextCursor: null });
+    await expect(ensuring).resolves.toMatchObject({ mcpServers: [{ name: "final" }] });
+  });
+
+  it("keeps MCP startup diagnostics in the thread-scoped query until a successful refresh", async () => {
+    const initial = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
+    const mcpServers = vi
+      .fn()
+      .mockReturnValueOnce(initial.promise)
+      .mockResolvedValue({ data: [mcpStatus("github", "connected")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({
+      "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
+      "mcpServerStatus/list": mcpServers,
+    });
+    const ensuring = cache.toolInventoryQueries.ensure("thread-a");
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledOnce());
+
+    cache.toolInventoryQueries.handleMcpStartupStatusUpdated({
+      threadId: "thread-a",
+      name: "github",
+      status: "failed",
+      error: "missing token",
+      failureReason: "reauthenticationRequired",
+    });
+    initial.resolve({ data: [mcpStatus("github", "connected")], nextCursor: null });
+    await expect(ensuring).resolves.toMatchObject({
+      mcpServers: [{ name: "github", connectionStatus: "connected" }],
+      mcpDiagnostics: [{ name: "github", connectionStatus: "failed", message: "missing token" }],
+    });
+    expect(cache.toolInventoryQueries.snapshot("thread-b")).toMatchObject({ mcpServers: null, mcpDiagnostics: [] });
+
+    await cache.toolInventoryQueries.refresh("thread-a");
+    expect(cache.toolInventoryQueries.snapshot("thread-a")).toMatchObject({
+      mcpServers: [{ name: "github", connectionStatus: "connected" }],
+      mcpDiagnostics: [],
+    });
+  });
+
+  it("does not refresh plugin inventory for app-list notifications", async () => {
+    const plugins = vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] });
+    const mcpServers = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "plugin/installed": plugins, "mcpServerStatus/list": mcpServers });
+    const unsubscribe = cache.toolInventoryQueries.observe("thread", vi.fn());
+    await cache.toolInventoryQueries.ensure("thread");
+
+    cache.toolInventoryQueries.handleAppListUpdated();
+    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledTimes(2));
+
+    expect(plugins).toHaveBeenCalledOnce();
+    unsubscribe();
+  });
+
+  it("projects global startup diagnostics into existing and future thread snapshots", async () => {
+    const cache = cacheWithRequestHandlers({
+      "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
+      "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+    });
+    await cache.toolInventoryQueries.ensure("thread-a");
+    await cache.toolInventoryQueries.ensure("thread-b");
+    cache.toolInventoryQueries.handleMcpStartupStatusUpdated({
+      threadId: null,
+      name: "global",
+      status: "starting",
+      error: null,
+      failureReason: null,
+    });
+    cache.toolInventoryQueries.handleMcpStartupStatusUpdated({
+      threadId: "thread-a",
+      name: "scoped",
+      status: "failed",
+      error: "thread failure",
+      failureReason: null,
+    });
+
+    await vi.waitFor(() => {
+      expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global", "scoped"]);
+      expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global"]);
+      expect(cache.toolInventoryQueries.snapshot("thread-future")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global"]);
+    });
+
+    await cache.toolInventoryQueries.refresh("thread-a");
+    expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global"]);
+    expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics.map((item) => item.name)).toEqual(["global"]);
+
+    await cache.toolInventoryQueries.refresh(null);
+    expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics).toEqual([]);
+    expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics).toEqual([]);
+  });
+
   it("copies its execution context before performing requests", async () => {
     const context = { codexPath: "/opt/codex", vaultPath: "/vault-a" };
     const request = vi.fn(async (method: string, params: unknown) => {
@@ -904,6 +1154,8 @@ interface TestQueryResources {
   readonly scope: AppServerQueryScope;
   readonly metadataQueries: AppServerMetadataQueries;
   readonly threadCatalog: AppServerThreadCatalog;
+  readonly toolInventoryQueries: AppServerToolInventoryQueries;
+  readonly threadGoalQueries: AppServerThreadGoalQueries;
 }
 
 function createCache(clientAccess: AppServerClientAccess, context: AppServerExecutionContext = cacheContext()): TestQueryResources {
@@ -912,11 +1164,38 @@ function createCache(clientAccess: AppServerClientAccess, context: AppServerExec
     scope,
     metadataQueries: new AppServerMetadataQueries(scope),
     threadCatalog: new AppServerThreadCatalog(scope),
+    toolInventoryQueries: new AppServerToolInventoryQueries(scope),
+    threadGoalQueries: new AppServerThreadGoalQueries(scope),
+  };
+}
+
+function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
+  return {
+    threadId: "thread",
+    objective: "Finish",
+    status: "active",
+    tokenBudget: null,
+    tokensUsed: 0,
+    timeUsedSeconds: 0,
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
   };
 }
 
 function permissionProfile(id: string): RuntimePermissionProfileSummary {
   return { id, description: null, allowed: true };
+}
+
+function mcpStatus(name: string, runtimeStatus: "connected" | "failed" = "connected") {
+  return {
+    name,
+    tools: {},
+    resources: [],
+    resourceTemplates: [],
+    authStatus: "oAuth" as const,
+    runtimeStatus,
+  };
 }
 
 function catalogModel(model: string): CatalogModel {

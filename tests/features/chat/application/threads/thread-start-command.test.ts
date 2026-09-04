@@ -20,7 +20,6 @@ describe("thread start commands", () => {
     const started = threadFixture("started");
     const optimistic = { ...started, preview: "first prompt" };
     const recordStartedThread = vi.fn();
-    const syncThreadGoal = vi.fn();
 
     const commands = createThreadStartCommand({
       stateStore,
@@ -29,14 +28,12 @@ describe("thread start commands", () => {
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
-      syncThreadGoal,
     });
 
     await commands.startThread("first prompt");
 
     expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(recordStartedThread).toHaveBeenCalledWith(optimistic);
-    expect(syncThreadGoal).toHaveBeenCalledWith("started");
     expect(activeThreadState(stateStore.getState())?.canAcceptDirectInput).toBe(false);
   });
 
@@ -53,7 +50,6 @@ describe("thread start commands", () => {
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
-      syncThreadGoal: vi.fn(),
     });
 
     await commands.startThread("first prompt", { adoptPanelTarget });
@@ -89,7 +85,6 @@ describe("thread start commands", () => {
       effects: { startThread },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
-      syncThreadGoal: vi.fn(),
     });
 
     await commands.startThread("first prompt");
@@ -105,24 +100,6 @@ describe("thread start commands", () => {
     expect(stateStore.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(stateStore.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
-  });
-
-  it("can skip newly started thread goal sync when the caller sets the first goal", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const syncThreadGoal = vi.fn();
-    const commands = createThreadStartCommand({
-      stateStore,
-      effects: {
-        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
-      },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
-      recordStartedThread: vi.fn(),
-      syncThreadGoal,
-    });
-
-    await commands.startThread("first goal", { syncGoal: false });
-
-    expect(syncThreadGoal).not.toHaveBeenCalled();
   });
 
   it("retargets an explicitly preserved pending submission to the newly started thread", async () => {
@@ -145,7 +122,6 @@ describe("thread start commands", () => {
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
-      syncThreadGoal: vi.fn(),
     });
 
     await commands.startThread(pending.text, { preservePendingSubmissionId: pending.id });
@@ -173,7 +149,6 @@ describe("thread start commands", () => {
       effects: { startThread: vi.fn(() => started.promise) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
-      syncThreadGoal: vi.fn(),
     });
 
     const starting = commands.startThread(pending.text, { preservePendingSubmissionId: pending.id });
@@ -196,7 +171,6 @@ describe("thread start commands", () => {
       effects: { startThread },
       runtimeSnapshotForState: runtimeSnapshotForShared(shared),
       recordStartedThread: vi.fn(),
-      syncThreadGoal: vi.fn(),
     });
 
     await commands.startThread();
@@ -221,7 +195,6 @@ describe("thread start commands", () => {
       effects: { startThread },
       runtimeSnapshotForState: runtimeSnapshotForShared(shared),
       recordStartedThread: vi.fn(),
-      syncThreadGoal: vi.fn(),
     });
 
     await commands.startThread();
@@ -238,7 +211,6 @@ describe("thread start commands", () => {
       effects: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
-      syncThreadGoal: vi.fn(),
     });
 
     await commands.startThread("local preview");
@@ -249,20 +221,17 @@ describe("thread start commands", () => {
   it("does not apply newly started threads after the port returns no activation", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const recordStartedThread = vi.fn();
-    const syncThreadGoal = vi.fn();
     const commands = createThreadStartCommand({
       stateStore,
       effects: { startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
-      syncThreadGoal,
     });
 
     await expect(commands.startThread("local preview")).resolves.toEqual({ kind: "not-started" });
     expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(recordStartedThread).not.toHaveBeenCalled();
-    expect(syncThreadGoal).not.toHaveBeenCalled();
   });
 });
 

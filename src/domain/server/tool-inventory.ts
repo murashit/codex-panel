@@ -1,4 +1,4 @@
-import { cloneMcpServerStatusSummary, type McpServerDiagnostic, type McpServerStatusSummary } from "./mcp-status";
+import { cloneMcpServerDiagnostic, cloneMcpServerStatusSummary, type McpServerDiagnostic, type McpServerStatusSummary } from "./mcp-status";
 
 export interface ToolInventoryPlugin {
   readonly id: string;
@@ -19,7 +19,6 @@ export interface ToolInventoryMarketplaceError {
 }
 
 export interface ToolInventorySnapshot {
-  readonly checkedAt: number;
   readonly plugins: readonly ToolInventoryPlugin[] | null;
   readonly pluginMarketplaceErrors: readonly ToolInventoryMarketplaceError[];
   readonly pluginsError: string | null;
@@ -34,6 +33,6 @@ export function cloneToolInventorySnapshot(snapshot: ToolInventorySnapshot): Too
     plugins: snapshot.plugins ? snapshot.plugins.map((plugin) => ({ ...plugin })) : null,
     pluginMarketplaceErrors: snapshot.pluginMarketplaceErrors.map((error) => ({ ...error })),
     mcpServers: snapshot.mcpServers ? snapshot.mcpServers.map(cloneMcpServerStatusSummary) : null,
-    mcpDiagnostics: snapshot.mcpDiagnostics.map((diagnostic) => ({ ...diagnostic })),
+    mcpDiagnostics: snapshot.mcpDiagnostics.map(cloneMcpServerDiagnostic),
   };
 }

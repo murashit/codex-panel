@@ -22,19 +22,17 @@ function createCoordinatorHarness({ connected = false, canConnect = true } = {})
   };
   const ensureAppServerMetadata = vi.fn().mockResolvedValue(null);
   const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
-  const refreshServerDiagnostics = vi.fn().mockResolvedValue(undefined);
+  const refreshToolInventory = vi.fn().mockResolvedValue(undefined);
   const host: ChatConnectionCoordinatorHost = {
     stateStore,
     connection,
     canConnect: () => canConnect,
     ensureAppServerMetadata,
     refreshAppServerMetadata,
-    refreshServerDiagnostics,
+    refreshToolInventory,
     invalidateThreadWork: vi.fn(),
     ensureSharedThreads: vi.fn().mockResolvedValue(undefined),
     refreshSharedThreads: vi.fn().mockResolvedValue(undefined),
-    scheduleDeferredDiagnostics: vi.fn(),
-    clearDeferredDiagnostics: vi.fn(),
     refreshTabHeader: vi.fn(),
     resetThreadTurnPresence: vi.fn(),
     setStatus: vi.fn(),
@@ -49,7 +47,7 @@ function createCoordinatorHarness({ connected = false, canConnect = true } = {})
     host,
     ensureAppServerMetadata,
     refreshAppServerMetadata,
-    refreshServerDiagnostics,
+    refreshToolInventory,
     setConnected: (value: boolean) => {
       isConnected = value;
     },
@@ -113,7 +111,6 @@ describe("ChatConnectionCoordinator", () => {
     });
     expect(ensureAppServerMetadata).toHaveBeenCalledOnce();
     expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
-    expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
@@ -127,7 +124,6 @@ describe("ChatConnectionCoordinator", () => {
     expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
     expect(host.ensureSharedThreads).not.toHaveBeenCalled();
-    expect(host.scheduleDeferredDiagnostics).not.toHaveBeenCalled();
 
     let connected = false;
     const fullyHydrated = coordinator.ensureHydrated().then(() => {
@@ -140,20 +136,19 @@ describe("ChatConnectionCoordinator", () => {
     await fullyHydrated;
 
     expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
-    expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
   });
 
-  it("refreshes diagnostics and active threads concurrently for the status panel", async () => {
-    const { coordinator, host, refreshServerDiagnostics } = createCoordinatorHarness({ connected: true });
+  it("refreshes shared resources concurrently for the status panel", async () => {
+    const { coordinator, host, refreshToolInventory } = createCoordinatorHarness({ connected: true });
     const diagnostics = deferred<void>();
     const threads = deferred<void>();
-    refreshServerDiagnostics.mockReturnValueOnce(diagnostics.promise);
+    refreshToolInventory.mockReturnValueOnce(diagnostics.promise);
     vi.mocked(host.refreshSharedThreads).mockReturnValueOnce(threads.promise);
 
     const refreshing = coordinator.refreshStatusPanel();
     await Promise.resolve();
 
-    expect(refreshServerDiagnostics).toHaveBeenCalledOnce();
+    expect(refreshToolInventory).toHaveBeenCalledOnce();
     expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
 
     diagnostics.resolve(undefined);
@@ -197,34 +192,6 @@ describe("ChatConnectionCoordinator", () => {
     expect(host.setStatus).not.toHaveBeenCalledWith("Connection failed.", expect.anything());
     expect(host.addSystemMessage).toHaveBeenCalledWith("Could not refresh Codex threads: threads unavailable");
     expect(host.notifyConnectionFailed).not.toHaveBeenCalled();
-  });
-
-  it("refreshes shared metadata and panel diagnostics independently", async () => {
-    const { coordinator, host, refreshAppServerMetadata, refreshServerDiagnostics } = createCoordinatorHarness({ connected: true });
-
-    await coordinator.refreshDiagnostics();
-
-    expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
-    expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
-    expect(refreshServerDiagnostics).toHaveBeenCalledWith();
-  });
-
-  it("still refreshes panel diagnostics when shared metadata refresh fails", async () => {
-    const { coordinator, refreshAppServerMetadata, refreshServerDiagnostics } = createCoordinatorHarness({ connected: true });
-    const diagnostics = deferred<void>();
-    refreshAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));
-    refreshServerDiagnostics.mockReturnValueOnce(diagnostics.promise);
-
-    const refreshing = coordinator.refreshDiagnostics();
-    const rejected = vi.fn();
-    void refreshing.catch(rejected);
-    await Promise.resolve();
-
-    expect(refreshServerDiagnostics).toHaveBeenCalledOnce();
-    expect(rejected).not.toHaveBeenCalled();
-
-    diagnostics.resolve();
-    await expect(refreshing).rejects.toThrow("config unavailable");
   });
 
   it("refreshes active threads without refreshing metadata", async () => {

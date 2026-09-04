@@ -3,11 +3,7 @@ import { describe, expect, it } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
-import {
-  createServerDiagnostics,
-  diagnosticsWithToolInventory,
-  upsertMcpServerDiagnostic,
-} from "../../../../../src/domain/server/diagnostics";
+import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
 import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/host/runtime/notices";
 import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "../../support/shared-display-values";
@@ -181,7 +177,6 @@ describe("createChatPanelRuntimeNotices", () => {
 
   it("projects connection and tool inventory diagnostics into runtime notices", () => {
     const inventory: ToolInventorySnapshot = {
-      checkedAt: 1,
       plugins: [],
       pluginMarketplaceErrors: [],
       pluginsError: null,
@@ -205,9 +200,6 @@ describe("createChatPanelRuntimeNotices", () => {
       ],
       mcpError: null,
     };
-    const githubDiagnostic = inventory.mcpDiagnostics.at(0);
-    if (!githubDiagnostic) throw new Error("Expected MCP diagnostic fixture");
-    const diagnostics = upsertMcpServerDiagnostic(diagnosticsWithToolInventory(createServerDiagnostics(), inventory), githubDiagnostic);
     const state = chatStateWith(chatStateFixture(), {
       connection: {
         initializeResponse: {
@@ -216,7 +208,6 @@ describe("createChatPanelRuntimeNotices", () => {
           platformFamily: "unix",
           platformOs: "macos",
         },
-        serverDiagnostics: diagnostics,
       },
     });
     const projection = createChatPanelRuntimeNotices({
@@ -224,7 +215,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(chatSharedResourcesFixture()),
+      sharedResources: runtimeShared(chatSharedResourcesFixture(), inventory),
     });
 
     expect(projection.connectionDiagnosticDetails()[0]).toMatchObject({
@@ -243,13 +234,14 @@ describe("createChatPanelRuntimeNotices", () => {
   });
 });
 
-function runtimeShared(shared: ChatSharedDisplayValues) {
+function runtimeShared(shared: ChatSharedDisplayValues, toolInventory: ToolInventorySnapshot | null = null) {
   return {
     runtimeConfigSnapshot: () => shared.runtimeConfig,
     skillsSnapshot: () => shared.availableSkills,
     rateLimitsSnapshot: () => shared.rateLimit,
     modelsSnapshot: () => shared.availableModels,
     metadataDiagnosticsSnapshot: () => shared.metadataDiagnostics ?? createServerDiagnostics(),
+    toolInventorySnapshot: () => toolInventory,
   };
 }
 

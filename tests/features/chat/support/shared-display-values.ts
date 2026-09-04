@@ -3,6 +3,7 @@ import type { RuntimeConfigSnapshot } from "../../../../src/domain/runtime/confi
 import type { RateLimitSnapshot } from "../../../../src/domain/runtime/metrics";
 import type { MetadataResourceDiagnostics } from "../../../../src/domain/server/diagnostics";
 import { createMetadataResourceDiagnostics } from "../../../../src/domain/server/diagnostics";
+import type { ToolInventorySnapshot } from "../../../../src/domain/server/tool-inventory";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type {
   ChatPanelComposerSharedValues,
@@ -21,6 +22,7 @@ export interface ChatSharedDisplayValues {
   readonly availableSkills: readonly SkillMetadata[];
   readonly rateLimit: RateLimitSnapshot | null;
   readonly metadataDiagnostics: MetadataResourceDiagnostics;
+  readonly toolInventory: ToolInventorySnapshot | null;
 }
 
 export function chatSharedResourcesFixture(patch: Partial<ChatSharedDisplayValues> = {}): ChatSharedDisplayValues {
@@ -35,6 +37,7 @@ export function chatSharedResourcesFixture(patch: Partial<ChatSharedDisplayValue
     availableSkills: [],
     rateLimit: null,
     metadataDiagnostics: createMetadataResourceDiagnostics(),
+    toolInventory: null,
     ...patch,
   };
 }
@@ -53,6 +56,7 @@ export function toolbarSharedValues(shared: ChatSharedDisplayValues): ChatPanelT
     skills: shared.availableSkills,
     rateLimit: shared.rateLimit,
     metadataDiagnostics: shared.metadataDiagnostics,
+    toolInventory: shared.toolInventory,
   };
 }
 

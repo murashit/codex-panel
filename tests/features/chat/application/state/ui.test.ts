@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { initialUiState, maybeClearGoalObjectiveExpansion, reduceUiSlice } from "../../../../../src/features/chat/application/state/ui";
+import { initialUiState, reduceUiSlice } from "../../../../../src/features/chat/application/state/ui";
 
 describe("chat UI state", () => {
   it("keeps toolbar panels mutually exclusive", () => {
@@ -48,40 +47,4 @@ describe("chat UI state", () => {
     expect(editing.rename).toEqual({ kind: "editing", threadId: "thread", draft: "Draft", autoName: { kind: "checking" } });
     expect(cleared.rename).toEqual({ kind: "idle" });
   });
-
-  it("clears goal expansion only when the displayed goal identity changes", () => {
-    const current = goal();
-    const expanded = reduceUiSlice(initialUiState(), {
-      type: "ui/disclosure-set",
-      bucket: "goalObjectiveExpanded",
-      id: "thread",
-      open: true,
-    });
-
-    const usageOnly = maybeClearGoalObjectiveExpansion(expanded, current, {
-      ...current,
-      tokensUsed: 10,
-      timeUsedSeconds: 30,
-    });
-    const changed = maybeClearGoalObjectiveExpansion(usageOnly, current, {
-      ...current,
-      objective: "Changed",
-    });
-
-    expect(usageOnly.disclosures.goalObjectiveExpanded.has("thread")).toBe(true);
-    expect(changed.disclosures.goalObjectiveExpanded.size).toBe(0);
-  });
 });
-
-function goal(): ThreadGoal {
-  return {
-    threadId: "thread",
-    objective: "Finish",
-    status: "active",
-    tokenBudget: null,
-    tokensUsed: 0,
-    timeUsedSeconds: 0,
-    createdAt: 1,
-    updatedAt: 1,
-  };
-}

@@ -3,21 +3,15 @@ import { Notice } from "obsidian";
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerContextConnectionLease } from "../../../../app-server/connection/context-connection";
-import { cloneServerDiagnostics, invalidateMcpServerRuntimeDiagnostics } from "../../../../domain/server/diagnostics";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
-import { createServerDiagnosticsCoordinator } from "../../application/connection/server-diagnostics-coordinator";
-import type { ServerDiagnosticsPort } from "../../application/connection/server-diagnostics-port";
-import { handleAppServerResourceFact } from "../../application/connection/server-resource-facts";
 import { executePanelDynamicTool } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
-import type { ThreadGoalSync } from "../../application/threads/goal-sync";
 import type { ChatPanelEnvironment } from "../contracts";
 import { resolveObsidianWikilinks } from "../obsidian/wikilink-resolution.obsidian";
-import type { ChatViewDeferredTasks } from "./deferred-work";
 
 type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
 
@@ -28,18 +22,15 @@ interface SessionConnectionStatus {
 
 interface SessionConnectionInput {
   connection: AppServerContextConnectionLease;
-  diagnosticsPort: ServerDiagnosticsPort;
   localItemIds: LocalIdSource;
   status: SessionConnectionStatus;
   autoTitleCoordinator: AutoTitleCoordinator;
-  goalSync: Pick<ThreadGoalSync, "observeThreadGoal">;
 }
 
 interface SessionConnectionHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
   canConnect: () => boolean;
-  deferredTasks: ChatViewDeferredTasks;
   invalidateThreadWork: () => void;
   refreshTabHeader: () => void;
 }
@@ -93,29 +84,9 @@ function createServerRequestResponderRegistry() {
 
 export function createSessionConnection(host: SessionConnectionHost, input: SessionConnectionInput): SessionConnection {
   const { environment, stateStore } = host;
-  const { connection, diagnosticsPort, localItemIds, status, autoTitleCoordinator, goalSync } = input;
+  const { connection, localItemIds, status, autoTitleCoordinator } = input;
   let active = true;
   const serverRequestResponders = createServerRequestResponderRegistry();
-  const serverResourceFactHost = { stateStore };
-  const diagnosticsCoordinator = createServerDiagnosticsCoordinator({
-    stateStore,
-    diagnosticsPort,
-  });
-  let observedActiveThreadId = activeThreadId(stateStore.getState());
-  const unsubscribeActiveThreadDiagnostics = stateStore.subscribe(() => {
-    const nextActiveThreadId = activeThreadId(stateStore.getState());
-    if (nextActiveThreadId === observedActiveThreadId) return;
-    observedActiveThreadId = nextActiveThreadId;
-    diagnosticsCoordinator.invalidate();
-    stateStore.dispatch({
-      type: "connection/diagnostics-applied",
-      serverDiagnostics: invalidateMcpServerRuntimeDiagnostics(cloneServerDiagnostics(stateStore.getState().connection.serverDiagnostics)),
-    });
-    if (!connection.isConnected() || !host.canConnect()) return;
-    void diagnosticsCoordinator.refreshServerDiagnostics().catch((error: unknown) => {
-      status.addSystemMessage(error instanceof Error ? error.message : String(error));
-    });
-  });
   const refreshSharedThreads = async (): Promise<void> => {
     await environment.plugin.threadCatalog.refreshActiveThreads();
   };
@@ -125,19 +96,8 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   const inboundHandler = createChatInboundHandler(
     stateStore,
     {
-      refreshServerDiagnostics: () => {
-        void diagnosticsCoordinator.refreshServerDiagnostics().catch((error: unknown) => {
-          status.addSystemMessage(error instanceof Error ? error.message : String(error));
-        });
-      },
-      handleAppServerResourceFact: (fact) => {
-        handleAppServerResourceFact(serverResourceFactHost, fact);
-      },
       maybeNameThread: (threadId, turnId, completedTurnTranscriptSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
-      },
-      observeThreadGoal: (threadId) => {
-        goalSync.observeThreadGoal(threadId);
       },
       respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
       rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),
@@ -151,7 +111,6 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   const invalidateConnectionScope = () => {
     inboundHandler.clearServerRequests();
     serverRequestResponders.rejectAll(-32000, "Codex Panel disconnected before the request was answered.");
-    diagnosticsCoordinator.invalidate();
   };
   const connectionExitHost = {
     stateStore,
@@ -194,20 +153,9 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     },
     ensureAppServerMetadata: () => environment.plugin.appServerQueries.ensureAppServerMetadata(),
     refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
-    refreshServerDiagnostics: () => diagnosticsCoordinator.refreshServerDiagnostics(),
+    refreshToolInventory: () => environment.plugin.toolInventoryQueries.refresh(activeThreadId(stateStore.getState())),
     ensureSharedThreads,
     refreshSharedThreads,
-    scheduleDeferredDiagnostics: () => {
-      host.deferredTasks.scheduleDiagnostics(() => {
-        if (!connection.isConnected()) return;
-        void diagnosticsCoordinator.refreshServerDiagnostics().catch((error: unknown) => {
-          status.addSystemMessage(error instanceof Error ? error.message : String(error));
-        });
-      });
-    },
-    clearDeferredDiagnostics: () => {
-      host.deferredTasks.clearDiagnostics();
-    },
     refreshTabHeader: () => {
       host.refreshTabHeader();
     },
@@ -226,7 +174,6 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     invalidateConnectionScope,
     deactivate: () => {
       active = false;
-      unsubscribeActiveThreadDiagnostics();
       connectionCoordinator.invalidate();
       invalidateConnectionScope();
     },

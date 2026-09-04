@@ -1,7 +1,8 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import { diagnosticsWithMetadataResourceProbes, type MetadataResourceDiagnostics } from "../../../../domain/server/diagnostics";
+import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/server/diagnostics";
+import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
-import type { ChatState } from "../../application/state/model";
+import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ToolbarStatusRow as DiagnosticRow } from "../../ui/toolbar-model";
@@ -31,6 +32,7 @@ interface ChatPanelRuntimeNoticesInput {
   sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1] & {
     metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics;
     skillsSnapshot(): readonly SkillMetadata[] | null;
+    toolInventorySnapshot(threadId: string | null): ToolInventorySnapshot | null;
   };
 }
 
@@ -68,14 +70,12 @@ function effortStatusDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamN
 
 function connectionDiagnosticDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamNoticeSection[] {
   const state = input.state();
+  const inventory = input.sharedResources.toolInventorySnapshot(activeThreadId(state));
   const sections = appServerDiagnosticSections({
     connected: input.connected(),
     configuredCommand: input.configuredCommand(),
     initializeResponse: state.connection.initializeResponse,
-    diagnostics: diagnosticsWithMetadataResourceProbes(
-      state.connection.serverDiagnostics,
-      input.sharedResources.metadataDiagnosticsSnapshot(),
-    ),
+    diagnostics: serverDiagnostics(input.sharedResources.metadataDiagnosticsSnapshot(), inventory?.mcpDiagnostics ?? []),
   });
   return noticeSectionsFromDiagnostics(sections);
 }
@@ -83,7 +83,7 @@ function connectionDiagnosticDetails(input: ChatPanelRuntimeNoticesInput): Threa
 function toolInventoryDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamNoticeSection[] {
   const metadataDiagnostics = input.sharedResources.metadataDiagnosticsSnapshot();
   return noticeSectionsFromDiagnostics(
-    toolInventoryDiagnosticSections(input.state().connection.serverDiagnostics, {
+    toolInventoryDiagnosticSections(input.sharedResources.toolInventorySnapshot(activeThreadId(input.state())), {
       value: input.sharedResources.skillsSnapshot() ?? [],
       probe: metadataDiagnostics.probes.skills,
     }),

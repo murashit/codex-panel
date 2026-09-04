@@ -1,14 +1,11 @@
 import type { ServerInitialization } from "./initialization";
-import { type McpServerDiagnostic, type McpServerStatusSummary, mcpServerDiagnosticFromStatus } from "./mcp-status";
-import { cloneToolInventorySnapshot, type ToolInventorySnapshot } from "./tool-inventory";
+import type { McpServerDiagnostic } from "./mcp-status";
 
 const DIAGNOSTIC_PROBE_DEFINITIONS = {
   models: { label: "Models" },
   skills: { label: "Skills" },
   permissionProfiles: { label: "Permission profiles" },
-  plugins: { label: "Plugins" },
   rateLimits: { label: "Rate limits" },
-  mcpServers: { label: "MCP servers" },
 } as const;
 
 const METADATA_RESOURCE_PROBE_IDS = ["models", "skills", "permissionProfiles", "rateLimits"] as const;
@@ -28,7 +25,6 @@ export interface DiagnosticProbeResult {
 export interface Diagnostics {
   readonly probes: Readonly<Record<DiagnosticProbeId, DiagnosticProbeResult>>;
   readonly mcpServers: readonly McpServerDiagnostic[];
-  readonly toolInventory: ToolInventorySnapshot | null;
 }
 
 export interface MetadataResourceDiagnostics {
@@ -37,11 +33,8 @@ export interface MetadataResourceDiagnostics {
 
 export function createServerDiagnostics(): Diagnostics {
   return {
-    probes: Object.fromEntries(
-      Object.keys(DIAGNOSTIC_PROBE_DEFINITIONS).map((id) => [id, createDiagnosticProbeResult(id as DiagnosticProbeId)]),
-    ) as Record<DiagnosticProbeId, DiagnosticProbeResult>,
+    probes: createMetadataResourceDiagnostics().probes,
     mcpServers: [],
-    toolInventory: null,
   };
 }
 
@@ -54,36 +47,11 @@ export function createMetadataResourceDiagnostics(): MetadataResourceDiagnostics
   };
 }
 
-export function cloneServerDiagnostics(diagnostics: Diagnostics): Diagnostics {
+export function serverDiagnostics(metadata: MetadataResourceDiagnostics, mcpServers: readonly McpServerDiagnostic[]): Diagnostics {
   return {
-    probes: { ...diagnostics.probes },
-    mcpServers: diagnostics.mcpServers.map((server) => ({ ...server })),
-    toolInventory: diagnostics.toolInventory ? cloneToolInventorySnapshot(diagnostics.toolInventory) : null,
+    probes: metadata.probes,
+    mcpServers,
   };
-}
-
-export function diagnosticsWithProbe(diagnostics: Diagnostics, probe: DiagnosticProbeResult): Diagnostics {
-  return {
-    ...diagnostics,
-    probes: {
-      ...diagnostics.probes,
-      [probe.id]: probe,
-    },
-  };
-}
-
-export function diagnosticsWithToolInventory(diagnostics: Diagnostics, toolInventory: ToolInventorySnapshot | null): Diagnostics {
-  return {
-    ...diagnostics,
-    toolInventory: toolInventory ? cloneToolInventorySnapshot(toolInventory) : null,
-  };
-}
-
-export function diagnosticsWithMetadataResourceProbes(
-  diagnostics: Diagnostics,
-  metadataDiagnostics: MetadataResourceDiagnostics,
-): Diagnostics {
-  return METADATA_RESOURCE_PROBE_IDS.reduce((current, id) => diagnosticsWithProbe(current, metadataDiagnostics.probes[id]), diagnostics);
 }
 
 function createDiagnosticProbeResult(id: DiagnosticProbeId): DiagnosticProbeResult {
@@ -131,44 +99,14 @@ export function serverPlatform(initializeResponse: ServerInitialization | null):
   return `${os}/${family}`;
 }
 
-export function upsertMcpServerDiagnostic(diagnostics: Diagnostics, server: McpServerDiagnostic): Diagnostics {
-  const current = diagnostics.mcpServers.find((item) => item.name === server.name);
+export function upsertMcpServerDiagnostic(
+  diagnostics: readonly McpServerDiagnostic[],
+  server: McpServerDiagnostic,
+): readonly McpServerDiagnostic[] {
+  const current = diagnostics.find((item) => item.name === server.name);
   const merged = mergeMcpServerDiagnostic(current, server);
-  const existing = diagnostics.mcpServers.filter((item) => item.name !== server.name);
-  return {
-    ...diagnostics,
-    mcpServers: [...existing, merged].sort((a, b) => a.name.localeCompare(b.name)),
-  };
-}
-
-export function replaceMcpServerStatusDiagnostics(diagnostics: Diagnostics, servers: readonly McpServerStatusSummary[]): Diagnostics {
-  return {
-    ...diagnostics,
-    mcpServers: servers
-      .map((server) =>
-        mcpServerStatusDiagnostic(
-          diagnostics.mcpServers.find((item) => item.name === server.name),
-          server,
-        ),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  };
-}
-
-export function invalidateMcpServerRuntimeDiagnostics(diagnostics: Diagnostics): Diagnostics {
-  return {
-    ...diagnostics,
-    probes: {
-      ...diagnostics.probes,
-      mcpServers: createDiagnosticProbeResult("mcpServers"),
-    },
-    mcpServers: diagnostics.mcpServers.map((server) => ({
-      ...server,
-      connectionStatus: "unknown",
-      message: null,
-      authenticationIssue: null,
-    })),
-  };
+  const existing = diagnostics.filter((item) => item.name !== server.name);
+  return [...existing, merged].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function shortDiagnosticErrorMessage(error: unknown, maxLength = 160): string {
@@ -186,17 +124,5 @@ function mergeMcpServerDiagnostic(current: McpServerDiagnostic | undefined, upda
     toolCount: update.toolCount ?? current?.toolCount ?? null,
     message: update.message ?? (connectionUpdated ? null : (current?.message ?? null)),
     authenticationIssue: update.authenticationIssue ?? (connectionUpdated ? null : (current?.authenticationIssue ?? null)),
-  };
-}
-
-function mcpServerStatusDiagnostic(current: McpServerDiagnostic | undefined, server: McpServerStatusSummary): McpServerDiagnostic {
-  const next = mcpServerDiagnosticFromStatus(server);
-  const sameKnownConnection = next.connectionStatus !== "unknown" && current?.connectionStatus === next.connectionStatus;
-  const reauthenticationRequired =
-    next.connectionStatus === "authenticationRequired" && current?.authenticationIssue === "reauthenticationRequired";
-  return {
-    ...next,
-    message: sameKnownConnection || reauthenticationRequired ? current.message : null,
-    authenticationIssue: reauthenticationRequired ? "reauthenticationRequired" : null,
   };
 }

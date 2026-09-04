@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient, ClientResponseByMethod } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
-import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
 import type { CodexInput } from "../../../../src/domain/turns/input";
 import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
@@ -402,19 +401,6 @@ describe("chat app-server adapters", () => {
     expect(request).not.toHaveBeenCalledWith("turn/interrupt", expect.anything());
   });
 
-  it("distinguishes absent goals from unavailable goal clients", async () => {
-    const client = { request: vi.fn().mockResolvedValue({ goal: null }) } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadGoalRead;
-    const unavailable = createTestGateway({
-      currentClient: () => null,
-    }).threadGoalRead;
-
-    await expect(adapter.readThreadGoal("thread")).resolves.toBeNull();
-    await expect(unavailable.readThreadGoal("thread")).resolves.toBeUndefined();
-  });
-
   it("returns successful runtime settings updates after the current client changes", async () => {
     const update = deferred<void>();
     const request = vi.fn().mockReturnValue(update.promise);
@@ -431,45 +417,6 @@ describe("chat app-server adapters", () => {
 
     await expect(updating).resolves.toBe(true);
     expect(request).toHaveBeenCalledWith("thread/settings/update", { threadId: "thread", model: "gpt-5.5" });
-  });
-
-  it("reads diagnostics probes and tool inventory at the app-server boundary", async () => {
-    const request = vi.fn((method: string) => {
-      switch (method) {
-        case "model/list":
-          return Promise.resolve({ data: [] });
-        case "account/rateLimits/read":
-          return Promise.resolve({ rateLimits: null, rateLimitsByLimitId: null });
-        case "plugin/installed":
-          return Promise.resolve({ marketplaces: [], marketplaceLoadErrors: [] });
-        case "mcpServerStatus/list":
-          return Promise.resolve({ data: [] });
-        case "skills/list":
-          return Promise.resolve({ data: [{ cwd: "/vault", skills: [] }] });
-        default:
-          throw new Error(`Unexpected request: ${method}`);
-      }
-    });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).serverDiagnostics;
-
-    const snapshot = await adapter.readServerDiagnostics({
-      threadId: "thread",
-      initialDiagnostics: createServerDiagnostics(),
-    });
-
-    expect(snapshot?.toolInventory.inventory).toBeDefined();
-    expect(request).not.toHaveBeenCalledWith("model/list", expect.anything());
-    expect(request).not.toHaveBeenCalledWith("account/rateLimits/read", expect.anything());
-    expect(request).toHaveBeenCalledWith("mcpServerStatus/list", {
-      detail: "toolsAndAuthOnly",
-      cursor: null,
-      limit: 100,
-      threadId: "thread",
-    });
-    expect(request).not.toHaveBeenCalledWith("skills/list", expect.anything());
   });
 
   it("reads files from the current client with request options", async () => {

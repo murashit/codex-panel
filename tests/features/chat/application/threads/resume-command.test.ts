@@ -55,7 +55,6 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     notifyActiveThreadIdentityChanged: vi.fn(),
     recordResumedThread: vi.fn(),
     addSystemMessage: vi.fn(),
-    syncThreadGoal: vi.fn().mockResolvedValue(undefined),
     ...overrides,
     effects: overrides.effects ?? { resumeThread },
     ensureConnected: overrides.ensureConnected ?? vi.fn().mockResolvedValue(true),
@@ -83,7 +82,6 @@ describe("ResumeCommand", () => {
     await resumed?.hydrate();
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
-    expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
     expect(activeThreadId(stateStore.getState())).toBe("thread");
     expect(loadLatest).toHaveBeenCalledWith("thread");
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
@@ -184,18 +182,16 @@ describe("ResumeCommand", () => {
     await expect(activation?.hydrate()).resolves.toBe(false);
 
     expect(stateStore.getState().threadStream).toEqual(streamBeforeHydration);
-    expect(host.syncThreadGoal).not.toHaveBeenCalled();
   });
 
   it("does not change active thread when the resume port has no snapshot", async () => {
-    const { commands, host, loadLatest, resumeThread, stateStore } = createActions(null);
+    const { commands, loadLatest, resumeThread, stateStore } = createActions(null);
 
     await commands.resumeThread("thread");
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
     expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(loadLatest).not.toHaveBeenCalled();
-    expect(host.syncThreadGoal).not.toHaveBeenCalled();
   });
 
   it("does not invoke an older resume after a newer intent wins during connection", async () => {

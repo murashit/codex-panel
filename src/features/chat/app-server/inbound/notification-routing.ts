@@ -48,8 +48,8 @@ const THREAD_CATALOG_DELIVERY = { delivery: "threadCatalog", scope: null } as co
 
 const SERVER_NOTIFICATION_REGISTRY = {
   "thread/started": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
-  "thread/goal/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadTurnNotificationScope },
-  "thread/goal/cleared": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadOnlyNotificationScope },
+  "thread/goal/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
+  "thread/goal/cleared": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
   "thread/settings/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadOnlyNotificationScope },
 
   "item/agentMessage/delta": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },

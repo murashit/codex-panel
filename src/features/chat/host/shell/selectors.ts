@@ -1,7 +1,9 @@
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../../../domain/runtime/metrics";
-import { diagnosticsWithMetadataResourceProbes, type MetadataResourceDiagnostics } from "../../../../domain/server/diagnostics";
+import type { MetadataResourceDiagnostics } from "../../../../domain/server/diagnostics";
+import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import { explicitThreadName } from "../../../../domain/threads/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
@@ -10,11 +12,6 @@ import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThr
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
-
-const composedDiagnosticsByPanel = new WeakMap<
-  ChatState["connection"]["serverDiagnostics"],
-  WeakMap<MetadataResourceDiagnostics, ChatState["connection"]["serverDiagnostics"]>
->();
 
 export interface ChatPanelToolbarSharedValues {
   readonly activeThreads: {
@@ -29,6 +26,7 @@ export interface ChatPanelToolbarSharedValues {
   readonly skills: readonly SkillMetadata[];
   readonly rateLimit: RateLimitSnapshot | null;
   readonly metadataDiagnostics: MetadataResourceDiagnostics;
+  readonly toolInventory: ToolInventorySnapshot | null;
 }
 
 export interface ChatPanelThreadStreamSharedValues {
@@ -61,7 +59,8 @@ export interface ChatPanelToolbarModel {
   readonly initializeResponse: ChatState["connection"]["initializeResponse"];
   readonly rateLimit: RateLimitSnapshot | null;
   readonly runtimeConfig: RuntimeConfigSnapshot | null;
-  readonly serverDiagnostics: ChatState["connection"]["serverDiagnostics"];
+  readonly metadataDiagnostics: MetadataResourceDiagnostics;
+  readonly toolInventory: ToolInventorySnapshot | null;
   readonly runtime: ChatState["runtime"];
   readonly toolbarPanel: ChatState["ui"]["toolbarPanel"];
   readonly archiveConfirmThreadId: ChatState["ui"]["archiveConfirmThreadId"];
@@ -69,7 +68,7 @@ export interface ChatPanelToolbarModel {
 }
 
 export interface ChatPanelGoalModel {
-  readonly goal: ChatActiveThreadState["goal"];
+  readonly goal: ThreadGoal | null;
   readonly goalMutationsAllowed: boolean;
   readonly goalEditor: ChatState["ui"]["goalEditor"];
   readonly goalObjectiveExpanded: ChatState["ui"]["disclosures"]["goalObjectiveExpanded"];
@@ -142,7 +141,8 @@ export function selectChatPanelToolbar(state: ChatState, shared: ChatPanelToolba
     initializeResponse: state.connection.initializeResponse,
     rateLimit: shared.rateLimit,
     runtimeConfig: shared.runtimeConfig,
-    serverDiagnostics: composedDiagnostics(state.connection.serverDiagnostics, shared.metadataDiagnostics),
+    metadataDiagnostics: shared.metadataDiagnostics,
+    toolInventory: shared.toolInventory,
     runtime: state.runtime,
     toolbarPanel: state.ui.toolbarPanel,
     archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
@@ -150,25 +150,9 @@ export function selectChatPanelToolbar(state: ChatState, shared: ChatPanelToolba
   };
 }
 
-function composedDiagnostics(
-  panel: ChatState["connection"]["serverDiagnostics"],
-  metadata: MetadataResourceDiagnostics,
-): ChatState["connection"]["serverDiagnostics"] {
-  let byMetadata = composedDiagnosticsByPanel.get(panel);
-  if (!byMetadata) {
-    byMetadata = new WeakMap();
-    composedDiagnosticsByPanel.set(panel, byMetadata);
-  }
-  const cached = byMetadata.get(metadata);
-  if (cached) return cached;
-  const composed = diagnosticsWithMetadataResourceProbes(panel, metadata);
-  byMetadata.set(metadata, composed);
-  return composed;
-}
-
-export function selectChatPanelGoal(state: ChatState): ChatPanelGoalModel {
+export function selectChatPanelGoal(state: ChatState, goal: ThreadGoal | null = null): ChatPanelGoalModel {
   return {
-    goal: activeThreadState(state)?.goal ?? null,
+    goal,
     goalMutationsAllowed: activePanelOperationDecision(state, "goal-mutation").kind === "allowed",
     goalEditor: state.ui.goalEditor,
     goalObjectiveExpanded: state.ui.disclosures.goalObjectiveExpanded,

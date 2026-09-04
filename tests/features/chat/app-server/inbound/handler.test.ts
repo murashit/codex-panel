@@ -30,10 +30,7 @@ function handlerForState(state = chatStateFixture(), actions: Partial<ChatInboun
   const handler = createChatInboundHandler(
     store,
     {
-      refreshServerDiagnostics: vi.fn(),
-      handleAppServerResourceFact: vi.fn(),
       maybeNameThread: vi.fn(),
-      observeThreadGoal: vi.fn(),
       respondToServerRequest: vi.fn(() => true),
       rejectServerRequest: vi.fn(() => true),
       executeDynamicTool: vi.fn(async () => ({ success: false, contentItems: [] })),
@@ -580,58 +577,6 @@ describe("ChatInboundHandler", () => {
       });
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
-    });
-
-    it("routes MCP startup status through the app-server resource fact boundary", () => {
-      const state = chatStateFixture();
-      const handleAppServerResourceFact = vi.fn();
-      const handler = handlerForState(state, { handleAppServerResourceFact });
-
-      handler.handleNotification({
-        method: "mcpServer/startupStatus/updated",
-        params: {
-          threadId: null,
-          name: "github",
-          status: "failed",
-          error: "missing token",
-          failureReason: "reauthenticationRequired",
-        },
-      } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
-
-      expect(handleAppServerResourceFact).toHaveBeenCalledWith({
-        type: "mcp-startup-status-updated",
-        name: "github",
-        status: "failed",
-        message: "missing token",
-        authenticationIssue: "reauthenticationRequired",
-      });
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
-    });
-
-    it("refreshes tool inventory diagnostics when the app list changes", () => {
-      const refreshServerDiagnostics = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { refreshServerDiagnostics });
-
-      handler.handleNotification({
-        method: "app/list/updated",
-        params: { data: [] },
-      } satisfies Extract<ServerNotification, { method: "app/list/updated" }>);
-
-      expect(refreshServerDiagnostics).toHaveBeenCalledWith();
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
-    });
-
-    it("refreshes resource probes after MCP OAuth login completes", () => {
-      const refreshServerDiagnostics = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { refreshServerDiagnostics });
-
-      handler.handleNotification({
-        method: "mcpServer/oauthLogin/completed",
-        params: { name: "github", threadId: null, success: true },
-      } satisfies Extract<ServerNotification, { method: "mcpServer/oauthLogin/completed" }>);
-
-      expect(refreshServerDiagnostics).toHaveBeenCalledWith();
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
   });
 
@@ -2094,146 +2039,6 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
       expect(handler.currentState().runtime.active.serviceTier).toBeNull();
-    });
-
-    it("adds goal events for goal state changes from notifications", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const handler = handlerForState(state);
-      const goal = {
-        threadId: "thread-active",
-        objective: "Finish",
-        status: "active",
-        tokenBudget: null,
-        tokensUsed: 0,
-        timeUsedSeconds: 0,
-        createdAt: 1,
-        updatedAt: 1,
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
-
-      handler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "thread-active", turnId: null, goal },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-
-      expect(activeThreadState(handler.currentState())?.goal).toEqual(goal);
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "goal",
-        text: "set: Finish",
-        objective: "Finish",
-      });
-
-      const afterSetMessageCount = chatStateThreadStreamItems(handler.currentState()).length;
-      handler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "thread-active", turnId: null, goal },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(afterSetMessageCount);
-
-      const updatedGoal = { ...goal, objective: "Finish well", updatedAt: 2 };
-      handler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "thread-active", turnId: null, goal: updatedGoal },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "goal",
-        text: "updated: Finish well",
-        objective: "Finish well",
-      });
-
-      const pausedGoal = { ...updatedGoal, status: "paused", updatedAt: 3 } satisfies Extract<
-        ServerNotification,
-        { method: "thread/goal/updated" }
-      >["params"]["goal"];
-      handler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "thread-active", turnId: null, goal: pausedGoal },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "goal",
-        text: "paused: Finish well",
-        objective: "Finish well",
-      });
-
-      const resumedGoal = { ...pausedGoal, status: "active", updatedAt: 4 } satisfies Extract<
-        ServerNotification,
-        { method: "thread/goal/updated" }
-      >["params"]["goal"];
-      handler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "thread-active", turnId: null, goal: resumedGoal },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "goal",
-        text: "resumed: Finish well",
-        objective: "Finish well",
-      });
-
-      const messageCount = chatStateThreadStreamItems(handler.currentState()).length;
-      handler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "thread-active", turnId: null, goal: { ...resumedGoal, tokensUsed: 10, timeUsedSeconds: 20 } },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(messageCount);
-
-      handler.handleNotification({
-        method: "thread/goal/cleared",
-        params: { threadId: "thread-active" },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
-
-      expect(activeThreadState(handler.currentState())?.goal).toBeNull();
-      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
-        kind: "goal",
-        text: "cleared: Finish well",
-        objective: "Finish well",
-      });
-    });
-
-    it("adds a goal fact when a goal completes", () => {
-      const activeGoal = {
-        threadId: "thread-active",
-        objective: "Finish",
-        status: "active",
-        tokenBudget: null,
-        tokensUsed: 12,
-        timeUsedSeconds: 60,
-        createdAt: 1,
-        updatedAt: 1,
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
-      const state = chatStateFixture({
-        activeThread: {
-          id: "thread-active",
-          goal: activeGoal,
-        },
-      });
-      const handler = handlerForState(state);
-      const completedGoal = {
-        ...activeGoal,
-        status: "complete",
-        tokensUsed: 42,
-        timeUsedSeconds: 120,
-        updatedAt: 2,
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
-
-      handler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "thread-active", turnId: "turn-1", goal: completedGoal },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-
-      expect(activeThreadState(handler.currentState())?.goal).toEqual(completedGoal);
-      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
-      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
-        kind: "goal",
-        text: "completed: Finish",
-        objective: "Finish",
-      });
-
-      handler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "thread-active", turnId: "turn-1", goal: { ...completedGoal, tokensUsed: 43 } },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
     });
   });
 

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useReducer, useRef } from "preact/hooks";
+import { useLayoutEffect, useMemo, useReducer, useRef } from "preact/hooks";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../../../domain/runtime/metrics";
@@ -8,15 +8,22 @@ import {
   type MetadataResourceDiagnostics,
 } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadataResourceFor, SharedServerMetadataResourceId } from "../../../../domain/server/metadata";
+import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ObservedPaginatedResult } from "../../../../shared/async/observed-result";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
+import type { ChatThreadGoalQueries } from "../contracts";
 
 export interface ChatSharedDisplayQueries {
   observeMetadataResource<Id extends SharedServerMetadataResourceId>(
     id: Id,
     listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
   ): () => void;
+}
+
+export interface ChatToolInventoryDisplayQueries {
+  observe(threadId: string | null, listener: (snapshot: ToolInventorySnapshot | null) => void): () => void;
 }
 
 export interface ActiveThreadsDisplayResource {
@@ -109,6 +116,37 @@ export function useRateLimitsResource(queries: ChatSharedDisplayQueries): Metada
       }));
     }),
   );
+}
+
+export function useToolInventoryResource(
+  queries: ChatToolInventoryDisplayQueries,
+  threadId: string | null,
+  enabled = true,
+): ToolInventorySnapshot | null {
+  const source = useMemo(() => ({ queries, threadId, enabled }), [queries, threadId, enabled]);
+  return useObservedResource<ToolInventorySnapshot | null>(source, null, (update) => {
+    if (!enabled) return () => undefined;
+    return queries.observe(threadId, (snapshot) => {
+      update(() => snapshot);
+    });
+  });
+}
+
+export interface ThreadGoalDisplayResource {
+  readonly goal: ThreadGoal | null;
+  readonly error: string | null;
+}
+
+const INITIAL_THREAD_GOAL: ThreadGoalDisplayResource = { goal: null, error: null };
+
+export function useThreadGoalResource(queries: ChatThreadGoalQueries, threadId: string | null, enabled = true): ThreadGoalDisplayResource {
+  const source = useMemo(() => ({ queries, threadId, enabled }), [queries, threadId, enabled]);
+  return useObservedResource<ThreadGoalDisplayResource>(source, INITIAL_THREAD_GOAL, (update) => {
+    if (!threadId || !enabled) return () => undefined;
+    return queries.observe(threadId, (goal, error) => {
+      update(() => ({ goal, error }));
+    });
+  });
 }
 
 export function metadataDiagnosticsFromResources(input: {

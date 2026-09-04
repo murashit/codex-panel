@@ -34,7 +34,6 @@ export interface ResumeCommandHost {
   notifyActiveThreadIdentityChanged: () => void;
   recordResumedThread: (thread: Thread) => void;
   addSystemMessage: (text: string) => void;
-  syncThreadGoal: (threadId: string) => Promise<void>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
 }
 
@@ -113,8 +112,6 @@ async function hydrateResumedThread(
         await host.history.loadLatest(response.activation.thread.id);
       }
     }
-    if (isStaleResume(host, resume, panelTarget)) return false;
-    await host.syncThreadGoal(response.activation.thread.id);
     if (isStaleResume(host, resume, panelTarget)) return false;
     const state = host.stateStore.getState();
     const renderFallbackMessage = threadStreamIsEmpty(chatThreadStreamViewState(state.threadStream, state.activeTurn));

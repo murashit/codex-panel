@@ -1,5 +1,5 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import type { DiagnosticProbeResult, Diagnostics } from "../../../../domain/server/diagnostics";
+import type { DiagnosticProbeResult } from "../../../../domain/server/diagnostics";
 import type { McpServerDiagnostic, McpServerStatusSummary } from "../../../../domain/server/mcp-status";
 import type { ToolInventoryPlugin, ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../../ui/toolbar-model";
@@ -22,41 +22,37 @@ interface SkillProvenance {
   rank: SkillProvenanceRank;
 }
 
-function toolInventorySections(inventory: ToolInventorySnapshot | null): DiagnosticSection[] {
-  if (!inventory) {
-    const row = { label: TOOL_PROVIDERS_LABEL, value: "not loaded", level: "warning" as const };
-    return [{ title: TOOL_PROVIDERS_LABEL, rows: [row] }];
-  }
-
-  return toolInventorySnapshotSections(inventory);
-}
-
 export function toolInventoryDiagnosticSections(
-  diagnostics: Pick<Diagnostics, "toolInventory" | "mcpServers">,
+  inventory: ToolInventorySnapshot | null,
   skills: { value: readonly SkillMetadata[]; probe: DiagnosticProbeResult },
 ): DiagnosticSection[] {
-  const inventorySections = diagnostics.toolInventory
-    ? toolInventorySnapshotSections({
-        ...diagnostics.toolInventory,
-        mcpDiagnostics: diagnostics.mcpServers,
-      })
-    : toolInventorySections(null);
+  const inventorySections = inventory
+    ? toolInventorySnapshotSections(inventory, inventory.mcpDiagnostics)
+    : [
+        {
+          title: TOOL_PROVIDERS_LABEL,
+          rows: [{ label: TOOL_PROVIDERS_LABEL, value: "not loaded", level: "warning" as const }],
+        },
+      ];
   return [...inventorySections, { title: "Skills", rows: skillRows(skills.value, skills.probe) }];
 }
 
-function toolInventorySnapshotSections(inventory: ToolInventorySnapshot): DiagnosticSection[] {
+function toolInventorySnapshotSections(
+  inventory: ToolInventorySnapshot,
+  mcpDiagnostics: readonly McpServerDiagnostic[],
+): DiagnosticSection[] {
   return [
     { title: "Plugins", rows: pluginRows(inventory) },
-    { title: TOOL_PROVIDERS_LABEL, rows: mcpToolProviderRows(inventory) },
+    { title: TOOL_PROVIDERS_LABEL, rows: mcpToolProviderRows(inventory, mcpDiagnostics) },
   ];
 }
 
 function pluginRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
-  if (inventory.pluginsError) return [{ label: "Plugins", value: inventory.pluginsError, level: "error" }];
-  if (!inventory.plugins) return [{ label: "Plugins", value: "not loaded", level: "warning" }];
+  const failure = inventory.pluginsError ? [{ label: "Refresh", value: inventory.pluginsError, level: "error" as const }] : [];
+  if (!inventory.plugins) return [...failure, { label: "Plugins", value: "not loaded", level: "warning" }];
 
   const rows = inventory.plugins.filter((plugin) => plugin.enabled && plugin.installed).map(pluginRow);
-  return rows.length > 0 ? rows : [{ label: "Plugins", value: "(none)" }];
+  return [...failure, ...(rows.length > 0 ? rows : [{ label: "Plugins", value: "(none)" }])];
 }
 
 function pluginRow(plugin: ToolInventoryPlugin): DiagnosticRow {
@@ -67,49 +63,47 @@ function pluginRow(plugin: ToolInventoryPlugin): DiagnosticRow {
   };
 }
 
-function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
-  if (inventory.mcpError) return [{ label: TOOL_PROVIDERS_LABEL, value: inventory.mcpError, level: "error" }];
-  if (inventory.mcpServers === null && inventory.mcpDiagnostics.length === 0) {
-    return [{ label: TOOL_PROVIDERS_LABEL, value: "not loaded", level: "warning" }];
+function mcpToolProviderRows(inventory: ToolInventorySnapshot, mcpDiagnostics: readonly McpServerDiagnostic[]): DiagnosticRow[] {
+  const failure = inventory.mcpError ? [{ label: "Refresh", value: inventory.mcpError, level: "error" as const }] : [];
+  if (inventory.mcpServers === null && mcpDiagnostics.length === 0) {
+    return [...failure, { label: TOOL_PROVIDERS_LABEL, value: "not loaded", level: "warning" }];
   }
 
   const statusByName = new Map((inventory.mcpServers ?? []).map((server) => [server.name, server]));
-  const diagnosticByName = new Map(inventory.mcpDiagnostics.map((diagnostic) => [diagnostic.name, diagnostic]));
+  const diagnosticByName = new Map(mcpDiagnostics.map((diagnostic) => [diagnostic.name, diagnostic]));
   const names = new Set([...statusByName.keys(), ...diagnosticByName.keys()]);
   const rows = [...names].map((name) => {
     const server = statusByName.get(name);
     const diagnostic = diagnosticByName.get(name);
     return server ? mcpToolProviderStatusRow(server, diagnostic) : mcpToolProviderDiagnosticRow(name, diagnostic);
   });
-  return rows.sort((left, right) => left.label.localeCompare(right.label));
+  return [...failure, ...rows.sort((left, right) => left.label.localeCompare(right.label))];
 }
 
 function mcpToolProviderStatusRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
   if (server.name === "codex_apps") return codexAppsToolProviderRow(server, diagnostic);
 
-  const connection = diagnostic?.connectionStatus ? mcpConnectionStatusLabel(diagnostic.connectionStatus, true) : "configured";
+  const connectionStatus = diagnostic?.connectionStatus ?? server.connectionStatus ?? "unknown";
+  const connection = mcpConnectionStatusLabel(connectionStatus, true);
   const parts = ["MCP server", connection, `auth ${mcpAuthStatusLabel(server.authStatus)}`, countLabel(server.toolCount, "tool")];
   if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
   if (diagnostic?.message) parts.push(diagnostic.message);
   return {
     label: server.name,
     value: parts.join(", "),
-    level: mcpToolProviderLevel(diagnostic, server.authStatus),
+    level: mcpToolProviderLevel(connectionStatus, server.authStatus),
   };
 }
 
 function codexAppsToolProviderRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
-  const level = mcpToolProviderLevel(diagnostic, server.authStatus);
+  const connectionStatus = diagnostic?.connectionStatus ?? server.connectionStatus ?? "unknown";
+  const level = mcpToolProviderLevel(connectionStatus, server.authStatus);
   const apps = server.codexAppIds && server.codexAppIds.length > 0 ? listSummary(server.codexAppIds) : "(none)";
   if (level === "normal" && !diagnostic?.message && !diagnostic?.authenticationIssue) {
     return { label: server.name, value: apps, level };
   }
 
-  const parts = [
-    apps,
-    mcpConnectionStatusLabel(diagnostic?.connectionStatus ?? "unknown", true),
-    `auth ${mcpAuthStatusLabel(server.authStatus)}`,
-  ];
+  const parts = [apps, mcpConnectionStatusLabel(connectionStatus, true), `auth ${mcpAuthStatusLabel(server.authStatus)}`];
   if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
   if (diagnostic?.message) parts.push(diagnostic.message);
   return {
@@ -130,20 +124,16 @@ function mcpToolProviderDiagnosticRow(name: string, diagnostic: McpServerDiagnos
   return {
     label: name,
     value: parts.join(", "),
-    level: mcpToolProviderLevel(diagnostic, diagnostic?.authStatus ?? null),
+    level: mcpToolProviderLevel(diagnostic?.connectionStatus ?? "unknown", diagnostic?.authStatus ?? null),
   };
 }
 
 function mcpToolProviderLevel(
-  diagnostic: McpServerDiagnostic | undefined,
+  connectionStatus: McpServerDiagnostic["connectionStatus"],
   authStatus: McpServerDiagnostic["authStatus"] | McpServerStatusSummary["authStatus"],
 ): NonNullable<DiagnosticRow["level"]> {
-  if (diagnostic?.connectionStatus === "failed") return "error";
-  if (
-    authStatus === "notLoggedIn" ||
-    diagnostic?.connectionStatus === "authenticationRequired" ||
-    diagnostic?.connectionStatus === "cancelled"
-  ) {
+  if (connectionStatus === "failed") return "error";
+  if (authStatus === "notLoggedIn" || connectionStatus === "authenticationRequired" || connectionStatus === "cancelled") {
     return "warning";
   }
   return "normal";

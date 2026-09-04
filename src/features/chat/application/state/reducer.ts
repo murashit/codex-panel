@@ -1,6 +1,5 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import type { Diagnostics } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import { type ChatRuntimeState, commitAppliedRuntimeSettingsPatchState, type PendingRuntimeIntentState } from "../../domain/runtime/state";
 import { isRequestAction, type RequestAction, reduceRequestSlice } from "../pending-requests/state";
@@ -14,8 +13,7 @@ import { isUiAction, reduceUiSlice, type UiAction } from "./ui";
 
 type ConnectionAction =
   | { type: "connection/status-set"; statusText: string; phase?: ChatConnectionPhase }
-  | { type: "connection/initialized"; initializeResponse: ServerInitialization }
-  | { type: "connection/diagnostics-applied"; serverDiagnostics: Diagnostics };
+  | { type: "connection/initialized"; initializeResponse: ServerInitialization };
 
 type ActiveThreadAction = { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
 
@@ -33,7 +31,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "active-thread/cleared":
     case "active-thread/resumed":
     case "active-thread/settings-applied":
-    case "active-thread/goal-set":
     case "panel/restored-thread-applied":
     case "panel/restored-thread-renamed":
     case "panel/view-state-cleared":
@@ -60,7 +57,6 @@ function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
   switch (action.type) {
     case "connection/status-set":
     case "connection/initialized":
-    case "connection/diagnostics-applied":
       return patchObject(state, { connection: reduceConnectionSlice(state.connection, action) });
     case "active-thread/token-usage-set":
       return patchObject(state, { panelThread: reducePanelThreadSlice(state.panelThread, action) });
@@ -94,8 +90,6 @@ function reduceConnectionSlice(state: ChatConnectionState, action: ConnectionAct
       return patchObject(state, { statusText: action.statusText, ...definedPatch("phase", action.phase) });
     case "connection/initialized":
       return patchObject(state, { initializeResponse: action.initializeResponse });
-    case "connection/diagnostics-applied":
-      return patchObject(state, { serverDiagnostics: action.serverDiagnostics });
   }
 }
 

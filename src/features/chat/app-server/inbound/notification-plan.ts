@@ -1,26 +1,21 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
-import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
 import { activeThreadId, activeThreadState, type ChatState } from "../../application/state/model";
 import type { ChatAction } from "../../application/state/reducer";
 import type { SubagentActivityAction } from "../../application/state/subagent-activity";
 import { activeThreadSettingsAppliedAction } from "../../application/state/transition-actions";
 import { projectTurnRuntimeFacts, type TurnRuntimeProjectionOutcome } from "../../application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
-import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import { type DiagnosticStatusNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
 import { turnRuntimeFactsFromNotification } from "./runtime-fact-adapter";
 
-export type ChatInboundEffect =
-  | {
-      type: "maybe-name-thread";
-      threadId: string;
-      turnId: string;
-      completedTurnTranscriptSummary: TurnCompletionTranscriptSummary;
-    }
-  | { type: "refresh-server-diagnostics" }
-  | { type: "handle-app-server-resource-fact"; fact: AppServerResourceFact };
+export type ChatInboundEffect = {
+  type: "maybe-name-thread";
+  threadId: string;
+  turnId: string;
+  completedTurnTranscriptSummary: TurnCompletionTranscriptSummary;
+};
 
 type TurnCompletionTranscriptSummary = TurnRuntimeProjectionOutcome["completedTurnTranscriptSummary"];
 
@@ -54,7 +49,7 @@ export function planChatInboundNotification(
     case "userVisibleNotice":
       return planTurnRuntimeNotification(state, route.notification, localItemId);
     case "threadLifecycle":
-      return planThreadLifecycle(state, route.notification, localItemId);
+      return planThreadLifecycle(state, route.notification);
     case "diagnosticStatus":
       return planDiagnosticStatus(route.notification);
   }
@@ -269,38 +264,19 @@ function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatI
         tokenUsage: threadTokenUsageFromRuntimeUsage(notification.params.tokenUsage),
       });
     case "app/list/updated":
-      return effectPlan({ type: "refresh-server-diagnostics" });
     case "mcpServer/oauthLogin/completed":
-      return effectPlan({ type: "refresh-server-diagnostics" });
     case "mcpServer/startupStatus/updated":
-      return effectPlan({
-        type: "handle-app-server-resource-fact",
-        fact: {
-          type: "mcp-startup-status-updated",
-          name: notification.params.name,
-          status: notification.params.status,
-          message: notification.params.error,
-          authenticationIssue: notification.params.failureReason,
-        },
-      });
+      return EMPTY_PLAN;
   }
 }
 
-function planThreadLifecycle(
-  state: ChatState,
-  notification: ThreadLifecycleNotification,
-  localItemId: LocalItemIdProvider,
-): ChatInboundPlan {
+function planThreadLifecycle(state: ChatState, notification: ThreadLifecycleNotification): ChatInboundPlan {
   switch (notification.method) {
     case "thread/started":
       return threadStartedPlan(state, notification);
     case "thread/settings/updated":
       if (activeThreadId(state) !== notification.params.threadId) return EMPTY_PLAN;
       return actionPlan(activeThreadSettingsAppliedAction(notification.params.threadSettings));
-    case "thread/goal/updated":
-      return threadGoalPlan(state, notification.params.threadId, notification.params.goal, localItemId);
-    case "thread/goal/cleared":
-      return threadGoalPlan(state, notification.params.threadId, null, localItemId);
   }
 }
 
@@ -317,20 +293,6 @@ function threadStartedPlan(
   return { actions: trackAction, effects: [] };
 }
 
-function threadGoalPlan(
-  state: ChatState,
-  threadId: string,
-  goal: Extract<ThreadLifecycleNotification, { method: "thread/goal/updated" }>["params"]["goal"] | null,
-  localItemId: LocalItemIdProvider,
-): ChatInboundPlan {
-  const activeThread = activeThreadState(state);
-  if (!activeThread || activeThread.id !== threadId) return EMPTY_PLAN;
-  const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal }];
-  const item = goalChangeItem(localItemId("goal"), activeThread.goal, goal);
-  if (item) actions.push({ type: "thread-stream/item-upserted", item });
-  return { actions, effects: [] };
-}
-
 function activeTurnIdForState(state: ChatState): string | null {
   const lifecycle = state.activeTurn.lifecycle;
   return lifecycle.kind === "running" ? lifecycle.turnId : null;
@@ -338,8 +300,4 @@ function activeTurnIdForState(state: ChatState): string | null {
 
 function actionPlan(action: ChatAction): ChatInboundPlan {
   return { actions: [action], effects: [] };
-}
-
-function effectPlan(effect: ChatInboundEffect): ChatInboundPlan {
-  return { actions: [], effects: [effect] };
 }

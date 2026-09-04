@@ -1,8 +1,6 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { PreparedInput } from "../application/composer/prepared-input";
-import type { ServerDiagnosticsPort } from "../application/connection/server-diagnostics-port";
-import { createChatServerDiagnosticsAdapter } from "./adapters/server-diagnostics-adapter";
 import { type ChatSessionAdapters, createChatSessionAdapters } from "./adapters/session-adapters";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./adapters/thread-reference-resolver";
 
@@ -18,7 +16,6 @@ interface ChatThreadReferenceResolverOptions {
 }
 
 export interface ChatAppServerGateway extends ChatSessionAdapters {
-  serverDiagnostics: ServerDiagnosticsPort;
   connectionAvailable(): boolean;
   readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string | null>;
   threadReferences(options: ChatThreadReferenceResolverOptions): ThreadReferenceResolver;
@@ -27,7 +24,6 @@ export interface ChatAppServerGateway extends ChatSessionAdapters {
 export function createChatAppServerGateway(host: ChatAppServerGatewayHost): ChatAppServerGateway {
   return {
     ...createChatSessionAdapters(host),
-    serverDiagnostics: createChatServerDiagnosticsAdapter(host),
     connectionAvailable: () => host.currentClient() !== null,
     readFileBase64: (path, options) => readCurrentClientFileBase64(host, path, options),
     threadReferences: (options) =>

@@ -1,5 +1,6 @@
 import { CLIENT_VERSION } from "../../../../constants";
-import { diagnosticsWithMetadataResourceProbes } from "../../../../domain/server/diagnostics";
+import { serverDiagnostics } from "../../../../domain/server/diagnostics";
+import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
 import { copyTextWithNotice } from "../../../../shared/obsidian/clipboard.obsidian";
 import type { ChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { activeThreadState, type ChatState } from "../../application/state/model";
@@ -44,7 +45,8 @@ interface ToolbarUiActionDependencies {
     runtimeConfig: () => unknown;
     rateLimit: () => unknown;
     availableModels: () => readonly unknown[];
-    metadataDiagnostics: () => Parameters<typeof diagnosticsWithMetadataResourceProbes>[1];
+    metadataDiagnostics: () => Parameters<typeof serverDiagnostics>[0];
+    toolInventory: () => ToolInventorySnapshot | null;
   };
 }
 
@@ -206,7 +208,7 @@ function runtimeDebugDetails(input: ToolbarUiActionDependencies["debugDetails"])
   const state = input.stateStore.getState();
   const activeThread = activeThreadState(state);
   const connection = state.connection;
-  const serverDiagnostics = diagnosticsWithMetadataResourceProbes(connection.serverDiagnostics, input.metadataDiagnostics());
+  const diagnostics = serverDiagnostics(input.metadataDiagnostics(), input.toolInventory()?.mcpDiagnostics ?? []);
   return JSON.stringify(
     {
       clientVersion: CLIENT_VERSION,
@@ -220,8 +222,8 @@ function runtimeDebugDetails(input: ToolbarUiActionDependencies["debugDetails"])
         initializeResponse: connection.initializeResponse,
         rateLimit: input.rateLimit(),
         serverDiagnostics: {
-          probes: serverDiagnostics.probes,
-          mcpServers: serverDiagnostics.mcpServers,
+          probes: diagnostics.probes,
+          mcpServers: diagnostics.mcpServers,
         },
       },
       runtimeConfig: input.runtimeConfig(),

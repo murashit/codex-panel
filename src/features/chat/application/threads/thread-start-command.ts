@@ -31,14 +31,12 @@ export interface ThreadStartCommandHost {
   effects: ThreadStartEffects;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   recordStartedThread: (thread: Thread) => void;
-  syncThreadGoal: (threadId: string) => void;
 }
 
 export interface ThreadStartCommand {
   startThread: (
     preview?: string,
     options?: {
-      syncGoal?: boolean;
       preservePendingSubmissionId?: string;
       adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
     },
@@ -55,7 +53,6 @@ async function startThread(
   host: ThreadStartCommandHost,
   preview?: string,
   options: {
-    syncGoal?: boolean;
     preservePendingSubmissionId?: string;
     adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
   } = {},
@@ -102,6 +99,5 @@ async function startThread(
   if (activeThreadId(applied) !== action.thread.id) {
     return { kind: "created-not-activated" };
   }
-  if (options.syncGoal ?? true) host.syncThreadGoal(action.thread.id);
   return { kind: "created-activated", threadId: action.thread.id };
 }

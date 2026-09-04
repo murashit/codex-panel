@@ -593,7 +593,6 @@ describe("chat panel projection integration", () => {
   it("routes goal status actions to the rendered goal thread", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-rendered" } });
-    state = chatStateWith(state, { activeThread: { goal: goalFixture("thread-rendered") } });
     const statuses: [string, string][] = [];
     const clears: string[] = [];
     const surface = {
@@ -613,16 +612,21 @@ describe("chat panel projection integration", () => {
       },
     } satisfies ChatPanelGoalDependencies;
 
-    const parent = renderWithShellModels(state, emptySharedResources, (models) =>
-      h(ProjectedGoal, { model: models.goal, dependencies: surface }),
+    const parent = renderWithShellModels(
+      state,
+      emptySharedResources,
+      (models) => h(ProjectedGoal, { model: models.goal, dependencies: surface }),
+      goalFixture("thread-rendered"),
     );
     state = chatStateWith(state, { activeThread: { id: "thread-current" } });
     clickLabeledButton(parent, "Pause goal");
     clickLabeledButton(parent, "Clear goal");
 
-    state = chatStateWith(state, { activeThread: { goal: { ...goalFixture("thread-rendered"), status: "paused" } } });
-    const resumeParent = renderWithShellModels(state, emptySharedResources, (models) =>
-      h(ProjectedGoal, { model: models.goal, dependencies: surface }),
+    const resumeParent = renderWithShellModels(
+      state,
+      emptySharedResources,
+      (models) => h(ProjectedGoal, { model: models.goal, dependencies: surface }),
+      { ...goalFixture("thread-rendered"), status: "paused" },
     );
     clickLabeledButton(resumeParent, "Resume goal");
 
@@ -640,7 +644,6 @@ describe("chat panel projection integration", () => {
     state = chatStateWith(state, {
       activeThread: {
         id: "child",
-        goal: goalFixture("child"),
         provenance: {
           kind: "subagent",
           subagentKind: "thread-spawn",
@@ -653,8 +656,11 @@ describe("chat panel projection integration", () => {
       },
     });
 
-    const parent = renderWithShellModels(state, emptySharedResources, (models) =>
-      h(ProjectedGoal, { model: models.goal, dependencies: goalSurfaceFixture() }),
+    const parent = renderWithShellModels(
+      state,
+      emptySharedResources,
+      (models) => h(ProjectedGoal, { model: models.goal, dependencies: goalSurfaceFixture() }),
+      goalFixture("child"),
     );
 
     expect(parent.querySelector('[aria-label="Edit goal"]')).toBeNull();
@@ -712,7 +718,7 @@ describe("chat panel projection integration", () => {
 
   it("projects goal editor state before action wiring", () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-1", goal: goalFixture("thread-1") } });
+    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     state = chatStateWith(state, {
       ui: { goalEditor: { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 } },
     });
@@ -751,16 +757,17 @@ function renderWithShellModels(
   state: ChatState,
   shared: ChatSharedDisplayValues,
   node: (models: ReturnType<typeof shellModelsFromState>) => ComponentChild,
+  goal: ThreadGoal | null = null,
 ): HTMLElement {
   const parent = document.createElement("div");
-  renderUiRoot(parent, node(shellModelsFromState(state, shared)));
+  renderUiRoot(parent, node(shellModelsFromState(state, shared, goal)));
   return parent;
 }
 
-function shellModelsFromState(state: ChatState, shared: ChatSharedDisplayValues) {
+function shellModelsFromState(state: ChatState, shared: ChatSharedDisplayValues, goal: ThreadGoal | null = null) {
   return {
     toolbar: selectChatPanelToolbar(state, shared),
-    goal: selectChatPanelGoal(state),
+    goal: selectChatPanelGoal(state, goal),
     threadStream: selectChatPanelThreadStream(state, shared),
     composer: selectChatPanelComposer(state, shared),
   };

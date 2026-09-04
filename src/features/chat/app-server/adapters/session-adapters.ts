@@ -6,7 +6,6 @@ import {
   compactThread,
   forkThread,
   listThreadTurns,
-  readThreadGoal,
   resumeThread,
   setThreadGoal,
   startThread,
@@ -21,7 +20,6 @@ import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsPort } from "../../application/runtime/settings-commands";
 import type { EphemeralThreadEffects, EphemeralThreadForkResult } from "../../application/threads/ephemeral-thread-lifecycle";
 import type { ThreadGoalEffects } from "../../application/threads/goal-commands";
-import type { ThreadGoalSource } from "../../application/threads/goal-sync";
 import type { ThreadHistoryPage, ThreadHistorySource } from "../../application/threads/history-controller";
 import type { ThreadResumeEffects, ThreadResumeSnapshot } from "../../application/threads/resume-command";
 import type { ThreadCommandEffects } from "../../application/threads/thread-commands";
@@ -49,7 +47,6 @@ export function createChatSessionAdapters(host: ChatAppServerAdapterHost) {
     runtimeSettings: createChatRuntimeSettingsAdapter(host),
     threadStart: createChatThreadStartAdapter(host),
     threadHistory: createChatThreadHistoryAdapter(host),
-    threadGoalRead: createChatThreadGoalReadAdapter(host),
     turn: createChatTurnAdapter(host),
     threadResume: createChatThreadResumeAdapter(host),
     threadCommands: createChatThreadCommandAdapter(host),
@@ -199,12 +196,6 @@ function createChatThreadSubscriptionAdapter(host: ChatAppServerAdapterHost) {
   };
 }
 
-function createChatThreadGoalReadAdapter(host: CurrentChatAppServerClientHost): ThreadGoalSource {
-  return {
-    readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
-  };
-}
-
 function createChatThreadGoalAdapter(host: CurrentChatAppServerClientHost): ThreadGoalEffects {
   return {
     setThreadGoal: async (threadId, params) => runCurrentChatAppServerEffect(host, (client) => setThreadGoal(client, threadId, params)),
@@ -260,15 +251,6 @@ async function resumeChatThread(client: AppServerRequestClient, threadId: string
       ? chatThreadHistoryPageFromTurnsPage(threadTurnsPageFromAppServerPage(response.initialTurnsPage))
       : null,
   };
-}
-
-async function readThreadGoalFromCurrentClient(
-  host: CurrentChatAppServerClientHost,
-  threadId: string,
-): ReturnType<ThreadGoalSource["readThreadGoal"]> {
-  const client = host.currentClient();
-  if (!client) return undefined;
-  return readThreadGoal(client, threadId);
 }
 
 function threadTurnsPageFromAppServerPage(page: AppServerThreadTurnsPage): ThreadTurnsPage {

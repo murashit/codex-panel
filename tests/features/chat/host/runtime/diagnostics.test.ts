@@ -2,30 +2,34 @@ import { describe, expect, it } from "vitest";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import {
   createServerDiagnostics,
+  type DiagnosticProbeResult,
+  type Diagnostics,
   diagnosticProbeError,
   diagnosticProbeOk,
-  diagnosticsWithProbe,
   upsertMcpServerDiagnostic,
 } from "../../../../../src/domain/server/diagnostics";
+import type { McpServerDiagnostic } from "../../../../../src/domain/server/mcp-status";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
 import { appServerDiagnosticSections } from "../../../../../src/features/chat/host/runtime/diagnostics";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/host/runtime/tool-inventory";
 
-function diagnosticsWithToolInventory(inventory: ToolInventorySnapshot) {
-  let diagnostics = createServerDiagnostics();
-  for (const server of inventory.mcpDiagnostics) {
-    diagnostics = upsertMcpServerDiagnostic(diagnostics, server);
-  }
-  return { ...diagnostics, toolInventory: inventory };
+type InventoryFixture = ToolInventorySnapshot;
+
+function withProbe(diagnostics: Diagnostics, probe: DiagnosticProbeResult): Diagnostics {
+  return { ...diagnostics, probes: { ...diagnostics.probes, [probe.id]: probe } };
+}
+
+function withMcpDiagnostic(diagnostics: Diagnostics, server: McpServerDiagnostic): Diagnostics {
+  return { ...diagnostics, mcpServers: upsertMcpServerDiagnostic(diagnostics.mcpServers, server) };
 }
 
 describe("connection diagnostics", () => {
   it("formats connection rows and runtime checks for /doctor", () => {
     let diagnostics = createServerDiagnostics();
-    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeOk("models", "12 models", 1));
-    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeError("rateLimits", new Error("rate limit request failed"), 2));
-    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeError("skills", new Error("unknown method skills/list"), 3));
-    diagnostics = upsertMcpServerDiagnostic(diagnostics, {
+    diagnostics = withProbe(diagnostics, diagnosticProbeOk("models", "12 models", 1));
+    diagnostics = withProbe(diagnostics, diagnosticProbeError("rateLimits", new Error("rate limit request failed"), 2));
+    diagnostics = withProbe(diagnostics, diagnosticProbeError("skills", new Error("unknown method skills/list"), 3));
+    diagnostics = withMcpDiagnostic(diagnostics, {
       name: "github",
       connectionStatus: "failed",
       authStatus: null,
@@ -33,7 +37,7 @@ describe("connection diagnostics", () => {
       message: "missing token",
       authenticationIssue: null,
     });
-    diagnostics = upsertMcpServerDiagnostic(diagnostics, {
+    diagnostics = withMcpDiagnostic(diagnostics, {
       name: "docs",
       connectionStatus: "connected",
       authStatus: "notLoggedIn",
@@ -104,8 +108,7 @@ describe("connection diagnostics", () => {
         enabled: false,
       },
     ] satisfies readonly SkillMetadata[];
-    const inventory: ToolInventorySnapshot = {
-      checkedAt: 1,
+    const inventory: InventoryFixture = {
       plugins: [
         {
           id: "usable-plugin",
@@ -194,7 +197,7 @@ describe("connection diagnostics", () => {
       mcpError: null,
     };
 
-    const sections = toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory), {
+    const sections = toolInventoryDiagnosticSections(inventory, {
       value: skills,
       probe: diagnosticProbeOk("skills", "6 skills", 1),
     });
@@ -219,9 +222,29 @@ describe("connection diagnostics", () => {
     ]);
   });
 
+  it("keeps last-known tool inventory visible with refresh failures", () => {
+    const sections = toolInventoryDiagnosticSections(
+      {
+        plugins: [],
+        pluginMarketplaceErrors: [],
+        pluginsError: "plugins offline",
+        mcpServers: [],
+        mcpDiagnostics: [],
+        mcpError: "MCP offline",
+      },
+      { value: [], probe: createServerDiagnostics().probes.skills },
+    );
+
+    expect(sections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ rows: expect.arrayContaining([{ label: "Refresh", value: "plugins offline", level: "error" }]) }),
+        expect.objectContaining({ rows: expect.arrayContaining([{ label: "Refresh", value: "MCP offline", level: "error" }]) }),
+      ]),
+    );
+  });
+
   it("projects Codex capabilities from the latest diagnostic snapshot", () => {
-    const inventory: ToolInventorySnapshot = {
-      checkedAt: 1,
+    const inventory: InventoryFixture = {
       plugins: [],
       pluginMarketplaceErrors: [],
       pluginsError: null,
@@ -233,24 +256,20 @@ describe("connection diagnostics", () => {
           connectionStatus: null,
         },
       ],
-      mcpDiagnostics: [],
+      mcpDiagnostics: [
+        {
+          name: "github",
+          connectionStatus: "connected",
+          authStatus: null,
+          toolCount: null,
+          message: null,
+          authenticationIssue: null,
+        },
+      ],
       mcpError: null,
     };
-    let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
-      name: "github",
-      connectionStatus: "connected",
-      authStatus: null,
-      toolCount: null,
-      message: null,
-      authenticationIssue: null,
-    });
-    diagnostics = {
-      ...diagnostics,
-      toolInventory: inventory,
-    };
-
     const mcpRows =
-      toolInventoryDiagnosticSections(diagnostics, {
+      toolInventoryDiagnosticSections(inventory, {
         value: [],
         probe: diagnosticProbeOk("skills", "0 skills", 1),
       }).find((section) => section.title === "Tool providers")?.rows ?? [];
@@ -259,8 +278,7 @@ describe("connection diagnostics", () => {
   });
 
   it("keeps diagnostic-only MCP server failures in MCP servers", () => {
-    const inventory: ToolInventorySnapshot = {
-      checkedAt: 1,
+    const inventory: InventoryFixture = {
       plugins: [],
       pluginMarketplaceErrors: [],
       pluginsError: null,
@@ -279,7 +297,7 @@ describe("connection diagnostics", () => {
     };
 
     const mcpRows =
-      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory), {
+      toolInventoryDiagnosticSections(inventory, {
         value: [],
         probe: diagnosticProbeOk("skills", "0 skills", 1),
       }).find((section) => section.title === "Tool providers")?.rows ?? [];
@@ -291,8 +309,7 @@ describe("connection diagnostics", () => {
   });
 
   it("keeps codex app provider failures visible alongside the app inventory", () => {
-    const inventory: ToolInventorySnapshot = {
-      checkedAt: 1,
+    const inventory: InventoryFixture = {
       plugins: [],
       pluginMarketplaceErrors: [],
       pluginsError: null,
@@ -319,7 +336,7 @@ describe("connection diagnostics", () => {
     };
 
     const rows =
-      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory), {
+      toolInventoryDiagnosticSections(inventory, {
         value: [],
         probe: diagnosticProbeOk("skills", "0 skills", 1),
       }).find((section) => section.title === "Tool providers")?.rows ?? [];

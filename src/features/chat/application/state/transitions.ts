@@ -1,5 +1,3 @@
-import { createServerDiagnostics } from "../../../../domain/server/diagnostics";
-import type { ThreadGoal } from "../../../../domain/threads/goal";
 import { unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
 import { initialActiveChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
@@ -38,7 +36,7 @@ import {
   chatThreadStreamViewState,
   reduceTurnScope,
 } from "./turn-scope";
-import { clearAllRequestDisclosures, clearResolvedRequestDisclosures, initialUiState, maybeClearGoalObjectiveExpansion } from "./ui";
+import { clearAllRequestDisclosures, clearResolvedRequestDisclosures, initialUiState } from "./ui";
 
 export function reduceChatTransition(state: ChatState, action: ChatTransitionAction): ChatState {
   switch (action.type) {
@@ -53,8 +51,6 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
       return reduceActiveThreadResumedTransition(state, action);
     case "active-thread/settings-applied":
       return reduceActiveThreadSettingsAppliedTransition(state, action);
-    case "active-thread/goal-set":
-      return reduceActiveThreadGoalSetTransition(state, action.goal);
     case "panel/restored-thread-applied":
       return reduceRestoredThreadAppliedTransition(state, action.threadId, action.fallbackTitle);
     case "panel/restored-thread-renamed":
@@ -123,7 +119,6 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       thread: {
         id: action.thread.id,
         title: (action.thread.name ?? action.thread.preview) || null,
-        goal: null,
         tokenUsage: null,
         lifetime: action.lifetime ?? { kind: "persistent" },
         canAcceptDirectInput: action.canAcceptDirectInput,
@@ -183,15 +178,6 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
         collaborationMode: unchangedCollaborationModeIntent(),
       },
     },
-  });
-}
-
-function reduceActiveThreadGoalSetTransition(state: ChatState, goal: ThreadGoal | null): ChatState {
-  const activeThread = activeThreadState(state);
-  if (!activeThread) return state;
-  return patchObject(state, {
-    panelThread: { kind: "active", thread: { ...activeThread, goal } },
-    ui: maybeClearGoalObjectiveExpansion(state.ui, activeThread.goal, goal),
   });
 }
 
@@ -340,7 +326,6 @@ function clearConnectionScopedState(state: ChatState): ChatState {
     panelTargetRevision:
       panelThreadIdForState(nextPanelThread) === panelThreadId(state) ? state.panelTargetRevision : state.panelTargetRevision + 1,
     runtime: initialChatRuntimeState(),
-    connection: { ...state.connection, serverDiagnostics: createServerDiagnostics() },
     threadStream: ephemeralExpired ? initialChatThreadStreamState() : cleared.threadStream,
     pendingSubmission: null,
     composer: state.composer,

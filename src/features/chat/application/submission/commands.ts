@@ -73,7 +73,6 @@ interface SubmissionThreadStarter {
   startThread: (
     preview?: string,
     options?: {
-      syncGoal?: boolean;
       preservePendingSubmissionId?: string;
       adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
     },
@@ -201,7 +200,6 @@ async function startThreadForGoal(
   adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"],
 ): Promise<string | null> {
   const outcome = await starter.startThread(objective, {
-    syncGoal: false,
     ...(adoptPanelTarget ? { adoptPanelTarget } : {}),
   });
   return outcome.kind === "created-activated" ? outcome.threadId : null;

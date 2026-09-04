@@ -1,6 +1,5 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
-import type { AppServerResourceFact } from "../../application/connection/server-resource-facts";
 import { dynamicToolFailure, type PanelDynamicToolCall, type PanelDynamicToolResponse } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatState } from "../../application/state/model";
@@ -37,10 +36,7 @@ import {
 } from "./server-request-routing";
 
 export interface ChatInboundHandlerEffects {
-  refreshServerDiagnostics: () => void;
-  handleAppServerResourceFact: (fact: AppServerResourceFact) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
-  observeThreadGoal: (threadId: string) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
   executeDynamicTool: (call: PanelDynamicToolCall) => Promise<PanelDynamicToolResponse>;
@@ -133,9 +129,6 @@ function handleNotification(context: ChatInboundHandlerContext, notification: Se
       reconcileApprovalRequests(context);
       return;
     }
-  }
-  if (notification.method === "thread/goal/updated" || notification.method === "thread/goal/cleared") {
-    context.effects.observeThreadGoal(notification.params.threadId);
   }
   const plan = planChatInboundNotification(state(context), notification, (prefix) => localItemId(context, prefix));
   for (const action of plan.actions) dispatch(context, action);
@@ -407,15 +400,5 @@ function localItemId(context: ChatInboundHandlerContext, prefix: string): string
 }
 
 function runInboundEffect(context: ChatInboundHandlerContext, effect: ChatInboundEffect): void {
-  switch (effect.type) {
-    case "refresh-server-diagnostics":
-      context.effects.refreshServerDiagnostics();
-      return;
-    case "handle-app-server-resource-fact":
-      context.effects.handleAppServerResourceFact(effect.fact);
-      return;
-    case "maybe-name-thread":
-      context.effects.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
-      return;
-  }
+  context.effects.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
 }

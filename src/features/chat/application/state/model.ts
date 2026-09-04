@@ -1,8 +1,5 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { Diagnostics } from "../../../../domain/server/diagnostics";
-import { createServerDiagnostics } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { initialChatRuntimeState } from "../../domain/runtime/state";
@@ -29,13 +26,11 @@ export interface ChatConnectionState {
   readonly phase: ChatConnectionPhase;
   readonly statusText: string;
   readonly initializeResponse: ServerInitialization | null;
-  readonly serverDiagnostics: Diagnostics;
 }
 
 export interface ChatActiveThreadState {
   readonly id: string;
   readonly title?: string | null;
-  readonly goal: ThreadGoal | null;
   readonly tokenUsage: ThreadTokenUsage | null;
   readonly lifetime: ActiveThreadLifetime | null;
   readonly canAcceptDirectInput: boolean | null;
@@ -91,7 +86,6 @@ function initialConnectionState(): ChatConnectionState {
     phase: { kind: "idle" },
     statusText: "Idle",
     initializeResponse: null,
-    serverDiagnostics: createServerDiagnostics(),
   };
 }
 
@@ -116,7 +110,6 @@ export function createActiveThreadState(id: string): ChatActiveThreadState {
   return {
     id,
     title: null,
-    goal: null,
     tokenUsage: null,
     lifetime: null,
     canAcceptDirectInput: null,

@@ -111,6 +111,7 @@ describe("createToolbarPanelActions", () => {
         rateLimit: () => null,
         availableModels: () => [],
         metadataDiagnostics: () => createServerDiagnostics(),
+        toolInventory: () => null,
       },
     });
     stateStore.dispatch({

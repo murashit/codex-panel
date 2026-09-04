@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
-import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import { activeThreadState } from "../../../../../src/features/chat/application/state/model";
+import { activeThreadId } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   createGoalCommands as createGoalCommandsImpl,
@@ -14,15 +13,22 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 type GoalCommandsHost = Parameters<typeof createGoalCommandsImpl>[0];
 
 function createGoalCommands(
-  host: Omit<GoalCommandsHost, "ensureConnected" | "ensureRestoredThreadLoaded" | "startEditingGoal" | "observeThreadGoal"> &
-    Partial<Pick<GoalCommandsHost, "ensureConnected" | "ensureRestoredThreadLoaded" | "startEditingGoal" | "observeThreadGoal">>,
+  host: Omit<GoalCommandsHost, "ensureConnected" | "ensureRestoredThreadLoaded" | "startEditingGoal" | "goalQueries"> &
+    Partial<Pick<GoalCommandsHost, "ensureConnected" | "ensureRestoredThreadLoaded" | "startEditingGoal" | "goalQueries">>,
 ) {
+  const goals = new Map<string, ThreadGoal | null>();
+  const threadId = activeThreadId(host.stateStore.getState());
+  if (threadId) goals.set(threadId, goal());
   const context = {
     ...host,
     ensureConnected: host.ensureConnected ?? (async () => true),
     ensureRestoredThreadLoaded: host.ensureRestoredThreadLoaded ?? (async () => true),
     startEditingGoal: host.startEditingGoal ?? vi.fn(),
-    observeThreadGoal: host.observeThreadGoal ?? vi.fn(),
+    goalQueries:
+      host.goalQueries ??
+      ({
+        snapshot: (id: string) => goals.get(id),
+      } satisfies GoalCommandsHost["goalQueries"]),
   };
   return createGoalCommandsImpl(context);
 }
@@ -31,26 +37,18 @@ describe("createGoalCommands", () => {
   it("sets objective, status, and clears goals through app-server", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { activeThread: { goal: goal({ tokenBudget: 500 }) } });
     const stateStore = createChatStateStore(state);
-    const updated = goal({ objective: "Updated", tokenBudget: 250 });
-    const paused = goal({ objective: "Updated", status: "paused", tokenBudget: 250 });
     const effects = effectsFixture({
-      setThreadGoal: vi.fn().mockResolvedValueOnce(completed(updated)).mockResolvedValueOnce(completed(paused)),
+      setThreadGoal: vi.fn().mockResolvedValue(completed(undefined)),
       clearThreadGoal: vi.fn().mockResolvedValue(completed(undefined)),
     });
     const { setThreadGoal, clearThreadGoal } = effects;
     const addSystemMessage = vi.fn();
-    const addGoalEvent = vi.fn();
-    const observeThreadGoal = vi.fn();
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
-      addGoalEvent,
-      observeThreadGoal,
     });
 
     await commands.setObjective("thread", " Updated ", 250);
@@ -61,18 +59,11 @@ describe("createGoalCommands", () => {
     expect(setThreadGoal).toHaveBeenCalledWith("thread", { status: "paused" });
     expect(clearThreadGoal).toHaveBeenCalledWith("thread");
     expect(addSystemMessage).not.toHaveBeenCalledWith("Goal updated.");
-    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
-    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "paused: Updated", objective: "Updated" }));
-    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "cleared: Updated", objective: "Updated" }));
-    expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
-    expect(observeThreadGoal).toHaveBeenNthCalledWith(1, "thread");
-    expect(observeThreadGoal).toHaveBeenNthCalledWith(2, "thread");
-    expect(observeThreadGoal).toHaveBeenNthCalledWith(3, "thread");
   });
 
   it("does not mark unavailable or failed goal mutations as committed", async () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal() } });
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const effects = effectsFixture({
       setThreadGoal: vi.fn().mockResolvedValue({ kind: "not-started" }),
@@ -81,53 +72,12 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
     });
 
     await expect(commands.setObjective("thread", "Stale", null)).resolves.toBe(false);
     await expect(commands.clear("thread")).resolves.toBe(false);
-  });
-
-  it("lets app-server settle concurrent goal mutations", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { activeThread: { goal: goal() } });
-    const stateStore = createChatStateStore(state);
-    const firstUpdate = deferred<EffectOutcome<ThreadGoal>>();
-    const secondUpdate = deferred<EffectOutcome<ThreadGoal>>();
-    const effects = effectsFixture({
-      setThreadGoal: vi.fn().mockReturnValueOnce(firstUpdate.promise).mockReturnValueOnce(secondUpdate.promise),
-    });
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
-    });
-
-    const objectiveUpdate = commands.setObjective("thread", "Updated", null);
-    await vi.waitFor(() => expect(effects.setThreadGoal).toHaveBeenCalledOnce());
-    const statusUpdate = commands.setStatus("thread", "paused");
-    await Promise.resolve();
-    expect(effects.setThreadGoal).toHaveBeenCalledTimes(2);
-
-    firstUpdate.resolve(completed(goal({ objective: "Updated" })));
-    await expect(objectiveUpdate).resolves.toBe(true);
-    secondUpdate.resolve(completed(goal({ objective: "Updated", status: "paused" })));
-    await expect(statusUpdate).resolves.toBe(true);
-
-    expect(effects.setThreadGoal).toHaveBeenNthCalledWith(1, "thread", {
-      objective: "Updated",
-      status: "active",
-      tokenBudget: null,
-    });
-    expect(effects.setThreadGoal).toHaveBeenNthCalledWith(2, "thread", { status: "paused" });
-    expect(activeThreadState(stateStore.getState())?.goal).toMatchObject({ objective: "Updated", status: "paused" });
   });
 
   it("blocks goal mutations in side chats before calling app-server", async () => {
@@ -144,10 +94,8 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "side" }),
       addSystemMessage,
-      addGoalEvent: vi.fn(),
     });
 
     await expect(commands.setObjective("side", "Ship", null)).resolves.toBe(false);
@@ -161,7 +109,6 @@ describe("createGoalCommands", () => {
   it("does not report stale goal action failures after the active thread changes", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const update = deferred<never>();
     const effects = effectsFixture({ setThreadGoal: vi.fn().mockReturnValue(update.promise) });
@@ -169,10 +116,8 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
-      addGoalEvent: vi.fn(),
     });
 
     const pending = commands.setStatus("thread", "paused");
@@ -187,7 +132,6 @@ describe("createGoalCommands", () => {
   it("does not report stale goal clear failures after the active thread changes", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const clear = deferred<never>();
     const effects = effectsFixture({ clearThreadGoal: vi.fn().mockReturnValue(clear.promise) });
@@ -195,10 +139,8 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
-      addGoalEvent: vi.fn(),
     });
 
     const pending = commands.clear("thread");
@@ -213,16 +155,13 @@ describe("createGoalCommands", () => {
   it("does not clear a stale goal when the active thread changes during the policy guard", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const effects = effectsFixture();
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
     });
 
     const pending = commands.clear("thread");
@@ -244,10 +183,8 @@ describe("createGoalCommands", () => {
       stateStore,
       effects,
       ensureConnected,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
-      addGoalEvent: vi.fn(),
     });
 
     const pending = commands.setObjective("thread", "Finish", null);
@@ -260,40 +197,9 @@ describe("createGoalCommands", () => {
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("reports goal creation as a structured goal event", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const effects = effectsFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completed(goal())) });
-    const addSystemMessage = vi.fn();
-    const addGoalEvent = vi.fn();
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage,
-      addGoalEvent,
-    });
-
-    await commands.setObjective("thread", "Finish", null);
-
-    expect(addSystemMessage).not.toHaveBeenCalledWith("Goal set.");
-    expect(addGoalEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "goal",
-        role: "tool",
-        text: "set: Finish",
-        action: "set",
-        objective: "Finish",
-      }),
-    );
-  });
-
   it("starts a thread before saving a new goal objective when no thread is active", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const savedGoal = goal({ threadId: "thread-new", objective: "Plan release" });
-    const effects = effectsFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completed(savedGoal)) });
+    const effects = effectsFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completed(undefined)) });
     const { setThreadGoal } = effects;
     const startThread = vi.fn().mockImplementation(async () => {
       stateStore.dispatch({
@@ -324,15 +230,13 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread,
       addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
     });
 
     await expect(commands.saveObjective(" Plan release ", null)).resolves.toBe(true);
 
-    expect(startThread).toHaveBeenCalledWith("Plan release", { syncGoal: false });
+    expect(startThread).toHaveBeenCalledWith("Plan release");
     expect(setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Plan release", status: "active", tokenBudget: null });
   });
 
@@ -343,10 +247,8 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated" }),
       addSystemMessage,
-      addGoalEvent: vi.fn(),
     });
 
     await expect(commands.saveObjective("Plan release", null)).resolves.toBe(false);
@@ -365,10 +267,8 @@ describe("createGoalCommands", () => {
       stateStore,
       effects,
       ensureConnected,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread,
       addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
     });
 
     const pending = commands.saveObjective("Plan release", null);
@@ -385,7 +285,7 @@ describe("createGoalCommands", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "restored", fallbackTitle: "Restored" });
     const effects = effectsFixture({
-      setThreadGoal: vi.fn().mockResolvedValue(completed(goal({ threadId: "restored", objective: "Resume work" }))),
+      setThreadGoal: vi.fn().mockResolvedValue(completed(undefined)),
     });
     const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "new-thread" });
     const ensureRestoredThreadLoaded = vi.fn(async () => {
@@ -417,11 +317,9 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread,
       ensureRestoredThreadLoaded,
       addSystemMessage: vi.fn(),
-      addGoalEvent: vi.fn(),
     });
 
     await expect(commands.saveObjective("Resume work", null)).resolves.toBe(true);
@@ -445,10 +343,8 @@ describe("createGoalCommands", () => {
       stateStore,
       effects,
       ensureConnected,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       startThread,
       addSystemMessage,
-      addGoalEvent: vi.fn(),
     });
 
     await expect(commands.saveObjective("   ", null)).resolves.toBe(false);
@@ -456,29 +352,6 @@ describe("createGoalCommands", () => {
     expect(addSystemMessage).toHaveBeenCalledWith("Goal objective cannot be empty.");
     expect(ensureConnected).not.toHaveBeenCalled();
     expect(startThread).not.toHaveBeenCalled();
-  });
-
-  it("reports goal resume as a user-visible state change", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { activeThread: { goal: goal({ status: "paused" }) } });
-    const stateStore = createChatStateStore(state);
-    const effects = effectsFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completed(goal())) });
-    const addSystemMessage = vi.fn();
-    const addGoalEvent = vi.fn();
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
-      addSystemMessage,
-      addGoalEvent,
-    });
-
-    await commands.setStatus("thread", "active");
-
-    expect(addSystemMessage).not.toHaveBeenCalledWith("Goal resumed.");
-    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "resumed: Finish", objective: "Finish" }));
   });
 });
 
@@ -498,7 +371,7 @@ function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
 
 function effectsFixture(overrides: Partial<ThreadGoalEffects> = {}): ThreadGoalEffects {
   return {
-    setThreadGoal: vi.fn().mockResolvedValue(completed(goal())),
+    setThreadGoal: vi.fn().mockResolvedValue(completed(undefined)),
     clearThreadGoal: vi.fn().mockResolvedValue(completed(undefined)),
     ...overrides,
   };

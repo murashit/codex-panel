@@ -1,3 +1,4 @@
+import { serverDiagnostics } from "../../../../domain/server/diagnostics";
 import { compareThreadsPinnedFirst, type Thread } from "../../../../domain/threads/model";
 import { threadRowCoreProjection } from "../../../threads/list/row-projection";
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
@@ -41,7 +42,7 @@ export function projectChatPanelToolbar(
   const limit = rateLimitSummary(snapshot, nowMs);
   const diagnostics = {
     initializeResponse: model.initializeResponse,
-    serverDiagnostics: model.serverDiagnostics,
+    serverDiagnostics: serverDiagnostics(model.metadataDiagnostics, model.toolInventory?.mcpDiagnostics ?? []),
   };
   const permissions = runtimePermissionSections({
     snapshot,
@@ -78,7 +79,7 @@ export function projectChatPanelToolbar(
       initializeResponse: diagnostics.initializeResponse,
       diagnostics: diagnostics.serverDiagnostics,
     }),
-    toolInventory: toolInventoryDiagnosticSections(diagnostics.serverDiagnostics, {
+    toolInventory: toolInventoryDiagnosticSections(model.toolInventory, {
       value: model.availableSkills,
       probe: diagnostics.serverDiagnostics.probes.skills,
     }),

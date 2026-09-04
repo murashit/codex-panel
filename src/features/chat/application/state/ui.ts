@@ -1,4 +1,3 @@
-import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { ThreadRenameActiveState } from "../../../../domain/threads/rename-lifecycle";
 import { pendingRequestDerivedKeyPrefix } from "../../domain/pending-requests/drafts";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
@@ -115,21 +114,6 @@ export function reduceUiSlice(state: ChatUiState, action: UiAction): ChatUiState
   }
 }
 
-export function maybeClearGoalObjectiveExpansion(
-  state: ChatUiState,
-  currentGoal: ThreadGoal | null,
-  nextGoal: ThreadGoal | null,
-): ChatUiState {
-  if (goalObjectiveResetKey(currentGoal) === goalObjectiveResetKey(nextGoal)) return state;
-  if (state.disclosures.goalObjectiveExpanded.size === 0) return state;
-  return patchObject(state, {
-    disclosures: {
-      ...state.disclosures,
-      goalObjectiveExpanded: new Set(),
-    },
-  });
-}
-
 export function clearAllRequestDisclosures(state: ChatUiState): ChatUiState {
   if (state.disclosures.approvalDetails.size === 0) return state;
   return patchObject(state, {
@@ -196,11 +180,6 @@ function disclosureUiStateFrom(factory: (bucket: ChatDisclosureBucket) => Readon
     disclosures[bucket] = factory(bucket);
   }
   return disclosures;
-}
-
-function goalObjectiveResetKey(goal: ThreadGoal | null): string {
-  if (!goal) return "";
-  return [goal.threadId, goal.objective, goal.status, String(goal.tokenBudget ?? "")].join("\u0000");
 }
 
 function goalEditorDraftUpdated(state: ChatGoalEditorUiState, objective: string): ChatGoalEditorUiState {

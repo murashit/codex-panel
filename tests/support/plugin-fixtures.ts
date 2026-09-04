@@ -165,6 +165,24 @@ function chatHostFixture(): CodexChatHost {
       refreshModels: vi.fn(() => Promise.resolve([])),
       observeMetadataResource: vi.fn(() => () => undefined),
     },
+    toolInventoryQueries: {
+      snapshot: vi.fn(() => null),
+      observe: vi.fn((_threadId, listener) => {
+        listener(null);
+        return () => undefined;
+      }),
+      ensure: vi.fn().mockResolvedValue(null),
+      refresh: vi.fn().mockResolvedValue(null),
+    },
+    threadGoalQueries: {
+      snapshot: vi.fn(() => null),
+      observe: vi.fn((_threadId, listener) => {
+        listener(null);
+        return () => undefined;
+      }),
+      observeChanges: vi.fn(() => () => undefined),
+      applyNotification: vi.fn(),
+    },
     threadCatalog: {
       fetchActiveThreads: vi.fn(() => Promise.resolve([])),
       refreshActiveThreads: vi.fn(() => Promise.resolve()),

@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
-import {
-  createServerDiagnostics,
-  diagnosticProbeOk,
-  diagnosticsWithProbe,
-  upsertMcpServerDiagnostic,
-} from "../../../../../src/domain/server/diagnostics";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createSessionConnection } from "../../../../../src/features/chat/host/session/connection";
 import { chatStateFixture } from "../../support/state";
@@ -84,68 +78,11 @@ describe("session connection", () => {
     expect(childResponder.respond).not.toHaveBeenCalled();
     expect(fixture.stateStore.getState().requests.approvals).toHaveLength(1);
   });
-
-  it("reports deferred diagnostics failures as system messages", async () => {
-    const error = new Error("diagnostics failed");
-    const fixture = sessionConnectionFixture({
-      readServerDiagnostics: vi.fn().mockRejectedValue(error),
-    });
-    await fixture.hydrate();
-
-    fixture.runScheduledDiagnostics();
-    await vi.waitFor(() => {
-      expect(fixture.addSystemMessage).toHaveBeenCalledWith("diagnostics failed");
-    });
-  });
-
-  it("does not run deferred diagnostics after disconnect", async () => {
-    const readServerDiagnostics = vi.fn().mockResolvedValue(null);
-    const fixture = sessionConnectionFixture({ readServerDiagnostics });
-    await fixture.hydrate();
-    fixture.setConnected(false);
-
-    fixture.runScheduledDiagnostics();
-
-    expect(readServerDiagnostics).not.toHaveBeenCalled();
-  });
-
-  it("invalidates and refreshes thread-scoped MCP runtime diagnostics when the active thread changes", async () => {
-    const readServerDiagnostics = vi.fn().mockResolvedValue(null);
-    const fixture = sessionConnectionFixture({ readServerDiagnostics });
-    await fixture.connect();
-    const diagnostics = upsertMcpServerDiagnostic(
-      diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("mcpServers", "1 servers, 1 issues", 1)),
-      {
-        name: "github",
-        connectionStatus: "connected",
-        authStatus: "oAuth",
-        toolCount: 2,
-        message: null,
-        authenticationIssue: null,
-      },
-    );
-    fixture.stateStore.dispatch({ type: "connection/diagnostics-applied", serverDiagnostics: diagnostics });
-
-    fixture.stateStore.dispatch(resumedThreadAction("thread-next"));
-
-    expect(fixture.stateStore.getState().connection.serverDiagnostics.mcpServers).toMatchObject([
-      { name: "github", connectionStatus: "unknown", authStatus: "oAuth", toolCount: 2 },
-    ]);
-    expect(fixture.stateStore.getState().connection.serverDiagnostics.probes.mcpServers).toMatchObject({
-      status: "unknown",
-      summary: null,
-      checkedAt: null,
-    });
-    await vi.waitFor(() => {
-      expect(readServerDiagnostics).toHaveBeenCalledWith({ threadId: "thread-next", initialDiagnostics: expect.anything() });
-    });
-  });
 });
 
-function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnType<typeof vi.fn> } = {}) {
+function sessionConnectionFixture() {
   let connected = false;
   let handlers: ConnectionManagerHandlers | null = null;
-  let scheduledDiagnostics: (() => void) | null = null;
   const addSystemMessage = vi.fn();
   const stateStore = createChatStateStore(
     chatStateFixture({
@@ -162,6 +99,9 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
           ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
           refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
         },
+        toolInventoryQueries: {
+          refresh: vi.fn().mockResolvedValue(undefined),
+        },
         threadCatalog: {
           fetchActiveThreads: vi.fn().mockResolvedValue(undefined),
           refreshActiveThreads: vi.fn().mockResolvedValue(undefined),
@@ -172,12 +112,6 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
     },
     stateStore,
     canConnect: () => true,
-    deferredTasks: {
-      scheduleDiagnostics: (callback: () => void) => {
-        scheduledDiagnostics = callback;
-      },
-      clearDiagnostics: vi.fn(),
-    },
     invalidateThreadWork: vi.fn(),
     refreshTabHeader: vi.fn(),
   } as unknown as SessionConnectionHost;
@@ -190,9 +124,6 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
       },
       isConnected: () => connected,
     },
-    diagnosticsPort: {
-      readServerDiagnostics: overrides.readServerDiagnostics ?? vi.fn().mockResolvedValue(null),
-    },
     localItemIds: {
       next: (prefix: string) => `${prefix}-1`,
     },
@@ -204,16 +135,12 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
       maybeAutoTitleThread: vi.fn(),
       resetThreadTurnPresence: vi.fn(),
     },
-    goalSync: {
-      observeThreadGoal: vi.fn(),
-    },
   } as unknown as SessionConnectionInput;
   const connection = createSessionConnection(host, input);
   return {
     addSystemMessage,
     stateStore,
     connect: () => connection.coordinator.ensureConnected(),
-    hydrate: () => connection.coordinator.ensureHydrated(),
     deliver: (request: ServerRequest, responder: Parameters<ConnectionManagerHandlers["onServerRequest"]>[1]) => {
       if (!handlers) throw new Error("Expected connection handlers.");
       handlers.onServerRequest(request, responder);
@@ -221,39 +148,9 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
     resolveUserInput: connection.inboundHandler.resolveUserInput,
     resolveApproval: connection.inboundHandler.resolveApproval,
     invalidate: connection.invalidateConnectionScope,
-    runScheduledDiagnostics: () => {
-      if (!scheduledDiagnostics) throw new Error("Expected deferred diagnostics callback.");
-      scheduledDiagnostics();
-    },
     setConnected: (value: boolean) => {
       connected = value;
     },
-  };
-}
-
-function resumedThreadAction(threadId: string) {
-  return {
-    type: "active-thread/resumed" as const,
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: {
-      id: threadId,
-      preview: "",
-      name: null,
-      archived: false,
-      createdAt: 1,
-      updatedAt: 1,
-      provenance: { kind: "interactive" as const },
-    },
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
   };
 }
 

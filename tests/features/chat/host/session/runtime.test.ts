@@ -7,6 +7,7 @@ import type { ConnectionManagerHandlers } from "../../../../../src/app-server/co
 import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../../src/domain/server/initialization";
+import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
@@ -75,6 +76,46 @@ describe("chat panel session runtime", () => {
     await expect(runtime.commands.refreshSharedThreads()).rejects.toBe(error);
 
     expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("resets objective expansion only when a goal presentation changes", () => {
+    let publishGoalChange: ((threadId: string, previous: ThreadGoal | null, next: ThreadGoal | null) => void) | undefined;
+    const observeChanges = vi.fn((listener: NonNullable<typeof publishGoalChange>) => {
+      publishGoalChange = listener;
+      return () => undefined;
+    });
+    const { stateStore } = sessionRuntimeFixture({
+      environment: { plugin: { threadGoalQueries: { ...threadGoalQueriesFixture(), observeChanges } } },
+    });
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      canAcceptDirectInput: null,
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: threadFixture({ id: "thread-1" }),
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread-1", open: true });
+    const initial = goalFixture({ objective: "Initial", updatedAt: 1 });
+    expect(observeChanges).toHaveBeenCalledOnce();
+    expect(publishGoalChange).toBeTypeOf("function");
+
+    publishGoalChange?.("thread-other", null, { ...initial, threadId: "thread-other", objective: "Other" });
+    expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(true);
+    expect(stateStore.getState().threadStream.stableItems).toEqual([]);
+
+    publishGoalChange?.("thread-1", initial, { ...initial, tokensUsed: 1, updatedAt: 2 });
+    expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(true);
+
+    publishGoalChange?.("thread-1", initial, { ...initial, objective: "Replacement", updatedAt: 3 });
+    expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(false);
   });
 
   it("does not connect for a submission after the panel starts closing", async () => {
@@ -259,9 +300,7 @@ describe("chat panel session runtime", () => {
       },
     });
     runtime.observers.threadCatalog.subscribe();
-    const diagnostics = vi.fn();
     const warmup = vi.fn();
-    deferredTasks.scheduleDiagnostics(diagnostics);
     deferredTasks.scheduleAppServerWarmup(warmup);
     const dispatchScrollCommand = vi.fn();
     threadStreamScrollBinding.mountScrollPort({ dispatchScrollCommand });
@@ -306,7 +345,6 @@ describe("chat panel session runtime", () => {
     expect(dispatchScrollCommand).not.toHaveBeenCalled();
 
     await vi.runAllTimersAsync();
-    expect(diagnostics).not.toHaveBeenCalled();
     expect(warmup).not.toHaveBeenCalled();
   });
 
@@ -474,6 +512,8 @@ describe("chat panel session runtime", () => {
       threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
       threadFacts?: Partial<ChatPanelEnvironment["plugin"]["threadFacts"]>;
       appServerQueries?: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]>;
+      toolInventoryQueries?: ChatPanelEnvironment["plugin"]["toolInventoryQueries"];
+      threadGoalQueries?: ChatPanelEnvironment["plugin"]["threadGoalQueries"];
       threadMutations?: ChatPanelEnvironment["plugin"]["threadMutations"];
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
@@ -542,6 +582,8 @@ describe("chat panel session runtime", () => {
           openSideChat: overrides.plugin?.workspace?.openSideChat ?? vi.fn().mockResolvedValue(undefined),
         },
         appServerQueries,
+        toolInventoryQueries: overrides.plugin?.toolInventoryQueries ?? toolInventoryQueriesFixture(),
+        threadGoalQueries: overrides.plugin?.threadGoalQueries ?? threadGoalQueriesFixture(),
         threadCatalog,
         threadFacts: {
           apply: overrides.plugin?.threadFacts?.apply ?? vi.fn(),
@@ -632,6 +674,30 @@ describe("chat panel session runtime", () => {
     };
   }
 
+  function toolInventoryQueriesFixture(): ChatPanelEnvironment["plugin"]["toolInventoryQueries"] {
+    return {
+      snapshot: vi.fn(() => null),
+      observe: vi.fn((_threadId, listener) => {
+        listener(null);
+        return () => undefined;
+      }),
+      ensure: vi.fn().mockResolvedValue(null),
+      refresh: vi.fn().mockResolvedValue(null),
+    };
+  }
+
+  function threadGoalQueriesFixture(): ChatPanelEnvironment["plugin"]["threadGoalQueries"] {
+    return {
+      snapshot: vi.fn(() => null),
+      observe: vi.fn((_threadId, listener) => {
+        listener(null);
+        return () => undefined;
+      }),
+      observeChanges: vi.fn(() => () => undefined),
+      applyNotification: vi.fn(),
+    };
+  }
+
   function threadFixture(overrides: Partial<Thread> = {}): Thread {
     return {
       id: "thread",
@@ -639,6 +705,20 @@ describe("chat panel session runtime", () => {
       name: null,
       archived: false,
       provenance: { kind: "interactive" },
+      createdAt: 1,
+      updatedAt: 1,
+      ...overrides,
+    };
+  }
+
+  function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
+    return {
+      threadId: "thread-1",
+      objective: "Goal",
+      status: "active",
+      tokenBudget: null,
+      tokensUsed: 0,
+      timeUsedSeconds: 0,
       createdAt: 1,
       updatedAt: 1,
       ...overrides,

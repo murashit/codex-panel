@@ -1,55 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createServerDiagnostics, diagnosticsWithToolInventory } from "../../../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createSessionTurn } from "../../../../../src/features/chat/host/session/turn";
+import { deferred } from "../../../../support/async";
 
 describe("createSessionTurn", () => {
-  it("uses cached tool inventory for /tools without refreshing diagnostics", async () => {
-    const stateStore = createChatStateStore();
-    stateStore.dispatch({
-      type: "connection/diagnostics-applied",
-      serverDiagnostics: diagnosticsWithToolInventory(createServerDiagnostics(), toolInventory()),
-    });
-    const fixture = sessionTurnFixture({ stateStore });
+  it("lets the query owner settle cached tool inventory before rendering /tools", async () => {
+    const inventory = deferred<ToolInventorySnapshot>();
+    const ensureToolInventory = vi.fn(() => inventory.promise);
+    const fixture = sessionTurnFixture({ toolInventory: toolInventory(), ensureToolInventory });
 
-    await fixture.submit();
+    const submission = fixture.submit();
+    await vi.waitFor(() => expect(ensureToolInventory).toHaveBeenCalledOnce());
+    expect(fixture.runtimeProjection.toolInventoryDetails).not.toHaveBeenCalled();
+    expect(fixture.status.addStructuredSystemMessage).not.toHaveBeenCalled();
 
-    expect(fixture.refreshDiagnostics).not.toHaveBeenCalled();
+    inventory.resolve(toolInventory());
+    await submission;
+
+    expect(fixture.ensureToolInventory).toHaveBeenCalledOnce();
     expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
     expect(fixture.status.addStructuredSystemMessage).toHaveBeenCalledWith("Codex capabilities", [
       { title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] },
     ]);
-  });
-
-  it("refreshes diagnostics for /tools when tool inventory is not loaded", async () => {
-    const fixture = sessionTurnFixture();
-
-    await fixture.submit();
-
-    expect(fixture.refreshDiagnostics).toHaveBeenCalledOnce();
-    expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
-  });
-
-  it("shows refreshed tool inventory when only shared metadata refresh fails", async () => {
-    const stateStore = createChatStateStore();
-    const fixture = sessionTurnFixture({ stateStore });
-    fixture.refreshDiagnostics.mockImplementationOnce(async () => {
-      stateStore.dispatch({
-        type: "connection/diagnostics-applied",
-        serverDiagnostics: diagnosticsWithToolInventory(createServerDiagnostics(), toolInventory()),
-      });
-      throw new Error("config unavailable");
-    });
-
-    await fixture.submit();
-
-    expect(fixture.runtimeProjection.toolInventoryDetails).toHaveBeenCalledOnce();
-    expect(fixture.status.addStructuredSystemMessage).toHaveBeenCalledWith("Codex capabilities", [
-      { title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] },
-    ]);
-    expect(fixture.status.addSystemMessage).not.toHaveBeenCalledWith("config unavailable");
   });
 
   it("passes the callable thread reference port through the session turn", async () => {
@@ -83,6 +57,8 @@ function sessionTurnFixture(
     draft?: string;
     referThread?: ReturnType<typeof vi.fn>;
     threads?: readonly import("../../../../../src/domain/threads/model").Thread[];
+    toolInventory?: ToolInventorySnapshot | null;
+    ensureToolInventory?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
   const stateStore = options.stateStore ?? createChatStateStore();
@@ -101,7 +77,7 @@ function sessionTurnFixture(
     permissionDetails: vi.fn(() => []),
     toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] }]),
   };
-  const refreshDiagnostics = vi.fn().mockResolvedValue(undefined);
+  const ensureToolInventory = options.ensureToolInventory ?? vi.fn().mockResolvedValue(toolInventory());
   const turn = createSessionTurn(
     {
       environment: {
@@ -168,13 +144,19 @@ function sessionTurnFixture(
       autoTitleCoordinator: { resetThreadTurnPresence: vi.fn() },
       reconnect: vi.fn(),
       runtimeProjection,
-      refreshDiagnostics,
+      sharedResources: {
+        runtimeConfigSnapshot: () => null,
+        rateLimitsSnapshot: () => undefined,
+        modelsSnapshot: () => null,
+        toolInventorySnapshot: () => options.toolInventory ?? null,
+        ensureToolInventory,
+      },
       notifyActiveThreadIdentityChanged: vi.fn(),
     } as never,
   );
   return {
     submit: () => turn.submissionCommands.composerSubmit.submit(),
-    refreshDiagnostics,
+    ensureToolInventory,
     runtimeProjection,
     status,
   };
@@ -182,7 +164,6 @@ function sessionTurnFixture(
 
 function toolInventory(): ToolInventorySnapshot {
   return {
-    checkedAt: 1,
     plugins: [],
     pluginMarketplaceErrors: [],
     pluginsError: null,

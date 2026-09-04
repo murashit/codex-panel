@@ -137,7 +137,6 @@ function stateFromFacts(facts: ActivePanelThreadFacts): ChatState {
       kind: "active",
       thread: {
         id: "thread",
-        goal: null,
         tokenUsage: null,
         lifetime:
           facts.lifetime === "persistent"

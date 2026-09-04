@@ -4,6 +4,8 @@ import { afterEach, beforeEach, expect, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import { AppServerQueryScope } from "../../../../src/app-server/query/query-scope";
+import { AppServerThreadGoalQueries } from "../../../../src/app-server/query/thread-goal-queries";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import type {
@@ -71,7 +73,9 @@ export function connectionMockState(): typeof connectionMock.state {
   return connectionMock.state;
 }
 
-function contextConnectionMock(): CodexChatHost["appServerConnection"] {
+function contextConnectionMock(
+  handleContextNotification?: (notification: ServerNotification) => boolean,
+): CodexChatHost["appServerConnection"] {
   return {
     createLease: () => {
       let connected = false;
@@ -82,7 +86,9 @@ function contextConnectionMock(): CodexChatHost["appServerConnection"] {
           connectionMock.state.connected = true;
           connected = true;
           client = connectionMock.state.client;
-          connectionMock.state.onNotification = handlers.onNotification;
+          connectionMock.state.onNotification = (notification) => {
+            if (!handleContextNotification?.(notification)) handlers.onNotification(notification);
+          };
           connectionMock.state.onServerRequest = (request, responder) => {
             handlers.onServerRequest(request, responder);
           };
@@ -389,6 +395,7 @@ export interface ChatHostFixtureOverrides {
   fetchModels?: CodexChatHost["appServerQueries"]["fetchModels"];
   refreshModels?: CodexChatHost["appServerQueries"]["refreshModels"];
   refreshAppServerMetadata?: CodexChatHost["appServerQueries"]["refreshAppServerMetadata"];
+  toolInventoryQueries?: CodexChatHost["toolInventoryQueries"];
   threadMutations?: Partial<CodexChatHost["threadMutations"]>;
 }
 
@@ -551,8 +558,26 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
   const replacementPublication = createThreadReplacementPublication((facts) => {
     for (const fact of facts) (overrides.applyThreadFact ?? applyThreadFact)(fact);
   });
+  const threadGoalQueries = new AppServerThreadGoalQueries(
+    new AppServerQueryScope(
+      { codexPath: settings.codexPath, vaultPath },
+      {
+        withClient: async (operation) => {
+          const client = connectionMock.state.client;
+          if (!client) throw new Error("App-server client is unavailable.");
+          return operation(client as never);
+        },
+      },
+    ),
+  );
+  const appServerConnection = contextConnectionMock((notification) => {
+    if (notification.method !== "thread/goal/updated" && notification.method !== "thread/goal/cleared") return false;
+    threadGoalQueries.applyNotification(notification);
+    return true;
+  });
   return {
-    appServerConnection: contextConnectionMock(),
+    appServerConnection,
+    threadGoalQueries,
     appServerContext: { codexPath: settings.codexPath, vaultPath },
     settingsSource: settings,
     receiveActiveThreads: (threads) => {
@@ -591,6 +616,29 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
       refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
       observeMetadataResource,
+    },
+    toolInventoryQueries: overrides.toolInventoryQueries ?? {
+      snapshot: vi.fn(() => null),
+      observe: vi.fn((_threadId, listener) => {
+        listener(null);
+        return () => undefined;
+      }),
+      ensure: vi.fn().mockResolvedValue({
+        plugins: null,
+        pluginMarketplaceErrors: [],
+        pluginsError: null,
+        mcpServers: null,
+        mcpDiagnostics: [],
+        mcpError: null,
+      }),
+      refresh: vi.fn().mockResolvedValue({
+        plugins: null,
+        pluginMarketplaceErrors: [],
+        pluginsError: null,
+        mcpServers: null,
+        mcpDiagnostics: [],
+        mcpError: null,
+      }),
     },
     threadCatalog: {
       hasMoreActiveThreads: vi.fn(() => false),

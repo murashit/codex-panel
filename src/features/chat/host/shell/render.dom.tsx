@@ -4,6 +4,8 @@ import { listenDomEvent } from "../../../../shared/dom/events.dom";
 import { unmountUiRoot } from "../../../../shared/dom/preact-root.dom";
 import { renderObsidianUiRoot } from "../../../../shared/obsidian/preact-root.obsidian";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
+import { activePanelOperationDecision } from "../../application/panel-operation-policy";
+import { activeThreadId } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { ComposerShell } from "../../ui/composer";
 import { GoalPanel } from "../../ui/goal";
@@ -11,12 +13,14 @@ import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-
 import { ThreadStreamViewport } from "../../ui/thread-stream/stream-blocks";
 import { Toolbar, type ToolbarActions } from "../../ui/toolbar";
 import type { ChatPanelComposerActions, ChatPanelComposerPresenter } from "../composer/view-projection";
+import type { ChatThreadGoalQueries } from "../contracts";
 import { type ChatPanelGoalDependencies, projectChatPanelGoal } from "../goal/view-projection";
 import { type ChatThreadStreamDependencies, projectThreadStream } from "../thread-stream/view-projection";
 import { type ChatPanelToolbarDependencies, projectChatPanelToolbar } from "../toolbar/view-projection";
 import { selectChatPanelComposer, selectChatPanelGoal, selectChatPanelThreadStream, selectChatPanelToolbar } from "./selectors";
 import {
   type ChatSharedDisplayQueries,
+  type ChatToolInventoryDisplayQueries,
   metadataDiagnosticsFromResources,
   useActiveThreadsResource,
   useModelsResource,
@@ -24,6 +28,8 @@ import {
   useRateLimitsResource,
   useRuntimeConfigResource,
   useSkillsResource,
+  useThreadGoalResource,
+  useToolInventoryResource,
 } from "./shared-resource-hooks";
 import { useChatSelector } from "./state-selector";
 
@@ -46,6 +52,8 @@ export interface ChatPanelShellParts {
 interface ChatPanelShellProps {
   stateStore: ChatStateStore;
   appServerQueries: ChatSharedDisplayQueries;
+  toolInventoryQueries: ChatToolInventoryDisplayQueries;
+  threadGoalQueries: ChatThreadGoalQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
   showToolbar: boolean;
   parts: ChatPanelShellParts;
@@ -113,7 +121,15 @@ function shellRegion(container: HTMLElement, region: string): HTMLElement | null
   return container.querySelector<HTMLElement>(`:scope > [data-codex-panel-shell-region="${region}"]`);
 }
 
-function ChatPanelShell({ stateStore, appServerQueries, threadCatalog, showToolbar, parts }: ChatPanelShellProps): UiNode {
+function ChatPanelShell({
+  stateStore,
+  appServerQueries,
+  toolInventoryQueries,
+  threadGoalQueries,
+  threadCatalog,
+  showToolbar,
+  parts,
+}: ChatPanelShellProps): UiNode {
   return (
     <>
       {showToolbar ? (
@@ -121,6 +137,7 @@ function ChatPanelShell({ stateStore, appServerQueries, threadCatalog, showToolb
           <ChatPanelToolbarRegion
             stateStore={stateStore}
             appServerQueries={appServerQueries}
+            toolInventoryQueries={toolInventoryQueries}
             threadCatalog={threadCatalog}
             dependencies={parts.toolbar.dependencies}
             actions={parts.toolbar.actions}
@@ -129,7 +146,7 @@ function ChatPanelShell({ stateStore, appServerQueries, threadCatalog, showToolb
       ) : null}
       <div key="body" className="codex-panel__body" data-codex-panel-shell-region="body">
         <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
-          <ChatPanelGoalRegion stateStore={stateStore} dependencies={parts.goal} />
+          <ChatPanelGoalRegion stateStore={stateStore} threadGoalQueries={threadGoalQueries} dependencies={parts.goal} />
         </div>
         <ChatPanelThreadStreamRegion stateStore={stateStore} threadCatalog={threadCatalog} dependencies={parts.threadStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
@@ -149,12 +166,14 @@ function ChatPanelShell({ stateStore, appServerQueries, threadCatalog, showToolb
 function ChatPanelToolbarRegion({
   stateStore,
   appServerQueries,
+  toolInventoryQueries,
   threadCatalog,
   dependencies,
   actions,
 }: {
   stateStore: ChatStateStore;
   appServerQueries: ChatSharedDisplayQueries;
+  toolInventoryQueries: ChatToolInventoryDisplayQueries;
   threadCatalog: ThreadCatalogPaginatedActiveReader;
   dependencies: ChatPanelToolbarDependencies;
   actions: ToolbarActions;
@@ -165,6 +184,8 @@ function ChatPanelToolbarRegion({
   const skills = useSkillsResource(appServerQueries);
   const permissionProfilesProbe = usePermissionProfilesProbe(appServerQueries);
   const rateLimits = useRateLimitsResource(appServerQueries);
+  const { threadId, enabled: toolInventoryEnabled } = useChatSelector(stateStore, selectToolInventoryKey);
+  const toolInventory = useToolInventoryResource(toolInventoryQueries, threadId, toolInventoryEnabled);
   const metadataDiagnostics = useMemo(
     () => metadataDiagnosticsFromResources({ models, skills, permissionProfilesProbe, rateLimits }),
     [models, skills, permissionProfilesProbe, rateLimits],
@@ -178,22 +199,50 @@ function ChatPanelToolbarRegion({
         skills: skills.value,
         rateLimit: rateLimits.value,
         metadataDiagnostics,
+        toolInventory,
       }),
-    [activeThreads, runtimeConfig, models, skills, rateLimits, metadataDiagnostics],
+    [activeThreads, runtimeConfig, models, skills, rateLimits, metadataDiagnostics, toolInventory],
   );
   const model = useChatSelector(stateStore, selector);
   return <Toolbar model={projectChatPanelToolbar(model, dependencies, Date.now())} actions={actions} />;
 }
 
+function selectToolInventoryKey(state: Parameters<typeof activeThreadId>[0]): { threadId: string | null; enabled: boolean } {
+  return {
+    threadId: activeThreadId(state),
+    enabled: state.connection.phase.kind === "connected" && state.ui.toolbarPanel === "status-panel",
+  };
+}
+
 function ChatPanelGoalRegion({
   stateStore,
+  threadGoalQueries,
   dependencies,
 }: {
   stateStore: ChatStateStore;
+  threadGoalQueries: ChatThreadGoalQueries;
   dependencies: ChatPanelGoalDependencies;
 }): UiNode {
-  const model = useChatSelector(stateStore, selectChatPanelGoal);
-  return <GoalPanel {...projectChatPanelGoal(model, dependencies)} />;
+  const { threadId, enabled } = useChatSelector(stateStore, selectThreadGoalKey);
+  const goalResource = useThreadGoalResource(threadGoalQueries, threadId, enabled);
+  const selector = useMemo(
+    () => (state: Parameters<typeof selectChatPanelGoal>[0]) => selectChatPanelGoal(state, goalResource.goal),
+    [goalResource.goal],
+  );
+  const model = useChatSelector(stateStore, selector);
+  return (
+    <>
+      {goalResource.error ? <div className="codex-panel__goal-load-error">Could not load thread goal: {goalResource.error}</div> : null}
+      <GoalPanel {...projectChatPanelGoal(model, dependencies)} />
+    </>
+  );
+}
+
+function selectThreadGoalKey(state: Parameters<typeof activeThreadId>[0]): { threadId: string | null; enabled: boolean } {
+  return {
+    threadId: activeThreadId(state),
+    enabled: state.connection.phase.kind === "connected" && activePanelOperationDecision(state, "goal-read").kind === "allowed",
+  };
 }
 
 function ChatPanelThreadStreamRegion({

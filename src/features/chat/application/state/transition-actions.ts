@@ -6,7 +6,6 @@ import {
 } from "../../../../domain/runtime/permissions";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
@@ -129,7 +128,6 @@ export type ChatTransitionAction =
   | ClearActiveThreadAction
   | ActiveThreadResumedAction
   | ActiveThreadSettingsAppliedAction
-  | { type: "active-thread/goal-set"; goal: ThreadGoal | null }
   | { type: "panel/restored-thread-applied"; threadId: string; fallbackTitle: string | null }
   | { type: "panel/restored-thread-renamed"; threadId: string; name: string | null }
   | { type: "panel/view-state-cleared" }

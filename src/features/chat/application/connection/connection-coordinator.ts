@@ -18,12 +18,10 @@ export interface ChatConnectionCoordinatorHost {
   canConnect: () => boolean;
   ensureAppServerMetadata: () => Promise<unknown>;
   refreshAppServerMetadata: () => Promise<unknown>;
-  refreshServerDiagnostics: () => Promise<void>;
+  refreshToolInventory: () => Promise<unknown>;
   invalidateThreadWork: () => void;
   ensureSharedThreads: () => Promise<void>;
   refreshSharedThreads: () => Promise<void>;
-  scheduleDeferredDiagnostics: () => void;
-  clearDeferredDiagnostics: () => void;
   refreshTabHeader: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -51,7 +49,6 @@ export interface ChatConnectionCoordinator {
   invalidate(): void;
   handleExit(): void;
   refreshActiveThreads(): Promise<void>;
-  refreshDiagnostics(): Promise<void>;
   refreshStatusPanel(): Promise<void>;
 }
 
@@ -98,7 +95,6 @@ export function createChatConnectionCoordinator(host: ChatConnectionCoordinatorH
       handleChatConnectionExit(host);
     },
     refreshActiveThreads: () => refreshActiveThreads(host),
-    refreshDiagnostics: () => refreshDiagnostics(host, coordinator),
     refreshStatusPanel: () => refreshStatusPanel(host, coordinator),
   };
   return coordinator;
@@ -114,35 +110,15 @@ async function refreshActiveThreads(host: ChatConnectionCoordinatorHost): Promis
   }
 }
 
-async function refreshDiagnostics(
-  host: ChatConnectionCoordinatorHost,
-  coordinator: Pick<ChatConnectionCoordinator, "ensureConnected">,
-): Promise<void> {
-  host.clearDeferredDiagnostics();
-  await coordinator.ensureConnected();
-  if (!host.connection.isConnected()) return;
-  await refreshConnectedDiagnostics(host);
-}
-
-async function refreshConnectedDiagnostics(host: ChatConnectionCoordinatorHost): Promise<void> {
-  host.clearDeferredDiagnostics();
-  const [metadataResult, diagnosticsResult] = await Promise.allSettled([host.refreshAppServerMetadata(), host.refreshServerDiagnostics()]);
-  if (metadataResult.status === "rejected") throw metadataResult.reason;
-  if (diagnosticsResult.status === "rejected") throw diagnosticsResult.reason;
-}
-
 async function refreshStatusPanel(
   host: ChatConnectionCoordinatorHost,
   coordinator: Pick<ChatConnectionCoordinator, "ensureConnected">,
 ): Promise<void> {
-  host.clearDeferredDiagnostics();
   await coordinator.ensureConnected();
   if (!host.connection.isConnected()) return;
-  const refreshDiagnostics = (): Promise<void> =>
-    refreshConnectedDiagnostics(host).catch((error: unknown) => {
-      host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    });
-  await Promise.all([refreshDiagnostics(), refreshActiveThreads(host)]);
+  const results = await Promise.allSettled([host.refreshAppServerMetadata(), host.refreshToolInventory(), refreshActiveThreads(host)]);
+  const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+  if (failed) host.addSystemMessage(errorMessage(failed.reason));
 }
 
 async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale: () => boolean): Promise<void> {
@@ -181,7 +157,6 @@ async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, is
     host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);
   }
   if (isStale()) return;
-  host.scheduleDeferredDiagnostics();
 }
 
 function connectionErrorMessage(error: unknown, configuredCommand: string): string {

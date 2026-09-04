@@ -2,6 +2,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
+import { AppServerQueryScope } from "../../../../src/app-server/query/query-scope";
+import { AppServerToolInventoryQueries } from "../../../../src/app-server/query/tool-inventory-queries";
 import type { ThreadGoal } from "../../../../src/domain/threads/goal";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
@@ -119,7 +121,6 @@ describe("CodexChatView connection lifecycle", () => {
     await Promise.all([opening, reselecting]);
 
     expect(view.surface.openPanelSnapshot().threadId).toBe("thread-a");
-    expect(client.request).toHaveBeenCalledWith("thread/goal/get", { threadId: "thread-a" });
   });
 
   it("keeps the current thread and draft when another thread cannot be resumed", async () => {
@@ -357,6 +358,63 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.surface.openPanelSnapshot().threadId).not.toBe("ephemeral-a");
   });
 
+  it("does not read unsupported goals for side chats", async () => {
+    const client = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-a") }),
+      "thread/goal/get": vi.fn().mockRejectedValue(new Error("ephemeral goals are unsupported")),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    await view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" });
+    await waitForAsyncWork(() => {
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "ephemeral-a" });
+    });
+
+    expectRequestTimes(client, "thread/goal/get", 0);
+    expect(view.containerEl.querySelector(".codex-panel__goal-load-error")).toBeNull();
+  });
+
+  it("keeps a late MCP inventory read scoped to its original thread", async () => {
+    const threadA = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
+    const threadB = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
+    const mcpServers = vi.fn((params?: unknown) =>
+      (params as { threadId?: string } | undefined)?.threadId === "thread-a" ? threadA.promise : threadB.promise,
+    );
+    const client = connectedClient({
+      "thread/resume": vi.fn((params?: unknown) => resumedThread((params as { threadId: string }).threadId)),
+      "mcpServerStatus/list": mcpServers,
+    });
+    connectionMockState().client = client;
+    const toolInventoryQueries = new AppServerToolInventoryQueries(
+      new AppServerQueryScope(
+        { codexPath: "codex", vaultPath: "/vault" },
+        {
+          withClient: async (operation) => operation(client as never),
+        },
+      ),
+    );
+    const view = await chatView({ host: chatHost({ toolInventoryQueries }) });
+    await view.onOpen();
+    await view.surface.activateThread("thread-a", { focus: false });
+    requiredButton(view.containerEl, '[aria-label="Show status"]').click();
+    await waitForAsyncWork(() => expect(view.containerEl.querySelector('[aria-label="Hide status"]')).not.toBeNull());
+    await waitForAsyncWork(() => expect(mcpServers).toHaveBeenCalledWith(expect.objectContaining({ threadId: "thread-a" }), undefined));
+
+    const openingB = view.surface.activateThread("thread-b", { focus: false });
+    await openingB;
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Show status"]')?.click();
+    await waitForAsyncWork(() => expect(mcpServers).toHaveBeenCalledWith(expect.objectContaining({ threadId: "thread-b" }), undefined));
+    threadB.resolve({ data: [mcpStatus("thread-b-server")], nextCursor: null });
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("thread-b-server"));
+
+    threadA.resolve({ data: [mcpStatus("thread-a-server")], nextCursor: null });
+    await Promise.resolve();
+    expect(view.containerEl.textContent).not.toContain("thread-a-server");
+  });
+
   it("settles a restored side chat request that rejects in the background", async () => {
     const owner = chatViewRuntimeOwner(chatHost());
     const firstClient = connectedClient({
@@ -518,19 +576,18 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
     vi.useFakeTimers();
+    const goal = {
+      threadId: "thread-new",
+      objective: "Ship the feature",
+      status: "active" as const,
+      tokenBudget: null,
+      tokensUsed: 0,
+      timeUsedSeconds: 0,
+      createdAt: 1,
+      updatedAt: 1,
+    };
     const client = connectedClient({
-      "thread/goal/set": vi.fn().mockResolvedValue({
-        goal: {
-          threadId: "thread-new",
-          objective: "Ship the feature",
-          status: "active",
-          tokenBudget: null,
-          tokensUsed: 0,
-          timeUsedSeconds: 0,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      }),
+      "thread/goal/set": vi.fn().mockResolvedValue({ goal }),
     });
     connectionMockState().client = client;
     const view = await chatView();
@@ -572,9 +629,30 @@ describe("CodexChatView connection lifecycle", () => {
     });
     expect(client.request).not.toHaveBeenCalledWith("thread/inject_items", expect.anything());
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-new" });
+    connectionMockState().onNotification?.({
+      method: "thread/goal/updated",
+      params: { threadId: "thread-new", turnId: null, goal },
+    });
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("Ship the feature");
+      expect(view.containerEl.querySelector(".codex-panel__stream-summary")?.textContent).toBe("set: Ship the feature");
     });
+  });
+
+  it("keeps the active thread visible when its initial goal read fails", async () => {
+    const client = connectedClient({
+      "thread/goal/get": vi.fn().mockRejectedValue(new Error("goal unavailable")),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    await view.surface.activateThread("thread-1", { focus: false });
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector(".codex-panel__goal-load-error")?.textContent).toContain("goal unavailable");
+    });
+
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
   });
 
   it("keeps a goal update notification over an earlier in-flight goal read", async () => {
@@ -607,6 +685,32 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(view.containerEl.textContent).toContain("Latest");
     expect(view.containerEl.textContent).not.toContain("Old");
+  });
+
+  it("keeps a goal notification when the canceled read later rejects", async () => {
+    const oldRead = deferred<{ goal: ThreadGoal | null }>();
+    const client = connectedClient({
+      "thread/goal/get": vi.fn(() => oldRead.promise),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    const opening = view.surface.activateThread("thread-1", { focus: false });
+    await waitForAsyncWork(() => {
+      expect(client.request).toHaveBeenCalledWith("thread/goal/get", { threadId: "thread-1" });
+    });
+    connectionMockState().onNotification?.({
+      method: "thread/goal/updated",
+      params: { threadId: "thread-1", turnId: null, goal: goalSnapshot("Latest", 2) },
+    } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+    oldRead.reject(new Error("stale read failed"));
+    await opening;
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("Latest");
+    });
+
+    expect(view.containerEl.querySelector(".codex-panel__goal-load-error")).toBeNull();
   });
 
   it("keeps a goal clear notification over an earlier in-flight goal read", async () => {
@@ -725,5 +829,16 @@ function goalSnapshot(objective: string, updatedAt: number): ThreadGoal {
     timeUsedSeconds: 0,
     createdAt: 1,
     updatedAt,
+  };
+}
+
+function mcpStatus(name: string) {
+  return {
+    name,
+    tools: {},
+    resources: [],
+    resourceTemplates: [],
+    authStatus: "oAuth" as const,
+    runtimeStatus: "connected" as const,
   };
 }

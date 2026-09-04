@@ -42,23 +42,16 @@ export function mcpServerStatusSummariesFromStatuses(servers: readonly McpServer
   return servers.map(mcpServerStatusSummaryFromStatus);
 }
 
-export function mcpServerDiagnosticFromStatus(server: McpServerStatusSummary): McpServerDiagnostic {
-  return {
-    name: server.name,
-    connectionStatus: server.connectionStatus ?? "unknown",
-    authStatus: server.authStatus,
-    toolCount: server.toolCount,
-    message: null,
-    authenticationIssue: null,
-  };
-}
-
 export function mcpConnectionStatusFromStartupStatus(status: McpServerStartupStatus): McpServerConnectionStatus {
   return status === "ready" ? "connected" : status;
 }
 
 export function cloneMcpServerStatusSummary(server: McpServerStatusSummary): McpServerStatusSummary {
   return server.codexAppIds ? { ...server, codexAppIds: [...server.codexAppIds] } : { ...server };
+}
+
+export function cloneMcpServerDiagnostic(server: McpServerDiagnostic): McpServerDiagnostic {
+  return { ...server };
 }
 
 function mcpServerStatusSummaryFromStatus(server: McpServerStatus): McpServerStatusSummary {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
+import type { ThreadGoal } from "../src/domain/threads/goal";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
@@ -181,6 +181,75 @@ describe("CodexExecutionRuntime", () => {
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: false });
   });
 
+  it("owns tool inventory and its notification revalidation once per execution context", async () => {
+    contextConnectionMock.client.request.mockImplementation(toolInventoryRequestFixture);
+    const runtime = executionRuntime();
+    const first = attachChatHost(runtime);
+    const second = attachChatHost(runtime);
+
+    const unsubscribeFirst = first.toolInventoryQueries.observe("thread", () => undefined);
+    const unsubscribeSecond = second.toolInventoryQueries.observe("thread", () => undefined);
+    await first.toolInventoryQueries.ensure("thread");
+    expect(contextConnectionMock.client.request).toHaveBeenCalledTimes(2);
+    contextConnectionMock.client.request.mockClear();
+
+    contextConnectionMock.instances[0]?.handlers.onNotification({
+      method: "mcpServer/oauthLogin/completed",
+      params: { name: "github", threadId: "thread", success: true },
+    });
+
+    await vi.waitFor(() => expect(contextConnectionMock.client.request).toHaveBeenCalledOnce());
+    expect(contextConnectionMock.client.request).toHaveBeenCalledWith(
+      "mcpServerStatus/list",
+      expect.objectContaining({ threadId: "thread" }),
+    );
+    contextConnectionMock.instances[0]?.handlers.onNotification({
+      method: "mcpServer/startupStatus/updated",
+      params: {
+        threadId: "thread",
+        name: "github",
+        status: "failed",
+        error: "missing token",
+        failureReason: "reauthenticationRequired",
+      },
+    });
+    await vi.waitFor(() => {
+      expect(first.toolInventoryQueries.snapshot("thread")?.mcpDiagnostics).toMatchObject([
+        { name: "github", connectionStatus: "failed", message: "missing token" },
+      ]);
+      expect(second.toolInventoryQueries.snapshot("thread")?.mcpDiagnostics).toMatchObject([
+        { name: "github", connectionStatus: "failed", message: "missing token" },
+      ]);
+    });
+    contextConnectionMock.client.request.mockClear();
+    contextConnectionMock.instances[0]?.handlers.onNotification({ method: "app/list/updated", params: { data: [] } });
+    await vi.waitFor(() => expect(contextConnectionMock.client.request).toHaveBeenCalledOnce());
+    expect(contextConnectionMock.client.request).toHaveBeenCalledWith(
+      "mcpServerStatus/list",
+      expect.objectContaining({ threadId: "thread" }),
+    );
+    unsubscribeFirst();
+    unsubscribeSecond();
+  });
+
+  it("updates thread goal cache even when no panel lease receives the notification", () => {
+    const runtime = executionRuntime();
+    const chat = attachChatHost(runtime);
+    const previous = goalFixture({ objective: "Old" });
+    const next = goalFixture({ objective: "Latest", updatedAt: 2 });
+    chat.threadGoalQueries.applyNotification({
+      method: "thread/goal/updated",
+      params: { threadId: "thread", turnId: null, goal: previous },
+    });
+
+    contextConnectionMock.instances[0]?.handlers.onNotification({
+      method: "thread/goal/updated",
+      params: { threadId: "thread", turnId: null, goal: next },
+    });
+
+    expect(chat.threadGoalQueries.snapshot("thread")).toEqual(next);
+  });
+
   it.each([
     ["skills/changed", "skills/list"],
     ["account/rateLimits/updated", "account/rateLimits/read"],
@@ -346,4 +415,29 @@ function metadataRequestFixture(method: string): Promise<unknown> {
     default:
       return Promise.reject(new Error(`Unexpected app-server request: ${method}`));
   }
+}
+
+function toolInventoryRequestFixture(method: string): Promise<unknown> {
+  switch (method) {
+    case "plugin/installed":
+      return Promise.resolve({ marketplaces: [], marketplaceLoadErrors: [] });
+    case "mcpServerStatus/list":
+      return Promise.resolve({ data: [], nextCursor: null });
+    default:
+      return Promise.reject(new Error(`Unexpected app-server request: ${method}`));
+  }
+}
+
+function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
+  return {
+    threadId: "thread",
+    objective: "Finish",
+    status: "active",
+    tokenBudget: null,
+    tokensUsed: 0,
+    timeUsedSeconds: 0,
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  };
 }

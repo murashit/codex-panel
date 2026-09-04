@@ -6,6 +6,8 @@ import type { AppServerExecutionContext } from "./app-server/connection/executio
 import { AppServerMetadataQueries } from "./app-server/query/metadata-queries";
 import { AppServerQueryScope } from "./app-server/query/query-scope";
 import { AppServerThreadCatalog } from "./app-server/query/thread-catalog-queries";
+import { AppServerThreadGoalQueries } from "./app-server/query/thread-goal-queries";
+import { AppServerToolInventoryQueries } from "./app-server/query/tool-inventory-queries";
 import {
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnRunner,
@@ -52,6 +54,8 @@ export class CodexExecutionRuntime {
   readonly appServerConnection: AppServerContextConnection;
   private readonly queryScope: AppServerQueryScope;
   private readonly appServerQueries: AppServerMetadataQueries;
+  private readonly toolInventoryQueries: AppServerToolInventoryQueries;
+  private readonly threadGoalQueries: AppServerThreadGoalQueries;
   private readonly threadCatalog: AppServerThreadCatalog;
   private readonly threadFacts: ThreadFactSink;
   private readonly threadReplacementPublication: ThreadReplacementPublicationOwner;
@@ -72,6 +76,10 @@ export class CodexExecutionRuntime {
       codexPanelAppServerInitializeParams(),
       {
         onNotification: (notification) => {
+          if (notification.method === "thread/goal/updated" || notification.method === "thread/goal/cleared") {
+            this.threadGoalQueries.applyNotification(notification);
+            return true;
+          }
           const fact = threadFactFromLifecycleNotification(notification);
           if (fact) {
             this.threadFacts.apply(fact);
@@ -85,6 +93,18 @@ export class CodexExecutionRuntime {
             this.appServerQueries.handleRateLimitsUpdated();
             return true;
           }
+          if (notification.method === "app/list/updated") {
+            this.toolInventoryQueries.handleAppListUpdated();
+            return true;
+          }
+          if (notification.method === "mcpServer/oauthLogin/completed") {
+            this.toolInventoryQueries.handleMcpOauthLoginCompleted(notification.params.threadId);
+            return true;
+          }
+          if (notification.method === "mcpServer/startupStatus/updated") {
+            this.toolInventoryQueries.handleMcpStartupStatusUpdated(notification.params);
+            return true;
+          }
           return false;
         },
         onExit: () => {
@@ -94,6 +114,8 @@ export class CodexExecutionRuntime {
     );
     this.queryScope = new AppServerQueryScope(this.context, this.appServerConnection);
     this.appServerQueries = new AppServerMetadataQueries(this.queryScope);
+    this.toolInventoryQueries = new AppServerToolInventoryQueries(this.queryScope);
+    this.threadGoalQueries = new AppServerThreadGoalQueries(this.queryScope);
     const applyThreadFacts = (facts: readonly ThreadFact[]): void => {
       if (this.disposed) return;
       for (const fact of facts) this.threadAutoTitleWork?.applyThreadFact(fact);
@@ -140,6 +162,8 @@ export class CodexExecutionRuntime {
       settings: this.chatSettings(),
       workspace: this.options.workspace,
       appServerQueries: this.appServerQueries,
+      toolInventoryQueries: this.toolInventoryQueries,
+      threadGoalQueries: this.threadGoalQueries,
       threadCatalog: this.threadCatalog,
       threadFacts: this.threadFacts,
       threadReplacementPublication: this.threadReplacementPublication,

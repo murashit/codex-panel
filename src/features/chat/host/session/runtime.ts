@@ -1,5 +1,6 @@
 import { Notice } from "obsidian";
 
+import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import { createChatAppServerGateway } from "../../app-server/session-gateway";
 import { createReconnectPanelCommand, type ReconnectPanelOptions } from "../../application/connection/reconnect-command";
@@ -16,6 +17,7 @@ import type { ChatResumeWorkTracker } from "../../application/threads/resume-wor
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
 import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
+import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import { ChatComposerController } from "../composer/controller";
@@ -63,6 +65,15 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     currentClient,
   });
   const status = createSessionStatus(stateStore, localItemIds);
+  const unsubscribeGoalChanges = environment.plugin.threadGoalQueries.observeChanges((threadId, previous, next) => {
+    const state = stateStore.getState();
+    if (activeThreadId(state) !== threadId) return;
+    if (goalPresentationChanged(previous, next) && state.ui.disclosures.goalObjectiveExpanded.has(threadId)) {
+      stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: false });
+    }
+    const item = goalChangeItem(localItemIds.next("goal"), previous, next);
+    if (item) stateStore.dispatch({ type: "thread-stream/item-upserted", item });
+  });
   const refreshTabHeader = () => {
     host.environment.view.refreshTabHeader();
   };
@@ -73,7 +84,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
 
   const threadFoundation = createSessionThreadFoundation(host, {
     appServer,
-    localItemIds,
     status,
   });
   const invalidateThreadWork = (): void => {
@@ -84,16 +94,13 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       environment,
       stateStore,
       canConnect: () => !host.getClosing(),
-      deferredTasks: host.deferredTasks,
       invalidateThreadWork,
       refreshTabHeader,
     },
     {
       connection,
-      diagnosticsPort: appServer.serverDiagnostics,
       localItemIds,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
-      goalSync: threadFoundation.goalSync,
       status,
     },
   );
@@ -134,13 +141,9 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     recordStartedThread: (thread) => {
       environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });
     },
-    syncThreadGoal: (threadId) => {
-      void threadFoundation.goalSync.syncThreadGoal(threadId);
-    },
   });
   const threadFeatures = createSessionThreadFeatures(host, {
     appServer,
-    localItemIds,
     ensureConnected,
     status,
     threadStart,
@@ -210,7 +213,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     resetConnectionScope: () => {
       connectionCoordinator.invalidate();
       invalidateThreadWork();
-      host.deferredTasks.clearDiagnostics();
       sessionConnection.invalidateConnectionScope();
       connection.disconnect();
     },
@@ -245,7 +247,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     reconnect,
     runtimeProjection,
     sharedResources,
-    refreshDiagnostics: () => connectionCoordinator.refreshDiagnostics(),
     notifyActiveThreadIdentityChanged,
   });
   const toolbarActions = createToolbarUiActions({
@@ -274,6 +275,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       rateLimit: () => sharedResources.rateLimitsSnapshot(),
       availableModels: () => sharedResources.modelsSnapshot() ?? [],
       metadataDiagnostics: () => sharedResources.metadataDiagnosticsSnapshot(),
+      toolInventory: () => sharedResources.toolInventorySnapshot(activeThreadId(stateStore.getState())),
     },
   });
   const toolbarDependencies = {
@@ -388,6 +390,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
         commands.invalidateThreadWork();
         host.deferredTasks.clearAll();
         threadCatalogObserver.unsubscribe();
+        unsubscribeGoalChanges();
         threadFeatures.rename.invalidate();
         composerController.dispose();
         host.threadStreamScrollBinding.dispose();
@@ -401,6 +404,15 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       }
     },
   } as const;
+}
+
+function goalPresentationChanged(previous: ThreadGoal | null, next: ThreadGoal | null): boolean {
+  return (
+    previous?.threadId !== next?.threadId ||
+    previous?.objective !== next?.objective ||
+    previous?.status !== next?.status ||
+    previous?.tokenBudget !== next?.tokenBudget
+  );
 }
 
 function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {

@@ -1,23 +1,27 @@
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
 import type { EffectOutcome } from "../effect-outcome";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import { activeThreadId, activeThreadState } from "../state/model";
+import { activeThreadId } from "../state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { addThreadGoalSystemMessage, applyThreadGoalIfActive, type ThreadGoalProjectionHost } from "./goal-sync";
+import type { ChatStateStore } from "../state/store";
 import type { ThreadStartOutcome } from "./thread-start-command";
 
 export interface ThreadGoalEffects {
-  setThreadGoal(threadId: string, params: ThreadGoalUpdate): Promise<EffectOutcome<ThreadGoal | null>>;
+  setThreadGoal(threadId: string, params: ThreadGoalUpdate): Promise<EffectOutcome<void>>;
   clearThreadGoal(threadId: string): Promise<EffectOutcome<void>>;
 }
 
-export interface GoalCommandsHost extends ThreadGoalProjectionHost {
+export interface GoalCommandsHost {
+  stateStore: ChatStateStore;
+  addSystemMessage: (text: string) => void;
   effects: ThreadGoalEffects;
+  goalQueries: {
+    snapshot(threadId: string): ThreadGoal | null | undefined;
+  };
   ensureConnected: () => Promise<boolean>;
-  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<ThreadStartOutcome>;
+  startThread: (preview?: string) => Promise<ThreadStartOutcome>;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startEditingGoal: (threadId: string | null, objective: string, tokenBudget: number | null) => void;
-  observeThreadGoal: (threadId: string) => void;
 }
 
 export interface GoalCommands {
@@ -40,7 +44,7 @@ const EMPTY_GOAL_OBJECTIVE_MESSAGE = "Goal objective cannot be empty.";
 
 export function createGoalCommands(host: GoalCommandsHost): GoalCommands {
   return {
-    activeGoal: () => activeThreadState(host.stateStore.getState())?.goal ?? null,
+    activeGoal: () => currentGoal(host),
     saveObjective: (objective, tokenBudget) => saveObjective(host, objective, tokenBudget),
     setObjective: (threadId, objective, tokenBudget) =>
       runGoalMutation(host, threadId, () => setObjective(host, threadId, objective, tokenBudget)),
@@ -67,7 +71,7 @@ async function setNormalizedObjective(
   objective: NormalizedGoalObjective,
   tokenBudget: number | null,
 ): Promise<boolean> {
-  const current = activeThreadState(host.stateStore.getState())?.goal ?? null;
+  const current = currentGoal(host);
   return setGoal(host, threadId, {
     objective,
     status: current?.status ?? "active",
@@ -98,8 +102,7 @@ async function clearGoal(host: GoalCommandsHost, threadId: string): Promise<bool
     if (!(await host.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId)) return false;
     const effect = await host.effects.clearThreadGoal(threadId);
     if (effect.kind === "not-started") return false;
-    host.observeThreadGoal(threadId);
-    return applyThreadGoalIfActive(host, threadId, null, { reportChange: true });
+    return activeThreadId(host.stateStore.getState()) === threadId;
   } catch (error) {
     addThreadGoalSystemMessage(host, threadId, errorMessage(error));
     return false;
@@ -113,8 +116,7 @@ async function setGoal(host: GoalCommandsHost, threadId: string, params: ThreadG
     }
     const effect = await host.effects.setThreadGoal(threadId, params);
     if (effect.kind === "not-started") return false;
-    host.observeThreadGoal(threadId);
-    return applyThreadGoalIfActive(host, threadId, effect.value, { reportChange: true });
+    return activeThreadId(host.stateStore.getState()) === threadId;
   } catch (error) {
     addThreadGoalSystemMessage(host, threadId, errorMessage(error));
     return false;
@@ -124,7 +126,7 @@ async function setGoal(host: GoalCommandsHost, threadId: string, params: ThreadG
 async function startEditingCurrent(host: GoalCommandsHost): Promise<void> {
   if (!(await prepareGoalMutation(host))) return;
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
-  const goal = activeThreadState(host.stateStore.getState())?.goal ?? null;
+  const goal = currentGoal(host);
   host.startEditingGoal(goal?.threadId ?? null, goal?.objective ?? "", goal?.tokenBudget ?? null);
 }
 
@@ -170,7 +172,7 @@ async function startThreadAndSaveObjective(
   try {
     if (!(await host.ensureConnected())) return false;
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) || !emptyPanelCanStartGoalThread(host)) return false;
-    const outcome = await host.startThread(plan.objective, { syncGoal: false });
+    const outcome = await host.startThread(plan.objective);
     if (outcome.kind !== "created-activated") return false;
     return await runGoalMutation(host, outcome.threadId, () =>
       setNormalizedObjective(host, outcome.threadId, plan.objective, plan.tokenBudget),
@@ -193,6 +195,15 @@ function goalMutationAdmissionIsCurrent(host: GoalCommandsHost, threadId: string
 function runGoalMutation(host: GoalCommandsHost, threadId: string, operation: () => Promise<boolean>): Promise<boolean> {
   if (!goalMutationAdmissionIsCurrent(host, threadId)) return Promise.resolve(false);
   return operation();
+}
+
+function currentGoal(host: GoalCommandsHost): ThreadGoal | null {
+  const threadId = activeThreadId(host.stateStore.getState());
+  return threadId ? (host.goalQueries.snapshot(threadId) ?? null) : null;
+}
+
+function addThreadGoalSystemMessage(host: GoalCommandsHost, threadId: string, text: string): void {
+  if (activeThreadId(host.stateStore.getState()) === threadId) host.addSystemMessage(text);
 }
 
 function errorMessage(error: unknown): string {

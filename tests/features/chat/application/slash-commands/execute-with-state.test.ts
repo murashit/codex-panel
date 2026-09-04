@@ -5,7 +5,7 @@ import {
   executePanelSlashCommand,
   type PanelSlashCommandHost,
 } from "../../../../../src/features/chat/application/slash-commands/execute-with-state";
-import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/model";
+import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { deferred } from "../../../../support/async";
 
@@ -64,7 +64,7 @@ function createHost(overrides: PanelSlashCommandHostOverrides = {}) {
       resetReasoningEffortToConfig: vi.fn(),
     },
     goals: {
-      activeGoal: vi.fn(() => activeThreadState(stateStore.getState())?.goal ?? null),
+      activeGoal: vi.fn(() => null),
       setObjective: vi.fn().mockResolvedValue(true),
       setStatus: vi.fn().mockResolvedValue(true),
       clear: vi.fn().mockResolvedValue(true),
@@ -184,18 +184,15 @@ describe("executePanelSlashCommand", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    stateStore.dispatch({
-      type: "active-thread/goal-set",
-      goal: {
-        threadId: "child",
-        objective: "Inspect",
-        status: "active",
-        tokenBudget: null,
-        tokensUsed: 0,
-        timeUsedSeconds: 0,
-        createdAt: 1,
-        updatedAt: 1,
-      },
+    vi.mocked(host.goals.activeGoal).mockReturnValue({
+      threadId: "child",
+      objective: "Inspect",
+      status: "active",
+      tokenBudget: null,
+      tokensUsed: 0,
+      timeUsedSeconds: 0,
+      createdAt: 1,
+      updatedAt: 1,
     });
 
     await expect(executePanelSlashCommand(host, "goal", "")).resolves.toBeUndefined();
