@@ -11,11 +11,10 @@ import type { PreparedInput } from "../../application/composer/prepared-input";
 interface ThreadReferenceResolverHost {
   currentClient(): AppServerRequestClient | null;
   prepareInput(text: string, snapshot: ComposerInputSnapshot): PreparedInput;
-  addSystemMessage(text: string): void;
   setStatus(status: string): void;
 }
 
-export type ThreadReferenceResolver = (thread: Thread, message: string, snapshot: ComposerInputSnapshot) => Promise<PreparedInput | null>;
+export type ThreadReferenceResolver = (thread: Thread, message: string, snapshot: ComposerInputSnapshot) => Promise<PreparedInput>;
 
 export function createThreadReferenceResolver(host: ThreadReferenceResolverHost): ThreadReferenceResolver {
   return (thread, message, snapshot) => referencedThreadInput(host, thread, message, snapshot);
@@ -26,35 +25,29 @@ async function referencedThreadInput(
   thread: Thread,
   message: string,
   snapshot: ComposerInputSnapshot,
-): Promise<PreparedInput | null> {
+): Promise<PreparedInput> {
   const client = host.currentClient();
-  if (!client) return null;
-  try {
-    const transcript = await readReferencedThreadTranscriptPage(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
-    if (transcript.turns.length === 0) {
-      host.addSystemMessage("Referenced thread has no readable turns.");
-      return null;
-    }
-    const messageInput = host.prepareInput(message, snapshot);
-    const reference = referencedThreadContext(thread, transcript);
-    const visibleText = `${threadReferenceMarkdown(thread)}\n\n${messageInput.text}`;
-    host.setStatus(
-      `Referencing ${shortThreadId(thread.id)} (${String(transcript.turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`,
-    );
-    return {
-      text: visibleText,
-      input: codexTextInputWithAttachments(visibleText, [
-        {
-          type: "additionalContext",
-          key: "codex_panel_referenced_thread",
-          kind: "untrusted",
-          value: reference,
-        },
-        ...messageInput.input,
-      ]),
-    };
-  } catch (error) {
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    return null;
+  if (!client) throw new Error("Cannot reference a thread because Codex app-server is not connected.");
+  const transcript = await readReferencedThreadTranscriptPage(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
+  if (transcript.turns.length === 0) {
+    throw new Error("Referenced thread has no readable turns.");
   }
+  const messageInput = host.prepareInput(message, snapshot);
+  const reference = referencedThreadContext(thread, transcript);
+  const visibleText = `${threadReferenceMarkdown(thread)}\n\n${messageInput.text}`;
+  host.setStatus(
+    `Referencing ${shortThreadId(thread.id)} (${String(transcript.turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`,
+  );
+  return {
+    text: visibleText,
+    input: codexTextInputWithAttachments(visibleText, [
+      {
+        type: "additionalContext",
+        key: "codex_panel_referenced_thread",
+        kind: "untrusted",
+        value: reference,
+      },
+      ...messageInput.input,
+    ]),
+  };
 }

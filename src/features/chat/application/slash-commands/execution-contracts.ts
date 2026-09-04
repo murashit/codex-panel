@@ -54,7 +54,7 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
   activeThreadId: string | null;
   listedThreads: readonly Thread[];
   threadCommandTarget?: ThreadCommandTarget;
-  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput | null>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<PreparedInput>;
   inputSnapshot?: ComposerInputSnapshot;
   submission: ComposerSubmissionAdoption;

@@ -11,7 +11,6 @@ export interface ChatAppServerGatewayHost {
 
 interface ChatThreadReferenceResolverOptions {
   prepareInput(text: string, snapshot: ComposerInputSnapshot): PreparedInput;
-  addSystemMessage(text: string): void;
   setStatus(status: string): void;
 }
 

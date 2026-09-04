@@ -28,7 +28,7 @@ type PanelSlashCommandHostOverrides = Partial<PanelSlashCommandHost>;
 function createHost(overrides: PanelSlashCommandHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
   const compactThread = vi.fn().mockResolvedValue(undefined);
-  const referThread = vi.fn().mockResolvedValue(null);
+  const referThread = vi.fn().mockResolvedValue({ text: "summarize", input: [{ type: "text", text: "summarize" }] });
   const readWebUrl = vi.fn();
   const host: PanelSlashCommandHost = {
     stateStore,

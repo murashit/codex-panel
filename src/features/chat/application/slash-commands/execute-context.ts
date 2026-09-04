@@ -51,7 +51,7 @@ export async function executeContextSlashCommand(
         return;
       }
       const reference = await context.referThread(thread.thread, parsed.message, context.inputSnapshot);
-      return reference ? { sendText: reference.text, sendInput: reference.input } : undefined;
+      return { sendText: reference.text, sendInput: reference.input };
     }
     case "web": {
       const parsed = parseWebCommandArgs(args);

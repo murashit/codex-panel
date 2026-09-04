@@ -13,7 +13,7 @@ import type { SlashCommandExecutionPorts, SlashCommandExecutionResult } from "./
 export interface PanelSlashCommandHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;
   connectionAvailable: () => boolean;
-  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput | null>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<PreparedInput>;
   sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1];
   listedThreads: () => readonly Thread[];

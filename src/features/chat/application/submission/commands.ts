@@ -25,7 +25,7 @@ export interface SubmissionCommandsContext {
   sharedResources: ChatRuntimeSharedResources;
   listedThreads: () => readonly Thread[];
   turnPort: ChatTurnPort;
-  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput | null>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<PreparedInput>;
   status: {
     set: (status: string) => void;

@@ -90,7 +90,6 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
   });
   const referThread = appServer.threadReferences({
     prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
-    addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
   });
   const submissionCommands = createSubmissionCommands(

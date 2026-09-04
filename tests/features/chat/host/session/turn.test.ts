@@ -26,7 +26,7 @@ describe("createSessionTurn", () => {
     ]);
   });
 
-  it("passes the callable thread reference port through the session turn", async () => {
+  it("routes reference preparation failures through the session turn", async () => {
     const stateStore = createChatStateStore();
     const thread = {
       id: "thread-1",
@@ -37,7 +37,7 @@ describe("createSessionTurn", () => {
       archived: false,
       provenance: { kind: "interactive" as const },
     };
-    const referThread = vi.fn().mockResolvedValue(null);
+    const referThread = vi.fn().mockRejectedValue(new Error("history unavailable"));
     const fixture = sessionTurnFixture({
       stateStore,
       draft: "/refer Other summarize",
@@ -48,6 +48,7 @@ describe("createSessionTurn", () => {
     await fixture.submit();
 
     expect(referThread).toHaveBeenCalledWith(thread, "summarize", { sourcePath: "snapshot.md" });
+    expect(fixture.status.addSystemMessage).toHaveBeenCalledExactlyOnceWith("history unavailable");
   });
 });
 
@@ -108,7 +109,7 @@ function sessionTurnFixture(
       status,
       inboundHandler: {},
       threadLifecycle: {
-        restoration: { ensureLoaded: vi.fn().mockResolvedValue(true) },
+        ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
         resume: { resumeThread: vi.fn() },
       },
       threadCommands: {},

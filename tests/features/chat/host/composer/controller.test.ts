@@ -2,7 +2,9 @@
 
 import { h } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
+import { createThreadReferenceResolver } from "../../../../../src/features/chat/app-server/adapters/thread-reference-resolver";
 import type { ComposerAttachment, ComposerAttachmentHandler } from "../../../../../src/features/chat/application/composer/attachments";
 import type {
   ComposerContextReferenceProvider,
@@ -10,6 +12,7 @@ import type {
 } from "../../../../../src/features/chat/application/composer/context-references";
 import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
+import { executeContextSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-context";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamStableItems } from "../../../../../src/features/chat/application/state/thread-stream";
@@ -146,6 +149,89 @@ function composerControllerFixture(
 }
 
 describe("ChatComposerController", () => {
+  it.each(["rpc-error", "empty-history", "stale-target"] as const)(
+    "preserves unsent reference input after %s without publishing into another thread",
+    async (failure) => {
+      const { controller, stateStore } = composerControllerFixture();
+      const original = "/refer Other この背景と制約を踏まえて詳しく検討してください [[attachment.md]]";
+      const attachments: ComposerAttachment[] = [{ kind: "file", name: "attachment", path: "attachment.md", marker: "[[attachment.md]]" }];
+      controller.restoreRuntimeSnapshot({
+        draft: original,
+        attachments,
+        activeNoteSnapshots: [],
+        selectionSnapshots: [],
+        threadCommandTarget: null,
+      });
+      const response = deferred<{ data: []; nextCursor: null }>();
+      const requested = deferred<void>();
+      const request = vi.fn(() => {
+        requested.resolve();
+        return response.promise;
+      });
+      const addSystemMessage = vi.fn();
+      const referThread = createThreadReferenceResolver({
+        currentClient: () => ({ request }) as unknown as AppServerClient,
+        prepareInput: (text, snapshot) => controller.preparedInput(text, snapshot),
+        setStatus: vi.fn(),
+      });
+      const sendTurnText = vi.fn().mockResolvedValue(true);
+      const submission = submitComposer({
+        stateStore,
+        localItemIds: createLocalIdSource(),
+        composer: controller,
+        slashCommandExecutor: {
+          execute: (_command, args, inputSnapshot, adoption) =>
+            executeContextSlashCommand("refer", args, {
+              activeThreadId: null,
+              listedThreads: [
+                {
+                  id: "other",
+                  name: "Other",
+                  preview: "",
+                  archived: false,
+                  createdAt: 1,
+                  updatedAt: 1,
+                  provenance: { kind: "interactive" },
+                },
+              ],
+              inputSnapshot,
+              submission: adoption,
+              referThread,
+              readWebUrl: vi.fn(),
+              startThreadForGoal: vi.fn(),
+              goals: { activeGoal: vi.fn(), setObjective: vi.fn(), setStatus: vi.fn(), clear: vi.fn() },
+              addSystemMessage,
+              addStructuredSystemMessage: vi.fn(),
+            }),
+        },
+        turnSubmissionCommand: { sendTurnText },
+        connection: { ensureConnected: vi.fn().mockResolvedValue(true) },
+        turnPort: { interruptTurn: vi.fn() },
+        status: { setStatus: vi.fn(), addSystemMessage },
+        scroll: { showLatest: vi.fn() },
+      });
+      await requested.promise;
+      if (failure === "stale-target") resumeComposerThread(stateStore, "another");
+      controller.setDraft("next message");
+      if (failure === "empty-history") response.resolve({ data: [], nextCursor: null });
+      else response.reject(new Error("history unavailable"));
+      await submission;
+
+      expect(sendTurnText).not.toHaveBeenCalled();
+      if (failure === "stale-target") {
+        expect(controller.draft).toBe("next message");
+        expect(addSystemMessage).not.toHaveBeenCalled();
+        expect(controller.captureInputSnapshot().attachments).toEqual([]);
+      } else {
+        expect(controller.draft).toBe(`${original}\n\nnext message`);
+        expect(controller.captureInputSnapshot().attachments).toEqual(attachments);
+        expect(addSystemMessage).toHaveBeenCalledExactlyOnceWith(
+          failure === "empty-history" ? "Referenced thread has no readable turns." : "history unavailable",
+        );
+      }
+    },
+  );
+
   it("keeps edits typed after a claimed submission and restores both drafts on failure", () => {
     const stateStore = createChatStateStore();
     resumeComposerThread(stateStore, "thread");

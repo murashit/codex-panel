@@ -36,7 +36,6 @@ describe("thread reference resolver", () => {
     const resolver = createThreadReferenceResolver({
       currentClient: () => client,
       prepareInput,
-      addSystemMessage: vi.fn(),
       setStatus,
     });
 
@@ -71,53 +70,40 @@ describe("thread reference resolver", () => {
   });
 
   it("does not request history when the app-server client is unavailable", async () => {
-    const addSystemMessage = vi.fn();
     const resolver = createThreadReferenceResolver({
       currentClient: () => null,
       prepareInput: vi.fn(),
-      addSystemMessage,
       setStatus: vi.fn(),
     });
 
-    const result = await resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never);
-
-    expect(result).toBeNull();
-    expect(addSystemMessage).not.toHaveBeenCalled();
+    await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow("not connected");
   });
 
   it("reports when the referenced thread has no readable turns", async () => {
     const request = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
-    const addSystemMessage = vi.fn();
     const client = { request } as unknown as AppServerClient;
     const resolver = createThreadReferenceResolver({
       currentClient: () => client,
       prepareInput: vi.fn(),
-      addSystemMessage,
       setStatus: vi.fn(),
     });
 
-    const result = await resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never);
-
-    expect(result).toBeNull();
+    await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow(
+      "Referenced thread has no readable turns.",
+    );
     expect(request).toHaveBeenCalledOnce();
-    expect(addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable turns.");
   });
 
   it("reports app-server history failures", async () => {
     const request = vi.fn().mockRejectedValue(new Error("history unavailable"));
-    const addSystemMessage = vi.fn();
     const client = { request } as unknown as AppServerClient;
     const resolver = createThreadReferenceResolver({
       currentClient: () => client,
       prepareInput: vi.fn(),
-      addSystemMessage,
       setStatus: vi.fn(),
     });
 
-    const result = await resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never);
-
-    expect(result).toBeNull();
-    expect(addSystemMessage).toHaveBeenCalledWith("history unavailable");
+    await expect(resolver(threadFixture(), "summarize", { sourcePath: "snapshot.md" } as never)).rejects.toThrow("history unavailable");
   });
 });
 
