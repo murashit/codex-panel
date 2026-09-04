@@ -188,6 +188,17 @@ export abstract class SuggestModal<T> extends Modal {
 
 export class Component {
   private readonly cleanups: (() => void)[] = [];
+  private loaded = false;
+
+  load(): void {
+    if (this.loaded) return;
+    this.loaded = true;
+    this.onload();
+  }
+
+  onload(): void {}
+
+  onunload(): void {}
 
   addChild(_child: Component): void {}
 
@@ -200,9 +211,15 @@ export class Component {
     this.cleanups.push(() => element.removeEventListener(type, callback));
   }
 
-  registerEvent(_eventRef: unknown): void {}
+  registerEvent(eventRef: unknown): void {
+    const cleanup = (eventRef as { __obsidianMockCleanup?: unknown } | null)?.__obsidianMockCleanup;
+    if (typeof cleanup === "function") this.cleanups.push(cleanup as () => void);
+  }
 
   unload(): void {
+    if (!this.loaded) return;
+    this.loaded = false;
+    this.onunload();
     for (const cleanup of this.cleanups.splice(0)) cleanup();
   }
 }

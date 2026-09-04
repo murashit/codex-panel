@@ -184,27 +184,20 @@ describe("VaultNoteCandidateProvider", () => {
     expect(fileToLinktext).toHaveBeenCalledTimes(2);
   });
 
-  it("returns normalized Obsidian tag candidates from the metadata tag index", () => {
-    const getTags = vi.fn(() => ({
-      "#project/codex": 2,
-      "#daily": 1,
-      "#web": 1,
-    }));
+  it("returns normalized Obsidian tag candidates from file metadata", () => {
     const app = appFixture({
       files: [
         { basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } },
         { basename: "Beta", path: "Beta.md", stat: { mtime: 2 } },
       ],
-      getTags,
       tags: new Map([
-        ["Alpha.md", { inline: ["#should/not/use"], frontmatter: ["ignored"] }],
-        ["Beta.md", ["#ignored"]],
+        ["Alpha.md", { inline: ["#project/codex", "#daily"], frontmatter: ["web"] }],
+        ["Beta.md", ["#DAILY"]],
       ]),
     });
     const provider = new VaultNoteCandidateProvider(app);
 
     expect(provider.tags()).toEqual(["daily", "project/codex", "web"]);
-    expect(getTags).toHaveBeenCalledOnce();
   });
 
   it("invalidates cached candidates when the vault changes", () => {
@@ -519,7 +512,6 @@ function appFixture(
     linktexts?: Map<string, string>;
     fileToLinktext?: (file: TFile, sourcePath: string, omitMdExtension?: boolean) => string;
     headings?: Map<string, { heading: string; level: number }[]>;
-    getTags?: () => unknown;
     tags?: Map<string, string[] | { inline?: string[]; frontmatter?: string[] }>;
     activeFile?: TFile | null;
     activeView?: unknown;
@@ -536,7 +528,10 @@ function appFixture(
   const on =
     (source: AppFixtureEventSource) =>
     (name: string, callback: () => void): EventRef => {
-      const ref = { id: `${source}:${name}:${refs.length.toString()}` } as unknown as EventRef;
+      const ref = {
+        id: `${source}:${name}:${refs.length.toString()}`,
+        __obsidianMockCleanup: () => offref(source)(ref as unknown as EventRef),
+      } as unknown as EventRef;
       refs.push({ source, name, callback, ref });
       return ref;
     };
@@ -565,7 +560,6 @@ function appFixture(
     metadataCache: {
       on: on("metadata"),
       offref: offref("metadata"),
-      getTags: options.getTags,
       getFirstLinkpathDest: options.getFirstLinkpathDest ?? (() => options.linkDestination ?? null),
       fileToLinktext:
         options.fileToLinktext ??

@@ -1,5 +1,5 @@
-import type { App, EditorPosition, EventRef } from "obsidian";
-import { MarkdownView, TFile } from "obsidian";
+import type { App, EditorPosition } from "obsidian";
+import { Component, MarkdownView, TFile } from "obsidian";
 import {
   type EditorSelectionEmphasis,
   retainEditorSelectionEmphasis,
@@ -13,10 +13,6 @@ import type {
 } from "../../application/composer/context-references";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
-interface EventSource {
-  offref?(ref: EventRef): void;
-}
-
 interface PanelSelectionEmphasis {
   readonly decoration: EditorSelectionEmphasis;
   enabled: boolean;
@@ -25,16 +21,19 @@ interface PanelSelectionEmphasis {
 export class VaultComposerContextReferenceProvider implements ComposerContextReferenceProvider {
   private readonly shared: SharedComposerContext;
   private readonly selectionEmphases = new Set<PanelSelectionEmphasis>();
-  private readonly activeLeafChangeRef: EventRef;
+  private readonly lifecycle = new Component();
   private disposed = false;
 
   constructor(
     private readonly app: App,
     private readonly isForeground: () => boolean,
   ) {
-    this.activeLeafChangeRef = app.workspace.on("active-leaf-change", () => {
-      this.syncSelectionEmphasisVisibility();
-    });
+    this.lifecycle.load();
+    this.lifecycle.registerEvent(
+      app.workspace.on("active-leaf-change", () => {
+        this.syncSelectionEmphasisVisibility();
+      }),
+    );
     const existing = sharedComposerContexts.get(app);
     if (existing) {
       existing.consumers += 1;
@@ -76,7 +75,7 @@ export class VaultComposerContextReferenceProvider implements ComposerContextRef
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.app.workspace.offref(this.activeLeafChangeRef);
+    this.lifecycle.unload();
     for (const emphasis of this.selectionEmphases) emphasis.decoration.release();
     this.selectionEmphases.clear();
     this.shared.consumers -= 1;
@@ -98,21 +97,23 @@ interface SharedComposerContext {
 
 const sharedComposerContexts = new WeakMap<App, SharedComposerContext>();
 
-class VaultComposerContextTracker {
-  private readonly unregisterEvents: (() => void)[] = [];
+class VaultComposerContextTracker extends Component {
   private readonly selectionViews = new WeakMap<SelectionContextReference, MarkdownView>();
   private lastMarkdownView: MarkdownView | null = null;
 
   constructor(private readonly app: App) {
+    super();
+    this.load();
+  }
+
+  override onload(): void {
     this.registerEvent(
-      app.workspace,
-      app.workspace.on("active-leaf-change", () => {
+      this.app.workspace.on("active-leaf-change", () => {
         this.refreshLastMarkdownView();
       }),
     );
     this.registerEvent(
-      app.workspace,
-      app.workspace.on("file-open", () => {
+      this.app.workspace.on("file-open", () => {
         this.refreshLastMarkdownView();
       }),
     );
@@ -144,15 +145,7 @@ class VaultComposerContextTracker {
   }
 
   dispose(): void {
-    for (const unregister of this.unregisterEvents.splice(0)) {
-      unregister();
-    }
-  }
-
-  private registerEvent(source: EventSource, ref: EventRef): void {
-    this.unregisterEvents.push(() => {
-      source.offref?.(ref);
-    });
+    this.unload();
   }
 
   private refreshLastMarkdownView(): void {

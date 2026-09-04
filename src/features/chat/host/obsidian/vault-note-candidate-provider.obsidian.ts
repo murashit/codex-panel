@@ -1,5 +1,5 @@
-import type { App, EventRef } from "obsidian";
-import { stripHeadingForLink, TFile } from "obsidian";
+import type { App } from "obsidian";
+import { Component, getAllTags, stripHeadingForLink, TFile } from "obsidian";
 
 import type { VaultFileReference } from "../../../../domain/turns/input";
 import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
@@ -13,14 +13,6 @@ interface FileCandidate {
   mtime: number;
   file: TFile;
   headings: NoteCandidate["headings"];
-}
-
-interface EventSource {
-  offref?(ref: EventRef): void;
-}
-
-interface MetadataCacheWithTags {
-  getTags?: () => unknown;
 }
 
 interface SharedCandidateCatalog {
@@ -71,24 +63,28 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
   }
 }
 
-class VaultNoteCandidateCatalog {
-  private readonly unregisterEvents: (() => void)[] = [];
+class VaultNoteCandidateCatalog extends Component {
   private fileCandidatesCache: FileCandidate[] | null = null;
   private tagCandidatesCache: string[] | null = null;
   private readonly projectedCandidatesBySourcePath = new Map<string, NoteCandidate[]>();
 
   constructor(private readonly app: App) {
+    super();
+    this.load();
+  }
+
+  override onload(): void {
     const invalidate = (): void => {
       this.invalidate();
     };
-    this.registerEvent(app.vault, app.vault.on("create", invalidate));
-    this.registerEvent(app.vault, app.vault.on("delete", invalidate));
-    this.registerEvent(app.vault, app.vault.on("rename", invalidate));
-    this.registerEvent(app.vault, app.vault.on("modify", invalidate));
-    this.registerEvent(app.metadataCache, app.metadataCache.on("changed", invalidate));
-    this.registerEvent(app.metadataCache, app.metadataCache.on("deleted", invalidate));
-    this.registerEvent(app.workspace, app.workspace.on("file-open", invalidate));
-    this.registerEvent(app.workspace, app.workspace.on("active-leaf-change", invalidate));
+    this.registerEvent(this.app.vault.on("create", invalidate));
+    this.registerEvent(this.app.vault.on("delete", invalidate));
+    this.registerEvent(this.app.vault.on("rename", invalidate));
+    this.registerEvent(this.app.vault.on("modify", invalidate));
+    this.registerEvent(this.app.metadataCache.on("changed", invalidate));
+    this.registerEvent(this.app.metadataCache.on("deleted", invalidate));
+    this.registerEvent(this.app.workspace.on("file-open", invalidate));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", invalidate));
   }
 
   candidates(sourcePath: string): readonly NoteCandidate[] {
@@ -110,12 +106,8 @@ class VaultNoteCandidateCatalog {
   }
 
   tags(): readonly string[] {
-    this.tagCandidatesCache ??= this.readTags();
-    return this.tagCandidatesCache;
-  }
-
-  private readTags(): string[] {
-    return normalizedTags(metadataCacheTags(this.app.metadataCache));
+    this.fileCandidates();
+    return this.tagCandidatesCache ?? [];
   }
 
   resolveFileReference(target: string, sourcePath: string): VaultFileReference | null {
@@ -129,16 +121,11 @@ class VaultNoteCandidateCatalog {
   }
 
   dispose(): void {
-    for (const unregister of this.unregisterEvents.splice(0)) {
-      unregister();
-    }
-    this.invalidate();
+    this.unload();
   }
 
-  private registerEvent(source: EventSource, ref: EventRef): void {
-    this.unregisterEvents.push(() => {
-      source.offref?.(ref);
-    });
+  override onunload(): void {
+    this.invalidate();
   }
 
   private invalidate(): void {
@@ -148,24 +135,24 @@ class VaultNoteCandidateCatalog {
   }
 
   private fileCandidates(): FileCandidate[] {
-    this.fileCandidatesCache ??= this.app.vault.getFiles().map((file) => ({
-      basename: file.basename,
-      displayName: displayNameForFile(file),
-      path: file.path,
-      mtime: file.stat.mtime,
-      file,
-      headings: noteHeadings(this.app, file),
-    }));
+    if (this.fileCandidatesCache) return this.fileCandidatesCache;
+
+    const tags: string[] = [];
+    this.fileCandidatesCache = this.app.vault.getFiles().map((file) => {
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (cache) tags.push(...(getAllTags(cache) ?? []));
+      return {
+        basename: file.basename,
+        displayName: displayNameForFile(file),
+        path: file.path,
+        mtime: file.stat.mtime,
+        file,
+        headings: noteHeadings(cache),
+      };
+    });
+    this.tagCandidatesCache = normalizedTags(tags);
     return this.fileCandidatesCache;
   }
-}
-
-function metadataCacheTags(metadataCache: App["metadataCache"]): string[] {
-  const tagIndex = (metadataCache as MetadataCacheWithTags).getTags?.();
-  if (!tagIndex) return [];
-  if (Array.isArray(tagIndex)) return tagIndex.filter((tag): tag is string => typeof tag === "string");
-  if (typeof tagIndex !== "object") return [];
-  return Object.keys(tagIndex);
 }
 
 function normalizedTags(tags: readonly string[]): string[] {
@@ -181,8 +168,8 @@ function normalizedTags(tags: readonly string[]): string[] {
   return normalizedTags.sort((a, b) => a.localeCompare(b));
 }
 
-function noteHeadings(app: App, file: TFile): NoteCandidate["headings"] {
-  return (app.metadataCache.getFileCache(file)?.headings ?? []).map((heading) => ({
+function noteHeadings(cache: ReturnType<App["metadataCache"]["getFileCache"]>): NoteCandidate["headings"] {
+  return (cache?.headings ?? []).map((heading) => ({
     heading: heading.heading,
     linkHeading: stripHeadingForLink(heading.heading),
     level: heading.level,
