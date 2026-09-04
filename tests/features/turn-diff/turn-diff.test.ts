@@ -65,7 +65,7 @@ describe("turn diff view decisions", () => {
     expect(parent.querySelector(".codex-panel-diff__word--added")?.textContent).toBe("red");
   });
 
-  it("highlights changed Japanese words with Intl.Segmenter", () => {
+  it("highlights changed Japanese words", () => {
     const parent = document.createElement("div");
 
     renderTurnDiffView(parent, {
@@ -81,7 +81,7 @@ describe("turn diff view decisions", () => {
     expect(parent.querySelector(".codex-panel-diff__word--added")?.textContent).toBe("犬");
   });
 
-  it("preserves whitespace changes from Intl.Segmenter tokenization", () => {
+  it("highlights whitespace-only changes", () => {
     const parent = document.createElement("div");
 
     renderTurnDiffView(parent, {

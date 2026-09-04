@@ -1,9 +1,8 @@
-import { diffArrays, parsePatch, type StructuredPatch } from "diff";
+import { diffWordsWithSpace, parsePatch, type StructuredPatch } from "diff";
 import type { ComponentChild as UiNode } from "preact";
 
 const MAX_INLINE_DIFF_CHARS = 4000;
-const MAX_INLINE_DIFF_TOKENS = 500;
-const MAX_INLINE_DIFF_EDIT_LENGTH = MAX_INLINE_DIFF_TOKENS;
+const MAX_INLINE_DIFF_EDIT_LENGTH = 500;
 
 export interface DiffDisplayLine {
   text: string;
@@ -242,11 +241,7 @@ function diffWordClassName(className: DiffLineClass): string {
 function inlineDiff(removedText: string, addedText: string): InlineDiff | null {
   if (removedText.length + addedText.length > MAX_INLINE_DIFF_CHARS) return null;
 
-  const removedTokens = segmentWords(removedText);
-  const addedTokens = segmentWords(addedText);
-  if (removedTokens.length + addedTokens.length > MAX_INLINE_DIFF_TOKENS) return null;
-
-  const changes = diffArrays(removedTokens, addedTokens, {
+  const changes = diffWordsWithSpace(removedText, addedText, {
     maxEditLength: MAX_INLINE_DIFF_EDIT_LENGTH,
   });
   if (!changes) return null;
@@ -255,29 +250,9 @@ function inlineDiff(removedText: string, addedText: string): InlineDiff | null {
   const added: InlineDiffPart[] = [];
   for (const change of changes) {
     const changed = change.added || change.removed;
-    for (const text of change.value) {
-      if (!change.added) removed.push({ text, changed });
-      if (!change.removed) added.push({ text, changed });
-    }
+    if (!change.added) removed.push({ text: change.value, changed });
+    if (!change.removed) added.push({ text: change.value, changed });
   }
 
-  return { added: mergeInlineParts(added), removed: mergeInlineParts(removed) };
-}
-
-function segmentWords(text: string): string[] {
-  const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
-  return Array.from(segmenter.segment(text), (segment) => segment.segment);
-}
-
-function mergeInlineParts(parts: InlineDiffPart[]): InlineDiffPart[] {
-  const merged: InlineDiffPart[] = [];
-  for (const part of parts) {
-    const previous = merged.at(-1);
-    if (previous?.changed === part.changed) {
-      previous.text += part.text;
-    } else {
-      merged.push({ ...part });
-    }
-  }
-  return merged;
+  return { added, removed };
 }
