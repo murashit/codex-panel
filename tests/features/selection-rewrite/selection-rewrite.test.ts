@@ -141,6 +141,15 @@ describe("selection rewrite diff", () => {
   it("renders unchanged text as context", () => {
     expect(buildSelectionDiffLines("same", "same")).toContain(" same");
   });
+
+  it("shows a removed trailing line break", () => {
+    expect(buildSelectionDiffLines("same\n", "same")).toEqual([" same", "-↵"]);
+  });
+
+  it("shows an added trailing line break", () => {
+    expect(buildSelectionDiffLines("same", "same\n")).toEqual([" same", "+↵"]);
+    expect(buildSelectionDiffLines("", "\n")).toEqual(["+↵"]);
+  });
 });
 
 describe("selection rewrite apply guard", () => {

@@ -1,10 +1,14 @@
-import { diffArrays } from "diff";
+import { diffLines } from "diff";
 
 export function buildSelectionDiffLines(originalText: string, replacementText: string): string[] {
-  const originalLines = textLines(originalText);
-  const replacementLines = textLines(replacementText);
-  const changes = lineChanges(originalLines, replacementLines);
-  return changes.map((change) => `${change.prefix}${change.text}`);
+  const changes = lineChanges(withoutTrailingLineBreak(originalText), withoutTrailingLineBreak(replacementText));
+  const lines = changes.map((change) => `${change.prefix}${change.text}`);
+  const originalHasTrailingLineBreak = hasTrailingLineBreak(originalText);
+  const replacementHasTrailingLineBreak = hasTrailingLineBreak(replacementText);
+  if (originalHasTrailingLineBreak !== replacementHasTrailingLineBreak) {
+    lines.push(`${originalHasTrailingLineBreak ? "-" : "+"}↵`);
+  }
+  return lines.length > 0 ? lines : [" "];
 }
 
 const MAX_SELECTION_REWRITE_EDIT_LENGTH = 400;
@@ -21,20 +25,28 @@ function textLines(text: string): string[] {
   return lines;
 }
 
-function lineChanges(originalLines: string[], replacementLines: string[]): DiffLine[] {
-  const arrayChanges = diffArrays(originalLines, replacementLines, {
+function hasTrailingLineBreak(text: string): boolean {
+  return text.endsWith("\n");
+}
+
+function withoutTrailingLineBreak(text: string): string {
+  if (!hasTrailingLineBreak(text)) return text;
+  return text.endsWith("\r\n") ? text.slice(0, -2) : text.slice(0, -1);
+}
+
+function lineChanges(originalText: string, replacementText: string): DiffLine[] {
+  const changes = diffLines(originalText, replacementText, {
     maxEditLength: MAX_SELECTION_REWRITE_EDIT_LENGTH,
+    oneChangePerToken: true,
   });
-  if (!arrayChanges) return linearLineChanges(originalLines, replacementLines);
+  if (!changes) return linearLineChanges(textLines(originalText), textLines(replacementText));
 
-  const changes = arrayChanges.flatMap<DiffLine>((change) =>
-    change.value.map((text) => ({
-      prefix: change.added ? "+" : change.removed ? "-" : " ",
-      text,
-    })),
-  );
+  const lines = changes.map<DiffLine>((change) => ({
+    prefix: change.added ? "+" : change.removed ? "-" : " ",
+    text: change.value.endsWith("\n") ? change.value.slice(0, -1) : change.value,
+  }));
 
-  return changes.length > 0 ? changes : [{ prefix: " ", text: "" }];
+  return lines;
 }
 
 function linearLineChanges(originalLines: string[], replacementLines: string[]): DiffLine[] {
