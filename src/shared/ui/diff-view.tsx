@@ -1,4 +1,4 @@
-import { diffArrays } from "diff";
+import { diffArrays, parsePatch, type StructuredPatch } from "diff";
 import type { ComponentChild as UiNode } from "preact";
 
 const MAX_INLINE_DIFF_CHARS = 4000;
@@ -34,13 +34,18 @@ interface DiffLineView extends RenderDiffLine {
 type ChangeLineClass = "added" | "removed";
 
 export function unifiedDiffDisplayLines(diff: string): DiffDisplayLine[] {
+  const patches = parsedGitPatches(diff);
+  if (!patches) return diff.split("\n").map((text) => ({ text }));
+
   const displayLines: DiffDisplayLine[] = [];
   let inFileHeader = false;
+  let patchIndex = 0;
   for (const line of diff.split("\n")) {
-    const file = filePathFromGitDiffHeader(line);
-    if (file) {
-      displayLines.push({ text: file, kind: "file" });
-      inFileHeader = true;
+    if (line.startsWith("diff --git ")) {
+      const file = displayFilePath(patches[patchIndex]);
+      patchIndex += 1;
+      displayLines.push(file ? { text: file, kind: "file" } : { text: line });
+      inFileHeader = Boolean(file);
       continue;
     }
     if (line.startsWith("@@")) inFileHeader = false;
@@ -81,10 +86,20 @@ function displayDiffLineText(text: string, lineClass: DiffLineClass): string {
   return displayText || " ";
 }
 
-function filePathFromGitDiffHeader(line: string): string | null {
-  const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
-  if (!match) return null;
-  return match[2] ?? null;
+function parsedGitPatches(diff: string): readonly StructuredPatch[] | null {
+  try {
+    const patches = parsePatch(diff).filter((patch) => patch.isGit === true);
+    return patches.length > 0 ? patches : null;
+  } catch {
+    return null;
+  }
+}
+
+function displayFilePath(patch: StructuredPatch | undefined): string | null {
+  if (!patch) return null;
+  const fileName = patch.newFileName && patch.newFileName !== "/dev/null" ? patch.newFileName : patch.oldFileName;
+  if (!fileName || fileName === "/dev/null") return null;
+  return fileName.replace(/^[ab]\//, "");
 }
 
 function DiffLineFrame({ lines, className }: { lines: readonly RenderDiffLine[]; className?: string | undefined }): UiNode {

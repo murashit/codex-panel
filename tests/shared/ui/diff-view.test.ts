@@ -26,4 +26,41 @@ describe("unified diff display lines", () => {
       ),
     ).toEqual([{ text: "note.md", kind: "file" }, { text: "@@" }, { text: "+++ frontmatter" }, { text: "--- removed marker" }]);
   });
+
+  it("decodes Git-quoted non-ASCII file paths", () => {
+    expect(
+      unifiedDiffDisplayLines(
+        'diff --git "a/\\346\\227\\245\\346\\234\\254\\350\\252\\236.md" "b/\\346\\227\\245\\346\\234\\254\\350\\252\\236.md"\nindex 111..222 100644\n--- "a/\\346\\227\\245\\346\\234\\254\\350\\252\\236.md"\n+++ "b/\\346\\227\\245\\346\\234\\254\\350\\252\\236.md"\n@@ -1 +1 @@\n-old\n+new',
+      ),
+    ).toEqual([{ text: "日本語.md", kind: "file" }, { text: "@@ -1 +1 @@" }, { text: "-old" }, { text: "+new" }]);
+  });
+
+  it("uses authoritative rename and deleted-file paths from parsed Git metadata", () => {
+    expect(
+      unifiedDiffDisplayLines(
+        "diff --git a/old.md b/old.md\nsimilarity index 100%\nrename from old.md\nrename to renamed.md\ndiff --git a/deleted.md b/deleted.md\ndeleted file mode 100644\n--- a/deleted.md\n+++ /dev/null\n@@ -1 +0,0 @@\n-old",
+      ),
+    ).toEqual([
+      { text: "renamed.md", kind: "file" },
+      { text: "similarity index 100%" },
+      { text: "rename from old.md" },
+      { text: "rename to renamed.md" },
+      { text: "deleted.md", kind: "file" },
+      { text: "deleted file mode 100644" },
+      { text: "@@ -1 +0,0 @@" },
+      { text: "-old" },
+    ]);
+  });
+
+  it("keeps malformed patches readable as raw text", () => {
+    const malformed = 'diff --git "unterminated\nindex 111..222\n-old\n+new';
+
+    expect(unifiedDiffDisplayLines(malformed)).toEqual(malformed.split("\n").map((text) => ({ text })));
+  });
+
+  it("keeps parsed patches with an empty filename readable as raw text", () => {
+    const malformed = "diff --git a/ b/\nindex 111..222\n--- a/\n+++ b/\n@@ -1 +1 @@\n-old\n+new";
+
+    expect(unifiedDiffDisplayLines(malformed)).toEqual(malformed.split("\n").map((text) => ({ text })));
+  });
 });
