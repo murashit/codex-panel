@@ -274,14 +274,14 @@ describe("submitComposer", () => {
   });
 
   it("executes slash commands and forwards command send results", async () => {
-    const { host, ensureConnected, execute, inputSnapshot, sendTurnText, setDraft, showLatest } = createHost("/clear hello");
+    const { host, ensureConnected, execute, inputSnapshot, sendTurnText, setDraft, showLatest } = createHost("/plan hello");
     execute.mockResolvedValue({ sendText: "hello" });
 
     await submitComposer(host);
 
     expect(setDraft).not.toHaveBeenCalled();
     expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(execute).toHaveBeenCalledWith("clear", "hello", inputSnapshot, {
+    expect(execute).toHaveBeenCalledWith("plan", "hello", inputSnapshot, {
       isCurrent: expect.any(Function),
       markAdopted: expect.any(Function),
       adoptPanelTarget: expect.any(Function),
@@ -515,7 +515,7 @@ describe("submitComposer", () => {
   });
 
   it("does not execute connection-dependent slash commands when connection fails", async () => {
-    const { host, ensureConnected, execute, setDraft } = createHost("/clear");
+    const { host, ensureConnected, execute, setDraft } = createHost("/model example-model");
     ensureConnected.mockResolvedValue(false);
 
     await submitComposer(host);
@@ -526,7 +526,7 @@ describe("submitComposer", () => {
   });
 
   it("does not execute an old slash intent after leaving and returning during connection", async () => {
-    const { host, ensureConnected, execute, stateStore } = createHost("/clear");
+    const { host, ensureConnected, execute, stateStore } = createHost("/model example-model");
     const connection = deferred<boolean>();
     ensureConnected.mockImplementation(() => connection.promise);
     resumeActiveThread(stateStore, "first");

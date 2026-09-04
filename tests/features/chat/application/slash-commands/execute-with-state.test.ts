@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { CodexInput } from "../../../../../src/domain/turns/input";
+import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import {
   executePanelSlashCommand,
   type PanelSlashCommandHost,
 } from "../../../../../src/features/chat/application/slash-commands/execute-with-state";
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
+import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { deferred } from "../../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -83,6 +86,71 @@ function createHost(overrides: PanelSlashCommandHostOverrides = {}) {
 }
 
 describe("executePanelSlashCommand", () => {
+  it.each(["help", "doctor", "reconnect", "clear", "resume"] as const)(
+    "executes /%s without first restoring an unavailable saved thread",
+    async (command) => {
+      const { host, stateStore } = createHost({
+        connectionAvailable: () => command === "resume",
+        listedThreads: () => [thread("other", "Other")],
+      });
+      stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "unavailable", fallbackTitle: "Old thread" });
+      const restoration = new RestorationController({ stateStore });
+      const loadSavedThread = vi.fn(async () => undefined);
+      const ensureConnected = vi.fn(async () => command === "resume");
+      const draft = command === "resume" ? "/resume Other" : `/${command}`;
+      await submitComposer({
+        stateStore,
+        localItemIds: createLocalIdSource(),
+        ensureRestoredThreadLoaded: () => restoration.ensureLoaded(loadSavedThread),
+        composer: {
+          draft,
+          trimmedDraft: draft,
+          claimSubmission: () => ({
+            text: draft,
+            inputSnapshot: {
+              sourcePath: "",
+              availableSkills: [],
+              referenceActiveNoteOnSend: false,
+              contextReferences: { activeNote: null, selection: null },
+              activeNoteSnapshots: [],
+              selectionSnapshots: [],
+              attachments: [],
+            },
+            isCurrent: () => true,
+            markAdopted: vi.fn(),
+            adoptPanelTarget: vi.fn(),
+            settle: vi.fn(),
+          }),
+          isSubmissionPreparing: () => false,
+          failActiveSubmissionClaim: vi.fn(),
+        },
+        slashCommandExecutor: {
+          execute: (name, args, snapshot, submission) => executePanelSlashCommand(host, name, args, snapshot, submission),
+        },
+        turnSubmissionCommand: { sendTurnText: vi.fn() },
+        connection: { ensureConnected },
+        turnPort: { interruptTurn: vi.fn() },
+        status: { setStatus: vi.fn(), addSystemMessage: host.addSystemMessage },
+        scroll: { showLatest: vi.fn() },
+      });
+
+      expect(loadSavedThread).not.toHaveBeenCalled();
+      if (command === "resume") {
+        expect(ensureConnected).toHaveBeenCalledOnce();
+        expect(host.resumeThread).toHaveBeenCalledWith("other");
+      } else {
+        expect(ensureConnected).not.toHaveBeenCalled();
+        if (command === "reconnect") expect(host.reconnect).toHaveBeenCalledOnce();
+        else if (command === "clear") expect(host.startNewThread).toHaveBeenCalledOnce();
+        else
+          expect(host.addStructuredSystemMessage).toHaveBeenCalledWith(
+            command === "help" ? "Available slash commands" : "Connection diagnostics",
+            expect.any(Array),
+          );
+      }
+    },
+  );
+
   it("executes slash commands against the current chat state", async () => {
     const { host } = createHost();
     const adoptPanelTarget = vi.fn();

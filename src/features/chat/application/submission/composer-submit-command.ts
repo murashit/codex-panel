@@ -2,7 +2,7 @@ import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import { type SlashCommandName, slashCommandRequiresConnection } from "../slash-commands/catalog";
+import { type SlashCommandName, slashCommandRequiresConnection, slashCommandRequiresRestoredThread } from "../slash-commands/catalog";
 import type { SlashCommandExecutionResult } from "../slash-commands/execution-contracts";
 import { parseSlashCommand, parseWebCommandArgs } from "../slash-commands/parse";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
@@ -66,10 +66,16 @@ export async function submitComposer(host: ComposerSubmitCommandHost): Promise<v
   const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   const originalDraft = host.composer.draft;
   const draft = originalDraft.trim();
+  const slashCommand = parseSlashCommand(draft);
   const submissionClaim = draft.length > 0 ? host.composer.claimSubmission() : null;
   if (draft.length > 0 && !submissionClaim) return;
   try {
-    if (host.ensureRestoredThreadLoaded && !(await host.ensureRestoredThreadLoaded())) return;
+    if (
+      (!slashCommand || slashCommandRequiresRestoredThread(slashCommand.command)) &&
+      host.ensureRestoredThreadLoaded &&
+      !(await host.ensureRestoredThreadLoaded())
+    )
+      return;
     if (submissionClaim ? !submissionClaim.isCurrent() : !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
     const chatState = host.stateStore.getState();
     const state = submissionStateSnapshot(chatState);
@@ -83,19 +89,23 @@ export async function submitComposer(host: ComposerSubmitCommandHost): Promise<v
       host.status.addSystemMessage(operationDecision.message);
       return;
     }
-    await sendMessage(host, draft, submissionClaim);
+    await sendMessage(host, draft, submissionClaim, slashCommand);
   } finally {
     submissionClaim?.settle("failed");
   }
 }
 
-async function sendMessage(host: ComposerSubmitCommandHost, text: string, submissionClaim: ComposerSubmissionClaim | null): Promise<void> {
+async function sendMessage(
+  host: ComposerSubmitCommandHost,
+  text: string,
+  submissionClaim: ComposerSubmissionClaim | null,
+  slashCommand: ReturnType<typeof parseSlashCommand>,
+): Promise<void> {
   if (!text) return;
   if (!submissionClaim) return;
   if (!submissionClaim.isCurrent()) return;
   const inputSnapshot = submissionClaim.inputSnapshot;
 
-  const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
     const pendingWeb = beginPendingWebSubmission(host, slashCommand.command, slashCommand.args);
     if (slashCommandRequiresConnection(slashCommand.command)) {

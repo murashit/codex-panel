@@ -206,7 +206,13 @@ export function isSlashCommandName(value: string): value is SlashCommandName {
 
 export type SlashCommandDefinition = (typeof SLASH_COMMANDS)[number];
 
-const CONNECTION_INDEPENDENT_SLASH_COMMANDS = new Set<SlashCommandName>(["compact", "reconnect"]);
+const CONNECTION_INDEPENDENT_SLASH_COMMANDS = new Set<SlashCommandName>(["compact", "reconnect", "clear", "help", "doctor"]);
+
+const RESTORATION_INDEPENDENT_SLASH_COMMANDS = new Set<SlashCommandName>(["help", "doctor", "reconnect", "clear", "resume"]);
+
+export function slashCommandRequiresRestoredThread(command: SlashCommandName): boolean {
+  return !RESTORATION_INDEPENDENT_SLASH_COMMANDS.has(command);
+}
 
 export interface SlashCommandHelpSection {
   readonly title: string;
