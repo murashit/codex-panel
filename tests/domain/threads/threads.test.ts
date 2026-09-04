@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  explicitThreadName,
-  normalizeExplicitThreadName,
-  type Thread,
-  threadRecencyAt,
-  upsertThread,
-} from "../../../src/domain/threads/model";
+import { explicitThreadName, normalizeExplicitThreadName, type Thread, threadRecencyAt } from "../../../src/domain/threads/model";
 import { threadDisplayTitle, threadMeaningfulTitle, threadRenameDraftTitle, threadWindowTitle } from "../../../src/domain/threads/title";
 
 describe("thread helpers", () => {
@@ -60,22 +54,12 @@ describe("thread helpers", () => {
     expect(normalizeExplicitThreadName(undefined)).toBeNull();
   });
 
-  it("upserts resumed thread metadata without reordering existing rows", () => {
-    const first = thread({ id: "first", preview: "old" });
-    const second = thread({ id: "second" });
-    const updated = thread({ id: "first", preview: "new", name: "Named" });
-
-    expect(upsertThread([first, second], updated)).toEqual([{ ...first, ...updated }, second]);
-    expect(upsertThread([second], first)).toEqual([first, second]);
-  });
-
-  it("uses recency timestamps when present and clears them when app-server sends null", () => {
+  it("uses recency timestamps when present and falls back to updated time", () => {
     const recent = thread({ updatedAt: 10, recencyAt: 30 });
     const cleared = thread({ updatedAt: 20, recencyAt: null });
 
     expect(threadRecencyAt(recent)).toBe(30);
     expect(threadRecencyAt(cleared)).toBe(20);
-    expect(upsertThread([recent], cleared)[0]?.recencyAt).toBeNull();
   });
 });
 

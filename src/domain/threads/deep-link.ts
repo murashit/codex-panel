@@ -4,7 +4,7 @@ import { threadCommandDisplayTitle } from "./title";
 const CODEX_THREAD_LINK_PREFIX = "codex://threads/";
 const MAX_THREAD_ID_LENGTH = 160;
 
-export function codexThreadHref(threadId: string): string {
+function codexThreadHref(threadId: string): string {
   return `${CODEX_THREAD_LINK_PREFIX}${encodeURIComponent(threadId)}`;
 }
 

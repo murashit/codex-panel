@@ -36,12 +36,6 @@ export function normalizeExplicitThreadName(value: string | null | undefined): s
   return name.length > 0 ? name : null;
 }
 
-export function upsertThread(threads: readonly Thread[], thread: Thread): Thread[] {
-  const index = threads.findIndex((item) => item.id === thread.id);
-  if (index === -1) return [thread, ...threads];
-  return threads.map((item, itemIndex) => (itemIndex === index ? { ...item, ...thread } : item));
-}
-
 export function threadRecencyAt(thread: Thread): number {
   return thread.recencyAt ?? thread.updatedAt;
 }

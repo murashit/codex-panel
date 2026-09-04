@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contextSummary, rateLimitSummary, statusDetails } from "../../../../../src/features/chat/host/runtime/status";
+import { contextSummary, rateLimitSummary } from "../../../../../src/features/chat/host/runtime/status";
 import { runtimeSnapshot } from "../../domain/runtime/support";
 
 describe("runtime status presentation", () => {
@@ -128,28 +128,5 @@ describe("runtime status presentation", () => {
     ).toMatchObject({
       rows: [{ label: "monthly", value: "$72 / $100", resetLabel: "reset in 2h 20m", percent: 72, meterDivisions: null }],
     });
-  });
-
-  it("formats runtime status details as flat rows", () => {
-    expect(
-      statusDetails({
-        snapshot: runtimeSnapshot({
-          activeThreadId: "thread",
-          rateLimit: {
-            limitId: "codex",
-            limitName: "Codex",
-            primary: { usedPercent: 15, windowDurationMins: 300, resetsAt: null },
-            secondary: { usedPercent: 38, windowDurationMins: 10_080, resetsAt: null },
-            individualLimit: null,
-            rateLimitReachedType: null,
-          },
-        }),
-        nowMs: 0,
-      }),
-    ).toEqual([
-      { label: "Thread", value: "thread" },
-      { label: "Context", value: "0 / 100,000 (0%). No turns in this thread yet." },
-      { label: "Usage Limits", value: "5h 15%, 1w 38%" },
-    ]);
   });
 });

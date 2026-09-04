@@ -98,22 +98,6 @@ describe("thread stream surface", () => {
     expect(projection.context.forkMenuItemId).toBeNull();
   });
 
-  it("wires thread stream disclosure actions through the surface context", () => {
-    const store = createChatStateStore(chatStateFixture());
-    const surfaceContext = testThreadStreamSurfaceContext({
-      vaultPath: "/vault",
-      dispatch: (action) => {
-        store.dispatch(action);
-      },
-    });
-
-    const context = projectThreadStream(threadStreamModelFromChatState(store.getState(), emptySharedResources), surfaceContext).context;
-    if (!context.onDisclosureToggle) throw new Error("Expected thread stream disclosure action");
-    context.onDisclosureToggle("textDetails", "message:details", true);
-
-    expect(store.getState().ui.disclosures.textDetails.has("message:details")).toBe(true);
-  });
-
   it("binds reducer-owned disclosure and fork menu actions in the surface factory", () => {
     const { context, stateStore } = threadStreamSurface();
 

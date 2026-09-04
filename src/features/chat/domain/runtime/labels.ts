@@ -1,10 +1,8 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { CollaborationModeSelection } from "./intent";
 
-export function compactReasoningEffortLabel(effort: ReasoningEffort | null): string {
-  if (!effort) return "default";
-  if (effort === "minimal") return "min";
-  return effort;
+export function compactReasoningEffortLabel(effort: ReasoningEffort): string {
+  return effort === "minimal" ? "min" : effort;
 }
 
 export function collaborationModeLabel(mode: CollaborationModeSelection): string {

@@ -1,6 +1,5 @@
 import type { ReferencedThreadMetadata, ReferencedThreadTurn } from "../../domain/threads/reference";
 import {
-  nonEmptyTurnTranscriptSummaries,
   type ThreadTranscriptEntry,
   type TurnTranscriptSummary,
   turnTranscriptSummaryFromTranscriptEntries,
@@ -52,12 +51,6 @@ export function completedTurnTranscriptSummariesFromTurnRecords(turns: readonly 
     const summary = completedTurnTranscriptSummaryFromTurnRecord(turn);
     return summary ? [summary] : [];
   });
-}
-
-export function chronologicalTurnTranscriptSummariesFromTurnRecords(turns: readonly TurnRecord[]): TurnTranscriptSummary[] {
-  return nonEmptyTurnTranscriptSummaries(
-    [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0)).map(turnTranscriptSummaryFromTurnRecord),
-  );
 }
 
 export interface TurnUserItemProjection {

@@ -19,7 +19,7 @@ export function parseFileHref(href: string): ParsedFileHref | null {
   return path ? { path, subpath } : null;
 }
 
-export function isExternalFileHref(href: string): boolean {
+function isExternalFileHref(href: string): boolean {
   if (/^[a-z]:[\\/]/i.test(href)) return false;
   return /^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith("//");
 }

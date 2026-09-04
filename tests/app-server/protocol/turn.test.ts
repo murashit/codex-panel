@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  chronologicalTurnTranscriptSummariesFromTurnRecords,
   completedTurnTranscriptSummaryFromTurnRecord,
   lastAgentMessageTextFromTurnRecord,
   referencedThreadTurnsFromNewestFirstTurnRecords,
@@ -51,19 +50,6 @@ describe("app-server turn records", () => {
     expect(completedTurnTranscriptSummaryFromTurnRecord(turn([agentMessage("a1", "回答")]))).toBeNull();
   });
 
-  it("returns chronological turn transcript summaries and drops turns without transcript text", () => {
-    expect(
-      chronologicalTurnTranscriptSummariesFromTurnRecords([
-        turn([userMessage("u2", "後の依頼"), agentMessage("a2", "後の回答")], { id: "turn-2", startedAt: 20 }),
-        turn([commandItem("cmd")], { id: "turn-empty", startedAt: 15 }),
-        turn([userMessage("u1", "先の依頼"), agentMessage("a1", "先の回答")], { id: "turn-1", startedAt: 10 }),
-      ]),
-    ).toEqual([
-      { userText: "先の依頼", assistantText: "先の回答" },
-      { userText: "後の依頼", assistantText: "後の回答" },
-    ]);
-  });
-
   it("projects transcript entries from turn lists", () => {
     expect(
       transcriptEntriesFromTurnRecords([
@@ -88,18 +74,6 @@ describe("app-server turn records", () => {
 
   it("omits referenced turns that contain no readable transcript entries", () => {
     expect(referencedThreadTurnsFromNewestFirstTurnRecords([turn([commandItem("cmd")])])).toEqual([]);
-  });
-
-  it("sorts missing turn start times before dated turns", () => {
-    expect(
-      chronologicalTurnTranscriptSummariesFromTurnRecords([
-        turn([userMessage("dated", "dated"), agentMessage("dated-a", "dated-answer")], { startedAt: 10 }),
-        turn([userMessage("missing", "missing"), agentMessage("missing-a", "missing-answer")], { startedAt: null }),
-      ]),
-    ).toEqual([
-      { userText: "missing", assistantText: "missing-answer" },
-      { userText: "dated", assistantText: "dated-answer" },
-    ]);
   });
 
   it("keeps local image attachments out of user transcript text when text is present", () => {

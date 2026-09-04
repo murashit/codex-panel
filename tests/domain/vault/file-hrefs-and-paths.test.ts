@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isExternalFileHref, parseFileHref } from "../../../src/domain/vault/file-hrefs";
+import { parseFileHref } from "../../../src/domain/vault/file-hrefs";
 import { normalizeFilePath, pathRelativeToRoot, vaultRelativePath } from "../../../src/domain/vault/paths";
 
 describe("file path helpers", () => {
@@ -18,9 +18,9 @@ describe("file path helpers", () => {
   });
 
   it("keeps external hrefs out of file path handling", () => {
-    expect(isExternalFileHref("https://example.com/docs/Guide.md")).toBe(true);
-    expect(isExternalFileHref("//example.com/docs/Guide.md")).toBe(true);
-    expect(isExternalFileHref("C:/Vault/docs/Guide.md")).toBe(false);
+    expect(parseFileHref("https://example.com/docs/Guide.md")).toBeNull();
+    expect(parseFileHref("//example.com/docs/Guide.md")).toBeNull();
+    expect(parseFileHref("C:/Vault/docs/Guide.md")).toEqual({ path: "C:/Vault/docs/Guide.md", subpath: "" });
   });
 
   it("resolves vault-relative paths only when the caller allows relative inputs", () => {

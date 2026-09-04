@@ -417,7 +417,7 @@ describe("chat panel projection integration", () => {
     const shared = chatSharedResourcesFixture({
       runtimeConfig: runtimeConfigFixture({
         model: "gpt-5.5",
-        model_reasoning_effort: "high",
+        model_reasoning_effort: "minimal",
         approvals_reviewer: "auto_review",
         service_tier: "fast",
       }),
@@ -444,9 +444,9 @@ describe("chat panel projection integration", () => {
         ],
         percent: "42%",
       },
-      statusSummary: "Context 42%, plan on, auto-review on, fast on, model gpt-5.5, reasoning effort high",
+      statusSummary: "Context 42%, plan on, auto-review on, fast on, model gpt-5.5, reasoning effort min",
       model: "gpt-5.5",
-      effort: "high",
+      effort: "min",
       planActive: true,
       autoReviewActive: true,
       fastAvailable: true,
