@@ -14,6 +14,17 @@ afterEach(async () => {
 });
 
 describe("development scripts", () => {
+  it("requires a sparse versions.json boundary only when the Obsidian floor changes", async () => {
+    const { compatibilityBoundaryIsRecorded } = await import(
+      pathToFileURL(path.join(repoRoot, "scripts", "release", "versioning.mjs")).href
+    );
+    const boundaries = { "0.1.0": "1.5.0", "5.7.1": "1.12.0" };
+
+    expect(compatibilityBoundaryIsRecorded(boundaries, "5.7.1", "1.12.0", "1.13.0")).toBe(true);
+    expect(compatibilityBoundaryIsRecorded(boundaries, "5.8.0", "1.13.0", "1.13.0")).toBe(true);
+    expect(compatibilityBoundaryIsRecorded({ "0.1.0": "1.5.0" }, "5.7.1", "1.12.0", "1.13.0")).toBe(false);
+  });
+
   it("keeps every configured mutation pattern attached to authored source", async () => {
     const { unmatchedMutationPatterns } = await import(pathToFileURL(path.join(repoRoot, "scripts", "check-mutation-scope.mjs")).href);
 
@@ -133,12 +144,34 @@ describe("development scripts", () => {
     expect(report.failures).toContain("local Codex CLI 0.144.5 does not match recorded tested CLI 0.144.4.");
   });
 
+  it("allows Obsidian API types to advance beyond the runtime floor", async () => {
+    const cwd = await apiBaselineFixture({ recordedCodexVersion: "0.144.4", readmeCodexVersion: "0.144.4" });
+    await writeJson(path.join(cwd, "package-lock.json"), {
+      packages: {
+        "node_modules/obsidian": {
+          version: "1.14.0",
+          peerDependencies: {
+            "@codemirror/state": "6.5.0",
+            "@codemirror/view": "6.38.6",
+          },
+        },
+      },
+    });
+    const { createApiBaselineReport } = await import(pathToFileURL(path.join(repoRoot, "scripts", "api-baseline.mjs")).href);
+
+    const report = await createApiBaselineReport({ cwd, readCodexVersion: () => "0.144.4" });
+
+    expect(report.obsidian.minAppVersion).toBe("1.13.0");
+    expect(report.obsidian.lockedPackageVersion).toBe("1.14.0");
+    expect(report.failures).toEqual([]);
+  });
+
   it("reports when Obsidian changes its pinned CodeMirror peers", async () => {
     const cwd = await apiBaselineFixture({ recordedCodexVersion: "0.144.4", readmeCodexVersion: "0.144.4" });
     await writeJson(path.join(cwd, "package-lock.json"), {
       packages: {
         "node_modules/obsidian": {
-          version: "1.12.3",
+          version: "1.13.1",
           peerDependencies: {
             "@codemirror/state": "6.7.1",
             "@codemirror/view": "6.38.6",
@@ -218,13 +251,13 @@ async function apiBaselineFixture(options: { recordedCodexVersion: string; readm
     devDependencies: {
       "@codemirror/state": "6.5.0",
       "@codemirror/view": "6.38.6",
-      obsidian: "~1.12.3",
+      obsidian: "^1.13.1",
     },
   });
   await writeJson(path.join(cwd, "package-lock.json"), {
     packages: {
       "node_modules/obsidian": {
-        version: "1.12.3",
+        version: "1.13.1",
         peerDependencies: {
           "@codemirror/state": "6.5.0",
           "@codemirror/view": "6.38.6",
@@ -232,7 +265,7 @@ async function apiBaselineFixture(options: { recordedCodexVersion: string; readm
       },
     },
   });
-  await writeJson(path.join(cwd, "manifest.json"), { minAppVersion: "1.12.0" });
+  await writeJson(path.join(cwd, "manifest.json"), { minAppVersion: "1.13.0" });
   await writeJson(path.join(cwd, "versions.json"), { "1.0.0": "1.12.0" });
   await writeFile(
     path.join(cwd, "README.md"),
@@ -242,8 +275,7 @@ async function apiBaselineFixture(options: { recordedCodexVersion: string; readm
       "| Key | Version | Notes |",
       "| --- | --- | --- |",
       `| \`codexAppServer.testedCliVersion\` | \`${options.readmeCodexVersion}\` | Tested CLI. |`,
-      "| `manifest.minAppVersion` | `1.12.0` | Minimum app version. |",
-      "| `obsidian` API types | `1.12.3` | Compile-time API package. |",
+      "| `manifest.minAppVersion` | `1.13.0` | Minimum app version. |",
     ].join("\n"),
   );
   await writeAppServerCompatibility(cwd, options.recordedCodexVersion);

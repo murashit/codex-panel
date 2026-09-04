@@ -24,3 +24,7 @@ export function isExpectedNextVersion(previous, current) {
   }
   return false;
 }
+
+export function compatibilityBoundaryIsRecorded(versions, previousVersion, previousMinAppVersion, nextMinAppVersion) {
+  return previousMinAppVersion === nextMinAppVersion || versions[previousVersion] === previousMinAppVersion;
+}

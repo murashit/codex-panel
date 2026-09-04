@@ -12,17 +12,6 @@
   padding: 0;
 }
 
-.codex-panel-settings__section-status {
-  padding: 0 var(--size-4-4);
-}
-
-.codex-panel-settings__section-intro {
-  color: var(--text-muted);
-  font-size: var(--font-ui-small);
-  line-height: var(--line-height-normal);
-  margin: 0;
-}
-
 .codex-panel-settings__dynamic-list {
   margin: var(--size-4-4) 0 0;
   overflow: auto;
@@ -37,10 +26,6 @@
 
 .codex-panel-settings .setting-items > .setting-item.codex-panel-settings__declarative-section-island:empty {
   display: none;
-}
-
-.codex-panel-settings__dynamic-section-heading + .codex-panel-settings__dynamic-list {
-  margin-top: 0;
 }
 
 .codex-panel-settings .setting-item.codex-panel-settings__declarative-section-island > .codex-panel-settings__dynamic-list {

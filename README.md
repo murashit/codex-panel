@@ -21,7 +21,7 @@ Codex Panel stores panel preferences only, not API keys or provider credentials.
 
 ## Requirements
 
-- Obsidian desktop app 1.12.0 or newer.
+- Obsidian desktop app 1.13.0 or newer.
 - Codex CLI installed, authenticated, and available as `codex`, or configured with an absolute executable path in Codex Panel settings.
 - A local vault where Codex is allowed to work.
 
@@ -72,11 +72,10 @@ Use `/help` for the current slash command list.
 
 ## Compatibility
 
-| Key                                    | Version   | Policy                                                                                              |
-| -------------------------------------- | --------- | --------------------------------------------------------------------------------------------------- |
-| `manifest.minAppVersion`               | `1.12.0`  | Minimum Obsidian desktop version declared for plugin loading.                                       |
-| `obsidian` API types                   | `1.12.3`  | TypeScript API package used for compile-time checks; kept in the same minor as `manifest` baseline. |
-| `codexAppServer.testedCliVersion`      | `0.153.0` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version.    |
+| Key                               | Version   | Policy                                                                                           |
+| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
+| `manifest.minAppVersion`          | `1.13.0`  | Earliest Obsidian desktop version supported by the current source.                               |
+| `codexAppServer.testedCliVersion` | `0.153.0` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version. |
 
 Codex Panel depends on the experimental `codex app-server` API.
 

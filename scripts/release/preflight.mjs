@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 
 function fail(message) {
   console.error(`release preflight failed: ${message}`);
@@ -27,6 +26,7 @@ function maybeRun(command, args) {
 function spawn(command, args, options = {}) {
   return spawnSync(command, args, {
     encoding: "utf8",
+    env: options.env ?? process.env,
     stdio: options.capture ? "pipe" : "inherit",
     shell: false,
   });
@@ -104,14 +104,13 @@ if (maybeRun("jj", ["root"])) {
 
 assertReleaseCommit(packageVersion);
 
-const versionKeys = Object.keys(JSON.parse(readFileSync("versions.json", "utf8")));
-const previousTag = versionKeys.at(-2);
-if (!previousTag) fail("versions.json must contain a release before the prepared version");
-run("git", ["rev-parse", "--verify", `refs/tags/${previousTag}`], { capture: true });
+const previousTag = run("git", ["describe", "--tags", "--abbrev=0", "main^"], { capture: true });
 run("npm", ["ci", "--ignore-scripts"]);
 run("npm", ["audit", "--omit=dev", "--audit-level=low"]);
 run("npm", ["run", "commitlint", "--", "--from", previousTag, "--to", "main", "--verbose"]);
-run("npm", ["run", "release:check"]);
+run("npm", ["run", "release:check"], {
+  env: { ...process.env, PREVIOUS_RELEASE_TAG: previousTag, RELEASE_VERSION: packageVersion },
+});
 run("npm", ["run", "api:baseline"]);
 run("npm", ["run", "generate:app-server-types:check"]);
 run("npm", ["run", "check"]);

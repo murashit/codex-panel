@@ -2,17 +2,8 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { HookItem } from "../../domain/catalog/metadata";
 import { ObsidianButton } from "./controls.obsidian";
-import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./layout";
+import { SettingRow, SettingsItems, SettingsStatusRow } from "./layout";
 import type { CodexHooksViewModel } from "./view-model";
-
-export function CodexHooksSection({ state }: { state: CodexHooksViewModel }): UiNode {
-  return (
-    <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__hook-section">
-      <SettingsHeading dynamic name="Codex hooks" />
-      <CodexHooksContent state={state} />
-    </SettingsGroup>
-  );
-}
 
 export function CodexHooksContent({ state }: { state: CodexHooksViewModel }): UiNode {
   const catalog = state.catalog;

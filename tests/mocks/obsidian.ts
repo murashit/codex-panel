@@ -286,6 +286,7 @@ export const MarkdownRenderer = {
 
 export class PluginSettingTab {
   containerEl: HTMLElement;
+  private settingCleanups: (() => void)[] = [];
 
   constructor(
     readonly app: App,
@@ -296,11 +297,81 @@ export class PluginSettingTab {
   }
 
   display(): void {
-    // Test mock placeholder.
+    this.clearSettings();
+    const definitions = (this as unknown as { getSettingDefinitions?: () => MockSettingDefinitionItem[] }).getSettingDefinitions?.() ?? [];
+    renderSettingDefinitions(this, this.containerEl, definitions, this.settingCleanups);
   }
 
   hide(): void {
+    this.clearSettings();
+  }
+
+  private clearSettings(): void {
+    for (const cleanup of this.settingCleanups.splice(0)) cleanup();
     this.containerEl.empty();
+  }
+}
+
+interface MockSettingDefinition {
+  name: string;
+  desc?: string;
+  render?: (setting: Setting, group: unknown) => undefined | (() => void);
+  control?: { type: "toggle"; key: string } | { type: "dropdown"; key: string; defaultValue?: string; options: Record<string, string> };
+}
+
+interface MockSettingDefinitionGroup {
+  type: "group";
+  heading?: string;
+  cls?: string;
+  items?: MockSettingDefinition[];
+}
+
+type MockSettingDefinitionItem = MockSettingDefinition | MockSettingDefinitionGroup;
+
+function renderSettingDefinitions(
+  tab: PluginSettingTab,
+  container: HTMLElement,
+  definitions: MockSettingDefinitionItem[],
+  cleanups: (() => void)[],
+): void {
+  for (const definition of definitions) {
+    if ("type" in definition) {
+      const group = definition.cls ? container.createDiv({ cls: definition.cls }) : container.createDiv();
+      if (definition.heading) new Setting(group).setName(definition.heading).setHeading();
+      const items = group.createDiv({ cls: "setting-items" });
+      renderSettingDefinitions(tab, items, definition.items ?? [], cleanups);
+      continue;
+    }
+
+    const setting = new Setting(container).setName(definition.name);
+    if (definition.desc) setting.setDesc(definition.desc);
+    const cleanup = definition.render?.(setting, {});
+    if (cleanup) cleanups.push(cleanup);
+    if (!definition.control) continue;
+
+    const host = tab as unknown as {
+      getControlValue: (key: string) => unknown;
+      setControlValue: (key: string, value: unknown) => void | Promise<void>;
+    };
+    if (definition.control.type === "toggle") {
+      setting.addToggle((toggle) => {
+        toggle.setValue(host.getControlValue(definition.control?.key ?? "") === true).onChange(async (value) => {
+          const key = definition.control?.key ?? "";
+          await host.setControlValue(key, value);
+          toggle.setValue(host.getControlValue(key) === true);
+        });
+      });
+      continue;
+    }
+    setting.addDropdown((dropdown) => {
+      const control = definition.control;
+      if (control?.type !== "dropdown") return;
+      for (const [value, label] of Object.entries(control.options)) dropdown.addOption(value, label);
+      dropdown.setValue(String(host.getControlValue(control.key) ?? control.defaultValue ?? "")).onChange(async (value) => {
+        await host.setControlValue(control.key, value);
+        dropdown.setValue(String(host.getControlValue(control.key) ?? control.defaultValue ?? ""));
+      });
+    });
   }
 }
 

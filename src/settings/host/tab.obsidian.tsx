@@ -1,4 +1,12 @@
-import { type App, Notice, type Plugin, PluginSettingTab, type Setting } from "obsidian";
+import {
+  type App,
+  Notice,
+  type Plugin,
+  PluginSettingTab,
+  type Setting,
+  type SettingDefinition,
+  type SettingDefinitionItem,
+} from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
@@ -34,15 +42,13 @@ import {
   SHOW_TOOLBAR_SETTING,
   THREAD_NAMING_SETTING,
 } from "../ui/definitions";
-import { LegacySettingsView } from "../ui/legacy-view";
 import { ModelEffortControl } from "../ui/panel-helpers";
-import type { SettingsViewModel } from "../ui/view-model";
+import type { ArchivedThreadsViewModel, CodexHooksViewModel, PanelHelpersViewModel } from "../ui/view-model";
 import type { SettingsTabHost } from "./contracts";
-import type { DeclarativeSettingDefinition, DeclarativeSettingDefinitionItem } from "./declarative-api.compat";
 
 export class CodexPanelSettingTab extends PluginSettingTab {
   private readonly resources: SettingsResourcesController;
-  private renderMode: "hidden" | "legacy" | "declarative" = "hidden";
+  private displayed = false;
   private renderRevision = 0;
   private settingsMutationQueue: Promise<void> = Promise.resolve();
   private archivedDeleteConfirmThreadId: string | null = null;
@@ -76,15 +82,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
   }
 
-  display(): void {
-    this.renderMode = "legacy";
-    this.resources.activate();
-    this.renderSettingsTab({ autoLoadResources: true });
-  }
-
-  // Obsidian 1.13+ discovers this method at runtime and skips display(). The
-  // local return type mirrors the 1.13 API while the project retains 1.12 types.
-  getSettingDefinitions(): DeclarativeSettingDefinitionItem[] {
+  override getSettingDefinitions(): SettingDefinitionItem[] {
     return [
       {
         name: "Codex details",
@@ -130,17 +128,14 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             desc: THREAD_NAMING_SETTING.desc,
             render: (setting) =>
               this.renderDeclarativeControl(setting, () => {
-                const helper = this.settingsViewModel().helper;
+                const helper = this.panelHelpersViewModel();
                 return (
                   <ModelEffortControl
-                    name={THREAD_NAMING_SETTING.name}
-                    desc={THREAD_NAMING_SETTING.desc}
                     modelValue={helper.threadNamingModel}
                     effortValue={helper.threadNamingEffort}
                     models={helper.models}
                     onModelChange={helper.onThreadNamingModelChange}
                     onEffortChange={helper.onThreadNamingEffortChange}
-                    controlsOnly
                   />
                 );
               }),
@@ -150,20 +145,17 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             desc: SELECTION_REWRITE_SETTING.desc,
             render: (setting) =>
               this.renderDeclarativeControl(setting, () => {
-                const helper = this.settingsViewModel().helper;
+                const helper = this.panelHelpersViewModel();
                 setting.setDesc(
                   helper.modelError ? `${SELECTION_REWRITE_SETTING.desc} ${helper.modelError}` : SELECTION_REWRITE_SETTING.desc,
                 );
                 return (
                   <ModelEffortControl
-                    name={SELECTION_REWRITE_SETTING.name}
-                    desc={SELECTION_REWRITE_SETTING.desc}
                     modelValue={helper.rewriteSelectionModel}
                     effortValue={helper.rewriteSelectionEffort}
                     models={helper.models}
                     onModelChange={helper.onRewriteSelectionModelChange}
                     onEffortChange={helper.onRewriteSelectionEffortChange}
-                    controlsOnly
                   />
                 );
               }),
@@ -256,7 +248,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             name: "Archived threads content",
             searchable: false,
             render: (setting) =>
-              this.renderDeclarativeSection(setting, () => <ArchivedThreadsContent state={this.settingsViewModel().archived} />),
+              this.renderDeclarativeSection(setting, () => <ArchivedThreadsContent state={this.archivedThreadsViewModel()} />),
           },
         ],
       },
@@ -268,19 +260,19 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           {
             name: "Codex hooks content",
             searchable: false,
-            render: (setting) => this.renderDeclarativeSection(setting, () => <CodexHooksContent state={this.settingsViewModel().hooks} />),
+            render: (setting) => this.renderDeclarativeSection(setting, () => <CodexHooksContent state={this.codexHooksViewModel()} />),
           },
         ],
       },
     ];
   }
 
-  getControlValue(key: string): unknown {
+  override getControlValue(key: string): unknown {
     if (!(key in this.plugin.settings)) return undefined;
     return this.plugin.settings[key as keyof CodexPanelSettings];
   }
 
-  async setControlValue(key: string, value: unknown): Promise<void> {
+  override async setControlValue(key: string, value: unknown): Promise<void> {
     switch (key) {
       case "showToolbar":
         if (typeof value === "boolean") await this.setShowToolbar(value);
@@ -303,7 +295,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   override hide(): void {
-    this.renderMode = "hidden";
+    this.displayed = false;
     this.declarativeIslandRefreshers.clear();
     this.disposeOutsidePointer?.();
     this.disposeOutsidePointer = null;
@@ -313,26 +305,15 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     super.hide();
   }
 
-  private renderSettingsTab(options: { autoLoadResources: boolean }): void {
-    const { containerEl } = this;
-    containerEl.addClass("codex-panel-settings");
-    this.disposeOutsidePointer?.();
-    this.disposeOutsidePointer = listenDomEvent(containerEl, "pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
-
-    this.renderLegacyView();
-
-    if (options.autoLoadResources) this.maybeAutoLoadResources();
-  }
-
   private beginDeclarativeDisplay(): void {
-    if (this.renderMode === "declarative") return;
-    this.renderMode = "declarative";
+    if (this.displayed) return;
+    this.displayed = true;
     this.containerEl.addClass("codex-panel-settings");
     this.disposeOutsidePointer?.();
     this.disposeOutsidePointer = listenDomEvent(this.containerEl, "pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
     this.resources.activate();
     queueMicrotask(() => {
-      if (this.renderMode === "declarative") this.maybeAutoLoadResources();
+      if (this.displayed) this.maybeAutoLoadResources();
     });
   }
 
@@ -366,7 +347,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     placeholder: string;
     normalizeValue: (value: string) => string;
     onCommit: (value: string) => Promise<void>;
-  }): DeclarativeSettingDefinition {
+  }): SettingDefinition {
     return {
       name: options.name,
       desc: options.desc,
@@ -383,99 +364,54 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     };
   }
 
-  private renderLegacyView(): void {
-    renderObsidianUiRoot(
-      this.containerEl,
-      <LegacySettingsView
-        key={this.renderRevision}
-        introText={SETTINGS_INTRO_TEXT}
-        resourcesRefreshDisabled={!this.resources.canRefresh()}
-        panel={{
-          codexPath: this.plugin.settings.codexPath,
-          showToolbar: this.plugin.settings.showToolbar,
-          sendShortcut: this.plugin.settings.sendShortcut,
-          scrollThreadFromComposerEdges: this.plugin.settings.scrollThreadFromComposerEdges,
-          referenceActiveNoteOnSend: this.plugin.settings.referenceActiveNoteOnSend,
-          attachmentFolder: this.plugin.settings.attachmentFolder,
-        }}
-        viewModel={this.settingsViewModel()}
-        actions={{
-          refreshResources: () => {
-            void this.resources.refresh();
-          },
-          setCodexPath: (value) => {
-            void this.setCodexPath(value);
-          },
-          setShowToolbar: (value) => {
-            void this.setShowToolbar(value);
-          },
-          setSendShortcut: (value) => {
-            void this.setSendShortcut(value);
-          },
-          setScrollThreadFromComposerEdges: (value) => {
-            void this.setScrollThreadFromComposerEdges(value);
-          },
-          setReferenceActiveNoteOnSend: (value) => {
-            void this.setReferenceActiveNoteOnSend(value);
-          },
-          setAttachmentFolder: (value) => {
-            void this.setAttachmentFolder(value);
-          },
-        }}
-      />,
-    );
-  }
-
-  private settingsViewModel(): SettingsViewModel {
+  private panelHelpersViewModel(): PanelHelpersViewModel {
     const resources = this.resources.snapshot();
     return {
-      helper: {
-        threadNamingModel: this.plugin.settings.threadNamingModel,
-        threadNamingEffort: this.plugin.settings.threadNamingEffort,
-        rewriteSelectionModel: this.plugin.settings.rewriteSelectionModel,
-        rewriteSelectionEffort: this.plugin.settings.rewriteSelectionEffort,
-        models: this.resources.modelMetadata(),
-        modelError: resources.modelsLifecycle.kind === "failed" ? resources.modelsLifecycle.error : null,
-        onThreadNamingModelChange: (value) => void this.setThreadNamingModel(value),
-        onThreadNamingEffortChange: (value) => void this.setThreadNamingEffort(value),
-        onRewriteSelectionModelChange: (value) => void this.setRewriteSelectionModel(value),
-        onRewriteSelectionEffortChange: (value) => void this.setRewriteSelectionEffort(value),
+      threadNamingModel: this.plugin.settings.threadNamingModel,
+      threadNamingEffort: this.plugin.settings.threadNamingEffort,
+      rewriteSelectionModel: this.plugin.settings.rewriteSelectionModel,
+      rewriteSelectionEffort: this.plugin.settings.rewriteSelectionEffort,
+      models: this.resources.modelMetadata(),
+      modelError: resources.modelsLifecycle.kind === "failed" ? resources.modelsLifecycle.error : null,
+      onThreadNamingModelChange: (value) => void this.setThreadNamingModel(value),
+      onThreadNamingEffortChange: (value) => void this.setThreadNamingEffort(value),
+      onRewriteSelectionModelChange: (value) => void this.setRewriteSelectionModel(value),
+      onRewriteSelectionEffortChange: (value) => void this.setRewriteSelectionEffort(value),
+    };
+  }
+
+  private archivedThreadsViewModel(): ArchivedThreadsViewModel {
+    const resources = this.resources.snapshot();
+    return {
+      threads: resources.archivedThreads,
+      loading: resources.archivedThreadsLifecycle.kind === "loading",
+      error: resources.archivedThreadsLifecycle.kind === "failed" ? resources.archivedThreadsLifecycle.error : null,
+      deleteConfirmThreadId: this.archivedDeleteConfirmThreadId,
+      onRestore: (threadId) => {
+        this.archivedDeleteConfirmThreadId = null;
+        this.requestRender();
+        void this.resources.restoreArchivedThread(threadId);
       },
-      archived: {
-        exportEnabled: this.plugin.settings.archiveExportEnabled,
-        exportFolderTemplate: this.plugin.settings.archiveExportFolderTemplate,
-        exportFilenameTemplate: this.plugin.settings.archiveExportFilenameTemplate,
-        exportTags: this.plugin.settings.archiveExportTags,
-        threads: resources.archivedThreads,
-        loading: resources.archivedThreadsLifecycle.kind === "loading",
-        error: resources.archivedThreadsLifecycle.kind === "failed" ? resources.archivedThreadsLifecycle.error : null,
-        deleteConfirmThreadId: this.archivedDeleteConfirmThreadId,
-        onExportEnabledChange: (enabled) => void this.setArchiveExportEnabled(enabled),
-        onExportFolderTemplateChange: (value) => void this.setArchiveExportFolderTemplate(value),
-        onExportFilenameTemplateChange: (value) => void this.setArchiveExportFilenameTemplate(value),
-        onExportTagsChange: (value) => void this.setArchiveExportTags(value),
-        onRestore: (threadId) => {
-          this.archivedDeleteConfirmThreadId = null;
-          this.requestRender();
-          void this.resources.restoreArchivedThread(threadId);
-        },
-        onStartDelete: (threadId) => {
-          this.archivedDeleteConfirmThreadId = threadId;
-          this.requestRender();
-        },
-        onDelete: (threadId) => {
-          this.archivedDeleteConfirmThreadId = null;
-          this.requestRender();
-          void this.resources.deleteArchivedThread(threadId);
-        },
+      onStartDelete: (threadId) => {
+        this.archivedDeleteConfirmThreadId = threadId;
+        this.requestRender();
       },
-      hooks: {
-        catalog: resources.hookCatalog,
-        loading: resources.hooksLifecycle.kind === "loading",
-        error: resources.hooksLifecycle.kind === "failed" ? resources.hooksLifecycle.error : null,
-        onTrust: (hook) => void this.resources.trustHook(hook),
-        onToggleEnabled: (hook, enabled) => void this.resources.setHookEnabled(hook, enabled),
+      onDelete: (threadId) => {
+        this.archivedDeleteConfirmThreadId = null;
+        this.requestRender();
+        void this.resources.deleteArchivedThread(threadId);
       },
+    };
+  }
+
+  private codexHooksViewModel(): CodexHooksViewModel {
+    const resources = this.resources.snapshot();
+    return {
+      catalog: resources.hookCatalog,
+      loading: resources.hooksLifecycle.kind === "loading",
+      error: resources.hooksLifecycle.kind === "failed" ? resources.hooksLifecycle.error : null,
+      onTrust: (hook) => void this.resources.trustHook(hook),
+      onToggleEnabled: (hook, enabled) => void this.resources.setHookEnabled(hook, enabled),
     };
   }
 
@@ -598,11 +534,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private requestRender(): void {
-    if (this.renderMode === "hidden") return;
-    if (this.renderMode === "declarative") {
-      for (const refresh of this.declarativeIslandRefreshers) refresh();
-      return;
-    }
-    this.renderLegacyView();
+    if (!this.displayed) return;
+    for (const refresh of this.declarativeIslandRefreshers) refresh();
   }
 }

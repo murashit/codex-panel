@@ -43,11 +43,6 @@ export const SEND_SHORTCUT_LABELS: Record<SendShortcut, string> = {
   "mod-enter": "Cmd/Ctrl+Enter",
 };
 
-export const SEND_SHORTCUT_OPTIONS: readonly { value: SendShortcut; label: string }[] = [
-  { value: "enter", label: SEND_SHORTCUT_LABELS.enter },
-  { value: "mod-enter", label: SEND_SHORTCUT_LABELS["mod-enter"] },
-];
-
 export const SEND_SHORTCUT_SETTING: SettingDefinition = {
   name: "Send shortcut",
   desc: "Controls whether Enter or Cmd/Ctrl+Enter sends composer-style inputs. Shift+Enter adds a newline.",

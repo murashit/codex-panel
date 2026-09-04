@@ -15,18 +15,10 @@ export interface PanelHelpersViewModel {
 }
 
 export interface ArchivedThreadsViewModel {
-  exportEnabled: boolean;
-  exportFolderTemplate: string;
-  exportFilenameTemplate: string;
-  exportTags: string;
   threads: readonly Thread[] | null;
   loading: boolean;
   error: string | null;
   deleteConfirmThreadId: string | null;
-  onExportEnabledChange: (enabled: boolean) => void;
-  onExportFolderTemplateChange: (value: string) => void;
-  onExportFilenameTemplateChange: (value: string) => void;
-  onExportTagsChange: (value: string) => void;
   onRestore: (threadId: string) => void;
   onStartDelete: (threadId: string) => void;
   onDelete: (threadId: string) => void;
@@ -38,10 +30,4 @@ export interface CodexHooksViewModel {
   error: string | null;
   onTrust: (hook: HookItem) => void;
   onToggleEnabled: (hook: HookItem, enabled: boolean) => void;
-}
-
-export interface SettingsViewModel {
-  helper: PanelHelpersViewModel;
-  archived: ArchivedThreadsViewModel;
-  hooks: CodexHooksViewModel;
 }

@@ -49,7 +49,7 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          PREVIOUS_TAG="$(node -p 'Object.keys(require("./versions.json")).at(-2)')"
+          PREVIOUS_TAG="$(git describe --tags --abbrev=0 "$TAG^")"
           git rev-parse --verify "refs/tags/$PREVIOUS_TAG"
           npm run commitlint -- --from "$PREVIOUS_TAG" --to "$TAG" --verbose
 

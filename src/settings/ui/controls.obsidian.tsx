@@ -1,4 +1,4 @@
-import { ButtonComponent, DropdownComponent, ExtraButtonComponent, TextComponent, ToggleComponent } from "obsidian";
+import { ButtonComponent, DropdownComponent, ExtraButtonComponent, TextComponent } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
@@ -100,30 +100,6 @@ export function ObsidianCommitTextInput({
     text.setPlaceholder(placeholder);
     if (text.inputEl !== text.inputEl.ownerDocument.activeElement) text.setValue(value);
   }, [placeholder, value]);
-
-  return <span ref={ref} />;
-}
-
-export function ObsidianToggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }): UiNode {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  const onChangeRef = useLatestRef(onChange);
-  const toggleRef = useRef<ToggleComponent | null>(null);
-  useLayoutEffect(() => {
-    const container = ref.current;
-    if (!container) return;
-    const toggle = new ToggleComponent(container);
-    toggleRef.current = toggle;
-    toggle.onChange((nextValue) => {
-      onChangeRef.current(nextValue);
-    });
-    return () => {
-      toggleRef.current = null;
-      container.empty();
-    };
-  }, [onChangeRef]);
-  useLayoutEffect(() => {
-    toggleRef.current?.setValue(checked);
-  }, [checked]);
 
   return <span ref={ref} />;
 }

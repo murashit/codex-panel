@@ -13,7 +13,7 @@ import { disposeTextareaHeightMirrors } from "./shared/dom/textarea-autogrow.mea
 import { editorSelectionEmphasisExtension } from "./shared/obsidian/editor-selection-emphasis.obsidian";
 
 export default class CodexPanelPlugin extends Plugin {
-  settings: CodexPanelSettings = DEFAULT_SETTINGS;
+  override settings: CodexPanelSettings = DEFAULT_SETTINGS;
   vaultPath = "";
   readonly runtime = new CodexPanelRuntime({
     app: this.app,

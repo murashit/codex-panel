@@ -71,8 +71,10 @@ Prefer functions and factories. Reserve classes for mutable resource ownership, 
 npm run api:baseline
 ```
 
-Obsidian runtime compatibility is declared through `manifest.json` and `versions.json`. The `obsidian` npm package provides compile-time TypeScript API definitions; it is not runtime validation for an Obsidian app-version matrix. Because the project does not run app-version smoke tests, keep the API type package in the same minor as `manifest.minAppVersion` and use the latest patch in that minor for local type checking. `npm run api:baseline` exits non-zero when the local environment or recorded baselines drift. Raise `manifest.minAppVersion` only when intentionally adopting a newer Obsidian app/API minor.
+`manifest.minAppVersion` is the Obsidian runtime floor; keep the `obsidian` type package current independently. `obsidianmd/no-unsupported-api` compares API `@since` annotations with that floor and allows guarded use through `requireApiVersion()`. Manually review type-only, dynamic, unannotated, and runtime-dependent behavior that lint cannot verify.
 
-Codex app-server compatibility is managed by CLI minor version. `src/app-server/connection/compatibility.json` is the source of truth for the exact generation patch and app-server capabilities; README displays that patch.
+`versions.json` records only compatibility boundaries. When raising the runtime floor, map the current released plugin version to its old `minAppVersion`; do not add every plugin release.
 
-Local compatibility work should run `npm run api:baseline` and `npm run generate:app-server-types:check`; CI installs the recorded CLI and runs the same verification for compatibility-relevant changes.
+Codex app-server compatibility is managed by CLI minor version. `src/app-server/connection/compatibility.json` records the exact generation patch and capabilities.
+
+For compatibility changes, run `npm run api:baseline` and `npm run generate:app-server-types:check`. These validate recorded versions and generated artifacts, not runtime behavior; CI runs them against the recorded CLI.

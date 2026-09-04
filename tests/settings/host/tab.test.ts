@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 
-import { Setting } from "obsidian";
+import { Setting, type SettingDefinition, type SettingDefinitionItem } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
-import type { DeclarativeSettingDefinition, DeclarativeSettingDefinitionItem } from "../../../src/settings/host/declarative-api.compat";
 import { CodexPanelSettingTab } from "../../../src/settings/host/tab.obsidian";
 import { DEFAULT_SETTINGS } from "../../../src/settings/preferences";
 import { notices } from "../../mocks/obsidian";
@@ -736,19 +735,17 @@ function newSettingsTab(options: SettingsTabHostOptions = {}): CodexPanelSetting
   return new CodexPanelSettingTab({} as never, {} as never, settingsTabHost(options));
 }
 
-function declarativeDefinitionNames(definitions: DeclarativeSettingDefinitionItem[]): string[] {
+function declarativeDefinitionNames(definitions: SettingDefinitionItem[]): string[] {
   return definitions.flatMap((definition) => {
     if ("type" in definition) {
-      return [...(definition.heading ? [definition.heading] : []), ...declarativeDefinitionNames(definition.items ?? [])];
+      const label = "heading" in definition ? definition.heading : "name" in definition ? definition.name : undefined;
+      return [...(label ? [label] : []), ...declarativeDefinitionNames(definition.items ?? [])];
     }
     return [definition.name];
   });
 }
 
-function declarativeDefinitionByName(
-  definitions: DeclarativeSettingDefinitionItem[],
-  name: string,
-): DeclarativeSettingDefinition | undefined {
+function declarativeDefinitionByName(definitions: SettingDefinitionItem[], name: string): SettingDefinition | undefined {
   for (const definition of definitions) {
     if ("type" in definition) {
       const nested = declarativeDefinitionByName(definition.items ?? [], name);
@@ -760,7 +757,7 @@ function declarativeDefinitionByName(
   return undefined;
 }
 
-function renderDeclarativeDefinition(definition: DeclarativeSettingDefinition | undefined, name: string): HTMLDivElement {
+function renderDeclarativeDefinition(definition: SettingDefinition | undefined, name: string): HTMLDivElement {
   if (!definition?.render) throw new Error(`Missing declarative ${name} renderer`);
   const container = document.createElement("div");
   definition.render(new Setting(container), {} as never);

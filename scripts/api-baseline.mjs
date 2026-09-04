@@ -67,9 +67,7 @@ export async function createApiBaselineReport(options = {}) {
   const codexLocalSemver = parseSemver(codexLocalVersion);
 
   const obsidianMinVersion = inputs.manifestJson.minAppVersion;
-  const obsidianReadmeApiTypesVersion = readmeBaselines.obsidianApiTypesVersion;
   const obsidianReadmeMinVersion = readmeBaselines.obsidianMinAppVersion;
-  const obsidianVersionEntry = inputs.versionsJson[inputs.packageJson.version] ?? null;
   const obsidianSpec = inputs.packageJson.devDependencies?.obsidian ?? null;
   const obsidianLockPackage = inputs.packageLockJson.packages?.["node_modules/obsidian"];
   const obsidianLockVersion = obsidianLockPackage?.version ?? null;
@@ -116,34 +114,15 @@ export async function createApiBaselineReport(options = {}) {
   }
 
   if (!obsidianMinSemver) fail("manifest.json minAppVersion must be X.Y.Z.");
-  if (obsidianMinSemver && obsidianMinSemver.patch !== 0) {
-    fail(`manifest.json minAppVersion should be the minor baseline patch 0, got ${obsidianMinVersion}.`);
-  }
   if (!parseSemver(obsidianReadmeMinVersion)) {
     fail("README.md Compatibility table must define `manifest.minAppVersion` as X.Y.Z.");
   } else if (obsidianReadmeMinVersion !== obsidianMinVersion) {
     fail(`README Obsidian baseline ${displayValue(obsidianReadmeMinVersion)} does not match manifest ${obsidianMinVersion}.`);
   }
-  if (obsidianVersionEntry !== obsidianMinVersion) {
-    fail(`versions.json must map ${inputs.packageJson.version} to manifest minAppVersion ${obsidianMinVersion}.`);
-  }
   if (!obsidianSpecSemver) fail("package.json devDependency obsidian must include an X.Y.Z version.");
   if (!obsidianLockSemver) fail("package-lock.json must lock node_modules/obsidian to X.Y.Z.");
-  if (packageRangeKind(obsidianSpec) !== "patch") {
-    fail(`package.json devDependency obsidian should use a patch-only '~' range, got ${displayValue(obsidianSpec)}.`);
-  }
-  if (obsidianMinSemver && obsidianSpecSemver && minorKey(obsidianSpecSemver) !== minorKey(obsidianMinSemver)) {
-    fail(`obsidian devDependency minor ${minorKey(obsidianSpecSemver)} does not match minAppVersion minor ${minorKey(obsidianMinSemver)}.`);
-  }
-  if (obsidianMinSemver && obsidianLockSemver && minorKey(obsidianLockSemver) !== minorKey(obsidianMinSemver)) {
-    fail(`locked obsidian minor ${minorKey(obsidianLockSemver)} does not match minAppVersion minor ${minorKey(obsidianMinSemver)}.`);
-  }
-  if (!parseSemver(obsidianReadmeApiTypesVersion)) {
-    fail("README.md Compatibility table must define `obsidian` API types as X.Y.Z.");
-  } else if (obsidianReadmeApiTypesVersion !== obsidianLockVersion) {
-    fail(
-      `README Obsidian API types ${displayValue(obsidianReadmeApiTypesVersion)} does not match package-lock obsidian ${displayValue(obsidianLockVersion)}.`,
-    );
+  if (packageRangeKind(obsidianSpec) !== "compatible") {
+    fail(`package.json devDependency obsidian should use a caret range, got ${displayValue(obsidianSpec)}.`);
   }
   for (const dependency of obsidianCodeMirrorPeers) {
     const packageSpec = inputs.packageJson.devDependencies?.[dependency] ?? null;
@@ -172,17 +151,13 @@ export async function createApiBaselineReport(options = {}) {
       initializeRequestAttestationDisabled,
     },
     obsidian: {
-      policy: "manifest declares the minimum app version; obsidian npm provides compile-time API types in the same minor",
+      policy: "manifest declares the runtime floor; obsidian npm tracks the latest compile-time API types independently",
       minAppVersion: obsidianMinVersion,
       minAppVersionMinor: minorKey(obsidianMinSemver),
       readmeMinAppVersion: obsidianReadmeMinVersion,
-      versionsJsonCurrentMinAppVersion: obsidianVersionEntry,
-      readmeApiTypesVersion: obsidianReadmeApiTypesVersion,
       packageDependency: obsidianSpec,
       packageDependencyRange: packageRangeKind(obsidianSpec),
-      packageDependencyMinor: minorKey(obsidianSpecSemver),
       lockedPackageVersion: obsidianLockVersion,
-      lockedPackageMinor: minorKey(obsidianLockSemver),
       codeMirrorPeers: Object.fromEntries(
         obsidianCodeMirrorPeers.map((dependency) => [
           dependency,
@@ -202,7 +177,6 @@ function readCompatibilityBaselines(readme) {
   const table = readMarkdownTableValues(section);
   return {
     codexTestedCliVersion: table.get("codexAppServer.testedCliVersion") ?? null,
-    obsidianApiTypesVersion: table.get("obsidian") ?? null,
     obsidianMinAppVersion: table.get("manifest.minAppVersion") ?? null,
   };
 }
@@ -260,7 +234,7 @@ function packageRangeKind(spec) {
   const value = String(spec ?? "");
   if (value.startsWith("~")) return "patch";
   if (/^\d+\.\d+\.\d+$/.test(value)) return "exact";
-  if (value.startsWith("^")) return "minor";
+  if (value.startsWith("^")) return "compatible";
   return "other";
 }
 
@@ -273,11 +247,10 @@ function arraysEqual(left, right) {
 }
 
 async function readBaselineInputs(cwd) {
-  const [packageJson, packageLockJson, manifestJson, versionsJson, readme, appServerCompatibilityJson] = await Promise.all([
+  const [packageJson, packageLockJson, manifestJson, readme, appServerCompatibilityJson] = await Promise.all([
     readJson(cwd, "package.json"),
     readJson(cwd, "package-lock.json"),
     readJson(cwd, "manifest.json"),
-    readJson(cwd, "versions.json"),
     readFile(path.join(cwd, "README.md"), "utf8"),
     readJson(cwd, "src/app-server/connection/compatibility.json"),
   ]);
@@ -288,7 +261,6 @@ async function readBaselineInputs(cwd) {
     packageJson,
     packageLockJson,
     readme,
-    versionsJson,
   };
 }
 
@@ -318,8 +290,6 @@ function printReport(report) {
   console.log(`  policy: ${report.obsidian.policy}`);
   console.log(`  manifest minAppVersion: ${displayValue(report.obsidian.minAppVersion)}`);
   console.log(`  compatibility table minAppVersion: ${displayValue(report.obsidian.readmeMinAppVersion)}`);
-  console.log(`  versions.json current minAppVersion: ${displayValue(report.obsidian.versionsJsonCurrentMinAppVersion)}`);
-  console.log(`  compatibility table API types: ${displayValue(report.obsidian.readmeApiTypesVersion)}`);
   console.log(`  package obsidian: ${displayValue(report.obsidian.packageDependency)}`);
   console.log(`  package range: ${report.obsidian.packageDependencyRange}`);
   console.log(`  package-lock obsidian: ${displayValue(report.obsidian.lockedPackageVersion)}`);

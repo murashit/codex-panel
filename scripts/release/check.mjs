@@ -1,10 +1,17 @@
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { compareVersions, isExpectedNextVersion, parseVersion } from "./versioning.mjs";
+import { compareVersions, compatibilityBoundaryIsRecorded, parseVersion } from "./versioning.mjs";
 
 function fail(message) {
   console.error(`release check failed: ${message}`);
   process.exitCode = 1;
+}
+
+function runGit(args) {
+  const result = spawnSync("git", args, { encoding: "utf8", shell: false });
+  if (result.error || result.status !== 0) fail(`git ${args.join(" ")} failed`);
+  return result.stdout.trim();
 }
 
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
@@ -24,26 +31,21 @@ if (packageLockJson.packages?.[""]?.version !== releaseVersion) {
   fail(`package-lock root package version ${packageLockJson.packages?.[""]?.version} does not match ${releaseVersion}`);
 }
 if (manifestJson.version !== releaseVersion) fail(`manifest.json version ${manifestJson.version} does not match ${releaseVersion}`);
-if (versionsJson[releaseVersion] !== manifestJson.minAppVersion) {
-  fail(`versions.json must map ${releaseVersion} to manifest minAppVersion ${manifestJson.minAppVersion}`);
-}
-
 const versionKeys = Object.keys(versionsJson);
-const latestVersionKey = versionKeys.at(-1);
-if (latestVersionKey !== releaseVersion) {
-  fail(`versions.json latest entry must be ${releaseVersion}, got ${latestVersionKey}`);
+for (const versionKey of versionKeys) {
+  const version = parseVersion(versionKey);
+  if (!version) {
+    fail(`versions.json contains invalid version ${versionKey}`);
+  } else if (currentVersion && compareVersions(version, currentVersion) > 0) {
+    fail(`versions.json entry ${versionKey} is newer than release ${releaseVersion}`);
+  }
 }
 
-if (versionKeys.length >= 2) {
-  const previousVersionKey = versionKeys.at(-2);
-  const previousVersion = parseVersion(previousVersionKey);
-  if (!previousVersion) fail(`versions.json contains invalid version ${previousVersionKey}`);
-  if (currentVersion && previousVersion) {
-    if (compareVersions(previousVersion, currentVersion) >= 0) {
-      fail(`release version ${releaseVersion} must be newer than ${previousVersionKey}`);
-    } else if (!isExpectedNextVersion(previousVersion, currentVersion)) {
-      fail(`release version ${releaseVersion} is not the expected next version after ${previousVersionKey}`);
-    }
+if (process.env.RELEASE_VERSION) {
+  const previousTag = process.env.PREVIOUS_RELEASE_TAG || runGit(["describe", "--tags", "--abbrev=0", `${releaseVersion}^`]);
+  const previousManifest = JSON.parse(runGit(["show", `${previousTag}:manifest.json`]));
+  if (!compatibilityBoundaryIsRecorded(versionsJson, previousTag, previousManifest.minAppVersion, manifestJson.minAppVersion)) {
+    fail(`versions.json must map the last compatible release ${previousTag} to ${previousManifest.minAppVersion}`);
   }
 }
 

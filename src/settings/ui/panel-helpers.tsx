@@ -3,62 +3,24 @@ import type { ComponentChild as UiNode } from "preact";
 import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../domain/catalog/metadata";
 import { ObsidianDropdown } from "./controls.obsidian";
-import { SELECTION_REWRITE_SETTING, THREAD_NAMING_SETTING } from "./definitions";
-import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./layout";
-import type { PanelHelpersViewModel } from "./view-model";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";
 
-export function PanelHelpersSection({ state }: { state: PanelHelpersViewModel }): UiNode {
-  return (
-    <SettingsGroup className="codex-panel-settings__section codex-panel-settings__helper-section">
-      <SettingsHeading name="Panel helpers" />
-      <SettingsItems>
-        <ModelEffortControl
-          name={THREAD_NAMING_SETTING.name}
-          desc={THREAD_NAMING_SETTING.desc}
-          modelValue={state.threadNamingModel}
-          effortValue={state.threadNamingEffort}
-          models={state.models}
-          onModelChange={state.onThreadNamingModelChange}
-          onEffortChange={state.onThreadNamingEffortChange}
-        />
-        <ModelEffortControl
-          name={SELECTION_REWRITE_SETTING.name}
-          desc={SELECTION_REWRITE_SETTING.desc}
-          modelValue={state.rewriteSelectionModel}
-          effortValue={state.rewriteSelectionEffort}
-          models={state.models}
-          onModelChange={state.onRewriteSelectionModelChange}
-          onEffortChange={state.onRewriteSelectionEffortChange}
-        />
-      </SettingsItems>
-      {state.modelError ? <p className="setting-item-description codex-panel-settings__section-status">{state.modelError}</p> : null}
-    </SettingsGroup>
-  );
-}
-
 export function ModelEffortControl({
-  name,
-  desc,
   modelValue,
   effortValue,
   models,
   onModelChange,
   onEffortChange,
-  controlsOnly = false,
 }: {
-  name: string;
-  desc: string;
   modelValue: string | null;
   effortValue: ReasoningEffort | null;
   models: readonly ModelMetadata[];
   onModelChange: (value: string | null) => void;
   onEffortChange: (value: ReasoningEffort | null) => void;
-  controlsOnly?: boolean;
 }): UiNode {
   const efforts = reasoningEffortsForSelectedModel(models, modelValue);
-  const controls = (
+  return (
     <>
       <ObsidianDropdown
         value={modelValue ?? CODEX_DEFAULT_VALUE}
@@ -75,13 +37,6 @@ export function ModelEffortControl({
         options={reasoningEffortSelectOptions(efforts, effortValue)}
       />
     </>
-  );
-  return controlsOnly ? (
-    controls
-  ) : (
-    <SettingRow name={name} desc={desc}>
-      {controls}
-    </SettingRow>
   );
 }
 
