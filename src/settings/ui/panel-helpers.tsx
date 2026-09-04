@@ -33,7 +33,7 @@ export function PanelHelpersSection({ state }: { state: PanelHelpersViewModel })
           onEffortChange={state.onRewriteSelectionEffortChange}
         />
       </SettingsItems>
-      {state.modelLoadFailed ? <p className="setting-item-description codex-panel-settings__section-status">{state.modelStatus}</p> : null}
+      {state.modelError ? <p className="setting-item-description codex-panel-settings__section-status">{state.modelError}</p> : null}
     </SettingsGroup>
   );
 }

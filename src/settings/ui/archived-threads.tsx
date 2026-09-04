@@ -29,11 +29,15 @@ export function ArchivedThreadsSection({ state }: { state: ArchivedThreadsViewMo
 }
 
 export function ArchivedThreadsContent({ state }: { state: ArchivedThreadsViewModel }): UiNode {
-  return state.contentAvailable ? (
-    <ArchivedThreadList state={state} />
-  ) : !state.loading && state.status ? (
-    <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
-  ) : null;
+  const threads = state.threads;
+  return (
+    <>
+      {threads ? <ArchivedThreadList threads={threads} state={state} /> : null}
+      {!state.loading && state.error ? (
+        <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.error}</p>
+      ) : null}
+    </>
+  );
 }
 
 function ArchiveExportSettings({ state }: { state: ArchivedThreadsViewModel }): UiNode {
@@ -81,13 +85,13 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadsViewModel }): 
   );
 }
 
-function ArchivedThreadList({ state }: { state: ArchivedThreadsViewModel }): UiNode {
+function ArchivedThreadList({ threads, state }: { threads: readonly Thread[]; state: ArchivedThreadsViewModel }): UiNode {
   return (
     <SettingsItems className="codex-panel-settings__dynamic-list codex-panel-settings__archived-list">
-      {state.threads.length === 0 ? (
+      {threads.length === 0 ? (
         <SettingsStatusRow>No archived threads.</SettingsStatusRow>
       ) : (
-        state.threads.map((thread) => <ArchivedThreadRow key={thread.id} thread={thread} state={state} />)
+        threads.map((thread) => <ArchivedThreadRow key={thread.id} thread={thread} state={state} />)
       )}
     </SettingsItems>
   );

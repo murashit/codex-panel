@@ -593,6 +593,29 @@ describe("settings tab", () => {
     expect(notices).toEqual(["Could not refresh all Codex details."]);
   });
 
+  it("keeps last-known hooks and archived threads visible when refresh fails", async () => {
+    const firstClient = settingsClient({
+      hooks: [hook({ key: "hook-cached", command: "cached hook", trustStatus: "trusted" })],
+    });
+    const secondClient = settingsClient({ hooksError: new Error("hooks unavailable") });
+    useContextClients(firstClient, secondClient);
+    const refreshArchived = vi
+      .fn()
+      .mockResolvedValueOnce([panelThread({ id: "thread-cached", preview: "Cached archived thread", archived: true })])
+      .mockRejectedValueOnce(new Error("archive unavailable"));
+    const tab = newSettingsTab({ refreshArchived });
+
+    tab.display();
+    await flushPromises();
+    clickButtonByLabel(tab, "Refresh Codex details");
+    await flushPromises();
+
+    expect(tab.containerEl.textContent).toContain("cached hook");
+    expect(tab.containerEl.textContent).toContain("Cached archived thread");
+    expect(tab.containerEl.textContent).toContain("Could not load hooks: hooks unavailable");
+    expect(tab.containerEl.textContent).toContain("Could not load archived threads: archive unavailable");
+  });
+
   it("renders archived threads and hooks as dynamic setting rows", async () => {
     const client = settingsClient({
       hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", trustStatus: "untrusted" })],

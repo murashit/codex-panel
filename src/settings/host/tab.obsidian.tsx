@@ -152,7 +152,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
               this.renderDeclarativeControl(setting, () => {
                 const helper = this.settingsViewModel().helper;
                 setting.setDesc(
-                  helper.modelLoadFailed ? `${SELECTION_REWRITE_SETTING.desc} ${helper.modelStatus}` : SELECTION_REWRITE_SETTING.desc,
+                  helper.modelError ? `${SELECTION_REWRITE_SETTING.desc} ${helper.modelError}` : SELECTION_REWRITE_SETTING.desc,
                 );
                 return (
                   <ModelEffortControl
@@ -435,8 +435,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         rewriteSelectionModel: this.plugin.settings.rewriteSelectionModel,
         rewriteSelectionEffort: this.plugin.settings.rewriteSelectionEffort,
         models: this.resources.modelMetadata(),
-        modelLoadFailed: resources.modelsLifecycle.kind === "failed",
-        modelStatus: resources.modelsLifecycle.status,
+        modelError: resources.modelsLifecycle.kind === "failed" ? resources.modelsLifecycle.error : null,
         onThreadNamingModelChange: (value) => void this.setThreadNamingModel(value),
         onThreadNamingEffortChange: (value) => void this.setThreadNamingEffort(value),
         onRewriteSelectionModelChange: (value) => void this.setRewriteSelectionModel(value),
@@ -448,12 +447,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         exportFilenameTemplate: this.plugin.settings.archiveExportFilenameTemplate,
         exportTags: this.plugin.settings.archiveExportTags,
         threads: resources.archivedThreads,
-        contentAvailable:
-          resources.archivedThreadsLifecycle.kind === "loaded" ||
-          (resources.archivedThreadsLifecycle.kind === "loading" && resources.archivedThreadsLoaded),
-        loaded: resources.archivedThreadsLifecycle.kind === "loaded",
         loading: resources.archivedThreadsLifecycle.kind === "loading",
-        status: resources.archivedThreadsLifecycle.status,
+        error: resources.archivedThreadsLifecycle.kind === "failed" ? resources.archivedThreadsLifecycle.error : null,
         deleteConfirmThreadId: this.archivedDeleteConfirmThreadId,
         onExportEnabledChange: (enabled) => void this.setArchiveExportEnabled(enabled),
         onExportFolderTemplateChange: (value) => void this.setArchiveExportFolderTemplate(value),
@@ -475,14 +470,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         },
       },
       hooks: {
-        hooks: resources.hooks,
-        warnings: resources.hookWarnings,
-        errors: resources.hookErrors,
-        contentAvailable:
-          resources.hooksLifecycle.kind === "loaded" || (resources.hooksLifecycle.kind === "loading" && resources.hooksLoaded),
-        loaded: resources.hooksLifecycle.kind === "loaded",
+        catalog: resources.hookCatalog,
         loading: resources.hooksLifecycle.kind === "loading",
-        status: resources.hooksLifecycle.status,
+        error: resources.hooksLifecycle.kind === "failed" ? resources.hooksLifecycle.error : null,
         onTrust: (hook) => void this.resources.trustHook(hook),
         onToggleEnabled: (hook, enabled) => void this.resources.setHookEnabled(hook, enabled),
       },

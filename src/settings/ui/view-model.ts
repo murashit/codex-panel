@@ -7,8 +7,7 @@ export interface PanelHelpersViewModel {
   rewriteSelectionModel: string | null;
   rewriteSelectionEffort: ReasoningEffort | null;
   models: readonly ModelMetadata[];
-  modelLoadFailed: boolean;
-  modelStatus: string;
+  modelError: string | null;
   onThreadNamingModelChange: (value: string | null) => void;
   onThreadNamingEffortChange: (value: ReasoningEffort | null) => void;
   onRewriteSelectionModelChange: (value: string | null) => void;
@@ -20,11 +19,9 @@ export interface ArchivedThreadsViewModel {
   exportFolderTemplate: string;
   exportFilenameTemplate: string;
   exportTags: string;
-  threads: readonly Thread[];
-  contentAvailable: boolean;
-  loaded: boolean;
+  threads: readonly Thread[] | null;
   loading: boolean;
-  status: string;
+  error: string | null;
   deleteConfirmThreadId: string | null;
   onExportEnabledChange: (enabled: boolean) => void;
   onExportFolderTemplateChange: (value: string) => void;
@@ -36,13 +33,9 @@ export interface ArchivedThreadsViewModel {
 }
 
 export interface CodexHooksViewModel {
-  hooks: readonly HookItem[];
-  warnings: readonly string[];
-  errors: readonly string[];
-  contentAvailable: boolean;
-  loaded: boolean;
+  catalog: { hooks: readonly HookItem[]; warnings: readonly string[]; errors: readonly string[] } | null;
   loading: boolean;
-  status: string;
+  error: string | null;
   onTrust: (hook: HookItem) => void;
   onToggleEnabled: (hook: HookItem, enabled: boolean) => void;
 }

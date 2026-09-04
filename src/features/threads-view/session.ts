@@ -46,8 +46,7 @@ export class ThreadsViewSession {
   private observedFetching = false;
   private observedFetchingNextPage = false;
   private status: ThreadsViewStatus = { kind: "idle" };
-  private threads: readonly Thread[] = [];
-  private threadsLoaded = false;
+  private threads: readonly Thread[] | null = null;
   private readonly renameStates = new Map<string, ThreadsRenameState>();
   private readonly lifecycleBusyThreadIds = new Set<string>();
   private unsubscribeThreads: (() => void) | null = null;
@@ -72,7 +71,7 @@ export class ThreadsViewSession {
         },
       },
       initialDraft: (threadId) => {
-        const thread = (this.host.threadCatalog.activeThreadsSnapshot() ?? this.threads).find((item) => item.id === threadId);
+        const thread = this.threads?.find((item) => item.id === threadId);
         return thread ? threadRenameDraftTitle(thread) : null;
       },
       renameThread: (threadId, value, shouldStart) => this.mutations.renameThread(threadId, value, { shouldStart }),
@@ -90,10 +89,7 @@ export class ThreadsViewSession {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
     const activeThreadsSnapshot = this.host.threadCatalog.activeThreadsSnapshot();
-    if (activeThreadsSnapshot) {
-      this.threads = activeThreadsSnapshot;
-      this.threadsLoaded = true;
-    }
+    if (activeThreadsSnapshot) this.threads = activeThreadsSnapshot;
     this.unsubscribeThreads = this.host.threadCatalog.observeActiveThreadsResult((result) => {
       this.receiveObservedThreadsResult(result);
     });
@@ -124,7 +120,7 @@ export class ThreadsViewSession {
       await request();
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime)) return;
-      if (!this.currentThreadsSnapshot()) {
+      if (!this.threads) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
         this.render();
       } else {
@@ -157,14 +153,13 @@ export class ThreadsViewSession {
     this.observedFetchingNextPage = result.isFetchingNextPage;
     const observedThreads = result.value;
     if (observedThreads) {
-      const hadThreadsSnapshot = this.currentThreadsSnapshot() !== null;
+      const hadThreadsSnapshot = this.threads !== null;
       this.threads = observedThreads;
-      this.threadsLoaded = true;
       this.status = result.error && !hadThreadsSnapshot ? { kind: "error", message: result.error.message } : { kind: "idle" };
       this.render();
       return;
     }
-    const currentValue = this.currentThreadsSnapshot();
+    const currentValue = this.threads;
     if (observedInitialLoading(result, currentValue)) {
       this.status = { kind: "loading", message: "Loading threads..." };
       this.render();
@@ -177,17 +172,13 @@ export class ThreadsViewSession {
     }
   }
 
-  private currentThreadsSnapshot(): readonly Thread[] | null {
-    return this.threadsLoaded ? this.threads : null;
-  }
-
   private get host(): ThreadsViewHost {
     return this.environment.host;
   }
 
   private render(): void {
     if (!this.lifetime.isActive()) return;
-    const threads = this.host.threadCatalog.activeThreadsSnapshot() ?? this.threads;
+    const threads = this.threads ?? [];
     renderThreadsViewShell(
       this.environment.root,
       {
@@ -235,6 +226,8 @@ export class ThreadsViewSession {
 
   private scheduleRender(): void {
     this.renderTask.schedule(() => {
+      const activeThreadsSnapshot = this.host.threadCatalog.activeThreadsSnapshot();
+      if (activeThreadsSnapshot) this.threads = activeThreadsSnapshot;
       this.render();
     });
   }

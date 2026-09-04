@@ -1,7 +1,6 @@
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
-import { threadCommandDisplayTitle } from "../../domain/threads/title";
 import type { ObservedResult } from "../../shared/async/observed-result";
 import { OwnerLifetime } from "../../shared/async/owner-lifetime";
 import type { SettingsHookCatalog, SettingsResources } from "./resources";
@@ -11,31 +10,22 @@ interface SettingsResourcesControllerCallbacks {
   notify(message: string): void;
 }
 
-type SettingsResourceLifecycleState =
-  | { kind: "idle"; status: "" }
-  | { kind: "loading"; status: string }
-  | { kind: "loaded"; status: string }
-  | { kind: "failed"; status: string };
+type SettingsResourceLifecycleState = { kind: "idle" } | { kind: "loading" } | { kind: "failed"; error: string };
 
 type SettingsResourceLifecycleKey = "modelsLifecycle" | "hooksLifecycle" | "archivedThreadsLifecycle";
 
 interface SettingsResourceRefreshSpec<T> {
   lifecycle: SettingsResourceLifecycleKey;
-  loadingStatus: string;
   load: (resources: SettingsResources) => Promise<T>;
-  commit: (value: T) => string;
-  failureStatus: (error: unknown) => string;
+  commit: (value: T) => void;
+  failureError: (error: unknown) => string;
 }
 
 interface SettingsResourcesSnapshot {
-  archivedThreads: readonly Thread[];
+  archivedThreads: readonly Thread[] | null;
   archivedThreadsLifecycle: SettingsResourceLifecycleState;
-  archivedThreadsLoaded: boolean;
-  hooks: readonly HookItem[];
-  hookWarnings: readonly string[];
-  hookErrors: readonly string[];
+  hookCatalog: SettingsHookCatalog | null;
   hooksLifecycle: SettingsResourceLifecycleState;
-  hooksLoaded: boolean;
   models: readonly ModelMetadata[];
   modelsLifecycle: SettingsResourceLifecycleState;
 }
@@ -45,13 +35,9 @@ export class SettingsResourcesController {
   private autoLoadStarted = false;
   private hookMutationOperation: object | null = null;
 
-  private archivedThreads: Thread[] = [];
-  private archivedThreadsLoaded = false;
+  private archivedThreads: Thread[] | null = null;
   private archivedThreadsLifecycle: SettingsResourceLifecycleState = createSettingsResourceLifecycle();
-  private hooks: HookItem[] = [];
-  private hookWarnings: string[] = [];
-  private hookErrors: string[] = [];
-  private hooksLoaded = false;
+  private hookCatalog: SettingsHookCatalog | null = null;
   private hooksLifecycle: SettingsResourceLifecycleState = createSettingsResourceLifecycle();
   private models: ModelMetadata[] = [];
   private modelsLifecycle: SettingsResourceLifecycleState = createSettingsResourceLifecycle();
@@ -80,13 +66,9 @@ export class SettingsResourcesController {
     this.resources = next;
     this.autoLoadStarted = false;
     this.modelsLifecycle = createSettingsResourceLifecycle();
-    this.hooks = [];
-    this.hookWarnings = [];
-    this.hookErrors = [];
-    this.hooksLoaded = false;
+    this.hookCatalog = null;
     this.hooksLifecycle = createSettingsResourceLifecycle();
-    this.archivedThreads = [];
-    this.archivedThreadsLoaded = false;
+    this.archivedThreads = null;
     this.archivedThreadsLifecycle = createSettingsResourceLifecycle();
     this.loadSnapshots();
     if (this.lifetime.isActive()) this.subscribe();
@@ -95,11 +77,7 @@ export class SettingsResourcesController {
   private loadSnapshots(): void {
     this.models = [...(this.resources.modelsSnapshot() ?? [])];
     const archivedThreads = this.resources.archivedThreadsSnapshot();
-    if (archivedThreads) {
-      this.archivedThreads = [...archivedThreads];
-      this.archivedThreadsLoaded = true;
-      this.archivedThreadsLifecycle = settingsResourceLoaded(archivedThreadsStatus(archivedThreads.length));
-    }
+    if (archivedThreads) this.archivedThreads = [...archivedThreads];
   }
 
   private subscribe(): void {
@@ -144,20 +122,16 @@ export class SettingsResourcesController {
     const observedThreads = result.value;
     if (!observedThreads) return;
     this.archivedThreads = [...observedThreads];
-    this.archivedThreadsLoaded = true;
     if (this.archivedThreadsLifecycle.kind !== "loading") {
-      this.archivedThreadsLifecycle = settingsResourceLoaded(archivedThreadsStatus(observedThreads.length));
+      this.archivedThreadsLifecycle = createSettingsResourceLifecycle();
     }
     this.callbacks.display();
   }
 
   private receiveHookCatalog(snapshot: SettingsHookCatalog): void {
-    this.hooks = [...snapshot.hooks];
-    this.hookWarnings = [...snapshot.warnings];
-    this.hookErrors = [...snapshot.errors];
-    this.hooksLoaded = true;
+    this.hookCatalog = cloneHookCatalog(snapshot);
     if (this.hooksLifecycle.kind !== "loading") {
-      this.hooksLifecycle = settingsResourceLoaded(snapshot.status);
+      this.hooksLifecycle = createSettingsResourceLifecycle();
     }
   }
 
@@ -175,40 +149,33 @@ export class SettingsResourcesController {
       this.refreshResource(
         {
           lifecycle: "modelsLifecycle",
-          loadingStatus: "Loading models...",
           load: (resources) => (options.forceModels === false ? resources.fetchModels() : resources.refreshModels()),
           commit: (models) => {
             this.models = [...models];
-            return `Loaded ${String(models.length)} model${models.length === 1 ? "" : "s"}.`;
           },
-          failureStatus: (error) => `Could not load models: ${errorMessage(error)}`,
+          failureError: (error) => `Could not load models: ${errorMessage(error)}`,
         },
         notifyFailure,
       ),
       this.refreshResource(
         {
           lifecycle: "hooksLifecycle",
-          loadingStatus: "Loading hooks...",
           load: (resources) => resources.refreshHooks(),
           commit: (catalog) => {
             this.receiveHookCatalog(catalog);
-            return catalog.status;
           },
-          failureStatus: (error) => `Could not load hooks: ${errorMessage(error)}`,
+          failureError: (error) => `Could not load hooks: ${errorMessage(error)}`,
         },
         notifyFailure,
       ),
       this.refreshResource(
         {
           lifecycle: "archivedThreadsLifecycle",
-          loadingStatus: "Loading archived threads...",
           load: (resources) => resources.refreshArchivedThreads(),
           commit: (archivedThreads) => {
             this.archivedThreads = [...archivedThreads];
-            this.archivedThreadsLoaded = true;
-            return archivedThreadsStatus(archivedThreads.length);
           },
-          failureStatus: (error) => `Could not load archived threads: ${errorMessage(error)}`,
+          failureError: (error) => `Could not load archived threads: ${errorMessage(error)}`,
         },
         notifyFailure,
       ),
@@ -223,14 +190,10 @@ export class SettingsResourcesController {
 
   snapshot(): SettingsResourcesSnapshot {
     return {
-      archivedThreads: [...this.archivedThreads],
+      archivedThreads: this.archivedThreads ? [...this.archivedThreads] : null,
       archivedThreadsLifecycle: { ...this.archivedThreadsLifecycle },
-      archivedThreadsLoaded: this.archivedThreadsLoaded,
-      hooks: [...this.hooks],
-      hookWarnings: [...this.hookWarnings],
-      hookErrors: [...this.hookErrors],
+      hookCatalog: this.hookCatalog ? cloneHookCatalog(this.hookCatalog) : null,
       hooksLifecycle: { ...this.hooksLifecycle },
-      hooksLoaded: this.hooksLoaded,
       models: [...this.models],
       modelsLifecycle: { ...this.modelsLifecycle },
     };
@@ -238,47 +201,35 @@ export class SettingsResourcesController {
 
   async trustHook(hook: HookItem): Promise<void> {
     await this.runHookOperation({
-      loadingStatus: "Loading hooks...",
-      failureStatus: (error) => `Could not trust hook: ${errorMessage(error)}`,
+      failureError: (error) => `Could not trust hook: ${errorMessage(error)}`,
       failureNotice: "Could not trust Codex hook.",
-      successStatus: "Trusted hook definition.",
       operation: (resources) => resources.trustHook(hook),
     });
   }
 
   async setHookEnabled(hook: HookItem, enabled: boolean): Promise<void> {
     await this.runHookOperation({
-      loadingStatus: "Loading hooks...",
-      failureStatus: (error) => `Could not update hook: ${errorMessage(error)}`,
+      failureError: (error) => `Could not update hook: ${errorMessage(error)}`,
       failureNotice: "Could not update Codex hook.",
-      successStatus: enabled ? "Enabled hook." : "Disabled hook.",
       operation: (resources) => resources.setHookEnabled(hook, enabled),
     });
   }
 
   async restoreArchivedThread(threadId: string): Promise<void> {
     await this.runArchivedThreadOperation({
-      loadingStatus: "Loading archived threads...",
-      failureStatus: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
+      failureError: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not restore archived Codex thread.",
       operation: async (resources) => {
-        const restoredThread = await resources.restoreArchivedThread(threadId);
-        return `Restored "${threadCommandDisplayTitle(restoredThread)}".`;
+        await resources.restoreArchivedThread(threadId);
       },
     });
   }
 
   async deleteArchivedThread(threadId: string): Promise<void> {
-    const thread = this.archivedThreads.find((item) => item.id === threadId);
-    const title = thread ? threadCommandDisplayTitle(thread) : threadId;
     await this.runArchivedThreadOperation({
-      loadingStatus: "Loading archived threads...",
-      failureStatus: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
+      failureError: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not delete archived Codex thread.",
-      operation: async (resources) => {
-        await resources.deleteArchivedThread(threadId);
-        return `Deleted "${title}".`;
-      },
+      operation: (resources) => resources.deleteArchivedThread(threadId),
     });
   }
 
@@ -296,10 +247,8 @@ export class SettingsResourcesController {
   }
 
   private async runHookOperation(options: {
-    loadingStatus: string;
-    failureStatus: (error: unknown) => string;
+    failureError: (error: unknown) => string;
     failureNotice: string;
-    successStatus: string;
     operation: (resources: SettingsResources) => Promise<SettingsHookCatalog>;
   }): Promise<void> {
     if (this.hooksLifecycle.kind === "loading") return;
@@ -307,16 +256,16 @@ export class SettingsResourcesController {
     const operation = {};
     this.hookMutationOperation = operation;
     const isCurrent = (): boolean => this.hookMutationOperation === operation && this.resourcesAreCurrent(resources);
-    this.hooksLifecycle = settingsResourceLoading(options.loadingStatus);
+    this.hooksLifecycle = settingsResourceLoading();
     this.callbacks.display();
     try {
       const catalog = await options.operation(resources);
       if (!isCurrent()) return;
       this.receiveHookCatalog(catalog);
-      this.hooksLifecycle = settingsResourceLoaded(options.successStatus);
+      this.hooksLifecycle = createSettingsResourceLifecycle();
     } catch (error) {
       if (!isCurrent()) return;
-      this.hooksLifecycle = settingsResourceFailed(options.failureStatus(error));
+      this.hooksLifecycle = settingsResourceFailed(options.failureError(error));
       if (this.lifetime.isActive()) this.callbacks.notify(options.failureNotice);
     } finally {
       if (isCurrent()) {
@@ -327,25 +276,24 @@ export class SettingsResourcesController {
   }
 
   private async runArchivedThreadOperation(options: {
-    loadingStatus: string;
-    failureStatus: (error: unknown) => string;
+    failureError: (error: unknown) => string;
     failureNotice: string;
-    operation: (resources: SettingsResources) => Promise<string>;
+    operation: (resources: SettingsResources) => Promise<void>;
   }): Promise<void> {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime) || this.archivedThreadsLifecycle.kind === "loading") return;
     const resources = this.resources;
     const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.resourcesAreCurrent(resources);
 
-    this.archivedThreadsLifecycle = settingsResourceLoading(options.loadingStatus);
+    this.archivedThreadsLifecycle = settingsResourceLoading();
     this.callbacks.display();
     try {
-      const successStatus = await options.operation(resources);
+      await options.operation(resources);
       if (!isCurrent()) return;
-      this.archivedThreadsLifecycle = settingsResourceLoaded(successStatus);
+      this.archivedThreadsLifecycle = createSettingsResourceLifecycle();
     } catch (error) {
       if (!isCurrent()) return;
-      this.archivedThreadsLifecycle = settingsResourceFailed(options.failureStatus(error));
+      this.archivedThreadsLifecycle = settingsResourceFailed(options.failureError(error));
       this.callbacks.notify(options.failureNotice);
     } finally {
       if (isCurrent()) this.callbacks.display();
@@ -358,16 +306,17 @@ export class SettingsResourcesController {
     const resources = this.resources;
     const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.resourcesAreCurrent(resources);
 
-    this[spec.lifecycle] = settingsResourceLoading(spec.loadingStatus);
+    this[spec.lifecycle] = settingsResourceLoading();
     this.callbacks.display();
     try {
       const value = await spec.load(resources);
       if (!isCurrent()) return;
-      this[spec.lifecycle] = settingsResourceLoaded(spec.commit(value));
+      spec.commit(value);
+      this[spec.lifecycle] = createSettingsResourceLifecycle();
       this.callbacks.display();
     } catch (error) {
       if (!isCurrent()) return;
-      this[spec.lifecycle] = settingsResourceFailed(spec.failureStatus(error));
+      this[spec.lifecycle] = settingsResourceFailed(spec.failureError(error));
       this.callbacks.display();
       notifyFailure();
     }
@@ -385,24 +334,24 @@ export class SettingsResourcesController {
   }
 }
 
-function archivedThreadsStatus(count: number): string {
-  return `Loaded ${String(count)} archived thread${count === 1 ? "" : "s"}.`;
+function cloneHookCatalog(catalog: SettingsHookCatalog): SettingsHookCatalog {
+  return {
+    hooks: [...catalog.hooks],
+    warnings: [...catalog.warnings],
+    errors: [...catalog.errors],
+  };
 }
 
 function createSettingsResourceLifecycle(): SettingsResourceLifecycleState {
-  return { kind: "idle", status: "" };
+  return { kind: "idle" };
 }
 
-function settingsResourceLoading(status: string): SettingsResourceLifecycleState {
-  return { kind: "loading", status };
+function settingsResourceLoading(): SettingsResourceLifecycleState {
+  return { kind: "loading" };
 }
 
-function settingsResourceLoaded(status: string): SettingsResourceLifecycleState {
-  return { kind: "loaded", status };
-}
-
-function settingsResourceFailed(status: string): SettingsResourceLifecycleState {
-  return { kind: "failed", status };
+function settingsResourceFailed(error: string): SettingsResourceLifecycleState {
+  return { kind: "failed", error };
 }
 
 function errorMessage(error: unknown): string {

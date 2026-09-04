@@ -78,8 +78,8 @@ describe("SettingsResourcesController", () => {
     controller.activate();
     emitArchived([panelThread({ id: "thread-archived", preview: "Archived elsewhere", archived: true })]);
 
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Archived elsewhere"]);
-    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("loaded");
+    expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Archived elsewhere"]);
+    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("idle");
     expect(display).toHaveBeenCalledOnce();
   });
 
@@ -101,20 +101,20 @@ describe("SettingsResourcesController", () => {
     expect(controller.canRefresh()).toBe(false);
     await flushPromises();
     expect(controller.canRefresh()).toBe(true);
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Old"]);
+    expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Old"]);
     await controller.refresh();
 
     expect(refreshModels).toHaveBeenCalledOnce();
     expect(refreshArchived).toHaveBeenCalledTimes(2);
     expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
     expect(controller.snapshot().modelsLifecycle.kind).toBe("loading");
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
+    expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["New"]);
 
     firstModels.resolve(modelMetadataFromCatalogModels([model("gpt-old")]));
     await firstRefresh;
 
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-old"]);
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
+    expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["New"]);
   });
 
   it("does not display dynamic refresh results after disposal", async () => {
@@ -157,7 +157,7 @@ describe("SettingsResourcesController", () => {
     controller.maybeAutoLoad();
     await flushPromises();
 
-    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-after-reopen" })]);
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-after-reopen" })]);
     expect(firstClient.requestHandlers["hooks/list"]).toHaveBeenCalledOnce();
     expect(secondClient.requestHandlers["hooks/list"]).toHaveBeenCalledOnce();
   });
@@ -181,8 +181,10 @@ describe("SettingsResourcesController", () => {
     write.resolve({});
     await mutation;
 
-    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-after-write", trustStatus: "trusted" })]);
-    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "loaded", status: "Trusted hook definition." });
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([
+      expect.objectContaining({ key: "hook-after-write", trustStatus: "trusted" }),
+    ]);
+    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
   });
 
   it("reloads authoritative hooks on the same client after a mutation", async () => {
@@ -196,8 +198,10 @@ describe("SettingsResourcesController", () => {
 
     expect(client.request.mock.calls.map(([method]) => method)).toEqual(["config/batchWrite", "hooks/list"]);
     expect(contextConnectionClientMock).toHaveBeenCalledOnce();
-    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-trusted", currentHash: "trusted-hash" })]);
-    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "loaded", status: "Trusted hook definition." });
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([
+      expect.objectContaining({ key: "hook-trusted", currentHash: "trusted-hash" }),
+    ]);
+    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
   });
 
   it("does not publish an old-context hook mutation over a replacement-context refresh", async () => {
@@ -217,12 +221,12 @@ describe("SettingsResourcesController", () => {
     controller.replaceResources(publication.replacementResources as NonNullable<typeof publication.replacementResources>);
     await controller.refresh();
 
-    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
 
     oldWrite.resolve({});
     await oldMutation;
 
-    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
     expect(notify).not.toHaveBeenCalled();
   });
 
@@ -258,8 +262,8 @@ describe("SettingsResourcesController", () => {
     expect(refreshModels).toHaveBeenCalledTimes(2);
     expect(contextConnectionClientMock).toHaveBeenCalledTimes(3);
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
-    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new" })]);
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Old archived"]);
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new" })]);
+    expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Old archived"]);
 
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
@@ -410,11 +414,10 @@ describe("SettingsResourcesController", () => {
     await controller.restoreArchivedThread("thread-old");
 
     expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.status).toBe('Restored "Restored old".');
+    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("idle");
   });
 
-  it("displays deleted archived thread status after recording the catalog event", async () => {
+  it("displays deleted archived thread state after recording the catalog event", async () => {
     const snapshots: SettingsResourcesSnapshot[] = [];
     let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const initialClient = settingsClient();
@@ -452,7 +455,6 @@ describe("SettingsResourcesController", () => {
     await controller.deleteArchivedThread("thread-old");
 
     expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.status).toBe('Deleted "Old archived".');
+    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("idle");
   });
 });

@@ -15,29 +15,33 @@ export function CodexHooksSection({ state }: { state: CodexHooksViewModel }): Ui
 }
 
 export function CodexHooksContent({ state }: { state: CodexHooksViewModel }): UiNode {
-  return state.contentAvailable ? (
-    <Hooks state={state} />
-  ) : !state.loading && state.status ? (
-    <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
-  ) : null;
+  const catalog = state.catalog;
+  return (
+    <>
+      {catalog ? <Hooks catalog={catalog} state={state} /> : null}
+      {!state.loading && state.error ? (
+        <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.error}</p>
+      ) : null}
+    </>
+  );
 }
 
-function Hooks({ state }: { state: CodexHooksViewModel }): UiNode {
+function Hooks({ catalog, state }: { catalog: NonNullable<CodexHooksViewModel["catalog"]>; state: CodexHooksViewModel }): UiNode {
   return (
     <>
       <SettingsItems className="codex-panel-settings__dynamic-list codex-panel-settings__hook-list">
-        {state.hooks.length === 0 ? (
+        {catalog.hooks.length === 0 ? (
           <SettingsStatusRow>No hooks found for this vault root.</SettingsStatusRow>
         ) : (
-          state.hooks.map((hook) => <HookRow key={hook.key} hook={hook} state={state} />)
+          catalog.hooks.map((hook) => <HookRow key={hook.key} hook={hook} state={state} />)
         )}
       </SettingsItems>
-      {state.warnings.map((warning) => (
+      {catalog.warnings.map((warning) => (
         <p key={`warning:${warning}`} className="setting-item-description codex-panel-settings__hook-warning">
           {warning}
         </p>
       ))}
-      {state.errors.map((error) => (
+      {catalog.errors.map((error) => (
         <p key={`error:${error}`} className="setting-item-description codex-panel-settings__hook-error">
           {error}
         </p>

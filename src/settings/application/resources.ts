@@ -12,7 +12,6 @@ export interface SettingsHookCatalog {
   hooks: readonly HookItem[];
   warnings: readonly string[];
   errors: readonly string[];
-  status: string;
 }
 
 export interface SettingsResources {
@@ -52,7 +51,7 @@ export interface SettingsResourcesOptions {
 export function createSettingsResources(options: SettingsResourcesOptions): SettingsResources {
   const withSettingsConnection = <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> =>
     options.clientAccess.withClient(operation);
-  const loadHooks = (client: AppServerClient): Promise<SettingsHookCatalog> => loadHookCatalog(client, options.vaultPath);
+  const loadHooks = (client: AppServerClient): Promise<SettingsHookCatalog> => listHookCatalog(client, options.vaultPath);
   const mutateHook = (hook: HookItem, mutation: (client: AppServerClient, hook: HookItem) => Promise<void>): Promise<SettingsHookCatalog> =>
     withSettingsConnection(async (client) => {
       await mutation(client, hook);
@@ -80,14 +79,5 @@ export function createSettingsResources(options: SettingsResourcesOptions): Sett
     setHookEnabled: (hook, enabled) => mutateHook(hook, (client, item) => setHookItemEnabled(client, item, enabled)),
     restoreArchivedThread: (threadId) => options.threadMutations.restoreThread(threadId),
     deleteArchivedThread: (threadId) => options.threadMutations.deleteThread(threadId),
-  };
-}
-
-async function loadHookCatalog(client: AppServerClient, vaultPath: string): Promise<SettingsHookCatalog> {
-  const catalog = await listHookCatalog(client, vaultPath);
-  const hookCount = catalog.hooks.length;
-  return {
-    ...catalog,
-    status: `Loaded ${String(hookCount)} hook${hookCount === 1 ? "" : "s"}.`,
   };
 }
