@@ -1,11 +1,10 @@
 import { QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
-import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
+import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
 import {
   createMetadataResourceDiagnostics,
-  createServerDiagnostics,
   type DiagnosticProbeResult,
   diagnosticProbeError,
   diagnosticProbeOk,
@@ -17,37 +16,47 @@ import type {
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
 } from "../../domain/server/metadata";
+import type { ObservedResultListener } from "../../shared/async/observed-result";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
-import { listModelMetadata, listPermissionProfiles, listSkillCatalog } from "../services/catalog";
+import {
+  listHookCatalog,
+  listModelMetadata,
+  listPermissionProfiles,
+  listSkillCatalog,
+  setHookItemEnabled,
+  trustHookItem,
+} from "../services/catalog";
 import type { AppServerRequestClient } from "../services/request-client";
 import { readAccountRateLimits, readEffectiveConfig } from "../services/runtime-metadata";
 import type { AppServerQueryOptions, AppServerQueryScope } from "./query-scope";
 import { cloneModelMetadata, cloneRateLimitSnapshot, cloneSharedServerMetadataResource } from "./snapshots";
 
-const MODELS_QUERY_KEY = ["models"] as const;
-const RUNTIME_CONFIG_QUERY_KEY = ["runtime-config"] as const;
-const SKILLS_QUERY_KEY = ["skills"] as const;
-const PERMISSION_PROFILES_QUERY_KEY = ["permission-profiles"] as const;
-const RATE_LIMITS_QUERY_KEY = ["rate-limits"] as const;
+const METADATA_QUERY_KEY = ["metadata"] as const;
+const MODELS_QUERY_KEY = [...METADATA_QUERY_KEY, "models"] as const;
+const RUNTIME_CONFIG_QUERY_KEY = [...METADATA_QUERY_KEY, "runtime-config"] as const;
+const SKILLS_QUERY_KEY = [...METADATA_QUERY_KEY, "skills"] as const;
+const PERMISSION_PROFILES_QUERY_KEY = [...METADATA_QUERY_KEY, "permission-profiles"] as const;
+const RATE_LIMITS_QUERY_KEY = [...METADATA_QUERY_KEY, "rate-limits"] as const;
+const HOOKS_QUERY_KEY = [...METADATA_QUERY_KEY, "hooks"] as const;
 
-interface MetadataResourceSnapshot<T> {
+interface MetadataResourceData<T> {
   readonly value: T;
-  readonly probe: DiagnosticProbeResult;
+  readonly summary: string;
 }
 
-type MetadataResourceKind = "skills" | "permissionProfiles" | "rateLimits";
+type MetadataResourceKind = "models" | "skills" | "permissionProfiles" | "rateLimits";
 
 interface MetadataQueryData {
   readonly runtimeConfig: RuntimeConfigSnapshot;
-  readonly models: readonly ModelMetadata[];
-  readonly skills: MetadataResourceSnapshot<readonly SkillMetadata[]>;
-  readonly permissionProfiles: MetadataResourceSnapshot<readonly RuntimePermissionProfileSummary[]>;
-  readonly rateLimits: MetadataResourceSnapshot<RateLimitSnapshot | null>;
+  readonly models: MetadataResourceData<readonly ModelMetadata[]>;
+  readonly skills: MetadataResourceData<readonly SkillMetadata[]>;
+  readonly permissionProfiles: MetadataResourceData<readonly RuntimePermissionProfileSummary[]>;
+  readonly rateLimits: MetadataResourceData<RateLimitSnapshot | null>;
 }
 
 type MetadataResourceDescriptor<Id extends SharedServerMetadataResourceId> = {
-  readonly queryOptions: () => AppServerQueryOptions<MetadataQueryData[Id]>;
+  readonly queryOptions: AppServerQueryOptions<MetadataQueryData[Id]>;
   readonly project: (result: QueryObserverResult<MetadataQueryData[Id]>) => SharedServerMetadataResourceFor<Id>;
   readonly snapshot: (data: MetadataQueryData[Id]) => SharedServerMetadataSnapshotValues[Id];
 };
@@ -58,22 +67,24 @@ type MetadataResourceDescriptors = {
 
 export class AppServerMetadataQueries {
   private readonly metadataDescriptors: MetadataResourceDescriptors;
+  private readonly hooksQueryOptions: AppServerQueryOptions<HookCatalog>;
 
   constructor(private readonly scope: AppServerQueryScope) {
     this.metadataDescriptors = this.createMetadataResourceDescriptors();
+    this.hooksQueryOptions = {
+      queryKey: HOOKS_QUERY_KEY,
+      queryFn: () => this.scope.runWithClient((client) => listHookCatalog(client, this.scope.context.vaultPath)),
+    };
   }
 
   metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics {
     if (this.scope.isDisposed()) return createMetadataResourceDiagnostics();
-    const skills = this.metadataResourceState("skills");
-    const permissionProfiles = this.metadataResourceState("permissionProfiles");
-    const rateLimits = this.metadataResourceState("rateLimits");
     return {
       probes: {
-        models: this.modelsProbe(),
-        skills: skills.probe,
-        permissionProfiles: permissionProfiles.probe,
-        rateLimits: rateLimits.probe,
+        models: this.metadataProbe("models"),
+        skills: this.metadataProbe("skills"),
+        permissionProfiles: this.metadataProbe("permissionProfiles"),
+        rateLimits: this.metadataProbe("rateLimits"),
       },
     };
   }
@@ -81,7 +92,7 @@ export class AppServerMetadataQueries {
   metadataSnapshot<Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id] {
     if (this.scope.isDisposed()) return (id === "rateLimits" ? undefined : null) as SharedServerMetadataSnapshotValues[Id];
     const descriptor = this.metadataDescriptor(id);
-    const data = this.scope.client.getQueryData<MetadataQueryData[Id]>(descriptor.queryOptions().queryKey);
+    const data = this.scope.client.getQueryData<MetadataQueryData[Id]>(descriptor.queryOptions.queryKey);
     return data === undefined
       ? ((id === "rateLimits" ? undefined : null) as SharedServerMetadataSnapshotValues[Id])
       : descriptor.snapshot(data);
@@ -94,7 +105,22 @@ export class AppServerMetadataQueries {
   ): () => void {
     this.scope.assertUsable();
     const descriptor = this.metadataDescriptor(id);
-    return this.observeMetadataQueryResource(descriptor.queryOptions(), descriptor.project, listener, options);
+    return this.observeMetadataQueryResource(descriptor.queryOptions, descriptor.project, listener, options);
+  }
+
+  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options: { emitCurrent?: boolean } = {}): () => void {
+    this.scope.assertUsable();
+    return this.scope.observeResult(
+      this.metadataDescriptor("models").queryOptions,
+      (data) => cloneModelMetadata(data.value),
+      listener,
+      options,
+    );
+  }
+
+  observeHooksResult(listener: ObservedResultListener<HookCatalog>, options: { emitCurrent?: boolean } = {}): () => void {
+    this.scope.assertUsable();
+    return this.scope.observeResult(this.hooksQueryOptions, cloneHookCatalog, listener, options);
   }
 
   ensureAppServerMetadata(): Promise<void> {
@@ -103,70 +129,69 @@ export class AppServerMetadataQueries {
 
   async refreshAppServerMetadata(): Promise<void> {
     this.scope.assertUsable();
-    await Promise.all(
-      sharedServerMetadataResourceIds().map((id) =>
-        this.scope.client.invalidateQueries({
-          queryKey: this.metadataDescriptor(id).queryOptions().queryKey,
-          exact: true,
-          refetchType: "none",
-        }),
-      ),
-    );
+    await this.scope.client.invalidateQueries({ queryKey: METADATA_QUERY_KEY, refetchType: "none" });
     this.scope.assertUsable();
     await this.loadAppServerMetadata();
   }
 
   handleSkillsChanged(): void {
-    this.revalidateUsedResource(this.metadataDescriptor("skills").queryOptions());
+    this.revalidateUsedResource(this.metadataDescriptor("skills").queryOptions);
   }
 
   handleRateLimitsUpdated(): void {
-    this.revalidateUsedResource(this.metadataDescriptor("rateLimits").queryOptions());
+    this.revalidateUsedResource(this.metadataDescriptor("rateLimits").queryOptions);
   }
 
   private async loadAppServerMetadata(): Promise<void> {
     this.scope.assertUsable();
-    const runtimeResult = this.fetchRuntimeConfig().then(
-      () => ({ ok: true as const }),
-      (error: unknown) => ({ ok: false as const, error }),
-    );
-    const [, runtime] = await Promise.all([
-      Promise.allSettled([
-        this.fetchMetadataResource("skills"),
-        this.fetchMetadataResource("permissionProfiles"),
-        this.fetchMetadataResource("rateLimits"),
-        this.fetchModels(),
-      ]),
-      runtimeResult,
+    const [runtime] = await Promise.allSettled([
+      this.fetchMetadataResource("runtimeConfig"),
+      this.fetchMetadataResource("skills"),
+      this.fetchMetadataResource("permissionProfiles"),
+      this.fetchMetadataResource("rateLimits"),
+      this.fetchModels(),
     ]);
-    if (!runtime.ok) throw runtime.error;
+    if (runtime.status === "rejected") throw runtime.reason;
   }
 
   async fetchModels(): Promise<readonly ModelMetadata[]> {
     this.scope.assertUsable();
     const descriptor = this.metadataDescriptor("models");
-    const models = await this.scope.client.query(descriptor.queryOptions());
-    return cloneModelMetadata(models);
+    const data = await this.scope.client.query(descriptor.queryOptions);
+    return cloneModelMetadata(data.value);
   }
 
   async refreshModels(): Promise<readonly ModelMetadata[]> {
-    const queryOptions = this.metadataDescriptor("models").queryOptions();
+    const queryOptions = this.metadataDescriptor("models").queryOptions;
     await this.scope.client.invalidateQueries({ queryKey: queryOptions.queryKey, exact: true, refetchType: "none" });
     this.scope.assertUsable();
     return this.fetchModels();
   }
 
+  async refreshHooks(): Promise<void> {
+    await this.scope.client.invalidateQueries({ queryKey: HOOKS_QUERY_KEY, exact: true, refetchType: "none" });
+    this.scope.assertUsable();
+    await this.scope.client.query(this.hooksQueryOptions);
+  }
+
+  trustHook(hook: HookItem): Promise<void> {
+    return this.mutateHook(hook, trustHookItem);
+  }
+
+  setHookEnabled(hook: HookItem, enabled: boolean): Promise<void> {
+    return this.mutateHook(hook, (client, item) => setHookItemEnabled(client, item, enabled));
+  }
+
   private createMetadataResourceDescriptors(): MetadataResourceDescriptors {
     return {
       runtimeConfig: {
-        queryOptions: () => ({
+        queryOptions: {
           queryKey: RUNTIME_CONFIG_QUERY_KEY,
           queryFn: async (): Promise<RuntimeConfigSnapshot> =>
             this.scope.runWithClient(async (client) =>
               runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, this.scope.context.vaultPath)),
             ),
-          staleTime: Number.POSITIVE_INFINITY,
-        }),
+        },
         project: (result) => ({
           id: "runtimeConfig",
           value: result.data,
@@ -174,77 +199,71 @@ export class AppServerMetadataQueries {
         snapshot: cloneRuntimeConfigSnapshot,
       },
       models: {
-        queryOptions: () => ({
+        queryOptions: {
           queryKey: MODELS_QUERY_KEY,
-          queryFn: async (): Promise<readonly ModelMetadata[]> => {
-            try {
-              return cloneModelMetadata(await this.scope.runWithClient((client) => listModelMetadata(client)));
-            } catch (error) {
-              throw new MetadataResourceQueryError(diagnosticProbeError("models", error, Date.now()));
-            }
-          },
-          staleTime: Number.POSITIVE_INFINITY,
-        }),
+          queryFn: () =>
+            this.readMetadataResource(async (client) => {
+              const models = cloneModelMetadata(await listModelMetadata(client));
+              return { value: models, summary: `${String(models.length)} models` };
+            }),
+        },
         project: (result) => ({
           id: "models",
-          value: result.data,
-          probe: this.modelsProbe(),
+          value: result.data?.value,
+          probe: this.metadataProbe("models"),
         }),
-        snapshot: cloneModelMetadata,
+        snapshot: (data) => cloneModelMetadata(data.value),
       },
       skills: {
-        queryOptions: () => ({
+        queryOptions: {
           queryKey: SKILLS_QUERY_KEY,
-          queryFn: async () =>
-            this.readMetadataResource("skills", async (client) => {
+          queryFn: () =>
+            this.readMetadataResource(async (client) => {
               const catalog = await listSkillCatalog(client, this.scope.context.vaultPath, {
                 forceReload: false,
               });
               return { value: catalog.skills, summary: `${String(catalog.totalCount)} skills` };
             }),
-          staleTime: Number.POSITIVE_INFINITY,
-        }),
+        },
         project: (result) => ({
           id: "skills",
           value: result.data?.value,
-          probe: this.metadataResourceState("skills").probe,
+          probe: this.metadataProbe("skills"),
         }),
         snapshot: (data) => data.value.map((skill) => ({ ...skill })),
       },
       permissionProfiles: {
-        queryOptions: () => ({
+        queryOptions: {
           queryKey: PERMISSION_PROFILES_QUERY_KEY,
-          queryFn: async () =>
-            this.readMetadataResource("permissionProfiles", async (client) => {
+          queryFn: () =>
+            this.readMetadataResource(async (client) => {
               const profiles = await listPermissionProfiles(client, this.scope.context.vaultPath);
               return { value: profiles, summary: `${String(profiles.length)} profiles` };
             }),
-          staleTime: Number.POSITIVE_INFINITY,
-        }),
+        },
         project: (result) => ({
           id: "permissionProfiles",
           value: result.data?.value,
-          probe: this.metadataResourceState("permissionProfiles").probe,
+          probe: this.metadataProbe("permissionProfiles"),
         }),
         snapshot: (data) => data.value.map((profile) => ({ ...profile })),
       },
       rateLimits: {
-        queryOptions: () => ({
+        queryOptions: {
           queryKey: RATE_LIMITS_QUERY_KEY,
-          queryFn: async () =>
-            this.readMetadataResource("rateLimits", async (client) => {
+          queryFn: () =>
+            this.readMetadataResource(async (client) => {
               const response = await readAccountRateLimits(client);
               return {
                 value: rateLimitSnapshotFromAccountRateLimitsResponse(response),
                 summary: accountRateLimitsSummaryFromResponse(response),
               };
             }),
-          staleTime: Number.POSITIVE_INFINITY,
-        }),
+        },
         project: (result) => ({
           id: "rateLimits",
           value: result.data?.value,
-          probe: this.metadataResourceState("rateLimits").probe,
+          probe: this.metadataProbe("rateLimits"),
         }),
         snapshot: (data) => (data.value ? cloneRateLimitSnapshot(data.value) : data.value),
       },
@@ -255,24 +274,14 @@ export class AppServerMetadataQueries {
     return this.metadataDescriptors[id];
   }
 
-  private async readMetadataResource<T>(
-    id: MetadataResourceKind,
+  private readMetadataResource<T>(
     read: (client: AppServerRequestClient) => Promise<{ value: T; summary: string }>,
-  ): Promise<MetadataResourceSnapshot<T>> {
-    try {
-      const { value, summary } = await this.scope.runWithClient(read);
-      return { value, probe: diagnosticProbeOk(id, summary, Date.now()) };
-    } catch (error) {
-      throw new MetadataResourceQueryError(diagnosticProbeError(id, error, Date.now()));
-    }
-  }
-
-  private async fetchRuntimeConfig(): Promise<void> {
-    await this.fetchMetadataResource("runtimeConfig");
+  ): Promise<MetadataResourceData<T>> {
+    return this.scope.runWithClient(read);
   }
 
   private async fetchMetadataResource<Id extends SharedServerMetadataResourceId>(id: Id): Promise<MetadataQueryData[Id]> {
-    return this.scope.client.query(this.metadataDescriptor(id).queryOptions());
+    return this.scope.client.query(this.metadataDescriptor(id).queryOptions);
   }
 
   private revalidateUsedResource(queryOptions: AppServerQueryOptions<unknown>): void {
@@ -288,26 +297,12 @@ export class AppServerMetadataQueries {
     });
   }
 
-  private metadataResourceState<Id extends MetadataResourceKind>(
-    resource: Id,
-  ): { value: MetadataQueryData[Id]["value"] | null; probe: DiagnosticProbeResult } {
-    const key = this.metadataDescriptor(resource).queryOptions().queryKey;
-    const state = this.scope.client.getQueryState<MetadataQueryData[Id]>(key);
-    const failedProbe = diagnosticProbeFromError(state?.error);
-    return {
-      value: state?.data?.value ?? null,
-      probe: failedProbe ?? state?.data?.probe ?? createServerDiagnostics().probes[resource],
-    };
-  }
-
-  private modelsProbe(): DiagnosticProbeResult {
-    const state = this.scope.client.getQueryState<readonly ModelMetadata[]>(this.metadataDescriptor("models").queryOptions().queryKey);
-    return (
-      diagnosticProbeFromError(state?.error) ??
-      (state?.data
-        ? diagnosticProbeOk("models", `${String(state.data.length)} models`, state.dataUpdatedAt)
-        : createServerDiagnostics().probes.models)
-    );
+  private metadataProbe(resource: MetadataResourceKind): DiagnosticProbeResult {
+    const key = this.metadataDescriptor(resource).queryOptions.queryKey;
+    const state = this.scope.client.getQueryState<MetadataResourceData<unknown>>(key);
+    if (state?.status === "error") return diagnosticProbeError(resource, state.error, state.errorUpdatedAt);
+    if (state?.data) return diagnosticProbeOk(resource, state.data.summary, state.dataUpdatedAt);
+    return createMetadataResourceDiagnostics().probes[resource];
   }
 
   private observeMetadataQueryResource<TQuery, Resource extends SharedServerMetadataResource>(
@@ -331,19 +326,24 @@ export class AppServerMetadataQueries {
       observer.destroy();
     });
   }
-}
 
-class MetadataResourceQueryError extends Error {
-  constructor(readonly probe: DiagnosticProbeResult) {
-    super(probe.message ?? `Codex app-server ${probe.id} query failed.`);
-    this.name = "MetadataResourceQueryError";
+  private mutateHook(hook: HookItem, mutation: (client: AppServerRequestClient, hook: HookItem) => Promise<void>): Promise<void> {
+    this.scope.assertUsable();
+    return this.scope.runWithClient(async (client) => {
+      await mutation(client, hook);
+      await this.scope.client.invalidateQueries({ queryKey: HOOKS_QUERY_KEY, exact: true, refetchType: "none" });
+      await this.scope.client.query({
+        ...this.hooksQueryOptions,
+        queryFn: () => listHookCatalog(client, this.scope.context.vaultPath),
+      });
+    });
   }
 }
 
-function sharedServerMetadataResourceIds(): readonly SharedServerMetadataResourceId[] {
-  return ["runtimeConfig", "models", "skills", "permissionProfiles", "rateLimits"];
-}
-
-function diagnosticProbeFromError(error: unknown): DiagnosticProbeResult | null {
-  return error instanceof MetadataResourceQueryError ? error.probe : null;
+function cloneHookCatalog(catalog: HookCatalog): HookCatalog {
+  return {
+    hooks: catalog.hooks.map((hook: HookItem) => ({ ...hook })),
+    warnings: [...catalog.warnings],
+    errors: [...catalog.errors],
+  };
 }

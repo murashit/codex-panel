@@ -47,6 +47,12 @@ export interface HookItem {
   readonly trustStatus: HookTrustStatus;
 }
 
+export interface HookCatalog {
+  readonly hooks: readonly HookItem[];
+  readonly warnings: readonly string[];
+  readonly errors: readonly string[];
+}
+
 export type ReasoningEffort = string;
 
 export function normalizeReasoningEffort(value: unknown): ReasoningEffort | null {

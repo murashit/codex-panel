@@ -1,4 +1,5 @@
-import { QueryClient } from "@tanstack/query-core";
+import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
+import type { ObservedResult, ObservedResultListener } from "../../shared/async/observed-result";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccess } from "../connection/client-access";
 import type { AppServerExecutionContext } from "../connection/execution-context";
@@ -65,6 +66,34 @@ export class AppServerQueryScope {
     this.observerUnsubscribes.add(trackedUnsubscribe);
     return trackedUnsubscribe;
   }
+
+  observeResult<TQuery, TValue>(
+    queryOptions: AppServerQueryOptions<TQuery>,
+    project: (value: TQuery) => TValue,
+    listener: ObservedResultListener<TValue>,
+    options: { emitCurrent?: boolean } = {},
+  ): () => void {
+    this.assertUsable();
+    const observer = new QueryObserver<TQuery, Error, TValue>(this.client, {
+      ...queryOptions,
+      enabled: false,
+      select: project,
+    });
+    const emit = (result: QueryObserverResult<TValue>): void => {
+      if (this.disposed) return;
+      listener({
+        value: result.data ?? null,
+        error: result.error instanceof Error ? result.error : null,
+        isFetching: result.isFetching,
+      } satisfies ObservedResult<TValue>);
+    };
+    const unsubscribe = observer.subscribe(emit);
+    if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
+    return this.trackObserver(() => {
+      unsubscribe();
+      observer.destroy();
+    });
+  }
 }
 
 function createAppServerQueryClient(): QueryClient {
@@ -74,10 +103,7 @@ function createAppServerQueryClient(): QueryClient {
         gcTime: Number.POSITIVE_INFINITY,
         networkMode: "always",
         retry: false,
-        refetchOnWindowFocus: false,
-      },
-      mutations: {
-        retry: false,
+        staleTime: Number.POSITIVE_INFINITY,
       },
     },
   });

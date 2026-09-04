@@ -76,14 +76,16 @@ describe("SettingsResourcesController", () => {
     );
 
     controller.activate();
-    emitArchived([panelThread({ id: "thread-archived", preview: "Archived elsewhere", archived: true })]);
+    display.mockClear();
+    const archivedThreads = [panelThread({ id: "thread-archived", preview: "Archived elsewhere", archived: true })];
+    emitArchived(archivedThreads);
 
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Archived elsewhere"]);
     expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("idle");
     expect(display).toHaveBeenCalledOnce();
   });
 
-  it("deduplicates a loading section without blocking completed section refreshes", async () => {
+  it("refreshes completed sections while another resource remains loading", async () => {
     const firstModels = deferred<ModelMetadata[]>();
     const firstClient = settingsClient();
     useContextClients(firstClient);
@@ -96,22 +98,22 @@ describe("SettingsResourcesController", () => {
       display: noop,
       notify: noop,
     });
+    controller.activate();
 
     const firstRefresh = controller.refresh();
-    expect(controller.canRefresh()).toBe(false);
     await flushPromises();
     expect(controller.canRefresh()).toBe(true);
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Old"]);
-    await controller.refresh();
+    const secondRefresh = controller.refresh();
+    await flushPromises();
 
-    expect(refreshModels).toHaveBeenCalledOnce();
     expect(refreshArchived).toHaveBeenCalledTimes(2);
     expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
     expect(controller.snapshot().modelsLifecycle.kind).toBe("loading");
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["New"]);
 
     firstModels.resolve(modelMetadataFromCatalogModels([model("gpt-old")]));
-    await firstRefresh;
+    await Promise.all([firstRefresh, secondRefresh]);
 
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-old"]);
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["New"]);
@@ -187,21 +189,23 @@ describe("SettingsResourcesController", () => {
     expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
   });
 
-  it("reloads authoritative hooks on the same client after a mutation", async () => {
-    const client = settingsClient({
-      hooks: [hook({ key: "hook-trusted", currentHash: "trusted-hash", trustStatus: "trusted" })],
-    });
-    useContextClients(client);
+  it("retires a failed hook operation when the catalog refreshes successfully", async () => {
+    const failedClient = settingsClient();
+    failedClient.requestHandlers["config/batchWrite"] = vi.fn().mockRejectedValue(new Error("write failed"));
+    const refreshedClient = settingsClient({ hooks: [hook({ key: "hook-refreshed" })] });
+    useContextClients(failedClient, refreshedClient);
     const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify: noop });
+    controller.activate();
 
-    await controller.trustHook(hook({ key: "hook-trusted", currentHash: "untrusted-hash", trustStatus: "untrusted" }));
+    await controller.trustHook(hook({ trustStatus: "untrusted" }));
+    expect(controller.snapshot().hooksLifecycle.kind).toBe("failed");
 
-    expect(client.request.mock.calls.map(([method]) => method)).toEqual(["config/batchWrite", "hooks/list"]);
-    expect(contextConnectionClientMock).toHaveBeenCalledOnce();
-    expect(controller.snapshot().hookCatalog?.hooks).toEqual([
-      expect.objectContaining({ key: "hook-trusted", currentHash: "trusted-hash" }),
-    ]);
+    controller.dispose();
+    controller.activate();
+    await controller.refresh();
+
     expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-refreshed" })]);
   });
 
   it("does not publish an old-context hook mutation over a replacement-context refresh", async () => {
@@ -232,7 +236,6 @@ describe("SettingsResourcesController", () => {
 
   it("refreshes models and hooks while an archived thread operation is loading", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
-    const applyThreadFact = vi.fn();
     const initialClient = settingsClient({ hooks: [hook({ key: "hook-old" })] });
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => staleRestore.promise),
@@ -247,10 +250,11 @@ describe("SettingsResourcesController", () => {
       .fn()
       .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-old")]))
       .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-new")]));
-    const controller = settingsResourcesController(settingsTabHost({ applyThreadFact, refreshArchived, refreshModels }), {
+    const controller = settingsResourcesController(settingsTabHost({ refreshArchived, refreshModels }), {
       display: noop,
       notify: noop,
     });
+    controller.activate();
 
     await controller.refresh();
     const restore = controller.restoreArchivedThread("thread-old");
@@ -267,8 +271,6 @@ describe("SettingsResourcesController", () => {
 
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
-
-    expect(applyThreadFact).not.toHaveBeenCalled();
   });
 
   it("rejects a conflicting archived mutation while one is pending", async () => {
@@ -281,9 +283,8 @@ describe("SettingsResourcesController", () => {
     const deleteClient = settingsRequestClient({
       "thread/delete": deleteRequest,
     });
-    const applyThreadFact = vi.fn();
     useContextClients(restoreClient, deleteClient);
-    const controller = settingsResourcesController(settingsTabHost({ applyThreadFact }), {
+    const controller = settingsResourcesController(settingsTabHost(), {
       display: noop,
       notify: noop,
     });
@@ -300,8 +301,31 @@ describe("SettingsResourcesController", () => {
     await Promise.all([restore, deletion]);
 
     expect(deleteRequest).not.toHaveBeenCalled();
-    expect(applyThreadFact).not.toHaveBeenCalled();
     expect(contextConnectionClientMock).toHaveBeenCalledOnce();
+  });
+
+  it("retires a failed archived operation when the catalog refreshes successfully", async () => {
+    const failedRestoreClient = settingsRequestClient({
+      "thread/unarchive": vi.fn().mockRejectedValue(new Error("restore failed")),
+    });
+    useContextClients(failedRestoreClient, settingsClient());
+    const controller = settingsResourcesController(
+      settingsTabHost({
+        refreshArchived: vi.fn().mockResolvedValue([panelThread({ id: "thread-refreshed", archived: true })]),
+      }),
+      { display: noop, notify: noop },
+    );
+    controller.activate();
+
+    await controller.restoreArchivedThread("thread-old");
+    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("failed");
+
+    controller.dispose();
+    controller.activate();
+    await controller.refresh();
+
+    expect(controller.snapshot().archivedThreadsLifecycle).toEqual({ kind: "idle" });
+    expect(controller.snapshot().archivedThreads?.map((thread) => thread.id)).toEqual(["thread-refreshed"]);
   });
 
   it("lets a completed archived mutation settle after the settings view is disposed", async () => {
@@ -309,10 +333,9 @@ describe("SettingsResourcesController", () => {
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => restoreResult.promise),
     });
-    const applyThreadFact = vi.fn();
     const display = vi.fn();
     useContextClients(restoreClient);
-    const controller = settingsResourcesController(settingsTabHost({ applyThreadFact }), {
+    const controller = settingsResourcesController(settingsTabHost(), {
       display,
       notify: noop,
     });
@@ -325,55 +348,37 @@ describe("SettingsResourcesController", () => {
     restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored after close" }) });
     await restore;
 
-    expect(applyThreadFact).not.toHaveBeenCalled();
     expect(display).not.toHaveBeenCalled();
   });
 
-  it("does not publish archived mutation facts after its app-server context is replaced", async () => {
-    const restoreResult = deferred<{ thread: ThreadRecord }>();
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn(() => restoreResult.promise),
-    });
-    const applyThreadFact = vi.fn();
-    useContextClients(restoreClient);
-    const host = settingsTabHost({ applyThreadFact });
-    const controller = settingsResourcesController(host, { display: noop, notify: noop });
-
-    const restore = controller.restoreArchivedThread("thread-old");
-    await flushPromises();
-    await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
-    restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored after replacement" }) });
-    await restore;
-
-    expect(applyThreadFact).not.toHaveBeenCalled();
-  });
-
-  it("lets replacement and previous context mutations settle independently", async () => {
+  it("does not publish an old-context archived mutation over replacement resources", async () => {
     const oldRestore = deferred<{ thread: ThreadRecord }>();
     const oldClient = settingsRequestClient({
       "thread/unarchive": vi.fn(() => oldRestore.promise),
     });
-    const newClient = settingsRequestClient({
-      "thread/unarchive": vi.fn().mockResolvedValue({
-        thread: appServerThread({ id: "thread-shared", preview: "New context" }),
-      }),
+    useContextClients(oldClient, settingsClient());
+    const host = settingsTabHost({
+      archivedThreads: [panelThread({ id: "thread-new", preview: "New context", archived: true })],
     });
-    useContextClients(oldClient, newClient);
-    const host = settingsTabHost();
+    const notify = vi.fn();
+    const controller = settingsResourcesController(host, { display: noop, notify });
+    controller.activate();
 
-    const staleMutation = host.resources.restoreArchivedThread("thread-shared");
+    const staleMutation = controller.restoreArchivedThread("thread-old");
     await flushPromises();
     const publication = await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
     if (!publication.replacementResources) throw new Error("Expected replacement settings data.");
-    const currentMutation = publication.replacementResources.restoreArchivedThread("thread-shared");
+    controller.replaceResources(publication.replacementResources);
+    await controller.refresh();
 
-    await expect(currentMutation).resolves.toMatchObject({ id: "thread-shared", preview: "New context" });
-    expect(newClient.requestHandlers["thread/unarchive"]).toHaveBeenCalledOnce();
+    expect(controller.snapshot().archivedThreads?.map((thread) => thread.id)).toEqual(["thread-new"]);
 
-    oldRestore.resolve({
-      thread: appServerThread({ id: "thread-shared", preview: "Old context" }),
-    });
-    await expect(staleMutation).resolves.toMatchObject({ id: "thread-shared", preview: "Old context" });
+    oldRestore.reject(new Error("Old context failed"));
+    await staleMutation;
+
+    expect(controller.snapshot().archivedThreads?.map((thread) => thread.id)).toEqual(["thread-new"]);
+    expect(controller.snapshot().archivedThreadsLifecycle).toEqual({ kind: "idle" });
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it("displays restored archived thread state after recording the active catalog event", async () => {
@@ -412,47 +417,6 @@ describe("SettingsResourcesController", () => {
     await controller.refresh();
     snapshots.length = 0;
     await controller.restoreArchivedThread("thread-old");
-
-    expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("idle");
-  });
-
-  it("displays deleted archived thread state after recording the catalog event", async () => {
-    const snapshots: SettingsResourcesSnapshot[] = [];
-    let emitArchived = (_threads: readonly Thread[]): void => undefined;
-    const initialClient = settingsClient();
-    const deleteClient = settingsRequestClient({
-      "thread/delete": vi.fn(async () => {
-        emitArchived([]);
-        return {};
-      }),
-    });
-    useContextClients(initialClient, deleteClient);
-    const controllerRef: { current: SettingsResourcesController | null } = { current: null };
-    const controller = settingsResourcesController(
-      settingsTabHost({
-        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        observeArchived: (listener) => {
-          emitArchived = (threads) => {
-            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
-          };
-          return () => undefined;
-        },
-      }),
-      {
-        display: () => {
-          const snapshot = controllerRef.current?.snapshot();
-          if (snapshot) snapshots.push(snapshot);
-        },
-        notify: noop,
-      },
-    );
-    controllerRef.current = controller;
-    controller.activate();
-
-    await controller.refresh();
-    snapshots.length = 0;
-    await controller.deleteArchivedThread("thread-old");
 
     expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
     expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("idle");

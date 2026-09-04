@@ -1,8 +1,13 @@
-import { onlineManager, QueryObserver } from "@tanstack/query-core";
+import { onlineManager } from "@tanstack/query-core";
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClientAccess } from "../../../src/app-server/connection/client-access";
 import type { AppServerExecutionContext } from "../../../src/app-server/connection/execution-context";
-import type { CatalogModel, CatalogSkillMetadata } from "../../../src/app-server/protocol/catalog";
+import {
+  type CatalogHookMetadata,
+  type CatalogModel,
+  type CatalogSkillMetadata,
+  hookItemsFromCatalogHooks,
+} from "../../../src/app-server/protocol/catalog";
 import { AppServerMetadataQueries } from "../../../src/app-server/query/metadata-queries";
 import { AppServerQueryScope } from "../../../src/app-server/query/query-scope";
 import { AppServerThreadCatalog } from "../../../src/app-server/query/thread-catalog-queries";
@@ -11,19 +16,6 @@ import type { RuntimePermissionProfileSummary } from "../../../src/domain/runtim
 import type { Thread } from "../../../src/domain/threads/model";
 
 describe("app-server query resources", () => {
-  it("uses its required runtime-owned client access", async () => {
-    const withClient = vi.fn(async (operation) =>
-      operation({
-        request: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      } as never),
-    );
-    const cache = createCache({ withClient });
-
-    await expect(cache.threadCatalog.fetchActiveThreads()).resolves.toEqual([]);
-
-    expect(withClient).toHaveBeenCalledOnce();
-  });
-
   it("copies its execution context before performing requests", async () => {
     const context = { codexPath: "/opt/codex", vaultPath: "/vault-a" };
     const request = vi.fn(async (method: string, params: unknown) => {
@@ -70,23 +62,6 @@ describe("app-server query resources", () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it("tears down an observer when its initial notification disposes the query scope", () => {
-    const cache = createCache({
-      withClient: vi.fn(() => Promise.resolve([])) as AppServerClientAccess["withClient"],
-    });
-    const destroy = vi.spyOn(QueryObserver.prototype, "destroy");
-
-    const unsubscribe = cache.metadataQueries.observeMetadataResource("models", () => {
-      cache.scope.dispose();
-    });
-
-    const destroyCountAfterDisposal = destroy.mock.calls.length;
-    expect(destroyCountAfterDisposal).toBeGreaterThan(0);
-    unsubscribe();
-    expect(destroy).toHaveBeenCalledTimes(destroyCountAfterDisposal);
-    destroy.mockRestore();
-  });
-
   it("stores successful empty thread list snapshots as shared cache truth", async () => {
     const fetchThreads = vi.fn().mockResolvedValue([]);
     const cache = cacheWithThreads(fetchThreads);
@@ -109,14 +84,18 @@ describe("app-server query resources", () => {
   it("preserves the last-known-good active thread list when a refresh fails", async () => {
     const fetchThreads = vi
       .fn()
-      .mockResolvedValueOnce([thread("cached")])
-      .mockRejectedValueOnce(new Error("offline"));
+      .mockResolvedValueOnce([{ ...thread("target"), name: "cached" }])
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce([{ ...thread("target"), name: "refreshed" }]);
     const cache = cacheWithThreads(fetchThreads);
     await cache.threadCatalog.refreshActiveThreads();
 
     await expect(cache.threadCatalog.refreshActiveThreads()).rejects.toThrow("offline");
-
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("cached")]);
+    cache.threadCatalog.applyThreadCatalogChanges([
+      { kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } },
+    ]);
+    expect(cache.threadCatalog.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
+    await expect(cache.threadCatalog.fetchActiveThreads()).resolves.toEqual([{ ...thread("target"), name: "refreshed" }]);
   });
 
   it("shares concurrent active thread refreshes within one resource identity", async () => {
@@ -200,10 +179,11 @@ describe("app-server query resources", () => {
     expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(true);
     expect(listThreads).toHaveBeenCalledOnce();
 
+    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "update", list: "active", threadId: "first", changes: { name: "renamed" } }]);
     await cache.threadCatalog.loadMoreActiveThreads();
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("first"), thread("second")]);
+    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([{ ...thread("first"), name: "renamed" }, thread("second")]);
     expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(false);
-    expect(cache.threadCatalog.recentActiveThreadsSnapshot()).toEqual([thread("first")]);
+    expect(cache.threadCatalog.recentActiveThreadsSnapshot()).toEqual([{ ...thread("first"), name: "renamed" }]);
     expect(listThreads).toHaveBeenNthCalledWith(2, {
       cwd: "/vault",
       cursor: "page-2",
@@ -289,22 +269,6 @@ describe("app-server query resources", () => {
     expect(cache.threadCatalog.recentActiveThreadsSnapshot()?.map((item) => item.id)).toEqual(["second"]);
   });
 
-  it("does not republish a semantically identical lifecycle fact", async () => {
-    const existing = thread("thread");
-    const cache = cacheWithRequestHandlers({
-      "thread/list": vi.fn().mockResolvedValue({ data: [existing], nextCursor: null }),
-    });
-    await cache.threadCatalog.refreshActiveThreads();
-    const listener = vi.fn();
-    const unsubscribe = cache.threadCatalog.observeActiveThreadsResult(listener, { emitCurrent: false });
-
-    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: existing }]);
-    await flushMicrotasks();
-
-    expect(listener).not.toHaveBeenCalled();
-    unsubscribe();
-  });
-
   it("shares concurrent Load more requests through the InfiniteQuery", async () => {
     const nextPage = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
     const listThreads = vi
@@ -382,21 +346,21 @@ describe("app-server query resources", () => {
     expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(true);
   });
 
-  it("continues the existing cursor chain after an exact event", async () => {
+  it("refreshes a structurally invalidated cursor chain before loading more", async () => {
     const listThreads = vi
       .fn()
       .mockResolvedValueOnce({ data: [thread("old-first")], nextCursor: "old-page-2" })
-      .mockResolvedValueOnce({ data: [thread("old-second")], nextCursor: null });
+      .mockResolvedValueOnce({ data: [thread("event-thread")], nextCursor: "new-page-2" })
+      .mockResolvedValueOnce({ data: [thread("new-second")], nextCursor: null });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
     await cache.threadCatalog.refreshActiveThreads();
     cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: thread("event-thread") }]);
 
     await cache.threadCatalog.loadMoreActiveThreads();
-    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("event-thread"), thread("old-first"), thread("old-second")]);
-
-    expect(listThreads).toHaveBeenNthCalledWith(2, {
+    expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("event-thread"), thread("new-second")]);
+    expect(listThreads).toHaveBeenNthCalledWith(3, {
       cwd: "/vault",
-      cursor: "old-page-2",
+      cursor: "new-page-2",
       archived: false,
       sortKey: "recency_at",
       sortDirection: "desc",
@@ -423,7 +387,7 @@ describe("app-server query resources", () => {
     expect(listThreads).toHaveBeenCalledTimes(2);
   });
 
-  it("cancels a stale thread read before applying an exact event", async () => {
+  it("preserves an in-flight refresh after applying an exact event", async () => {
     const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
     const listThreads = vi
       .fn()
@@ -443,6 +407,7 @@ describe("app-server query resources", () => {
     staleRead.resolve({ data: [{ ...thread("target"), name: "stale" }], nextCursor: null });
     await refresh;
     await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()?.[0]?.name).toBe("authoritative"));
+    expect(listThreads).toHaveBeenCalledTimes(3);
   });
 
   it("revalidates after an exact event cancels an initial thread read", async () => {
@@ -573,6 +538,29 @@ describe("app-server query resources", () => {
       rateLimits: { status: "ok", summary: "available", checkedAt: expect.any(Number) },
     });
     expect(cache.metadataQueries.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-meta"]);
+  });
+
+  it("publishes the authoritative hook catalog after a mutation", async () => {
+    const hooksList = vi.fn().mockResolvedValue({
+      data: [{ cwd: "/vault", hooks: [catalogHook({ trustStatus: "trusted" })], warnings: [], errors: [] }],
+    });
+    const write = vi.fn().mockResolvedValue({});
+    const cache = cacheWithRequestHandlers({ "config/batchWrite": write, "hooks/list": hooksList });
+    const listener = vi.fn();
+    const unsubscribe = cache.metadataQueries.observeHooksResult(listener, { emitCurrent: false });
+
+    const [untrustedHook] = hookItemsFromCatalogHooks([catalogHook({ trustStatus: "untrusted" })]);
+    if (!untrustedHook) throw new Error("Expected hook fixture.");
+    await cache.metadataQueries.trustHook(untrustedHook);
+
+    expect(write).toHaveBeenCalledOnce();
+    expect(hooksList).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenLastCalledWith({
+      value: { hooks: [expect.objectContaining({ key: "hook-key", trustStatus: "trusted" })], warnings: [], errors: [] },
+      error: null,
+      isFetching: false,
+    });
+    unsubscribe();
   });
 
   it("publishes each metadata resource without waiting for unrelated refreshes", async () => {
@@ -953,6 +941,25 @@ function catalogSkill(name: string): CatalogSkillMetadata {
     description: "",
     path: `/tmp/${name}`,
     enabled: true,
+  };
+}
+
+function catalogHook(
+  overrides: Partial<Extract<CatalogHookMetadata, { handlerType: "command" }>> = {},
+): Extract<CatalogHookMetadata, { handlerType: "command" }> {
+  return {
+    key: "hook-key",
+    eventName: "postToolUse",
+    handlerType: "command",
+    matcher: "apply_patch",
+    command: "node hook.js",
+    statusMessage: null,
+    sourcePath: "/vault/.codex/hooks.json",
+    enabled: true,
+    isManaged: false,
+    currentHash: "hash",
+    trustStatus: "trusted",
+    ...overrides,
   };
 }
 

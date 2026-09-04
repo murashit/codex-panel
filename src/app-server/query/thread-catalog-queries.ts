@@ -3,17 +3,10 @@ import {
   InfiniteQueryObserver,
   type InfiniteQueryObserverOptions,
   type InfiniteQueryObserverResult,
-  QueryObserver,
-  type QueryObserverResult,
 } from "@tanstack/query-core";
 import { applyThreadCatalogChange, type ThreadCatalogChange, type ThreadCatalogList } from "../../domain/threads/catalog-read-model";
 import type { Thread } from "../../domain/threads/model";
-import type {
-  ObservedPaginatedResult,
-  ObservedPaginatedResultListener,
-  ObservedResult,
-  ObservedResultListener,
-} from "../../shared/async/observed-result";
+import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResultListener } from "../../shared/async/observed-result";
 import { listPinnedThreads, listThreads, readThreadPage, type ThreadPage } from "../services/threads";
 import {
   type ActiveThreadCursor,
@@ -83,11 +76,15 @@ export class AppServerThreadCatalog {
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     this.scope.assertUsable();
-    const observer = new InfiniteQueryObserver(this.scope.client, {
-      ...this.activeThreadsQueryOptions(),
-      enabled: false,
-    });
-    const emit = (result: InfiniteQueryObserverResult<ActiveThreadData>): void => {
+    const observer = new InfiniteQueryObserver<ThreadPage, Error, readonly Thread[], ActiveThreadsQueryKey, ActiveThreadCursor>(
+      this.scope.client,
+      {
+        ...this.activeThreadsQueryOptions(),
+        select: selectActiveThreads,
+        enabled: false,
+      },
+    );
+    const emit = (result: InfiniteQueryObserverResult<readonly Thread[]>): void => {
       if (!this.scope.isDisposed()) listener(this.projectObservedActiveThreadsResult(result));
     };
     const unsubscribe = observer.subscribe(emit);
@@ -100,7 +97,7 @@ export class AppServerThreadCatalog {
 
   observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options: { emitCurrent?: boolean } = {}): () => void {
     this.scope.assertUsable();
-    return this.observeQueryResult(this.archivedThreadsQueryOptions(), cloneThreads, listener, options);
+    return this.scope.observeResult(this.archivedThreadsQueryOptions(), cloneThreads, listener, options);
   }
 
   async fetchActiveThreads(): Promise<readonly Thread[]> {
@@ -108,8 +105,6 @@ export class AppServerThreadCatalog {
     const frozenSnapshot = this.activeThreadsFrozenSnapshot();
     if (frozenSnapshot) return frozenSnapshot;
     try {
-      const retryFrozenSnapshot = this.activeThreadsFrozenSnapshot();
-      if (retryFrozenSnapshot) return retryFrozenSnapshot;
       const data = await this.scope.client.infiniteQuery(this.activeThreadsQueryOptions());
       return cloneThreads(activeThreadsFromData(data) ?? []);
     } catch (error) {
@@ -140,6 +135,7 @@ export class AppServerThreadCatalog {
       queryKey: key,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         this.scope.runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { signal })),
+      staleTime: 0,
     };
     return this.scope.client.query(options).then(cloneThreads);
   }
@@ -153,7 +149,11 @@ export class AppServerThreadCatalog {
     this.scope.assertUsable();
     const frozenSnapshot = this.activeThreadsFrozenSnapshot();
     if (frozenSnapshot) return;
-    if (!this.activeThreadsSnapshot()) await this.fetchActiveThreads();
+    const key = ACTIVE_THREADS_QUERY_KEY;
+    if (!this.activeThreadsSnapshot() || this.scope.client.getQueryState(key)?.isInvalidated === true) {
+      await this.fetchActiveThreads();
+    }
+    if (this.activeThreadsFrozenSnapshot() || this.scope.client.getQueryState(key)?.isInvalidated === true) return;
     const observer = new InfiniteQueryObserver(this.scope.client, {
       ...this.activeThreadsQueryOptions(),
       enabled: false,
@@ -193,39 +193,44 @@ export class AppServerThreadCatalog {
       const key = ACTIVE_THREADS_QUERY_KEY;
       const before = this.scope.client.getQueryData<ActiveThreadData>(key);
       const after = activeChanges.reduce<ActiveThreadData | undefined>(applyActiveThreadMutation, before);
-      const revalidationRequested = activeChanges.some((change) => change.kind === "revalidate");
-      const missingSnapshotUpsert = before === undefined && activeChanges.some((change) => change.kind === "upsert");
-      const fetchIsNextPage = this.scope.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward";
-      if (before === undefined || after !== before || revalidationRequested || activeThreadDataHasMore(before) || fetchIsNextPage) {
-        const wasFetching = this.scope.client.getQueryState(key)?.fetchStatus === "fetching";
-        void this.scope.client.cancelQueries({ queryKey: key, exact: true });
-        if (after !== before) this.scope.client.setQueryData(key, after);
-        void this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-        if ((missingSnapshotUpsert && !fetchIsNextPage) || (wasFetching && !fetchIsNextPage) || (revalidationRequested && before)) {
-          void this.refreshActiveThreads().catch(() => {
-            // Query observers retain refresh failures while the event projection remains last-known-good state.
-          });
-        }
-      }
+      this.publishThreadProjection(key, activeChanges, before, after, {
+        invalidate: activeChanges.some(activeThreadChangeInvalidatesPages),
+        refresh: () => this.refreshActiveThreads(),
+      });
     }
 
     const archivedChanges = changes.filter((change) => change.list === "archived");
     if (archivedChanges.length > 0) {
       const key = ARCHIVED_THREADS_QUERY_KEY;
-      const before = this.archivedThreadsSnapshot();
-      const after = archivedChanges.reduce<readonly Thread[] | null>(applyThreadCatalogChange, before);
-      const revalidationRequested = archivedChanges.some((change) => change.kind === "revalidate");
-      if (before !== null && after === before && !revalidationRequested) return;
-      const wasFetching = this.scope.client.getQueryState(key)?.fetchStatus === "fetching";
-      void this.scope.client.cancelQueries({ queryKey: key, exact: true });
-      if (after !== before && after) this.scope.client.setQueryData(key, cloneThreads(after));
-      void this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
+      const before = this.scope.client.getQueryData<readonly Thread[]>(key);
+      const after = archivedChanges.reduce<readonly Thread[] | null>(applyThreadCatalogChange, before ?? null) ?? undefined;
+      this.publishThreadProjection(key, archivedChanges, before, after === before ? before : after && cloneThreads(after), {
+        invalidate: false,
+        refresh: () => this.refreshArchivedThreads(),
+      });
+    }
+  }
 
-      if (wasFetching || (revalidationRequested && before)) {
-        void this.refreshArchivedThreads().catch(() => {
-          // Query observers retain refresh failures while the event projection remains last-known-good state.
-        });
-      }
+  private publishThreadProjection<T>(
+    key: readonly unknown[],
+    changes: readonly ThreadCatalogChange[],
+    before: T | undefined,
+    after: T | undefined,
+    options: { invalidate: boolean; refresh: () => Promise<unknown> },
+  ): void {
+    const fetchIsRunning = this.scope.client.getQueryState(key)?.fetchStatus === "fetching";
+    const refreshRequired =
+      fetchIsRunning ||
+      changes.some((change) => change.kind === "revalidate") ||
+      (before === undefined && changes.some((change) => change.kind === "upsert"));
+    if (fetchIsRunning) void this.scope.client.cancelQueries({ queryKey: key, exact: true });
+    if (after !== before)
+      this.scope.client.getQueryCache().find<unknown, Error, T>({ queryKey: key, exact: true })?.setState({ data: after });
+    if (options.invalidate) void this.scope.client.invalidateQueries({ queryKey: key, exact: true, refetchType: "none" });
+    if (refreshRequired) {
+      void options.refresh().catch(() => {
+        // Query observers retain refresh failures while exact facts remain last-known-good state.
+      });
     }
   }
 
@@ -275,7 +280,6 @@ export class AppServerThreadCatalog {
       },
       initialPageParam: null,
       getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-      staleTime: Number.POSITIVE_INFINITY,
     };
   }
 
@@ -286,52 +290,26 @@ export class AppServerThreadCatalog {
         this.scope
           .runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { archived: true, signal }))
           .then(cloneThreads),
-      staleTime: Number.POSITIVE_INFINITY,
-    };
-  }
-
-  private observeQueryResult<TQuery, TValue>(
-    queryOptions: AppServerQueryOptions<TQuery>,
-    project: (value: TQuery) => TValue,
-    listener: ObservedResultListener<TValue>,
-    options: { emitCurrent?: boolean },
-  ): () => void {
-    const observer = new QueryObserver<TQuery>(this.scope.client, {
-      ...queryOptions,
-      enabled: false,
-    });
-    const emit = (result: QueryObserverResult<TQuery>): void => {
-      if (!this.scope.isDisposed()) listener(this.projectObservedResult(result, project));
-    };
-    const unsubscribe = observer.subscribe(emit);
-    if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
-    return this.scope.trackObserver(() => {
-      unsubscribe();
-      observer.destroy();
-    });
-  }
-
-  private projectObservedResult<TQuery, TValue>(
-    result: QueryObserverResult<TQuery>,
-    project: (value: TQuery) => TValue,
-  ): ObservedResult<TValue> {
-    return {
-      value: result.data === undefined ? null : project(result.data),
-      error: result.error instanceof Error ? result.error : null,
-      isFetching: result.isFetching,
     };
   }
 
   private projectObservedActiveThreadsResult(
-    result: InfiniteQueryObserverResult<ActiveThreadData>,
+    result: InfiniteQueryObserverResult<readonly Thread[]>,
   ): ObservedPaginatedResult<readonly Thread[]> {
-    const threads = activeThreadsFromData(result.data);
     return {
-      value: threads ? cloneThreads(threads) : null,
+      value: result.data ?? null,
       error: result.error instanceof Error ? result.error : null,
       isFetching: result.isFetching,
       hasMore: result.hasNextPage,
       isFetchingNextPage: result.isFetchingNextPage,
     };
   }
+}
+
+function selectActiveThreads(data: ActiveThreadData): readonly Thread[] {
+  return activeThreadsFromData(data) ?? [];
+}
+
+function activeThreadChangeInvalidatesPages(change: ThreadCatalogChange): boolean {
+  return change.kind !== "update" || Object.hasOwn(change.changes, "isPinned") || Object.hasOwn(change.changes, "recencyAt");
 }

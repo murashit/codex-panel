@@ -1,4 +1,4 @@
-import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
+import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
@@ -10,12 +10,6 @@ import {
   skillMetadataFromCatalogSkills,
 } from "../protocol/catalog";
 import type { AppServerRequestClient } from "./request-client";
-
-export interface HookCatalog {
-  hooks: HookItem[];
-  warnings: string[];
-  errors: string[];
-}
 
 export interface ModelMetadataClient {
   request: AppServerRequestClient["request"];

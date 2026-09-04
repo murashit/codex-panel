@@ -797,8 +797,16 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadFacts" && key !== "openPanelActivities"),
   );
   const activeObservers = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
+  const activeThreadsSnapshot =
+    typeof threadCatalogOverrides["activeThreadsSnapshot"] === "function"
+      ? threadCatalogOverrides["activeThreadsSnapshot"]
+      : vi.fn(() => null);
+  const hasMoreActiveThreads =
+    typeof threadCatalogOverrides["hasMoreActiveThreads"] === "function"
+      ? threadCatalogOverrides["hasMoreActiveThreads"]
+      : vi.fn(() => false);
   const emitActive = (threads: readonly Thread[]): void => {
-    for (const observer of activeObservers) observer(queryResult(threads));
+    for (const observer of activeObservers) observer(queryResult(threads, null, hasMoreActiveThreads()));
   };
   const clientAccess = {
     withClient: async <T>(operation: (client: never) => Promise<T>): Promise<T> => {
@@ -851,10 +859,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     visiblePanelActivities: () => openPanelActivities(),
     threadCatalog: {
-      hasMoreActiveThreads:
-        typeof threadCatalogOverrides["hasMoreActiveThreads"] === "function"
-          ? threadCatalogOverrides["hasMoreActiveThreads"]
-          : vi.fn(() => false),
+      hasMoreActiveThreads,
       ...threadCatalogOverrides,
       loadMoreActiveThreads: vi.fn(async () => {
         const load = threadCatalogOverrides["loadMoreActiveThreads"];
@@ -898,10 +903,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         const threads = response.data.map(threadFromRecord);
         emitActive(threads);
       }),
-      activeThreadsSnapshot:
-        typeof threadCatalogOverrides["activeThreadsSnapshot"] === "function"
-          ? threadCatalogOverrides["activeThreadsSnapshot"]
-          : vi.fn(() => null),
+      activeThreadsSnapshot,
       recentActiveThreadsSnapshot:
         typeof threadCatalogOverrides["recentActiveThreadsSnapshot"] === "function"
           ? threadCatalogOverrides["recentActiveThreadsSnapshot"]
@@ -911,6 +913,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
           ? threadCatalogOverrides["observeActiveThreadsResult"]
           : vi.fn((observer: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
               activeObservers.add(observer);
+              observer(queryResult(activeThreadsSnapshot(), null, hasMoreActiveThreads()));
               return () => activeObservers.delete(observer);
             }),
     },
@@ -961,12 +964,12 @@ function threadFromRecord(record: Record<string, unknown>): Thread {
   };
 }
 
-function queryResult<T>(value: T | null, error: Error | null = null): ObservedPaginatedResult<T> {
+function queryResult<T>(value: T | null, error: Error | null = null, hasMore = false): ObservedPaginatedResult<T> {
   return {
     value,
     error,
     isFetching: false,
-    hasMore: false,
+    hasMore,
     isFetchingNextPage: false,
   };
 }
