@@ -119,7 +119,7 @@ export class AppServerThreadCatalog {
       async () => {
         const retryFrozenSnapshot = this.activeThreadsFrozenSnapshot();
         if (retryFrozenSnapshot) return retryFrozenSnapshot;
-        const data = await this.scope.client.fetchInfiniteQuery(this.activeThreadsQueryOptions());
+        const data = await this.scope.client.infiniteQuery(this.activeThreadsQueryOptions());
         return cloneThreads(activeThreadsFromData(data) ?? []);
       },
       () => this.activeThreadsSnapshot(),
@@ -138,7 +138,7 @@ export class AppServerThreadCatalog {
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         this.scope.runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { signal })),
     };
-    return this.readFreshThroughQueryCancellation(key, async () => cloneThreads(await this.scope.client.fetchQuery(options)));
+    return this.readFreshThroughQueryCancellation(key, async () => cloneThreads(await this.scope.client.query(options)));
   }
 
   hasMoreActiveThreads(): boolean {
@@ -179,7 +179,7 @@ export class AppServerThreadCatalog {
       this.scope.assertUsable();
     }
     return this.readFreshThroughQueryCancellation(key, async () =>
-      cloneThreads(await this.scope.client.fetchQuery(this.archivedThreadsQueryOptions())),
+      cloneThreads(await this.scope.client.query(this.archivedThreadsQueryOptions())),
     );
   }
 

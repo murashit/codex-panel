@@ -30,7 +30,7 @@ class QueryRefreshCoordinator<Queries extends object> implements InvalidatedQuer
   async read<Id extends keyof Queries>(id: Id): Promise<Queries[Id]> {
     for (;;) {
       const refresh = this.refreshes.get(id);
-      if (!refresh) return this.options.client.fetchQuery(this.options.queryOptions(id, "read"));
+      if (!refresh) return this.options.client.query(this.options.queryOptions(id, "read"));
       await refresh.promise;
       if (this.refreshes.has(id)) continue;
       const queryKey = this.options.queryOptions(id, "read").queryKey;
@@ -60,7 +60,7 @@ class QueryRefreshCoordinator<Queries extends object> implements InvalidatedQuer
         await this.options.client.invalidateQueries({ queryKey: queryOptions.queryKey, exact: true, refetchType: "none" });
 
         try {
-          await this.options.client.fetchQuery(queryOptions);
+          await this.options.client.query(queryOptions);
         } catch (error) {
           if (!refresh.needsAnotherAttempt()) throw error;
         }
