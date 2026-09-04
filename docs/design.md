@@ -2,7 +2,7 @@
 
 Codex Panel is the Obsidian interaction surface for Codex, not an independent runtime or general-purpose productivity suite.
 
-This document records durable design direction. User-facing behavior belongs in `README.md`; daily workflow, generated files, validation, and compatibility checks belong in `docs/development.md`. Do not record current call paths or transient mechanisms that are readily derived from code and likely to drift.
+This document records durable design direction and responsibility boundaries. `README.md` introduces the product, its requirements, setup, and essential usage. `docs/development.md` explains how to develop, validate, and maintain the project. Keep implementation details and change history out of these documents unless they are necessary for the document's purpose.
 
 ## Product Boundary
 
