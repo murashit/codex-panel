@@ -154,7 +154,7 @@ export class AppServerMetadataQueries {
       await this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
       this.scope.assertUsable();
     }
-    const models = await this.scope.client.fetchQuery(descriptor.queryOptions());
+    const models = await this.scope.client.query(descriptor.queryOptions());
     return cloneModelMetadata(models);
   }
 
@@ -276,7 +276,7 @@ export class AppServerMetadataQueries {
   private async fetchMetadataResource<Id extends SharedServerMetadataResourceId>(id: Id): Promise<MetadataQueryData[Id]> {
     const data = isInvalidatedMetadataResource(id)
       ? await this.invalidatedMetadataQueries.read(id)
-      : await this.scope.client.fetchQuery(this.metadataDescriptor(id).queryOptions());
+      : await this.scope.client.query(this.metadataDescriptor(id).queryOptions());
     return data as MetadataQueryData[Id];
   }
 
