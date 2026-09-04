@@ -1,4 +1,4 @@
-import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, vaultRelativePath } from "./paths";
+import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "./paths";
 
 export interface ParsedFileHref {
   path: string;
@@ -20,7 +20,7 @@ export function parseFileHref(href: string): ParsedFileHref | null {
 }
 
 function isExternalFileHref(href: string): boolean {
-  if (/^[a-z]:[\\/]/i.test(href)) return false;
+  if (/^[a-z]:[\\/]/i.test(href) || /^\\\\[^\\]/.test(href)) return false;
   return /^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith("//");
 }
 
@@ -31,7 +31,7 @@ export function vaultRelativeFileLinkTarget(vaultPath: string, configDir: string
 
 export function isAbsoluteFileHref(href: string): boolean {
   const parsed = parseFileHref(href);
-  return parsed ? isFilesystemAbsolutePath(normalizeFilePath(parsed.path)) : false;
+  return parsed ? isFilesystemAbsolutePath(parsed.path) : false;
 }
 
 export function vaultRelativeFileHref(vaultPath: string, configDir: string, href: string): { path: string; subpath: string } | null {
@@ -41,10 +41,9 @@ export function vaultRelativeFileHref(vaultPath: string, configDir: string, href
   const relativePath = vaultRelativePath(vaultPath, parsed.path, { allowRelative: true });
   if (!relativePath) return null;
 
-  const normalized = normalizeFilePath(relativePath);
-  if (isVaultConfigPath(normalized, configDir)) return null;
+  if (isVaultConfigPath(relativePath, configDir, vaultPath)) return null;
 
-  return { path: normalized, subpath: parsed.subpath };
+  return { path: relativePath, subpath: parsed.subpath };
 }
 
 function decodeFileHref(href: string): string {

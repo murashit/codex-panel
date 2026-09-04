@@ -4,7 +4,7 @@ import { toMarkdown } from "mdast-util-to-markdown";
 import { visit } from "unist-util-visit";
 
 import { parseFileHref } from "../vault/file-hrefs";
-import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, vaultRelativePath } from "../vault/paths";
+import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "../vault/paths";
 import type { Thread } from "./model";
 import { threadDisplayTitle } from "./title";
 import type { ThreadTranscriptEntry } from "./transcript";
@@ -151,7 +151,7 @@ function normalizedExportedMarkdownLink(
   const parsed = parseFileHref(link.url);
   if (!parsed) return null;
   const vaultRelative = vaultRelativePath(vaultPath, parsed.path);
-  if (vaultRelative && !archiveExportShouldKeepAbsolute(vaultRelative, vaultConfigDir)) {
+  if (vaultRelative && !archiveExportShouldKeepAbsolute(vaultRelative, vaultConfigDir, vaultPath)) {
     return {
       start,
       end,
@@ -159,7 +159,7 @@ function normalizedExportedMarkdownLink(
     };
   }
 
-  if (!isFilesystemAbsolutePath(normalizeFilePath(parsed.path))) return null;
+  if (!isFilesystemAbsolutePath(parsed.path)) return null;
   return {
     start,
     end,
@@ -174,8 +174,8 @@ function markdownNodeSource(node: Nodes): string {
   return toMarkdown(node, { unsafe: [{ character: "|", inConstruct: ["label", "phrasing"] }] }).trimEnd();
 }
 
-function archiveExportShouldKeepAbsolute(vaultRelativePath: string, vaultConfigDir: string | null | undefined): boolean {
-  return typeof vaultConfigDir === "string" && vaultConfigDir.length > 0 && isVaultConfigPath(vaultRelativePath, vaultConfigDir);
+function archiveExportShouldKeepAbsolute(vaultRelativePath: string, vaultConfigDir: string | null | undefined, vaultPath: string): boolean {
+  return typeof vaultConfigDir === "string" && vaultConfigDir.length > 0 && isVaultConfigPath(vaultRelativePath, vaultConfigDir, vaultPath);
 }
 
 function formatDate(date: Date): string {

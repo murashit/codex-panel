@@ -64,10 +64,10 @@ describe("renderStreamMarkdown", () => {
 
   it("opens safe vault file links through Obsidian", () => {
     const openLinkText = vi.fn();
-    const context = streamMarkdownContext({ openLinkText, vaultPath: "/Users/showhey/Vault", vaultFiles: ["docs/Guide.md"] });
+    const context = streamMarkdownContext({ openLinkText, vaultPath: "/Users/example/Vault", vaultFiles: ["docs/Guide.md"] });
     const parent = document.createElement("div");
 
-    renderStreamMarkdown(parent, "[Guide](/Users/showhey/Vault/docs/Guide.md)", context);
+    renderStreamMarkdown(parent, "[Guide](/Users/example/Vault/docs/Guide.md)", context);
     parent.querySelector<HTMLAnchorElement>("a")?.click();
 
     expect(openLinkText).toHaveBeenCalledWith("docs/Guide.md", "Inbox.md", false);
@@ -75,10 +75,10 @@ describe("renderStreamMarkdown", () => {
 
   it("does not open absolute file links outside the vault", () => {
     const openLinkText = vi.fn();
-    const context = streamMarkdownContext({ openLinkText, vaultPath: "/Users/showhey/Vault" });
+    const context = streamMarkdownContext({ openLinkText, vaultPath: "/Users/example/Vault" });
     const parent = document.createElement("div");
 
-    renderStreamMarkdown(parent, "[Readme](/Users/showhey/Other/README.md)", context);
+    renderStreamMarkdown(parent, "[Readme](/Users/example/Other/README.md)", context);
     parent.querySelector<HTMLAnchorElement>("a")?.click();
 
     expect(openLinkText).not.toHaveBeenCalled();
@@ -87,10 +87,10 @@ describe("renderStreamMarkdown", () => {
 
   it("prevents unresolved vault file links from navigating", () => {
     const openLinkText = vi.fn();
-    const context = streamMarkdownContext({ openLinkText, vaultPath: "/Users/showhey/Vault" });
+    const context = streamMarkdownContext({ openLinkText, vaultPath: "/Users/example/Vault" });
     const parent = document.createElement("div");
 
-    renderStreamMarkdown(parent, "[Missing](/Users/showhey/Vault/docs/Missing.md)", context);
+    renderStreamMarkdown(parent, "[Missing](/Users/example/Vault/docs/Missing.md)", context);
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     parent.querySelector<HTMLAnchorElement>("a")?.dispatchEvent(event);
 

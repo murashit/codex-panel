@@ -1,52 +1,78 @@
+import * as nodePath from "node:path";
+
 export interface VaultRelativePathOptions {
   allowRelative?: boolean;
 }
 
 export function vaultRelativePath(vaultPath: string, path: string, options: VaultRelativePathOptions = {}): string | null {
-  const normalizedPath = normalizeFilePath(path);
-  const normalizedVaultPath = normalizeFilePath(vaultPath);
-  if (!normalizedPath || !normalizedVaultPath) return null;
+  const pathApi = pathApiFor(vaultPath, path);
+  const normalizedPath = normalizedPathForApi(path, pathApi);
+  if (!normalizedPath) return null;
+  if (!pathApi.isAbsolute(normalizedPath)) {
+    return options.allowRelative === true && !relativePathEscapesRoot(normalizedPath, pathApi) ? portablePath(normalizedPath) : null;
+  }
 
-  if (!isFilesystemAbsolutePath(normalizedPath)) return options.allowRelative === true ? normalizedPath : null;
-  if (pathsEqual(normalizedPath, normalizedVaultPath)) return null;
-
-  const vaultPrefix = normalizedVaultPath.endsWith("/") ? normalizedVaultPath : `${normalizedVaultPath}/`;
-  return pathStartsWith(normalizedPath, vaultPrefix) ? normalizedPath.slice(vaultPrefix.length) : null;
+  const normalizedVaultPath = normalizedPathForApi(vaultPath, pathApi);
+  if (!normalizedVaultPath || !pathApi.isAbsolute(normalizedVaultPath)) return null;
+  const relativePath = pathApi.relative(normalizedVaultPath, normalizedPath);
+  if (!relativePath || relativePathEscapesRoot(relativePath, pathApi)) return null;
+  return portablePath(relativePath);
 }
 
 export function pathRelativeToRoot(path: string, root?: string | null): string {
-  const normalizedPath = normalizeFilePath(path);
-  const normalizedRoot = normalizeFilePath(root ?? "");
-  if (!normalizedRoot) return normalizedPath;
-  if (pathsEqual(normalizedPath, normalizedRoot)) return ".";
-  return pathStartsWith(normalizedPath, `${normalizedRoot}/`) ? normalizedPath.slice(normalizedRoot.length + 1) : normalizedPath;
+  const pathApi = pathApiFor(path, root ?? "");
+  const normalizedPath = normalizedPathForApi(path, pathApi);
+  const normalizedRoot = normalizedPathForApi(root ?? "", pathApi);
+  if (!normalizedRoot) return portablePath(normalizedPath);
+  if (pathApi.isAbsolute(normalizedPath) !== pathApi.isAbsolute(normalizedRoot)) return portablePath(normalizedPath);
+
+  const relativePath = pathApi.relative(normalizedRoot, normalizedPath);
+  if (!relativePath) return ".";
+  return relativePathEscapesRoot(relativePath, pathApi) ? portablePath(normalizedPath) : portablePath(relativePath);
 }
 
 export function isFilesystemAbsolutePath(path: string): boolean {
-  return path.startsWith("/") || isWindowsAbsolutePath(path);
+  return pathApiFor(path).isAbsolute(path);
 }
 
-export function isVaultConfigPath(path: string, configDir: string): boolean {
-  const normalizedPath = normalizeFilePath(path);
-  const normalizedConfigDir = normalizeFilePath(configDir);
-  return pathsEqual(normalizedPath, normalizedConfigDir) || pathStartsWith(normalizedPath, `${normalizedConfigDir}/`);
+export function isVaultConfigPath(path: string, configDir: string, filesystemRoot?: string): boolean {
+  const pathApi = pathApiFor(filesystemRoot ?? path, path, configDir);
+  const normalizedPath = normalizedPathForApi(path, pathApi);
+  const normalizedConfigDir = normalizedPathForApi(configDir, pathApi);
+  if (!normalizedPath || !normalizedConfigDir) return false;
+  const relativePath = pathApi.relative(normalizedConfigDir, normalizedPath);
+  return !relativePath || !relativePathEscapesRoot(relativePath, pathApi);
 }
 
 export function normalizeFilePath(path: string): string {
-  const normalized = path.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "");
-  return normalized.replace(/^\.\//, "");
+  return portablePath(normalizedPathForApi(path, pathApiFor(path)));
 }
 
-function isWindowsAbsolutePath(path: string): boolean {
-  return /^[a-z]:[\\/]/i.test(path);
+type PathApi = typeof nodePath.posix;
+
+function pathApiFor(...paths: string[]): PathApi {
+  return paths.some(isWindowsPath) ? nodePath.win32 : nodePath.posix;
 }
 
-function pathsEqual(left: string, right: string): boolean {
-  return isWindowsAbsolutePath(left) || isWindowsAbsolutePath(right) ? left.toLowerCase() === right.toLowerCase() : left === right;
+function isWindowsPath(path: string): boolean {
+  return /^[a-z]:/i.test(path) || /^[/\\]{2}[^/\\]+[/\\][^/\\]+/.test(path) || path.includes("\\");
 }
 
-function pathStartsWith(path: string, prefix: string): boolean {
-  return isWindowsAbsolutePath(path) || isWindowsAbsolutePath(prefix)
-    ? path.toLowerCase().startsWith(prefix.toLowerCase())
-    : path.startsWith(prefix);
+function normalizedPathForApi(path: string, pathApi: PathApi): string {
+  if (!path) return "";
+  const normalizedPath = pathApi.normalize(path);
+  return normalizedPath === pathApi.parse(normalizedPath).root ? normalizedPath : normalizedPath.replace(/[\\/]+$/, "");
+}
+
+function relativePathEscapesRoot(path: string, pathApi: PathApi): boolean {
+  return (
+    path === ".." ||
+    path.startsWith(`..${pathApi.sep}`) ||
+    pathApi.isAbsolute(path) ||
+    (pathApi === nodePath.win32 && /^[a-z]:/i.test(path))
+  );
+}
+
+function portablePath(path: string): string {
+  return path.replaceAll("\\", "/");
 }

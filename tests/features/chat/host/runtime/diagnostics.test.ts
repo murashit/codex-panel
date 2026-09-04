@@ -51,7 +51,7 @@ describe("connection diagnostics", () => {
       configuredCommand: "/opt/homebrew/bin/codex",
       initializeResponse: {
         userAgent: "codex-cli/0.130.0",
-        codexHome: "/Users/showhey/.codex",
+        codexHome: "/Users/example/.codex",
         platformFamily: "unix",
         platformOs: "macos",
       },
@@ -74,37 +74,37 @@ describe("connection diagnostics", () => {
       {
         name: "codex-panel-local",
         description: "Local panel skill",
-        path: "/Users/showhey/Repos/github.com/murashit/codex-panel/.codex/skills/codex-panel-local/SKILL.md",
+        path: "/Users/example/Repos/codex-panel/.codex/skills/codex-panel-local/SKILL.md",
         enabled: true,
       },
       {
         name: "jujutsu-agent-workflow",
         description: "Personal skill",
-        path: "/Users/showhey/.agents/skills/jujutsu-agent-workflow/SKILL.md",
+        path: "/Users/example/.agents/skills/jujutsu-agent-workflow/SKILL.md",
         enabled: true,
       },
       {
         name: "openai-docs",
         description: "System skill",
-        path: "/Users/showhey/.codex/skills/.system/openai-docs/SKILL.md",
+        path: "/Users/example/.codex/skills/.system/openai-docs/SKILL.md",
         enabled: true,
       },
       {
         name: "github:gh-fix-ci",
         description: "GitHub CI skill",
-        path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/gh-fix-ci/SKILL.md",
+        path: "/Users/example/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/gh-fix-ci/SKILL.md",
         enabled: true,
       },
       {
         name: "github:github",
         description: "GitHub skill",
-        path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/github/SKILL.md",
+        path: "/Users/example/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/github/SKILL.md",
         enabled: true,
       },
       {
         name: "gmail:gmail",
         description: "Disabled skill",
-        path: "/Users/showhey/.codex/plugins/cache/openai-curated-remote/gmail/0.1.3/skills/gmail/SKILL.md",
+        path: "/Users/example/.codex/plugins/cache/openai-curated-remote/gmail/0.1.3/skills/gmail/SKILL.md",
         enabled: false,
       },
     ] satisfies readonly SkillMetadata[];

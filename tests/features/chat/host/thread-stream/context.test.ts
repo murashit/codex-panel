@@ -199,13 +199,13 @@ describe("thread stream surface", () => {
 
   it("normalizes rendered internal links that point at absolute vault paths", async () => {
     const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault", ["docs/Guide.md"]);
+    const context = markdownLinkContext(openLinkText, "/Users/example/Vault", ["docs/Guide.md"]);
     const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "Guide.md",
       attr: {
-        "data-href": "/Users/showhey/Vault/docs/Guide.md",
-        href: "/Users/showhey/Vault/docs/Guide.md",
+        "data-href": "/Users/example/Vault/docs/Guide.md",
+        href: "/Users/example/Vault/docs/Guide.md",
       },
     });
 
@@ -217,13 +217,13 @@ describe("thread stream surface", () => {
 
   it("normalizes rendered internal links for missing files inside the vault", async () => {
     const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
+    const context = markdownLinkContext(openLinkText, "/Users/example/Vault");
     const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "Missing.md",
       attr: {
-        "data-href": "/Users/showhey/Vault/docs/Missing.md",
-        href: "/Users/showhey/Vault/docs/Missing.md",
+        "data-href": "/Users/example/Vault/docs/Missing.md",
+        href: "/Users/example/Vault/docs/Missing.md",
       },
     });
 
@@ -253,13 +253,13 @@ describe("thread stream surface", () => {
 
   it("does not open rendered internal links for absolute paths outside the vault", async () => {
     const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
+    const context = markdownLinkContext(openLinkText, "/Users/example/Vault");
     const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "README.md",
       attr: {
-        "data-href": "/Users/showhey/Repos/codex-panel/README.md",
-        href: "/Users/showhey/Repos/codex-panel/README.md",
+        "data-href": "/Users/example/Repos/codex-panel/README.md",
+        href: "/Users/example/Repos/codex-panel/README.md",
       },
     });
 
@@ -272,13 +272,13 @@ describe("thread stream surface", () => {
 
   it("does not open rendered internal links for vault config paths", async () => {
     const openLinkText = vi.fn();
-    const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
+    const context = markdownLinkContext(openLinkText, "/Users/example/Vault");
     const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "main.js",
       attr: {
-        "data-href": "/Users/showhey/Vault/vault-config/plugins/foo/main.js",
-        href: "/Users/showhey/Vault/vault-config/plugins/foo/main.js",
+        "data-href": "/Users/example/Vault/vault-config/plugins/foo/main.js",
+        href: "/Users/example/Vault/vault-config/plugins/foo/main.js",
       },
     });
 

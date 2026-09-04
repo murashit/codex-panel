@@ -160,24 +160,26 @@ describe("thread archive export", () => {
           transcriptEntry(
             "assistant",
             [
-              "[Vault note](</Users/showhey/Vault/topics/My Note.md>)",
-              "[Vault note with parens](</Users/showhey/Vault/topics/My (Note).md>)",
-              "[Vault note with bare parens](/Users/showhey/Vault/topics/My_(Note).md)",
-              '[**Titled vault note**](/Users/showhey/Vault/topics/Titled.md "Reference")',
-              "[Vault source line](/Users/showhey/Vault/src/main.ts:12:4#L12)",
-              "[Vault config](/Users/showhey/Vault/vault-config/plugins/codex-panel/main.js)",
-              "[External file](/Users/showhey/Repos/project/README.md)",
-              "[External file with backticks](/Users/showhey/Repos/project/a\\`b``c.md)",
+              "[Vault note](</Users/example/Vault/topics/My Note.md>)",
+              "[Vault note with parens](</Users/example/Vault/topics/My (Note).md>)",
+              "[Vault note with bare parens](/Users/example/Vault/topics/My_(Note).md)",
+              '[**Titled vault note**](/Users/example/Vault/topics/Titled.md "Reference")',
+              "[Vault source line](/Users/example/Vault/src/main.ts:12:4#L12)",
+              "[Vault config](/Users/example/Vault/vault-config/plugins/codex-panel/main.js)",
+              "[Canonical vault config](/Users/example/Vault/docs/../vault-config/plugins/codex-panel/main.js)",
+              "[External file](/Users/example/Repos/project/README.md)",
+              "[Escaped vault file](/Users/example/Vault/../project/README.md)",
+              "[External file with backticks](/Users/example/Repos/project/a\\`b``c.md)",
               "[Relative](topics/Other.md)",
               "[Website](https://example.com/docs)",
-              "![Image](/Users/showhey/Repos/project/image.png)",
-              "`[Code link](/Users/showhey/Repos/project/README.md)`",
-              "``[Double-fenced code link](/Users/showhey/Repos/project/README.md)``",
+              "![Image](/Users/example/Repos/project/image.png)",
+              "`[Code link](/Users/example/Repos/project/README.md)`",
+              "``[Double-fenced code link](/Users/example/Repos/project/README.md)``",
               "```",
-              "[Code block link](/Users/showhey/Repos/project/README.md)",
+              "[Code block link](/Users/example/Repos/project/README.md)",
               "```",
               "~~~",
-              "[Tilde code block link](/Users/showhey/Repos/project/README.md)",
+              "[Tilde code block link](/Users/example/Repos/project/README.md)",
               "~~~",
             ].join("\n"),
             1,
@@ -185,7 +187,7 @@ describe("thread archive export", () => {
         ],
       }),
       new Date(2026, 4, 18),
-      { vaultPath: "/Users/showhey/Vault", vaultConfigDir: "vault-config" },
+      { vaultPath: "/Users/example/Vault", vaultConfigDir: "vault-config" },
     );
 
     expect(output).toContain(
@@ -195,19 +197,21 @@ describe("thread archive export", () => {
         "[Vault note with bare parens](topics/My_\\(Note\\).md)",
         '[**Titled vault note**](topics/Titled.md "Reference")',
         "[Vault source line](src/main.ts#L12)",
-        "Vault config (`/Users/showhey/Vault/vault-config/plugins/codex-panel/main.js`)",
-        "External file (`/Users/showhey/Repos/project/README.md`)",
-        "External file with backticks (```/Users/showhey/Repos/project/a`b``c.md```)",
+        "Vault config (`/Users/example/Vault/vault-config/plugins/codex-panel/main.js`)",
+        "Canonical vault config (`/Users/example/Vault/docs/../vault-config/plugins/codex-panel/main.js`)",
+        "External file (`/Users/example/Repos/project/README.md`)",
+        "Escaped vault file (`/Users/example/Vault/../project/README.md`)",
+        "External file with backticks (```/Users/example/Repos/project/a`b``c.md```)",
         "[Relative](topics/Other.md)",
         "[Website](https://example.com/docs)",
-        "![Image](/Users/showhey/Repos/project/image.png)",
-        "`[Code link](/Users/showhey/Repos/project/README.md)`",
-        "``[Double-fenced code link](/Users/showhey/Repos/project/README.md)``",
+        "![Image](/Users/example/Repos/project/image.png)",
+        "`[Code link](/Users/example/Repos/project/README.md)`",
+        "``[Double-fenced code link](/Users/example/Repos/project/README.md)``",
         "```",
-        "[Code block link](/Users/showhey/Repos/project/README.md)",
+        "[Code block link](/Users/example/Repos/project/README.md)",
         "```",
         "~~~",
-        "[Tilde code block link](/Users/showhey/Repos/project/README.md)",
+        "[Tilde code block link](/Users/example/Repos/project/README.md)",
         "~~~",
       ].join("\n"),
     );
@@ -225,9 +229,9 @@ describe("thread archive export", () => {
       "- [x] task",
     ].join("\n");
     const output = exportedMarkdown(
-      thread({ transcriptEntries: [transcriptEntry("assistant", `${obsidianSyntax}\n[Vault](/Users/showhey/Vault/Note.md)`, 1)] }),
+      thread({ transcriptEntries: [transcriptEntry("assistant", `${obsidianSyntax}\n[Vault](/Users/example/Vault/Note.md)`, 1)] }),
       new Date(2026, 4, 18),
-      { vaultPath: "/Users/showhey/Vault" },
+      { vaultPath: "/Users/example/Vault" },
     );
 
     expect(output).toContain(obsidianSyntax);
@@ -240,13 +244,13 @@ describe("thread archive export", () => {
         transcriptEntries: [
           transcriptEntry(
             "assistant",
-            "| Vault | External |\n| --- | --- |\n| [A\\|B](/Users/showhey/Vault/Note.md) | [C\\|D](/Outside/Note.md) |",
+            "| Vault | External |\n| --- | --- |\n| [A\\|B](/Users/example/Vault/Note.md) | [C\\|D](/Outside/Note.md) |",
             1,
           ),
         ],
       }),
       new Date(2026, 4, 18),
-      { vaultPath: "/Users/showhey/Vault" },
+      { vaultPath: "/Users/example/Vault" },
     );
 
     expect(output).toContain("| [A\\|B](Note.md) | C\\|D (`/Outside/Note.md`) |");
