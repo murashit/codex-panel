@@ -22,11 +22,9 @@ import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateL
 import { listModelMetadata, listPermissionProfiles, listSkillCatalog } from "../services/catalog";
 import type { AppServerRequestClient } from "../services/request-client";
 import { readAccountRateLimits, readEffectiveConfig } from "../services/runtime-metadata";
-import { createInvalidatedQueryRefreshCoordinator, type InvalidatedQueryRefreshCoordinator } from "./invalidated-query-refresh";
 import type { AppServerQueryOptions, AppServerQueryScope } from "./query-scope";
 import { cloneModelMetadata, cloneRateLimitSnapshot, cloneSharedServerMetadataResource } from "./snapshots";
 
-const MODELS_STALE_TIME_MS = 60_000;
 const MODELS_QUERY_KEY = ["models"] as const;
 const RUNTIME_CONFIG_QUERY_KEY = ["runtime-config"] as const;
 const SKILLS_QUERY_KEY = ["skills"] as const;
@@ -40,10 +38,6 @@ interface MetadataResourceSnapshot<T> {
 
 type MetadataResourceKind = "skills" | "permissionProfiles" | "rateLimits";
 
-interface MetadataResourceQueryOptions {
-  readonly forceReloadSkills?: boolean;
-}
-
 interface MetadataQueryData {
   readonly runtimeConfig: RuntimeConfigSnapshot;
   readonly models: readonly ModelMetadata[];
@@ -52,15 +46,8 @@ interface MetadataQueryData {
   readonly rateLimits: MetadataResourceSnapshot<RateLimitSnapshot | null>;
 }
 
-interface InvalidatedMetadataQueries {
-  readonly skills: MetadataQueryData["skills"];
-  readonly rateLimits: MetadataQueryData["rateLimits"];
-}
-
-type InvalidatedMetadataResourceKind = keyof InvalidatedMetadataQueries;
-
 type MetadataResourceDescriptor<Id extends SharedServerMetadataResourceId> = {
-  readonly queryOptions: (options?: MetadataResourceQueryOptions) => AppServerQueryOptions<MetadataQueryData[Id]>;
+  readonly queryOptions: () => AppServerQueryOptions<MetadataQueryData[Id]>;
   readonly project: (result: QueryObserverResult<MetadataQueryData[Id]>) => SharedServerMetadataResourceFor<Id>;
   readonly snapshot: (data: MetadataQueryData[Id]) => SharedServerMetadataSnapshotValues[Id];
 };
@@ -71,17 +58,9 @@ type MetadataResourceDescriptors = {
 
 export class AppServerMetadataQueries {
   private readonly metadataDescriptors: MetadataResourceDescriptors;
-  private readonly invalidatedMetadataQueries: InvalidatedQueryRefreshCoordinator<InvalidatedMetadataQueries>;
 
   constructor(private readonly scope: AppServerQueryScope) {
     this.metadataDescriptors = this.createMetadataResourceDescriptors();
-    this.invalidatedMetadataQueries = createInvalidatedQueryRefreshCoordinator<InvalidatedMetadataQueries>({
-      client: scope.client,
-      queryOptions: (id, cause) =>
-        this.metadataDescriptor(id).queryOptions({
-          forceReloadSkills: id === "skills" && cause === "refresh",
-        }),
-    });
   }
 
   metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics {
@@ -118,7 +97,34 @@ export class AppServerMetadataQueries {
     return this.observeMetadataQueryResource(descriptor.queryOptions(), descriptor.project, listener, options);
   }
 
+  ensureAppServerMetadata(): Promise<void> {
+    return this.loadAppServerMetadata();
+  }
+
   async refreshAppServerMetadata(): Promise<void> {
+    this.scope.assertUsable();
+    await Promise.all(
+      sharedServerMetadataResourceIds().map((id) =>
+        this.scope.client.invalidateQueries({
+          queryKey: this.metadataDescriptor(id).queryOptions().queryKey,
+          exact: true,
+          refetchType: "none",
+        }),
+      ),
+    );
+    this.scope.assertUsable();
+    await this.loadAppServerMetadata();
+  }
+
+  handleSkillsChanged(): void {
+    this.revalidateUsedResource(this.metadataDescriptor("skills").queryOptions());
+  }
+
+  handleRateLimitsUpdated(): void {
+    this.revalidateUsedResource(this.metadataDescriptor("rateLimits").queryOptions());
+  }
+
+  private async loadAppServerMetadata(): Promise<void> {
     this.scope.assertUsable();
     const runtimeResult = this.fetchRuntimeConfig().then(
       () => ({ ok: true as const }),
@@ -129,37 +135,25 @@ export class AppServerMetadataQueries {
         this.fetchMetadataResource("skills"),
         this.fetchMetadataResource("permissionProfiles"),
         this.fetchMetadataResource("rateLimits"),
-        this.fetchModels({ force: true }),
+        this.fetchModels(),
       ]),
       runtimeResult,
     ]);
     if (!runtime.ok) throw runtime.error;
   }
 
-  refreshSkills(): Promise<void> {
-    this.scope.assertUsable();
-    return this.invalidatedMetadataQueries.refreshAfterInvalidation("skills");
-  }
-
-  refreshRateLimits(): Promise<void> {
-    this.scope.assertUsable();
-    return this.invalidatedMetadataQueries.refreshAfterInvalidation("rateLimits");
-  }
-
-  async fetchModels(options: { force?: boolean } = {}): Promise<readonly ModelMetadata[]> {
+  async fetchModels(): Promise<readonly ModelMetadata[]> {
     this.scope.assertUsable();
     const descriptor = this.metadataDescriptor("models");
-    const key = descriptor.queryOptions().queryKey;
-    if (options.force) {
-      await this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-      this.scope.assertUsable();
-    }
     const models = await this.scope.client.query(descriptor.queryOptions());
     return cloneModelMetadata(models);
   }
 
-  refreshModels(): Promise<readonly ModelMetadata[]> {
-    return this.fetchModels({ force: true });
+  async refreshModels(): Promise<readonly ModelMetadata[]> {
+    const queryOptions = this.metadataDescriptor("models").queryOptions();
+    await this.scope.client.invalidateQueries({ queryKey: queryOptions.queryKey, exact: true, refetchType: "none" });
+    this.scope.assertUsable();
+    return this.fetchModels();
   }
 
   private createMetadataResourceDescriptors(): MetadataResourceDescriptors {
@@ -171,6 +165,7 @@ export class AppServerMetadataQueries {
             this.scope.runWithClient(async (client) =>
               runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, this.scope.context.vaultPath)),
             ),
+          staleTime: Number.POSITIVE_INFINITY,
         }),
         project: (result) => ({
           id: "runtimeConfig",
@@ -188,7 +183,7 @@ export class AppServerMetadataQueries {
               throw new MetadataResourceQueryError(diagnosticProbeError("models", error, Date.now()));
             }
           },
-          staleTime: MODELS_STALE_TIME_MS,
+          staleTime: Number.POSITIVE_INFINITY,
         }),
         project: (result) => ({
           id: "models",
@@ -198,15 +193,16 @@ export class AppServerMetadataQueries {
         snapshot: cloneModelMetadata,
       },
       skills: {
-        queryOptions: (options = {}) => ({
+        queryOptions: () => ({
           queryKey: SKILLS_QUERY_KEY,
           queryFn: async () =>
             this.readMetadataResource("skills", async (client) => {
               const catalog = await listSkillCatalog(client, this.scope.context.vaultPath, {
-                forceReload: options.forceReloadSkills ?? false,
+                forceReload: false,
               });
               return { value: catalog.skills, summary: `${String(catalog.totalCount)} skills` };
             }),
+          staleTime: Number.POSITIVE_INFINITY,
         }),
         project: (result) => ({
           id: "skills",
@@ -223,6 +219,7 @@ export class AppServerMetadataQueries {
               const profiles = await listPermissionProfiles(client, this.scope.context.vaultPath);
               return { value: profiles, summary: `${String(profiles.length)} profiles` };
             }),
+          staleTime: Number.POSITIVE_INFINITY,
         }),
         project: (result) => ({
           id: "permissionProfiles",
@@ -242,6 +239,7 @@ export class AppServerMetadataQueries {
                 summary: accountRateLimitsSummaryFromResponse(response),
               };
             }),
+          staleTime: Number.POSITIVE_INFINITY,
         }),
         project: (result) => ({
           id: "rateLimits",
@@ -274,10 +272,20 @@ export class AppServerMetadataQueries {
   }
 
   private async fetchMetadataResource<Id extends SharedServerMetadataResourceId>(id: Id): Promise<MetadataQueryData[Id]> {
-    const data = isInvalidatedMetadataResource(id)
-      ? await this.invalidatedMetadataQueries.read(id)
-      : await this.scope.client.query(this.metadataDescriptor(id).queryOptions());
-    return data as MetadataQueryData[Id];
+    return this.scope.client.query(this.metadataDescriptor(id).queryOptions());
+  }
+
+  private revalidateUsedResource(queryOptions: AppServerQueryOptions<unknown>): void {
+    if (this.scope.isDisposed()) return;
+    if (!this.scope.client.getQueryState(queryOptions.queryKey)) return;
+    void (async () => {
+      await this.scope.client.cancelQueries({ queryKey: queryOptions.queryKey, exact: true });
+      await this.scope.client.invalidateQueries({ queryKey: queryOptions.queryKey, exact: true, refetchType: "none" });
+      if (this.scope.isDisposed()) return;
+      await this.scope.client.query(queryOptions);
+    })().catch(() => {
+      // The resource keeps its last-known-good value and exposes the failed probe to observers.
+    });
   }
 
   private metadataResourceState<Id extends MetadataResourceKind>(
@@ -332,8 +340,8 @@ class MetadataResourceQueryError extends Error {
   }
 }
 
-function isInvalidatedMetadataResource(id: SharedServerMetadataResourceId): id is InvalidatedMetadataResourceKind {
-  return id === "skills" || id === "rateLimits";
+function sharedServerMetadataResourceIds(): readonly SharedServerMetadataResourceId[] {
+  return ["runtimeConfig", "models", "skills", "permissionProfiles", "rateLimits"];
 }
 
 function diagnosticProbeFromError(error: unknown): DiagnosticProbeResult | null {

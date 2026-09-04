@@ -12,7 +12,7 @@ const { contextConnectionMock, openThreadPickerMock, runEphemeralStructuredTurnM
     client: { disconnect: vi.fn(), request: vi.fn() },
     instances: [] as Array<{
       dispose: ReturnType<typeof vi.fn>;
-      handlers: { onNotification(notification: unknown): void };
+      handlers: { onNotification(notification: unknown): void; onExit(): void };
     }>,
   },
   openThreadPickerMock: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock("../src/app-server/connection/context-connection", () => ({
       _codexPath: string,
       _cwd: string,
       _initializeParams: unknown,
-      readonly handlers: { onNotification(notification: unknown): void },
+      readonly handlers: { onNotification(notification: unknown): void; onExit(): void },
     ) {
       contextConnectionMock.instances.push(this);
     }
@@ -166,6 +166,65 @@ describe("CodexExecutionRuntime", () => {
     expect(onThreadFacts).toHaveBeenCalledWith([{ type: "thread-archived", threadId: "descendant" }]);
   });
 
+  it("reuses hydrated metadata across chat panels in one execution context", async () => {
+    contextConnectionMock.client.request.mockImplementation(metadataRequestFixture);
+    const runtime = executionRuntime();
+    const first = attachChatHost(runtime);
+    const second = attachChatHost(runtime);
+
+    await first.appServerQueries.ensureAppServerMetadata();
+    const hydratedRequestCount = contextConnectionMock.client.request.mock.calls.length;
+    await second.appServerQueries.ensureAppServerMetadata();
+
+    expect(hydratedRequestCount).toBeGreaterThan(0);
+    expect(contextConnectionMock.client.request.mock.calls.slice(hydratedRequestCount)).toEqual([]);
+    expect(contextConnectionMock.client.request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: false });
+  });
+
+  it.each([
+    ["skills/changed", "skills/list"],
+    ["account/rateLimits/updated", "account/rateLimits/read"],
+  ] as const)("revalidates used shared metadata once for %s", async (notificationMethod, requestMethod) => {
+    contextConnectionMock.client.request.mockImplementation(metadataRequestFixture);
+    const runtime = executionRuntime();
+    const queries = attachChatHost(runtime).appServerQueries;
+    attachChatHost(runtime);
+    await queries.ensureAppServerMetadata();
+    contextConnectionMock.client.request.mockClear();
+
+    contextConnectionMock.instances[0]?.handlers.onNotification({ method: notificationMethod, params: {} });
+
+    await vi.waitFor(() => expect(contextConnectionMock.client.request).toHaveBeenCalledOnce());
+    expect(contextConnectionMock.client.request).toHaveBeenCalledWith(
+      requestMethod,
+      requestMethod === "skills/list" ? { cwds: ["/vault"], forceReload: false } : undefined,
+    );
+  });
+
+  it("does not fetch metadata solely because an unused resource notification arrived", async () => {
+    contextConnectionMock.client.request.mockImplementation(metadataRequestFixture);
+    executionRuntime();
+
+    contextConnectionMock.instances[0]?.handlers.onNotification({ method: "skills/changed", params: {} });
+    await Promise.resolve();
+
+    expect(contextConnectionMock.client.request).not.toHaveBeenCalled();
+  });
+
+  it("invalidates context queries when the app-server process exits", async () => {
+    contextConnectionMock.client.request.mockImplementation(metadataRequestFixture);
+    const queries = attachChatHost(executionRuntime()).appServerQueries;
+    await queries.ensureAppServerMetadata();
+    const hydratedRequestCount = contextConnectionMock.client.request.mock.calls.length;
+
+    contextConnectionMock.instances[0]?.handlers.onExit();
+    await queries.ensureAppServerMetadata();
+
+    expect(contextConnectionMock.client.request.mock.calls.length).toBeGreaterThan(hydratedRequestCount);
+    expect(contextConnectionMock.client.request.mock.calls.slice(hydratedRequestCount).map(([method]) => method)).toContain("config/read");
+    expect(contextConnectionMock.client.request.mock.calls.slice(hydratedRequestCount).map(([method]) => method)).toContain("skills/list");
+  });
+
   it("disconnects the shared context connection on disposal", () => {
     const runtime = executionRuntime();
 
@@ -260,4 +319,31 @@ function executionRuntime(onThreadFacts = vi.fn()): CodexExecutionRuntime {
     workspace: { openPanelActivities: () => [] } as never,
     onThreadFacts,
   });
+}
+
+function metadataRequestFixture(method: string): Promise<unknown> {
+  switch (method) {
+    case "config/read":
+      return Promise.resolve({});
+    case "model/list":
+      return Promise.resolve({ data: [] });
+    case "skills/list":
+      return Promise.resolve({ data: [{ skills: [] }] });
+    case "permissionProfile/list":
+      return Promise.resolve({ data: [], nextCursor: null });
+    case "account/rateLimits/read":
+      return Promise.resolve({
+        rateLimits: {
+          limitId: "codex",
+          limitName: "Codex",
+          primary: null,
+          secondary: null,
+          individualLimit: null,
+          rateLimitReachedType: null,
+        },
+        rateLimitsByLimitId: null,
+      });
+    default:
+      return Promise.reject(new Error(`Unexpected app-server request: ${method}`));
+  }
 }

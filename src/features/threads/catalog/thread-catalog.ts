@@ -8,10 +8,10 @@ export interface ThreadCatalogPaginatedActiveReader {
   activeThreadsSnapshot(): readonly Thread[] | null;
   recentActiveThreadsSnapshot(): readonly Thread[] | null;
   fetchActiveThreads(): Promise<readonly Thread[]>;
-  refreshActiveThreads(): Promise<readonly Thread[]>;
+  refreshActiveThreads(): Promise<void>;
   observeActiveThreadsResult(observer: ActiveThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
   hasMoreActiveThreads(): boolean;
-  loadMoreActiveThreads(): Promise<readonly Thread[]>;
+  loadMoreActiveThreads(): Promise<void>;
 }
 
 export interface ThreadCatalogSearchReader {

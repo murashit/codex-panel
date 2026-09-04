@@ -268,13 +268,6 @@ function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatI
         type: "active-thread/token-usage-set",
         tokenUsage: threadTokenUsageFromRuntimeUsage(notification.params.tokenUsage),
       });
-    case "account/rateLimits/updated":
-      return effectPlan({
-        type: "handle-app-server-resource-fact",
-        fact: { type: "rate-limits-updated" },
-      });
-    case "skills/changed":
-      return effectPlan({ type: "handle-app-server-resource-fact", fact: { type: "skills-changed" } });
     case "app/list/updated":
       return effectPlan({ type: "refresh-server-diagnostics" });
     case "mcpServer/oauthLogin/completed":

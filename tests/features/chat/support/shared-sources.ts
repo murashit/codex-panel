@@ -12,11 +12,11 @@ export function chatSharedSourcesFixture(threads: readonly Thread[] = []): {
     },
     threadCatalog: {
       fetchActiveThreads: async () => threads,
-      refreshActiveThreads: async () => threads,
+      refreshActiveThreads: async () => undefined,
       activeThreadsSnapshot: () => threads,
       recentActiveThreadsSnapshot: () => threads,
       hasMoreActiveThreads: () => false,
-      loadMoreActiveThreads: async () => threads,
+      loadMoreActiveThreads: async () => undefined,
       observeActiveThreadsResult: (listener) => {
         listener({
           value: threads,

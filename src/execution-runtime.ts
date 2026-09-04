@@ -73,9 +73,22 @@ export class CodexExecutionRuntime {
       {
         onNotification: (notification) => {
           const fact = threadFactFromLifecycleNotification(notification);
-          if (!fact) return false;
-          this.threadFacts.apply(fact);
-          return true;
+          if (fact) {
+            this.threadFacts.apply(fact);
+            return true;
+          }
+          if (notification.method === "skills/changed") {
+            this.appServerQueries.handleSkillsChanged();
+            return true;
+          }
+          if (notification.method === "account/rateLimits/updated") {
+            this.appServerQueries.handleRateLimitsUpdated();
+            return true;
+          }
+          return false;
+        },
+        onExit: () => {
+          this.queryScope.invalidate();
         },
       },
     );

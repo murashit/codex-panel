@@ -780,9 +780,13 @@ function clientFixture(overrides: Record<string, ThreadRequestHandler> = {}): Re
 }
 
 function threadsHost(overrides: Record<string, unknown> = {}) {
-  const threadCatalogOverrides: Partial<ThreadsViewHost["threadCatalog"]> =
+  type ThreadCatalogOverrides = Omit<Partial<ThreadsViewHost["threadCatalog"]>, "loadMoreActiveThreads" | "refreshActiveThreads"> & {
+    loadMoreActiveThreads?: () => Promise<readonly Thread[]>;
+    refreshActiveThreads?: () => Promise<readonly Thread[]>;
+  };
+  const threadCatalogOverrides: ThreadCatalogOverrides =
     "threadCatalog" in overrides && overrides["threadCatalog"] !== null && typeof overrides["threadCatalog"] === "object"
-      ? (overrides["threadCatalog"] as Partial<ThreadsViewHost["threadCatalog"]>)
+      ? (overrides["threadCatalog"] as ThreadCatalogOverrides)
       : {};
   const threadEventOverrides =
     "threadFacts" in overrides && overrides["threadFacts"] !== null && typeof overrides["threadFacts"] === "object"
@@ -856,7 +860,6 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         const load = threadCatalogOverrides["loadMoreActiveThreads"];
         const threads = typeof load === "function" ? await load() : [];
         emitActive(threads);
-        return threads;
       }),
       fetchActiveThreads: vi.fn(async () => {
         const load = threadCatalogOverrides["fetchActiveThreads"];
@@ -881,10 +884,10 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         if (typeof refresh === "function") {
           const threads = await refresh();
           emitActive(threads);
-          return threads;
+          return;
         }
         const client = connectionMock.state.client;
-        if (!client) return [];
+        if (!client) return;
         const request = client["request"] as (
           method: string,
           params: Record<string, unknown>,
@@ -894,7 +897,6 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         const response = await request("thread/list", { cwd: "/vault", archived: false, cursor: null });
         const threads = response.data.map(threadFromRecord);
         emitActive(threads);
-        return threads;
       }),
       activeThreadsSnapshot:
         typeof threadCatalogOverrides["activeThreadsSnapshot"] === "function"

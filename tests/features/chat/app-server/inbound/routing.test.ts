@@ -20,9 +20,11 @@ describe("chat inbound routing", () => {
     );
 
     expect(unhandled).toEqual([
+      "account/rateLimits/updated",
       "item/fileChange/outputDelta",
       "mcpServer/event/stream/notification",
       "project/changed",
+      "skills/changed",
       "thread/archived",
       "thread/compacted",
       "thread/deleted",
@@ -236,7 +238,7 @@ describe("chat inbound routing", () => {
     });
   });
 
-  it("keeps active-thread, broadcast, and targeted-thread notification routing distinct", () => {
+  it("keeps active-thread and targeted-thread notification routing distinct", () => {
     expectNotificationRouteKind(threadSettingsUpdatedNotification(), "threadLifecycle");
     expectNotificationRouteKind(
       {
@@ -245,8 +247,6 @@ describe("chat inbound routing", () => {
       },
       "inactive",
     );
-
-    expectNotificationRouteKind({ method: "skills/changed", params: {} }, "diagnosticStatus");
   });
 
   it("classifies inactive requests before request-family handling", () => {

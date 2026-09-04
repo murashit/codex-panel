@@ -225,18 +225,6 @@ describe("ChatInboundHandler", () => {
   });
 
   describe("app-server source of truth updates", () => {
-    it("routes skill changes through the app-server resource fact boundary", () => {
-      const handleAppServerResourceFact = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { handleAppServerResourceFact });
-
-      handler.handleNotification({
-        method: "skills/changed",
-        params: {},
-      } satisfies Extract<ServerNotification, { method: "skills/changed" }>);
-
-      expect(handleAppServerResourceFact).toHaveBeenCalledWith({ type: "skills-changed" });
-    });
-
     it("stores the latest aggregated turn diff for the active turn", () => {
       const state = activeRunningState();
       const handler = handlerForState(state);
@@ -592,32 +580,6 @@ describe("ChatInboundHandler", () => {
       });
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
-    });
-
-    it("routes sparse account rate limit updates through the app-server resource fact boundary", () => {
-      const state = chatStateFixture();
-      const handleAppServerResourceFact = vi.fn();
-      const handler = handlerForState(state, { handleAppServerResourceFact });
-
-      handler.handleNotification({
-        method: "account/rateLimits/updated",
-        params: {
-          rateLimits: {
-            limitId: "codex",
-            limitName: "Codex",
-            primary: { usedPercent: 64, windowDurationMins: 300, resetsAt: null },
-            secondary: null,
-            credits: null,
-            individualLimit: null,
-            spendControlReached: null,
-            planType: null,
-            rateLimitReachedType: null,
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "account/rateLimits/updated" }>);
-
-      expect(state.connection).not.toHaveProperty("rateLimit");
-      expect(handleAppServerResourceFact).toHaveBeenCalledWith({ type: "rate-limits-updated" });
     });
 
     it("routes MCP startup status through the app-server resource fact boundary", () => {

@@ -8,7 +8,7 @@ import { type ChatInboundHandler, createChatInboundHandler } from "../../app-ser
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { createServerDiagnosticsCoordinator } from "../../application/connection/server-diagnostics-coordinator";
 import type { ServerDiagnosticsPort } from "../../application/connection/server-diagnostics-port";
-import { handleAppServerResourceFact, type ServerResourceFactHost } from "../../application/connection/server-resource-facts";
+import { handleAppServerResourceFact } from "../../application/connection/server-resource-facts";
 import { executePanelDynamicTool } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
@@ -96,11 +96,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   const { connection, diagnosticsPort, localItemIds, status, autoTitleCoordinator, goalSync } = input;
   let active = true;
   const serverRequestResponders = createServerRequestResponderRegistry();
-  const serverResourceFactHost: ServerResourceFactHost = {
-    stateStore,
-    refreshSkills: () => environment.plugin.appServerQueries.refreshSkills(),
-    refreshRateLimits: () => environment.plugin.appServerQueries.refreshRateLimits(),
-  };
+  const serverResourceFactHost = { stateStore };
   const diagnosticsCoordinator = createServerDiagnosticsCoordinator({
     stateStore,
     diagnosticsPort,
@@ -123,6 +119,9 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   const refreshSharedThreads = async (): Promise<void> => {
     await environment.plugin.threadCatalog.refreshActiveThreads();
   };
+  const ensureSharedThreads = async (): Promise<void> => {
+    await environment.plugin.threadCatalog.fetchActiveThreads();
+  };
   const inboundHandler = createChatInboundHandler(
     stateStore,
     {
@@ -132,9 +131,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
         });
       },
       handleAppServerResourceFact: (fact) => {
-        void handleAppServerResourceFact(serverResourceFactHost, fact).catch((error: unknown) => {
-          status.addSystemMessage(error instanceof Error ? error.message : String(error));
-        });
+        handleAppServerResourceFact(serverResourceFactHost, fact);
       },
       maybeNameThread: (threadId, turnId, completedTurnTranscriptSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
@@ -195,8 +192,10 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
         }),
       isConnected: () => connection.isConnected(),
     },
+    ensureAppServerMetadata: () => environment.plugin.appServerQueries.ensureAppServerMetadata(),
     refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
     refreshServerDiagnostics: () => diagnosticsCoordinator.refreshServerDiagnostics(),
+    ensureSharedThreads,
     refreshSharedThreads,
     scheduleDeferredDiagnostics: () => {
       host.deferredTasks.scheduleDiagnostics(() => {

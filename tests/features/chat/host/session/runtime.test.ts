@@ -347,7 +347,7 @@ describe("chat panel session runtime", () => {
       "codex",
       "/vault",
       {} as never,
-      { onNotification: () => false },
+      { onNotification: () => false, onExit: vi.fn() },
       {
         connect: vi.fn(async (handlers: ConnectionManagerHandlers) => {
           managerState.handlers ??= handlers;
@@ -583,7 +583,7 @@ describe("chat panel session runtime", () => {
       "codex",
       "/vault",
       {} as never,
-      { onNotification: () => false },
+      { onNotification: () => false, onExit: vi.fn() },
       {
         connect,
         currentClient: options.currentClient,
@@ -607,9 +607,9 @@ describe("chat panel session runtime", () => {
   ): ChatPanelEnvironment["plugin"]["threadCatalog"] {
     return {
       hasMoreActiveThreads: vi.fn(() => false),
-      loadMoreActiveThreads: vi.fn().mockResolvedValue([]),
+      loadMoreActiveThreads: vi.fn().mockResolvedValue(undefined),
       fetchActiveThreads: vi.fn().mockResolvedValue([]),
-      refreshActiveThreads: vi.fn().mockResolvedValue([]),
+      refreshActiveThreads: vi.fn().mockResolvedValue(undefined),
       activeThreadsSnapshot: vi.fn(() => null),
       recentActiveThreadsSnapshot: vi.fn(() => null),
       observeActiveThreadsResult: vi.fn(() => () => undefined),
@@ -623,9 +623,8 @@ describe("chat panel session runtime", () => {
     return {
       metadataSnapshot: vi.fn(() => null),
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
+      ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
-      refreshSkills: vi.fn().mockResolvedValue(undefined),
-      refreshRateLimits: vi.fn().mockResolvedValue(undefined),
       fetchModels: vi.fn().mockResolvedValue([]),
       refreshModels: vi.fn().mockResolvedValue([]),
       observeMetadataResource: vi.fn(() => () => undefined),

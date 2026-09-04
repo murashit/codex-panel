@@ -389,8 +389,6 @@ export interface ChatHostFixtureOverrides {
   fetchModels?: CodexChatHost["appServerQueries"]["fetchModels"];
   refreshModels?: CodexChatHost["appServerQueries"]["refreshModels"];
   refreshAppServerMetadata?: CodexChatHost["appServerQueries"]["refreshAppServerMetadata"];
-  refreshSkills?: CodexChatHost["appServerQueries"]["refreshSkills"];
-  refreshRateLimits?: CodexChatHost["appServerQueries"]["refreshRateLimits"];
   threadMutations?: Partial<CodexChatHost["threadMutations"]>;
 }
 
@@ -474,7 +472,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
               : metadata?.rateLimit;
     return value as SharedServerMetadataSnapshotValues[Id];
   };
-  const loadAppServerMetadata = async (reloadSkills = false): Promise<SharedServerMetadataFixture | null> => {
+  const loadAppServerMetadata = async (): Promise<SharedServerMetadataFixture | null> => {
     const client = connectionMock.state.client as TestAppServerClient | null;
     if (!client || !connectionMock.state.connected) return null;
     const connectionStillCurrent = () => connectionMock.state.client === client && connectionMock.state.connected;
@@ -497,7 +495,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       probe: diagnosticProbeOk("models", `${String(fetchedModels.length)} models`, Date.now()),
     };
     for (const listener of metadataResourceListeners) listener(modelsResource);
-    const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: reloadSkills })) as {
+    const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: false })) as {
       data: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }[];
     };
     if (!connectionStillCurrent()) return null;
@@ -580,20 +578,12 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     appServerQueries: {
       metadataSnapshot,
       metadataDiagnosticsSnapshot: vi.fn(() => metadata?.serverDiagnostics ?? createServerDiagnostics()),
+      ensureAppServerMetadata: vi.fn(async () => {
+        const nextMetadata = await loadAppServerMetadata();
+        if (nextMetadata) applyMetadataToCache(nextMetadata);
+      }),
       refreshAppServerMetadata:
         overrides.refreshAppServerMetadata ??
-        vi.fn(async () => {
-          const nextMetadata = await loadAppServerMetadata();
-          if (nextMetadata) applyMetadataToCache(nextMetadata);
-        }),
-      refreshSkills:
-        overrides.refreshSkills ??
-        vi.fn(async () => {
-          const nextMetadata = await loadAppServerMetadata(true);
-          if (nextMetadata) applyMetadataToCache(nextMetadata);
-        }),
-      refreshRateLimits:
-        overrides.refreshRateLimits ??
         vi.fn(async () => {
           const nextMetadata = await loadAppServerMetadata();
           if (nextMetadata) applyMetadataToCache(nextMetadata);
@@ -604,12 +594,12 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     },
     threadCatalog: {
       hasMoreActiveThreads: vi.fn(() => false),
-      loadMoreActiveThreads: vi.fn(async () => activeThreads ?? []),
+      loadMoreActiveThreads: vi.fn().mockResolvedValue(undefined),
       refreshActiveThreads:
         overrides.refreshActiveThreads ??
         (vi.fn(async () => {
           const client = connectionMock.state.client;
-          if (!client) return activeThreads ?? [];
+          if (!client) return;
           const request = client["request"] as (method: string, params: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
           const response = await request("thread/list", {
             cwd: "/vault",
@@ -619,7 +609,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
           });
           activeThreads = response.data.map(threadFromRecord);
           for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
-          return activeThreads;
         }) as CodexChatHost["threadCatalog"]["refreshActiveThreads"]),
       fetchActiveThreads: vi.fn(async () => {
         const client = connectionMock.state.client;

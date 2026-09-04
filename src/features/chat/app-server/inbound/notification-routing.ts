@@ -78,8 +78,6 @@ const SERVER_NOTIFICATION_REGISTRY = {
   "serverRequest/resolved": { ...ACTIVE_SCOPE_DELIVERY, kind: "requestResolved", scope: threadOnlyNotificationScope },
 
   "thread/tokenUsage/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: threadTurnNotificationScope },
-  "account/rateLimits/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
-  "skills/changed": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
   "app/list/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
   "mcpServer/oauthLogin/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
   "mcpServer/startupStatus/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: threadOnlyNotificationScope },

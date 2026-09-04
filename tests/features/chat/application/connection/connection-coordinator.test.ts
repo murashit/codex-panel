@@ -20,15 +20,18 @@ function createCoordinatorHarness({ connected = false, canConnect = true } = {})
     connect,
     isConnected: () => isConnected,
   };
+  const ensureAppServerMetadata = vi.fn().mockResolvedValue(null);
   const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
   const refreshServerDiagnostics = vi.fn().mockResolvedValue(undefined);
   const host: ChatConnectionCoordinatorHost = {
     stateStore,
     connection,
     canConnect: () => canConnect,
+    ensureAppServerMetadata,
     refreshAppServerMetadata,
     refreshServerDiagnostics,
     invalidateThreadWork: vi.fn(),
+    ensureSharedThreads: vi.fn().mockResolvedValue(undefined),
     refreshSharedThreads: vi.fn().mockResolvedValue(undefined),
     scheduleDeferredDiagnostics: vi.fn(),
     clearDeferredDiagnostics: vi.fn(),
@@ -44,6 +47,7 @@ function createCoordinatorHarness({ connected = false, canConnect = true } = {})
     connect,
     coordinator: createChatConnectionCoordinator(host),
     host,
+    ensureAppServerMetadata,
     refreshAppServerMetadata,
     refreshServerDiagnostics,
     setConnected: (value: boolean) => {
@@ -96,7 +100,7 @@ describe("ChatConnectionCoordinator", () => {
   });
 
   it("connects once and publishes startup metadata", async () => {
-    const { connect, coordinator, host, refreshAppServerMetadata, stateStore } = createCoordinatorHarness();
+    const { connect, coordinator, ensureAppServerMetadata, host, stateStore } = createCoordinatorHarness();
 
     await coordinator.ensureHydrated();
 
@@ -107,22 +111,22 @@ describe("ChatConnectionCoordinator", () => {
       platformOs: "macos",
       userAgent: "test",
     });
-    expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
-    expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
+    expect(ensureAppServerMetadata).toHaveBeenCalledOnce();
+    expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
     expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
   it("publishes initialization readiness before shared resources finish hydrating", async () => {
-    const { coordinator, host, refreshAppServerMetadata, stateStore } = createCoordinatorHarness();
+    const { coordinator, ensureAppServerMetadata, host, stateStore } = createCoordinatorHarness();
     const metadata = deferred<void>();
-    refreshAppServerMetadata.mockReturnValueOnce(metadata.promise);
+    ensureAppServerMetadata.mockReturnValueOnce(metadata.promise);
 
     await coordinator.ensureConnected();
 
     expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
-    expect(host.refreshSharedThreads).not.toHaveBeenCalled();
+    expect(host.ensureSharedThreads).not.toHaveBeenCalled();
     expect(host.scheduleDeferredDiagnostics).not.toHaveBeenCalled();
 
     let connected = false;
@@ -135,7 +139,7 @@ describe("ChatConnectionCoordinator", () => {
     metadata.resolve(undefined);
     await fullyHydrated;
 
-    expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
+    expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
     expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
   });
 
@@ -170,13 +174,13 @@ describe("ChatConnectionCoordinator", () => {
   });
 
   it("keeps the initialized connection usable when metadata hydration fails", async () => {
-    const { coordinator, host, refreshAppServerMetadata, stateStore } = createCoordinatorHarness();
-    refreshAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));
+    const { coordinator, ensureAppServerMetadata, host, stateStore } = createCoordinatorHarness();
+    ensureAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));
 
     await coordinator.ensureHydrated();
 
     expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
-    expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
+    expect(host.ensureSharedThreads).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
     expect(host.setStatus).not.toHaveBeenCalledWith("Connection failed.", expect.anything());
     expect(host.addSystemMessage).toHaveBeenCalledWith("Could not refresh Codex metadata: config unavailable");
@@ -185,7 +189,7 @@ describe("ChatConnectionCoordinator", () => {
 
   it("keeps the initialized connection usable when thread hydration fails", async () => {
     const { coordinator, host } = createCoordinatorHarness();
-    vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(new Error("threads unavailable"));
+    vi.mocked(host.ensureSharedThreads).mockRejectedValueOnce(new Error("threads unavailable"));
 
     await coordinator.ensureHydrated();
 

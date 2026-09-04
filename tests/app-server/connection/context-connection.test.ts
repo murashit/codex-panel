@@ -121,11 +121,17 @@ describe("AppServerContextConnection", () => {
 
   it("expires every lease before invoking the first process-exit callback", async () => {
     const manager = managerFixture();
-    const connection = contextConnection(manager);
+    const onContextExit = vi.fn();
+    const connection = contextConnection(
+      manager,
+      vi.fn(() => false),
+      onContextExit,
+    );
     const first = connection.createLease();
     const second = connection.createLease();
     const firstHandlers = leaseHandlers({
       onExit: vi.fn(() => {
+        expect(onContextExit).toHaveBeenCalledOnce();
         expect(first.currentClient()).toBeNull();
         expect(first.isConnected()).toBe(false);
         expect(second.currentClient()).toBeNull();
@@ -231,8 +237,12 @@ describe("AppServerContextConnection", () => {
   });
 });
 
-function contextConnection(manager: ReturnType<typeof managerFixture>, onNotification = vi.fn(() => false)): AppServerContextConnection {
-  return new AppServerContextConnection("codex", "/vault", INITIALIZE_PARAMS, { onNotification }, manager as never);
+function contextConnection(
+  manager: ReturnType<typeof managerFixture>,
+  onNotification = vi.fn(() => false),
+  onExit = vi.fn(),
+): AppServerContextConnection {
+  return new AppServerContextConnection("codex", "/vault", INITIALIZE_PARAMS, { onNotification, onExit }, manager as never);
 }
 
 function managerFixture() {

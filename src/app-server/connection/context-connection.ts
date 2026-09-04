@@ -14,6 +14,7 @@ export interface AppServerContextConnectionLeaseHandlers {
 
 export interface AppServerContextConnectionHandlers {
   onNotification(notification: ServerNotification): boolean;
+  onExit(): void;
 }
 
 export interface AppServerContextConnectionLease {
@@ -121,6 +122,7 @@ export class AppServerContextConnection implements AppServerClientAccess {
       onExit: () => {
         const exitedLeases = this.activeLeases();
         this.leases.clear();
+        this.handlers.onExit();
         for (const lease of exitedLeases) lease.handlers.onExit();
       },
     };

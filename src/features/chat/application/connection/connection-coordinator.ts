@@ -16,9 +16,11 @@ export interface ChatConnectionCoordinatorHost {
   stateStore: ChatStateStore;
   connection: ChatConnectionPort;
   canConnect: () => boolean;
+  ensureAppServerMetadata: () => Promise<unknown>;
   refreshAppServerMetadata: () => Promise<unknown>;
   refreshServerDiagnostics: () => Promise<void>;
   invalidateThreadWork: () => void;
+  ensureSharedThreads: () => Promise<void>;
   refreshSharedThreads: () => Promise<void>;
   scheduleDeferredDiagnostics: () => void;
   clearDeferredDiagnostics: () => void;
@@ -165,7 +167,7 @@ async function initializeConnection(host: ChatConnectionCoordinatorHost, isStale
 
 async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, isStale: () => boolean): Promise<void> {
   try {
-    await host.refreshAppServerMetadata();
+    await host.ensureAppServerMetadata();
   } catch (error) {
     if (isStale()) return;
     host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);
@@ -173,7 +175,7 @@ async function hydrateConnectedResources(host: ChatConnectionCoordinatorHost, is
   if (isStale()) return;
 
   try {
-    await host.refreshSharedThreads();
+    await host.ensureSharedThreads();
   } catch (error) {
     if (isStale()) return;
     host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);

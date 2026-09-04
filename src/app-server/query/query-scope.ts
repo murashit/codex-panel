@@ -35,6 +35,12 @@ export class AppServerQueryScope {
     return this.disposed;
   }
 
+  invalidate(): void {
+    if (this.disposed) return;
+    void this.client.cancelQueries();
+    void this.client.invalidateQueries({ refetchType: "none" });
+  }
+
   assertUsable(): void {
     if (this.disposed) throw new Error("Codex execution runtime is no longer active.");
   }
@@ -65,6 +71,7 @@ function createAppServerQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        gcTime: Number.POSITIVE_INFINITY,
         networkMode: "always",
         retry: false,
         refetchOnWindowFocus: false,

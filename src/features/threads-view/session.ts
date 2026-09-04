@@ -117,7 +117,7 @@ export class ThreadsViewSession {
     await this.requestThreads(() => this.host.threadCatalog.refreshActiveThreads());
   }
 
-  private async requestThreads(request: () => Promise<readonly Thread[]>): Promise<void> {
+  private async requestThreads(request: () => Promise<void>): Promise<void> {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime)) return;
     try {

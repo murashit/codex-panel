@@ -52,7 +52,7 @@ export class AppServerThreadCatalog {
       this.activeThreadsFreezeCount -= 1;
       if (this.activeThreadsFreezeCount === 0 && this.activeThreadsRefreshRequested) {
         this.activeThreadsRefreshRequested = false;
-        void this.fetchActiveThreads({ force: true }).catch(() => {
+        void this.refreshActiveThreads().catch(() => {
           // Observers retain the last visible snapshot when the deferred refresh fails.
         });
       }
@@ -103,31 +103,34 @@ export class AppServerThreadCatalog {
     return this.observeQueryResult(this.archivedThreadsQueryOptions(), cloneThreads, listener, options);
   }
 
-  async fetchActiveThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
+  async fetchActiveThreads(): Promise<readonly Thread[]> {
     this.scope.assertUsable();
     const frozenSnapshot = this.activeThreadsFrozenSnapshot();
     if (frozenSnapshot) return frozenSnapshot;
-    const key = ACTIVE_THREADS_QUERY_KEY;
-    if (options.force) {
-      if (this.scope.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward") {
-        await this.scope.client.cancelQueries({ queryKey: key, exact: true });
+    try {
+      const retryFrozenSnapshot = this.activeThreadsFrozenSnapshot();
+      if (retryFrozenSnapshot) return retryFrozenSnapshot;
+      const data = await this.scope.client.infiniteQuery(this.activeThreadsQueryOptions());
+      return cloneThreads(activeThreadsFromData(data) ?? []);
+    } catch (error) {
+      if (error instanceof CancelledError) {
+        this.scope.assertUsable();
+        return this.activeThreadsSnapshot() ?? [];
       }
-      await this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-      this.scope.assertUsable();
+      throw error;
     }
-    return this.readThroughQueryCancellation(
-      async () => {
-        const retryFrozenSnapshot = this.activeThreadsFrozenSnapshot();
-        if (retryFrozenSnapshot) return retryFrozenSnapshot;
-        const data = await this.scope.client.infiniteQuery(this.activeThreadsQueryOptions());
-        return cloneThreads(activeThreadsFromData(data) ?? []);
-      },
-      () => this.activeThreadsSnapshot(),
-    );
   }
 
-  refreshActiveThreads(): Promise<readonly Thread[]> {
-    return this.fetchActiveThreads({ force: true });
+  async refreshActiveThreads(): Promise<void> {
+    this.scope.assertUsable();
+    if (this.activeThreadsFrozenSnapshot()) return;
+    const key = ACTIVE_THREADS_QUERY_KEY;
+    if (this.scope.client.getQueryState(key)?.fetchMeta?.fetchMore?.direction === "forward") {
+      await this.scope.client.cancelQueries({ queryKey: key, exact: true });
+    }
+    await this.scope.client.invalidateQueries({ queryKey: key, exact: true, refetchType: "none" });
+    this.scope.assertUsable();
+    await this.fetchActiveThreads();
   }
 
   fetchActiveThreadSearchInventory(): Promise<readonly Thread[]> {
@@ -138,7 +141,7 @@ export class AppServerThreadCatalog {
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         this.scope.runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { signal })),
     };
-    return this.readFreshThroughQueryCancellation(key, async () => cloneThreads(await this.scope.client.query(options)));
+    return this.scope.client.query(options).then(cloneThreads);
   }
 
   hasMoreActiveThreads(): boolean {
@@ -146,41 +149,40 @@ export class AppServerThreadCatalog {
     return activeThreadDataHasMore(this.scope.client.getQueryData<ActiveThreadData>(ACTIVE_THREADS_QUERY_KEY));
   }
 
-  async loadMoreActiveThreads(): Promise<readonly Thread[]> {
+  async loadMoreActiveThreads(): Promise<void> {
     this.scope.assertUsable();
     const frozenSnapshot = this.activeThreadsFrozenSnapshot();
-    if (frozenSnapshot) return frozenSnapshot;
-    const current = this.activeThreadsSnapshot() ?? (await this.fetchActiveThreads());
+    if (frozenSnapshot) return;
+    if (!this.activeThreadsSnapshot()) await this.fetchActiveThreads();
     const observer = new InfiniteQueryObserver(this.scope.client, {
       ...this.activeThreadsQueryOptions(),
       enabled: false,
     });
     try {
-      if (!observer.getCurrentResult().hasNextPage) return current;
-      const result = await observer.fetchNextPage({ cancelRefetch: false, throwOnError: true });
-      return result.data ? cloneThreads(activeThreadsFromData(result.data) ?? []) : current;
+      if (!observer.getCurrentResult().hasNextPage) return;
+      await observer.fetchNextPage({ cancelRefetch: false, throwOnError: true });
     } catch (error) {
-      if (error instanceof CancelledError) return this.activeThreadsSnapshot() ?? current;
+      if (error instanceof CancelledError) return;
       throw error;
     } finally {
       observer.destroy();
     }
   }
 
-  refreshArchivedThreads(): Promise<readonly Thread[]> {
-    return this.fetchArchivedThreads({ force: true });
-  }
-
-  async fetchArchivedThreads(options: { force?: boolean } = {}): Promise<readonly Thread[]> {
+  async refreshArchivedThreads(): Promise<readonly Thread[]> {
     this.scope.assertUsable();
     const key = ARCHIVED_THREADS_QUERY_KEY;
-    if (options.force) {
-      await this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-      this.scope.assertUsable();
+    await this.scope.client.invalidateQueries({ queryKey: key, exact: true, refetchType: "none" });
+    this.scope.assertUsable();
+    try {
+      return cloneThreads(await this.scope.client.query(this.archivedThreadsQueryOptions()));
+    } catch (error) {
+      if (error instanceof CancelledError) {
+        this.scope.assertUsable();
+        return this.archivedThreadsSnapshot() ?? [];
+      }
+      throw error;
     }
-    return this.readFreshThroughQueryCancellation(key, async () =>
-      cloneThreads(await this.scope.client.query(this.archivedThreadsQueryOptions())),
-    );
   }
 
   applyThreadCatalogChanges(changes: readonly ThreadCatalogChange[]): void {
@@ -199,12 +201,8 @@ export class AppServerThreadCatalog {
         void this.scope.client.cancelQueries({ queryKey: key, exact: true });
         if (after !== before) this.scope.client.setQueryData(key, after);
         void this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
-        const searchKey = ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY;
-        void this.scope.client.cancelQueries({ queryKey: searchKey, exact: true });
-        void this.scope.client.invalidateQueries({ queryKey: searchKey, refetchType: "none" });
-
         if ((missingSnapshotUpsert && !fetchIsNextPage) || (wasFetching && !fetchIsNextPage) || (revalidationRequested && before)) {
-          void this.fetchActiveThreads({ force: true }).catch(() => {
+          void this.refreshActiveThreads().catch(() => {
             // Query observers retain refresh failures while the event projection remains last-known-good state.
           });
         }
@@ -224,7 +222,7 @@ export class AppServerThreadCatalog {
       void this.scope.client.invalidateQueries({ queryKey: key, refetchType: "none" });
 
       if (wasFetching || (revalidationRequested && before)) {
-        void this.fetchArchivedThreads({ force: true }).catch(() => {
+        void this.refreshArchivedThreads().catch(() => {
           // Query observers retain refresh failures while the event projection remains last-known-good state.
         });
       }
@@ -335,26 +333,5 @@ export class AppServerThreadCatalog {
       hasMore: result.hasNextPage,
       isFetchingNextPage: result.isFetchingNextPage,
     };
-  }
-
-  private async readThroughQueryCancellation<T>(read: () => Promise<T>, fallback?: () => T | null): Promise<T> {
-    for (;;) {
-      try {
-        const value = await read();
-        return value;
-      } catch (error) {
-        if (!(error instanceof CancelledError)) throw error;
-        this.scope.assertUsable();
-        const fallbackValue = fallback?.();
-        if (fallbackValue != null) return fallbackValue;
-      }
-    }
-  }
-
-  private async readFreshThroughQueryCancellation<T>(queryKey: readonly unknown[], read: () => Promise<T>): Promise<T> {
-    for (;;) {
-      const value = await this.readThroughQueryCancellation(read);
-      if (!this.scope.client.getQueryState(queryKey)?.isInvalidated) return value;
-    }
   }
 }

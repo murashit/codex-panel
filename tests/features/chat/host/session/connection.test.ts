@@ -159,11 +159,11 @@ function sessionConnectionFixture(overrides: { readServerDiagnostics?: ReturnTyp
         appServerQueries: {
           runtimeConfigSnapshot: () => null,
           skillsSnapshot: () => null,
+          ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
           refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
-          refreshSkills: vi.fn().mockResolvedValue(undefined),
-          refreshRateLimits: vi.fn().mockResolvedValue(undefined),
         },
         threadCatalog: {
+          fetchActiveThreads: vi.fn().mockResolvedValue(undefined),
           refreshActiveThreads: vi.fn().mockResolvedValue(undefined),
           apply: vi.fn(),
         },

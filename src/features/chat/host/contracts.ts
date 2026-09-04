@@ -59,9 +59,8 @@ type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
 interface ChatAppServerQueries {
   metadataSnapshot<Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id];
   metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics;
+  ensureAppServerMetadata(): Promise<void>;
   refreshAppServerMetadata(): Promise<void>;
-  refreshSkills(): Promise<void>;
-  refreshRateLimits(): Promise<void>;
   observeMetadataResource<Id extends SharedServerMetadataResourceId>(
     id: Id,
     listener: (resource: SharedServerMetadataResourceFor<Id>) => void,

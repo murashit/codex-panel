@@ -34,7 +34,7 @@ interface ToolbarUiActionDependencies {
   toolbarPanel: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;
   navigation: ThreadNavigationCommands;
-  loadMoreThreads: () => Promise<readonly unknown[]>;
+  loadMoreThreads: () => Promise<void>;
   openSideChat: () => void;
   debugDetails: {
     stateStore: ChatStateStore;

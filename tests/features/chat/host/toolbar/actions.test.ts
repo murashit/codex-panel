@@ -100,7 +100,7 @@ describe("createToolbarPanelActions", () => {
       toolbarPanel: {} as never,
       rename: {} as never,
       navigation: {} as never,
-      loadMoreThreads: async () => [],
+      loadMoreThreads: async () => undefined,
       openSideChat: vi.fn(),
       debugDetails: {
         stateStore,

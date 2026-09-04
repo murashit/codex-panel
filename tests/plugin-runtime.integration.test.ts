@@ -204,18 +204,18 @@ describe("CodexPanelPlugin runtime integration", () => {
     );
 
     const first = threadCatalog(plugin).refreshActiveThreads();
-    const staleFirst = expect(first).rejects.toThrow("Codex execution runtime is no longer active.");
     await flushMicrotasks();
     await publishCodexPath(plugin, "codex-b");
+    await expect(first).rejects.toThrow("Codex execution runtime is no longer active.");
     const second = threadCatalog(plugin).refreshActiveThreads();
     await flushMicrotasks();
 
     expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
-    await expect(second).resolves.toEqual([thread("second")]);
+    await second;
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
 
     resolveFirst([thread("first")]);
-    await staleFirst;
+    await flushMicrotasks();
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
     await publishCodexPath(plugin, "codex-a");
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toBeNull();
@@ -229,7 +229,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     const plugin = await pluginWithLeaves([]);
     await publishCodexPath(plugin, "codex-b");
 
-    await expect(threadCatalog(plugin).refreshActiveThreads()).resolves.toEqual([thread("matching-context")]);
+    await threadCatalog(plugin).refreshActiveThreads();
 
     expect(contextConnectionClientMock).toHaveBeenCalledWith("codex-b", "/vault", expect.any(Function));
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("matching-context")]);

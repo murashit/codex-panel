@@ -231,10 +231,9 @@ function threadPickerHost(
       },
       refreshActiveThreads: async () => {
         host.sharedRefreshes += 1;
-        return loadedThreads;
       },
       hasMoreActiveThreads: () => false,
-      loadMoreActiveThreads: async () => loadedThreads,
+      loadMoreActiveThreads: async () => undefined,
       observeActiveThreadsResult: () => () => undefined,
     },
     openThreadInCurrentView: async (threadId) => {
