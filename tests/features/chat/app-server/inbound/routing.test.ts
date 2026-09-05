@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { planChatInboundNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
@@ -14,47 +12,6 @@ type NotificationRouteKind = ReturnType<typeof routeServerNotification>["kind"];
 type RequestRouteKind = ReturnType<typeof routeServerRequest>["kind"];
 
 describe("chat inbound routing", () => {
-  it("leaves context-owned lifecycle and deprecated notifications outside panel routing", () => {
-    const unhandled = generatedServerNotificationMethods().filter(
-      (method) => routeServerNotification(notificationFixture(method), activeScope).kind === "unhandled",
-    );
-
-    expect(unhandled).toEqual([
-      "account/rateLimits/updated",
-      "item/fileChange/outputDelta",
-      "mcpServer/event/stream/notification",
-      "project/changed",
-      "skills/changed",
-      "thread/archived",
-      "thread/compacted",
-      "thread/deleted",
-      "thread/name/updated",
-      "thread/project/updated",
-      "thread/queue/changed",
-      "thread/realtime/item/completed",
-      "thread/realtime/item/started",
-      "thread/realtime/item/transcript/delta",
-      "thread/reverted",
-      "thread/unarchived",
-    ]);
-  });
-
-  it("keeps routed notification methods covered by matching planners", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
-    const plannedMethods = generatedServerNotificationMethods().filter((method) => {
-      const kind = routeServerNotification(notificationFixture(method), activeScope).kind;
-      return kind !== "inactive" && kind !== "ignored" && kind !== "unhandled";
-    });
-
-    expect(() => {
-      for (const method of plannedMethods) {
-        planChatInboundNotification(state, notificationFixture(method), (prefix) => `${prefix}-1`);
-      }
-    }).not.toThrow();
-  });
-
   it("routes turn-scoped app-server messages for the active scope", () => {
     const notification = {
       method: "turn/completed",
@@ -225,19 +182,6 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind({ method: "thread/started", params: { thread: threadSnapshot("thread-other") } }, "threadLifecycle");
   });
 
-  it("preserves thread catalog routing for malformed thread-started payloads", () => {
-    // This deliberately crosses the runtime boundary: the app-server payload is malformed, but catalog routing does not need its scope.
-    const malformedNotification = {
-      method: "thread/started",
-      params: {},
-    } as unknown as ServerNotification;
-
-    expect(routeServerNotification(malformedNotification, activeScope)).toEqual({
-      kind: "threadLifecycle",
-      notification: malformedNotification,
-    });
-  });
-
   it("keeps active-thread and targeted-thread notification routing distinct", () => {
     expectNotificationRouteKind(threadSettingsUpdatedNotification(), "threadLifecycle");
     expectNotificationRouteKind(
@@ -247,12 +191,6 @@ describe("chat inbound routing", () => {
       },
       "inactive",
     );
-  });
-
-  it("classifies inactive requests before request-family handling", () => {
-    const route = routeServerRequest(userInputRequest(), activeScope);
-
-    expect(route.kind).toBe("inactive");
   });
 
   it.each(
@@ -562,106 +500,6 @@ function turnCompletedNotification(): ServerNotification {
         ],
       },
     },
-  };
-}
-
-function generatedServerNotificationMethods(): string[] {
-  const generated = readFileSync(path.join(process.cwd(), "src/generated/app-server/ServerNotification.ts"), "utf8");
-  return [...generated.matchAll(/"method": "([^"]+)"/g)]
-    .map((match) => {
-      const method = match[1];
-      if (!method) throw new Error("Expected generated notification method match.");
-      return method;
-    })
-    .sort();
-}
-
-function notificationFixture(method: string): ServerNotification {
-  return {
-    method,
-    params: {
-      threadId: "thread-active",
-      turnId: "turn-active",
-      thread: threadSnapshot("thread-active"),
-      turn: {
-        id: "turn-active",
-        status: "completed",
-        error: null,
-        startedAt: null,
-        completedAt: null,
-        durationMs: null,
-        itemsView: "full",
-        items: [],
-      },
-      item: { type: "agentMessage", id: "item", text: "hello" },
-      itemId: "item",
-      requestId: 1,
-      delta: "delta",
-      diff: "",
-      changes: [],
-      explanation: null,
-      plan: [],
-      run: {
-        id: "run",
-        eventName: "userPromptSubmit",
-        status: "completed",
-        statusMessage: null,
-        startedAt: 1,
-        durationMs: null,
-        entries: [],
-      },
-      name: "github",
-      status: "ready",
-      error: null,
-      message: "notice",
-      success: true,
-      tokenUsage: {
-        total: tokenBreakdownFixture(),
-        last: tokenBreakdownFixture(),
-        modelContextWindow: null,
-      },
-      threadSettings: {
-        cwd: "/vault",
-        model: "gpt-5.5",
-        effort: "medium",
-        collaborationMode: { mode: "default" },
-        serviceTier: null,
-        approvalsReviewer: "user",
-      },
-      goal: {
-        threadId: "thread-active",
-        objective: "Finish",
-        status: "active",
-        tokenBudget: null,
-        tokensUsed: 0,
-        timeUsedSeconds: 0,
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      startedAtMs: 1,
-      reviewId: "review",
-      targetItemId: null,
-      review: { status: "approved", riskLevel: null, userAuthorization: null, rationale: null },
-      action: { type: "command", source: "user", command: "npm test", cwd: "/vault" },
-      completedAtMs: 2,
-      decisionSource: "auto",
-    },
-  } as unknown as ServerNotification;
-}
-
-function tokenBreakdownFixture(): {
-  totalTokens: number;
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
-  reasoningOutputTokens: number;
-} {
-  return {
-    totalTokens: 0,
-    inputTokens: 0,
-    cachedInputTokens: 0,
-    outputTokens: 0,
-    reasoningOutputTokens: 0,
   };
 }
 

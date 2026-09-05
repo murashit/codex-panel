@@ -1,82 +1,93 @@
+// @vitest-environment jsdom
+
 import { readFileSync } from "node:fs";
 import path from "node:path";
-
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 const sourceDir = path.join("src", "styles");
 const sourceFiles = JSON.parse(readFileSync(path.join(sourceDir, "order.json"), "utf8")) as string[];
-const styles = `${sourceFiles.map((file) => readFileSync(path.join(sourceDir, file), "utf8").trimEnd()).join("\n\n")}\n`;
+const style = document.createElement("style");
+style.textContent = sourceFiles.map((file) => readFileSync(path.join(sourceDir, file), "utf8")).join("\n");
+document.head.append(style);
+afterAll(() => style.remove());
 
-function ruleBody(selector: string): string {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?:^|\\n)${escapedSelector} \\{(?<body>[^}]+)\\}`).exec(styles)?.groups?.["body"] ?? "";
+// These guard authored CSS declarations, not rendered geometry or the host theme's cascade.
+function declarations(selector: string): CSSStyleDeclaration {
+  const rules = Array.from(style.sheet?.cssRules ?? []).filter(
+    (rule): rule is CSSStyleRule =>
+      "selectorText" in rule && (rule as CSSStyleRule).selectorText.split(",").some((part) => part.trim() === selector),
+  );
+  if (rules.length === 0) throw new Error(`Missing CSS selector: ${selector}`);
+  const result = document.createElement("div").style;
+  for (const rule of rules) {
+    for (let index = 0; index < rule.style.length; index += 1) {
+      const property = rule.style.item(index);
+      result.setProperty(property, rule.style.getPropertyValue(property));
+    }
+  }
+  return result;
 }
 
-describe("panel CSS boundaries", () => {
-  it("styles retained editor selection decorations", () => {
-    const emphasis = ruleBody(".codex-panel-selection-emphasis");
+function expectExposedActions(selector: string): void {
+  const actions = declarations(selector);
+  expect(actions.getPropertyValue("width")).toBe("auto");
+  expect(actions.getPropertyValue("overflow")).toBe("visible");
+  expect(actions.getPropertyValue("opacity")).toBe("1");
+}
 
-    expect(emphasis).toContain("background-color: var(--text-selection)");
+describe("panel CSS declaration contracts", () => {
+  it("uses the host selection color for retained editor selections", () => {
+    expect(declarations(".codex-panel-selection-emphasis").getPropertyValue("background-color")).toBe("var(--text-selection)");
   });
 
-  it("defines design tokens on every standalone UI root", () => {
-    const tokenScopeEnd = styles.indexOf(" {");
-    expect(tokenScopeEnd).toBeGreaterThan(0);
-    const tokenScope = styles.slice(0, tokenScopeEnd);
+  it.each([".codex-panel", ".codex-panel-turn-diff", ".codex-panel-settings", ".codex-panel-threads", ".codex-panel-selection-rewrite"])(
+    "provides shared theme and spacing tokens directly on standalone %s",
+    (root) => {
+      const tokens = declarations(root);
+      expect(tokens.getPropertyValue("--codex-panel-text-normal")).toBe("var(--text-normal)");
+      expect(tokens.getPropertyValue("--codex-panel-control-gap")).toContain("var(--size-2-2,");
+    },
+  );
 
-    expect(tokenScope).toContain(".codex-panel");
-    expect(tokenScope).toContain(".codex-panel-turn-diff");
-    expect(tokenScope).toContain(".codex-panel-settings");
-    expect(tokenScope).toContain(".codex-panel-threads");
-    expect(tokenScope).toContain(".codex-panel-selection-rewrite");
-  });
-});
-
-describe("panel CSS layout invariants", () => {
-  it("lets the thread stream scroll inside the shell grid", () => {
-    const threadStream = ruleBody(".codex-panel__thread-stream");
-
-    expect(threadStream).toContain("overflow-y: auto");
-    expect(threadStream).not.toMatch(/^\s+height:/m);
+  it("allows the transcript to shrink and scroll within its shell region", () => {
+    const stream = declarations(".codex-panel__thread-stream");
+    expect(stream.getPropertyValue("overflow-y")).toBe("auto");
+    expect(stream.getPropertyValue("min-height")).toBe("0px");
+    expect(declarations(".codex-panel__region--thread-stream").getPropertyValue("min-height")).toBe("0px");
   });
 
   it.each([
-    {
-      row: ".codex-panel__thread-row",
-      activeRow: ".codex-panel__thread-row:hover,\n.codex-panel__thread-row:focus-within",
-      actions: ".codex-panel__thread-actions",
-      activeActions:
-        ".codex-panel__thread-row:hover .codex-panel__thread-actions,\n.codex-panel__thread-row:focus-within .codex-panel__thread-actions,\n.codex-panel__thread-row--archive-confirming .codex-panel__thread-actions",
-    },
-    {
-      row: ".codex-panel-threads__row",
-      activeRow: ".codex-panel-threads__row:hover,\n.codex-panel-threads__row:focus-within",
-      actions: ".codex-panel-threads__actions",
-      activeActions:
-        ".codex-panel-threads__row:hover .codex-panel-threads__actions,\n.codex-panel-threads__row:focus-within .codex-panel-threads__actions",
-    },
-  ])("shrinks $row titles only while row actions are visible", ({ row, activeRow, actions, activeActions }) => {
-    expect(ruleBody(row)).toContain("grid-template-columns: minmax(0, 1fr) 0");
-    expect(ruleBody(activeRow)).toContain("grid-template-columns: minmax(0, 1fr) auto");
-    expect(ruleBody(actions)).toContain("width: 0");
-    expect(ruleBody(actions)).not.toMatch(/^\s+(?:position:\s*absolute|background:)/m);
-    expect(ruleBody(activeActions)).toContain("width: auto");
+    { row: ".codex-panel__thread-row", actions: ".codex-panel__thread-actions", action: ".codex-panel__thread-action" },
+    { row: ".codex-panel-threads__row", actions: ".codex-panel-threads__actions", action: null },
+  ])("releases collapsed action styles on hover and keyboard focus for $row", ({ row, actions, action }) => {
+    for (const state of [":hover", ":focus-within"]) {
+      // The current grid implementation collapses this track at rest; interactive states must release it.
+      expect(declarations(`${row}${state}`).getPropertyValue("grid-template-columns")).toBe("minmax(0, 1fr) auto");
+      expectExposedActions(`${row}${state} ${actions}`);
+      expect(declarations(`${row}${state} ${actions}`).getPropertyValue("pointer-events")).toBe("auto");
+      if (action) expectExposedActions(`${row}${state} ${action}`);
+    }
   });
 
-  it("keeps threads view rename actions aligned without hover or focus", () => {
-    const renamingRow = ruleBody(".codex-panel-threads__row--renaming");
-
-    expect(renamingRow).toContain("grid-template-columns: minmax(0, 1fr) auto");
-    expect(renamingRow).toContain("gap: var(--codex-panel-panel-gap)");
+  it("releases rename actions without requiring hover or focus in Threads", () => {
+    expect(declarations(".codex-panel-threads__row--renaming").getPropertyValue("grid-template-columns")).toBe("minmax(0, 1fr) auto");
+    expectExposedActions(".codex-panel-threads__rename-actions");
+    expect(declarations(".codex-panel-threads__rename-actions").getPropertyValue("pointer-events")).toBe("auto");
   });
 
-  it("keeps the toolbar auto-name cancel action visible without hover or focus", () => {
-    const runningRow = ruleBody(".codex-panel__thread-row--auto-name-running");
-    const runningAction = ruleBody(".codex-panel__thread-row--auto-name-running .codex-panel__thread-action");
+  it("releases auto-name cancellation without requiring hover or focus in the toolbar", () => {
+    const row = ".codex-panel__thread-row--auto-name-running";
+    expect(declarations(row).getPropertyValue("grid-template-columns")).toBe("minmax(0, 1fr) auto");
+    expectExposedActions(`${row} .codex-panel__thread-action`);
+  });
 
-    expect(runningRow).toContain("grid-template-columns: minmax(0, 1fr) auto");
-    expect(runningRow).toContain("gap: var(--codex-panel-panel-gap)");
-    expect(runningAction).toContain("width: auto");
-    expect(runningAction).toContain("opacity: 1");
+  it.each([
+    { row: ".codex-panel__thread-row--archive-confirming", actions: ".codex-panel__thread-actions", action: ".codex-panel__thread-action" },
+    { row: ".codex-panel-threads__row--archive-confirming", actions: ".codex-panel-threads__actions", action: null },
+  ])("releases archive confirmation controls without hover or focus for $row", ({ row, actions, action }) => {
+    expect(declarations(row).getPropertyValue("grid-template-columns")).toBe("minmax(0, 1fr) auto");
+    expectExposedActions(`${row} ${actions}`);
+    expect(declarations(`${row} ${actions}`).getPropertyValue("pointer-events")).toBe("auto");
+    if (action) expectExposedActions(`${row} ${action}`);
   });
 });

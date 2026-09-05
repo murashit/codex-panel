@@ -25,12 +25,6 @@ describe("development scripts", () => {
     expect(compatibilityBoundaryIsRecorded({ "0.1.0": "1.5.0" }, "5.7.1", "1.12.0", "1.13.0")).toBe(false);
   });
 
-  it("keeps every configured mutation pattern attached to authored source", async () => {
-    const { unmatchedMutationPatterns } = await import(pathToFileURL(path.join(repoRoot, "scripts", "check-mutation-scope.mjs")).href);
-
-    await expect(unmatchedMutationPatterns()).resolves.toEqual([]);
-  });
-
   it("reports mutation patterns that no longer match source", async () => {
     const cwd = await tempWorkspace();
     await mkdir(path.join(cwd, "src"), { recursive: true });

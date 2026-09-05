@@ -24,6 +24,22 @@ function withMcpDiagnostic(diagnostics: Diagnostics, server: McpServerDiagnostic
 }
 
 describe("connection diagnostics", () => {
+  it("shows unprobed runtime checks as unknown warnings", () => {
+    const sections = appServerDiagnosticSections({
+      connected: false,
+      configuredCommand: "codex",
+      initializeResponse: null,
+      diagnostics: createServerDiagnostics(),
+    });
+
+    expect(sections.find((section) => section.title === "Runtime Checks")?.rows).toEqual(
+      expect.arrayContaining([
+        { label: "Models", value: "unknown", level: "warning" },
+        { label: "Rate limits", value: "unknown", level: "warning" },
+      ]),
+    );
+  });
+
   it("formats connection rows and runtime checks for /doctor", () => {
     let diagnostics = createServerDiagnostics();
     diagnostics = withProbe(diagnostics, diagnosticProbeOk("models", "12 models", 1));
@@ -222,7 +238,7 @@ describe("connection diagnostics", () => {
     ]);
   });
 
-  it("keeps last-known tool inventory visible with refresh failures", () => {
+  it("shows plugin and MCP refresh failures", () => {
     const sections = toolInventoryDiagnosticSections(
       {
         plugins: [],

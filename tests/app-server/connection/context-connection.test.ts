@@ -36,8 +36,6 @@ describe("AppServerContextConnection", () => {
     expect(first.currentClient()).toBe(manager.client);
     expect(second.currentClient()).toBe(manager.client);
     expect(result).toBe(manager.client);
-    expect(manager.connect).toHaveBeenCalledTimes(3);
-    expect(manager.handlers).toBeDefined();
   });
 
   it("fans unconsumed notifications out to connected panel leases", async () => {

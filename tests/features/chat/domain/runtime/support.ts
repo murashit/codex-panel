@@ -1,12 +1,7 @@
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../../src/domain/runtime/config";
-import {
-  resetRuntimeIntentToConfig,
-  setRuntimeIntentValue,
-  unchangedCollaborationModeIntent,
-  unchangedRuntimeIntent,
-} from "../../../../../src/features/chat/domain/runtime/intent";
+import { unchangedCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { resolveRuntimeControls } from "../../../../../src/features/chat/domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
 
@@ -102,18 +97,6 @@ export function fastRuntimeServiceTierRequestValue(snapshot: RuntimeSnapshot, co
 
 export function supportedReasoningEfforts(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): readonly string[] {
   return runtimeControls(snapshot, config).supportedReasoningEfforts;
-}
-
-export function modelPendingIntentCases() {
-  return [
-    { name: "unchanged", intent: unchangedRuntimeIntent<string>() },
-    { name: "set", intent: setRuntimeIntentValue("gpt-pending") },
-    { name: "resetToConfig", intent: resetRuntimeIntentToConfig<string>() },
-  ] as const;
-}
-
-export function runtimeLayerCase(configured: string | null, active: string | null, pending: string): string {
-  return `configured=${configured ?? "none"} active=${active ?? "none"} pending=${pending}`;
 }
 
 export function runtimeConfigFixture(config: Record<string, unknown>, layers: ConfigReadResult["layers"] = null): RuntimeConfigSnapshot {

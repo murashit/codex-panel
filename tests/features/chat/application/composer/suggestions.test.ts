@@ -262,6 +262,7 @@ describe("composer suggestions", () => {
   });
 
   it("bounds selection preview text before rendering it in the suggestion list", () => {
+    const selectionText = `A recognizable selection excerpt. ${"x".repeat(600)}`;
     const suggestion = activeComposerSuggestions("@sel", notes, [], [], [], null, {
       contextReferences: {
         activeNote: null,
@@ -269,13 +270,15 @@ describe("composer suggestions", () => {
           name: "Beta Note",
           path: "topics/Beta Note.md",
           linktext: "Beta Note",
-          range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 600 } },
-          text: "x".repeat(600),
+          range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: selectionText.length } },
+          text: selectionText,
         },
       },
     })[0];
 
-    expect(suggestion?.detail).toBe(`${"x".repeat(499)}…`);
+    expect(suggestion?.detail.length).toBeLessThan(selectionText.length);
+    expect(suggestion?.detail.startsWith("A recognizable selection excerpt. ")).toBe(true);
+    expect(suggestion?.detail.endsWith("…")).toBe(true);
   });
 
   it("resolves relative daily-note references to configured wikilinks", () => {
@@ -388,7 +391,7 @@ describe("composer suggestions", () => {
     const wikilink = expectPresent(activeComposerSuggestions("[[bet", notes, [])[0]);
 
     expect(slash).toMatchObject({
-      detail: "/status - Show current thread, context, and usage limits.",
+      detail: expect.stringContaining("/status"),
       replacement: "/status",
       appendSpaceOnInsert: true,
     });

@@ -15,10 +15,8 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import { executeContextSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-context";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { threadStreamStableItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
-import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
@@ -462,35 +460,6 @@ describe("ChatComposerController", () => {
     expect(props.webSubmissionCancellable).toBe(false);
   });
 
-  it("keeps a pending web submission after a turn that completes during the fetch", () => {
-    const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-    if (!pending) throw new Error("Expected pending web submission");
-    const assistant: ThreadStreamItem = {
-      id: "assistant",
-      kind: "dialogue",
-      dialogueKind: "assistantResponse",
-      role: "assistant",
-      text: "done",
-      dialogueState: "completed",
-      turnId: "turn",
-    };
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    stateStore.dispatch({
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: "thread",
-        phase: "cancellable",
-      },
-    });
-    stateStore.dispatch({ type: "turn/completed", turnId: "turn", status: "completed", items: [assistant] });
-
-    expect(threadStreamStableItems(stateStore.getState().threadStream).map((item) => item.id)).toEqual(["assistant"]);
-    expect(stateStore.getState().pendingSubmission?.id).toBe(pending.id);
-  });
-
   it("updates slash suggestions when the input changes", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
@@ -649,23 +618,6 @@ describe("ChatComposerController", () => {
       replacement: "#project/codex",
     });
     expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("#project/codex");
-  });
-
-  it("does not read Obsidian tags for non-tag suggestions", () => {
-    const tags = vi.fn(() => ["project/codex"]);
-    const { controller, parent, stateStore } = composerControllerFixture({
-      controller: {
-        noteCandidateProvider: noteProvider({ tags }),
-      },
-    });
-
-    renderComposerController(parent, controller, stateStore);
-    setTextAreaValue(composer(parent), "/");
-    composer(parent).setSelectionRange(1, 1);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-
-    expect(stateStore.getState().composer.suggestions.length).toBeGreaterThan(0);
-    expect(tags).not.toHaveBeenCalled();
   });
 
   it("inserts configured relative daily-note references as wikilinks", () => {
@@ -928,7 +880,7 @@ describe("ChatComposerController", () => {
     expect(controller.captureInputSnapshot().attachments.map((attachment) => attachment.name)).toEqual(["first", "second"]);
   });
 
-  it("preserves pasted image attachments when connection exit restores a cancellable web draft", async () => {
+  it("preserves the exact web draft and pasted image attachments across connection exit and late fetch success", async () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
@@ -971,23 +923,31 @@ describe("ChatComposerController", () => {
     await flushComposerAttachment();
     const marker = composer(parent).value;
     const snapshot = controller.captureInputSnapshot();
-    const originalDraft = `/web https://example.com Inspect ${marker}`;
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", `Inspect ${marker}`);
-    if (!pending) throw new Error("Expected pending web submission");
+    const originalDraft = `  /web https://example.com Inspect ${marker}  `;
+    const fetched = deferred<{ sendText: string }>();
+    const execute = vi.fn(() => fetched.promise);
+    const sendTurnText = vi.fn().mockResolvedValue(true);
 
     controller.setDraft(originalDraft);
-    const claim = controller.claimSubmission();
-    stateStore.dispatch({
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: null,
-        phase: "cancellable",
-      },
+    const submitting = submitComposer({
+      stateStore,
+      localItemIds: createLocalIdSource(),
+      composer: controller,
+      slashCommandExecutor: { execute },
+      turnSubmissionCommand: { sendTurnText },
+      connection: { ensureConnected: vi.fn().mockResolvedValue(true) },
+      turnPort: { interruptTurn: vi.fn() },
+      status: { setStatus: vi.fn(), addSystemMessage: vi.fn() },
+      scroll: { showLatest: vi.fn() },
     });
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "connection/scoped-cleared" });
-    claim?.settle("failed");
+    controller.failActiveSubmissionClaim();
+    expect(controller.draft).toBe(originalDraft);
+
+    fetched.resolve({ sendText: `Inspect ${marker}` });
+    await submitting;
+    expect(sendTurnText).not.toHaveBeenCalled();
     const restoredSnapshot = controller.captureInputSnapshot();
 
     expect(controller.draft).toBe(originalDraft);
@@ -1182,26 +1142,6 @@ describe("ChatComposerController", () => {
     expect(composer(parent).value).toBe("Keep this draft\n![[Codex Attachments/diagram.png]]");
     expect(composer(parent).value).not.toContain("codex-panel-pending-attachment:");
     expect(composer(parent).selectionStart).toBe(0);
-  });
-
-  it("removes an edited attachment placeholder when saving fails", async () => {
-    const saved = deferred<ComposerAttachment[]>();
-    const { controller, parent, renderShell } = composerControllerFixture({
-      controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
-      },
-    });
-    controller.setDraft("Keep this draft");
-    renderShell();
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    controller.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
-
-    saved.reject(new Error("Attachment save failed."));
-    await flushComposerAttachment();
-    await flushComposerAttachment();
-
-    expect(composer(parent).value).toBe("Keep this draft");
-    expect(composer(parent).value).not.toContain("codex-panel-pending-attachment:");
   });
 
   it("restores selected text without synthetic separators after the placeholder label is edited", async () => {

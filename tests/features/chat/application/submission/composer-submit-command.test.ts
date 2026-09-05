@@ -56,7 +56,6 @@ function createHost(
       : initialState,
   );
   const interruptTurn = vi.fn().mockResolvedValue({});
-  const setDraft = vi.fn();
   const sendTurnText = vi.fn().mockResolvedValue(true);
   const execute = vi.fn().mockResolvedValue(undefined);
   const showLatest = vi.fn();
@@ -65,7 +64,6 @@ function createHost(
     sourcePath: "snapshot.md",
     ...(options.threadCommandTarget ? { threadCommandTarget: options.threadCommandTarget } : {}),
   } as never;
-  const captureInputSnapshot = vi.fn(() => inputSnapshot);
   const settleSubmission = vi.fn();
   const claimSubmission = vi.fn<() => ComposerSubmissionClaim | null>(() => {
     const panelTarget = capturePanelTargetLease(stateStore.getState());
@@ -86,8 +84,6 @@ function createHost(
       get trimmedDraft() {
         return draft.trim();
       },
-      setDraft,
-      captureInputSnapshot,
       claimSubmission,
       isSubmissionPreparing: vi.fn(() => false),
       failActiveSubmissionClaim: vi.fn(),
@@ -106,14 +102,12 @@ function createHost(
   };
   return {
     host,
-    captureInputSnapshot,
     claimSubmission,
     ensureConnected,
     execute,
     inputSnapshot,
     interruptTurn,
     sendTurnText,
-    setDraft,
     settleSubmission,
     showLatest,
     stateStore,
@@ -223,7 +217,7 @@ describe("submitComposer", () => {
   });
 
   it("does not cancel or restore a committed web submission", async () => {
-    const { host, execute, setDraft, stateStore } = createHost("");
+    const { host, execute, stateStore } = createHost("");
     const pending = {
       id: "local-web",
       item: {
@@ -241,7 +235,6 @@ describe("submitComposer", () => {
     await submitComposer(host);
 
     expect(stateStore.getState().pendingSubmission).toEqual(pending);
-    expect(setDraft).not.toHaveBeenCalled();
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -274,12 +267,11 @@ describe("submitComposer", () => {
   });
 
   it("executes slash commands and forwards command send results", async () => {
-    const { host, ensureConnected, execute, inputSnapshot, sendTurnText, setDraft, showLatest } = createHost("/plan hello");
+    const { host, ensureConnected, execute, inputSnapshot, sendTurnText, showLatest } = createHost("/plan hello");
     execute.mockResolvedValue({ sendText: "hello" });
 
     await submitComposer(host);
 
-    expect(setDraft).not.toHaveBeenCalled();
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(execute).toHaveBeenCalledWith("plan", "hello", inputSnapshot, {
       isCurrent: expect.any(Function),
@@ -345,9 +337,7 @@ describe("submitComposer", () => {
   });
 
   it("shows a pending web message while context is fetched and hands it to turn submission", async () => {
-    const { host, execute, inputSnapshot, sendTurnText, setDraft, showLatest, stateStore } = createHost(
-      "/web https://example.com summarize",
-    );
+    const { host, execute, inputSnapshot, sendTurnText, showLatest, stateStore } = createHost("/web https://example.com summarize");
     const fetch = deferred<{ sendText: string; sendInput: [{ type: "text"; text: string }] }>();
     execute.mockImplementation(() => fetch.promise);
 
@@ -363,7 +353,6 @@ describe("submitComposer", () => {
       contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
       provenance: { source: "localUser", channel: "preflight" },
     });
-    expect(setDraft).not.toHaveBeenCalled();
     expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).not.toHaveBeenCalled();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
@@ -382,7 +371,7 @@ describe("submitComposer", () => {
     );
   });
 
-  it("cancels a pending web import and restores its exact draft before late success", async () => {
+  it("cancels a pending web import before late success", async () => {
     const { host, execute, sendTurnText, stateStore } = createHost("  /web https://example.com summarize  ");
     const fetch = deferred<{ sendText: string }>();
     execute.mockImplementation(() => fetch.promise);
@@ -400,7 +389,7 @@ describe("submitComposer", () => {
   });
 
   it("ignores a late web import failure after explicit cancellation", async () => {
-    const { host, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
+    const { host, execute, stateStore } = createHost("/web https://example.com summarize");
     const fetch = deferred<{ sendText: string }>();
     execute.mockImplementation(() => fetch.promise);
 
@@ -410,13 +399,12 @@ describe("submitComposer", () => {
     fetch.reject(new Error("offline"));
     await first;
 
-    expect(setDraft).not.toHaveBeenCalled();
     expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalledOnce();
     expect(host.status.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it.each([true, false])("ignores late connection result %s after explicit web cancellation", async (connected) => {
-    const { host, ensureConnected, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
+    const { host, ensureConnected, execute, stateStore } = createHost("/web https://example.com summarize");
     const connecting = deferred<boolean>();
     ensureConnected.mockImplementation(() => connecting.promise);
 
@@ -427,7 +415,6 @@ describe("submitComposer", () => {
     await first;
 
     expect(execute).not.toHaveBeenCalled();
-    expect(setDraft).not.toHaveBeenCalled();
     expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalledOnce();
     expect(host.status.addSystemMessage).not.toHaveBeenCalled();
   });
@@ -477,7 +464,7 @@ describe("submitComposer", () => {
   });
 
   it("does not restore or report a stale web fetch failure after the active thread changes", async () => {
-    const { host, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
+    const { host, execute, stateStore } = createHost("/web https://example.com summarize");
     resumeActiveThread(stateStore, "first");
     const fetch = deferred<{ sendText: string }>();
     execute.mockImplementation(() => fetch.promise);
@@ -488,13 +475,12 @@ describe("submitComposer", () => {
     fetch.reject(new Error("offline"));
     await submitting;
 
-    expect(setDraft).not.toHaveBeenCalled();
     expect(host.status.addSystemMessage).not.toHaveBeenCalled();
     expect(stateStore.getState().pendingSubmission).toBeNull();
   });
 
   it("leaves web draft recovery to the claim and ignores late fetch success after the connection scope clears", async () => {
-    const { host, execute, sendTurnText, setDraft, stateStore } = createHost("  /web https://example.com summarize  ");
+    const { host, execute, sendTurnText, stateStore } = createHost("  /web https://example.com summarize  ");
     const fetch = deferred<{ sendText: string }>();
     execute.mockImplementation(() => fetch.promise);
 
@@ -509,19 +495,17 @@ describe("submitComposer", () => {
     await submitting;
 
     expect(sendTurnText).not.toHaveBeenCalled();
-    expect(setDraft).not.toHaveBeenCalled();
     expect(stateStore.getState().composer.draft).toBe("");
     expect(host.status.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("does not execute connection-dependent slash commands when connection fails", async () => {
-    const { host, ensureConnected, execute, setDraft } = createHost("/model example-model");
+    const { host, ensureConnected, execute } = createHost("/model example-model");
     ensureConnected.mockResolvedValue(false);
 
     await submitComposer(host);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(setDraft).not.toHaveBeenCalled();
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -542,7 +526,7 @@ describe("submitComposer", () => {
   });
 
   it("rolls back a pending web message when connection setup fails", async () => {
-    const { host, ensureConnected, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
+    const { host, ensureConnected, execute, stateStore } = createHost("/web https://example.com summarize");
     ensureConnected.mockResolvedValue(false);
 
     await submitComposer(host);
@@ -550,32 +534,29 @@ describe("submitComposer", () => {
     expect(execute).not.toHaveBeenCalled();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(setDraft).not.toHaveBeenCalled();
     expect(host.composer.failActiveSubmissionClaim).toHaveBeenCalledOnce();
   });
 
   it("restores slash command composer drafts from command results", async () => {
-    const { host, ensureConnected, execute, sendTurnText, setDraft, settleSubmission, showLatest } = createHost("/goal edit");
+    const { host, ensureConnected, execute, sendTurnText, settleSubmission, showLatest } = createHost("/goal edit");
     execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });
 
     await submitComposer(host);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(setDraft).not.toHaveBeenCalled();
     expect(settleSubmission).toHaveBeenCalledWith("accepted", "/goal set Current objective");
     expect(showLatest).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
   });
 
   it("restores slash command text and reports executor errors", async () => {
-    const { host, execute, sendTurnText, setDraft, settleSubmission, showLatest } = createHost(
+    const { host, execute, sendTurnText, settleSubmission, showLatest } = createHost(
       "/web https://obsidian.md/help/plugins/web-viewer 読める？",
     );
     execute.mockRejectedValue(new Error("No readable content found for https://obsidian.md/help/plugins/web-viewer"));
 
     await submitComposer(host);
 
-    expect(setDraft).not.toHaveBeenCalled();
     expect(settleSubmission).toHaveBeenCalledWith("failed");
     expect(host.status.addSystemMessage).toHaveBeenCalledWith("No readable content found for https://obsidian.md/help/plugins/web-viewer");
     expect(showLatest).toHaveBeenCalledOnce();

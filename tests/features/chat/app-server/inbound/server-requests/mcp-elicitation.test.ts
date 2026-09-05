@@ -50,14 +50,6 @@ describe("MCP elicitation request model", () => {
 
     const content = { title: "Fix bug", priority: "high", labels: ["bug", "docs"], notify: false, count: 3, ratio: null };
 
-    expect(content).toEqual({
-      title: "Fix bug",
-      priority: "high",
-      labels: ["bug", "docs"],
-      notify: false,
-      count: 3,
-      ratio: null,
-    });
     expect(mcpElicitationResponse("accept", content)).toEqual({
       action: "accept",
       content,

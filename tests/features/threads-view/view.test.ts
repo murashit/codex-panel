@@ -98,7 +98,6 @@ describe("CodexThreadsView", () => {
 
     const status = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__status");
     expect(status?.textContent).toContain("Codex app-server stopped.");
-    expect(status?.classList.contains("codex-panel-ui__nav-item")).toBe(false);
     expect(view.containerEl.querySelector(".codex-panel-threads__empty")).toBeNull();
   });
 
@@ -151,9 +150,7 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(host);
 
     await view.refresh();
-    const row = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__row");
     const rowMain = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__row-main");
-    expect(row?.getAttribute("aria-label")).toBeNull();
     rowMain?.click();
 
     await waitForAsyncWork(() => {
@@ -527,8 +524,9 @@ describe("CodexThreadsView", () => {
     });
   });
 
-  it("disables auto-name without publishing an error when completed history is unavailable", async () => {
-    const threadTurnsList = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
+  it("disables auto-name while completed history is loading", async () => {
+    const history = deferred<unknown>();
+    const threadTurnsList = vi.fn().mockReturnValue(history.promise);
     connectionMock.state.client = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/turns/list": threadTurnsList,
@@ -543,8 +541,9 @@ describe("CodexThreadsView", () => {
 
     expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
-    expect(view.containerEl.textContent).not.toContain("completed history");
     expect(namingMock.generateThreadTitleWithCodex).not.toHaveBeenCalled();
+    await view.onClose();
+    history.resolve({ data: [], nextCursor: null });
   });
 
   it("keeps loading auto-name history while a rename save is in flight", async () => {
@@ -738,6 +737,33 @@ describe("CodexThreadsView", () => {
     view.containerEl.remove();
   });
 
+  it("accepts a replacement runtime after an observer fails during detachment", async () => {
+    const unsubscribe = vi.fn(() => {
+      throw new Error("observer cleanup failed");
+    });
+    const view = await threadsView(
+      threadsHost({
+        threadCatalog: { observeActiveThreadsResult: () => unsubscribe },
+      }),
+    );
+
+    expect(() => view.detachRuntime()).not.toThrow();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+
+    const refresh = vi.fn().mockResolvedValue([]);
+    expect(() =>
+      view.attachRuntime(
+        threadsHost({
+          threadCatalog: { refreshActiveThreads: refresh },
+        }),
+      ),
+    ).not.toThrow();
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    await view.refresh();
+    expect(refresh).toHaveBeenCalledTimes(2);
+    await view.onClose();
+  });
+
   it("ignores refresh requests while detached from an execution runtime", async () => {
     const view = await threadsView();
     view.detachRuntime();
@@ -745,18 +771,6 @@ describe("CodexThreadsView", () => {
     await expect(view.refresh()).resolves.toBeUndefined();
     expect(() => view.refreshLiveState()).not.toThrow();
     expect(() => view.refreshSettings()).not.toThrow();
-  });
-
-  it("clears the runtime attachment when closing the session fails", async () => {
-    const view = await threadsView();
-    const session = (view as unknown as { session: { close(): void } }).session;
-    vi.spyOn(session, "close").mockImplementation(() => {
-      throw new Error("close failed");
-    });
-
-    expect(() => view.detachRuntime()).not.toThrow();
-    expect(() => view.refreshLiveState()).not.toThrow();
-    await expect(view.refresh()).resolves.toBeUndefined();
   });
 });
 

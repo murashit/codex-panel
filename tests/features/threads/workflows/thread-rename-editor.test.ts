@@ -8,7 +8,11 @@ describe("thread rename editor", () => {
     const readyContext = { userRequest: "First request", assistantResponse: "First response" };
     const firstContext = deferred<typeof readyContext>();
     const secondContext = deferred<null>();
+    const generateTitle = vi.fn();
+    const reportError = vi.fn();
     const { editor, states } = fixture({
+      generateTitle,
+      reportError,
       resolveTitleContext: vi.fn((threadId) => (threadId === "first" ? firstContext.promise : secondContext.promise)),
     });
 
@@ -23,6 +27,9 @@ describe("thread rename editor", () => {
 
     expect(states.get("first")).toMatchObject({ kind: "editing", autoName: { kind: "ready", context: readyContext } });
     expect(states.get("second")).toMatchObject({ kind: "editing", autoName: { kind: "unavailable" } });
+    await editor.autoNameDraft("second");
+    expect(generateTitle).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
   });
 
   it("aborts replaced title work for an exclusive chat editor", async () => {

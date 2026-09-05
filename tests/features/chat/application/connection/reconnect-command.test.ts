@@ -54,7 +54,6 @@ describe("createReconnectPanelCommand", () => {
     expect(host.resetConnectionScope).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
-    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(host.cleanupForConnectionReset).toHaveBeenCalledOnce();
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");

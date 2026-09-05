@@ -60,12 +60,6 @@ describe("thread stream item updates", () => {
     expect(result[2]).toBe(command);
   });
 
-  it("returns the original collection when there is no reasoning for the selected turn", () => {
-    const items = [reasoningItem("other", "other-turn"), commandItem("command", "running")];
-
-    expect(completeReasoningItems(items, "turn")).toBe(items);
-  });
-
   it("attaches selected hooks to a turn immediately after an explicit anchor", () => {
     const first = userMessage("user", "turn");
     const anchor = commandItem("anchor", "completed");

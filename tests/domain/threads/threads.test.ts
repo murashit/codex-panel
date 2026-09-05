@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { explicitThreadName, normalizeExplicitThreadName, type Thread, threadRecencyAt } from "../../../src/domain/threads/model";
+import { explicitThreadName, type Thread, threadRecencyAt } from "../../../src/domain/threads/model";
 import { threadDisplayTitle, threadMeaningfulTitle, threadRenameDraftTitle, threadWindowTitle } from "../../../src/domain/threads/title";
 
 describe("thread helpers", () => {
@@ -45,13 +45,6 @@ describe("thread helpers", () => {
     expect(explicitThreadName(thread({ name: "  ", preview: "Preview" }))).toBeNull();
     expect(explicitThreadName(thread({ name: null, preview: "Preview" }))).toBeNull();
     expect(explicitThreadName(thread({ name: null, preview: "", id: "thread-id" }))).toBeNull();
-  });
-
-  it("normalizes explicit thread name values", () => {
-    expect(normalizeExplicitThreadName("  Rename   thread  ")).toBe("Rename thread");
-    expect(normalizeExplicitThreadName("  ")).toBeNull();
-    expect(normalizeExplicitThreadName(null)).toBeNull();
-    expect(normalizeExplicitThreadName(undefined)).toBeNull();
   });
 
   it("uses recency timestamps when present and falls back to updated time", () => {

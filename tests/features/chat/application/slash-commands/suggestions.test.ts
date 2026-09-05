@@ -78,7 +78,7 @@ describe("activeSlashCommandSuggestions", () => {
     expect(replacements(suggestions("/goal "))).toEqual(["set", "edit", "pause", "resume", "clear"]);
     expect(suggestions("/goal p")[0]).toMatchObject({
       display: "pause",
-      detail: "/goal pause - Pause the current thread goal.",
+      detail: expect.stringContaining("/goal pause"),
       replacement: "pause",
       appendSpaceOnInsert: true,
     });

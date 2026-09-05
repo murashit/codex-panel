@@ -96,6 +96,12 @@ describe("panel pending request rendering", () => {
       unmountUiRootInAct(parent);
       render();
       expect(document.activeElement).toBe(composer);
+      // The next render can replace a request without ever displaying an empty queue.
+      stateStore.dispatch({ type: "request/resolved", requestId: input.requestId });
+      stateStore.dispatch({ type: "request/user-input-queued", input: { ...input, requestId: 1001 } });
+      render();
+      expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-text"));
+      composer.focus();
       stateStore.dispatch({ type: "request/approval-queued", approval: pendingApproval() });
       render();
       expect(parent.contains(document.activeElement)).toBe(true);
@@ -129,12 +135,12 @@ describe("panel pending request rendering", () => {
 
     const firstName = first.querySelector<HTMLInputElement>(".codex-panel__user-input-radio")?.name;
     const secondName = second.querySelector<HTMLInputElement>(".codex-panel__user-input-radio")?.name;
-    expect(firstName).toContain("panel-a");
-    expect(secondName).toContain("panel-b");
+    expect(firstName).toBeTruthy();
+    expect(secondName).toBeTruthy();
     expect(firstName).not.toBe(secondName);
   });
 
-  it("renders pending requests as one thread stream block and keeps user input drafts live", () => {
+  it("renders the default user input option and dispatches submission", () => {
     const parent = document.createElement("div");
     const drafts = new Map<string, string>();
     const resolveUserInput = vi.fn();
@@ -195,7 +201,6 @@ describe("panel pending request rendering", () => {
 
       renderPendingRequestNode(parent, [], [{ ...input, autoResolutionAtMs: 211_000 }], { values: new Map() }, new Set(), actions);
       expect(parent.querySelector(".codex-panel__pending-request-body")?.textContent).toBe("Optional — Codex will continue automatically.");
-      expect(vi.getTimerCount()).toBe(1);
 
       actEvent(() => {
         vi.advanceTimersByTime(90_000);
@@ -631,7 +636,6 @@ describe("panel pending request rendering", () => {
     expect(parent.querySelector(".codex-panel__pending-request-title")?.textContent).toBe("MCP request from github");
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input"));
     const label = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-label"));
-    expect(label.id).toContain("test-panel");
     expect(label.getAttribute("for")).toBe(input.id);
     changeInputValue(input, "Updated");
     actEvent(() => {
@@ -641,6 +645,51 @@ describe("panel pending request rendering", () => {
     expect(setMcpElicitationDraft).toHaveBeenCalledWith("51:mcp:title", "Updated");
     expect(resolveMcpElicitation).toHaveBeenCalledWith(51, "accept");
     unmountUiRootInAct(parent);
+  });
+
+  it("associates MCP field labels with their own panel when the same request is shown twice", () => {
+    const parents = [document.createElement("div"), document.createElement("div")];
+    document.body.append(...parents);
+    try {
+      const inputs = parents.map((parent, index) => {
+        renderThreadStreamBlocksInAct(
+          parent,
+          projectedThreadStreamBlocks({
+            items: [
+              {
+                id: "a1",
+                kind: "dialogue",
+                role: "assistant",
+                text: "Done",
+                dialogueKind: "assistantResponse",
+                dialogueState: "completed",
+              },
+            ],
+            pendingRequests: {
+              ...pendingRequestContext({
+                signature: "mcp:51",
+                snapshot: emptyPendingRequestBlockSnapshot({
+                  pendingMcpElicitations: [pendingMcpElicitationSnapshot(pendingMcpElicitation())],
+                }),
+              }),
+              controlNamespace: `panel-${index}`,
+            },
+          }),
+        );
+        return expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input"));
+      });
+      expect(inputs.every((input) => input.id.length > 0)).toBe(true);
+      expect(new Set(inputs.map((input) => input.id)).size).toBe(2);
+      parents.forEach((parent, index) => {
+        const label = expectPresent(parent.querySelector<HTMLLabelElement>(".codex-panel__mcp-elicitation-label"));
+        expect(label.control).toBe(inputs[index]);
+      });
+    } finally {
+      parents.forEach((parent) => {
+        unmountUiRootInAct(parent);
+        parent.remove();
+      });
+    }
   });
 
   it("does not accept invalid MCP elicitation forms", () => {

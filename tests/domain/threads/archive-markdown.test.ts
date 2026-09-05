@@ -46,7 +46,6 @@ describe("thread archive export", () => {
         "",
       ].join("\n"),
     );
-    expect(output).not.toContain("npm test");
   });
 
   it("uses the shared archive title placeholder instead of leaking thread ids", () => {

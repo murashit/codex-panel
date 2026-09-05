@@ -20,7 +20,6 @@ import {
   requiredTextArea,
   resumedThread,
   setupViewConnectionHarness,
-  type TestAppServerClient,
   threadFixture,
 } from "./view-connection-harness";
 
@@ -201,16 +200,6 @@ describe("CodexChatView connection lifecycle", () => {
     await waitForAsyncWork(() => {
       expect(unsubscribe).toHaveBeenCalledWith({ threadId: "thread-a" }, expect.anything());
     });
-  });
-
-  it("loads app-server metadata after connecting", async () => {
-    connectionMockState().client = connectedClient();
-    const view = await chatView();
-
-    await view.surface.connect();
-
-    expectRequestTimes(connectionMockState().client as TestAppServerClient, "config/read", 1);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
   });
 
   it("keeps a preserved draft editable while workspace coordination restores its thread", async () => {

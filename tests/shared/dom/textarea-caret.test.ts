@@ -7,34 +7,45 @@ import { installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();
 
-describe("textarea caret visual boundary measurement", () => {
+describe("textarea caret boundary decisions from measured positions", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("measures wrapped lines with textarea-compatible mirror styles", () => {
+  // jsdom supplies no text layout; these measurements test navigation decisions, not wrapping.
+  it.each([
+    { direction: -1 as const, cursorTop: 20, expected: true },
+    { direction: -1 as const, cursorTop: 40, expected: false },
+    { direction: 1 as const, cursorTop: 40, expected: false },
+    { direction: 1 as const, cursorTop: 60, expected: true },
+  ])("direction $direction at measured row $cursorTop returns $expected", ({ direction, cursorTop, expected }) => {
     const textarea = document.createElement("textarea");
-    textarea.value = "a long composer line that wraps";
-    textarea.setSelectionRange(8, 8);
-    vi.spyOn(textarea, "getBoundingClientRect").mockReturnValue({
-      width: 120,
-      height: 40,
-      top: 0,
-      right: 120,
-      bottom: 40,
-      left: 0,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
-    const mirrorStyles: CSSStyleDeclaration[] = [];
-    vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function offsetTopGetter(this: HTMLElement) {
-      if (this.parentElement instanceof HTMLElement) mirrorStyles.push(this.parentElement.style);
-      return 0;
+    textarea.value = "previous\nwrapped current line\nnext";
+    textarea.setSelectionRange(17, 17);
+    vi.spyOn(textarea, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 120, 80));
+    const positions = new Map([
+      [9, 20],
+      [17, cursorTop],
+      [29, 60],
+    ]);
+    vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (this: HTMLElement) {
+      // The mirror must preserve textarea wrapping inputs before its measurements can be meaningful.
+      expect(this.parentElement?.style.whiteSpace).toBe("pre-wrap");
+      expect(this.parentElement?.style.overflowWrap).toBe("break-word");
+      expect(this.parentElement?.style.width).toBe("120px");
+      const position = this.previousSibling?.textContent?.length;
+      const top = positions.get(position ?? -1);
+      if (top === undefined) throw new Error(`Unexpected caret position: ${String(position)}`);
+      return top;
     });
 
-    textareaCursorAtVisualBoundary(-1, textarea);
+    expect(textareaCursorAtVisualBoundary(direction, textarea)).toBe(expected);
+  });
 
-    expect(mirrorStyles).not.toHaveLength(0);
-    expect(mirrorStyles[0]?.getPropertyValue("white-space")).toBe("pre-wrap");
-    expect(mirrorStyles[0]?.getPropertyValue("overflow-wrap")).toBe("break-word");
+  it("keeps arrow navigation in the textarea while text is selected", () => {
+    const textarea = document.createElement("textarea");
+    textarea.value = "selected text";
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    expect(textareaCursorAtVisualBoundary(-1, textarea)).toBe(false);
+    expect(textareaCursorAtVisualBoundary(1, textarea)).toBe(false);
   });
 });

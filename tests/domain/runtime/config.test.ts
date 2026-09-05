@@ -3,7 +3,7 @@ import { runtimeConfigOrDefault } from "../../../src/domain/runtime/config";
 import { runtimeConfigFixture } from "../../support/runtime-config";
 
 describe("runtime config", () => {
-  it("clones nested permission policy state", () => {
+  it("isolates permission snapshots from later source mutations", () => {
     const config = {
       ...runtimeConfigFixture(),
       startupPermissions: {
@@ -22,13 +22,12 @@ describe("runtime config", () => {
     };
 
     const cloned = runtimeConfigOrDefault(config);
-
     expect(cloned).toEqual(config);
-    expect(cloned.startupPermissions).not.toBe(config.startupPermissions);
-    expect(cloned.startupPermissions.approvalPolicy).not.toBe(config.startupPermissions.approvalPolicy);
-    if (!cloned.startupPermissions.approvalPolicy || typeof cloned.startupPermissions.approvalPolicy === "string") {
-      throw new Error("Expected granular approval policy");
-    }
-    expect(cloned.startupPermissions.approvalPolicy.granular).not.toBe(config.startupPermissions.approvalPolicy.granular);
+
+    config.startupPermissions.approvalPolicy.granular.sandbox_approval = false;
+
+    expect(cloned.startupPermissions.approvalPolicy).toMatchObject({
+      granular: { sandbox_approval: true },
+    });
   });
 });

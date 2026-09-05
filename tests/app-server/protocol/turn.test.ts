@@ -163,6 +163,7 @@ describe("app-server turn records", () => {
           agentMessage("a1", '{"replacementText":"first"}'),
           agentMessage("a2", "  "),
           agentMessage("a3", '{"replacementText":"final"}'),
+          agentMessage("a4", "  "),
         ]),
       ),
     ).toBe('{"replacementText":"final"}');

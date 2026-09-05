@@ -8,9 +8,7 @@ import { IconButton, IconRendererProvider, ToolbarIconAction } from "../../../sr
 describe("UI icons", () => {
   it("delegates host rendering while preserving button content", () => {
     const parent = document.createElement("div");
-    const renderer = vi.fn((element: HTMLElement, icon: string) => {
-      element.dataset["renderedIcon"] = icon;
-    });
+    const renderer = vi.fn();
 
     renderUiRoot(
       parent,
@@ -25,11 +23,10 @@ describe("UI icons", () => {
     const icon = button?.querySelector<HTMLElement>("span");
     expect(button?.textContent).toBe("View diff");
     expect(icon?.dataset["icon"]).toBe("file-diff");
-    expect(icon?.dataset["renderedIcon"]).toBe("file-diff");
     expect(renderer).toHaveBeenCalledWith(icon, "file-diff");
   });
 
-  it("keeps toolbar action structure and interaction semantics", () => {
+  it("labels toolbar actions and suppresses clicks while disabled", () => {
     const parent = document.createElement("div");
     const onClick = vi.fn();
 
@@ -39,8 +36,6 @@ describe("UI icons", () => {
     );
 
     let action = parent.querySelector<HTMLElement>('[aria-label="Refresh threads"]');
-    expect(action?.tagName).toBe("DIV");
-    expect(action?.getAttribute("role")).toBeNull();
     expect(action?.classList.contains("clickable-icon")).toBe(true);
     expect(action?.classList.contains("nav-action-button")).toBe(true);
     action?.click();

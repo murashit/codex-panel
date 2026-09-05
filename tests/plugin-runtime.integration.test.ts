@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
@@ -83,6 +83,8 @@ function currentChatHost(plugin: CodexPanelPlugin): CodexChatHost {
 }
 
 describe("CodexPanelPlugin runtime integration", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(() => {
     vi.useRealTimers();
     contextConnectionClientMock.mockReset();
@@ -254,6 +256,25 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(plugin.settings.codexPath).toBe("codex-next");
     expect(currentChatHost(plugin).appServerContext).toEqual({ codexPath: "codex-next", vaultPath: "/vault" });
     expect(currentChatHost(plugin).appServerContext).not.toBe(firstContext);
+  });
+
+  it("keeps the active settings and runtime when saving fails and allows a later retry", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const previousSettings = { ...plugin.settings };
+    const previousContext = currentChatHost(plugin).appServerContext;
+    const saveData = vi.spyOn(plugin, "saveData").mockRejectedValueOnce(new Error("disk full")).mockResolvedValue(undefined);
+
+    await expect(publishCodexPath(plugin, "codex-next")).rejects.toThrow("disk full");
+
+    expect(saveData).toHaveBeenCalledWith(expect.objectContaining({ codexPath: "codex-next" }));
+    expect(plugin.settings).toEqual(previousSettings);
+    expect(currentChatHost(plugin).appServerContext).toBe(previousContext);
+
+    await publishCodexPath(plugin, "codex-next");
+
+    expect(plugin.settings.codexPath).toBe("codex-next");
+    expect(currentChatHost(plugin).appServerContext).toEqual({ codexPath: "codex-next", vaultPath: "/vault" });
+    expect(saveData).toHaveBeenCalledTimes(2);
   });
 
   it("does not resurrect a replacement after the runtime is reset", async () => {

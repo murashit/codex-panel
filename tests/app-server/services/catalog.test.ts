@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  appServerHookOperationFromHookItem,
   hookItemsFromCatalogHooks,
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
@@ -92,17 +91,6 @@ describe("app-server catalog mappers", () => {
         trustStatus: "modified",
       },
     ]);
-  });
-
-  it("maps panel hook items to minimal app-server hook operations", () => {
-    const hook = hookItemsFromCatalogHooks([hookFixture()])[0];
-    if (!hook) throw new Error("Expected mapped hook");
-
-    expect(appServerHookOperationFromHookItem(hook)).toEqual({
-      key: "hook-key",
-      currentHash: "hash",
-      trustStatus: "modified",
-    });
   });
 });
 

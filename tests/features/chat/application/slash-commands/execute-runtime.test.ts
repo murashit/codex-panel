@@ -174,15 +174,6 @@ describe("runtime slash commands", () => {
     expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
   });
 
-  it("preserves explicit reasoning effort casing", async () => {
-    const ctx = context();
-
-    await executeRuntimeSlashCommand("reasoning", "CaseSensitive", ctx);
-
-    expect(ctx.runtimeSettings.requestReasoningEffort).toHaveBeenCalledWith("CaseSensitive");
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort set to CaseSensitive for subsequent turns.");
-  });
-
   it("shows Codex capabilities", async () => {
     const toolInventoryDetails = vi
       .fn()

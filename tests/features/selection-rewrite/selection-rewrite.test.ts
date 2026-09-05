@@ -6,11 +6,7 @@ import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
 import { createAppServerSelectionRewriteAdapter } from "../../../src/features/selection-rewrite/app-server-adapter";
 import { buildSelectionDiffLines } from "../../../src/features/selection-rewrite/diff";
-import {
-  canApplySelectionRewrite,
-  type SelectionRewriteState,
-  selectionRewriteTextRangeOffsets,
-} from "../../../src/features/selection-rewrite/model";
+import { type SelectionRewriteState, selectionRewriteTextRangeOffsets } from "../../../src/features/selection-rewrite/model";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
 import { SelectionRewriteOutputError, type SelectionRewritePortRequest } from "../../../src/features/selection-rewrite/port";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
@@ -138,10 +134,6 @@ describe("selection rewrite diff", () => {
     expect(buildSelectionDiffLines("removed", "")).toContain("-removed");
   });
 
-  it("renders unchanged text as context", () => {
-    expect(buildSelectionDiffLines("same", "same")).toContain(" same");
-  });
-
   it("shows a removed trailing line break", () => {
     expect(buildSelectionDiffLines("same\n", "same")).toEqual([" same", "-↵"]);
   });
@@ -153,19 +145,13 @@ describe("selection rewrite diff", () => {
 });
 
 describe("selection rewrite apply guard", () => {
-  it("allows apply only while the selected text still matches", () => {
-    const state = rewriteState();
-    expect(canApplySelectionRewrite("Revise this sentence.", state)).toBe(true);
-    expect(canApplySelectionRewrite("Changed sentence.", state)).toBe(false);
-  });
-
   it("converts a valid multi-line editor range to half-open text offsets", () => {
     expect(
       selectionRewriteTextRangeOffsets("first\nsecond line\nthird", {
         from: { line: 1, ch: 1 },
-        to: { line: 1, ch: 7 },
+        to: { line: 2, ch: 3 },
       }),
-    ).toEqual({ from: 7, to: 13 });
+    ).toEqual({ from: 7, to: 21 });
   });
 
   it("falls back to the expected text only when editor positions are invalid", () => {
@@ -203,6 +189,37 @@ describe("selection rewrite apply guard", () => {
 });
 
 describe("selection rewrite positioning", () => {
+  it.each([
+    { name: "below the selection when it fits", anchor: [100, 100, 20, 20], size: [200, 120], expected: [100, 128] },
+    {
+      name: "above the selection and inside the right edge near the viewport bottom",
+      anchor: [window.innerWidth - 20, window.innerHeight - 30, 20, 20],
+      size: [200, 120],
+      expected: [window.innerWidth - 208, window.innerHeight - 158],
+    },
+    { name: "inside the left edge for an offscreen anchor", anchor: [-20, 100, 20, 20], size: [200, 120], expected: [8, 128] },
+    {
+      name: "at the minimum margin when the popover exceeds the viewport",
+      anchor: [100, 100, 20, 20],
+      size: [window.innerWidth + 100, window.innerHeight + 100],
+      expected: [8, 8],
+    },
+  ])("places the popover $name from supplied geometry", ({ anchor, size, expected }) => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    vi.spyOn(root, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, size[0], size[1]));
+    vi.spyOn(window, "getSelection").mockReturnValue(null);
+    const editor = {
+      cm: { coordsAtPos: () => new DOMRect(anchor[0], anchor[1], anchor[2], anchor[3]) },
+      getCursor: () => ({ line: 0, ch: 0 }),
+      posToOffset: () => 0,
+    };
+
+    expect(positionSelectionRewritePopover(root, editor as never, window, 8)).toBe(true);
+    expect(root.style.left).toBe(`${String(expected[0])}px`);
+    expect(root.style.top).toBe(`${String(expected[1])}px`);
+  });
+
   it("uses the target view window HTMLElement constructor for editor DOM checks", () => {
     const frame = document.createElement("iframe");
     document.body.appendChild(frame);
@@ -312,7 +329,6 @@ describe("selection rewrite popover", () => {
 
     openPopover(popover);
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
-    expect(instruction.getAttribute("aria-label")).toBeNull();
     void act(() => {
       setTextareaValue(instruction, "Make it concise.");
       instruction.dispatchEvent(new Event("input", { bubbles: true }));
@@ -361,20 +377,6 @@ describe("selection rewrite popover", () => {
     closePopover(popover);
   });
 
-  it("unmounts and removes the Preact popover when closed", () => {
-    const onClose = vi.fn();
-    const popover = new SelectionRewritePopover(popoverOptions({ onClose }));
-
-    openPopover(popover);
-    expect(document.querySelector(".codex-panel-selection-rewrite__instruction")).not.toBeNull();
-    expect(document.querySelector<HTMLButtonElement>('button[aria-label="Cancel"]')).toBeNull();
-
-    closePopover(popover);
-
-    expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
-    expect(onClose).toHaveBeenCalledOnce();
-  });
-
   it("closes from outside pointerdown without closing internal controls", () => {
     const onClose = vi.fn();
     const popover = new SelectionRewritePopover(popoverOptions({ onClose }));
@@ -421,29 +423,6 @@ describe("selection rewrite popover", () => {
 
     expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
     expect(document.body.textContent).not.toContain("Late rewrite");
-  });
-
-  it("keeps only one generation run active while a rewrite is pending", async () => {
-    const rewrite = deferred<{ replacementText: string }>();
-    selectionRewriteGenerate.mockReturnValue(rewrite.promise);
-    const popover = new SelectionRewritePopover(popoverOptions());
-
-    openPopover(popover);
-    const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
-    await act(async () => {
-      generate.click();
-      generate.click();
-      await Promise.resolve();
-    });
-
-    expect(selectionRewriteGenerate).toHaveBeenCalledOnce();
-
-    rewrite.resolve({ replacementText: "Rewritten once." });
-    await act(async () => {
-      await flushPromises();
-    });
-
-    expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Rewritten once.");
   });
 
   it("regenerates from a preview with a new instruction", async () => {

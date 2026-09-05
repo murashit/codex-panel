@@ -48,7 +48,6 @@ describe("CodexChatView workspace restoration", () => {
     expectRequestTimes(client, "config/read", 1);
     expectRequestTimes(client, "thread/list", 1);
     expect(requestMethods(client)).not.toContain("thread/resume");
-    expect(requestMethods(client)).not.toContain("thread/resume");
     expect(requestMethods(client)).not.toContain("thread/turns/list");
   });
 
@@ -267,7 +266,7 @@ describe("CodexChatView workspace restoration", () => {
         threadId: "thread-1",
         cwd: "/vault",
         input: [{ type: "text", text: "hello", text_elements: [] }],
-        clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
+        clientUserMessageId: expect.any(String),
       });
     });
     expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: true });

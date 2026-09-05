@@ -7,33 +7,6 @@ const ADDITIONAL_CONTEXT_MAX_PARTS = 8;
 const PANEL_SUBMISSION_ID = "local-user-1-seed-1-1";
 
 describe("app-server request input", () => {
-  it("builds text input with file references and skills", () => {
-    expect(
-      codexTextInputWithReferences(
-        "Use [[Note]] and $Skill",
-        [{ name: "Note", path: "Note.md" }],
-        [{ name: "Skill", path: ".codex/skills/skill/SKILL.md" }],
-        [
-          {
-            key: "codex_panel_obsidian_context",
-            kind: "untrusted",
-            value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Note]] -> Note.md",
-          },
-        ],
-      ),
-    ).toEqual([
-      { type: "text", text: "Use [[Note]] and $Skill" },
-      { type: "fileReference", name: "Note", path: "Note.md" },
-      { type: "skill", name: "Skill", path: ".codex/skills/skill/SKILL.md" },
-      {
-        type: "additionalContext",
-        key: "codex_panel_obsidian_context",
-        kind: "untrusted",
-        value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Note]] -> Note.md",
-      },
-    ]);
-  });
-
   it("replaces text input while preserving non-text attachments", () => {
     const input: CodexInput = [
       { type: "text", text: "visible request" },
@@ -52,13 +25,18 @@ describe("app-server request input", () => {
     const input = codexTextInputWithReferences(
       "Use [[Note]]",
       [{ name: "Note", path: "Note.md" }],
-      [],
+      [{ name: "Review", path: ".codex/skills/review/SKILL.md" }],
       [{ key: "codex_panel_obsidian_context", kind: "untrusted", value: "- [[Note]] -> Note.md" }],
     );
 
-    expect(toAppServerUserInput(input)).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
+    expect(input).toContainEqual({ type: "fileReference", name: "Note", path: "Note.md" });
+    const expectedInput = [
+      { type: "text", text: "Use [[Note]]", text_elements: [] },
+      { type: "skill", name: "Review", path: ".codex/skills/review/SKILL.md" },
+    ];
+    expect(toAppServerUserInput(input)).toEqual(expectedInput);
     const prepared = appServerTurnInputFromCodexInput(input, "local-user");
-    expect(prepared.input).toEqual([{ type: "text", text: "Use [[Note]]", text_elements: [] }]);
+    expect(prepared.input).toEqual(expectedInput);
     expect(prepared.additionalContext).toEqual({
       "codex_panel.local-user.00.codex_panel_obsidian_context.part_01_of_01": {
         kind: "untrusted",
@@ -165,18 +143,6 @@ describe("app-server request input", () => {
       "[Context truncated by Codex Panel: remaining content omitted.]",
     );
     expect(prepared.input).toEqual([{ type: "text", text: "compare them", text_elements: [] }]);
-  });
-
-  it("does not add a truncation notice when the complete context fits", () => {
-    const prepared = appServerTurnInputFromCodexInput(
-      [
-        { type: "text", text: "read it" },
-        { type: "additionalContext", key: "selection", kind: "untrusted", value: "selected text" },
-      ],
-      PANEL_SUBMISSION_ID,
-    );
-
-    expect(Object.values(prepared.additionalContext ?? {})[0]?.value).not.toContain("Context truncated by Codex Panel");
   });
 
   it("accepts eight explicit context sources and ignores empty sources without spending the budget", () => {

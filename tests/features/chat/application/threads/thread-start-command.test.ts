@@ -32,7 +32,6 @@ describe("thread start commands", () => {
 
     await commands.startThread("first prompt");
 
-    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(recordStartedThread).toHaveBeenCalledWith(optimistic);
     expect(activeThreadState(stateStore.getState())?.canAcceptDirectInput).toBe(false);
   });
@@ -230,7 +229,6 @@ describe("thread start commands", () => {
 
     await expect(commands.startThread("local preview")).resolves.toEqual({ kind: "not-started" });
     expect(activeThreadId(stateStore.getState())).toBeNull();
-    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(recordStartedThread).not.toHaveBeenCalled();
   });
 });

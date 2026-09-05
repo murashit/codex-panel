@@ -55,7 +55,7 @@ describe("activePanelOperationDecisionForFacts", () => {
     );
   });
 
-  it("keeps the stricter subagent restrictions when mode facts conflict", () => {
+  it("keeps subagent and side-chat restrictions when a side-chat response carries subagent provenance", () => {
     expectDecisionKinds(
       { phase: "active", lifetime: "ephemeral", canAcceptDirectInput: null, provenance: "subagent" },
       decisions({ fork: "allowed" }),

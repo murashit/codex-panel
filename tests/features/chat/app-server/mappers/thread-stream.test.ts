@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
+import { agentThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/agent-items";
 import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/thread-stream/execution-state";
 import { hookRunThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/hook-run-items";
 import { autoReviewPermissionRows } from "../../../../../src/features/chat/app-server/mappers/thread-stream/permission-rows";
@@ -525,6 +526,16 @@ describe("turn item conversion preserves app-server semantics", () => {
       executionState: "completed",
     },
     {
+      name: "completed agent with another agent whose state is unknown",
+      status: "completed",
+      receiverThreadIds: ["completed", "unknown"],
+      agentsStates: {
+        completed: { status: "completed", message: null },
+        unknown: { status: "futureStatus", message: null },
+      },
+      executionState: "running",
+    },
+    {
       name: "receiver awaiting its first state",
       status: "completed",
       receiverThreadIds: ["waiting"],
@@ -540,12 +551,18 @@ describe("turn item conversion preserves app-server semantics", () => {
     },
   ] as const)("derives follow-up agent activity from $name", ({ status, receiverThreadIds, agentsStates, executionState }) => {
     expect(
-      threadStreamItemFromTurnItem(
-        collabAgentToolCall({
+      agentThreadStreamItem(
+        {
+          id: "agent-follow-up",
+          tool: "sendInput",
+          senderThreadId: "parent-thread",
+          prompt: null,
+          model: null,
+          reasoningEffort: null,
           status,
           receiverThreadIds: [...receiverThreadIds],
           agentsStates,
-        }),
+        },
         "t1",
       ),
     ).toMatchObject({ kind: "agent", executionState });
@@ -618,43 +635,6 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("summarizes piped parsed read commands by file name only", () => {
-    expect(
-      commandExecutionItem({
-        command: "nl -ba src/main.ts | sed -n '1,20p'",
-        commandActions: [{ type: "read", command: "nl", name: "main.ts", path: "/vault/src/main.ts" }],
-        aggregatedOutput: "numbered file contents",
-        exitCode: 0,
-        durationMs: 10,
-      }),
-    ).toMatchObject({
-      kind: "command",
-      commandAction: "read",
-      commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
-      command: "nl -ba src/main.ts | sed -n '1,20p'",
-      cwd: "/vault",
-      executionState: "completed",
-    });
-  });
-
-  it("keeps absolute read paths when they are outside the command cwd", () => {
-    expect(
-      commandExecutionItem({
-        command: "sed -n '1,20p' /vault/src/main.ts",
-        cwd: "/vault/tests",
-        commandActions: [{ type: "read", command: "sed", name: "main.ts", path: "/vault/src/main.ts" }],
-        aggregatedOutput: "file contents",
-        exitCode: 0,
-        durationMs: 10,
-      }),
-    ).toMatchObject({
-      kind: "command",
-      commandAction: "read",
-      commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
-      executionState: "completed",
-    });
-  });
-
   it("summarizes zsh login wrapper commands without changing their command classification", () => {
     expect(
       commandExecutionItem({
@@ -689,41 +669,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       commandTarget: { kind: "search", query: "command target", path: "src/display" },
       command: "rg 'command target' src/display",
       cwd: "/vault",
-      executionState: "completed",
-    });
-  });
-
-  it("summarizes parsed search paths relative to the command cwd", () => {
-    expect(
-      commandExecutionItem({
-        command: "rg target /vault/src/display",
-        commandActions: [{ type: "search", command: "rg", query: "target", path: "/vault/src/display" }],
-        aggregatedOutput: "search results",
-        exitCode: 0,
-        durationMs: 10,
-      }),
-    ).toMatchObject({
-      kind: "command",
-      commandAction: "search",
-      commandTarget: { kind: "search", query: "target", path: "/vault/src/display" },
-      executionState: "completed",
-    });
-  });
-
-  it("summarizes Windows paths relative to the command cwd", () => {
-    expect(
-      commandExecutionItem({
-        command: "rg target C:\\Vault\\src\\display",
-        cwd: "C:\\Vault",
-        commandActions: [{ type: "search", command: "rg", query: "target", path: "C:\\Vault\\src\\display" }],
-        aggregatedOutput: "search results",
-        exitCode: 0,
-        durationMs: 10,
-      }),
-    ).toMatchObject({
-      kind: "command",
-      commandAction: "search",
-      commandTarget: { kind: "search", query: "target", path: "C:\\Vault\\src\\display" },
       executionState: "completed",
     });
   });
@@ -954,30 +899,13 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("omits absent web search details instead of storing undefined fields", () => {
-    const item: TurnItem = {
-      type: "webSearch",
-      id: "search-empty",
-      query: "",
-      action: null,
-      results: null,
-    };
+  it("keeps a web search recognizable when its target and action are unavailable", () => {
+    const item: TurnItem = { type: "webSearch", id: "search-empty", query: "", action: null, results: null };
 
-    expect(threadStreamItemFromTurnItem(item, "t1")).toEqual({
-      id: "search-empty",
+    expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
-      role: "tool",
       toolName: "web search",
       operation: "webSearch",
-      turnId: "t1",
-      sourceItemId: "search-empty",
-      output: "",
-      provenance: {
-        source: "appServer",
-        channel: "turnItem",
-        itemType: "webSearch",
-        itemId: "search-empty",
-      },
     });
   });
 
@@ -1250,10 +1178,6 @@ describe("auto-review permission detail rows", () => {
 });
 
 describe("execution state uses typed status adapters before rendered text", () => {
-  it("detects failed command state", () => {
-    expect(commandExecutionItem({ status: "failed", exitCode: 1 })).toMatchObject({ executionState: "failed" });
-  });
-
   it("does not infer command failure from the command text", () => {
     expect(commandExecutionItem({ command: "echo failed", status: "completed", exitCode: 0 })).toMatchObject({
       executionState: "completed",

@@ -35,22 +35,6 @@ describe("thread stream presentation blocks", () => {
     expect(blocks.find((block) => block.key === "live-task:task")).toMatchObject({ kind: "status" });
   });
 
-  it("anchors active agent summaries at the first active agent item", () => {
-    const blocks = threadStreamViewBlocks(
-      blockInput({
-        activeThreadId: "thread",
-        activeTurnId: "turn",
-        historyCursor: null,
-        loadingHistory: false,
-        items: [userDialogue("u1", "turn"), agentItem("agent", "turn")],
-        workspaceRoot: "/vault",
-      }),
-    );
-
-    expect(blocks.map((block) => block.kind)).toEqual(["text", "detail", "liveAgentSummary"]);
-    expect(blocks.find((block) => block.kind === "liveAgentSummary")).toMatchObject({ key: "live-agents:turn" });
-  });
-
   it("orders active live blocks by insertion and appends pending requests", () => {
     const blocks = threadStreamViewBlocks(
       blockInput({

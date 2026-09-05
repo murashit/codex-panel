@@ -49,6 +49,37 @@ describe("HistoryController", () => {
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
+  it.each(["loadLatest", "loadOlder"] as const)("reports only the current %s failure and permits retry", async (method) => {
+    const stale = deferred<ThreadHistoryPage | null>();
+    const current = deferred<ThreadHistoryPage | null>();
+    const readHistoryPage = vi
+      .fn<HistoryPageReader>()
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(current.promise)
+      .mockResolvedValueOnce(historyPage([message("recovered", "Recovered")], null));
+    const { loader, stateStore, addSystemMessage } = historyFixture({ readHistoryPage });
+    stateStore.dispatch({ type: "thread-stream/items-replaced", items: [], historyCursor: "older" });
+
+    const staleLoad = loader[method]();
+    loader.invalidate();
+    const currentLoad = loader[method]();
+    stale.reject(new Error("Stale failure"));
+    await staleLoad;
+
+    expect(addSystemMessage).not.toHaveBeenCalled();
+    expect(stateStore.getState().threadStream.loadingHistory).toBe(true);
+
+    current.reject(new Error("History unavailable"));
+    await currentLoad;
+
+    expect(addSystemMessage).toHaveBeenCalledExactlyOnceWith("History unavailable");
+    expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
+    expect(stateStore.getState().threadStream.historyCursor).toBe("older");
+
+    await loader[method]();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([expect.objectContaining({ id: "recovered", text: "Recovered" })]);
+  });
+
   it("applies an already returned latest turns page without requesting history", () => {
     const readHistoryPage = vi.fn<HistoryPageReader>();
     const { loader, stateStore, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
@@ -92,7 +123,7 @@ describe("HistoryController", () => {
 
   it("loads older history without coupling thread stream replacement to bottom pin state", async () => {
     const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older", "older-turn")], "next"));
-    const { loader, stateStore, dispatch, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
+    const { loader, stateStore, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
     stateStore.dispatch({
       type: "thread-stream/items-replaced",
       items: [message("current", "Current", "current-turn")],
@@ -105,7 +136,6 @@ describe("HistoryController", () => {
     expect(chatStateThreadStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "current"]);
     expect(stateStore.getState().threadStream.historyCursor).toBe("next");
     expect(showLatestPageAtBottom).not.toHaveBeenCalled();
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "thread-stream/items-replaced" }));
   });
 
   it("hydrates snapshot-retained older turns instead of dropping the server page", async () => {
@@ -153,7 +183,6 @@ function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<Hist
   let state = chatStateFixture();
   state = chatStateWith(state, { activeThread: { id: "thread" } });
   const stateStore = createChatStateStore(state);
-  const dispatch = vi.spyOn(stateStore, "dispatch");
   const addSystemMessage = vi.fn();
   const showLatestPageAtBottom = vi.fn();
   const setThreadTurnPresence = vi.fn();
@@ -166,7 +195,7 @@ function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<Hist
     showLatestPageAtBottom,
     setThreadTurnPresence,
   });
-  return { loader, stateStore, addSystemMessage, dispatch, setThreadTurnPresence, showLatestPageAtBottom };
+  return { loader, stateStore, addSystemMessage, setThreadTurnPresence, showLatestPageAtBottom };
 }
 
 function historyPage(items: ThreadStreamItem[], nextCursor: string | null): ThreadHistoryPage {

@@ -210,7 +210,11 @@ describe("chat panel projection integration", () => {
     ]);
 
     const projection = projectThreadStream(selectChatPanelThreadStream(state, emptySharedResources), threadStreamSurfaceContext());
-    expect(JSON.stringify(projection.blocks)).not.toContain('"rollback":true');
+    const textBlocks = projection.blocks.filter((block) => block.kind === "text");
+    expect(textBlocks.map((block) => ({ body: block.view.body, rollback: block.view.actionTargets.rollback }))).toEqual([
+      { body: "Question", rollback: undefined },
+      { body: "Answer", rollback: undefined },
+    ]);
   });
 
   it("projects the latest direct subagent activity into the live agent summary", () => {
@@ -503,7 +507,7 @@ describe("chat panel projection integration", () => {
     });
   });
 
-  it("keeps zero percent composer context fixed-width and visible", () => {
+  it("projects reported zero context usage as placeholder cells and 0%", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     state = chatStateWith(state, {

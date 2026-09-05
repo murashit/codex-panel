@@ -47,7 +47,7 @@ describe("app-server query resources", () => {
     });
     const firstPanelChanges = vi.fn();
     const secondPanelChanges = vi.fn();
-    cache.threadGoalQueries.observeChanges(firstPanelChanges);
+    const unsubscribeFirstPanel = cache.threadGoalQueries.observeChanges(firstPanelChanges);
     cache.threadGoalQueries.observeChanges(secondPanelChanges);
     const notification = {
       method: "thread/goal/updated",
@@ -60,6 +60,43 @@ describe("app-server query resources", () => {
     expect(firstPanelChanges).toHaveBeenCalledWith("thread", current, next);
     expect(secondPanelChanges).toHaveBeenCalledOnce();
     expect(secondPanelChanges).toHaveBeenCalledWith("thread", current, next);
+
+    unsubscribeFirstPanel();
+    firstPanelChanges.mockClear();
+    secondPanelChanges.mockClear();
+    cache.threadGoalQueries.applyNotification({
+      method: "thread/goal/cleared",
+      params: { threadId: "thread" },
+    });
+    expect(firstPanelChanges).not.toHaveBeenCalled();
+    expect(secondPanelChanges).toHaveBeenCalledExactlyOnceWith("thread", next, null);
+  });
+
+  it("unsubscribes one goal observer without interrupting another", () => {
+    const cache = cacheWithRequestHandlers({});
+    const goal = goalFixture({ objective: "Current" });
+    cache.threadGoalQueries.applyNotification({
+      method: "thread/goal/updated",
+      params: { threadId: "thread", turnId: null, goal },
+    });
+    const firstPanel = vi.fn();
+    const secondPanel = vi.fn();
+    const unsubscribeFirst = cache.threadGoalQueries.observe("thread", firstPanel);
+    const unsubscribeSecond = cache.threadGoalQueries.observe("thread", secondPanel);
+    expect(firstPanel).toHaveBeenCalledWith(goal, null);
+    expect(secondPanel).toHaveBeenCalledWith(goal, null);
+
+    unsubscribeFirst();
+    firstPanel.mockClear();
+    secondPanel.mockClear();
+    cache.threadGoalQueries.applyNotification({
+      method: "thread/goal/cleared",
+      params: { threadId: "thread" },
+    });
+    expect(firstPanel).not.toHaveBeenCalled();
+    expect(secondPanel).toHaveBeenCalledExactlyOnceWith(null, null);
+    unsubscribeSecond();
+    cache.scope.dispose();
   });
 
   it("shares tool inventory requests and scopes MCP status by thread", async () => {
@@ -264,35 +301,6 @@ describe("app-server query resources", () => {
     await cache.toolInventoryQueries.refresh(null);
     expect(cache.toolInventoryQueries.snapshot("thread-a")?.mcpDiagnostics).toEqual([]);
     expect(cache.toolInventoryQueries.snapshot("thread-b")?.mcpDiagnostics).toEqual([]);
-  });
-
-  it("copies its execution context before performing requests", async () => {
-    const context = { codexPath: "/opt/codex", vaultPath: "/vault-a" };
-    const request = vi.fn(async (method: string, params: unknown) => {
-      if (method === "threadSection/list") return { data: [{ id: "pinned", name: "Pinned" }], nextCursor: null };
-      if (method === "thread/list" && (params as { sectionId?: string }).sectionId === "pinned") return { data: [], nextCursor: null };
-      return { data: [], nextCursor: null };
-    });
-    const cache = createCache({ withClient: async (operation) => operation({ request } as never) }, context);
-
-    context.codexPath = "/changed";
-    context.vaultPath = "/vault-b";
-    await cache.threadCatalog.fetchActiveThreads();
-
-    expect(request).toHaveBeenCalledWith("threadSection/list", { cursor: null, limit: 100 });
-    expect(request).toHaveBeenCalledWith("thread/list", {
-      cwd: "/vault-a",
-      archived: false,
-      sortKey: "recency_at",
-      sortDirection: "desc",
-    });
-    expect(request).toHaveBeenCalledWith("thread/list", {
-      cwd: "/vault-a",
-      archived: false,
-      sectionId: "pinned",
-      sortKey: "recency_at",
-      sortDirection: "desc",
-    });
   });
 
   it("tears down observers without notifying them after disposal", async () => {
@@ -769,9 +777,14 @@ describe("app-server query resources", () => {
   });
 
   it("fetches app-server metadata and models through their respective query records", async () => {
+    const model: CatalogModel = {
+      ...catalogModel("gpt-meta"),
+      supportedReasoningEfforts: [{ reasoningEffort: "high", description: "Thorough reasoning" }],
+      serviceTiers: [{ id: "fast", name: "Fast" }],
+    };
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
-      "model/list": vi.fn().mockResolvedValue({ data: [catalogModel("gpt-meta")] }),
+      "model/list": vi.fn().mockResolvedValue({ data: [model] }),
       "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [catalogSkill("writer")] }] }),
       "permissionProfile/list": vi.fn().mockResolvedValue({ data: [permissionProfile(":workspace")], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(64), rateLimitsByLimitId: null }),
@@ -787,7 +800,14 @@ describe("app-server query resources", () => {
       permissionProfiles: { status: "ok", summary: "1 profiles", checkedAt: expect.any(Number) },
       rateLimits: { status: "ok", summary: "available", checkedAt: expect.any(Number) },
     });
-    expect(cache.metadataQueries.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-meta"]);
+    expect(cache.metadataQueries.metadataSnapshot("models")).toMatchObject([
+      {
+        model: "gpt-meta",
+        supportedReasoningEfforts: [{ reasoningEffort: "high", description: "Thorough reasoning" }],
+        inputModalities: ["text"],
+        serviceTiers: [{ id: "fast", name: "Fast" }],
+      },
+    ]);
   });
 
   it("publishes the authoritative hook catalog after a mutation", async () => {

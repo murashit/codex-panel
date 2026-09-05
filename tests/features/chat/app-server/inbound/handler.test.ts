@@ -353,89 +353,6 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
     });
 
-    it("attaches pre-turn prompt submit hook runs when the turn starts", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, {
-        activeTurn: {
-          lifecycle: {
-            kind: "starting",
-            pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
-          },
-        },
-      });
-      state = withChatStateStableThreadStreamItems(state, [
-        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
-        {
-          id: "hook-hook-1-1",
-          kind: "hook",
-          role: "tool",
-          text: "userPromptSubmit: Saving jj baseline",
-          toolName: "hook",
-          status: "completed",
-        },
-      ]);
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "turn/started",
-        params: {
-          threadId: "thread-active",
-          turn: {
-            id: "turn-active",
-            status: "inProgress",
-            startedAt: 1,
-            completedAt: null,
-            durationMs: null,
-            error: null,
-            itemsView: "full",
-            items: [],
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(chatStateThreadStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
-      expect(pendingTurnStart(handler.currentState().activeTurn)).toBeNull();
-    });
-
-    it("captures only prompt-submit hooks observed during the pending turn start", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, {
-        activeTurn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
-      });
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "hook/completed",
-        params: {
-          threadId: "thread-active",
-          turnId: null,
-          run: {
-            id: "hook-1",
-            eventName: "userPromptSubmit",
-            handlerType: "command",
-            executionMode: "sync",
-            scope: "turn",
-            sourcePath: "/vault/.codex/hooks.json",
-            source: "project",
-            displayOrder: 1n,
-            status: "completed",
-            statusMessage: "Saving jj baseline",
-            startedAt: 1n,
-            completedAt: 2n,
-            durationMs: 1n,
-            entries: [],
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
-
-      expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[0]).turnId).toBeUndefined();
-      expect(expectPresent(pendingTurnStart(handler.currentState().activeTurn)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
-    });
-
     it("keeps pre-turn prompt submit hooks through turn start and completed-turn reconciliation", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
@@ -667,6 +584,7 @@ describe("ChatInboundHandler", () => {
         kind: "userInputResult",
         role: "tool",
         text: "Input submitted for 1 question.",
+        executionState: "completed",
         turnId: "turn-active",
         questions: [expect.objectContaining({ id: "scope", header: "Scope", answer: "Narrow" })],
       });
@@ -830,8 +748,10 @@ describe("ChatInboundHandler", () => {
         kind: "userInputResult",
         role: "tool",
         text: "Input request cancelled for 1 question.",
+        executionState: "failed",
         turnId: "turn-active",
       });
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).not.toHaveProperty("questions.0.answer");
     });
 
     it("queues and accepts MCP elicitation form server requests", () => {
@@ -1397,9 +1317,8 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual(expectedMessages);
     });
 
-    it("clears pending request state when app-server resolves a request", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+    it("clears only the resolved request and its draft across request families", () => {
+      let state = activeRunningState();
       state = chatStateWith(state, {
         requests: {
           approvals: [
@@ -1409,6 +1328,7 @@ describe("ChatInboundHandler", () => {
               params: {
                 ...expectPresent(supportedApprovalRequests()[0]).params,
                 threadId: "thread-active",
+                turnId: "turn-active",
               } as Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }>["params"],
             }),
           ],
@@ -1418,7 +1338,7 @@ describe("ChatInboundHandler", () => {
         requests: {
           pendingUserInputs: [
             pendingUserInputFromRequest({
-              id: 50,
+              id: 51,
               method: "item/tool/requestUserInput",
               params: {
                 threadId: "thread-active",
@@ -1436,7 +1356,7 @@ describe("ChatInboundHandler", () => {
         requests: {
           pendingMcpElicitations: [
             {
-              requestId: 50,
+              requestId: 52,
               params: {
                 turnId: null,
                 serverName: "github",
@@ -1459,8 +1379,8 @@ describe("ChatInboundHandler", () => {
       });
       state = chatStateWith(state, {
         requests: {
-          userInputDrafts: new Map([["50:note", "draft"]]),
-          mcpElicitationDrafts: new Map([["50:mcp:title", "draft"]]),
+          userInputDrafts: new Map([["51:note", "draft"]]),
+          mcpElicitationDrafts: new Map([["52:mcp:title", "draft"]]),
         },
       });
       const handler = handlerForState(state);
@@ -1471,6 +1391,18 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "serverRequest/resolved" }>);
 
       expect(handler.currentState().requests.approvals).toEqual([]);
+      expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
+      expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
+      expect(handler.currentState().requests.userInputDrafts.size).toBe(1);
+      expect(handler.currentState().requests.mcpElicitationDrafts.size).toBe(1);
+
+      handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 51 } });
+      expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
+      expect(handler.currentState().requests.userInputDrafts.size).toBe(0);
+      expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
+      expect(handler.currentState().requests.mcpElicitationDrafts.size).toBe(1);
+
+      handler.handleNotification({ method: "serverRequest/resolved", params: { threadId: "thread-active", requestId: 52 } });
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
       expect(handler.currentState().requests.userInputDrafts.size).toBe(0);
@@ -1559,19 +1491,6 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
       expect(activeThreadState(handler.currentState())?.id).toBe("thread-active");
-    });
-
-    it("does not project an active thread-started notification into panel or catalog state", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "thread/started",
-        params: { thread: appServerThread("thread-active", "/workspace/active") },
-      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
-
-      expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
     });
 
     it("keeps ephemeral thread-started notifications out of the shared catalog and an empty panel", () => {

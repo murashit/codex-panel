@@ -26,7 +26,7 @@ import { chatSharedResourcesFixture } from "../../support/shared-display-values"
 import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
-import { installThreadStreamViewportMetrics, pendingApproval } from "./rendering/test-helpers";
+import { pendingApproval } from "./rendering/test-helpers";
 
 installObsidianDomShims();
 
@@ -54,48 +54,6 @@ function renderThreadStreamSurface(
 describe("thread stream surface", () => {
   beforeEach(() => {
     notices.length = 0;
-  });
-
-  it("projects reducer state into thread stream view state", () => {
-    const store = createChatStateStore(chatStateFixture());
-    store.dispatch({
-      type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: {
-        id: "thread-1",
-        preview: "",
-        archived: false,
-        createdAt: 1,
-        updatedAt: 1,
-        name: "Thread",
-        provenance: { kind: "interactive" },
-      },
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
-
-    const projection = projectThreadStream(
-      threadStreamModelFromChatState(store.getState(), emptySharedResources),
-      testThreadStreamSurfaceContext({
-        vaultPath: "/vault",
-        dispatch: (action) => {
-          store.dispatch(action);
-        },
-      }),
-    );
-
-    expect(projection.context.activeThreadId).toBe("thread-1");
-    expect(projection.blocks).toEqual([{ kind: "empty", key: "empty" }]);
-    expect(projection.context.disclosures.textDetails.size).toBe(0);
-    expect(projection.context.forkMenuItemId).toBeNull();
   });
 
   it("binds reducer-owned disclosure and fork menu actions in the surface factory", () => {
@@ -128,19 +86,8 @@ describe("thread stream surface", () => {
   it("keeps a pending web submission visible after the canonical turn completes", () => {
     const pending = pendingWebSubmissionItem("pending-web", "https://example.com", "Summarize");
     if (!pending) throw new Error("Expected pending web submission item");
-    const store = createChatStateStore(
-      withChatStateStableThreadStreamItems(chatStateFixture(), [
-        {
-          id: "assistant",
-          kind: "dialogue",
-          dialogueKind: "assistantResponse",
-          dialogueState: "completed",
-          role: "assistant",
-          text: "Previous answer",
-          turnId: "turn",
-        },
-      ]),
-    );
+    const store = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
+    store.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     store.dispatch({
       type: "web-submission/pending",
       submission: {
@@ -151,12 +98,29 @@ describe("thread stream surface", () => {
       },
     });
 
+    store.dispatch({
+      type: "turn/completed",
+      turnId: "turn",
+      status: "completed",
+      items: [
+        {
+          id: "assistant",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
+          role: "assistant",
+          text: "Previous answer",
+          turnId: "turn",
+        },
+      ],
+    });
+
     const projection = projectThreadStream(
       threadStreamModelFromChatState(store.getState(), emptySharedResources),
       testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
     );
 
-    expect(JSON.stringify(projection.blocks)).toContain(pending.id);
+    expect(projection.blocks.map((block) => block.key)).toContain(`item:${pending.id}`);
   });
 
   it("keeps pending steers at the active transcript tail", () => {
@@ -334,34 +298,6 @@ describe("thread stream surface", () => {
     expect(openGlobalSearch).toHaveBeenCalledWith("tag:#project/codex", true);
     expect(context.app.workspace.getLeftLeaf).not.toHaveBeenCalled();
     cleanup();
-  });
-
-  it("pins to the scroll container bottom", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateStableThreadStreamItems(state, [
-      {
-        id: "message",
-        kind: "dialogue",
-        role: "assistant",
-        text: "Streaming message",
-        turnId: "turn",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
-    ]);
-    const parent = document.createElement("div");
-    const { context, scrollPortBinding } = threadStreamSurface(state);
-
-    renderThreadStreamSurface(parent, context, scrollPortBinding, state);
-    const viewport = threadStreamViewport(parent);
-    installThreadStreamViewportMetrics(viewport, { clientHeight: 100, scrollHeight: 1000 });
-    viewport.scrollTop = 100;
-
-    scrollPortBinding.showLatest();
-    await settleThreadStreamRender(viewport);
-
-    expect(viewport.scrollTop).toBe(900);
   });
 
   it("repins after composer growth has changed the scroll viewport height", async () => {

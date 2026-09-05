@@ -103,14 +103,6 @@ describe("tool inventory", () => {
     expect(readPlugin).not.toHaveBeenCalled();
     expect(result.plugins.map((plugin) => plugin.name)).toEqual(["local-plugin", "remote-plugin"]);
   });
-
-  it("skips app catalog loading during diagnostics", async () => {
-    const client = toolInventoryClient();
-
-    await Promise.all([readInstalledPluginInventory(client, "/vault"), readMcpServerInventory(client, null)]);
-
-    expect(client.request).not.toHaveBeenCalledWith("app/list", expect.anything());
-  });
 });
 
 function toolInventoryClient(

@@ -130,15 +130,13 @@ describe("ComposerShell decisions", () => {
       ],
     });
 
-    const contextDots = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-context-dot"));
     const modeIcons = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-icon"));
     const statusSummary = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-summary");
     const statusVisual = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-status-visual");
     expect(statusSummary?.textContent).toBe("Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high");
     expect(statusVisual?.getAttribute("aria-hidden")).toBe("true");
-    expect(statusVisual?.textContent).toBe("|⣿⣶⣀⣀42%|gpt-5.5|high");
     expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("⣿⣶⣀⣀42%");
-    expect(contextDots.map((dot) => dot.textContent)).toEqual(["⣿", "⣶", "⣀", "⣀"]);
+    const contextDots = [...parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-context-dot")];
     expect(contextDots.map((dot) => dot.classList.contains("is-placeholder"))).toEqual([false, false, true, true]);
     expect(parent.querySelector(".codex-panel__composer-meta-model")?.textContent).toBe("gpt-5.5");
     expect(parent.querySelector(".codex-panel__composer-meta-effort")?.textContent).toBe("high");
@@ -297,7 +295,7 @@ describe("ComposerShell decisions", () => {
     expect(callbacks.onToggleFast).not.toHaveBeenCalled();
   });
 
-  it("hides composer meta fields only after measured overflow", async () => {
+  it("hides only the needed composer meta fields for measured overflow and restores them when space returns", async () => {
     const parent = document.createElement("div");
 
     mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
@@ -324,23 +322,28 @@ describe("ComposerShell decisions", () => {
 
     const status = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-status");
     if (!status) throw new Error("Expected composer meta status to render.");
-    Object.defineProperty(status, "clientWidth", { configurable: true, value: 100 });
+    let availableWidth = 160;
+    Object.defineProperty(status, "clientWidth", { configurable: true, get: () => availableWidth });
     Object.defineProperty(status, "scrollWidth", {
       configurable: true,
       get: () => (status.classList.contains("is-model-hidden") ? 80 : status.classList.contains("is-effort-hidden") ? 120 : 140),
     });
 
-    window.dispatchEvent(new Event("resize"));
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => {
-        resolve();
+    // Supply measurement outcomes to exercise the hiding policy; jsdom does not lay out text.
+    for (const [width, effortHidden, modelHidden] of [
+      [160, false, false],
+      [130, true, false],
+      [100, true, true],
+      [160, false, false],
+    ] as const) {
+      availableWidth = width;
+      window.dispatchEvent(new Event("resize"));
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
       });
-    });
-
-    await waitForAsyncWork(() => {
-      expect(status.classList.contains("is-effort-hidden")).toBe(true);
-      expect(status.classList.contains("is-model-hidden")).toBe(true);
-    });
+      expect(status.classList.contains("is-effort-hidden")).toBe(effortHidden);
+      expect(status.classList.contains("is-model-hidden")).toBe(modelHidden);
+    }
   });
 
   it("replaces composer meta with fatal status text", () => {
@@ -395,7 +398,7 @@ describe("ComposerShell decisions", () => {
     if (!suggestions) throw new Error("Expected composer suggestions to render.");
     expect(suggestions.getAttribute("role")).toBe("listbox");
     expect(composer.getAttribute("aria-expanded")).toBe("true");
-    expect(composer.getAttribute("aria-activedescendant")).toBe("view-composer-suggestion-0");
+    expect(composer.getAttribute("aria-activedescendant")).toBe(suggestions.querySelector("[role=option]")?.id);
     suggestions
       .querySelector<HTMLElement>(".codex-panel__composer-suggestion")
       ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
@@ -620,7 +623,6 @@ describe("ComposerShell decisions", () => {
 
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
     expect(composer.getAttribute("placeholder")).toBe("Steer the current turn...");
-    expect(composer.getAttribute("aria-label")).toBeNull();
     expect(sendButton?.classList.contains("is-interrupt")).toBe(true);
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");

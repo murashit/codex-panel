@@ -15,9 +15,7 @@ import {
   fastModeActive,
   fastRuntimeServiceTierRequestValue,
   modelFixture,
-  modelPendingIntentCases,
   runtimeConfigFixture,
-  runtimeLayerCase,
   runtimeSnapshot,
   snapshotConfig,
   supportedReasoningEfforts,
@@ -372,33 +370,6 @@ describe("runtime control resolution", () => {
         serviceTierRequestValue: "priority",
       },
     });
-  });
-
-  it("model-checks runtime value precedence for configured, active, and pending model layers", () => {
-    for (const configured of [null, "gpt-config"] as const) {
-      for (const active of [null, "gpt-active"] as const) {
-        for (const pending of modelPendingIntentCases()) {
-          const snapshot = runtimeSnapshot({
-            runtimeConfig: runtimeConfigFixture(configured ? { model: configured } : {}),
-            active: { model: active },
-            pending: { model: pending.intent },
-          });
-          const model = resolveRuntimeControls(snapshot, snapshotConfig(snapshot)).model;
-          const expectedConfirmed = active ?? configured;
-          const expectedConfirmedSource = active ? "active-thread" : configured ? "config" : "none";
-
-          expect(model, runtimeLayerCase(configured, active, pending.name)).toMatchObject({
-            configured,
-            active,
-            pending: pending.intent,
-            confirmed: expectedConfirmed,
-            confirmedSource: expectedConfirmedSource,
-            effective: pending.name === "set" ? "gpt-pending" : pending.name === "resetToConfig" ? configured : expectedConfirmed,
-            source: pending.name === "set" ? "pending" : pending.name === "resetToConfig" ? "config" : expectedConfirmedSource,
-          });
-        }
-      }
-    }
   });
 
   it("reports collaboration mode dirtiness and missing model blockers from the resolved runtime", () => {

@@ -40,21 +40,23 @@ describe("toolbarOutsidePointerHit", () => {
     });
   });
 
-  it("uses the view window when deciding whether the event target is a DOM element", () => {
-    const root = document.createElement("div");
-    const panel = root.appendChild(document.createElement("div"));
-    panel.className = "codex-panel__toolbar-panel";
-    const target = panel.appendChild(document.createElement("button"));
+  it("recognizes toolbar descendants in a separate view window", () => {
     const iframe = document.body.appendChild(document.createElement("iframe"));
-    const foreignWindow = iframe.contentWindow;
+    const viewWindow = iframe.contentWindow;
+    if (!viewWindow) throw new Error("Expected a separate view window.");
+    try {
+      const root = viewWindow.document.createElement("div");
+      const panel = root.appendChild(viewWindow.document.createElement("div"));
+      panel.className = "codex-panel__toolbar-panel";
+      const target = panel.appendChild(viewWindow.document.createElement("button"));
 
-    expect(foreignWindow).not.toBeNull();
-    expect(toolbarOutsidePointerHit(pointerAt(target), root, foreignWindow)).toEqual({
-      insideToolbarPanel: false,
-      insideArchiveConfirm: false,
-    });
-
-    iframe.remove();
+      expect(toolbarOutsidePointerHit(pointerAt(target), root, viewWindow)).toEqual({
+        insideToolbarPanel: true,
+        insideArchiveConfirm: false,
+      });
+    } finally {
+      iframe.remove();
+    }
   });
 
   it.each([

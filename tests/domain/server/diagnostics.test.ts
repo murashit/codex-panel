@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createServerDiagnostics,
   diagnosticProbeError,
-  diagnosticProbeLabel,
   diagnosticProbeOk,
   serverIdentity,
   serverPlatform,
@@ -26,21 +24,6 @@ describe("server diagnostics", () => {
     expect(serverPlatform(response)).toBe("macos/unix");
     expect(serverIdentity(null)).toBe("(not connected)");
     expect(serverPlatform(null)).toBe("(not connected)");
-  });
-
-  it("creates generic capability probe defaults", () => {
-    const diagnostics = createServerDiagnostics();
-
-    expect(Object.keys(diagnostics.probes)).toEqual(["models", "skills", "permissionProfiles", "rateLimits"]);
-    expect(diagnostics.probes.models).toMatchObject({
-      id: "models",
-      status: "unknown",
-      message: null,
-      summary: null,
-      checkedAt: null,
-    });
-    expect(diagnosticProbeLabel("models")).toBe("Models");
-    expect(diagnosticProbeLabel("permissionProfiles")).toBe("Permission profiles");
   });
 
   it("classifies ok and failed capability probes", () => {

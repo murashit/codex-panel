@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import { classifyAppServerLog } from "../../../../../src/features/chat/app-server/inbound/app-server-logs";
 
 describe("app-server log classification", () => {
-  it("suppresses raw MCP token refresh stderr", () => {
-    expect(classifyAppServerLog('worker quit with fatal: Transport channel closed, when Auth(TokenRefreshFailed("bad"))')).toBeNull();
-  });
-
   it("suppresses non-JSON app-server stderr", () => {
     expect(
       classifyAppServerLog(
@@ -18,6 +14,10 @@ describe("app-server log classification", () => {
         "src/generated/app-server/: codex app-server generate-ts --out src/generated/app-serverで生成した型。手編集しない。",
       ),
     ).toBeNull();
+  });
+
+  it.each(["TokenRefreshFailed", "Transport channel closed, when Auth"])("suppresses structured token refresh failures: %s", (message) => {
+    expect(classifyAppServerLog(JSON.stringify({ level: "ERROR", fields: { message }, target: "rmcp::transport::worker" }))).toBeNull();
   });
 
   it("classifies JSON app-server errors", () => {

@@ -115,19 +115,6 @@ function latestSent(transport: FakeTransport): RpcOutboundMessage {
   return message;
 }
 
-async function expectRequest(
-  transport: FakeTransport,
-  request: Promise<unknown>,
-  expected: Partial<RpcOutboundMessage>,
-  result: unknown,
-): Promise<void> {
-  const sent = latestSent(transport);
-  expect(sent).toMatchObject(expected);
-  if (!("id" in sent) || typeof sent.id !== "number") throw new Error("Expected an app-server request id.");
-  transport.emitLine({ id: sent.id, result });
-  await request;
-}
-
 function listModels(client: AppServerClient): Promise<unknown> {
   return client.request("model/list", { includeHidden: false, limit: 100 });
 }
@@ -404,38 +391,21 @@ describe("AppServerClient", () => {
     ]);
   });
 
-  it("sends typed client requests", async () => {
+  it("correlates concurrent request results even when replies arrive out of order", async () => {
     const { client, transport } = await connectedClient();
+    const first = readFile(client, "/vault/first.md");
+    const firstSent = latestSent(transport);
+    const second = readFile(client, "/vault/second.md");
+    const secondSent = latestSent(transport);
+    expect(firstSent).toMatchObject({ method: "fs/readFile", params: { path: "/vault/first.md" } });
+    expect(secondSent).toMatchObject({ method: "fs/readFile", params: { path: "/vault/second.md" } });
+    if (!("id" in firstSent) || !("id" in secondSent)) throw new Error("Expected request ids.");
 
-    const request = client.request("thread/inject_items", {
-      threadId: "thread-1",
-      items: [
-        {
-          type: "message",
-          role: "user",
-          content: [{ type: "input_text", text: "Ship this" }],
-        },
-      ],
-    });
+    transport.emitLine({ id: secondSent.id, result: { dataBase64: btoa("second") } });
+    transport.emitLine({ id: firstSent.id, result: { dataBase64: btoa("first") } });
 
-    await expectRequest(
-      transport,
-      request,
-      {
-        method: "thread/inject_items",
-        params: {
-          threadId: "thread-1",
-          items: [
-            {
-              type: "message",
-              role: "user",
-              content: [{ type: "input_text", text: "Ship this" }],
-            },
-          ],
-        },
-      },
-      {},
-    );
+    await expect(first).resolves.toEqual({ dataBase64: btoa("first") });
+    await expect(second).resolves.toEqual({ dataBase64: btoa("second") });
   });
 
   it("exposes initialized state through a single connection lifecycle", async () => {
@@ -661,33 +631,6 @@ describe("AppServerClient", () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 
-  it("ignores synchronous transport callbacks before the transport becomes active", async () => {
-    let transport!: FakeTransport;
-    const onExit = vi.fn();
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit,
-      },
-      transportFactory: (handlers) => {
-        handlers.onLine(JSON.stringify({ method: "warning", params: { message: "early" } }));
-        handlers.onError(new Error("early failure"));
-        handlers.onExit(1, null);
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
-    });
-
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
-
-    expect(client.isConnected()).toBe(true);
-    expect(onExit).not.toHaveBeenCalled();
-  });
-
   it("suppresses late responses after per-request timeouts", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", {
@@ -724,6 +667,27 @@ describe("AppServerClient", () => {
     expect(logs).toEqual([]);
   });
 
+  it("eventually forgets old timeouts while still suppressing recent late responses", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", { clearTimeout, setTimeout });
+    const onLog = vi.fn();
+    const { client, transport } = await connectedClient({ onLog });
+    const requests = Array.from({ length: 1024 }, () => readFile(client, "/tmp/slow.jsonl", { timeoutMs: 10 }));
+    const settled = Promise.allSettled(requests);
+    const sent = transport.sent.filter((message) => "method" in message && message.method === "fs/readFile");
+    const oldest = sent[0];
+    const newest = sent.at(-1);
+    if (!oldest || !("id" in oldest) || !newest || !("id" in newest)) throw new Error("Expected request ids.");
+
+    await vi.advanceTimersByTimeAsync(10);
+    expect((await settled).every((result) => result.status === "rejected")).toBe(true);
+
+    transport.emitLine({ id: newest.id, result: {} });
+    expect(onLog).not.toHaveBeenCalled();
+    transport.emitLine({ id: oldest.id, result: {} });
+    expect(onLog).toHaveBeenCalledWith(expect.stringContaining("Orphan app-server response:"));
+  });
+
   it("does not leave a delayed timeout after a synchronous transport send failure", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", {
@@ -736,54 +700,6 @@ describe("AppServerClient", () => {
     expect(() => listModels(client)).toThrow("write failed");
 
     await vi.advanceTimersByTimeAsync(500);
-  });
-
-  it("bounds timed-out response suppression when responses never arrive", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("window", {
-      clearTimeout,
-      setTimeout,
-    });
-    const logs: string[] = [];
-    let transport!: FakeTransport;
-    const client = createTestClient({
-      handlers: {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: (message) => logs.push(message),
-        onExit: () => undefined,
-      },
-      transportFactory: (handlers) => {
-        transport = new FakeTransport(handlers);
-        return transport;
-      },
-    });
-    const connecting = client.connect();
-    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
-    await connecting;
-
-    const timedOutRequests: { id: number; rejection: Promise<void> }[] = [];
-    for (let index = 0; index < 257; index += 1) {
-      const promise = readFile(client, `/tmp/slow-${String(index)}.jsonl`, { timeoutMs: 10 });
-      const rejection = expect(promise).rejects.toThrow("Codex app-server request timed out");
-      const sent = latestSent(transport);
-      if (!("id" in sent) || typeof sent.id !== "number") throw new Error("Expected an app-server request id.");
-      timedOutRequests.push({ id: sent.id, rejection });
-    }
-
-    await vi.advanceTimersByTimeAsync(10);
-    await Promise.all(timedOutRequests.map(({ rejection }) => rejection));
-
-    const firstTimedOutRequest = timedOutRequests[0];
-    const lastTimedOutRequest = timedOutRequests.at(-1);
-    if (!firstTimedOutRequest || !lastTimedOutRequest) throw new Error("Expected timed-out requests.");
-
-    transport.emitLine({ id: firstTimedOutRequest.id, result: { dataBase64: btoa("evicted") } });
-    expect(logs).toHaveLength(1);
-    expect(logs[0]).toContain("Orphan app-server response");
-
-    transport.emitLine({ id: lastTimedOutRequest.id, result: { dataBase64: btoa("suppressed") } });
-    expect(logs).toHaveLength(1);
   });
 
   it("preserves app-server RPC error codes", async () => {

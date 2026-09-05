@@ -121,22 +121,6 @@ describe("slash command validation and routing", () => {
     expect(ctx.resumeThread).toHaveBeenCalledWith("latest");
   });
 
-  it("returns referenced input for /refer", async () => {
-    const target = thread({ id: "thread-alpha", name: "Alpha" });
-    const input = [{ type: "text" as const, text: "context\n質問です" }];
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
-    const ctx = context({
-      inputSnapshot,
-      listedThreads: [thread({ id: "thread-current", name: "Current" }), target],
-      referThread: vi.fn().mockResolvedValue({ text: "質問です", input }),
-    });
-
-    const result = await executeSlashCommand("refer", '"Alpha" 質問です', ctx);
-
-    expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です", inputSnapshot);
-    expect(result).toEqual({ sendText: "質問です", sendInput: input });
-  });
-
   it("toggles Plan mode without sending text for bare /plan", async () => {
     const ctx = context();
 

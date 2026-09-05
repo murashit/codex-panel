@@ -13,7 +13,7 @@ describe("file path helpers", () => {
   });
 
   it("parses file href paths separately from line suffixes and fragments", () => {
-    expect(parseFileHref("/Vault/src/main.ts:12:4#L12")).toEqual({ path: "/Vault/src/main.ts", subpath: "#L12" });
+    expect(parseFileHref("/Vault/src/main.ts:12:45#L12")).toEqual({ path: "/Vault/src/main.ts", subpath: "#L12" });
     expect(parseFileHref("docs/Guide%20Book.md#Heading%201")).toEqual({
       path: "docs/Guide Book.md",
       subpath: "#Heading 1",

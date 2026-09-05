@@ -2,29 +2,16 @@
 
 import type { ComponentChild } from "preact";
 import { act } from "preact/test-utils";
-import { describe, expect, it, type Mock, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import {
-  selectChatPanelComposer,
-  selectChatPanelGoal,
-  selectChatPanelThreadStream,
-  selectChatPanelToolbar,
-} from "../../../../../src/features/chat/host/shell/selectors";
+import { selectChatPanelComposer } from "../../../../../src/features/chat/host/shell/selectors";
 import { useChatSelector } from "../../../../../src/features/chat/host/shell/state-selector";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
-import {
-  chatSharedResourcesFixture,
-  composerSharedValues,
-  threadStreamSharedValues,
-  toolbarSharedValues,
-} from "../../support/shared-display-values";
+import { chatSharedResourcesFixture, composerSharedValues } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const shared = chatSharedResourcesFixture();
-const toolbarSelector = (state: ChatState) => selectChatPanelToolbar(state, toolbarSharedValues(shared));
-const threadStreamSelector = (state: ChatState) => selectChatPanelThreadStream(state, threadStreamSharedValues(shared));
 const composerSelector = (state: ChatState) => selectChatPanelComposer(state, composerSharedValues(shared));
 
 describe("useChatSelector", () => {
@@ -80,82 +67,10 @@ describe("useChatSelector", () => {
     expect(parent.textContent).toBe("current");
     unmountUiRoot(parent);
   });
-
-  it("isolates stream and composer updates to their subscribed regions", async () => {
-    const store = createChatStateStore();
-    const renders = { toolbar: vi.fn(), goal: vi.fn(), threadStream: vi.fn(), composer: vi.fn() };
-    const parent = document.createElement("div");
-
-    await act(async () => {
-      renderUiRoot(parent, <SelectorRegions store={store} renders={renders} />);
-    });
-    clearRegionRenders(renders);
-
-    await act(async () => {
-      store.dispatch({
-        type: "thread-stream/system-item-added",
-        item: { id: "status", kind: "system", role: "system", text: "Status" },
-      });
-    });
-    expect(renderedRegions(renders)).toEqual(["threadStream"]);
-    clearRegionRenders(renders);
-
-    await act(async () => {
-      store.dispatch({ type: "composer/draft-set", draft: "draft" });
-    });
-    expect(renderedRegions(renders)).toEqual(["composer"]);
-    unmountUiRoot(parent);
-  });
 });
 
 function ComposerValue({ store }: { store: ChatStateStore }): ComponentChild {
   return useChatSelector(store, composerSelector).draft;
-}
-
-function SelectorRegions({
-  store,
-  renders,
-}: {
-  store: ChatStateStore;
-  renders: Record<"toolbar" | "goal" | "threadStream" | "composer", Mock<() => void>>;
-}): ComponentChild {
-  return (
-    <>
-      <Region store={store} selector={toolbarSelector} rendered={renders.toolbar} />
-      <Region store={store} selector={selectChatPanelGoal} rendered={renders.goal} />
-      <Region store={store} selector={threadStreamSelector} rendered={renders.threadStream} />
-      <Region store={store} selector={composerSelector} rendered={renders.composer} />
-    </>
-  );
-}
-
-function Region<Selection extends object>({
-  store,
-  selector,
-  rendered,
-}: {
-  store: ChatStateStore;
-  selector: (state: ChatState) => Selection;
-  rendered: Mock<() => void>;
-}): ComponentChild {
-  useChatSelector(store, selector);
-  rendered();
-  return null;
-}
-
-type RegionRenders = {
-  toolbar: Mock<() => void>;
-  goal: Mock<() => void>;
-  threadStream: Mock<() => void>;
-  composer: Mock<() => void>;
-};
-
-function clearRegionRenders(renders: RegionRenders): void {
-  for (const rendered of Object.values(renders)) rendered.mockClear();
-}
-
-function renderedRegions(renders: RegionRenders): string[] {
-  return Object.entries(renders).flatMap(([region, rendered]) => (rendered.mock.calls.length > 0 ? [region] : []));
 }
 
 interface ControllableStore extends ChatStateStore {

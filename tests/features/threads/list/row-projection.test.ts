@@ -26,6 +26,16 @@ describe("thread row core projection", () => {
     });
   });
 
+  it.each(["checking", "unavailable"] as const)("disables auto-name for %s history", (kind) => {
+    const row = threadRowCoreProjection({
+      thread: thread({}),
+      selected: false,
+      renameState: { kind: "editing", draft: "Draft", autoName: { kind } },
+    });
+
+    expect(row.rename.autoNameDisabled).toBe(true);
+  });
+
   it("uses the normalized thread title as the inactive rename draft", () => {
     expect(threadRowCoreProjection({ thread: thread({ name: "  ", preview: "Preview title" }), selected: false }).rename).toEqual({
       active: false,

@@ -255,7 +255,6 @@ describe("ChatConnectionCoordinator", () => {
         initializeResponse,
       },
     });
-    expect(stateStore.getState()).not.toHaveProperty("threadList");
   });
 
   it("explains missing configured command failures", async () => {

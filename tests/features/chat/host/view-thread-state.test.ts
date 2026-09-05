@@ -148,7 +148,12 @@ describe("CodexChatView thread state", () => {
     const view = await chatView({ requestSaveLayout });
 
     await view.surface.activateThread("thread-1");
+    const updateHeader = vi.fn();
+    Object.assign(view.leaf, { updateHeader });
     await view.surface.startNewThread();
+
+    expect(updateHeader).toHaveBeenCalled();
+    expect(view.getDisplayText()).toBe("Codex");
 
     expect(requestMethods(client)).not.toContain("thread/start");
     expect(view.getState()).toEqual({ version: 1 });

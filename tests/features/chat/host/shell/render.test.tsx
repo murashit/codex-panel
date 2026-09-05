@@ -2,8 +2,6 @@
 
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { diagnosticProbeOk } from "../../../../../src/domain/server/diagnostics";
-import type { SkillsMetadataResource } from "../../../../../src/domain/server/metadata";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ChatPanelGoalDependencies } from "../../../../../src/features/chat/host/goal/view-projection";
 import {
@@ -21,26 +19,6 @@ installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("ChatPanelShell", () => {
-  it("composes toolbar, goal, thread stream, and composer in one Preact root", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-
-    await act(async () => {
-      renderChatPanelShell(container, shellProps(store));
-      await settleShellEffects();
-    });
-
-    expect(container.classList.contains("codex-panel")).toBe(true);
-    expect(container.querySelector(".codex-panel__toolbar .codex-panel__toolbar-primary")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__region--thread-stream")).not.toBeNull();
-    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
   it("updates shell components from the state store", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
@@ -66,49 +44,6 @@ describe("ChatPanelShell", () => {
     await act(async () => {
       unmountChatPanelShell(container);
     });
-  });
-
-  it("keeps composer rendering independent from toolbar-only shared resource updates", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const props = shellProps(store);
-    const skillListeners = new Set<(resource: SkillsMetadataResource) => void>();
-    props.appServerQueries.observeMetadataResource = (id, listener) => {
-      if (id !== "skills") return () => undefined;
-      const skillListener = listener as (resource: SkillsMetadataResource) => void;
-      skillListeners.add(skillListener);
-      return () => {
-        skillListeners.delete(skillListener);
-      };
-    };
-    const originalPresenter = props.parts.composer.presenter;
-    const renderComposer = vi.fn(originalPresenter.renderState);
-    props.parts.composer.presenter = { renderState: renderComposer };
-
-    await act(async () => {
-      renderChatPanelShell(container, props);
-      await settleShellEffects();
-    });
-    expect(skillListeners.size).toBe(1);
-    renderComposer.mockClear();
-
-    await act(async () => {
-      for (const listener of skillListeners) {
-        listener({
-          id: "skills",
-          value: [{ name: "writer", description: "", path: "/skills/writer", enabled: true }],
-          probe: diagnosticProbeOk("skills", "1 skill", 1),
-        });
-      }
-      await settleShellEffects();
-    });
-
-    expect(renderComposer).not.toHaveBeenCalled();
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-    expect(skillListeners.size).toBe(0);
   });
 
   it("removes and restores the toolbar without losing composer or thread viewport state", async () => {

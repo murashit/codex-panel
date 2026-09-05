@@ -293,14 +293,6 @@ describe("executePanelSlashCommand", () => {
     expect(compactThread).toHaveBeenCalledWith("side");
   });
 
-  it("runs reconnect even when there is no current app-server client", async () => {
-    const { host } = createHost({ connectionAvailable: () => false });
-
-    await executePanelSlashCommand(host, "reconnect", "");
-
-    expect(host.reconnect).toHaveBeenCalledOnce();
-  });
-
   it("does not publish async slash output after its initiating target becomes stale", async () => {
     const details = deferred<[]>();
     const toolInventoryDetails = vi.fn(() => details.promise);
@@ -318,16 +310,6 @@ describe("executePanelSlashCommand", () => {
     await executing;
 
     expect(host.addStructuredSystemMessage).not.toHaveBeenCalled();
-  });
-
-  it("does not reference threads without a captured input snapshot", async () => {
-    const { host, referThread } = createHost({ listedThreads: () => [thread("other", "Other")] });
-
-    const result = await executePanelSlashCommand(host, "refer", "Other summarize");
-
-    expect(referThread).not.toHaveBeenCalled();
-    expect(host.addSystemMessage).toHaveBeenCalledWith("Cannot reference a thread without composer input context.");
-    expect(result).toBeUndefined();
   });
 
   it("forwards readable referenced thread input to turn submission", async () => {

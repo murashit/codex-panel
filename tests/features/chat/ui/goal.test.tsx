@@ -68,19 +68,6 @@ describe("GoalPanel", () => {
     parent.remove();
   });
 
-  it("does not show the collapse control for short objectives", async () => {
-    const parent = document.createElement("div");
-
-    await withGoalObjectiveScrollHeight(40, async () => {
-      await act(async () => {
-        renderGoal(parent, goal({ objective: "short" }), actions());
-      });
-    });
-
-    expect(parent.querySelector(".codex-panel__goal-objective")?.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
-    expect(parent.querySelector<HTMLDetailsElement>(".codex-panel__goal-objective-collapse-details")?.hidden).toBe(true);
-  });
-
   it("recomputes objective overflow when its rendered size changes", async () => {
     const parent = document.createElement("div");
     let scrollHeight = 40;
@@ -94,6 +81,8 @@ describe("GoalPanel", () => {
           });
           const details = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__goal-objective-collapse-details"));
           expect(details.hidden).toBe(true);
+          const objective = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__goal-objective"));
+          expect(objective.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
 
           scrollHeight = 100;
           await act(async () => {
@@ -101,6 +90,14 @@ describe("GoalPanel", () => {
           });
 
           expect(details.hidden).toBe(false);
+          expect(objective.classList.contains("codex-panel__goal-objective--collapsed")).toBe(true);
+
+          scrollHeight = 40;
+          await act(async () => {
+            notifyResize();
+          });
+          expect(details.hidden).toBe(true);
+          expect(objective.classList.contains("codex-panel__goal-objective--collapsed")).toBe(false);
         },
       );
     });
@@ -123,24 +120,6 @@ describe("GoalPanel", () => {
     expect(parent.querySelector('[aria-label="Save goal"]')).toBeNull();
     expect(callbacks.onSave).toHaveBeenCalledWith("Updated objective", 250);
     parent.remove();
-  });
-
-  it("keeps an in-progress edit open across usage-only goal updates", async () => {
-    const parent = document.createElement("div");
-    const callbacks = actions();
-    const currentGoal = goal({ objective: "Original", tokensUsed: 1, timeUsedSeconds: 2 });
-
-    await act(async () => {
-      renderGoal(parent, currentGoal, callbacks);
-    });
-    await click(parent, '[aria-label="Edit goal"]');
-    await input(parent, "textarea", "Draft objective");
-
-    await act(async () => {
-      renderGoal(parent, { ...currentGoal, tokensUsed: 99, timeUsedSeconds: 120 }, callbacks);
-    });
-
-    expect(parent.querySelector<HTMLTextAreaElement>("textarea")?.value).toBe("Draft objective");
   });
 
   it("cancels inline edits from Escape or an outside pointer", async () => {
@@ -169,34 +148,49 @@ describe("GoalPanel", () => {
     parent.remove();
   });
 
-  it("autogrows the objective editor and saves with the configured composer send shortcut", async () => {
-    const parent = document.createElement("div");
-    const callbacks = actions();
+  it("resizes the objective editor for supplied measurements and saves with the configured shortcut", async () => {
+    const measuredHeight = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(90);
+    try {
+      const parent = document.createElement("div");
+      const callbacks = actions();
 
-    await act(async () => {
-      renderGoal(parent, goal(), callbacks, "enter");
-    });
-    await click(parent, '[aria-label="Edit goal"]');
-    const textarea = expectPresent(parent.querySelector<HTMLTextAreaElement>("textarea"));
-    await input(parent, "textarea", "line 1\nline 2\nline 3");
+      await act(async () => {
+        renderGoal(parent, goal(), callbacks, "enter");
+      });
+      await click(parent, '[aria-label="Edit goal"]');
+      const textarea = expectPresent(parent.querySelector<HTMLTextAreaElement>("textarea"));
+      await input(parent, "textarea", "line 1\nline 2\nline 3");
 
-    expect(textarea.style.height).not.toBe("");
-    expect(textarea.style.overflowY).toBe("hidden");
+      expect(textarea.style.height).toBe("90px");
+      expect(textarea.style.overflowY).toBe("hidden");
 
-    await textareaKeydown(parent, { key: "Enter" });
-    expect(callbacks.onSave).toHaveBeenCalledWith("line 1\nline 2\nline 3", null);
-    expect(parent.querySelector("textarea")).toBeNull();
+      // Exercise the edit-to-measurement binding; jsdom does not measure the text itself.
+      measuredHeight.mockReturnValue(300);
+      await input(parent, "textarea", "long objective");
+      expect(textarea.style.height).toBe("180px");
+      expect(textarea.style.overflowY).toBe("auto");
+      measuredHeight.mockReturnValue(90);
+      await input(parent, "textarea", "line 1\nline 2\nline 3");
+      expect(textarea.style.height).toBe("90px");
+      expect(textarea.style.overflowY).toBe("hidden");
 
-    const modCallbacks = actions();
-    await act(async () => {
-      renderGoal(parent, goal({ objective: "Saved objective" }), modCallbacks, "mod-enter");
-    });
-    await click(parent, '[aria-label="Edit goal"]');
-    await input(parent, "textarea", "mod save");
-    await textareaKeydown(parent, { key: "Enter" });
-    expect(modCallbacks.onSave).not.toHaveBeenCalled();
-    await textareaKeydown(parent, { key: "Enter", metaKey: true });
-    expect(modCallbacks.onSave).toHaveBeenCalledWith("mod save", null);
+      await textareaKeydown(parent, { key: "Enter" });
+      expect(callbacks.onSave).toHaveBeenCalledWith("line 1\nline 2\nline 3", null);
+      expect(parent.querySelector("textarea")).toBeNull();
+
+      const modCallbacks = actions();
+      await act(async () => {
+        renderGoal(parent, goal({ objective: "Saved objective" }), modCallbacks, "mod-enter");
+      });
+      await click(parent, '[aria-label="Edit goal"]');
+      await input(parent, "textarea", "mod save");
+      await textareaKeydown(parent, { key: "Enter" });
+      expect(modCallbacks.onSave).not.toHaveBeenCalled();
+      await textareaKeydown(parent, { key: "Enter", metaKey: true });
+      expect(modCallbacks.onSave).toHaveBeenCalledWith("mod save", null);
+    } finally {
+      measuredHeight.mockRestore();
+    }
   });
 
   it("routes pause, resume, and clear actions", async () => {

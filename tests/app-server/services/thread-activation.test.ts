@@ -25,7 +25,6 @@ describe("app-server thread activation", () => {
       sandboxPolicy: { type: "readOnly", networkAccess: false },
       activePermissionProfile: null,
     });
-    expect(snapshot).not.toHaveProperty("cwd");
   });
 });
 

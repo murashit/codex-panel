@@ -88,17 +88,6 @@ describe("Obsidian wikilink resolution", () => {
       ),
     ).toThrow(message);
   });
-
-  it("uses a virtual source path without requiring it to exist in metadata cache", () => {
-    const getFirstLinkpathDest = vi.fn(() => null);
-
-    resolveObsidianWikilinks(appWithResolver(getFirstLinkpathDest), {
-      sourcePath: "Not-Yet-Created/Source.md",
-      wikilinks: ["[[Target]]"],
-    });
-
-    expect(getFirstLinkpathDest).toHaveBeenCalledWith("Target", "Not-Yet-Created/Source.md");
-  });
 });
 
 function appWithResolver(getFirstLinkpathDest: (linkpath: string, sourcePath: string) => TFile | null): App {

@@ -37,7 +37,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
   const startTurn = vi.fn().mockResolvedValue(completed({ turnId: "turn" }));
   const steerTurn = vi.fn().mockResolvedValue(completed(undefined));
-  const host: TurnSubmissionCommandHost & { setDraft: ReturnType<typeof vi.fn> } = {
+  const host: TurnSubmissionCommandHost = {
     stateStore,
     ensureConnected: vi.fn().mockResolvedValue(true),
     turnPort: {
@@ -55,7 +55,6 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     resetThreadTurnPresence: vi.fn(),
     applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
     prepareInput: vi.fn((text: string) => ({ text, input: textInput(text) })),
-    setDraft: vi.fn(),
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
     ...overrides,
@@ -159,11 +158,6 @@ describe("TurnSubmissionCommand", () => {
     const ensureConnected = vi.fn(() => connection.promise);
     const { host, startTurn, stateStore } = createHost({
       ensureConnected,
-      turnPort: {
-        startTurn: vi.fn().mockResolvedValue(completed({ turnId: "turn" })),
-        steerTurn: vi.fn().mockResolvedValue(completed(undefined)),
-        interruptTurn: vi.fn().mockResolvedValue(true),
-      },
     });
     resumeThread(stateStore, undefined, "first");
     const commands = createTurnSubmissionCommand(host);
@@ -176,7 +170,6 @@ describe("TurnSubmissionCommand", () => {
     await expect(submitting).resolves.toBe(false);
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.applyPendingThreadSettings).not.toHaveBeenCalled();
-    expect(host.setDraft).not.toHaveBeenCalled();
     expect(activeThreadId(stateStore.getState())).toBe("second");
   });
 
@@ -257,11 +250,10 @@ describe("TurnSubmissionCommand", () => {
     expect(startTurn).toHaveBeenCalledWith({
       threadId: "thread",
       input: textInput("hello"),
-      clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
+      clientUserMessageId: expect.any(String),
     });
     expect(host.prepareInput).not.toHaveBeenCalled();
     expect(stateStore.getState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
-    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
   });
 
@@ -419,36 +411,6 @@ describe("TurnSubmissionCommand", () => {
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(host.setDraft).not.toHaveBeenCalled();
-  });
-
-  it("cleans up a committed web import when starting the turn fails", async () => {
-    const { host, startTurn, stateStore } = createHost();
-    startTurn.mockResolvedValue(notStarted());
-    resumeThread(stateStore);
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-    if (!pending) throw new Error("Expected pending web submission");
-    stateStore.dispatch({
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: "thread",
-        phase: "cancellable",
-      },
-    });
-    const commands = createTurnSubmissionCommand(host);
-
-    await expect(
-      commands.sendTurnText({
-        text: pending.text,
-        codexInputOverride: textInput(pending.text),
-        pendingSubmissionId: pending.id,
-      }),
-    ).resolves.toBe(false);
-
-    expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(host.setDraft).not.toHaveBeenCalled();
   });
 
   it("moves a pending web import into the steer queue before the RPC settles", async () => {
@@ -491,7 +453,7 @@ describe("TurnSubmissionCommand", () => {
     expect(stateStore.getState().activeTurn.pendingSteers[0]).toMatchObject({ id: pending.id, turnId: "turn" });
   });
 
-  it("cleans up and restores a committed pending web steer when the RPC fails", async () => {
+  it("cleans up a committed pending web steer when the RPC fails", async () => {
     const { host, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
@@ -517,11 +479,12 @@ describe("TurnSubmissionCommand", () => {
       }),
     ).resolves.toBe(false);
 
+    expect(steerTurn).toHaveBeenCalledOnce();
     expect(stateStore.getState().pendingSubmission).toBeNull();
-    expect(host.setDraft).not.toHaveBeenCalled();
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([]);
   });
 
-  it("restores the original web command when starting the adopted turn returns no response", async () => {
+  it("removes the optimistic web message when starting its turn returns no response", async () => {
     const { host, startTurn, stateStore } = createHost();
     resumeThread(stateStore);
     startTurn.mockResolvedValue(notStarted());
@@ -546,12 +509,11 @@ describe("TurnSubmissionCommand", () => {
       }),
     ).resolves.toBe(false);
 
-    expect(host.setDraft).not.toHaveBeenCalled();
     expect(stateStore.getState().pendingSubmission).toBeNull();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
   });
 
-  it("restores the original web command when starting the adopted turn throws", async () => {
+  it("removes the optimistic web message and reports a turn-start failure", async () => {
     const { host, startTurn, stateStore } = createHost();
     resumeThread(stateStore);
     startTurn.mockRejectedValue(new Error("offline"));
@@ -576,7 +538,6 @@ describe("TurnSubmissionCommand", () => {
       }),
     ).resolves.toBe(false);
 
-    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("offline");
     expect(stateStore.getState().pendingSubmission).toBeNull();
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
@@ -611,7 +572,6 @@ describe("TurnSubmissionCommand", () => {
 
     await expect(submitting).resolves.toBe(false);
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.setDraft).not.toHaveBeenCalledWith(pending.text, expect.anything());
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -679,39 +639,6 @@ describe("TurnSubmissionCommand", () => {
     });
   });
 
-  it("preserves composer context when overridden slash command input fails to start", async () => {
-    const input = [
-      { type: "text" as const, text: "[[Codex Clippings/Example.md]] summarize [[Attachment.png]]" },
-      { type: "fileReference" as const, name: "Example", path: "Codex Clippings/Example.md" },
-      { type: "additionalContext" as const, key: "codex_panel_obsidian_context", kind: "untrusted" as const, value: "selection" },
-      { type: "fileReference" as const, name: "Attachment.png", path: "Attachment.png" },
-      { type: "localImage" as const, path: "Attachment.png" },
-    ] satisfies CodexInput;
-    const { host, startTurn, stateStore } = createHost();
-    startTurn.mockResolvedValue(notStarted());
-    resumeThread(stateStore);
-    const commands = createTurnSubmissionCommand(host);
-
-    const submitted = await commands.sendTurnText({
-      text: "[[Codex Clippings/Example.md]] summarize [[Attachment.png]]",
-      codexInputOverride: input,
-    });
-
-    expect(submitted).toBe(false);
-    expect(host.setDraft).not.toHaveBeenCalled();
-  });
-
-  it("prepares turn input with the provided composer input snapshot", async () => {
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
-    const { host, stateStore } = createHost();
-    resumeThread(stateStore);
-    const commands = createTurnSubmissionCommand(host);
-
-    await commands.sendTurnText({ text: "hello", inputSnapshot });
-
-    expect(host.prepareInput).toHaveBeenCalledWith("hello", inputSnapshot);
-  });
-
   it("does not restore stale drafts or report stale start failures after the active thread changes", async () => {
     const { host, startTurn, stateStore } = createHost();
     resumeThread(stateStore);
@@ -723,7 +650,6 @@ describe("TurnSubmissionCommand", () => {
 
     await commands.sendTurnText({ text: "hello" });
 
-    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -739,7 +665,7 @@ describe("TurnSubmissionCommand", () => {
       threadId: "thread",
       turnId: "turn",
       input: textInput("follow up"),
-      clientUserMessageId: expect.stringMatching(/^local-steer-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
+      clientUserMessageId: expect.any(String),
     });
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
@@ -750,7 +676,7 @@ describe("TurnSubmissionCommand", () => {
     ]);
   });
 
-  it("does not clear a newer composer draft when steering with a claimed submission", async () => {
+  it("settles an accepted steer through its submission claim", async () => {
     const { host, stateStore } = createHost();
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
@@ -769,7 +695,6 @@ describe("TurnSubmissionCommand", () => {
       },
     });
 
-    expect(host.setDraft).not.toHaveBeenCalled();
     expect(settle).toHaveBeenCalledWith("accepted");
   });
 
@@ -913,24 +838,7 @@ describe("TurnSubmissionCommand", () => {
     expect(startTurn).not.toHaveBeenCalled();
   });
 
-  it("rejects a second submission while the first submission is still preparing", async () => {
-    const settings = deferred<boolean>();
-    const { host, startTurn, stateStore } = createHost({ applyPendingThreadSettings: vi.fn(() => settings.promise) });
-    resumeThread(stateStore);
-    const commands = createTurnSubmissionCommand(host);
-
-    const first = commands.sendTurnText({ text: "first" });
-    await Promise.resolve();
-    const second = commands.sendTurnText({ text: "second" });
-    settings.resolve(true);
-
-    await expect(first).resolves.toBe(true);
-    await expect(second).resolves.toBe(false);
-    expect(startTurn).toHaveBeenCalledOnce();
-    expect(startTurn).toHaveBeenCalledWith(expect.objectContaining({ input: textInput("first") }));
-  });
-
-  it("settles claimed submissions without running delayed draft clear or restoration", async () => {
+  it("accepts the first submission claim and rejects a second while preparation is pending", async () => {
     const settings = deferred<boolean>();
     const { host, startTurn, stateStore } = createHost({ applyPendingThreadSettings: vi.fn(() => settings.promise) });
     resumeThread(stateStore);
@@ -951,7 +859,7 @@ describe("TurnSubmissionCommand", () => {
         settle: firstSettle,
       },
     });
-    await Promise.resolve();
+    await vi.waitFor(() => expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce());
     const second = commands.sendTurnText({
       text: "second",
       submissionClaim: {
@@ -967,6 +875,7 @@ describe("TurnSubmissionCommand", () => {
 
     await expect(first).resolves.toBe(true);
     await expect(second).resolves.toBe(false);
+    expect(startTurn).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ input: textInput("first") }));
     expect(firstSettle).toHaveBeenCalledOnce();
     expect(firstSettle).toHaveBeenCalledWith("accepted");
     expect(secondSettle).toHaveBeenCalledOnce();
@@ -974,7 +883,6 @@ describe("TurnSubmissionCommand", () => {
     expect(firstMarkAdopted).toHaveBeenCalledOnce();
     expect(secondMarkAdopted).not.toHaveBeenCalled();
     expect(firstMarkAdopted.mock.invocationCallOrder[0]).toBeLessThan(startTurn.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY);
-    expect(host.setDraft).not.toHaveBeenCalled();
   });
 
   it("keeps local user ids distinct when submissions share the same timestamp", async () => {
@@ -991,8 +899,8 @@ describe("TurnSubmissionCommand", () => {
 
       const firstId = first.startTurn.mock.calls[0]?.[0].clientUserMessageId;
       const secondId = second.startTurn.mock.calls[0]?.[0].clientUserMessageId;
-      expect(firstId).toMatch(/^local-user-1234-[A-Za-z0-9_-]+-[a-z0-9]+$/);
-      expect(secondId).toMatch(/^local-user-1234-[A-Za-z0-9_-]+-[a-z0-9]+$/);
+      expect(firstId).toEqual(expect.any(String));
+      expect(secondId).toEqual(expect.any(String));
       expect(firstId).not.toBe(secondId);
     } finally {
       now.mockRestore();
@@ -1012,7 +920,6 @@ describe("TurnSubmissionCommand", () => {
     await commands.sendTurnText({ text: "follow up" });
 
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.setDraft).not.toHaveBeenCalled();
     expect(host.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
   });

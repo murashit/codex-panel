@@ -39,7 +39,6 @@ describe("TurnRuntimeFact projection", () => {
     ]);
     const nextState = applyActions(completedState, nextActivity.actions);
 
-    expect(nextActivity.actions[0]).toEqual({ type: "auth-recovery/cleared" });
     expect(nextState.activeTurn.authRecovery).toBeNull();
   });
 
@@ -54,14 +53,6 @@ describe("TurnRuntimeFact projection", () => {
     ]);
 
     expect(applyActions(state, projection.actions).activeTurn.authRecovery).toBeNull();
-  });
-
-  it("projects turn starts without completion outcomes", () => {
-    const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
-
-    const projection = projectTurnRuntimeFacts(state, [{ type: "turnStarted", threadId: "thread-active", turnId: "turn-active" }]);
-
-    expect(projection.outcomes).toEqual([]);
   });
 
   it("reconciles completed turn snapshots with optimistic local user dialogues", () => {

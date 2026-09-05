@@ -506,48 +506,6 @@ describe("panel thread stream rendering and action menu", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("uses Obsidian markdown for completed assistant responses", async () => {
-    const parent = document.createElement("div");
-    const renderMarkdown = vi.spyOn(MarkdownRenderer, "render");
-    renderMarkdown.mockImplementationOnce((_app, text: string, element: HTMLElement) => {
-      element.textContent = `obsidian:${text}`;
-      return Promise.resolve();
-    });
-    const markdownRenderer = new ThreadStreamMarkdownRenderer({
-      app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
-      owner: {} as never,
-      vaultPath: "/vault",
-      openThread: vi.fn(),
-    });
-
-    renderThreadStreamBlocksInAct(
-      parent,
-      projectedThreadStreamBlocks({
-        renderObsidianMarkdown: (element: HTMLElement, text: string) => {
-          markdownRenderer.renderObsidianMarkdown(element, text);
-        },
-        renderStreamMarkdown: vi.fn(),
-        items: [
-          {
-            id: "a1",
-            kind: "dialogue",
-            role: "assistant",
-            text: "**done**",
-            turnId: "turn-1",
-            dialogueKind: "assistantResponse",
-            dialogueState: "completed",
-          },
-        ],
-      }),
-    );
-    await Promise.resolve();
-
-    expect(parent.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("obsidian:**done**");
-    expect(renderMarkdown).toHaveBeenCalledOnce();
-    renderMarkdown.mockRestore();
-    unmountUiRootInAct(parent);
-  });
-
   it("ignores stale async markdown renders targeting the same connected content element", async () => {
     const parent = document.createElement("div");
     document.body.appendChild(parent);

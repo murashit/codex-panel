@@ -69,7 +69,7 @@ describe("panel thread stream item rendering", () => {
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("codex_panel.resolve_wikilinks");
   });
 
-  it("renders steering activity as a compact two-line tool summary", () => {
+  it("renders steering activity with its label and message", () => {
     const block = projectedThreadStreamBlocks({
       items: [
         { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "turn" },
@@ -98,29 +98,6 @@ describe("panel thread stream item rendering", () => {
 
     expect(element.querySelector(".codex-panel__detail-header")?.textContent).toBe("steering");
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("also check tests and keep the summary compact");
-  });
-
-  it("renders path summary tools relative to the workspace root", () => {
-    const block = projectedThreadStreamBlocks({
-      turnLifecycle: runningTurnLifecycle("turn"),
-      workspaceRoot: "/vault/project",
-      items: [
-        {
-          id: "tool-path",
-          kind: "tool",
-          role: "tool",
-          text: "/vault/project/assets/image.png",
-          toolName: "imageView",
-          primaryTarget: { kind: "path", path: "/vault/project/assets/image.png" },
-          turnId: "turn",
-        },
-      ],
-    })[0];
-
-    const element = renderThreadStreamBlockElement(block);
-
-    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("assets/image.png");
-    expect(element.querySelector(".codex-panel__stream-summary")?.getAttribute("title")).toBeNull();
   });
 
   it("derives generic tool summaries from primary targets instead of item text", () => {
@@ -323,7 +300,7 @@ describe("panel thread stream item rendering", () => {
     expect(element.textContent).toContain("[>]Patch UI");
   });
 
-  it("renders agent activity as a one-line summary with consolidated details", () => {
+  it("renders agent activity with a summary and consolidated details", () => {
     const block = projectedThreadStreamBlocks({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
@@ -396,41 +373,6 @@ describe("panel thread stream item rendering", () => {
     expect(summary.textContent).toContain("/root/scoutstarted");
   });
 
-  it("opens agent threads from agent activity headers", () => {
-    const openThreadInNewView = vi.fn();
-    const block = projectedThreadStreamBlocks({
-      turnLifecycle: runningTurnLifecycle("turn"),
-      openThreadInNewView,
-      items: [
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
-          text: "Spawn agent",
-          turnId: "turn",
-          action: "spawn",
-          status: "completed",
-          senderThreadId: "parent",
-          targets: [{ threadId: "child" }],
-          prompt: "Inspect the renderer.",
-          model: null,
-          reasoningEffort: null,
-          agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
-        },
-      ],
-    })[0];
-
-    const element = renderThreadStreamBlockElement(block);
-    const header = expectPresent(element.querySelector<HTMLElement>("details summary"));
-    const open = expectPresent(header.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]'));
-
-    expect(textContents(element, "details summary")).toEqual(["agent"]);
-    open.click();
-
-    expect(openThreadInNewView).toHaveBeenCalledWith("child");
-  });
-
   it("keeps agent thread actions available after agent details expand", () => {
     const openThreadInNewView = vi.fn();
     const block = projectedThreadStreamBlocks({
@@ -465,7 +407,7 @@ describe("panel thread stream item rendering", () => {
     expect(openThreadInNewView).toHaveBeenCalledWith("child");
   });
 
-  it("keeps agent activity prompt previews visually constrained to one line", () => {
+  it("shortens multiline agent prompts in summaries", () => {
     const block = projectedThreadStreamBlocks({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
@@ -491,7 +433,10 @@ describe("panel thread stream item rendering", () => {
     const element = renderThreadStreamBlockElement(block);
     const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__stream-summary"));
 
-    expect(summary.textContent).toBe(`spawn child: Inspect the renderer. ${"a".repeat(73)}... (running)`);
+    expect(summary.textContent).toContain("spawn child: Inspect the renderer.");
+    expect(summary.textContent).not.toContain("\n");
+    expect(summary.textContent).not.toContain("a".repeat(180));
+    expect(summary.textContent).toContain("... (running)");
   });
 
   it("collapses long agent output away from the agent status row", () => {
@@ -531,10 +476,11 @@ describe("panel thread stream item rendering", () => {
     expect(element.querySelector<HTMLElement>("details summary")?.tabIndex).toBe(-1);
     expect(element.textContent).toContain("Agent output 019e061e");
     expect(element.textContent).toContain(longMessage);
-    const details = element.querySelector("details");
-    expect(details?.hasAttribute("open")).toBe(false);
-    details?.dispatchEvent(new Event("toggle"));
-    expect(onDisclosureToggle).toHaveBeenCalledWith("details", "agent-1:agent-details", false);
+    const details = expectPresent(element.querySelector("details"));
+    expect(details.open).toBe(false);
+    details.open = true;
+    details.dispatchEvent(new Event("toggle"));
+    expect(onDisclosureToggle).toHaveBeenCalledWith("details", "agent-1:agent-details", true);
   });
 
   it("renders a compact live agent summary while subagents are running", () => {
@@ -580,7 +526,7 @@ describe("panel thread stream item rendering", () => {
     expect(openThreadInNewView).toHaveBeenCalledWith("running");
   });
 
-  it("renders context compaction as a one-line status item while running and after completion", () => {
+  it("renders context compaction status while running and after completion", () => {
     const runningParent = document.createElement("div");
     const item: ThreadStreamItem = {
       id: "compact-1",

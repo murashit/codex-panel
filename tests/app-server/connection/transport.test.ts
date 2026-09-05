@@ -217,6 +217,51 @@ describe("StdioAppServerTransport", () => {
 
     expect(handlers.onLog).not.toHaveBeenCalled();
   });
+  it("starts Windows command shims through cmd.exe", () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    vi.stubEnv("ComSpec", String.raw`C:\Windows\System32\cmd.exe`);
+    const codexCmd = String.raw`C:\Users\me\AppData\Roaming\npm\codex.cmd`;
+    const cwd = String.raw`C:\vault`;
+
+    spawnMock.mockReturnValue(fakeChildProcess());
+
+    new StdioAppServerTransport(codexCmd, cwd, {
+      onLine: vi.fn(),
+      onLog: vi.fn(),
+      onExit: vi.fn(),
+      onError: vi.fn(),
+    }).start();
+
+    expect(spawnMock).toHaveBeenCalledWith(String.raw`C:\Windows\System32\cmd.exe`, ["/d", "/s", "/c", `""${codexCmd}" app-server"`], {
+      cwd,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsVerbatimArguments: true,
+    });
+  });
+
+  it("kills the cmd.exe process tree when stopping Windows command shim launches", () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    vi.stubEnv("ComSpec", String.raw`C:\Windows\System32\cmd.exe`);
+    const codexCmd = String.raw`C:\Users\me\AppData\Roaming\npm\codex.cmd`;
+    const cmdProcess = fakeChildProcess();
+
+    spawnMock.mockReturnValue(cmdProcess);
+
+    const transport = new StdioAppServerTransport(codexCmd, String.raw`C:\vault`, {
+      onLine: vi.fn(),
+      onLog: vi.fn(),
+      onExit: vi.fn(),
+      onError: vi.fn(),
+    });
+    transport.start();
+    transport.stop();
+
+    expect(cmdProcess.kill).not.toHaveBeenCalled();
+    expect(spawnMock).toHaveBeenLastCalledWith("taskkill", ["/pid", "123", "/t", "/f"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+  });
 });
 
 function transportInstance(codexPath = "codex") {

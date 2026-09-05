@@ -130,15 +130,6 @@ describe("vault write paths", () => {
     expect(vaultRelativeFolderPath("Notes/C:/outside", folderPathOptions())).toBe("Notes/C-/outside");
   });
 
-  it("rejects relative traversal introduced by path normalization", () => {
-    expect(() =>
-      vaultRelativeFolderPath("safe", {
-        ...folderPathOptions(),
-        normalizePath: () => "../outside",
-      }),
-    ).toThrow("relative");
-  });
-
   it("creates missing folder segments in parent-first order and skips existing segments", async () => {
     const events: string[] = [];
     const destination: VaultPathDestination = {

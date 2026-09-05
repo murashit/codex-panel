@@ -19,6 +19,7 @@ describe("textarea auto-grow measurement", () => {
     const textarea = document.createElement("textarea");
     document.body.appendChild(textarea);
     syncTextareaHeight(textarea, { minHeightFallback: 32, maxHeightFallback: 120 });
+    expect(document.querySelector(MIRROR_SELECTOR)).not.toBeNull();
 
     disposeTextareaHeightMirrors();
 

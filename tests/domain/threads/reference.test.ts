@@ -17,6 +17,33 @@ function thread(overrides: Partial<Thread> = {}): Thread {
 }
 
 describe("thread reference context", () => {
+  it("preserves turn order and identifies user, follow-up, assistant, and plan messages", () => {
+    const context = referencedThreadContext(thread(), {
+      turns: [
+        {
+          messages: [
+            { kind: "user", text: "Initial request" },
+            { kind: "assistant", text: "First answer" },
+          ],
+        },
+        {
+          messages: [
+            { kind: "user", text: "Next request" },
+            { kind: "plan", text: "Proposed steps" },
+            { kind: "user", text: "Correction" },
+          ],
+        },
+      ],
+      earlierTurnsAvailable: false,
+    });
+
+    expect(context).toContain("Thread: 019abcde-0000-7000-8000-000000000001");
+    expect(context).toContain("Included turn 1:\nUser:\nInitial request\nCodex:\nFirst answer");
+    expect(context).toContain("Included turn 2:\nUser:\nNext request\nCodex plan:\nProposed steps\nUser follow-up:\nCorrection");
+    expect(context.indexOf("Initial request")).toBeLessThan(context.indexOf("Next request"));
+    expect(context).toContain("Omitted fetched turns due to size: 0");
+  });
+
   it("keeps the newest complete turns within the reference budget", () => {
     const turns = [
       {

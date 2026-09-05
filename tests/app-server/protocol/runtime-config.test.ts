@@ -76,16 +76,16 @@ describe("runtime config protocol mapping", () => {
     });
   });
 
-  it("uses legacy sandbox config when default permissions are not reported", () => {
+  it.each([false, true])("preserves legacy workspace sandbox flags set to %s when no permission profile is reported", (enabled) => {
     expect(
       runtimeConfigFixture({
         approval_policy: "on-request",
         sandbox_mode: "workspace-write",
         sandbox_workspace_write: {
           writable_roots: ["/vault"],
-          network_access: false,
-          exclude_tmpdir_env_var: false,
-          exclude_slash_tmp: false,
+          network_access: enabled,
+          exclude_tmpdir_env_var: enabled,
+          exclude_slash_tmp: enabled,
         },
       }),
     ).toMatchObject({
@@ -95,9 +95,9 @@ describe("runtime config protocol mapping", () => {
         sandboxPolicy: {
           type: "workspaceWrite",
           writableRoots: ["/vault"],
-          networkAccess: false,
-          excludeTmpdirEnvVar: false,
-          excludeSlashTmp: false,
+          networkAccess: enabled,
+          excludeTmpdirEnvVar: enabled,
+          excludeSlashTmp: enabled,
         },
       },
     });

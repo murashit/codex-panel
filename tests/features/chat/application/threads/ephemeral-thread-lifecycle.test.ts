@@ -34,7 +34,6 @@ describe("ephemeral thread lifecycle", () => {
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
       canAcceptDirectInput: false,
     });
-    expect(store.getState()).not.toHaveProperty("threadList");
   });
 
   it("unsubscribes an idle ephemeral thread before persistent navigation", async () => {

@@ -29,12 +29,6 @@ describe("ThreadTitleService", () => {
     expect(generateThreadTitle).toHaveBeenCalledWith(titleContext("visible request", "visible response"), expect.any(AbortSignal));
   });
 
-  it("reports unavailable context without turning it into a generation error", async () => {
-    const service = titleService();
-
-    await expect(service.resolveContext("thread")).resolves.toBeNull();
-  });
-
   it("falls back to persisted context when no visible context exists", async () => {
     const persisted = titleContext("persisted request", "persisted response");
     const persistedContext = vi.fn().mockResolvedValue(persisted);

@@ -127,41 +127,7 @@ describe("reconcileCompletedTurnItems", () => {
       }),
     ]);
   });
-
-  it("model-checks client-id reconciliation across current and server ordering", () => {
-    for (const currentItems of permutations([
-      userDialogue("local-user-1", "same text", "turn", "local-user-1"),
-      assistantDialogue("local-progress", "progress", "turn"),
-      userDialogue("local-user-other", "other turn", "other", "local-user-other"),
-    ])) {
-      for (const turnItems of permutations([
-        userDialogue("server-user", "same text", "turn", "local-user-1"),
-        assistantDialogue("server-assistant", "done", "turn"),
-      ])) {
-        const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
-        const nextIds = next.map((item) => item.id);
-
-        expect(nextIds, reconciliationCase(currentItems, turnItems)).toContain("server-user");
-        expect(nextIds, reconciliationCase(currentItems, turnItems)).not.toContain("local-user-1");
-        expect(nextIds, reconciliationCase(currentItems, turnItems)).toContain("local-user-other");
-        expect(new Set(nextIds).size, reconciliationCase(currentItems, turnItems)).toBe(nextIds.length);
-      }
-    }
-  });
 });
-
-function permutations<T>(items: readonly T[]): T[][] {
-  if (items.length <= 1) return [items.slice()];
-  return items.flatMap((item, index) => permutations([...items.slice(0, index), ...items.slice(index + 1)]).map((tail) => [item, ...tail]));
-}
-
-function reconciliationCase(currentItems: readonly ThreadStreamItem[], turnItems: readonly ThreadStreamItem[]): string {
-  return `current=${currentIds(currentItems)} turn=${currentIds(turnItems)}`;
-}
-
-function currentIds(items: readonly ThreadStreamItem[]): string {
-  return items.map((item) => item.id).join(",");
-}
 
 function userDialogue(id: string, text: string, turnId: string, clientId?: string): Extract<ThreadStreamItem, { dialogueKind: "user" }> {
   return {

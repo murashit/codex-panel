@@ -245,7 +245,7 @@ function threadStreamContextForBlocks(blocks: readonly ThreadStreamViewBlock[]):
   return context;
 }
 
-export function installThreadStreamViewportMetrics(
+function installThreadStreamViewportMetrics(
   element: HTMLElement,
   metrics: { clientHeight?: number; clientWidth?: number; scrollHeight?: number } = {},
 ): void {

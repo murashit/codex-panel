@@ -50,7 +50,6 @@ describe("createActiveThreadIdentitySync", () => {
     sync.applyThreadRenameToActiveIdentity("other", "New");
 
     expect(activeThreadId(stateStore.getState())).toBe("active");
-    expect(stateStore.getState()).not.toHaveProperty("threadList");
     expect(host.invalidateThreadWork).not.toHaveBeenCalled();
     expect(host.resetThreadTurnPresence).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();

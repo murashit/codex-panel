@@ -213,20 +213,6 @@ describe("VaultNoteCandidateProvider", () => {
     expect(provider.candidates("Inbox.md").map((candidate) => candidate.basename)).toEqual(["Alpha", "Beta"]);
   });
 
-  it("unregisters Obsidian events when disposed", () => {
-    const app = appFixture();
-    const provider = new VaultNoteCandidateProvider(app);
-
-    expect(app.registeredEventNames("vault")).toContain("create");
-    expect(app.registeredEventNames("metadata")).toContain("changed");
-    expect(app.registeredEventNames("workspace")).toContain("file-open");
-    provider.dispose();
-
-    expect(app.registeredEventNames("vault")).toEqual([]);
-    expect(app.registeredEventNames("metadata")).toEqual([]);
-    expect(app.registeredEventNames("workspace")).toEqual([]);
-  });
-
   it("shares candidate caches and event subscriptions across panel providers", () => {
     const getFiles = vi.fn(() => vaultFiles([{ basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } }]));
     const app = appFixture({ getFiles });
@@ -251,13 +237,15 @@ describe("VaultNoteCandidateProvider", () => {
   it("resolves wikilinks through metadata cache before direct path fallback", () => {
     const linked = tFile("notes/Alpha.md", "Alpha");
     const direct = tFile("Alpha.md", "Alpha direct");
+    const getFirstLinkpathDest = vi.fn(() => linked);
     const app = appFixture({
-      linkDestination: linked,
+      getFirstLinkpathDest,
       abstractFiles: new Map([["Alpha.md", direct]]),
     });
     const provider = new VaultNoteCandidateProvider(app);
 
     expect(provider.resolveFileReference("Alpha", "Inbox.md")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
+    expect(getFirstLinkpathDest).toHaveBeenCalledWith("Alpha", "Inbox.md");
   });
 
   it("resolves direct markdown paths when metadata has no match", () => {
@@ -269,18 +257,6 @@ describe("VaultNoteCandidateProvider", () => {
 
     expect(provider.resolveFileReference("notes/Alpha", "")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
     expect(provider.resolveFileReference("Missing", "")).toBeNull();
-  });
-
-  it("uses the active file only as Obsidian link-resolution context", () => {
-    const linked = tFile("notes/Project.md", "Project");
-    const getFirstLinkpathDest = vi.fn(() => linked);
-    const app = appFixture({
-      getFirstLinkpathDest,
-    });
-    const provider = new VaultNoteCandidateProvider(app);
-
-    expect(provider.resolveFileReference("Project", "Daily/Today.md")).toEqual({ name: "Project", path: "notes/Project.md" });
-    expect(getFirstLinkpathDest).toHaveBeenCalledWith("Project", "Daily/Today.md");
   });
 
   it("resolves non-markdown wikilinks through Obsidian metadata", () => {

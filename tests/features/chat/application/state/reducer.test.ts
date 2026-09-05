@@ -7,7 +7,7 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { threadStreamStableItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
-import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
+import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -215,8 +215,6 @@ describe("chatReducer", () => {
 
     const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
     expect(disconnected.connection.initializeResponse).toEqual(state.connection.initializeResponse);
-    expect(disconnected.connection).not.toHaveProperty("runtimeConfig");
-    expect(disconnected).not.toHaveProperty("threadList");
   });
 
   it.each([
@@ -499,24 +497,6 @@ describe("chatReducer", () => {
     expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(next.runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
     expect(next.runtime.active.collaborationMode).toBeNull();
-  });
-
-  it("keeps reset and set permission profile requests explicit", () => {
-    let state = chatStateFixture();
-
-    state = chatReducer(state, {
-      type: "runtime/pending-intent-patched",
-      patch: { permissionProfile: setRuntimeIntentValue(":workspace") },
-    });
-
-    expect(state.runtime.pending.permissionProfile).toEqual(setRuntimeIntentValue(":workspace"));
-
-    state = chatReducer(state, {
-      type: "runtime/pending-intent-patched",
-      patch: { permissionProfile: { kind: "resetToConfig" } },
-    });
-
-    expect(state.runtime.pending.permissionProfile).toEqual({ kind: "resetToConfig" });
   });
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {

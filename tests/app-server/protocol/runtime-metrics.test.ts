@@ -15,10 +15,17 @@ describe("app-server runtime metrics", () => {
         rateLimits: appServerRateLimitFixture("single-bucket", 12),
         rateLimitsByLimitId: {
           other: appServerRateLimitFixture("other", 34),
-          codex: appServerRateLimitFixture("codex", 56),
+          codex: {
+            ...appServerRateLimitFixture("codex", 56),
+            secondary: { usedPercent: 78, windowDurationMins: 10_080, resetsAt: 123 },
+          },
         },
       }),
-    ).toMatchObject({ limitId: "codex", primary: { usedPercent: 56 } });
+    ).toMatchObject({
+      limitId: "codex",
+      primary: { usedPercent: 56, windowDurationMins: 300, resetsAt: null },
+      secondary: { usedPercent: 78, windowDurationMins: 10_080, resetsAt: 123 },
+    });
   });
 
   it("falls back to the single-bucket rate limit snapshot when no codex bucket is available", () => {

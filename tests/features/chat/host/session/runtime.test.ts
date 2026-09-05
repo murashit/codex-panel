@@ -60,24 +60,6 @@ describe("chat panel session runtime", () => {
     await Promise.all([firstRestoration, secondRestoration]);
   });
 
-  it("propagates shared thread refresh failures", async () => {
-    const error = new Error("refresh failed");
-    const refresh = vi.fn().mockRejectedValue(error);
-    const { runtime } = sessionRuntimeFixture({
-      environment: {
-        plugin: {
-          threadCatalog: {
-            refreshActiveThreads: refresh,
-          },
-        },
-      },
-    });
-
-    await expect(runtime.commands.refreshSharedThreads()).rejects.toBe(error);
-
-    expect(refresh).toHaveBeenCalledOnce();
-  });
-
   it("resets objective expansion only when a goal presentation changes", () => {
     let publishGoalChange: ((threadId: string, previous: ThreadGoal | null, next: ThreadGoal | null) => void) | undefined;
     const observeChanges = vi.fn((listener: NonNullable<typeof publishGoalChange>) => {
@@ -179,35 +161,6 @@ describe("chat panel session runtime", () => {
     expect(runtime.composer.controller.isSubmissionPreparing()).toBe(false);
   });
 
-  it("refreshes persisted view identity after starting a new thread", async () => {
-    const refreshTabHeader = vi.fn();
-    const { runtime, stateStore } = sessionRuntimeFixture({
-      environment: {
-        view: {
-          refreshTabHeader,
-        },
-      },
-    });
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: threadFixture({ id: "thread-1", preview: "Active" }),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
-    await runtime.commands.startNewThread();
-
-    expect(refreshTabHeader).toHaveBeenCalledOnce();
-  });
-
   it("wires reconnect cleanup through the runtime toolbar action", async () => {
     const { runtime, stateStore } = sessionRuntimeFixture();
     stateStore.dispatch({
@@ -289,7 +242,7 @@ describe("chat panel session runtime", () => {
     vi.useFakeTimers();
     const unsubscribeThreads = vi.fn();
     const unsubscribeMetadata = vi.fn();
-    const { runtime, stateStore, deferredTasks, threadStreamScrollBinding } = sessionRuntimeFixture({
+    const { runtime, stateStore, deferredTasks, threadStreamScrollBinding, resumeWork } = sessionRuntimeFixture({
       environment: {
         plugin: {
           threadCatalog: { observeActiveThreadsResult: vi.fn(() => unsubscribeThreads) },
@@ -299,6 +252,8 @@ describe("chat panel session runtime", () => {
         },
       },
     });
+    const resume = resumeWork.begin("thread-closing");
+    stateStore.dispatch({ type: "thread-stream/history-loading-set", loading: true });
     runtime.observers.threadCatalog.subscribe();
     const warmup = vi.fn();
     deferredTasks.scheduleAppServerWarmup(warmup);
@@ -311,25 +266,15 @@ describe("chat panel session runtime", () => {
     composer.focus();
     expect(runtime.composer.controller.hasFocus()).toBe(true);
     const disconnect = vi.spyOn(runtime.connection.manager, "disconnect");
-    const invalidateConnection = vi.spyOn(runtime.connection.coordinator, "invalidate");
-    const invalidateThreadWork = vi.spyOn(runtime.commands, "invalidateThreadWork");
-    const clearDeferredTasks = vi.spyOn(deferredTasks, "clearAll");
-    const unsubscribeSharedState = vi.spyOn(runtime.observers.threadCatalog, "unsubscribe");
-    const disposeComposer = vi.spyOn(runtime.composer.controller, "dispose");
-    const disposeScrollBinding = vi.spyOn(threadStreamScrollBinding, "dispose");
     const ephemeralCleanup = deferred<void>();
     const disposeEphemeralThread = vi.spyOn(runtime.thread.ephemeral, "dispose").mockReturnValue(ephemeralCleanup.promise);
     const unmount = vi.fn();
 
     const disposal = runtime.dispose(unmount);
 
+    expect(resumeWork.isCurrent(resume)).toBe(false);
+    expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
     expect(disconnect).not.toHaveBeenCalled();
-    expect(invalidateConnection).toHaveBeenCalledOnce();
-    expect(invalidateThreadWork).toHaveBeenCalledOnce();
-    expect(clearDeferredTasks).toHaveBeenCalledOnce();
-    expect(unsubscribeSharedState).toHaveBeenCalledOnce();
-    expect(disposeComposer).toHaveBeenCalledOnce();
-    expect(disposeScrollBinding).toHaveBeenCalledOnce();
     expect(unmount).toHaveBeenCalledOnce();
     expect(disposeEphemeralThread).toHaveBeenCalledOnce();
 

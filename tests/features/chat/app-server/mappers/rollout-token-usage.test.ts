@@ -31,6 +31,32 @@ describe("rollout token usage recovery", () => {
     expect(readFileBase64).toHaveBeenCalledWith("/tmp/rollout.jsonl", { timeoutMs: 2_000 });
   });
 
+  it("recovers a zero-usage record with an unknown context window from a Windows rollout path", async () => {
+    const usage = { total_tokens: 0, input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0 };
+    const line = JSON.stringify({
+      type: "event_msg",
+      payload: { type: "token_count", info: { last_token_usage: usage, total_token_usage: usage, model_context_window: null } },
+    });
+    const readFileBase64 = vi.fn().mockResolvedValue(btoa(line));
+
+    await expect(recoverRolloutTokenUsage("C:\\Codex\\rollout.jsonl", readFileBase64)).resolves.toEqual({
+      last: { totalTokens: 0, inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0 },
+      total: { totalTokens: 0, inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0 },
+      modelContextWindow: null,
+    });
+  });
+
+  it("keeps the last usable event when later records contain invalid usage or partial JSON", async () => {
+    const valid = tokenCountLine({ input: 42, total: 50, context: 1000 });
+    const invalid = tokenCountLine({ input: -1, total: 60, context: 1000 });
+    const readFileBase64 = vi.fn().mockResolvedValue(btoa([valid, invalid, '{"type":'].join("\n")));
+
+    await expect(recoverRolloutTokenUsage("/tmp/rollout.jsonl", readFileBase64)).resolves.toMatchObject({
+      last: { inputTokens: 42, totalTokens: 50 },
+      total: { inputTokens: 84, totalTokens: 100 },
+    });
+  });
+
   it("returns null for missing or invalid token usage shapes", async () => {
     const invalidShape = JSON.stringify({
       type: "event_msg",
