@@ -27,7 +27,6 @@ export interface ThreadStreamFlowBlockIdentity {
 
 export interface ThreadStreamFlowFrameProps<Block extends ThreadStreamFlowBlockIdentity> {
   blocks: readonly Block[];
-  rootAttributes?: Partial<Record<`data-${string}`, string>>;
   scrollPortBinding: ThreadStreamScrollPortBinding;
   renderBlockContent: (block: Block) => UiNode;
 }
@@ -82,11 +81,10 @@ export class ThreadStreamFlowFrame<Block extends ThreadStreamFlowBlockIdentity> 
     disposeThreadStreamFlowRuntime(this.runtime);
   }
 
-  override render({ blocks, renderBlockContent, rootAttributes }: ThreadStreamFlowFrameProps<Block>): UiNode {
+  override render({ blocks, renderBlockContent }: ThreadStreamFlowFrameProps<Block>): UiNode {
     return h(
       "div",
       {
-        ...rootAttributes,
         ref: this.setScrollElement,
         className: "codex-panel__region codex-panel__region--thread-stream codex-panel__thread-stream",
       },

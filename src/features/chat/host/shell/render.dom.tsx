@@ -59,66 +59,25 @@ interface ChatPanelShellProps {
   parts: ChatPanelShellParts;
 }
 
-interface ChatPanelShellMount {
-  props: ChatPanelShellProps;
-  stopStatusBarClearanceSync: () => void;
-}
-
-const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
+const shellMounts = new WeakMap<HTMLElement, () => void>();
 
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
   container.addClass("codex-panel");
-  const existing = shellMounts.get(container);
-  const mount = existing ?? createShellMount(container, props);
-  renderMountedShell(container, mount, props);
+  if (!shellMounts.has(container)) {
+    unmountUiRoot(container);
+    container.replaceChildren();
+    shellMounts.set(container, startStatusBarClearanceSync(container));
+  }
+  syncStatusBarClearance(container);
+  renderObsidianUiRoot(container, <ChatPanelShell {...props} />);
 }
 
 export function unmountChatPanelShell(container: HTMLElement | null): void {
   if (!container) return;
-  const mount = shellMounts.get(container);
-  mount?.stopStatusBarClearanceSync();
+  shellMounts.get(container)?.();
   shellMounts.delete(container);
   unmountUiRoot(container);
   container.replaceChildren();
-}
-
-function createShellMount(container: HTMLElement, props: ChatPanelShellProps): ChatPanelShellMount {
-  const mount: ChatPanelShellMount = {
-    props,
-    stopStatusBarClearanceSync: startStatusBarClearanceSync(container),
-  };
-  shellMounts.set(container, mount);
-  return mount;
-}
-
-function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount, props: ChatPanelShellProps): void {
-  if (!uiRootIntact(container, mount.props.showToolbar)) {
-    unmountUiRoot(container);
-    container.replaceChildren();
-  }
-  syncStatusBarClearance(container);
-  renderObsidianUiRoot(container, <ChatPanelShell {...props} />);
-  mount.props = props;
-}
-
-function uiRootIntact(container: HTMLElement, showToolbar: boolean): boolean {
-  const topLevel = Array.from(container.children);
-  const toolbar = shellRegion(container, "toolbar");
-  const body = shellRegion(container, "body");
-  if (!body) return false;
-  const expectedTopLevelCount = showToolbar ? 2 : 1;
-  if (topLevel.length !== expectedTopLevelCount) return false;
-  if (showToolbar) {
-    if (!toolbar) return false;
-    if (topLevel[0] !== toolbar || topLevel[1] !== body) return false;
-  } else if (topLevel[0] !== body) {
-    return false;
-  }
-  return Boolean(shellRegion(body, "goal") && shellRegion(body, "thread-stream") && shellRegion(body, "composer"));
-}
-
-function shellRegion(container: HTMLElement, region: string): HTMLElement | null {
-  return container.querySelector<HTMLElement>(`:scope > [data-codex-panel-shell-region="${region}"]`);
 }
 
 function ChatPanelShell({
@@ -133,7 +92,7 @@ function ChatPanelShell({
   return (
     <>
       {showToolbar ? (
-        <div key="toolbar" className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
+        <div key="toolbar" className="codex-panel__toolbar">
           <ChatPanelToolbarRegion
             stateStore={stateStore}
             appServerQueries={appServerQueries}
@@ -144,12 +103,12 @@ function ChatPanelShell({
           />
         </div>
       ) : null}
-      <div key="body" className="codex-panel__body" data-codex-panel-shell-region="body">
-        <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
+      <div key="body" className="codex-panel__body">
+        <div className="codex-panel__region codex-panel__region--goal">
           <ChatPanelGoalRegion stateStore={stateStore} threadGoalQueries={threadGoalQueries} dependencies={parts.goal} />
         </div>
         <ChatPanelThreadStreamRegion stateStore={stateStore} threadCatalog={threadCatalog} dependencies={parts.threadStream} />
-        <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
+        <div className="codex-panel__region codex-panel__region--composer">
           <ChatPanelComposerRegion
             stateStore={stateStore}
             appServerQueries={appServerQueries}
@@ -270,7 +229,6 @@ function ChatPanelThreadStreamRegion({
           context: projection.context,
           scrollPortBinding: dependencies.scrollPortBinding,
         }}
-        rootAttributes={{ "data-codex-panel-shell-region": "thread-stream" }}
       />
     );
   }, [model, dependencies]);

@@ -15,17 +15,15 @@ interface ThreadStreamViewportState {
 
 interface ThreadStreamViewportProps {
   state: ThreadStreamViewportState;
-  rootAttributes?: Partial<Record<`data-${string}`, string>>;
 }
 
-export function ThreadStreamViewport({ state, rootAttributes }: ThreadStreamViewportProps): UiNode {
+export function ThreadStreamViewport({ state }: ThreadStreamViewportProps): UiNode {
   const { blocks, context, scrollPortBinding } = state;
   return (
     <ThreadStreamFlowFrame
       blocks={blocks}
       scrollPortBinding={scrollPortBinding}
       renderBlockContent={(block) => <ThreadStreamBlockContent block={block} context={context} />}
-      {...(rootAttributes ? { rootAttributes } : {})}
     />
   );
 }
