@@ -7,13 +7,13 @@ import {
   vaultMarkdownTemplateDate,
   vaultMarkdownTemplateTime,
 } from "../../../domain/vault/markdown-write-templates";
+import { sanitizeVaultPathSegment } from "../../../domain/vault/write-paths";
 import {
   ensureVaultFolder,
-  sanitizeVaultPathSegment,
   uniqueVaultPath,
   type VaultMarkdownDestination,
   withVaultWriteLock,
-} from "../../../domain/vault/write-paths";
+} from "../../../shared/vault/write-operations";
 
 export interface ArchiveExportResult {
   path: string;

@@ -1,6 +1,6 @@
 import { normalizePath, type Vault } from "obsidian";
 
-import type { VaultMarkdownDestination, VaultPathDestination } from "../../domain/vault/write-paths";
+import type { VaultMarkdownDestination, VaultPathDestination } from "../vault/write-operations";
 
 export function createObsidianVaultPathDestination(vault: Vault): VaultPathDestination {
   return {

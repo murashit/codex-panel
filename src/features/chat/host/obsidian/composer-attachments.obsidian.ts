@@ -1,14 +1,9 @@
 import type { App } from "obsidian";
 
-import {
-  ensureVaultFolder,
-  sanitizeVaultPathSegment,
-  uniqueVaultPath,
-  vaultRelativeFolderPath,
-  withVaultWriteLock,
-} from "../../../../domain/vault/write-paths";
+import { sanitizeVaultPathSegment, vaultRelativeFolderPath } from "../../../../domain/vault/write-paths";
 import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/preferences";
 import { createObsidianVaultPathDestination } from "../../../../shared/obsidian/vault-write-destination.obsidian";
+import { ensureVaultFolder, uniqueVaultPath, withVaultWriteLock } from "../../../../shared/vault/write-operations";
 import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
 
 interface VaultComposerAttachmentHandlerOptions {
