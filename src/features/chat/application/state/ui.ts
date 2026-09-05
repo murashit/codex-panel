@@ -54,7 +54,7 @@ export type UiAction =
   | { type: "ui/thread-stream-fork-menu-set"; itemId: string | null }
   | {
       type: "ui/disclosure-set";
-      bucket: "details" | "activityGroups" | "textDetails" | "userDialogueExpanded" | "goalObjectiveExpanded" | "approvalDetails";
+      bucket: ChatDisclosureBucket;
       id: string;
       open: boolean;
     };
@@ -171,13 +171,9 @@ function initialThreadStreamActionMenuUiState(): ChatThreadStreamActionMenuUiSta
 }
 
 function initialDisclosureUiState(): ChatDisclosureUiState {
-  return disclosureUiStateFrom(() => new Set());
-}
-
-function disclosureUiStateFrom(factory: (bucket: ChatDisclosureBucket) => ReadonlySet<string>): ChatDisclosureUiState {
   const disclosures = {} as Record<ChatDisclosureBucket, ReadonlySet<string>>;
   for (const bucket of CHAT_DISCLOSURE_BUCKETS) {
-    disclosures[bucket] = factory(bucket);
+    disclosures[bucket] = new Set();
   }
   return disclosures;
 }
@@ -195,15 +191,9 @@ function chatRenameUiState(threadId: string | null, state: ThreadRenameActiveSta
 function filterStringSet(values: ReadonlySet<string>, keep: (value: string) => boolean): ReadonlySet<string> {
   let next: Set<string> | null = null;
   for (const value of values) {
-    if (keep(value)) {
-      next?.add(value);
-    } else if (next === null) {
-      next = new Set();
-      for (const kept of values) {
-        if (kept === value) break;
-        next.add(kept);
-      }
-    }
+    if (keep(value)) continue;
+    next ??= new Set(values);
+    next.delete(value);
   }
   return next ?? values;
 }

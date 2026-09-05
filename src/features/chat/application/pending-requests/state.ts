@@ -68,44 +68,41 @@ export function reduceRequestSlice(state: ChatRequestState, action: RequestActio
 
 export function resolveChatRequest(state: ChatRequestState, requestId: PendingRequestId): ChatRequestState {
   const resolvedInputs = state.pendingUserInputs.filter((input) => input.requestId === requestId);
-  const resolvedApprovals = state.approvals.filter((approval) => approval.requestId === requestId);
+  const hasResolvedApproval = state.approvals.some((approval) => approval.requestId === requestId);
   const resolvedMcpElicitations = state.pendingMcpElicitations.filter((elicitation) => elicitation.requestId === requestId);
-  if (resolvedApprovals.length === 0 && resolvedInputs.length === 0 && resolvedMcpElicitations.length === 0) return state;
+  if (!hasResolvedApproval && resolvedInputs.length === 0 && resolvedMcpElicitations.length === 0) return state;
 
-  const draftKeys = new Set(
-    resolvedInputs.flatMap((input) =>
-      input.params.questions.flatMap((question) => [
-        userInputDraftKey(requestId, question.id),
-        userInputOtherDraftKey(requestId, question.id),
-      ]),
-    ),
-  );
-  const userInputDrafts =
-    draftKeys.size === 0 ? state.userInputDrafts : new Map([...state.userInputDrafts].filter(([key]) => !draftKeys.has(key)));
-  const mcpDraftKeys = new Set(
-    resolvedMcpElicitations.flatMap((elicitation) =>
-      elicitation.params.mode === "form" ? elicitation.params.fields.map((field) => mcpElicitationDraftKey(requestId, field.id)) : [],
-    ),
-  );
-  const mcpElicitationDrafts =
-    mcpDraftKeys.size === 0
-      ? state.mcpElicitationDrafts
-      : new Map([...state.mcpElicitationDrafts].filter(([key]) => !mcpDraftKeys.has(key)));
+  let userInputDrafts: Map<string, string> | null = null;
+  for (const input of resolvedInputs) {
+    for (const question of input.params.questions) {
+      userInputDrafts ??= new Map(state.userInputDrafts);
+      userInputDrafts.delete(userInputDraftKey(requestId, question.id));
+      userInputDrafts.delete(userInputOtherDraftKey(requestId, question.id));
+    }
+  }
+  let mcpElicitationDrafts: Map<string, string> | null = null;
+  for (const elicitation of resolvedMcpElicitations) {
+    if (elicitation.params.mode !== "form") continue;
+    for (const field of elicitation.params.fields) {
+      mcpElicitationDrafts ??= new Map(state.mcpElicitationDrafts);
+      mcpElicitationDrafts.delete(mcpElicitationDraftKey(requestId, field.id));
+    }
+  }
   return patchObject(state, {
     approvals: state.approvals.filter((approval) => approval.requestId !== requestId),
     pendingUserInputs: state.pendingUserInputs.filter((input) => input.requestId !== requestId),
     pendingMcpElicitations: state.pendingMcpElicitations.filter((elicitation) => elicitation.requestId !== requestId),
-    userInputDrafts,
-    mcpElicitationDrafts,
+    userInputDrafts: userInputDrafts ?? state.userInputDrafts,
+    mcpElicitationDrafts: mcpElicitationDrafts ?? state.mcpElicitationDrafts,
   });
 }
 
 function setUserInputDraftSlice(state: ChatRequestState, key: string, value: string): ChatRequestState {
   if (state.userInputDrafts.get(key) === value) return state;
-  return patchObject(state, { userInputDrafts: new Map([...state.userInputDrafts, [key, value]]) });
+  return patchObject(state, { userInputDrafts: new Map(state.userInputDrafts).set(key, value) });
 }
 
 function setMcpElicitationDraftSlice(state: ChatRequestState, key: string, value: string): ChatRequestState {
   if (state.mcpElicitationDrafts.get(key) === value) return state;
-  return patchObject(state, { mcpElicitationDrafts: new Map([...state.mcpElicitationDrafts, [key, value]]) });
+  return patchObject(state, { mcpElicitationDrafts: new Map(state.mcpElicitationDrafts).set(key, value) });
 }
