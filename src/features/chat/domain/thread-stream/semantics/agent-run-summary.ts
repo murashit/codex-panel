@@ -16,7 +16,6 @@ export interface ActiveSubagentActivity extends AgentCoordinationLifecycle {
   readonly messagePreview: string | null;
 }
 
-type AgentRunState = "running" | "completed" | "failed";
 type ActiveAgentState = AgentStateSummary & { agentLabel?: string };
 
 export function activeAgentRunSummary(
@@ -80,14 +79,14 @@ export function activeAgentRunSummary(
   const summary = { running: 0, completed: 0, failed: 0, agents: [] as AgentRunSummaryAgent[], additionalAgents: 0 };
   const agents = [...agentStatuses.values()];
   for (const agent of agents) {
-    const state = agentRunState(agent);
+    const state = agent.executionState;
     if (state) summary[state] += 1;
   }
 
   if (summary.running === 0 && summary.failed === 0) return null;
 
   const runningAgents = agents
-    .filter((agent) => agentRunState(agent) === "running")
+    .filter((agent) => agent.executionState === "running")
     .map((agent) => ({
       threadId: agent.threadId,
       ...(agent.agentLabel ? { agentLabel: agent.agentLabel } : {}),
@@ -149,8 +148,4 @@ function agentCoordinationLifecycleFromExecutionState(executionState: ExecutionS
 
 function definedAgentLabel(label: string | undefined): { agentLabel: string } | Record<string, never> {
   return label ? { agentLabel: label } : {};
-}
-
-function agentRunState(agent: AgentStateSummary): AgentRunState | null {
-  return agent.executionState;
 }

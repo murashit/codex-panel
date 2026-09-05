@@ -17,8 +17,8 @@ import type { PersistentNavigationLifecycle } from "../../application/threads/pe
 import { RestorationController } from "../../application/threads/restoration-controller";
 import { createResumeCommand, type ResumeCommand } from "../../application/threads/resume-command";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
-import { createThreadCommands, type ThreadCommandsHost } from "../../application/threads/thread-commands";
-import { createThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
+import { createThreadCommands, type ThreadCommands, type ThreadCommandsHost } from "../../application/threads/thread-commands";
+import { createThreadNavigationCommands, type ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
 import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
 import type { ChatComposerController } from "../composer/controller";
@@ -27,8 +27,6 @@ import { createToolbarPanelActions, type ToolbarPanelActions } from "../toolbar/
 import { activeThreadRenameTitleContext, createThreadRenameEditorActions, type ThreadRenameEditorActions } from "./rename-editor";
 
 export type SessionGoalCommands = GoalCommands & GoalEditorActions;
-export type SessionThreadCommands = ReturnType<typeof createThreadCommands>;
-export type SessionThreadNavigationCommands = ReturnType<typeof createThreadNavigationCommands>;
 
 export interface SessionThreadLifecycle {
   restoration: RestorationController;
@@ -91,9 +89,9 @@ interface SessionThreadCommandInput {
 }
 
 interface SessionThreadCommandsResult {
-  commands: SessionThreadCommands;
+  commands: ThreadCommands;
   toolbarPanelActions: ToolbarPanelActions;
-  navigation: SessionThreadNavigationCommands;
+  navigation: ThreadNavigationCommands;
 }
 
 export function createSessionThreadFoundation(host: SessionThreadHost, input: SessionThreadFoundationInput): SessionThreadFoundation {

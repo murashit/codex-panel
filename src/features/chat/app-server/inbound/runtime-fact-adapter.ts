@@ -18,7 +18,7 @@ import {
 } from "../mappers/thread-stream/turn-items";
 import type { StreamUpdateNotification, TurnLifecycleNotification, UserVisibleNoticeNotification } from "./notification-routing";
 
-type RuntimeFactSource =
+export type RuntimeFactSource =
   | StreamUpdateNotification
   | TurnLifecycleNotification
   | Extract<ServerNotification, { method: "serverRequest/resolved" }>

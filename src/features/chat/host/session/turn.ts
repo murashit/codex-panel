@@ -10,13 +10,15 @@ import { activeThreadId } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { createSubmissionCommands, type SubmissionCommands as SessionSubmissionCommands } from "../../application/submission/commands";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import type { ThreadCommands } from "../../application/threads/thread-commands";
+import type { ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
 import { readWebUrl } from "../obsidian/web-context.obsidian";
 import type { ChatPanelRuntimeNotices } from "../runtime/notices";
-import type { SessionGoalCommands, SessionThreadCommands, SessionThreadLifecycle, SessionThreadNavigationCommands } from "./thread";
+import type { SessionGoalCommands, SessionThreadLifecycle } from "./thread";
 
 interface SessionTurnStatus {
   set: (statusText: string) => void;
@@ -44,8 +46,8 @@ interface SessionTurnInput {
   status: SessionTurnStatus;
   inboundHandler: ChatInboundHandler;
   threadLifecycle: SessionThreadLifecycle;
-  threadCommands: SessionThreadCommands;
-  navigation: SessionThreadNavigationCommands;
+  threadCommands: ThreadCommands;
+  navigation: ThreadNavigationCommands;
   composerController: ChatComposerController;
   runtimeSettings: ChatRuntimeSettingsCommands;
   threadStart: ThreadStartCommand;

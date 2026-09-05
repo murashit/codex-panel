@@ -8,7 +8,7 @@ import { activeThreadSettingsAppliedAction } from "../../application/state/trans
 import { projectTurnRuntimeFacts, type TurnRuntimeProjectionOutcome } from "../../application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
 import { type DiagnosticStatusNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
-import { turnRuntimeFactsFromNotification } from "./runtime-fact-adapter";
+import { type RuntimeFactSource, turnRuntimeFactsFromNotification } from "./runtime-fact-adapter";
 
 export type ChatInboundEffect = {
   type: "maybe-name-thread";
@@ -55,11 +55,7 @@ export function planChatInboundNotification(
   }
 }
 
-function planTurnRuntimeNotification(
-  state: ChatState,
-  notification: Parameters<typeof turnRuntimeFactsFromNotification>[0],
-  localItemId: LocalItemIdProvider,
-): ChatInboundPlan {
+function planTurnRuntimeNotification(state: ChatState, notification: RuntimeFactSource, localItemId: LocalItemIdProvider): ChatInboundPlan {
   const facts = turnRuntimeFactsFromNotification(notification, localItemId);
   const projection = projectTurnRuntimeFacts(state, facts);
   return {

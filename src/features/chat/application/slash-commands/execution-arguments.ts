@@ -10,8 +10,9 @@ export function validateSlashCommandArguments(command: SlashCommandName, args: s
   const definition = slashCommandDefinition(command);
   if (definition.argsKind === "none" && args) return usageError(command, "does not take arguments");
   if (definition.argsKind === "requiredThread" && !args) return usageError(command, "requires a thread");
-  if (definition.argsKind === "threadAndMessage" && !parseReferArgs(args)) return usageError(command, "requires a thread and a message");
-  if (definition.argsKind === "threadAndName" && !parseThreadAndNameArgs(args)) return usageError(command, "requires a thread and a name");
+  if (definition.argsKind === "threadAndMessage" && !parseThreadAndTextArgs(args))
+    return usageError(command, "requires a thread and a message");
+  if (definition.argsKind === "threadAndName" && !parseThreadAndTextArgs(args)) return usageError(command, "requires a thread and a name");
   if (definition.argsKind === "urlAndOptionalMessage" && !parseWebCommandArgs(args)) return usageError(command, "requires a URL");
   return null;
 }
@@ -21,16 +22,10 @@ export function usageError(command: SlashCommandName, message: string): string {
   return `${definition.command} ${message}. Usage: ${definition.usage}`;
 }
 
-export function parseReferArgs(args: string): { threadQuery: string; message: string } | null {
-  const parsed = parseThreadAndTextArgs(args);
-  return parsed ? { threadQuery: parsed.threadQuery, message: parsed.text } : null;
-}
-
-export function parseThreadAndNameArgs(args: string): { threadQuery: string; text: string } | null {
-  const parsed = parseThreadAndTextArgs(args);
-  if (!parsed) return null;
-  const text = parsed.text.trim();
-  return text ? { threadQuery: parsed.threadQuery, text } : null;
+export function parseThreadAndTextArgs(args: string): { threadQuery: string; text: string } | null {
+  const parsed = parseThreadTitleArgument(args);
+  const text = parsed?.rest.trim();
+  return parsed?.title.trim() && text ? { threadQuery: parsed.title, text } : null;
 }
 
 export function parseThreadOnlyArgs(args: string, options: { allowEmpty?: boolean } = {}): string | null {
@@ -72,12 +67,6 @@ export function resolveThreadArgument(
     : null;
   if (exactExcludedThread) return { ok: true, thread: exactExcludedThread };
   return { ok: false, message: query ? `No matching thread: ${query}` : "No recent threads to resume." };
-}
-
-function parseThreadAndTextArgs(args: string): { threadQuery: string; text: string } | null {
-  const parsed = parseThreadTitleArgument(args);
-  const text = parsed?.rest.trim();
-  return parsed?.title.trim() && text ? { threadQuery: parsed.title, text } : null;
 }
 
 function multipleThreadResolution(threads: readonly Thread[]): ThreadResolution {

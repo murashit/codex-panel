@@ -3,7 +3,7 @@ import type { AgentRunSummary, AgentRunSummaryAgent, ReasoningThreadStreamItem, 
 import { threadStreamReasoningIsActive } from "../../domain/thread-stream/semantics/active-turn";
 import type { AgentRunSummaryView, ThreadStreamStatusView } from "../../ui/thread-stream/model";
 
-interface ThreadStreamStatusViewContext {
+export interface ThreadStreamStatusViewContext {
   activeTurnId: string | null;
   items: readonly ThreadStreamItem[];
   activeItems: readonly ThreadStreamItem[];

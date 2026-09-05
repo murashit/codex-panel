@@ -8,7 +8,7 @@ export function splitUtf8Context(value: string, maxBytes: number, maxParts: numb
   const parts: string[] = [];
   let rest = value;
   while (rest && parts.length < maxParts) {
-    const prefix = utf8Prefix(rest, maxBytes);
+    const prefix = truncateUtf8(rest, maxBytes);
     if (!prefix) break;
     const boundary = preferredBoundary(prefix, rest.length > prefix.length);
     const part = prefix.slice(0, boundary);
@@ -19,10 +19,6 @@ export function splitUtf8Context(value: string, maxBytes: number, maxParts: numb
 }
 
 export function truncateUtf8(value: string, maxBytes: number): string {
-  return utf8Prefix(value, maxBytes);
-}
-
-function utf8Prefix(value: string, maxBytes: number): string {
   if (maxBytes <= 0 || !value) return "";
   if (utf8ByteLength(value) <= maxBytes) return value;
   let low = 0;

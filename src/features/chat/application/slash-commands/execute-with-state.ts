@@ -3,7 +3,7 @@ import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
 import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import type { runtimeSnapshotForChatState } from "../runtime/snapshot";
+import type { ChatRuntimeSharedResources } from "../runtime/snapshot";
 import { activeThreadId } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
@@ -15,7 +15,7 @@ export interface PanelSlashCommandHost extends SlashCommandExecutionPorts {
   connectionAvailable: () => boolean;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<PreparedInput>;
-  sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1];
+  sharedResources: ChatRuntimeSharedResources;
   listedThreads: () => readonly Thread[];
 }
 

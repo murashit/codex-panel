@@ -13,7 +13,7 @@ import type {
 } from "../../ui/thread-stream/model";
 import { detailView } from "./detail";
 import { type ThreadStreamItemAnnotations, type ThreadStreamLayoutBlock, threadStreamLayoutBlocks } from "./layout";
-import { agentRunSummaryView, threadStreamStatusView } from "./status";
+import { agentRunSummaryView, type ThreadStreamStatusViewContext, threadStreamStatusView } from "./status";
 import { threadStreamTextView } from "./text";
 
 interface PendingRequestThreadStreamBlockInput {
@@ -200,7 +200,7 @@ function threadStreamRenderFamily(classification: ThreadStreamSemanticClassifica
   return "status";
 }
 
-function statusViewContext(input: ThreadStreamBlockProjectionInput): Parameters<typeof threadStreamStatusView>[1] {
+function statusViewContext(input: ThreadStreamBlockProjectionInput): ThreadStreamStatusViewContext {
   return {
     activeTurnId: input.activeTurnId,
     items: input.items,

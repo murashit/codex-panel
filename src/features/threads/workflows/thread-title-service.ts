@@ -64,10 +64,6 @@ function linkedAbortSignal(
 async function resolveThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {
   const visibleContext = host.visibleContext?.(threadId);
   if (visibleContext) return visibleContext;
-  return persistedThreadTitleContext(host, threadId);
-}
-
-async function persistedThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {
   return host.port.persistedContext(threadId);
 }
 

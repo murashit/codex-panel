@@ -15,7 +15,7 @@ import {
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
-import { submissionStateSnapshot } from "./snapshot";
+import { type SubmissionStateSnapshot, submissionStateSnapshot } from "./snapshot";
 import { TurnSubmissionAttempt } from "./turn-submission-attempt";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
@@ -44,8 +44,6 @@ export interface TurnSubmissionCommandHost {
 export interface TurnSubmissionCommand {
   sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
 }
-
-type TurnSubmissionSnapshot = ReturnType<typeof submissionStateSnapshot>;
 
 type TurnSubmissionPlan =
   | { kind: "blocked"; message: string }
@@ -239,7 +237,7 @@ async function startThreadForTurn(
   return started;
 }
 
-function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
+function planTurnSubmission(state: SubmissionStateSnapshot): TurnSubmissionPlan {
   if (state.busy) {
     return state.activeThreadId && state.activeTurnId
       ? { kind: "steer", threadId: state.activeThreadId, turnId: state.activeTurnId }

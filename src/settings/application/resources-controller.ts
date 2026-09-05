@@ -77,7 +77,9 @@ export class SettingsResourcesController {
     });
     this.unsubscribeArchivedThreads = resources.threadCatalog.observeArchivedThreadsResult((result) => {
       if (!this.resourcesAreCurrent(resources)) return;
-      this.receiveObservedArchivedThreadsResult(result);
+      if (result.isFetching && this.archivedThreadsOperation?.kind === "failed") this.archivedThreadsOperation = null;
+      this.archivedThreadsResult = result;
+      this.callbacks.display();
     });
   }
 
@@ -92,12 +94,6 @@ export class SettingsResourcesController {
     this.autoLoadStarted = false;
     if (this.archivedThreadsOperation?.kind === "loading") this.archivedThreadsOperation = null;
     this.unsubscribe();
-  }
-
-  private receiveObservedArchivedThreadsResult(result: ObservedResult<readonly Thread[]>): void {
-    if (result.isFetching && this.archivedThreadsOperation?.kind === "failed") this.archivedThreadsOperation = null;
-    this.archivedThreadsResult = result;
-    this.callbacks.display();
   }
 
   async refresh(options: { forceModels?: boolean } = {}): Promise<void> {
@@ -184,7 +180,7 @@ export class SettingsResourcesController {
 
   effortOptions(modelIdOrName: string | null): ReasoningEffort[] {
     const model = findModelMetadataByIdOrName(this.modelsResult.value ?? [], modelIdOrName);
-    return model ? supportedEffortsForModelMetadata(model) : [];
+    return supportedEffortsForModelMetadata(model);
   }
 
   effortSupported(modelIdOrName: string | null, effort: ReasoningEffort | null): boolean {
@@ -199,7 +195,7 @@ export class SettingsResourcesController {
     if (this.hooksLifecycle().kind === "loading") return;
     const resources = this.resources;
     const isCurrent = (): boolean => this.resourcesAreCurrent(resources);
-    this.hooksOperation = settingsResourceLoading();
+    this.hooksOperation = { kind: "loading" };
     this.callbacks.display();
     try {
       await options.operation(resources);
@@ -207,7 +203,7 @@ export class SettingsResourcesController {
       this.hooksOperation = null;
     } catch (error) {
       if (!isCurrent()) return;
-      this.hooksOperation = settingsResourceFailed(options.failureError(error));
+      this.hooksOperation = { kind: "failed", error: options.failureError(error) };
       if (this.lifetime.isActive()) this.callbacks.notify(options.failureNotice);
     } finally {
       if (isCurrent() && this.lifetime.isActive()) this.callbacks.display();
@@ -224,7 +220,7 @@ export class SettingsResourcesController {
     const resources = this.resources;
     const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.resourcesAreCurrent(resources);
 
-    this.archivedThreadsOperation = settingsResourceLoading();
+    this.archivedThreadsOperation = { kind: "loading" };
     this.callbacks.display();
     try {
       await options.operation(resources);
@@ -232,7 +228,7 @@ export class SettingsResourcesController {
       this.archivedThreadsOperation = null;
     } catch (error) {
       if (!isCurrent()) return;
-      this.archivedThreadsOperation = settingsResourceFailed(options.failureError(error));
+      this.archivedThreadsOperation = { kind: "failed", error: options.failureError(error) };
       this.callbacks.notify(options.failureNotice);
     } finally {
       if (isCurrent()) this.callbacks.display();
@@ -280,25 +276,14 @@ export class SettingsResourcesController {
   }
 }
 
-function createSettingsResourceLifecycle(): SettingsResourceLifecycleState {
-  return { kind: "idle" };
-}
-
 function emptyObservedResult<T>(): ObservedResult<T> {
   return { value: null, error: null, isFetching: false };
 }
 
-function settingsResourceLoading(): { kind: "loading" } {
-  return { kind: "loading" };
-}
-
-function settingsResourceFailed(error: string): { kind: "failed"; error: string } {
-  return { kind: "failed", error };
-}
-
 function lifecycleFromObservedResult<T>(result: ObservedResult<T>, label: string): SettingsResourceLifecycleState {
-  if (result.isFetching) return settingsResourceLoading();
-  return result.error ? settingsResourceFailed(`${label}: ${result.error.message}`) : createSettingsResourceLifecycle();
+  if (result.isFetching) return { kind: "loading" };
+  if (result.error) return { kind: "failed", error: `${label}: ${result.error.message}` };
+  return { kind: "idle" };
 }
 
 function errorMessage(error: unknown): string {

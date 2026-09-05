@@ -5,7 +5,7 @@ import { unmountUiRoot } from "../../../../shared/dom/preact-root.dom";
 import { renderObsidianUiRoot } from "../../../../shared/obsidian/preact-root.obsidian";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
-import { activeThreadId } from "../../application/state/model";
+import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { ComposerShell } from "../../ui/composer";
 import { GoalPanel } from "../../ui/goal";
@@ -150,7 +150,7 @@ function ChatPanelToolbarRegion({
     [models, skills, permissionProfilesProbe, rateLimits],
   );
   const selector = useMemo(
-    () => (state: Parameters<typeof selectChatPanelToolbar>[0]) =>
+    () => (state: ChatState) =>
       selectChatPanelToolbar(state, {
         activeThreads,
         runtimeConfig,
@@ -166,7 +166,7 @@ function ChatPanelToolbarRegion({
   return <Toolbar model={projectChatPanelToolbar(model, dependencies, Date.now())} actions={actions} />;
 }
 
-function selectToolInventoryKey(state: Parameters<typeof activeThreadId>[0]): { threadId: string | null; enabled: boolean } {
+function selectToolInventoryKey(state: ChatState): { threadId: string | null; enabled: boolean } {
   return {
     threadId: activeThreadId(state),
     enabled: state.connection.phase.kind === "connected" && state.ui.toolbarPanel === "status-panel",
@@ -184,10 +184,7 @@ function ChatPanelGoalRegion({
 }): UiNode {
   const { threadId, enabled } = useChatSelector(stateStore, selectThreadGoalKey);
   const goalResource = useThreadGoalResource(threadGoalQueries, threadId, enabled);
-  const selector = useMemo(
-    () => (state: Parameters<typeof selectChatPanelGoal>[0]) => selectChatPanelGoal(state, goalResource.goal),
-    [goalResource.goal],
-  );
+  const selector = useMemo(() => (state: ChatState) => selectChatPanelGoal(state, goalResource.goal), [goalResource.goal]);
   const model = useChatSelector(stateStore, selector);
   return (
     <>
@@ -197,7 +194,7 @@ function ChatPanelGoalRegion({
   );
 }
 
-function selectThreadGoalKey(state: Parameters<typeof activeThreadId>[0]): { threadId: string | null; enabled: boolean } {
+function selectThreadGoalKey(state: ChatState): { threadId: string | null; enabled: boolean } {
   return {
     threadId: activeThreadId(state),
     enabled: state.connection.phase.kind === "connected" && activePanelOperationDecision(state, "goal-read").kind === "allowed",
@@ -215,8 +212,7 @@ function ChatPanelThreadStreamRegion({
 }): UiNode {
   const activeThreads = useActiveThreadsResource(threadCatalog);
   const selector = useMemo(
-    () => (state: Parameters<typeof selectChatPanelThreadStream>[0]) =>
-      selectChatPanelThreadStream(state, { threads: activeThreads.threads }),
+    () => (state: ChatState) => selectChatPanelThreadStream(state, { threads: activeThreads.threads }),
     [activeThreads.threads],
   );
   const model = useChatSelector(stateStore, selector);
@@ -252,7 +248,7 @@ function ChatPanelComposerRegion({
   const models = useModelsResource(appServerQueries);
   const rateLimits = useRateLimitsResource(appServerQueries);
   const selector = useMemo(
-    () => (state: Parameters<typeof selectChatPanelComposer>[0]) =>
+    () => (state: ChatState) =>
       selectChatPanelComposer(state, {
         threads: activeThreads.threads,
         runtimeConfig,

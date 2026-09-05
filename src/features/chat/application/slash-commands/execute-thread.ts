@@ -1,4 +1,4 @@
-import { parseThreadAndNameArgs, parseThreadOnlyArgs, resolveThreadArgument, usageError } from "./execution-arguments";
+import { parseThreadAndTextArgs, parseThreadOnlyArgs, resolveThreadArgument, usageError } from "./execution-arguments";
 import type { SlashCommandExecutionContext, SlashCommandExecutionResult } from "./execution-contracts";
 
 export type ThreadSlashCommandName = "clear" | "resume" | "reconnect" | "fork" | "btw" | "rollback" | "compact" | "archive" | "rename";
@@ -111,7 +111,7 @@ export async function executeThreadSlashCommand(
       return;
     }
     case "rename": {
-      const parsed = parseThreadAndNameArgs(args);
+      const parsed = parseThreadAndTextArgs(args);
       if (!parsed) {
         context.addSystemMessage(usageError(command, "requires a thread and a name"));
         return;

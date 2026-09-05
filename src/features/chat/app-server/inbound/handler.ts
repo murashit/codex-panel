@@ -22,6 +22,7 @@ import {
 import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import { classifyAppServerLog } from "./app-server-logs";
 import {
+  type ApprovalRequestCoordinator,
   type ApprovalRequestOwner,
   type ApprovalResponseDelivery,
   createApprovalRequestCoordinator,
@@ -59,7 +60,7 @@ interface ChatInboundHandlerContext {
   store: ChatStateStore;
   effects: ChatInboundHandlerEffects;
   localItemIds: LocalIdSource;
-  approvalRequests: ReturnType<typeof createApprovalRequestCoordinator>;
+  approvalRequests: ApprovalRequestCoordinator;
   userInputAutoResolutionTimers: Map<PendingRequestId, number>;
 }
 

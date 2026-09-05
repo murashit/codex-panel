@@ -75,7 +75,7 @@ export function reasoningEffortDescriptionForModelMetadata(model: ModelMetadata 
 }
 
 export function sortedModelMetadata(models: readonly ModelMetadata[]): ModelMetadata[] {
-  return [...models]
+  return models
     .filter((model) => !model.hidden)
     .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.model.localeCompare(b.model));
 }

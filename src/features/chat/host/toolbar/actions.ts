@@ -1,5 +1,5 @@
 import { CLIENT_VERSION } from "../../../../constants";
-import { serverDiagnostics } from "../../../../domain/server/diagnostics";
+import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
 import { copyTextWithNotice } from "../../../../shared/obsidian/clipboard.obsidian";
 import type { ChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
@@ -45,7 +45,7 @@ interface ToolbarUiActionDependencies {
     runtimeConfig: () => unknown;
     rateLimit: () => unknown;
     availableModels: () => readonly unknown[];
-    metadataDiagnostics: () => Parameters<typeof serverDiagnostics>[0];
+    metadataDiagnostics: () => MetadataResourceDiagnostics;
     toolInventory: () => ToolInventorySnapshot | null;
   };
 }

@@ -1,9 +1,8 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
-import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
+import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activeThreadId, type ChatState } from "../../application/state/model";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ToolbarStatusRow as DiagnosticRow } from "../../ui/toolbar-model";
 import { appServerDiagnosticSections } from "./diagnostics";
@@ -29,7 +28,7 @@ interface ChatPanelRuntimeNoticesInput {
   connected: () => boolean;
   configuredCommand: () => string;
   vaultPath: () => string;
-  sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1] & {
+  sharedResources: ChatRuntimeSharedResources & {
     metadataDiagnosticsSnapshot(): MetadataResourceDiagnostics;
     skillsSnapshot(): readonly SkillMetadata[] | null;
     toolInventorySnapshot(threadId: string | null): ToolInventorySnapshot | null;
@@ -51,7 +50,7 @@ function statusDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamNoticeS
   const state = input.state();
   return noticeSectionsFromRows(
     buildStatusDetails({
-      snapshot: runtimeSnapshot(state, input.sharedResources),
+      snapshot: runtimeSnapshotForChatState(state, input.sharedResources),
       nowMs: Date.now(),
     }),
   );
@@ -59,13 +58,13 @@ function statusDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamNoticeS
 
 function modelStatusDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamNoticeSection[] {
   const state = input.state();
-  const snapshot = runtimeSnapshot(state, input.sharedResources);
+  const snapshot = runtimeSnapshotForChatState(state, input.sharedResources);
   return noticeSectionsFromRows(buildModelStatusDetails(snapshot));
 }
 
 function effortStatusDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamNoticeSection[] {
   const state = input.state();
-  return noticeSectionsFromRows(buildEffortStatusDetails(runtimeSnapshot(state, input.sharedResources)));
+  return noticeSectionsFromRows(buildEffortStatusDetails(runtimeSnapshotForChatState(state, input.sharedResources)));
 }
 
 function connectionDiagnosticDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamNoticeSection[] {
@@ -94,7 +93,7 @@ function permissionDetails(input: ChatPanelRuntimeNoticesInput): ThreadStreamNot
   const state = input.state();
   return noticeSectionsFromDiagnostics(
     runtimePermissionSections({
-      snapshot: runtimeSnapshot(state, input.sharedResources),
+      snapshot: runtimeSnapshotForChatState(state, input.sharedResources),
       vaultPath: input.vaultPath(),
     }),
   );
@@ -111,8 +110,4 @@ function noticeSectionsFromDiagnostics(
 
 function noticeSectionsFromRows(rows: readonly DiagnosticRow[]): ThreadStreamNoticeSection[] {
   return [{ auditFacts: rows.map((row) => ({ key: row.label, value: row.value })) }];
-}
-
-function runtimeSnapshot(state: ChatState, sharedResources: Parameters<typeof runtimeSnapshotForChatState>[1]): RuntimeSnapshot {
-  return runtimeSnapshotForChatState(state, sharedResources);
 }

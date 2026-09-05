@@ -19,7 +19,7 @@ export function ModelEffortControl({
   onModelChange: (value: string | null) => void;
   onEffortChange: (value: ReasoningEffort | null) => void;
 }): UiNode {
-  const efforts = reasoningEffortsForSelectedModel(models, modelValue);
+  const efforts = supportedEffortsForModelMetadata(findModelMetadataByIdOrName(models, modelValue));
   return (
     <>
       <ObsidianDropdown
@@ -63,9 +63,4 @@ function reasoningEffortSelectOptions(
     options.push({ value: effort, label: effort });
   }
   return options;
-}
-
-function reasoningEffortsForSelectedModel(models: readonly ModelMetadata[], modelIdOrName: string | null): ReasoningEffort[] {
-  const model = findModelMetadataByIdOrName(models, modelIdOrName);
-  return model ? supportedEffortsForModelMetadata(model) : [];
 }

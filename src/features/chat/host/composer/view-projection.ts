@@ -1,9 +1,9 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { ModelMetadata, ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
 import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
-import { resolveRuntimeControls } from "../../domain/runtime/resolution";
+import { type RuntimeControlsResolution, resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ComposerMetaViewModel, ComposerShellProps } from "../../ui/composer";
 import { contextSummary } from "../runtime/status";
@@ -33,8 +33,8 @@ export interface ChatPanelComposerActions {
 }
 
 interface RuntimeComposerChoicesInput {
-  model: ChatPanelComposerModel;
-  snapshot: RuntimeSnapshot;
+  models: readonly ModelMetadata[];
+  resolution: RuntimeControlsResolution;
   requestModel: (model: string) => void;
   requestReasoningEffort: (effort: ReasoningEffort) => void;
 }
@@ -56,6 +56,7 @@ export function projectChatPanelComposer(
     hasThreadTurns: model.hasThreadTurns,
     availableModels: model.availableModels,
   });
+  const resolution = resolveRuntimeControls(snapshot, runtimeConfigOrDefault(model.runtimeConfig));
   return {
     placeholder:
       model.canAcceptDirectInput === false
@@ -64,10 +65,10 @@ export function projectChatPanelComposer(
           ? "Agent thread is read-only."
           : composerPlaceholder(activeComposerThreadName(model), model.sideChatActive, model.sideChatSourceTitle),
     meta: {
-      ...composerMetaViewModel(model, snapshot),
+      ...composerMetaViewModel(model, snapshot, resolution),
       ...runtimeComposerChoices({
-        model,
-        snapshot,
+        models: model.availableModels,
+        resolution,
         requestModel: (model) => void actions.requestModel(model),
         requestReasoningEffort: (effort) => void actions.requestReasoningEffort(effort),
       }),
@@ -78,6 +79,7 @@ export function projectChatPanelComposer(
 function composerMetaViewModel(
   model: ChatPanelComposerModel,
   snapshot: RuntimeSnapshot,
+  resolution: RuntimeControlsResolution,
 ): Omit<ChatPanelComposerMeta, "modelChoices" | "effortChoices"> {
   const phase = model.connectionPhase;
   if (phase.kind === "failed" || phase.kind === "disconnected") {
@@ -94,8 +96,6 @@ function composerMetaViewModel(
     };
   }
 
-  const config = runtimeConfigOrDefault(model.runtimeConfig);
-  const resolution = resolveRuntimeControls(snapshot, config);
   const context = contextSummary(snapshot);
   const selectedModel = resolution.model.effective;
   const effort = resolution.reasoningEffort.effective;
@@ -133,10 +133,9 @@ function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   modelChoices: ChatPanelComposerRuntimeChoice[];
   effortChoices: ChatPanelComposerRuntimeChoice[];
 } {
-  const config = runtimeConfigOrDefault(input.model.runtimeConfig);
-  const resolution = resolveRuntimeControls(input.snapshot, config);
+  const resolution = input.resolution;
   const effectiveModel = resolution.model.effective;
-  const models = sortedModelMetadata(input.model.availableModels);
+  const models = sortedModelMetadata(input.models);
   const modelChoices: ChatPanelComposerRuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
     selected: effectiveModel === model.model,

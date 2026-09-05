@@ -1,7 +1,7 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { ThreadStreamAuditFact, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import { type SlashCommandSubcommandDefinition, slashCommandSubcommandDefinition, slashCommandSubcommands } from "./catalog";
-import { parseReferArgs, resolveThreadArgument, usageError } from "./execution-arguments";
+import { parseThreadAndTextArgs, resolveThreadArgument, usageError } from "./execution-arguments";
 import type { SlashCommandExecutionContext, SlashCommandExecutionResult } from "./execution-contracts";
 import { parseWebCommandArgs } from "./parse";
 
@@ -29,7 +29,7 @@ export async function executeContextSlashCommand(
 ): Promise<SlashCommandExecutionResult | undefined> {
   switch (command) {
     case "refer": {
-      const parsed = parseReferArgs(args);
+      const parsed = parseThreadAndTextArgs(args);
       if (!parsed) {
         context.addSystemMessage(usageError(command, "requires a thread and a message"));
         return;
@@ -50,7 +50,7 @@ export async function executeContextSlashCommand(
         context.addSystemMessage("Cannot reference a thread without composer input context.");
         return;
       }
-      const reference = await context.referThread(thread.thread, parsed.message, context.inputSnapshot);
+      const reference = await context.referThread(thread.thread, parsed.text, context.inputSnapshot);
       return { sendText: reference.text, sendInput: reference.input };
     }
     case "web": {
