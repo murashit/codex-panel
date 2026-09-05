@@ -1,24 +1,13 @@
 import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../domain/turns/context-budget";
 import type { CodexInputItem } from "../../domain/turns/input";
 import { turnContextSubmissionId } from "../../domain/turns/submission-id";
+import type { AdditionalContextEntry as AppServerAdditionalContextEntry } from "../../generated/app-server/v2/AdditionalContextEntry";
+import type { TurnStartParams } from "../../generated/app-server/v2/TurnStartParams";
+import type { UserInput } from "../../generated/app-server/v2/UserInput";
 
-type AppServerUserInputImageDetail = "auto" | "low" | "high" | "original";
-
-type AppServerUserInput =
-  | { type: "text"; text: string; text_elements: [] }
-  | { type: "image"; detail?: AppServerUserInputImageDetail; url: string }
-  | { type: "localImage"; detail?: AppServerUserInputImageDetail; path: string }
-  | { type: "skill"; name: string; path: string };
-
-interface AppServerAdditionalContextEntry {
-  value: string;
-  kind: "untrusted" | "application";
-}
-
-export interface AppServerTurnInput {
-  input: AppServerUserInput[];
-  additionalContext?: Record<string, AppServerAdditionalContextEntry>;
-}
+type AppServerUserInput = Extract<UserInput, { type: "text" | "image" | "localImage" | "skill" }>;
+type AppServerUserInputImageDetail = NonNullable<Extract<UserInput, { type: "image" }>["detail"]>;
+export type AppServerTurnInput = Pick<TurnStartParams, "input"> & { additionalContext?: Record<string, AppServerAdditionalContextEntry> };
 
 const ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES = 2_800;
 const ADDITIONAL_CONTEXT_MAX_PARTS = 8;

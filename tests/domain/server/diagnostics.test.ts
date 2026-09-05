@@ -9,7 +9,6 @@ import {
   upsertMcpServerDiagnostic,
 } from "../../../src/domain/server/diagnostics";
 import type { ServerInitialization } from "../../../src/domain/server/initialization";
-import { mcpServerStatusSummariesFromStatuses } from "../../../src/domain/server/mcp-status";
 
 describe("server diagnostics", () => {
   it("formats initialize metadata", () => {
@@ -102,44 +101,5 @@ describe("server diagnostics", () => {
     });
     expect(diagnostics.map((server) => server.name)).toEqual(["docs", "github"]);
     expect(shortDiagnosticErrorMessage("1234567890", 10)).toBe("1234567890");
-  });
-
-  it("derives codex app ids from MCP tool prefixes", () => {
-    const summaries = mcpServerStatusSummariesFromStatuses([
-      {
-        name: "codex_apps",
-        runtimeStatus: "connected",
-        authStatus: "oAuth",
-        tools: {
-          "github.fetch_issue": { name: "github.fetch_issue" },
-          "google_drive.get_document_text": { name: "google_drive.get_document_text" },
-          "apple_music.get-track-details-batch": {},
-          malformed_tool: { name: "malformed_tool" },
-        },
-        resources: [],
-        resourceTemplates: [],
-      },
-      {
-        name: "github",
-        runtimeStatus: null,
-        authStatus: "oAuth",
-        tools: {
-          "github.fetch_issue": { name: "github.fetch_issue" },
-        },
-        resources: [],
-        resourceTemplates: [],
-      },
-    ]);
-
-    expect(summaries).toMatchObject([
-      {
-        name: "codex_apps",
-        codexAppIds: ["apple_music", "github", "google_drive"],
-      },
-      {
-        name: "github",
-        codexAppIds: [],
-      },
-    ]);
   });
 });

@@ -1,17 +1,6 @@
-import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../domain/threads/goal";
-
-interface AppServerThreadGoal {
-  threadId: string;
-  objective: string;
-  status: AppServerThreadGoalStatus;
-  tokenBudget: number | null;
-  tokensUsed: number;
-  timeUsedSeconds: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-type AppServerThreadGoalStatus = ThreadGoalStatus;
+import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
+import type { ThreadGoal as AppServerThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
+import type { ThreadGoalSetParams } from "../../generated/app-server/v2/ThreadGoalSetParams";
 
 export function threadGoalFromAppServerGoal(goal: AppServerThreadGoal | null): ThreadGoal | null {
   if (!goal) return null;
@@ -27,11 +16,7 @@ export function threadGoalFromAppServerGoal(goal: AppServerThreadGoal | null): T
   };
 }
 
-export function appServerThreadGoalUpdate(update: ThreadGoalUpdate): {
-  objective?: string | null;
-  status?: AppServerThreadGoalStatus | null;
-  tokenBudget?: number | null;
-} {
+export function appServerThreadGoalUpdate(update: ThreadGoalUpdate): Pick<ThreadGoalSetParams, "objective" | "status" | "tokenBudget"> {
   return {
     ...("objective" in update ? { objective: update.objective } : {}),
     ...("status" in update ? { status: update.status === null ? null : update.status } : {}),

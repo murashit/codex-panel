@@ -1,57 +1,39 @@
 import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
+import type { HookMetadata } from "../../generated/app-server/v2/HookMetadata";
+import type { Model } from "../../generated/app-server/v2/Model";
+import type { SkillMetadata as GeneratedSkillMetadata } from "../../generated/app-server/v2/SkillMetadata";
 
-export interface CatalogModel {
-  id: string;
-  model: string;
-  displayName: string;
-  description: string;
-  hidden: boolean;
-  supportedReasoningEfforts: readonly { reasoningEffort: string; description: string }[];
-  defaultReasoningEffort: string | null;
-  inputModalities: readonly string[];
-  serviceTiers: readonly { id: string; name: string }[];
-  defaultServiceTier: string | null;
-  isDefault: boolean;
-  [key: string]: unknown;
-}
+export type CatalogModel = Pick<
+  Model,
+  | "id"
+  | "model"
+  | "displayName"
+  | "description"
+  | "hidden"
+  | "supportedReasoningEfforts"
+  | "defaultReasoningEffort"
+  | "inputModalities"
+  | "serviceTiers"
+  | "defaultServiceTier"
+  | "isDefault"
+>;
 
-export interface CatalogSkillMetadata {
-  name: string;
-  description: string;
-  shortDescription?: string;
-  interface?: { shortDescription?: string } | null;
-  path: string;
-  enabled: boolean;
-  [key: string]: unknown;
-}
+export type CatalogSkillMetadata = Pick<
+  GeneratedSkillMetadata,
+  "name" | "description" | "shortDescription" | "interface" | "path" | "enabled"
+>;
 
-interface CatalogHookCommon {
-  key: string;
-  eventName: string;
-  matcher: string | null;
-  statusMessage: string | null;
-  sourcePath: string;
-  enabled: boolean;
-  isManaged: boolean;
-  currentHash: string;
-  trustStatus: AppServerHookTrustStatus;
-  [key: string]: unknown;
-}
-
-export type CatalogHookMetadata = CatalogHookCommon &
+export type CatalogHookMetadata = Pick<
+  HookMetadata,
+  "key" | "eventName" | "matcher" | "statusMessage" | "sourcePath" | "enabled" | "isManaged" | "currentHash" | "trustStatus"
+> &
   (
-    | { handlerType: "command"; command: string }
-    | { handlerType: "mcpTool"; server: string; tool: string }
-    | { handlerType: "prompt" | "agent" }
+    | Pick<Extract<HookMetadata, { handlerType: "command" }>, "handlerType" | "command">
+    | Pick<Extract<HookMetadata, { handlerType: "mcpTool" }>, "handlerType" | "server" | "tool">
+    | Pick<Extract<HookMetadata, { handlerType: "prompt" | "agent" }>, "handlerType">
   );
 
-type AppServerHookTrustStatus = "managed" | "untrusted" | "trusted" | "modified";
-
-export interface AppServerHookOperation {
-  key: string;
-  currentHash: string;
-  trustStatus: AppServerHookTrustStatus;
-}
+export type AppServerHookOperation = Pick<HookMetadata, "key" | "currentHash" | "trustStatus">;
 
 function modelMetadataFromCatalogModel(model: CatalogModel): ModelMetadata {
   return {

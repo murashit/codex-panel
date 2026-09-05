@@ -78,6 +78,7 @@ function appServerRateLimitFixture(limitId: string, usedPercent: number): AppSer
     primary: { usedPercent, windowDurationMins: 300, resetsAt: null },
     secondary: null,
     credits: null,
+    spendControlReached: null,
     individualLimit: null,
     planType: null,
     rateLimitReachedType: null,

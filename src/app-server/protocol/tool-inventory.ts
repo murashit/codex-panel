@@ -1,43 +1,13 @@
+import type { McpServerStatusSummary } from "../../domain/server/mcp-status";
 import type { ToolInventoryMarketplaceError, ToolInventoryPlugin } from "../../domain/server/tool-inventory";
+import type { MarketplaceLoadErrorInfo } from "../../generated/app-server/v2/MarketplaceLoadErrorInfo";
+import type { McpServerStatus } from "../../generated/app-server/v2/McpServerStatus";
+import type { PluginInstalledResponse } from "../../generated/app-server/v2/PluginInstalledResponse";
+import type { PluginMarketplaceEntry } from "../../generated/app-server/v2/PluginMarketplaceEntry";
+import type { PluginSource } from "../../generated/app-server/v2/PluginSource";
+import type { PluginSummary } from "../../generated/app-server/v2/PluginSummary";
 
-interface ToolInventoryPluginInstalledResponse {
-  marketplaces: readonly ToolInventoryPluginMarketplaceEntry[];
-  marketplaceLoadErrors: readonly ToolInventoryMarketplaceLoadError[];
-  [key: string]: unknown;
-}
-
-interface ToolInventoryPluginMarketplaceEntry {
-  name: string;
-  path: string | null;
-  plugins: readonly ToolInventoryPluginSummary[];
-  [key: string]: unknown;
-}
-
-interface ToolInventoryPluginSummary {
-  id: string;
-  name: string;
-  interface: { displayName: string | null } | null;
-  localVersion: string | null;
-  installed: boolean;
-  enabled: boolean;
-  availability: string;
-  source: ToolInventoryPluginSource;
-  [key: string]: unknown;
-}
-
-type ToolInventoryPluginSource =
-  | { type: "local"; path: string }
-  | { type: "git"; url: string; path: string | null; refName: string | null; sha: string | null }
-  | { type: "npm"; package: string; version: string | null; registry: string | null }
-  | { type: "remote" };
-
-interface ToolInventoryMarketplaceLoadError {
-  marketplacePath: string;
-  message: string;
-  [key: string]: unknown;
-}
-
-export function toolInventoryPluginsFromInstalledResponse(response: ToolInventoryPluginInstalledResponse): {
+export function toolInventoryPluginsFromInstalledResponse(response: PluginInstalledResponse): {
   plugins: ToolInventoryPlugin[];
   marketplaceErrors: ToolInventoryMarketplaceError[];
 } {
@@ -49,10 +19,7 @@ export function toolInventoryPluginsFromInstalledResponse(response: ToolInventor
   };
 }
 
-function toolInventoryPluginFromSummary(
-  plugin: ToolInventoryPluginSummary,
-  marketplace: ToolInventoryPluginMarketplaceEntry,
-): ToolInventoryPlugin {
+function toolInventoryPluginFromSummary(plugin: PluginSummary, marketplace: PluginMarketplaceEntry): ToolInventoryPlugin {
   return {
     id: plugin.id,
     name: plugin.name,
@@ -67,14 +34,14 @@ function toolInventoryPluginFromSummary(
   };
 }
 
-function toolInventoryMarketplaceError(error: ToolInventoryMarketplaceLoadError): ToolInventoryMarketplaceError {
+function toolInventoryMarketplaceError(error: MarketplaceLoadErrorInfo): ToolInventoryMarketplaceError {
   return {
     marketplacePath: error.marketplacePath,
     message: error.message,
   };
 }
 
-function pluginSourceLabel(source: ToolInventoryPluginSource): string {
+function pluginSourceLabel(source: PluginSource): string {
   if (source.type === "local") return source.path;
   if (source.type === "git") {
     const ref = source.refName ? `#${source.refName}` : source.sha ? `#${source.sha.slice(0, 8)}` : "";
@@ -83,4 +50,40 @@ function pluginSourceLabel(source: ToolInventoryPluginSource): string {
   }
   if (source.type === "npm") return source.version ? `${source.package}@${source.version}` : source.package;
   return "remote";
+}
+
+// Tool names may be absent in status payloads; retain the map-key fallback at this boundary.
+type McpStatusRecord = Pick<McpServerStatus, "name" | "runtimeStatus" | "authStatus"> & {
+  readonly tools: Readonly<Record<string, unknown>>;
+};
+
+export function mcpServerStatusSummariesFromStatuses(servers: readonly McpStatusRecord[]): McpServerStatusSummary[] {
+  return servers.map(mcpServerStatusSummaryFromStatus);
+}
+
+function mcpServerStatusSummaryFromStatus(server: McpStatusRecord): McpServerStatusSummary {
+  return {
+    name: server.name,
+    authStatus: server.authStatus,
+    toolCount: Object.keys(server.tools).length,
+    connectionStatus: server.runtimeStatus,
+    codexAppIds: server.name === "codex_apps" ? codexAppIdsFromTools(server.tools) : [],
+  };
+}
+
+function codexAppIdsFromTools(tools: Readonly<Record<string, unknown>>): string[] {
+  const appIds = new Set<string>();
+  for (const [toolKey, tool] of Object.entries(tools)) {
+    const toolName = toolNameFromStatusTool(tool) ?? toolKey;
+    const prefixSeparator = toolName.indexOf(".");
+    if (prefixSeparator <= 0) continue;
+    appIds.add(toolName.slice(0, prefixSeparator));
+  }
+  return [...appIds].sort((left, right) => left.localeCompare(right));
+}
+
+function toolNameFromStatusTool(tool: unknown): string | null {
+  if (!tool || typeof tool !== "object") return null;
+  const name = (tool as { readonly name?: unknown }).name;
+  return typeof name === "string" && name.length > 0 ? name : null;
 }

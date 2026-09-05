@@ -1,7 +1,7 @@
-import { type McpServerStatusSummary, mcpServerStatusSummariesFromStatuses } from "../../domain/server/mcp-status";
+import type { McpServerStatusSummary } from "../../domain/server/mcp-status";
 import type { ToolInventoryMarketplaceError, ToolInventoryPlugin } from "../../domain/server/tool-inventory";
 import type { ClientResponseByMethod } from "../connection/client";
-import { toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
+import { mcpServerStatusSummariesFromStatuses, toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
 import type { AppServerRequestClient } from "./request-client";
 
 export interface InstalledPluginInventory {

@@ -780,7 +780,7 @@ describe("app-server query resources", () => {
     const model: CatalogModel = {
       ...catalogModel("gpt-meta"),
       supportedReasoningEfforts: [{ reasoningEffort: "high", description: "Thorough reasoning" }],
-      serviceTiers: [{ id: "fast", name: "Fast" }],
+      serviceTiers: [{ id: "fast", name: "Fast", description: "" }],
     };
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),

@@ -67,9 +67,10 @@ const policyCases = [
   ),
   policyCase(
     "no-generated-app-server-boundary-imports.grit",
-    "src/settings/escape.ts",
-    'import type { Generated } from "../generated/app-server/types";',
-    "export type Value = string;",
+    "src/app-server/services/escape.ts",
+    'import type { Generated } from "../../generated/app-server/types";',
+    'import type { Generated } from "../../generated/app-server/types";',
+    "src/app-server/protocol/value.ts",
   ),
   policyCase(
     "no-app-server-direct-rpcs.grit",
@@ -182,8 +183,8 @@ describe("Biome Grit policies", () => {
   });
 });
 
-function policyCase(plugin, path, invalidSource, validSource) {
-  return { plugin, path, invalidSource, validSource };
+function policyCase(plugin, path, invalidSource, validSource, validPath = path) {
+  return { plugin, path, invalidSource, validSource, validPath };
 }
 
 async function lintPolicyCase(testCase) {
@@ -193,7 +194,7 @@ async function lintPolicyCase(testCase) {
   workspaces.add(workspace);
   const [invalidTarget, validTarget] = await Promise.all([
     writeFixture(workspace, "invalid", testCase.path, testCase.invalidSource),
-    writeFixture(workspace, "valid", testCase.path, testCase.validSource),
+    writeFixture(workspace, "valid", testCase.validPath, testCase.validSource),
     writePluginConfig(workspace, plugin),
   ]);
   return { ...biomeLint(workspace, [invalidTarget, validTarget]), invalidTarget, validTarget };
