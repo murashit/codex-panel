@@ -181,7 +181,6 @@ function chatHostFixture(): CodexChatHost {
         return () => undefined;
       }),
       observeChanges: vi.fn(() => () => undefined),
-      applyNotification: vi.fn(),
     },
     threadCatalog: {
       fetchActiveThreads: vi.fn(() => Promise.resolve([])),

@@ -29,7 +29,6 @@ export function chatSharedSourcesFixture(threads: readonly Thread[] = []): {
         return () => undefined;
       },
       observeChanges: () => () => undefined,
-      applyNotification: () => undefined,
     },
     threadCatalog: {
       fetchActiveThreads: async () => threads,

@@ -237,7 +237,7 @@ describe("CodexExecutionRuntime", () => {
     const chat = attachChatHost(runtime);
     const previous = goalFixture({ objective: "Old" });
     const next = goalFixture({ objective: "Latest", updatedAt: 2 });
-    chat.threadGoalQueries.applyNotification({
+    contextConnectionMock.instances[0]?.handlers.onNotification({
       method: "thread/goal/updated",
       params: { threadId: "thread", turnId: null, goal: previous },
     });

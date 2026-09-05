@@ -2,7 +2,6 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerContextConnectionLease } from "../../../app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
-import type { ServerNotification } from "../../../app-server/connection/rpc-messages";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { MetadataResourceDiagnostics } from "../../../domain/server/diagnostics";
@@ -86,7 +85,6 @@ export interface ChatThreadGoalQueries {
   snapshot(threadId: string): ThreadGoal | null | undefined;
   observe(threadId: string, listener: (goal: ThreadGoal | null, error: string | null) => void): () => void;
   observeChanges(listener: (threadId: string, previous: ThreadGoal | null, next: ThreadGoal | null) => void): () => void;
-  applyNotification(notification: Extract<ServerNotification, { method: "thread/goal/updated" | "thread/goal/cleared" }>): void;
 }
 
 export interface ChatPanelEnvironment {

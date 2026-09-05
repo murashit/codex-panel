@@ -639,7 +639,6 @@ describe("chat panel session runtime", () => {
         return () => undefined;
       }),
       observeChanges: vi.fn(() => () => undefined),
-      applyNotification: vi.fn(),
     };
   }
 

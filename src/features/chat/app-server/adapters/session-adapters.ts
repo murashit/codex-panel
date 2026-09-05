@@ -15,7 +15,6 @@ import {
 } from "../../../../app-server/services/threads";
 import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/services/turns";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import type { ThreadTurnsPage } from "../../../../domain/threads/history";
 import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsPort } from "../../application/runtime/settings-commands";
 import type { EphemeralThreadEffects, EphemeralThreadForkResult } from "../../application/threads/ephemeral-thread-lifecycle";
@@ -25,7 +24,7 @@ import type { ThreadResumeEffects, ThreadResumeSnapshot } from "../../applicatio
 import type { ThreadCommandEffects } from "../../application/threads/thread-commands";
 import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";
-import { threadStreamItemsFromTurns } from "../mappers/thread-stream/turn-items";
+import { chatThreadHistoryPageFromTurnsPage } from "../mappers/thread-stream/turn-items";
 import { panelDynamicTools } from "./dynamic-tool-registration";
 import { EphemeralThreadCleanupRequiredError, forkEphemeralThread } from "./side-chat";
 
@@ -35,11 +34,6 @@ interface CurrentChatAppServerClientHost {
 
 interface ChatAppServerAdapterHost extends CurrentChatAppServerClientHost {
   vaultPath: string;
-}
-
-interface AppServerThreadTurnsPage {
-  readonly data: ThreadTurnsPage["turns"];
-  readonly nextCursor: string | null;
 }
 
 export function createChatSessionAdapters(host: ChatAppServerAdapterHost) {
@@ -231,15 +225,7 @@ async function readChatThreadHistoryPage(
   cursor: string | null,
   limit = 20,
 ): Promise<ThreadHistoryPage> {
-  return chatThreadHistoryPageFromTurnsPage(threadTurnsPageFromAppServerPage(await listThreadTurns(client, threadId, cursor, limit)));
-}
-
-function chatThreadHistoryPageFromTurnsPage(page: ThreadTurnsPage): ThreadHistoryPage {
-  return {
-    items: threadStreamItemsFromTurns(page.turns),
-    nextCursor: page.nextCursor,
-    hadTurns: page.turns.length > 0,
-  };
+  return chatThreadHistoryPageFromTurnsPage(await listThreadTurns(client, threadId, cursor, limit));
 }
 
 async function resumeChatThread(client: AppServerRequestClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
@@ -247,15 +233,6 @@ async function resumeChatThread(client: AppServerRequestClient, threadId: string
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),
     rolloutPath: response.thread.path,
-    initialHistoryPage: response.initialTurnsPage
-      ? chatThreadHistoryPageFromTurnsPage(threadTurnsPageFromAppServerPage(response.initialTurnsPage))
-      : null,
-  };
-}
-
-function threadTurnsPageFromAppServerPage(page: AppServerThreadTurnsPage): ThreadTurnsPage {
-  return {
-    turns: page.data,
-    nextCursor: page.nextCursor,
+    initialHistoryPage: response.initialTurnsPage ? chatThreadHistoryPageFromTurnsPage(response.initialTurnsPage) : null,
   };
 }

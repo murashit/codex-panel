@@ -5,8 +5,8 @@ import {
   turnUserItemProjection,
 } from "../../../../../app-server/protocol/turn";
 import { jsonPreview } from "../../../../../domain/display/json-preview";
-import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
+import type { ThreadHistoryPage } from "../../../application/threads/history-controller";
 import { contextAttachmentsFromHistoryContexts } from "../../../domain/thread-stream/format/context-attachments";
 import { threadStreamFileReferences } from "../../../domain/thread-stream/format/file-references";
 import { normalizeProposedPlanMarkdown } from "../../../domain/thread-stream/format/proposed-plan";
@@ -52,11 +52,22 @@ export function completedTurnTranscriptSummaryFromAppServerTurn(turn: TurnRecord
   return completedTurnTranscriptSummaryFromTurnRecord(turn);
 }
 
-export function threadStreamItemsFromTurns(turns: readonly HistoricalTurn[]): ThreadStreamItem[] {
+export function chatThreadHistoryPageFromTurnsPage(page: {
+  readonly data: readonly Pick<TurnRecord, "id" | "items" | "startedAt">[];
+  readonly nextCursor: string | null;
+}): ThreadHistoryPage {
+  return {
+    items: threadStreamItemsFromTurns(page.data),
+    nextCursor: page.nextCursor,
+    hadTurns: page.data.length > 0,
+  };
+}
+
+export function threadStreamItemsFromTurns(turns: readonly Pick<TurnRecord, "id" | "items" | "startedAt">[]): ThreadStreamItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: ThreadStreamItem[] = [];
   for (const turn of sortedTurns) {
-    for (const item of turn.items as readonly TurnItem[]) {
+    for (const item of turn.items) {
       const streamItem = threadStreamItemFromTurnItem(item, turn.id);
       if (streamItem) items.push(streamItem);
     }
