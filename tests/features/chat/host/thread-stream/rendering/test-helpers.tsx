@@ -304,7 +304,7 @@ export function renderPendingRequestNode(
     pendingRequestBlockNode({
       snapshot,
       actions,
-      consumeAutoFocus: () => autoFocusRequested || (consumeAutoFocus?.() ?? false),
+      consumeAutoFocus: autoFocusRequested ? () => true : (consumeAutoFocus ?? (() => false)),
       autoFocusSignature,
       controlNamespace,
     }),

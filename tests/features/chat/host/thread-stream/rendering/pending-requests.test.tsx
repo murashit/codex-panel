@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
+import { createPendingRequestActions } from "../../../../../../src/features/chat/application/pending-requests/pending-request-actions";
+import { createChatState } from "../../../../../../src/features/chat/application/state/model";
+import { createChatStateStore } from "../../../../../../src/features/chat/application/state/store";
+import { userInputDraftKey } from "../../../../../../src/features/chat/domain/pending-requests/drafts";
 import type {
   PendingApproval,
   PendingMcpElicitation,
   PendingUserInput,
 } from "../../../../../../src/features/chat/domain/pending-requests/model";
+import { pendingRequestFocusSignature } from "../../../../../../src/features/chat/domain/pending-requests/signatures";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/host/thread-stream/pending-requests";
 import type { PendingRequestBlockContext } from "../../../../../../src/features/chat/ui/thread-stream/context";
@@ -30,6 +35,77 @@ import {
 } from "./test-helpers";
 
 describe("panel pending request rendering", () => {
+  it("preserves draft selection and consumed autofocus across deadline updates and remounts", () => {
+    const parent = document.createElement("div");
+    const composer = document.createElement("textarea");
+    document.body.append(composer, parent);
+    const stateStore = createChatStateStore(createChatState());
+    const requests = createPendingRequestActions({
+      stateStore,
+      responder: {
+        resolveApproval: vi.fn(),
+        resolveUserInput: vi.fn(),
+        skipUserInput: vi.fn(),
+        extendUserInputAutoResolution: vi.fn(),
+        cancelUserInput: vi.fn(),
+        resolveMcpElicitation: vi.fn(),
+      },
+      composerHasFocus: () => document.activeElement === composer,
+      focusComposer: () => composer.focus(),
+    });
+    const freeform = pendingFreeformUserInput();
+    const input = { ...freeform, params: { ...freeform.params, isBlocking: false } };
+    const question = expectPresent(input.params.questions[0]);
+    const render = () => {
+      const state = stateStore.getState().requests;
+      renderPendingRequestNode(
+        parent,
+        state.approvals,
+        state.pendingUserInputs,
+        { values: state.userInputDrafts },
+        new Set(),
+        requests.actions,
+        false,
+        requests.consumeAutoFocus,
+        pendingRequestFocusSignature(state.approvals, state.pendingUserInputs, state.pendingMcpElicitations),
+      );
+    };
+    try {
+      composer.focus();
+      stateStore.dispatch({ type: "request/user-input-queued", input });
+      render();
+      const field = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-text"));
+      expect(document.activeElement).toBe(field);
+      stateStore.dispatch({
+        type: "request/user-input-draft-set",
+        key: userInputDraftKey(input.requestId, question.id),
+        value: "draft answer",
+      });
+      render();
+      expect(field.value).toBe("draft answer");
+      field.setSelectionRange(2, 5);
+      stateStore.dispatch({
+        type: "request/user-input-auto-resolution-extended",
+        requestId: input.requestId,
+        autoResolutionAtMs: Date.now() + 60_000,
+      });
+      render();
+      expect(document.activeElement).toBe(field);
+      expect([field.selectionStart, field.selectionEnd]).toEqual([2, 5]);
+      composer.focus();
+      unmountUiRootInAct(parent);
+      render();
+      expect(document.activeElement).toBe(composer);
+      stateStore.dispatch({ type: "request/approval-queued", approval: pendingApproval() });
+      render();
+      expect(parent.contains(document.activeElement)).toBe(true);
+    } finally {
+      unmountUiRootInAct(parent);
+      parent.remove();
+      composer.remove();
+    }
+  });
+
   it("keeps radio groups separate across panels with the same request id", () => {
     const first = document.createElement("div");
     const second = document.createElement("div");

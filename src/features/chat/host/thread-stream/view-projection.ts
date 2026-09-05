@@ -13,7 +13,7 @@ import {
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { implementPlanTarget } from "../../application/submission/plan-implementation";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
-import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
+import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import {
   type ForkCandidate,
@@ -229,13 +229,7 @@ function pendingRequestProjectionFromState(
   requests: ChatRequestState,
   approvalDetails: ReadonlySet<string>,
 ): PendingRequestProjection | null {
-  const signature = pendingRequestsSignature(
-    requests.approvals,
-    requests.pendingUserInputs,
-    requests.pendingMcpElicitations,
-    requests.userInputDrafts,
-    requests.mcpElicitationDrafts,
-  );
+  const signature = pendingRequestFocusSignature(requests.approvals, requests.pendingUserInputs, requests.pendingMcpElicitations);
   if (!signature) return null;
   return {
     signature,
