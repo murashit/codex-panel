@@ -925,7 +925,7 @@ function modelFixture(model: string, fastTierId?: string): ModelMetadata {
     displayName: model,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: ["high"],
+    supportedReasoningEfforts: ["high"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
     defaultReasoningEffort: "high",
     inputModalities: [],
     serviceTiers: fastTierId ? [{ id: fastTierId, name: "Fast" }] : [],

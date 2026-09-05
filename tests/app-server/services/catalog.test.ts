@@ -26,8 +26,7 @@ describe("app-server catalog mappers", () => {
         displayName: "GPT 5.5",
         description: "Primary model",
         hidden: false,
-        supportedReasoningEfforts: ["low", "high"],
-        reasoningEffortOptions: [
+        supportedReasoningEfforts: [
           { reasoningEffort: "low", description: "Low" },
           { reasoningEffort: "high", description: "High" },
         ],

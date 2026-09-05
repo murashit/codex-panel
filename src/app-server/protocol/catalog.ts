@@ -60,8 +60,7 @@ function modelMetadataFromCatalogModel(model: CatalogModel): ModelMetadata {
     displayName: model.displayName,
     description: model.description,
     hidden: model.hidden,
-    supportedReasoningEfforts: model.supportedReasoningEfforts.map((option) => option.reasoningEffort),
-    reasoningEffortOptions: model.supportedReasoningEfforts.map((option) => ({
+    supportedReasoningEfforts: model.supportedReasoningEfforts.map((option) => ({
       reasoningEffort: option.reasoningEffort,
       description: option.description,
     })),

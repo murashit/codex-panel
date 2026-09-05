@@ -260,7 +260,7 @@ function modelFixture(model: string): ModelMetadata {
     displayName: model,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: ["high"],
+    supportedReasoningEfforts: ["high"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
     defaultReasoningEffort: "high",
     inputModalities: [],
     serviceTiers: [],

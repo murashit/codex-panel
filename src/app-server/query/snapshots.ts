@@ -11,8 +11,7 @@ export function cloneThreads(threads: readonly Thread[]): Thread[] {
 export function cloneModelMetadata(models: readonly ModelMetadata[]): ModelMetadata[] {
   return models.map((model) => ({
     ...model,
-    supportedReasoningEfforts: [...model.supportedReasoningEfforts],
-    ...(model.reasoningEffortOptions ? { reasoningEffortOptions: model.reasoningEffortOptions.map((option) => ({ ...option })) } : {}),
+    supportedReasoningEfforts: model.supportedReasoningEfforts.map((option) => ({ ...option })),
     inputModalities: [...model.inputModalities],
     serviceTiers: model.serviceTiers.map((tier) => ({ ...tier })),
   }));

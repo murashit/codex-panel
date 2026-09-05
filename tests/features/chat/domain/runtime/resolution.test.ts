@@ -434,8 +434,14 @@ describe("runtime control resolution", () => {
       pending: { model: resetRuntimeIntentToConfig() },
       runtimeConfig: runtimeConfigFixture({ model: "snapshot-model" }),
       availableModels: [
-        { ...modelFixture("snapshot-model"), supportedReasoningEfforts: ["low"] },
-        { ...modelFixture("explicit-model"), supportedReasoningEfforts: ["high"] },
+        {
+          ...modelFixture("snapshot-model"),
+          supportedReasoningEfforts: ["low"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
+        {
+          ...modelFixture("explicit-model"),
+          supportedReasoningEfforts: ["high"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
       ],
     });
     const explicitConfig = runtimeConfigFixture({ model: "explicit-model" });

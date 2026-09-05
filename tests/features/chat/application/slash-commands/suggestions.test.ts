@@ -53,7 +53,7 @@ function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Mode
     displayName: name,
     description: `${name} description`,
     hidden: false,
-    supportedReasoningEfforts: efforts,
+    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
     defaultReasoningEffort: efforts[0] ?? "medium",
     inputModalities: ["text"],
     serviceTiers: [],
@@ -146,7 +146,11 @@ describe("activeSlashCommandSuggestions", () => {
   it("suggests visible model and supported reasoning overrides", () => {
     const models = [
       model("gpt-5.5", ["low", "medium", "high"], {
-        reasoningEffortOptions: [{ reasoningEffort: "high", description: "Deep reasoning" }],
+        supportedReasoningEfforts: [
+          { reasoningEffort: "low", description: "" },
+          { reasoningEffort: "medium", description: "" },
+          { reasoningEffort: "high", description: "Deep reasoning" },
+        ],
       }),
       model("gpt-5.4-mini", ["minimal", "low", "medium"]),
       model("hidden-model", ["medium"], { hidden: true }),

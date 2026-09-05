@@ -14,8 +14,7 @@ export interface ModelMetadata {
   readonly displayName: string;
   readonly description: string;
   readonly hidden: boolean;
-  readonly supportedReasoningEfforts: readonly string[];
-  readonly reasoningEffortOptions?: readonly ReasoningEffortMetadata[];
+  readonly supportedReasoningEfforts: readonly ReasoningEffortMetadata[];
   readonly defaultReasoningEffort: string | null;
   readonly inputModalities: readonly string[];
   readonly serviceTiers: readonly ModelServiceTier[];
@@ -61,14 +60,16 @@ export function normalizeReasoningEffort(value: unknown): ReasoningEffort | null
 
 export function supportedEffortsForModelMetadata(model: ModelMetadata | null): ReasoningEffort[] {
   return (
-    model?.supportedReasoningEfforts.map(normalizeReasoningEffort).filter((effort): effort is ReasoningEffort => effort !== null) ?? []
+    model?.supportedReasoningEfforts
+      .map((option) => normalizeReasoningEffort(option.reasoningEffort))
+      .filter((effort): effort is ReasoningEffort => effort !== null) ?? []
   );
 }
 
 export function reasoningEffortDescriptionForModelMetadata(model: ModelMetadata | null, effort: ReasoningEffort): string | null {
   const normalizedEffort = normalizeReasoningEffort(effort);
   if (!normalizedEffort) return null;
-  const option = model?.reasoningEffortOptions?.find((item) => normalizeReasoningEffort(item.reasoningEffort) === normalizedEffort);
+  const option = model?.supportedReasoningEfforts.find((item) => normalizeReasoningEffort(item.reasoningEffort) === normalizedEffort);
   const description = option?.description.trim();
   return description ? description : null;
 }

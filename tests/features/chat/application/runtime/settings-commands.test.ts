@@ -205,7 +205,12 @@ describe("createChatRuntimeSettingsCommands", () => {
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages, undefined, {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
-      availableModels: [{ ...modelFixture("gpt-5.5", "fast"), supportedReasoningEfforts: ["low", "medium"] }],
+      availableModels: [
+        {
+          ...modelFixture("gpt-5.5", "fast"),
+          supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
+      ],
     });
 
     await expect(commands.requestReasoningEffort("ultra")).resolves.toBe(false);
@@ -223,7 +228,10 @@ describe("createChatRuntimeSettingsCommands", () => {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
       availableModels: [
         modelFixture("gpt-5.5", "fast"),
-        { ...modelFixture("gpt-5.4-mini", "fast"), supportedReasoningEfforts: ["low", "medium"] },
+        {
+          ...modelFixture("gpt-5.4-mini", "fast"),
+          supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
       ],
     });
 
@@ -257,7 +265,10 @@ describe("createChatRuntimeSettingsCommands", () => {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
       availableModels: [
         modelFixture("gpt-5.5", "fast"),
-        { ...modelFixture("gpt-5.4-mini", "fast"), supportedReasoningEfforts: ["low", "medium"] },
+        {
+          ...modelFixture("gpt-5.4-mini", "fast"),
+          supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
       ],
     });
 
@@ -307,7 +318,10 @@ describe("createChatRuntimeSettingsCommands", () => {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.4-mini", reasoningEffort: "high" }),
       availableModels: [
         modelFixture("gpt-5.5", "fast"),
-        { ...modelFixture("gpt-5.4-mini", "fast"), supportedReasoningEfforts: ["low", "medium"] },
+        {
+          ...modelFixture("gpt-5.4-mini", "fast"),
+          supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
       ],
     });
 
@@ -640,8 +654,14 @@ describe("createChatRuntimeSettingsCommands", () => {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
       availableModels: [
         modelFixture("gpt-5.5", "fast"),
-        { ...modelFixture("gpt-mini", "fast"), supportedReasoningEfforts: ["medium"] },
-        { ...modelFixture("gpt-next", "fast"), supportedReasoningEfforts: ["medium"] },
+        {
+          ...modelFixture("gpt-mini", "fast"),
+          supportedReasoningEfforts: ["medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
+        {
+          ...modelFixture("gpt-next", "fast"),
+          supportedReasoningEfforts: ["medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
       ],
     });
 
@@ -676,8 +696,14 @@ describe("createChatRuntimeSettingsCommands", () => {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
       availableModels: [
         modelFixture("gpt-5.5", "fast"),
-        { ...modelFixture("gpt-mini", "fast"), supportedReasoningEfforts: ["medium"] },
-        { ...modelFixture("gpt-next", "fast"), supportedReasoningEfforts: ["medium"] },
+        {
+          ...modelFixture("gpt-mini", "fast"),
+          supportedReasoningEfforts: ["medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
+        {
+          ...modelFixture("gpt-next", "fast"),
+          supportedReasoningEfforts: ["medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
       ],
     });
 
@@ -710,7 +736,10 @@ describe("createChatRuntimeSettingsCommands", () => {
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", reasoningEffort: "high" }),
       availableModels: [
         modelFixture("gpt-5.5", "fast"),
-        { ...modelFixture("gpt-mini", "fast"), supportedReasoningEfforts: ["low", "medium"] },
+        {
+          ...modelFixture("gpt-mini", "fast"),
+          supportedReasoningEfforts: ["low", "medium"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+        },
       ],
     });
 
@@ -953,7 +982,7 @@ function modelFixture(model: string, fastTierId: string): ModelMetadata {
     displayName: model,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: ["low", "medium", "high"],
+    supportedReasoningEfforts: ["low", "medium", "high"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
     defaultReasoningEffort: "medium",
     inputModalities: [],
     serviceTiers: [{ id: fastTierId, name: "Fast" }],
