@@ -14,9 +14,11 @@ const sourceFiles = await filesInTree(path.join(root, "src"), new Set([".ts", ".
 });
 const testFiles = await filesInTree(path.join(root, "tests"), new Set([".ts", ".tsx"]));
 
-const cssClasses = await collectCssClasses(cssFiles);
-const cssCustomProperties = await collectCssCustomProperties(cssFiles);
-const referencedCssCustomProperties = await collectReferencedCssCustomProperties(cssFiles);
+const cssTexts = await readTexts(cssFiles);
+for (const source of cssTexts) source.text = stripCssComments(source.text);
+const cssClasses = collectCssClasses(cssTexts);
+const cssCustomProperties = collectCssCustomProperties(cssTexts);
+const referencedCssCustomProperties = collectReferencedCssCustomProperties(cssTexts);
 const sourceTexts = await readTexts(sourceFiles);
 const testTexts = await readTexts(testFiles);
 const sourceText = sourceTexts.map((item) => item.text).join("\n");
@@ -58,10 +60,9 @@ async function orderedCssFiles() {
   return order.map((file) => path.join(stylesDir, file));
 }
 
-async function collectCssClasses(files) {
+function collectCssClasses(texts) {
   const result = new Map();
-  for (const file of files) {
-    const text = stripCssComments(await readFile(file, "utf8"));
+  for (const { file, text } of texts) {
     const lines = text.split("\n");
     for (const [index, line] of lines.entries()) {
       const classPattern = /(^|[^\\])\.([_a-zA-Z][\w-]*)/g;
@@ -77,10 +78,9 @@ async function collectCssClasses(files) {
   return new Map([...result.entries()].sort(([left], [right]) => left.localeCompare(right)));
 }
 
-async function collectCssCustomProperties(files) {
+function collectCssCustomProperties(texts) {
   const result = new Map();
-  for (const file of files) {
-    const text = stripCssComments(await readFile(file, "utf8"));
+  for (const { file, text } of texts) {
     const lines = text.split("\n");
     for (const [index, line] of lines.entries()) {
       for (const match of line.matchAll(/(--codex-panel-[\w-]+)\s*:/g)) {
@@ -94,10 +94,9 @@ async function collectCssCustomProperties(files) {
   return new Map([...result.entries()].sort(([left], [right]) => left.localeCompare(right)));
 }
 
-async function collectReferencedCssCustomProperties(files) {
+function collectReferencedCssCustomProperties(texts) {
   const result = new Set();
-  for (const file of files) {
-    const text = stripCssComments(await readFile(file, "utf8"));
+  for (const { text } of texts) {
     for (const match of text.matchAll(/var\(\s*(--codex-panel-[\w-]+)/g)) {
       result.add(match[1]);
     }
