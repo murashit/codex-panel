@@ -1,9 +1,9 @@
 import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../domain/turns/context-budget";
 import type { CodexInputItem } from "../../domain/turns/input";
-import { turnContextSubmissionId } from "../../domain/turns/submission-id";
 import type { AdditionalContextEntry as AppServerAdditionalContextEntry } from "../../generated/app-server/v2/AdditionalContextEntry";
 import type { TurnStartParams } from "../../generated/app-server/v2/TurnStartParams";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
+import { contextIdPart } from "./context-id";
 
 type AppServerUserInput = Extract<UserInput, { type: "text" | "image" | "localImage" | "skill" }>;
 type AppServerUserInputImageDetail = NonNullable<Extract<UserInput, { type: "image" }>["detail"]>;
@@ -28,21 +28,21 @@ export function appServerTurnInputFromCodexInput(input: readonly CodexInputItem[
   }
   const partAllocations = allocatedPartCounts(contexts);
   for (const [contextIndex, item] of contexts.entries()) {
-    const id = `${turnContextSubmissionId(submissionId)}.${String(contextIndex).padStart(2, "0")}`;
+    const id = `${contextIdPart(submissionId)}.${String(contextIndex).padStart(2, "0")}`;
     const parts = boundedContextParts(item.value, partAllocations[contextIndex] ?? 1);
     const partCount = parts.length;
     parts.forEach((part, partIndex) => {
       const key = [
         "codex_panel",
         id,
-        safeKeyPart(item.key),
+        contextIdPart(item.key),
         `part_${String(partIndex + 1).padStart(2, "0")}_of_${String(partCount).padStart(2, "0")}`,
       ].join(".");
       additionalContext[key] = {
         kind: item.kind,
         value: [
           `Codex Panel context part ${String(partIndex + 1)}/${String(partCount)}.`,
-          `Source: ${safeKeyPart(item.key)}`,
+          `Source: ${contextIdPart(item.key)}`,
           "",
           part,
         ].join("\n"),
@@ -96,11 +96,6 @@ function appServerUserInputItemFromCodexInputItem(item: CodexInputItem): AppServ
     case "additionalContext":
       return [];
   }
-}
-
-function safeKeyPart(value: string): string {
-  const safe = value.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 120);
-  return safe || "context";
 }
 
 function appServerImageDetailProp(detail: Extract<CodexInputItem, { type: "image" | "localImage" }>["detail"]): {

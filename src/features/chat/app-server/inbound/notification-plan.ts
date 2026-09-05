@@ -1,6 +1,7 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
-import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
+import type { ThreadTokenUsage, TokenUsageBreakdown } from "../../../../domain/runtime/metrics";
+import type { ThreadTokenUsage as AppServerThreadTokenUsage } from "../../../../generated/app-server/v2/ThreadTokenUsage";
 import { activeThreadId, activeThreadState, type ChatState } from "../../application/state/model";
 import type { ChatAction } from "../../application/state/reducer";
 import type { SubagentActivityAction } from "../../application/state/subagent-activity";
@@ -296,4 +297,22 @@ function activeTurnIdForState(state: ChatState): string | null {
 
 function actionPlan(action: ChatAction): ChatInboundPlan {
   return { actions: [action], effects: [] };
+}
+
+function threadTokenUsageFromRuntimeUsage(usage: AppServerThreadTokenUsage): ThreadTokenUsage {
+  return {
+    total: tokenUsageBreakdownFromRuntimeBreakdown(usage.total),
+    last: tokenUsageBreakdownFromRuntimeBreakdown(usage.last),
+    modelContextWindow: usage.modelContextWindow,
+  };
+}
+
+function tokenUsageBreakdownFromRuntimeBreakdown(breakdown: AppServerThreadTokenUsage["total"]): TokenUsageBreakdown {
+  return {
+    totalTokens: breakdown.totalTokens,
+    inputTokens: breakdown.inputTokens,
+    cachedInputTokens: breakdown.cachedInputTokens,
+    outputTokens: breakdown.outputTokens,
+    reasoningOutputTokens: breakdown.reasoningOutputTokens,
+  };
 }

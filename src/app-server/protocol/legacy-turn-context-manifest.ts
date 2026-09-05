@@ -1,6 +1,6 @@
 import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
 import type { VaultFileReference } from "../../domain/turns/input";
-import { isPanelSubmissionClientId, turnContextSubmissionId } from "../../domain/turns/submission-id";
+import { contextIdPart } from "./context-id";
 
 /*
  * Read-only compatibility for v2 metadata envelopes written by Codex Panel
@@ -99,7 +99,7 @@ function lastTextItemIndex(content: readonly UserMessageContentItem[]): number {
 
 function manifestMatchesClientId(manifest: LegacyTurnContextManifest, clientId: string | null): boolean {
   if (!isPanelSubmissionClientId(clientId)) return false;
-  const submissionId = turnContextSubmissionId(clientId);
+  const submissionId = contextIdPart(clientId);
   if (manifest.submissionId !== undefined && manifest.submissionId !== submissionId) return false;
   const contextIds = manifest.contexts.map((context) => context.id);
   return (
@@ -190,4 +190,10 @@ function nonNegativeInteger(value: unknown): number | null {
 
 function positiveInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+
+const PANEL_SUBMISSION_CLIENT_ID_PATTERN = /^local-(?:user|steer)-\d+-[A-Za-z0-9_-]+-[a-z0-9]+-[a-z0-9]+$/;
+
+function isPanelSubmissionClientId(value: string | null | undefined): value is string {
+  return typeof value === "string" && PANEL_SUBMISSION_CLIENT_ID_PATTERN.test(value);
 }
