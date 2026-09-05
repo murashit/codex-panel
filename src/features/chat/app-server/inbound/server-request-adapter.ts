@@ -1,6 +1,12 @@
 import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import { jsonPreview } from "../../../../domain/display/json-preview";
 import { pathRelativeToRoot } from "../../../../domain/vault/paths";
+import type { CommandExecutionRequestApprovalResponse } from "../../../../generated/app-server/v2/CommandExecutionRequestApprovalResponse";
+import type { FileChangeRequestApprovalResponse } from "../../../../generated/app-server/v2/FileChangeRequestApprovalResponse";
+import type { GrantedPermissionProfile } from "../../../../generated/app-server/v2/GrantedPermissionProfile";
+import type { McpServerElicitationRequestResponse } from "../../../../generated/app-server/v2/McpServerElicitationRequestResponse";
+import type { PermissionsRequestApprovalResponse } from "../../../../generated/app-server/v2/PermissionsRequestApprovalResponse";
+import type { ToolRequestUserInputResponse } from "../../../../generated/app-server/v2/ToolRequestUserInputResponse";
 import type {
   ApprovalAction,
   ApprovalActionIntent,
@@ -16,14 +22,10 @@ import type {
   PendingUserInputQuestion,
 } from "../../domain/pending-requests/model";
 
-interface AppServerGrantedPermissionProfile {
-  network?: unknown;
-  fileSystem?: unknown;
-}
-
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
-type CommandApprovalDecision =
-  | SimpleApprovalDecision
+// Server-provided options are returned unchanged, including future strings and opaque amendments.
+type OfferedCommandApprovalDecision =
+  | string
   | { acceptWithExecpolicyAmendment: unknown }
   | { applyNetworkPolicyAmendment: { network_policy_amendment: { action?: unknown; host?: unknown } } };
 
@@ -81,19 +83,7 @@ type NormalizedMcpElicitationParams =
   | (NormalizedMcpElicitationParamsBase & { mode: "form"; requestedSchema: unknown })
   | (NormalizedMcpElicitationParamsBase & { mode: "url"; url: string });
 
-export type AppServerApprovalResponse =
-  | { decision: CommandApprovalDecision }
-  | { scope: "session" | "turn"; permissions: AppServerGrantedPermissionProfile };
-
-export interface AppServerUserInputResponse {
-  answers: Record<string, { answers: string[] }>;
-}
-
-export interface AppServerMcpElicitationResponse {
-  action: McpElicitationAction;
-  content: unknown;
-  _meta: unknown;
-}
+export type AppServerApprovalResponse = { decision: OfferedCommandApprovalDecision } | PermissionsRequestApprovalResponse;
 
 export function appServerApprovalRequest(request: AppServerRequest): PendingApproval | null {
   switch (request.method) {
@@ -117,15 +107,15 @@ export function appServerApprovalResponse(request: ApprovalRequest, action: Appr
         if (selected === undefined) throw new Error(`Unknown command approval option: ${action.optionId}`);
         return { decision: selected };
       }
-      return { decision: commandDecision(intent) };
+      return { decision: commandDecision(intent) } satisfies CommandExecutionRequestApprovalResponse;
     }
     case "item/fileChange/requestApproval":
-      return { decision: fileChangeDecision(intent) };
+      return { decision: fileChangeDecision(intent) } satisfies FileChangeRequestApprovalResponse;
     case "item/permissions/requestApproval":
       return {
         scope: intent === "accept-session" ? "session" : "turn",
         permissions: intent === "accept" || intent === "accept-session" ? grantedPermissions(request.params.permissions) : {},
-      };
+      } satisfies PermissionsRequestApprovalResponse;
   }
 }
 
@@ -154,7 +144,7 @@ export function appServerUserInputRequest(request: AppServerRequest): PendingUse
 export function appServerUserInputResponse(
   questions: readonly { id: string }[],
   answers: Record<string, string>,
-): AppServerUserInputResponse {
+): ToolRequestUserInputResponse {
   return {
     answers: Object.fromEntries(
       questions.map((question) => [
@@ -200,7 +190,7 @@ export function appServerMcpElicitationRequest(request: AppServerRequest): Pendi
 export function appServerMcpElicitationResponse(
   action: McpElicitationAction,
   content: Record<string, McpElicitationContentValue> | null,
-): AppServerMcpElicitationResponse {
+): McpServerElicitationRequestResponse {
   return {
     action,
     content: action === "accept" ? toJsonContent(content) : null,
@@ -273,11 +263,10 @@ function fileChangeDecision(intent: ApprovalActionIntent): SimpleApprovalDecisio
   return "decline";
 }
 
-function grantedPermissions(requested: unknown): AppServerGrantedPermissionProfile {
-  const profile = asRecordOrNull(requested);
-  const granted: AppServerGrantedPermissionProfile = {};
-  if (profile?.["network"]) granted.network = profile["network"];
-  if (profile?.["fileSystem"]) granted.fileSystem = profile["fileSystem"];
+function grantedPermissions(requested: PermissionsApprovalParams["permissions"] | null | undefined): GrantedPermissionProfile {
+  const granted: GrantedPermissionProfile = {};
+  if (requested?.network) granted.network = requested.network;
+  if (requested?.fileSystem) granted.fileSystem = requested.fileSystem;
   return granted;
 }
 
@@ -329,20 +318,20 @@ function commandApprovalActionOptions(decisions: CommandApprovalParams["availabl
 function commandApprovalDecisionForOption(
   decisions: CommandApprovalParams["availableDecisions"],
   optionId: string,
-): CommandApprovalDecision | undefined {
+): OfferedCommandApprovalDecision | undefined {
   return commandApprovalDecisions(decisions).find((decision, index) => commandApprovalOptionId(decision, index) === optionId);
 }
 
-function commandApprovalOptionId(decision: CommandApprovalDecision, index: number): string {
+function commandApprovalOptionId(decision: OfferedCommandApprovalDecision, index: number): string {
   return `approval-option:${String(index)}:${commandDecisionKey(decision)}`;
 }
 
-function commandApprovalDecisions(value: unknown): CommandApprovalDecision[] {
+function commandApprovalDecisions(value: unknown): OfferedCommandApprovalDecision[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isCommandApprovalDecision);
+  return value.filter(isOfferedCommandApprovalDecision);
 }
 
-function isCommandApprovalDecision(value: unknown): value is CommandApprovalDecision {
+function isOfferedCommandApprovalDecision(value: unknown): value is OfferedCommandApprovalDecision {
   if (typeof value === "string") return true;
   const decision = asRecordOrNull(value);
   if (!decision) return false;
@@ -351,7 +340,7 @@ function isCommandApprovalDecision(value: unknown): value is CommandApprovalDeci
   return Boolean(asRecordOrNull(networkDecision?.["network_policy_amendment"]));
 }
 
-function commandDecisionIntent(decision: CommandApprovalDecision): ApprovalActionIntent {
+function commandDecisionIntent(decision: OfferedCommandApprovalDecision): ApprovalActionIntent {
   if (typeof decision === "string") return simpleCommandDecisionIntent(decision);
   if ("acceptWithExecpolicyAmendment" in decision) return "accept-session";
   if ("applyNetworkPolicyAmendment" in decision) {
@@ -367,7 +356,7 @@ function simpleCommandDecisionIntent(decision: string): ApprovalActionIntent {
   return "decline";
 }
 
-function commandDecisionLabel(decision: CommandApprovalDecision): string {
+function commandDecisionLabel(decision: OfferedCommandApprovalDecision): string {
   if (typeof decision === "string") return simpleCommandDecisionLabel(decision);
   if ("acceptWithExecpolicyAmendment" in decision) return "Allow rule";
   if ("applyNetworkPolicyAmendment" in decision) {
@@ -384,7 +373,7 @@ function simpleCommandDecisionLabel(decision: string): string {
   return "Choose";
 }
 
-function commandDecisionKey(decision: CommandApprovalDecision): string {
+function commandDecisionKey(decision: OfferedCommandApprovalDecision): string {
   if (typeof decision === "string") return decision;
   if ("acceptWithExecpolicyAmendment" in decision) return "acceptWithExecpolicyAmendment";
   if ("applyNetworkPolicyAmendment" in decision) {
@@ -715,9 +704,9 @@ function selectOption(value: unknown): PendingMcpElicitationOption | null {
   return { value: optionValue, label: nonEmptyString(record?.["title"]) ?? optionValue };
 }
 
-function toJsonContent(content: Record<string, McpElicitationContentValue> | null): unknown {
+function toJsonContent(content: Record<string, McpElicitationContentValue> | null): McpServerElicitationRequestResponse["content"] {
   if (!content) return null;
   return Object.fromEntries(
-    Object.entries(content).map(([key, value]) => [key, Array.isArray(value) ? Array.from(value as readonly string[]) : value]),
+    Object.entries(content).map(([key, value]) => [key, value !== null && typeof value === "object" ? Array.from(value) : value]),
   );
 }

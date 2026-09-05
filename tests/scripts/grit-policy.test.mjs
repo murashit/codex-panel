@@ -181,6 +181,24 @@ describe("Biome Grit policies", () => {
     expect(result.pluginErrorFiles, result.output).toContain(result.invalidTarget);
     expect(result.errorFiles, result.output).not.toContain(result.validTarget);
   });
+  it.each(["src/domain/example/value.ts", "src/features/chat/application/example.ts"])(
+    "keeps generated types out of %s while allowing inbound response conversion",
+    async (restrictedPath) => {
+      const source = 'import type { Generated } from "src/generated/app-server/types";';
+      const result = await lintPolicyCase(
+        policyCase(
+          "no-generated-app-server-boundary-imports.grit",
+          restrictedPath,
+          source,
+          source,
+          "src/features/chat/app-server/inbound/response.ts",
+        ),
+      );
+      expect(result.status, result.output).toBe(1);
+      expect(result.pluginErrorFiles, result.output).toContain(result.invalidTarget);
+      expect(result.errorFiles, result.output).not.toContain(result.validTarget);
+    },
+  );
 });
 
 function policyCase(plugin, path, invalidSource, validSource, validPath = path) {

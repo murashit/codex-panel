@@ -1,4 +1,5 @@
 import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import type { CurrentTimeReadResponse } from "../../../../generated/app-server/v2/CurrentTimeReadResponse";
 import type {
   ApprovalAction,
   McpElicitationAction,
@@ -101,7 +102,7 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
   }
 }
 
-export function serverRequestApprovalResponse(request: ApprovalServerRequest, action: ApprovalAction): unknown {
+export function serverRequestApprovalResponse(request: ApprovalServerRequest, action: ApprovalAction) {
   return appServerApprovalResponse(request, action);
 }
 
@@ -109,18 +110,18 @@ export function serverRequestApprovalDecisionSignature(request: ApprovalServerRe
   return appServerApprovalDecisionSignature(request);
 }
 
-export function serverRequestUserInputResponse(questions: readonly { id: string }[], answers: Record<string, string>): unknown {
+export function serverRequestUserInputResponse(questions: readonly { id: string }[], answers: Record<string, string>) {
   return appServerUserInputResponse(questions, answers);
 }
 
 export function serverRequestMcpElicitationResponse(
   action: McpElicitationAction,
   content: Record<string, McpElicitationContentValue> | null,
-): unknown {
+) {
   return appServerMcpElicitationResponse(action, content);
 }
 
-export function serverRequestCurrentTimeResponse(currentTimeMs: number): unknown {
+export function serverRequestCurrentTimeResponse(currentTimeMs: number): CurrentTimeReadResponse {
   return { currentTimeAt: Math.floor(currentTimeMs / 1000) };
 }
 

@@ -1,5 +1,6 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
+import type { DynamicToolCallResponse } from "../../../../generated/app-server/v2/DynamicToolCallResponse";
 import { dynamicToolFailure, type PanelDynamicToolCall, type PanelDynamicToolResponse } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatState } from "../../application/state/model";
@@ -215,7 +216,8 @@ async function respondToDynamicToolCall(
   } catch (error) {
     response = dynamicToolFailure(error instanceof Error ? error.message : String(error));
   }
-  if (!context.effects.respondToServerRequest(requestId, response)) {
+  const result: DynamicToolCallResponse = { success: response.success, contentItems: [...response.contentItems] };
+  if (!context.effects.respondToServerRequest(requestId, result)) {
     addSystemMessage(context, "Could not send the dynamic tool response because Codex app-server is not connected.");
   }
 }

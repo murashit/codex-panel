@@ -11,5 +11,5 @@ private pattern generated_app_server_source() { r"^[\"'].*(?:src/)?generated/app
 
 js_module_reference() as $stmt where {
   $stmt <: contains `$source` where { $source <: generated_app_server_source() },
-  register_diagnostic(span=$stmt, message="Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.", severity="error")
+  register_diagnostic(span=$stmt, message="Import generated app-server types only in connection, protocol converters, and Chat inbound adapters; expose Panel-owned models to application and UI.", severity="error")
 }

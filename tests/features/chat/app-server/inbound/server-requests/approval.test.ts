@@ -260,6 +260,28 @@ describe("approval model", () => {
     expect(approvalResponseAt(request, approval, 0)).toEqual({ decision: futureDecision });
   });
 
+  it("returns server-offered amendments unchanged without interpreting their opaque payload", () => {
+    const decision = { acceptWithExecpolicyAmendment: { futureRule: { tokens: ["npm", "test"] } } };
+    const request = {
+      id: 35,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        kind: "writeStdin",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        environmentId: null,
+        startedAtMs: 1,
+        availableDecisions: [decision],
+      },
+    } as unknown as ApprovalRequest;
+    const approval = expectPresent(toPendingApproval(request));
+    const option = expectPresent(approvalActionOptions(approval)[0]);
+
+    expect(option).toMatchObject({ label: "Allow rule", action: { intent: "accept-session" } });
+    expect(approvalResponse(request, option.action)).toEqual({ decision });
+  });
+
   it("adapts a generic command approval decision when app-server omits decisions", () => {
     const request: ApprovalRequest = {
       id: 31,

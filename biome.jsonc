@@ -58,7 +58,12 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-generated-app-server-boundary-imports.grit",
-      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/connection/**", "!**/src/app-server/protocol/**"]
+      "includes": [
+        "**/src/**/*.{ts,tsx}",
+        "!**/src/app-server/connection/**",
+        "!**/src/app-server/protocol/**",
+        "!**/src/features/chat/app-server/inbound/**"
+      ]
     },
     {
       "path": "./scripts/grit/runtime/no-app-server-direct-rpcs.grit",
