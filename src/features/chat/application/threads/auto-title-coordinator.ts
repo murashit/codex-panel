@@ -1,5 +1,5 @@
 import type { Thread } from "../../../../domain/threads/model";
-import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
+import type { ThreadTitleContext } from "../../../../domain/threads/title-context";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { ChatStateStore } from "../state/store";
 

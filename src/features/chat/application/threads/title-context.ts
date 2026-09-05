@@ -1,4 +1,4 @@
-import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title-generation-model";
+import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title-context";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { isCompletedTurnOutcomeDialogue } from "../../domain/thread-stream/selectors";
 

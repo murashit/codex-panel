@@ -4,12 +4,9 @@ import {
   type StructuredTurnOutputSchema,
 } from "../../../app-server/services/ephemeral-structured-turn";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import {
-  THREAD_TITLE_MAX_CHARS,
-  type ThreadTitleContext,
-  threadTitleFromGeneratedText,
-  threadTitlePrompt,
-} from "../../../domain/threads/title-generation-model";
+import type { ThreadTitleContext } from "../../../domain/threads/title-context";
+
+const THREAD_TITLE_MAX_CHARS = 40;
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
 const THREAD_TITLE_TIMEOUT_MS = 60_000;
@@ -70,4 +67,72 @@ export async function generateThreadTitleWithCodex(
     options.runner,
   );
   return response ? threadTitleFromGeneratedText(response) : null;
+}
+
+function normalizeGeneratedThreadTitle(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const title = value
+    .trim()
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^#+\s*/, "")
+    .replace(/^[-*]\s*/, "")
+    .replace(/^["'`「『]+/, "")
+    .replace(/["'`」』]+$/, "")
+    .trim();
+  if (!title) return null;
+  return title.length > THREAD_TITLE_MAX_CHARS ? title.slice(0, THREAD_TITLE_MAX_CHARS).trimEnd() : title;
+}
+
+function threadTitleFromGeneratedText(text: string): string | null {
+  return normalizeGeneratedThreadTitle(extractTitleFromModelText(text));
+}
+
+function threadTitlePrompt(context: ThreadTitleContext): string {
+  return [
+    "Create a thread title for the following Codex thread.",
+    "",
+    "Requirements:",
+    "- First infer the main language of the user's initial request. This does not need to be strict; use the dominant language if mixed.",
+    "- Write the title in the inferred language. If the language is unclear, use the language used most in the user's initial request.",
+    "- Use a short noun phrase or short sentence.",
+    `- Keep it compact: roughly 3-7 words for languages that use spaces, or 12-28 characters for languages that usually do not. Never exceed ${String(THREAD_TITLE_MAX_CHARS)} characters.`,
+    "- Make the request target and purpose clear.",
+    "- Avoid vague titles such as only 'about this', 'general question', or 'please implement'.",
+    "- Do not use Markdown, quotation marks, trailing punctuation, explanations, or alternatives.",
+    "",
+    "User's initial request:",
+    context.userRequest,
+    "",
+    "Codex's first response:",
+    context.assistantResponse,
+  ].join("\n");
+}
+
+function extractTitleFromModelText(text: string): unknown {
+  const trimmed = stripCodeFence(text.trim());
+  const objectText = extractJsonObject(trimmed) ?? trimmed;
+  try {
+    const parsed = JSON.parse(objectText) as unknown;
+    if (parsed && typeof parsed === "object" && "title" in parsed) {
+      return (parsed as { title?: unknown }).title;
+    }
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
+}
+
+function stripCodeFence(text: string): string {
+  return text
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}
+
+function extractJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  return text.slice(start, end + 1);
 }

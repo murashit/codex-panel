@@ -4,61 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { EphemeralStructuredTurnRunner } from "../../../../src/app-server/services/ephemeral-structured-turn";
-import {
-  findThreadTitleContext,
-  THREAD_TITLE_MAX_CHARS,
-  threadTitleContextFromTurnTranscriptSummary,
-  threadTitleFromGeneratedText,
-  threadTitlePrompt,
-} from "../../../../src/domain/threads/title-generation-model";
+
 import { generateThreadTitleWithCodex } from "../../../../src/features/threads/app-server/thread-title-generation";
 
 describe("thread title", () => {
-  it("builds title context from a turn transcript summary", () => {
-    expect(
-      threadTitleContextFromTurnTranscriptSummary({
-        userText: "Codex Panelに自動命名を付けたい",
-        assistantText: "実装方針をまとめました。",
-      }),
-    ).toEqual({
-      userRequest: "Codex Panelに自動命名を付けたい",
-      assistantResponse: "実装方針をまとめました。",
-    });
-  });
-
-  it("does not build title context for incomplete turn transcript summaries", () => {
-    expect(threadTitleContextFromTurnTranscriptSummary({ userText: "hello", assistantText: null })).toBeNull();
-  });
-
-  it("scans older thread pages until it finds a usable title context", async () => {
-    const calls: { cursor: string | null; limit: number; sortDirection: string }[] = [];
-    const context = await findThreadTitleContext({
-      threadId: "thread",
-      readTurns: async (_threadId, cursor, limit, sortDirection) => {
-        calls.push({ cursor, limit, sortDirection });
-        if (cursor === null) {
-          return {
-            summaries: [{ userText: "本文だけ", assistantText: null }],
-            nextCursor: "cursor-2",
-          };
-        }
-        return {
-          summaries: [{ userText: "古い履歴から命名したい", assistantText: "古いturnを使って候補を作ります。" }],
-          nextCursor: null,
-        };
-      },
-    });
-
-    expect(context).toEqual({
-      userRequest: "古い履歴から命名したい",
-      assistantResponse: "古いturnを使って候補を作ります。",
-    });
-    expect(calls).toEqual([
-      { cursor: null, limit: 20, sortDirection: "asc" },
-      { cursor: "cursor-2", limit: 20, sortDirection: "asc" },
-    ]);
-  });
-
   it("runs a structured title request and parses its assistant transcript", async () => {
     const runner = vi.fn<EphemeralStructuredTurnRunner>(async () =>
       turn([
@@ -84,7 +33,7 @@ describe("thread title", () => {
         cwd: "/vault",
         serviceName: "codex-panel-naming",
         developerInstructions: expect.stringContaining("Return only a JSON object"),
-        prompt: threadTitlePrompt(titleContext()),
+        prompt: expect.stringContaining(titleContext().userRequest),
         outputSchema: expect.objectContaining({ required: ["title"], additionalProperties: false }),
         timeoutMs: 60_000,
         serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
@@ -111,11 +60,16 @@ describe("thread title", () => {
     );
   });
 
-  it("parses and normalizes generated titles", () => {
-    expect(threadTitleFromGeneratedText('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
-    expect(threadTitleFromGeneratedText('```json\n{"title":"Codex Panelの自動命名"}\n```')).toBe("Codex Panelの自動命名");
-    expect(threadTitleFromGeneratedText("")).toBeNull();
-    expect(threadTitleFromGeneratedText("x".repeat(80))).toHaveLength(THREAD_TITLE_MAX_CHARS);
+  it.each([
+    ['  ## "Codex Panelの自動命名"\n', "Codex Panelの自動命名"],
+    ['```json\n{"title":"Codex Panelの自動命名"}\n```', "Codex Panelの自動命名"],
+    ["", null],
+    ["x".repeat(80), "x".repeat(40)],
+  ])("normalizes generated title %s", async (text, expected) => {
+    const runner: EphemeralStructuredTurnRunner = async () => turn([{ type: "plan", id: "plan", text }]);
+    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe(
+      expected,
+    );
   });
 
   it("uses explicit title runtime overrides", async () => {

@@ -1,4 +1,4 @@
-import type { ThreadTitleContext } from "./title-generation-model";
+import type { ThreadTitleContext } from "./title-context";
 
 type ThreadRenameAutoNameState = { kind: "checking" } | { kind: "unavailable" } | { kind: "ready"; context: ThreadTitleContext };
 

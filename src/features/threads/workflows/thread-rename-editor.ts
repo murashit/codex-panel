@@ -1,5 +1,5 @@
 import type { ThreadRenameActiveState } from "../../../domain/threads/rename-lifecycle";
-import type { ThreadTitleContext } from "../../../domain/threads/title-generation-model";
+import type { ThreadTitleContext } from "../../../domain/threads/title-context";
 
 interface ThreadRenameEditorState {
   get(threadId: string): ThreadRenameActiveState | undefined;

@@ -3,15 +3,14 @@ import type { EphemeralStructuredTurnRunner } from "../../../app-server/services
 import {
   archiveThread,
   deleteThread,
-  readCompletedTurnTranscriptSummariesPage,
   readThreadForArchiveExport,
   renameThread,
   restoreArchivedThread,
   setThreadPinned,
 } from "../../../app-server/services/threads";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import { findThreadTitleContext } from "../../../domain/threads/title-generation-model";
 import type { ThreadMutationPort, ThreadTitlePort } from "../workflows/ports";
+import { readPersistedTitleContext } from "./persisted-title-context";
 import { generateThreadTitleWithCodex } from "./thread-title-generation";
 
 export function createThreadMutationAdapter(clientAccess: AppServerClientAccess): ThreadMutationPort {
@@ -38,14 +37,7 @@ export function createThreadTitleAdapter(options: {
   runner: EphemeralStructuredTurnRunner;
 }): ThreadTitlePort {
   return {
-    persistedContext: (threadId) =>
-      options.clientAccess.withClient((client) =>
-        findThreadTitleContext({
-          threadId,
-          readTurns: (id, cursor, limit, sortDirection) =>
-            readCompletedTurnTranscriptSummariesPage(client, id, cursor, limit, sortDirection),
-        }),
-      ),
+    persistedContext: (threadId) => options.clientAccess.withClient((client) => readPersistedTitleContext(client, threadId)),
     generateTitle: (context, signal) =>
       generateThreadTitleWithCodex(
         options.codexPath,

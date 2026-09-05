@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import type { ThreadTitleContext } from "../../../../../src/domain/threads/title-generation-model";
+import type { ThreadTitleContext } from "../../../../../src/domain/threads/title-context";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   createThreadRenameEditorActions,

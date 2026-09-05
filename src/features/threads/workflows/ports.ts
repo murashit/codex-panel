@@ -1,6 +1,6 @@
 import type { ArchiveThreadInput } from "../../../domain/threads/archive-markdown";
 import type { Thread } from "../../../domain/threads/model";
-import type { ThreadTitleContext } from "../../../domain/threads/title-generation-model";
+import type { ThreadTitleContext } from "../../../domain/threads/title-context";
 
 export interface ThreadMutationPort {
   renameThread(threadId: string, name: string): Promise<void>;
