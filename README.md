@@ -75,7 +75,7 @@ Use `/help` for the current slash command list.
 | Key                               | Version   | Policy                                                                                           |
 | --------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
 | `manifest.minAppVersion`          | `1.13.0`  | Earliest Obsidian desktop version supported by the current source.                               |
-| `codexAppServer.testedCliVersion` | `0.153.2` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version. |
+| `codexAppServer.testedCliVersion` | `0.153.4` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version. |
 
 Codex Panel depends on the experimental `codex app-server` API.
 
