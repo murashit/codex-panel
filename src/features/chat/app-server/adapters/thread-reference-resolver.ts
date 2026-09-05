@@ -3,10 +3,11 @@ import { readReferencedThreadTranscriptPage } from "../../../../app-server/servi
 import { threadReferenceMarkdown } from "../../../../domain/threads/deep-link";
 import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
-import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadContext } from "../../../../domain/threads/reference";
+import { REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import { codexTextInputWithAttachments } from "../../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { PreparedInput } from "../../application/composer/prepared-input";
+import { referencedThreadContext } from "../../domain/threads/reference-context";
 
 interface ThreadReferenceResolverHost {
   currentClient(): AppServerRequestClient | null;
