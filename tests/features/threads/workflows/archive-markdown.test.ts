@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-
-import { type ArchiveMarkdownOptions, archivedThreadMarkdown } from "../../../src/domain/threads/archive-markdown";
-import type { Thread } from "../../../src/domain/threads/model";
-import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";
+import type { Thread } from "../../../../src/domain/threads/model";
+import type { ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
+import { type ArchiveMarkdownOptions, archivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-markdown";
 
 describe("thread archive export", () => {
   it("writes frontmatter and readable user/codex turns with turn timestamps", () => {

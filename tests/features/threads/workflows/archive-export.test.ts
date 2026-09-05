@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-
-import type { ArchiveThreadInput } from "../../../../src/domain/threads/archive-markdown";
-import type { ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
+import type { ThreadTranscript, ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
 import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-export";
 
 describe("archive export workflow", () => {
@@ -64,7 +62,7 @@ describe("archive export workflow", () => {
   });
 });
 
-function thread(overrides: Partial<ArchiveThreadInput> = {}): ArchiveThreadInput {
+function thread(overrides: Partial<ThreadTranscript> = {}): ThreadTranscript {
   return {
     id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
     preview: "Preview",

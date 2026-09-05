@@ -1,4 +1,4 @@
-import { sanitizeVaultPathSegment, vaultRelativeFolderPath } from "./write-paths";
+import { sanitizeVaultPathSegment, vaultRelativeFolderPath } from "../../../domain/vault/write-paths";
 
 interface VaultFolderMessages {
   emptyPathMessage: string;

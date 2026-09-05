@@ -4,7 +4,7 @@ import {
   vaultMarkdownFilenameFromTemplate,
   vaultMarkdownTemplateDate,
   vaultMarkdownTemplateTime,
-} from "../../../src/domain/vault/markdown-write-templates";
+} from "../../../../src/features/threads/workflows/archive-export-paths";
 
 describe("Vault Markdown write templates", () => {
   it("formats local date and time tokens with fixed-width fields", () => {

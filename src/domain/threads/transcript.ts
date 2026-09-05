@@ -1,3 +1,9 @@
+import type { Thread } from "./model";
+
+export interface ThreadTranscript extends Thread {
+  transcriptEntries: readonly ThreadTranscriptEntry[];
+}
+
 type ThreadTranscriptEntryKind = "user" | "assistant" | "plan";
 
 export interface ThreadTranscriptEntry {

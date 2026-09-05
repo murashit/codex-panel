@@ -7,11 +7,11 @@ import {
   transcriptEntriesFromTurnRecords,
   turnUserItemProjection,
 } from "../../../src/app-server/protocol/turn";
-import { archivedThreadMarkdown } from "../../../src/domain/threads/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
 import { threadDisplayTitle } from "../../../src/domain/threads/title";
 import type { TurnTranscriptSummary } from "../../../src/domain/threads/transcript";
 import { threadStreamItemFromTurnItem } from "../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
+import { archivedThreadMarkdown } from "../../../src/features/threads/workflows/archive-markdown";
 import { legacyTurnContextManifestText } from "../../support/legacy-turn-context-manifest";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
@@ -295,10 +295,13 @@ describe("legacy Codex Panel user-message compatibility", () => {
       durationMs: 1,
     };
 
-    const markdown = archivedThreadMarkdown({
-      ...thread(),
-      transcriptEntries: transcriptEntriesFromTurnRecords([turn]),
-    });
+    const markdown = archivedThreadMarkdown(
+      {
+        ...thread(),
+        transcriptEntries: transcriptEntriesFromTurnRecords([turn]),
+      },
+      new Date(0),
+    );
 
     expect(markdown).toContain("この続きです");
     expect(markdown).toContain("> Referenced: 参照元 (1/20 turns, thread-reference)");

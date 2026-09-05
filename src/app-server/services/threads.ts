@@ -4,11 +4,10 @@ import type { ApprovalsReviewer, ServiceTier } from "../../domain/runtime/policy
 import { parseServiceTier } from "../../domain/runtime/policy";
 import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
 import type { ThreadActivationSnapshot } from "../../domain/threads/activation";
-import type { ArchiveThreadInput } from "../../domain/threads/archive-markdown";
 import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
 import type { Thread } from "../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT, type ReferencedThreadTranscriptPage } from "../../domain/threads/reference";
-import type { TurnTranscriptSummary } from "../../domain/threads/transcript";
+import type { ThreadTranscript, TurnTranscriptSummary } from "../../domain/threads/transcript";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import {
@@ -209,7 +208,7 @@ export function threadFromAppServerRecord(thread: ThreadRecord, options: { archi
   return threadFromThreadRecord(thread, options);
 }
 
-export async function readThreadForArchiveExport(client: AppServerRequestClient, threadId: string): Promise<ArchiveThreadInput> {
+export async function readThreadForArchiveExport(client: AppServerRequestClient, threadId: string): Promise<ThreadTranscript> {
   const metadata = await client.request("thread/read", { threadId, includeTurns: false });
   const thread = threadFromThreadRecord(metadata.thread, { archived: true });
   if (metadata.thread.historyMode !== "paginated") return readLegacyThreadForArchiveExport(client, threadId);
@@ -223,7 +222,7 @@ export async function readThreadForArchiveExport(client: AppServerRequestClient,
 
 const ARCHIVE_HISTORY_PAGE_LIMIT = 100;
 
-async function readLegacyThreadForArchiveExport(client: AppServerRequestClient, threadId: string): Promise<ArchiveThreadInput> {
+async function readLegacyThreadForArchiveExport(client: AppServerRequestClient, threadId: string): Promise<ThreadTranscript> {
   const response = await client.request("thread/read", { threadId, includeTurns: true });
   return {
     ...threadFromThreadRecord(response.thread, { archived: true }),

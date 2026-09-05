@@ -2,12 +2,10 @@ import type { Link, Nodes } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { toMarkdown } from "mdast-util-to-markdown";
 import { visit } from "unist-util-visit";
-
-import { parseFileHref } from "../vault/file-hrefs";
-import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "../vault/paths";
-import type { Thread } from "./model";
-import { threadDisplayTitle } from "./title";
-import type { ThreadTranscriptEntry } from "./transcript";
+import { threadDisplayTitle } from "../../../domain/threads/title";
+import type { ThreadTranscript, ThreadTranscriptEntry } from "../../../domain/threads/transcript";
+import { parseFileHref } from "../../../domain/vault/file-hrefs";
+import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "../../../domain/vault/paths";
 
 interface MarkdownSourceReplacement {
   start: number;
@@ -21,11 +19,7 @@ export interface ArchiveMarkdownOptions {
   vaultConfigDir?: string;
 }
 
-export interface ArchiveThreadInput extends Thread {
-  transcriptEntries: readonly ThreadTranscriptEntry[];
-}
-
-export function archivedThreadMarkdown(thread: ArchiveThreadInput, exportedAt = new Date(), settings: ArchiveMarkdownOptions = {}): string {
+export function archivedThreadMarkdown(thread: ThreadTranscript, exportedAt: Date, settings: ArchiveMarkdownOptions = {}): string {
   const title = threadDisplayTitle(thread);
   const tags = normalizedArchiveTags(settings.archiveExportTags ?? "");
   const frontmatter = [

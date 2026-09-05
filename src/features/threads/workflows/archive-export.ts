@@ -1,12 +1,6 @@
-import { type ArchiveMarkdownOptions, type ArchiveThreadInput, archivedThreadMarkdown } from "../../../domain/threads/archive-markdown";
 import { shortThreadId } from "../../../domain/threads/id";
 import { threadDisplayTitle } from "../../../domain/threads/title";
-import {
-  vaultMarkdownFilenameFromTemplate,
-  vaultMarkdownFolderPath,
-  vaultMarkdownTemplateDate,
-  vaultMarkdownTemplateTime,
-} from "../../../domain/vault/markdown-write-templates";
+import type { ThreadTranscript } from "../../../domain/threads/transcript";
 import { sanitizeVaultPathSegment } from "../../../domain/vault/write-paths";
 import {
   ensureVaultFolder,
@@ -14,6 +8,13 @@ import {
   type VaultMarkdownDestination,
   withVaultWriteLock,
 } from "../../../shared/vault/write-operations";
+import {
+  vaultMarkdownFilenameFromTemplate,
+  vaultMarkdownFolderPath,
+  vaultMarkdownTemplateDate,
+  vaultMarkdownTemplateTime,
+} from "./archive-export-paths";
+import { type ArchiveMarkdownOptions, archivedThreadMarkdown } from "./archive-markdown";
 
 export interface ArchiveExportResult {
   path: string;
@@ -35,7 +36,7 @@ interface TemplateContext {
 }
 
 export async function exportArchivedThreadMarkdown(
-  thread: ArchiveThreadInput,
+  thread: ThreadTranscript,
   settings: ArchiveExportSettings,
   destination: ArchiveExportDestination,
   now = new Date(),
@@ -52,7 +53,7 @@ export async function exportArchivedThreadMarkdown(
   });
 }
 
-function templateContext(thread: ArchiveThreadInput, now: Date): TemplateContext {
+function templateContext(thread: ThreadTranscript, now: Date): TemplateContext {
   const title = sanitizeVaultPathSegment(threadDisplayTitle(thread));
   return {
     date: vaultMarkdownTemplateDate(now),
