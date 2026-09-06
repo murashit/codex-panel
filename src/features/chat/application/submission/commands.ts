@@ -2,7 +2,6 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
-import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { ReconnectPanelOptions } from "../connection/reconnect-command";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsCommands } from "../runtime/settings-commands";
@@ -14,6 +13,7 @@ import type { ThreadCommands } from "../threads/thread-commands";
 import type { ThreadStartOutcome } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
 import { type ComposerSubmitCommand, type ComposerSubmitCommandHost, submitComposer } from "./composer-submit-command";
+import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
 import { createTurnSubmissionCommand, type TurnSubmissionRequest } from "./turn-submission-command";
 

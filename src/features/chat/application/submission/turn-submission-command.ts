@@ -1,13 +1,13 @@
 import { type CodexInput, codexTextInput } from "../../../../domain/turns/input";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
-import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadStartOutcome } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
 import { STATUS_TURN_RUNNING } from "../turns/turn-state";
+import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,

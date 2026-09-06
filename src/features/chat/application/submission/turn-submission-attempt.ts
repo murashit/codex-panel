@@ -1,7 +1,8 @@
-import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
+import { activeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
+import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
 import { submissionStateSnapshot } from "./snapshot";
 
 export interface TurnSubmissionAttemptInput {
@@ -41,7 +42,7 @@ export class TurnSubmissionAttempt {
     if (!this.input.pendingSubmissionId) return true;
     const state = this.stateStore.getState();
     return pendingSubmissionMatches(
-      { pendingSubmission: state.pendingSubmission, activeThreadId: submissionStateSnapshot(state).activeThreadId },
+      { pendingSubmission: state.pendingSubmission, activeThreadId: activeThreadState(state)?.id ?? null },
       this.input.pendingSubmissionId,
     );
   }

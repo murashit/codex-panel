@@ -3,7 +3,6 @@ import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../do
 import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
 import type { Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
-import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import type { EffectOutcome } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId, type ChatState } from "../state/model";
@@ -11,6 +10,7 @@ import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurre
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatThreadStreamViewState } from "../state/turn-scope";
+import type { ComposerSubmissionAdoption } from "../submission/input-claim";
 import { chatTurnBusy } from "../turns/turn-state";
 import { captureForkDisplaySnapshot, type ForkDisplaySnapshot } from "./fork-display-snapshot";
 

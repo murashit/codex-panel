@@ -255,6 +255,13 @@ describe("ChatComposerController", () => {
     claim?.settle("accepted");
 
     expect(stateStore.getState().composer.draft).toBe("next message");
+    const nextClaim = controller.claimSubmission();
+    claim?.settle("failed");
+    claim?.adoptPanelTarget("obsolete");
+    expect(controller.isSubmissionPreparing()).toBe(true);
+    expect(nextClaim?.isCurrent()).toBe(true);
+    nextClaim?.settle("failed");
+    expect(stateStore.getState().composer.draft).toBe("next message");
   });
 
   it("places a slash command replacement before a draft typed while the command was running", () => {
@@ -268,7 +275,7 @@ describe("ChatComposerController", () => {
     expect(stateStore.getState().composer.draft).toBe("/goal set Current objective\n\nnext message");
   });
 
-  it("releases a stale claim without restoring it into the new panel target", () => {
+  it("does not revive a stale claim after returning to its original thread", () => {
     const stateStore = createChatStateStore();
     resumeComposerThread(stateStore, "first");
     const { controller } = composerControllerFixture({ stateStore });
@@ -276,11 +283,13 @@ describe("ChatComposerController", () => {
     const staleClaim = controller.claimSubmission();
 
     resumeComposerThread(stateStore, "second");
-    controller.setDraft("second-thread draft");
+    resumeComposerThread(stateStore, "first");
+    controller.setDraft("returned-thread draft");
 
     expect(controller.isSubmissionPreparing()).toBe(false);
+    expect(staleClaim?.isCurrent()).toBe(false);
     staleClaim?.settle("failed");
-    expect(stateStore.getState().composer.draft).toBe("second-thread draft");
+    expect(stateStore.getState().composer.draft).toBe("returned-thread draft");
     expect(controller.claimSubmission()).not.toBeNull();
   });
 

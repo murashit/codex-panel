@@ -18,7 +18,6 @@ import type { ComposerInputSnapshot } from "../../application/composer/input-sna
 import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
 import type { PreparedInput } from "../../application/composer/prepared-input";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
-import type { ComposerSubmissionClaim } from "../../application/composer/submission-claim";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
 import {
   activeComposerSuggestions,
@@ -31,15 +30,11 @@ import { activePanelOperationDecision } from "../../application/panel-operation-
 import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activePanelOperationForSlashCommandSuggestion } from "../../application/slash-commands/catalog";
 import { type ThreadCommandTarget, threadCommandTargetForDraft } from "../../application/slash-commands/thread-arguments";
-import { activeThreadState, type ChatState, panelThreadId } from "../../application/state/model";
-import {
-  capturePanelTargetLease,
-  type PanelTargetLease,
-  panelTargetLeaseIsCurrent,
-  panelTargetLeasesMatch,
-} from "../../application/state/panel-target";
+import { activeThreadState, type ChatState } from "../../application/state/model";
+import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeasesMatch } from "../../application/state/panel-target";
 import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
+import { type ComposerSubmissionClaim, SubmissionInput } from "../../application/submission/input-claim";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer/composer";
 import { syncComposerHeight } from "../../ui/composer/composer.dom";
@@ -88,13 +83,6 @@ interface ChatComposerRenderActions {
   submit: () => void;
 }
 
-interface ActiveComposerSubmissionClaim {
-  readonly claim: ComposerSubmissionClaim;
-  panelTarget: PanelTargetLease;
-  phase: "preflight" | "adopted";
-  targetAdoption: { targetThreadId: string | null; replacementDraft?: string } | null;
-}
-
 interface RetainedComposerSelection {
   readonly reference: SelectionContextReference;
   readonly emphasis: ComposerSelectionEmphasis | null;
@@ -110,7 +98,7 @@ export class ChatComposerController {
   private activeNoteContextSnapshots: ActiveNoteContextReference[] = [];
   private selectionContexts = new Map<string, RetainedComposerSelection>();
   private threadCommandTarget: ThreadCommandTarget | null = null;
-  private activeSubmissionClaim: ActiveComposerSubmissionClaim | null = null;
+  private submissionInput: SubmissionInput | null = null;
   private pendingSelection: ComposerPendingSelection | null = null;
   private readonly unsubscribeState: () => void;
   private readonly unsubscribeSharedResources: () => void;
@@ -224,7 +212,7 @@ export class ChatComposerController {
   }
 
   dispose(): void {
-    this.activeSubmissionClaim?.claim.settle("accepted");
+    this.submissionInput?.settle("accepted");
     this.unsubscribeState();
     this.unsubscribeSharedResources();
     this.attachmentTransfers.dispose();
@@ -251,60 +239,30 @@ export class ChatComposerController {
   }
 
   claimSubmission(): ComposerSubmissionClaim | null {
-    if (this.activeSubmissionClaim) return null;
+    if (this.submissionInput) return null;
     const text = this.draft;
     if (!text.trim()) return null;
     const inputSnapshot = this.captureInputSnapshot();
-    const panelTarget = capturePanelTargetLease(this.state);
     const claimedSelectionContexts = this.takeSelectionContexts();
-    let settled = false;
-
-    this.attachmentTransfers.clear();
-    this.activeNoteContextSnapshots = [];
-    this.threadCommandTarget = null;
-    this.setDraft("", { clearSuggestions: true, preserveContext: true, threadCommandTarget: null });
-
-    const claim: ComposerSubmissionClaim = {
+    const claim = new SubmissionInput(
       text,
       inputSnapshot,
-      isCurrent: () => {
-        const activeClaim = this.activeSubmissionClaim;
-        return !settled && activeClaim?.claim === claim && panelTargetLeaseIsCurrent(this.state, activeClaim.panelTarget);
-      },
-      markAdopted: () => {
-        if (settled || this.activeSubmissionClaim?.claim !== claim) return;
-        this.activeSubmissionClaim.phase = "adopted";
-      },
-      adoptPanelTarget: (targetThreadId, replacementDraft) => {
-        if (settled || this.activeSubmissionClaim?.claim !== claim) return;
-        this.activeSubmissionClaim.phase = "adopted";
-        this.activeSubmissionClaim.targetAdoption =
-          replacementDraft === undefined ? { targetThreadId } : { targetThreadId, replacementDraft };
-      },
-      settle: (outcome, replacementDraft) => {
-        if (settled) return;
-        settled = true;
-        const activeClaim = this.activeSubmissionClaim;
-        if (activeClaim?.claim === claim) this.activeSubmissionClaim = null;
-        if (activeClaim?.claim !== claim || !panelTargetLeaseIsCurrent(this.state, activeClaim.panelTarget)) {
+      () => this.state,
+      (outcome, replacementDraft) => {
+        this.submissionInput = null;
+        if (outcome !== "failed") {
           releaseSelectionContexts(claimedSelectionContexts);
+          if (outcome === "accepted" && replacementDraft !== undefined) {
+            this.setDraft(prependClaimedDraft(replacementDraft, this.draft), {
+              focus: true,
+              clearSuggestions: true,
+              preserveContext: true,
+            });
+          }
           return;
         }
 
-        const nextDraft = this.draft;
-        if (outcome === "accepted") {
-          releaseSelectionContexts(claimedSelectionContexts);
-          if (replacementDraft === undefined) return;
-          const restoredDraft = nextDraft.trim().length > 0 ? `${replacementDraft}\n\n${nextDraft}` : replacementDraft;
-          this.setDraft(restoredDraft, {
-            focus: true,
-            clearSuggestions: true,
-            preserveContext: true,
-          });
-          return;
-        }
-
-        const restoredDraft = nextDraft.trim().length > 0 ? `${text}\n\n${nextDraft}` : text;
+        const restoredDraft = prependClaimedDraft(text, this.draft);
         this.attachmentTransfers.restoreClaimed(inputSnapshot.attachments);
         this.activeNoteContextSnapshots = mergeByMarker(
           inputSnapshot.activeNoteSnapshots,
@@ -319,27 +277,25 @@ export class ChatComposerController {
         });
         this.restoreClaimedSelectionContexts(claimedSelectionContexts);
       },
-    };
-    this.activeSubmissionClaim = {
-      claim,
-      panelTarget,
-      phase: "preflight",
-      targetAdoption: null,
-    };
+    );
+    this.submissionInput = claim;
+    this.attachmentTransfers.clear();
+    this.activeNoteContextSnapshots = [];
+    this.threadCommandTarget = null;
+    this.setDraft("", { clearSuggestions: true, preserveContext: true, threadCommandTarget: null });
     return claim;
   }
 
   isSubmissionPreparing(): boolean {
-    return this.activeSubmissionClaim !== null;
+    return this.submissionInput !== null;
   }
 
   failActiveSubmissionClaim(): void {
-    this.activeSubmissionClaim?.claim.settle("failed");
+    this.submissionInput?.settle("failed");
   }
 
   runtimeSnapshot(): ComposerRuntimeSnapshot {
-    const activeClaim = this.activeSubmissionClaim;
-    activeClaim?.claim.settle(activeClaim.phase === "adopted" ? "accepted" : "failed");
+    this.submissionInput?.settleForSnapshot();
     return {
       draft: this.state.composer.draft,
       attachments: this.attachmentTransfers.snapshot(),
@@ -417,19 +373,14 @@ export class ChatComposerController {
       return;
     }
 
-    const activeClaim = this.activeSubmissionClaim;
     const carriedDraft = this.observedDraft;
     this.observedPanelTarget = panelTarget;
     this.observedDraft = state.composer.draft;
 
-    if (activeClaim?.targetAdoption?.targetThreadId === panelThreadId(state)) {
-      activeClaim.panelTarget = panelTarget;
-      const { replacementDraft } = activeClaim.targetAdoption;
-      activeClaim.targetAdoption = null;
-      const adoptedDraft =
-        replacementDraft === undefined || carriedDraft.trim().length === 0
-          ? (replacementDraft ?? carriedDraft)
-          : `${replacementDraft}\n\n${carriedDraft}`;
+    const adoption = this.submissionInput?.reconcilePanelTarget();
+    if (adoption) {
+      const { replacementDraft } = adoption;
+      const adoptedDraft = replacementDraft === undefined ? carriedDraft : prependClaimedDraft(replacementDraft, carriedDraft);
       this.setDraft(adoptedDraft, {
         preserveContext: true,
         threadCommandTarget: this.threadCommandTarget,
@@ -437,7 +388,6 @@ export class ChatComposerController {
       return;
     }
 
-    activeClaim?.claim.settle("failed");
     this.attachmentTransfers.clear();
     this.activeNoteContextSnapshots = [];
     this.clearSelectionContexts();
@@ -764,4 +714,8 @@ function releaseSelectionContexts(contexts: Map<string, RetainedComposerSelectio
 
 function collapsedComposerSelection(value: string, cursor: number): ComposerPendingSelection {
   return { value, start: cursor, end: cursor, direction: "none" };
+}
+
+function prependClaimedDraft(claimed: string, current: string): string {
+  return current.trim().length > 0 ? `${claimed}\n\n${current}` : claimed;
 }

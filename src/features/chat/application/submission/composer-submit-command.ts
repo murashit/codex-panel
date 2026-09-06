@@ -1,14 +1,15 @@
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
-import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "../composer/submission-claim";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { type SlashCommandName, slashCommandRequiresConnection, slashCommandRequiresRestoredThread } from "../slash-commands/catalog";
 import type { SlashCommandExecutionResult } from "../slash-commands/execution-contracts";
 import { parseSlashCommand, parseWebCommandArgs } from "../slash-commands/parse";
+import { activeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { cancellablePendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import type { ChatTurnPort } from "../turns/turn-port";
+import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
 import { submissionStateSnapshot } from "./snapshot";
 import type { TurnSubmissionRequest } from "./turn-submission-command";
 import { pendingWebSubmissionItem } from "./web-submission";
@@ -111,7 +112,7 @@ async function sendMessage(
     if (slashCommandRequiresConnection(slashCommand.command)) {
       const connected = await host.connection.ensureConnected();
       if (!connected) {
-        if (pendingWeb && pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id);
+        if (pendingWeb) rollbackPendingWebSubmission(host, pendingWeb.id);
         return;
       }
       if (!submissionClaim.isCurrent()) return;
@@ -142,15 +143,11 @@ async function sendMessage(
         ...(pendingWeb ? { pendingSubmissionId: pendingWeb.id } : {}),
         submissionClaim,
       });
-      if (!submitted) {
-        if (pendingWeb) {
-          if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id);
-        }
-      }
+      if (!submitted && pendingWeb) rollbackPendingWebSubmission(host, pendingWeb.id);
     }
     if (result === undefined || (result.sendText === undefined && result.composerDraft === undefined)) {
       if (pendingWeb) {
-        if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id);
+        rollbackPendingWebSubmission(host, pendingWeb.id);
       } else {
         submissionClaim.settle("accepted");
       }
@@ -205,7 +202,7 @@ function beginPendingWebSubmission(host: ComposerSubmitCommandHost, command: Sla
   const id = host.localItemIds.next("local-web");
   const item = pendingWebSubmissionItem(id, parsed.url, parsed.message);
   if (!item) return null;
-  const activeThreadId = submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
+  const activeThreadId = activeThreadState(host.stateStore.getState())?.id ?? null;
   host.stateStore.dispatch({
     type: "web-submission/pending",
     submission: { id, item, targetThreadId: activeThreadId, phase: "cancellable" },
@@ -217,7 +214,7 @@ function beginPendingWebSubmission(host: ComposerSubmitCommandHost, command: Sla
 function pendingWebSubmissionIsCurrent(host: ComposerSubmitCommandHost, submissionId: string): boolean {
   const state = host.stateStore.getState();
   return cancellablePendingSubmissionMatches(
-    { pendingSubmission: state.pendingSubmission, activeThreadId: submissionStateSnapshot(state).activeThreadId },
+    { pendingSubmission: state.pendingSubmission, activeThreadId: activeThreadState(state)?.id ?? null },
     submissionId,
   );
 }

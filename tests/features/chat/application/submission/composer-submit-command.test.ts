@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Thread } from "../../../../../src/domain/threads/model";
-import type { ComposerSubmissionClaim } from "../../../../../src/features/chat/application/composer/submission-claim";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
+import type { ComposerSubmissionClaim } from "../../../../../src/features/chat/application/submission/input-claim";
 import { deferred } from "../../../../support/async";
 import { chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";

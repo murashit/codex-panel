@@ -1,11 +1,11 @@
 import type { Thread } from "../../../../domain/threads/model";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
-import type { ComposerSubmissionAdoption } from "../composer/submission-claim";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import type { ChatRuntimeSharedResources } from "../runtime/snapshot";
 import { activeThreadId } from "../state/model";
 import type { ChatStateStore } from "../state/store";
+import type { ComposerSubmissionAdoption } from "../submission/input-claim";
 import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "./catalog";
 import { executeSlashCommand as runSlashCommand } from "./execute";
 import type { SlashCommandExecutionPorts, SlashCommandExecutionResult } from "./execution-contracts";
