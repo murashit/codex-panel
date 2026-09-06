@@ -90,6 +90,21 @@ describe("ThreadNavigationCommands", () => {
     expect(host.focusComposer).not.toHaveBeenCalled();
   });
 
+  it("keeps the current turn when it starts during blank chat preparation", async () => {
+    const prepared = deferred<PersistentNavigationPreparation | null>();
+    const navigation = navigationMock();
+    navigation.prepareForPersistentNavigation.mockReturnValue(prepared.promise);
+    const { commands, host, stateStore } = createActionsHarness({ navigation });
+    resumeThreadState(stateStore, "active");
+    const pending = commands.startNewThread();
+    stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
+    prepared.resolve({ kind: "ready" });
+    await pending;
+    expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
+    expect(navigation.commitPersistentNavigation).not.toHaveBeenCalled();
+    expect(host.focusComposer).not.toHaveBeenCalled();
+  });
+
   it("starts a blank chat while a subagent turn continues", async () => {
     const navigation = navigationMock();
     const { commands, host, stateStore } = createActionsHarness({ navigation });

@@ -4,6 +4,7 @@ import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/metrics
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
 import { HistoryController, type ThreadHistoryPage } from "../../../../../src/features/chat/application/threads/history-controller";
 import {
@@ -217,6 +218,25 @@ describe("ResumeCommand", () => {
     expect(resumeThread).toHaveBeenCalledOnce();
     expect(resumeThread).toHaveBeenCalledWith("second");
     expect(activeThreadId(stateStore.getState())).toBe("second");
+  });
+
+  it("records a resumed thread without replacing a turn started during resume", async () => {
+    const response = activation("other");
+    const pendingResume = deferred<Awaited<ReturnType<ThreadResumeEffects["resumeThread"]>>>();
+    const effect = vi.fn(() => pendingResume.promise);
+    const { commands, host, stateStore, loadLatest } = createActions(response, { effects: { resumeThread: effect } });
+    stateStore.dispatch(resumedThreadAction({ response: activation("active").activation }));
+    const pending = commands.resumeThread("other");
+    await vi.waitFor(() => expect(effect).toHaveBeenCalledOnce());
+    stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
+    const activeTurn = stateStore.getState().activeTurn;
+    await pendingResume.resolveAndFlush({ kind: "completed", value: response });
+    await expect(pending).resolves.toBeNull();
+    expect(activeThreadId(stateStore.getState())).toBe("active");
+    expect(stateStore.getState().activeTurn).toBe(activeTurn);
+    expect(host.recordResumedThread).toHaveBeenCalledWith(response.activation.thread);
+    expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
+    expect(loadLatest).not.toHaveBeenCalled();
   });
 
   it("does not switch threads while a different turn is busy", async () => {

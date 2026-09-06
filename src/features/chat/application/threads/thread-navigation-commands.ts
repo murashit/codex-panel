@@ -1,6 +1,4 @@
-import { activeThreadState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
-import { chatTurnBusy } from "../turns/turn-state";
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
 import type { PersistentNavigationLifecycle } from "./persistent-navigation-lifecycle";
 import type { ChatResumeWorkTracker } from "./resume-work";
@@ -37,10 +35,10 @@ export function createThreadNavigationCommands(host: ThreadNavigationCommandsHos
   return {
     async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
       const state = host.stateStore.getState();
-      if (chatTurnBusy(state.activeTurn) && activeThreadState(state)?.provenance?.kind !== "subagent") return;
+      if (!canSwitchToThread(state, null)) return;
       const intent = host.resumeWork.begin(null);
       const preparation = await host.navigation.prepareForPersistentNavigation(null);
-      if (!preparation || !host.resumeWork.isCurrent(intent)) return;
+      if (!preparation || !host.resumeWork.canCommit(intent, host.stateStore.getState())) return;
 
       host.identity.clearActiveThreadIdentity();
       host.navigation.commitPersistentNavigation(preparation);

@@ -73,6 +73,7 @@ async function resumeThread(
     if (effect.kind === "not-started") return null;
     host.recordResumedThread(effect.value.activation.thread);
     if (isStaleResume(host, resume, initialPanelTarget)) return null;
+    if (!host.resumeWork.canCommit(resume, host.stateStore.getState())) return null;
     const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision, displaySnapshot);
     if (!adoptedPanelTarget) return null;
     let hydration: Promise<boolean> | null = null;
