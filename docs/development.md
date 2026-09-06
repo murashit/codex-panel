@@ -18,13 +18,11 @@ Use focused scripts while iterating. Before handoff, run `npm run fix`, review i
 
 Use `npm run test:coverage` to identify source modules and branches that lack exercised behavior. It reports every authored TypeScript source file, including files not imported by tests, while excluding generated app-server bindings. Open `coverage/index.html` to inspect line-level gaps. Coverage is diagnostic and has no pass/fail threshold; prioritize user-visible behavior and state-transition invariants rather than raising the aggregate percentage.
 
-Use `npm run test:mutation` for exploratory mutation testing of correctness-critical logic. Select targets by responsibility directory rather than per-file lists in `stryker.config.mjs`, the source of truth for mutation scope. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run skips static mutants to avoid costly module reinitialization, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.
+Use `npm run test:mutation` for exploratory mutation testing of correctness-critical logic. Configure mutation targets by responsibility directory in `stryker.config.mjs`. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run skips static mutants to avoid costly module reinitialization, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.
 
 When reviewing tests, map each case to a reachable user action, external boundary, or distinct state transition. Keep representative coverage of normal workflows before adding variants; remove cases that only exercise test doubles, impossible configuration, duplicate ownership, or wording and internal shape without a durable contract.
 
 Extracting a module does not by itself justify a new test suite. Before adding tests, identify the behavior existing tests do not protect and exercise it at the appropriate layer. Consolidate or remove overlapping cases and fixtures while preserving meaningful behavior coverage.
-
-For development scripts, prefer running the real command and reviewing its output or generated diff over maintaining synthetic workspaces and command mocks. Keep representative tests for custom lint matching, where false positives and missed violations are difficult to spot in ordinary use. Do not add permanent tests for straightforward metadata comparisons or editable release-note drafts by default; verify changed failure paths while working on the script.
 
 ## Commit Messages
 
