@@ -74,7 +74,7 @@ function planTrackedSubagentNotification(
   if (!threadId || !state.activeTurn.subagents.byThreadId.has(threadId)) return EMPTY_PLAN;
   const facts = subagentRuntimeFacts(notification, localItemId);
   if (!facts) return EMPTY_PLAN;
-  const actions = facts.flatMap((fact) => subagentActivityActionsFromRuntimeFact(threadId, notification.method, fact));
+  const actions = facts.map((fact): SubagentActivityAction => ({ type: "subagent-activity/runtime-fact", threadId, fact }));
   return actions.length > 0 ? { actions, effects: [] } : EMPTY_PLAN;
 }
 
@@ -107,118 +107,19 @@ function subagentRuntimeFacts(notification: ServerNotification, localItemId: Loc
   }
 }
 
-function subagentActivityActionsFromRuntimeFact(
-  threadId: string,
-  notificationMethod: ServerNotification["method"],
-  fact: TurnRuntimeFact,
-): SubagentActivityAction[] {
-  switch (fact.type) {
-    case "authRecoveryUpdated":
-      return [
-        {
-          type: "subagent-activity/auth-recovery-updated",
-          threadId,
-          childTurnId: fact.turnId,
-          message: fact.progress.message,
-        },
-      ];
-    case "turnStarted":
-      return [{ type: "subagent-activity/turn-started", threadId, childTurnId: fact.turnId }];
-    case "turnCompleted":
-      return [
-        {
-          type: "subagent-activity/turn-completed",
-          threadId,
-          childTurnId: fact.turnId,
-          items: fact.completedItems,
-          outcome: subagentTurnOutcome(fact.status),
-        },
-      ];
-    case "itemUpserted":
-      return [
-        {
-          type: "subagent-activity/item-observed",
-          threadId,
-          item: fact.item,
-          advance: notificationMethod === "item/started" || notificationMethod === "turn/plan/updated",
-        },
-      ];
-    case "userMessageObserved":
-      return [];
-    case "itemCompleted":
-      return [{ type: "subagent-activity/item-observed", threadId, item: fact.item, advance: false }];
-    case "assistantDelta":
-      return [
-        {
-          type: "subagent-activity/assistant-delta-appended",
-          threadId,
-          childTurnId: fact.turnId,
-          itemId: fact.itemId,
-          delta: fact.delta,
-        },
-      ];
-    case "planDelta":
-      return [
-        {
-          type: "subagent-activity/plan-delta-appended",
-          threadId,
-          childTurnId: fact.turnId,
-          itemId: fact.itemId,
-          delta: fact.delta,
-        },
-      ];
-    case "textDelta":
-      if (notificationMethod === "item/reasoning/textDelta") return [];
-      return [
-        {
-          type: "subagent-activity/text-delta-appended",
-          threadId,
-          childTurnId: fact.turnId,
-          itemId: fact.itemId,
-          label: fact.label,
-          delta: fact.delta,
-          kind: fact.kind,
-        },
-      ];
-    case "toolOutputDelta":
-      return [
-        {
-          type: "subagent-activity/tool-output-appended",
-          threadId,
-          childTurnId: fact.turnId,
-          itemId: fact.itemId,
-          delta: fact.delta,
-          fallbackLabel: fact.fallbackLabel,
-        },
-      ];
-    case "hookRunObserved":
-      return fact.turnId
-        ? [{ type: "subagent-activity/item-observed", threadId, item: { ...fact.item, turnId: fact.turnId }, advance: true }]
-        : [];
-    case "autoReviewUpdated":
-    case "reviewWarning":
-      return [{ type: "subagent-activity/item-observed", threadId, item: fact.item, advance: true }];
-    case "itemOutputDelta":
-    case "turnDiffUpdated":
-    case "requestResolved":
-    case "systemNotice":
-      return [];
-  }
-}
-
-function subagentTurnOutcome(status: string): "completed" | "failed" | null {
-  if (status === "completed") return "completed";
-  if (status === "failed") return "failed";
-  return null;
-}
-
 function subagentTrackingActionsFromParentFacts(state: ChatState, facts: readonly TurnRuntimeFact[]): SubagentActivityAction[] {
   const parentTurnId = activeTurnIdForState(state);
   if (!parentTurnId) return [];
   const actions: SubagentActivityAction[] = [];
   const trackedThreadIds = new Set<string>();
   for (const fact of facts) {
-    if (fact.type !== "itemUpserted" && fact.type !== "itemCompleted") continue;
+    if (
+      fact.type !== "itemStarted" &&
+      fact.type !== "itemContentUpdated" &&
+      fact.type !== "taskProgressUpdated" &&
+      fact.type !== "itemCompleted"
+    )
+      continue;
     if (fact.item.kind !== "agent" || fact.item.turnId !== parentTurnId) continue;
     if (fact.item.coordinationUpdate === "snapshot") {
       for (const target of fact.item.targets) trackedThreadIds.add(target.threadId);

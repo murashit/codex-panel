@@ -73,9 +73,9 @@ describe("active turn aggregate", () => {
       parentTurnId: "turn-1",
     });
     const withChildTurn = chatReducer(withChild, {
-      type: "subagent-activity/turn-started",
+      type: "subagent-activity/runtime-fact",
       threadId: "child-thread",
-      childTurnId: "child-turn-1",
+      fact: { type: "turnStarted", threadId: "child-thread", turnId: "child-turn-1" },
     });
     expect(withChildTurn.activeTurn.subagents.byThreadId.get("child-thread")).toMatchObject({
       childTurnId: "child-turn-1",

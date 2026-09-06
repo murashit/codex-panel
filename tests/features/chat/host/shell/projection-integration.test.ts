@@ -254,13 +254,17 @@ describe("chat panel projection integration", () => {
       parentTurnId: "parent-turn",
     });
     state = chatReducer(state, {
-      type: "subagent-activity/text-delta-appended",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "child-turn",
-      itemId: "reasoning",
-      label: "reasoning",
-      delta: "Inspecting notification routing",
-      kind: "reasoning",
+      fact: {
+        type: "textDelta",
+        turnId: "child-turn",
+        itemId: "reasoning",
+        label: "reasoning",
+        delta: "Inspecting notification routing",
+        kind: "reasoning",
+        source: "summary",
+      },
     });
 
     const projection = projectThreadStream(selectChatPanelThreadStream(state, emptySharedResources), threadStreamSurfaceContext());

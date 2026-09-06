@@ -82,7 +82,9 @@ function projectTurnRuntimeFact(state: ChatState, fact: TurnRuntimeFact): TurnRu
         kind: fact.kind,
         fallbackText: fact.fallbackText,
       });
-    case "itemUpserted":
+    case "itemStarted":
+    case "itemContentUpdated":
+    case "taskProgressUpdated":
       return actionProjection({ type: "thread-stream/item-upserted", item: fact.item });
     case "userMessageObserved":
       return fact.item.clientId &&
@@ -131,7 +133,9 @@ function turnRuntimeFactAdvancesActivity(fact: TurnRuntimeFact): boolean {
     case "textDelta":
     case "toolOutputDelta":
     case "itemOutputDelta":
-    case "itemUpserted":
+    case "itemStarted":
+    case "itemContentUpdated":
+    case "taskProgressUpdated":
     case "userMessageObserved":
     case "itemCompleted":
     case "autoReviewUpdated":

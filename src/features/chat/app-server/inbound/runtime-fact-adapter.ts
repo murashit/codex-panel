@@ -64,7 +64,7 @@ export function turnRuntimeFactsFromNotification(
     case "turn/plan/updated":
       return [
         {
-          type: "itemUpserted",
+          type: "taskProgressUpdated",
           item: taskProgressThreadStreamItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
         },
       ];
@@ -78,6 +78,7 @@ export function turnRuntimeFactsFromNotification(
           label: "reasoning",
           delta: notification.params.delta,
           kind: "reasoning",
+          source: notification.method === "item/reasoning/textDelta" ? "body" : "summary",
         },
       ];
     case "item/reasoning/summaryPartAdded":
@@ -89,6 +90,7 @@ export function turnRuntimeFactsFromNotification(
           label: "reasoning",
           delta: "",
           kind: "reasoning",
+          source: "summary",
         },
       ];
     case "item/started":
@@ -109,7 +111,7 @@ export function turnRuntimeFactsFromNotification(
     case "item/fileChange/patchUpdated":
       return [
         {
-          type: "itemUpserted",
+          type: "itemContentUpdated",
           item: fileChangeItem(notification.params.itemId, notification.params.turnId, notification.params.changes, "inProgress"),
         },
       ];
@@ -175,7 +177,7 @@ function startedItemFacts(item: AppServerTurnItem, turnId: string): readonly Tur
   }
   if (shouldSuppressLifecycleItem(item)) return [];
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
-  return streamItem ? [{ type: "itemUpserted", item: streamItem }] : [];
+  return streamItem ? [{ type: "itemStarted", item: streamItem }] : [];
 }
 
 function completedItemFacts(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeFact[] {

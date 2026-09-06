@@ -9,10 +9,13 @@ describe("subagent activity state", () => {
   it("shows auth recovery as a temporary preview until child activity resumes", () => {
     let state = trackedState();
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/auth-recovery-updated",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "child-turn",
-      message: "Refreshing AWS authentication.",
+      fact: {
+        type: "authRecoveryUpdated",
+        turnId: "child-turn",
+        progress: { message: "Refreshing AWS authentication.", phase: "running" },
+      },
     });
 
     expect(state.byThreadId.get("child")?.statusPreview).toBe("Refreshing AWS authentication.");
@@ -63,27 +66,35 @@ describe("subagent activity state", () => {
       parentTurnId: "parent-turn",
     });
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/turn-started",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "child-turn",
+      fact: { type: "turnStarted", threadId: "child", turnId: "child-turn" },
     });
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/text-delta-appended",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "child-turn",
-      itemId: "reasoning",
-      label: "reasoning",
-      delta: "Inspecting ",
-      kind: "reasoning",
+      fact: {
+        type: "textDelta",
+        turnId: "child-turn",
+        itemId: "reasoning",
+        label: "reasoning",
+        delta: "Inspecting ",
+        kind: "reasoning",
+        source: "summary",
+      },
     });
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/text-delta-appended",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "child-turn",
-      itemId: "reasoning",
-      label: "reasoning",
-      delta: "routing",
-      kind: "reasoning",
+      fact: {
+        type: "textDelta",
+        turnId: "child-turn",
+        itemId: "reasoning",
+        label: "reasoning",
+        delta: "routing",
+        kind: "reasoning",
+        source: "summary",
+      },
     });
 
     expect(state.byThreadId.get("child")).toMatchObject({
@@ -107,22 +118,28 @@ describe("subagent activity state", () => {
   it("uses the last displayable canonical item when the child turn completes", () => {
     let state = trackedState();
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/turn-completed",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "child-turn",
-      items: [
-        { id: "user", kind: "dialogue", dialogueKind: "user", role: "user", text: "work" },
-        reasoningItem("reasoning", "Done checking"),
-        {
-          id: "answer",
-          kind: "dialogue",
-          dialogueKind: "assistantResponse",
-          dialogueState: "completed",
-          role: "assistant",
-          text: "Everything passes.",
-        },
-      ],
-      outcome: "completed",
+      fact: {
+        type: "turnCompleted",
+        threadId: "child",
+        turnId: "child-turn",
+        completedItems: [
+          { id: "user", kind: "dialogue", dialogueKind: "user", role: "user", text: "work" },
+          reasoningItem("reasoning", "Done checking"),
+          {
+            id: "answer",
+            kind: "dialogue",
+            dialogueKind: "assistantResponse",
+            dialogueState: "completed",
+            role: "assistant",
+            text: "Everything passes.",
+          },
+        ],
+        status: "completed",
+        itemsView: "full",
+        completedTurnTranscriptSummary: null,
+      },
     });
 
     expect(state.byThreadId.get("child")?.latestItem).toMatchObject({
@@ -134,26 +151,36 @@ describe("subagent activity state", () => {
   it("ignores delayed notifications from an older child turn", () => {
     let state = trackedState();
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/turn-started",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "new-turn",
+      fact: { type: "turnStarted", threadId: "child", turnId: "new-turn" },
     });
     state = observe(state, reasoningItem("current", "Current work", "new-turn"), true);
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/text-delta-appended",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "old-turn",
-      itemId: "stale",
-      label: "reasoning",
-      delta: "Older work",
-      kind: "reasoning",
+      fact: {
+        type: "textDelta",
+        turnId: "old-turn",
+        itemId: "stale",
+        label: "reasoning",
+        delta: "Older work",
+        kind: "reasoning",
+        source: "summary",
+      },
     });
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/turn-completed",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "old-turn",
-      items: [reasoningItem("stale", "Older work", "old-turn")],
-      outcome: "completed",
+      fact: {
+        type: "turnCompleted",
+        threadId: "child",
+        turnId: "old-turn",
+        completedItems: [reasoningItem("stale", "Older work", "old-turn")],
+        status: "completed",
+        itemsView: "full",
+        completedTurnTranscriptSummary: null,
+      },
     });
 
     expect(state.byThreadId.get("child")).toMatchObject({
@@ -167,11 +194,17 @@ describe("subagent activity state", () => {
   it("does not let delayed v2 lifecycle hints overwrite child turn facts", () => {
     let state = trackedState();
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/turn-completed",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "child-turn",
-      items: [],
-      outcome: "completed",
+      fact: {
+        type: "turnCompleted",
+        threadId: "child",
+        turnId: "child-turn",
+        completedItems: [],
+        status: "completed",
+        itemsView: "full",
+        completedTurnTranscriptSummary: null,
+      },
     });
     for (const coordinationUpdate of ["started", "interrupted"] as const) {
       state = reduceSubagentActivitySlice(state, {
@@ -213,9 +246,9 @@ describe("subagent activity state", () => {
   it("stops a running child immediately when v2 interruption arrives", () => {
     let state = trackedState();
     state = reduceSubagentActivitySlice(state, {
-      type: "subagent-activity/turn-started",
+      type: "subagent-activity/runtime-fact",
       threadId: "child",
-      childTurnId: "child-turn",
+      fact: { type: "turnStarted", threadId: "child", turnId: "child-turn" },
     });
     state = reduceSubagentActivitySlice(state, {
       type: "subagent-activity/coordination-observed",
@@ -261,10 +294,9 @@ function trackedState() {
 
 function observe(state: ReturnType<typeof trackedState>, item: ThreadStreamItem, advance: boolean): ReturnType<typeof trackedState> {
   return reduceSubagentActivitySlice(state, {
-    type: "subagent-activity/item-observed",
+    type: "subagent-activity/runtime-fact",
     threadId: "child",
-    item,
-    advance,
+    fact: advance ? { type: "itemStarted", item } : { type: "itemCompleted", item, turnId: item.turnId ?? "child-turn" },
   });
 }
 

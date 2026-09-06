@@ -32,6 +32,7 @@ export type TurnRuntimeFact =
       label: string;
       delta: string;
       kind: TurnRuntimeTextItemKind;
+      source: "summary" | "body";
     }
   | {
       type: "toolOutputDelta";
@@ -49,7 +50,7 @@ export type TurnRuntimeFact =
       fallbackText: string;
     }
   | {
-      type: "itemUpserted";
+      type: "itemStarted" | "itemContentUpdated" | "taskProgressUpdated";
       item: ThreadStreamItem;
     }
   | {

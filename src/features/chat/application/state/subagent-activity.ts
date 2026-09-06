@@ -1,7 +1,6 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import {
   type AgentCoordinationLifecycle,
-  type AgentCoordinationOutcome,
   type AgentCoordinationUpdate,
   applyAgentCoordinationUpdate,
   UNKNOWN_AGENT_COORDINATION_LIFECYCLE,
@@ -13,6 +12,7 @@ import {
   appendToolOutputStreamingDelta,
 } from "../../domain/thread-stream/streaming-deltas";
 import { upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
+import type { TurnRuntimeFact } from "../turns/runtime-facts";
 
 interface SubagentActivityEntry extends AgentCoordinationLifecycle {
   readonly threadId: string;
@@ -35,35 +35,7 @@ export type SubagentActivityAction =
       agentLabel: string | null;
       coordinationUpdate: Exclude<AgentCoordinationUpdate, "snapshot">;
     }
-  | { type: "subagent-activity/turn-started"; threadId: string; childTurnId: string }
-  | { type: "subagent-activity/auth-recovery-updated"; threadId: string; childTurnId: string; message: string }
-  | { type: "subagent-activity/item-observed"; threadId: string; item: ThreadStreamItem; advance: boolean }
-  | { type: "subagent-activity/assistant-delta-appended"; threadId: string; childTurnId: string; itemId: string; delta: string }
-  | { type: "subagent-activity/plan-delta-appended"; threadId: string; childTurnId: string; itemId: string; delta: string }
-  | {
-      type: "subagent-activity/text-delta-appended";
-      threadId: string;
-      childTurnId: string;
-      itemId: string;
-      label: string;
-      delta: string;
-      kind: "tool" | "hook" | "reasoning";
-    }
-  | {
-      type: "subagent-activity/tool-output-appended";
-      threadId: string;
-      childTurnId: string;
-      itemId: string;
-      delta: string;
-      fallbackLabel: string;
-    }
-  | {
-      type: "subagent-activity/turn-completed";
-      threadId: string;
-      childTurnId: string;
-      items: readonly ThreadStreamItem[];
-      outcome: AgentCoordinationOutcome;
-    };
+  | { type: "subagent-activity/runtime-fact"; threadId: string; fact: TurnRuntimeFact };
 
 export function initialSubagentActivityState(): ChatSubagentActivityState {
   return { byThreadId: new Map() };
@@ -79,69 +51,102 @@ export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, ac
       return trackSubagent(state, action.threadId);
     case "subagent-activity/coordination-observed":
       return observeCoordinationUpdate(state, action.threadId, action.agentLabel, action.coordinationUpdate);
-    case "subagent-activity/turn-started":
-      return updateTrackedEntry(state, action.threadId, (entry) => ({
+    case "subagent-activity/runtime-fact":
+      return reduceChildRuntimeFact(state, action.threadId, action.fact);
+  }
+}
+
+function reduceChildRuntimeFact(state: ChatSubagentActivityState, threadId: string, fact: TurnRuntimeFact): ChatSubagentActivityState {
+  switch (fact.type) {
+    case "turnStarted":
+      return updateTrackedEntry(state, threadId, (entry) => ({
         ...entry,
-        childTurnId: action.childTurnId,
+        childTurnId: fact.turnId,
         latestItem: null,
         statusPreview: null,
         liveness: "running",
         outcome: null,
       }));
-    case "subagent-activity/item-observed":
-      return updateTrackedEntry(state, action.threadId, (entry) => {
-        if (isStaleChildTurn(entry, action.item.turnId)) return entry;
-        return {
-          ...entry,
-          childTurnId: action.item.turnId ?? entry.childTurnId,
-          latestItem: observedLatestItem(entry.latestItem, action.item, action.advance),
-          statusPreview: null,
-        };
-      });
-    case "subagent-activity/assistant-delta-appended":
-      return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
+    case "itemStarted":
+    case "taskProgressUpdated":
+      return observeItem(state, threadId, fact.item, true);
+    case "itemContentUpdated":
+      return observeItem(state, threadId, fact.item, false);
+    case "itemCompleted":
+      return observeItem(state, threadId, fact.item, false);
+    case "hookRunObserved":
+      return fact.turnId ? observeItem(state, threadId, { ...fact.item, turnId: fact.turnId }, true) : state;
+    case "autoReviewUpdated":
+    case "reviewWarning":
+      return observeItem(state, threadId, fact.item, true);
+    case "assistantDelta":
+      return updateCurrentTurnEntry(state, threadId, fact.turnId, (entry) => ({
         ...entry,
-        childTurnId: action.childTurnId,
-        latestItem: appendAssistantStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta),
+        childTurnId: fact.turnId,
+        latestItem: appendAssistantStreamingDelta(entry.latestItem, fact.itemId, fact.turnId, fact.delta),
         statusPreview: null,
       }));
-    case "subagent-activity/plan-delta-appended":
-      return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
+    case "planDelta":
+      return updateCurrentTurnEntry(state, threadId, fact.turnId, (entry) => ({
         ...entry,
-        childTurnId: action.childTurnId,
-        latestItem: appendPlanStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta),
+        childTurnId: fact.turnId,
+        latestItem: appendPlanStreamingDelta(entry.latestItem, fact.itemId, fact.turnId, fact.delta),
         statusPreview: null,
       }));
-    case "subagent-activity/text-delta-appended":
-      return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
+    case "textDelta":
+      if (fact.source === "body") return state;
+      return updateCurrentTurnEntry(state, threadId, fact.turnId, (entry) => ({
         ...entry,
-        childTurnId: action.childTurnId,
-        latestItem: appendTextStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.label, action.delta, action.kind),
+        childTurnId: fact.turnId,
+        latestItem: appendTextStreamingDelta(entry.latestItem, fact.itemId, fact.turnId, fact.label, fact.delta, fact.kind),
         statusPreview: null,
       }));
-    case "subagent-activity/tool-output-appended":
-      return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
+    case "toolOutputDelta":
+      return updateCurrentTurnEntry(state, threadId, fact.turnId, (entry) => ({
         ...entry,
-        childTurnId: action.childTurnId,
-        latestItem: appendToolOutputStreamingDelta(entry.latestItem, action.itemId, action.childTurnId, action.delta, action.fallbackLabel),
+        childTurnId: fact.turnId,
+        latestItem: appendToolOutputStreamingDelta(entry.latestItem, fact.itemId, fact.turnId, fact.delta, fact.fallbackLabel),
         statusPreview: null,
       }));
-    case "subagent-activity/auth-recovery-updated":
-      return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
+    case "authRecoveryUpdated":
+      return updateCurrentTurnEntry(state, threadId, fact.turnId, (entry) => ({
         ...entry,
-        childTurnId: action.childTurnId,
-        statusPreview: action.message,
+        childTurnId: fact.turnId,
+        statusPreview: fact.progress.message,
       }));
-    case "subagent-activity/turn-completed":
-      return updateCurrentTurnEntry(state, action.threadId, action.childTurnId, (entry) => ({
+    case "turnCompleted":
+      return updateCurrentTurnEntry(state, threadId, fact.turnId, (entry) => ({
         ...entry,
-        childTurnId: action.childTurnId,
-        latestItem: latestDisplayableItem(action.items) ?? entry.latestItem,
+        childTurnId: fact.turnId,
+        latestItem: latestDisplayableItem(fact.completedItems) ?? entry.latestItem,
         liveness: "stopped",
-        outcome: action.outcome,
+        outcome: fact.status === "completed" || fact.status === "failed" ? fact.status : null,
         statusPreview: null,
       }));
+    case "userMessageObserved":
+    case "itemOutputDelta":
+    case "turnDiffUpdated":
+    case "requestResolved":
+    case "systemNotice":
+      return state;
   }
+}
+
+function observeItem(
+  state: ChatSubagentActivityState,
+  threadId: string,
+  item: ThreadStreamItem,
+  advance: boolean,
+): ChatSubagentActivityState {
+  return updateTrackedEntry(state, threadId, (entry) => {
+    if (isStaleChildTurn(entry, item.turnId)) return entry;
+    return {
+      ...entry,
+      childTurnId: item.turnId ?? entry.childTurnId,
+      latestItem: observedLatestItem(entry.latestItem, item, advance),
+      statusPreview: null,
+    };
+  });
 }
 
 function trackSubagent(state: ChatSubagentActivityState, threadId: string): ChatSubagentActivityState {

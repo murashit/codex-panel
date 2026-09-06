@@ -48,7 +48,11 @@ describe("chat inbound routing", () => {
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
     state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
     state = chatReducer(state, { type: "subagent-activity/tracked", threadId: "thread-child", parentTurnId: "turn-active" });
-    state = chatReducer(state, { type: "subagent-activity/turn-started", threadId: "thread-child", childTurnId: "turn-child" });
+    state = chatReducer(state, {
+      type: "subagent-activity/runtime-fact",
+      threadId: "thread-child",
+      fact: { type: "turnStarted", threadId: "thread-child", turnId: "turn-child" },
+    });
 
     const plan = planChatInboundNotification(
       state,
@@ -66,10 +70,9 @@ describe("chat inbound routing", () => {
 
     expect(plan.actions).toEqual([
       {
-        type: "subagent-activity/auth-recovery-updated",
+        type: "subagent-activity/runtime-fact",
         threadId: "thread-child",
-        childTurnId: "turn-child",
-        message: "Authentication refreshed.",
+        fact: { type: "authRecoveryUpdated", turnId: "turn-child", progress: { message: "Authentication refreshed.", phase: "completed" } },
       },
     ]);
   });

@@ -28,7 +28,11 @@ describe("session connection", () => {
 
     fixture.deliver(userInputRequest(1), rootResponder);
     fixture.stateStore.dispatch({ type: "subagent-activity/tracked", threadId: "child", parentTurnId: "turn-active" });
-    fixture.stateStore.dispatch({ type: "subagent-activity/turn-started", threadId: "child", childTurnId: "child-turn" });
+    fixture.stateStore.dispatch({
+      type: "subagent-activity/runtime-fact",
+      threadId: "child",
+      fact: { type: "turnStarted", threadId: "child", turnId: "child-turn" },
+    });
     fixture.deliver(commandApprovalRequest(2, "child", "child-turn"), childResponder);
     expect(fixture.stateStore.getState().requests.pendingUserInputs).toHaveLength(1);
     expect(fixture.stateStore.getState().requests.approvals).toHaveLength(1);
@@ -71,7 +75,11 @@ describe("session connection", () => {
 
     fixture.invalidate();
     fixture.stateStore.dispatch({ type: "subagent-activity/tracked", threadId: "child", parentTurnId: "turn-active" });
-    fixture.stateStore.dispatch({ type: "subagent-activity/turn-started", threadId: "child", childTurnId: "child-turn" });
+    fixture.stateStore.dispatch({
+      type: "subagent-activity/runtime-fact",
+      threadId: "child",
+      fact: { type: "turnStarted", threadId: "child", turnId: "child-turn" },
+    });
     const childResponder = { respond: vi.fn(), reject: vi.fn() };
     fixture.deliver(commandApprovalRequest(2, "child", "child-turn"), childResponder);
 
