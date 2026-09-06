@@ -16,38 +16,17 @@ import {
   panelThread,
   requestMethods,
   type SettingsTabHostOptions,
-  setSettingsContextClientMock,
   settingsClient,
+  settingsContextClientMock,
   settingsTabHost,
   useContextClients,
 } from "../test-support";
 
 installObsidianDomShims();
 
-const { contextConnectionClientMock } = vi.hoisted(() => ({
-  contextConnectionClientMock: vi.fn(),
-}));
-
-vi.mock("../../../src/app-server/connection/context-connection", () => ({
-  AppServerContextConnection: class {
-    constructor(
-      private readonly codexPath: string,
-      private readonly cwd: string,
-    ) {}
-
-    withClient(operation: unknown): unknown {
-      return contextConnectionClientMock(this.codexPath, this.cwd, operation);
-    }
-
-    dispose(): void {}
-  },
-}));
-
-setSettingsContextClientMock(contextConnectionClientMock);
-
 describe("settings tab", () => {
   beforeEach(() => {
-    contextConnectionClientMock.mockReset();
+    settingsContextClientMock.mockReset();
     notices.length = 0;
   });
 
@@ -56,7 +35,7 @@ describe("settings tab", () => {
 
     const definitions = tab.getSettingDefinitions();
 
-    expect(contextConnectionClientMock).not.toHaveBeenCalled();
+    expect(settingsContextClientMock).not.toHaveBeenCalled();
     expect(declarativeDefinitionNames(definitions)).toEqual(
       expect.arrayContaining([
         "Codex details",
@@ -86,9 +65,7 @@ describe("settings tab", () => {
 
   it("routes every declarative control through the existing settings publication boundary", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const refreshChatViews = vi.fn();
-    const refreshThreadsViews = vi.fn();
-    const tab = newSettingsTab({ saveSettings, refreshChatViews, refreshThreadsViews });
+    const tab = newSettingsTab({ saveSettings });
 
     const changes = [
       ["showToolbar", false],
@@ -104,8 +81,6 @@ describe("settings tab", () => {
     }
 
     expect(saveSettings).toHaveBeenCalledTimes(changes.length);
-    expect(refreshChatViews).toHaveBeenCalledTimes(2);
-    expect(refreshThreadsViews).toHaveBeenCalledOnce();
   });
 
   it("publishes model and effort changes from a representative declarative helper renderer", async () => {
@@ -216,23 +191,23 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(contextConnectionClientMock).toHaveBeenCalledTimes(1);
+    expect(settingsContextClientMock).toHaveBeenCalledTimes(1);
     expect(fetchModels).toHaveBeenCalledTimes(1);
     expectRequestTimes(client, "hooks/list", 1);
 
     tab.display();
     await flushPromises();
 
-    expect(contextConnectionClientMock).toHaveBeenCalledTimes(1);
+    expect(settingsContextClientMock).toHaveBeenCalledTimes(1);
     expect(buttonLabels(tab)).toContain("Refresh Codex details");
     expect(settingNames(tab)).toContain("Codex hooks");
     expect(settingNames(tab)).toContain("Archived threads");
   });
 
-  it("saves the toolbar visibility setting and refreshes open panels", async () => {
+  it("publishes the toolbar visibility setting", async () => {
+    useContextClients(settingsClient());
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const refreshChatViews = vi.fn();
-    const tab = newSettingsTab({ saveSettings, refreshChatViews });
+    const tab = newSettingsTab({ saveSettings });
 
     tab.display();
     const toggle = inputForSetting(tab, "Show chat toolbar");
@@ -241,15 +216,14 @@ describe("settings tab", () => {
     toggle.dispatchEvent(new Event("change"));
     await flushPromises();
 
-    expect(saveSettings).toHaveBeenCalledOnce();
-    expect(refreshChatViews).toHaveBeenCalledOnce();
+    expect(saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ showToolbar: false }));
   });
 
   it("finishes a pending settings save without remounting a hidden tab", async () => {
+    useContextClients(settingsClient());
     const save = deferred<void>();
     const saveSettings = vi.fn(() => save.promise);
-    const refreshChatViews = vi.fn();
-    const tab = newSettingsTab({ saveSettings, refreshChatViews });
+    const tab = newSettingsTab({ saveSettings });
 
     tab.display();
     const toggle = inputForSetting(tab, "Show chat toolbar");
@@ -265,7 +239,6 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(refreshChatViews).toHaveBeenCalledOnce();
     expect(tab.containerEl.children).toHaveLength(0);
   });
 
@@ -275,7 +248,7 @@ describe("settings tab", () => {
     useContextClients(settingsClient(), settingsClient());
     const host = settingsTabHost({
       saveSettings: vi.fn(() => save.promise),
-      observeModels,
+      replacementResources: settingsTabHost({ observeModels }).resources,
     });
     const tab = new CodexPanelSettingTab({} as never, {} as never, host);
 
@@ -292,10 +265,11 @@ describe("settings tab", () => {
     tab.display();
 
     expect(host.settings.codexPath).toBe("/opt/codex-next");
-    expect(observeModels).toHaveBeenCalledTimes(2);
+    expect(observeModels).toHaveBeenCalledOnce();
   });
 
   it("serializes overlapping settings saves", async () => {
+    useContextClients(settingsClient());
     const firstSave = deferred<void>();
     const saveSettings = vi.fn().mockReturnValueOnce(firstSave.promise).mockResolvedValueOnce(undefined);
     const tab = newSettingsTab({ saveSettings });
@@ -320,6 +294,7 @@ describe("settings tab", () => {
   });
 
   it("keeps the latest native control value while an earlier save is pending", async () => {
+    useContextClients(settingsClient());
     const firstSave = deferred<void>();
     const saveSettings = vi.fn().mockReturnValueOnce(firstSave.promise).mockResolvedValueOnce(undefined);
     const tab = newSettingsTab({ saveSettings });
@@ -345,6 +320,7 @@ describe("settings tab", () => {
   });
 
   it("rolls back only the failed mutation after an earlier queued save succeeds", async () => {
+    useContextClients(settingsClient());
     const saveSettings = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("disk full"));
     const tab = newSettingsTab({ saveSettings });
 
@@ -365,6 +341,7 @@ describe("settings tab", () => {
   });
 
   it("restores default archive export templates when cleared", async () => {
+    useContextClients(settingsClient());
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const tab = newSettingsTab({ saveSettings });
 
@@ -405,7 +382,7 @@ describe("settings tab", () => {
     clickButtonByLabel(tab, "Refresh Codex details");
     await flushPromises();
 
-    expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
+    expect(settingsContextClientMock).toHaveBeenCalledTimes(2);
     expect(fetchModels).toHaveBeenCalledOnce();
     expect(refreshModels).toHaveBeenCalledOnce();
     expect(refreshArchived).toHaveBeenCalledTimes(2);
@@ -416,7 +393,6 @@ describe("settings tab", () => {
 
   it("clears dynamic sections when the Codex executable changes", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const refreshChatViews = vi.fn();
     const oldClient = settingsClient({
       models: [model("gpt-old")],
       hooks: [hook({ key: "hook-old", command: "old hook", currentHash: "oldhash" })],
@@ -432,7 +408,8 @@ describe("settings tab", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const tab = newSettingsTab({ saveSettings, refreshChatViews, fetchModels, refreshModels, refreshArchived });
+    const replacementResources = settingsTabHost({ refreshModels, refreshArchived }).resources;
+    const tab = newSettingsTab({ saveSettings, fetchModels, refreshArchived, replacementResources });
 
     tab.display();
     await flushPromises();
@@ -447,22 +424,19 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).not.toHaveBeenCalled();
-    expect(refreshChatViews).not.toHaveBeenCalled();
 
     codexInput.dispatchEvent(new FocusEvent("blur"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(refreshChatViews).not.toHaveBeenCalled();
-    expect(contextConnectionClientMock).toHaveBeenCalledTimes(1);
+    expect(settingsContextClientMock).toHaveBeenCalledTimes(1);
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
     expect(tab.containerEl.textContent).not.toContain("Old archived");
 
     clickButtonByLabel(tab, "Refresh Codex details");
     await flushPromises();
 
-    expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
-    expect(contextConnectionClientMock.mock.calls[1]?.[0]).toBe("/opt/codex");
+    expect(settingsContextClientMock).toHaveBeenCalledTimes(2);
     expect(tab.containerEl.textContent).toContain("gpt-new");
     expect(tab.containerEl.textContent).toContain("New archived");
   });
@@ -525,6 +499,7 @@ describe("settings tab", () => {
   });
 
   it("uses model-provided reasoning efforts in helper settings while preserving saved unknown values", async () => {
+    useContextClients(settingsClient());
     const tab = newSettingsTab({
       modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-5.5", false, false, ["extreme"])]),
       settings: {

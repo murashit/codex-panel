@@ -188,22 +188,34 @@ export abstract class SuggestModal<T> extends Modal {
 
 export class Component {
   private readonly cleanups: (() => void)[] = [];
+  private readonly children = new Set<Component>();
   private loaded = false;
 
   load(): void {
     if (this.loaded) return;
     this.loaded = true;
     this.onload();
+    for (const child of this.children) child.load();
   }
 
   onload(): void {}
 
   onunload(): void {}
 
-  addChild(_child: Component): void {}
+  addChild<T extends Component>(child: T): T {
+    this.children.add(child);
+    if (this.loaded) child.load();
+    return child;
+  }
 
-  removeChild(child: Component): void {
+  removeChild<T extends Component>(child: T): T {
+    this.children.delete(child);
     child.unload();
+    return child;
+  }
+
+  register(callback: () => void): void {
+    this.cleanups.push(callback);
   }
 
   registerDomEvent<K extends keyof DocumentEventMap>(element: Document, type: K, callback: (event: DocumentEventMap[K]) => void): void {
@@ -220,6 +232,8 @@ export class Component {
     if (!this.loaded) return;
     this.loaded = false;
     this.onunload();
+    for (const child of this.children) child.unload();
+    this.children.clear();
     for (const cleanup of this.cleanups.splice(0)) cleanup();
   }
 }
@@ -254,15 +268,9 @@ export class MarkdownView {
   file: TFile | null = null;
 }
 
-export class Plugin {
-  constructor(readonly app: App) {}
-
-  register(_callback: () => void): void {
-    // Test mock placeholder.
-  }
-
-  registerEvent(_eventRef: unknown): void {
-    // Test mock placeholder.
+export class Plugin extends Component {
+  constructor(readonly app: App) {
+    super();
   }
 
   registerEditorExtension(_extension: unknown): void {

@@ -19,18 +19,9 @@ type ContextClientOperation = (
   cwd: string,
   operation: (client: AppServerClient) => Promise<unknown>,
 ) => Promise<unknown>;
-type ContextClientMock = ReturnType<typeof vi.fn<ContextClientOperation>>;
-
-let contextClientMock: ContextClientMock | null = null;
-
-export function setSettingsContextClientMock(mock: unknown): void {
-  contextClientMock = mock as ContextClientMock;
-}
-
-function currentContextClientMock(): ContextClientMock {
-  if (!contextClientMock) throw new Error("Expected settings context client mock");
-  return contextClientMock;
-}
+export const settingsContextClientMock = vi.fn<ContextClientOperation>(() => {
+  throw new Error("Unexpected settings client access. Configure useContextClients for this test.");
+});
 
 export function panelThread(overrides: Partial<Thread> = {}): Thread {
   return {
@@ -138,7 +129,7 @@ export type SettingsRequestClient = AppServerClient & {
 };
 
 export function useContextClients(...clients: SettingsRequestClient[]): void {
-  const mock = currentContextClientMock();
+  const mock = settingsContextClientMock;
   const runWithClient = (client: SettingsRequestClient, operation: (client: AppServerClient) => Promise<unknown>) => operation(client);
   if (clients.length === 1) {
     const [client] = clients;
@@ -183,13 +174,12 @@ export interface SettingsTabHostOptions {
   fetchModels?: () => Promise<readonly ModelMetadata[]>;
   refreshModels?: () => Promise<readonly ModelMetadata[]>;
   observeModels?: SettingsResources["queries"]["observeModelsResult"];
-  refreshChatViews?: () => void;
-  refreshThreadsViews?: () => void;
   archivedThreads?: Thread[];
   archivedSnapshot?: Thread[] | null;
   refreshArchived?: () => Promise<readonly Thread[]>;
   observeArchived?: SettingsResources["threadCatalog"]["observeArchivedThreadsResult"];
   resources?: SettingsResources;
+  replacementResources?: SettingsResources;
   settings?: Partial<{
     threadNamingModel: string | null;
     threadNamingEffort: string | null;
@@ -218,26 +208,19 @@ function observedResource<T>(initial: T | null) {
         unsubscribeExternal?.();
       };
     },
-    async load(load: () => Promise<T>, publish = () => true): Promise<T> {
+    async load(load: () => Promise<T>): Promise<T> {
       result = { ...result, isFetching: true };
       emit();
       try {
         const value = await load();
-        if (publish()) {
-          result = { value, error: null, isFetching: false };
-          emit();
-        }
+        result = { value, error: null, isFetching: false };
+        emit();
         return value;
       } catch (error) {
-        if (publish()) {
-          result = { ...result, error: error instanceof Error ? error : new Error(String(error)), isFetching: false };
-          emit();
-        }
+        result = { ...result, error: error instanceof Error ? error : new Error(String(error)), isFetching: false };
+        emit();
         throw error;
       }
-    },
-    reset(): void {
-      result = { value: null, error: null, isFetching: false };
     },
   };
 }
@@ -264,11 +247,9 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): SettingsT
   };
   const createResources = () => {
     const contextKey = settings.codexPath;
-    const contextIsCurrent = () => settings.codexPath === contextKey;
     const clientAccess = {
       withClient: async <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> => {
-        if (!contextIsCurrent()) throw new Error("Codex execution runtime is no longer active.");
-        return (await currentContextClientMock()(contextKey, "/vault", operation)) as T;
+        return (await settingsContextClientMock(contextKey, "/vault", operation)) as T;
       },
     };
     const metadataQueries = new AppServerMetadataQueries(
@@ -314,28 +295,14 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): SettingsT
       threadMutations,
     };
   };
-  let resources = options.resources ?? createResources();
+  const resources = options.resources ?? createResources();
   const host: SettingsTabHost = {
     settings,
     resources,
     publishSettings: async (nextSettings) => {
-      const previousSettings = { ...settings };
       await (options.saveSettings ?? (async () => undefined))(nextSettings);
-      const codexPathChanged = previousSettings.codexPath !== nextSettings.codexPath;
       Object.assign(settings, nextSettings);
-      if (codexPathChanged && !options.resources) {
-        models.reset();
-        archived.reset();
-        resources = createResources();
-      }
-      if (
-        previousSettings.showToolbar !== nextSettings.showToolbar ||
-        previousSettings.archiveExportEnabled !== nextSettings.archiveExportEnabled
-      ) {
-        options.refreshChatViews?.();
-      }
-      if (previousSettings.archiveExportEnabled !== nextSettings.archiveExportEnabled) options.refreshThreadsViews?.();
-      return { replacementResources: codexPathChanged ? resources : null };
+      return { replacementResources: options.replacementResources ?? null };
     },
   };
   return host;

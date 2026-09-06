@@ -28,7 +28,15 @@ interface SessionConnectionInput {
 }
 
 interface SessionConnectionHost {
-  environment: ChatPanelEnvironment;
+  environment: {
+    obsidian: Pick<ChatPanelEnvironment["obsidian"], "app">;
+    plugin: {
+      appServerContext: ChatPanelEnvironment["plugin"]["appServerContext"];
+      appServerQueries: Pick<ChatPanelEnvironment["plugin"]["appServerQueries"], "ensureAppServerMetadata" | "refreshAppServerMetadata">;
+      toolInventoryQueries: Pick<ChatPanelEnvironment["plugin"]["toolInventoryQueries"], "refresh">;
+      threadCatalog: Pick<ChatPanelEnvironment["plugin"]["threadCatalog"], "fetchActiveThreads" | "refreshActiveThreads">;
+    };
+  };
   stateStore: ChatStateStore;
   canConnect: () => boolean;
   invalidateThreadWork: () => void;

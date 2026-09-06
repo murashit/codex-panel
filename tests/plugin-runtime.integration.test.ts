@@ -397,11 +397,16 @@ describe("CodexPanelPlugin runtime integration", () => {
     const chatLeaf = leaf();
     chatLeaf.view = chatView(CodexChatView, chatLeaf);
     const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
-    const plugin = await pluginWithLeaves([chatLeaf]);
+    const threadsView = Object.create(CodexThreadsView.prototype) as InstanceType<typeof CodexThreadsView>;
+    const refreshThreads = vi.spyOn(threadsView, "refreshSettings");
+    const threadsLeaf = leaf();
+    threadsLeaf.view = threadsView;
+    const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
 
     await plugin.runtime.settingTabHost().publishSettings({ ...plugin.settings, showToolbar: !plugin.settings.showToolbar });
 
     expect(refreshChat).toHaveBeenCalledOnce();
+    expect(refreshThreads).not.toHaveBeenCalled();
   });
 
   it("refreshes chat and Threads settings when the archive default changes", async () => {

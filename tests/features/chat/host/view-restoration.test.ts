@@ -62,6 +62,26 @@ describe("CodexChatView workspace restoration", () => {
     expect(() => view.surface).toThrow("not attached");
   });
 
+  it("removes the open panel's pointer listener when its runtime detaches", async () => {
+    const view = await chatView();
+    view.load();
+    const addListener = vi.spyOn(document, "addEventListener");
+    const removeListener = vi.spyOn(document, "removeEventListener");
+    try {
+      await view.onOpen();
+      const pointerListener = addListener.mock.calls.find(([event]) => event === "pointerdown")?.[1];
+      expect(pointerListener).toBeTypeOf("function");
+
+      await view.detachRuntime();
+
+      expect(removeListener).toHaveBeenCalledWith("pointerdown", pointerListener);
+    } finally {
+      view.unload();
+      addListener.mockRestore();
+      removeListener.mockRestore();
+    }
+  });
+
   it("closes the session even when runtime snapshot capture fails", async () => {
     const view = await chatView();
     const session = view.surface;

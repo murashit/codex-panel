@@ -1,5 +1,6 @@
+import type { App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
-import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
+import type { AppServerContextConnectionLeaseHandlers } from "../../../../../src/app-server/connection/context-connection";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createSessionConnection } from "../../../../../src/features/chat/host/session/connection";
@@ -90,7 +91,7 @@ describe("session connection", () => {
 
 function sessionConnectionFixture() {
   let connected = false;
-  let handlers: ConnectionManagerHandlers | null = null;
+  let handlers: AppServerContextConnectionLeaseHandlers | null = null;
   const addSystemMessage = vi.fn();
   const stateStore = createChatStateStore(
     chatStateFixture({
@@ -98,22 +99,27 @@ function sessionConnectionFixture() {
       activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
     }),
   );
-  const host = {
+  const host: SessionConnectionHost = {
     environment: {
+      obsidian: { app: {} as App },
       plugin: {
         appServerQueries: {
-          runtimeConfigSnapshot: () => null,
-          skillsSnapshot: () => null,
           ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
           refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
         },
         toolInventoryQueries: {
-          refresh: vi.fn().mockResolvedValue(undefined),
+          refresh: async () => ({
+            plugins: [],
+            pluginMarketplaceErrors: [],
+            pluginsError: null,
+            mcpServers: [],
+            mcpDiagnostics: [],
+            mcpError: null,
+          }),
         },
         threadCatalog: {
-          fetchActiveThreads: vi.fn().mockResolvedValue(undefined),
+          fetchActiveThreads: async () => [],
           refreshActiveThreads: vi.fn().mockResolvedValue(undefined),
-          apply: vi.fn(),
         },
         appServerContext: { codexPath: "codex", vaultPath: "/vault" },
       },
@@ -122,15 +128,19 @@ function sessionConnectionFixture() {
     canConnect: () => true,
     invalidateThreadWork: vi.fn(),
     refreshTabHeader: vi.fn(),
-  } as unknown as SessionConnectionHost;
-  const input = {
+  };
+  const input: SessionConnectionInput = {
     connection: {
-      connect: async (nextHandlers: ConnectionManagerHandlers) => {
+      connect: async (nextHandlers: AppServerContextConnectionLeaseHandlers) => {
         handlers = nextHandlers;
         connected = true;
         return { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" };
       },
       isConnected: () => connected,
+      currentClient: () => null,
+      disconnect: () => {
+        connected = false;
+      },
     },
     localItemIds: {
       next: (prefix: string) => `${prefix}-1`,
@@ -143,22 +153,19 @@ function sessionConnectionFixture() {
       maybeAutoTitleThread: vi.fn(),
       resetThreadTurnPresence: vi.fn(),
     },
-  } as unknown as SessionConnectionInput;
+  };
   const connection = createSessionConnection(host, input);
   return {
     addSystemMessage,
     stateStore,
     connect: () => connection.coordinator.ensureConnected(),
-    deliver: (request: ServerRequest, responder: Parameters<ConnectionManagerHandlers["onServerRequest"]>[1]) => {
+    deliver: (request: ServerRequest, responder: Parameters<AppServerContextConnectionLeaseHandlers["onServerRequest"]>[1]) => {
       if (!handlers) throw new Error("Expected connection handlers.");
       handlers.onServerRequest(request, responder);
     },
     resolveUserInput: connection.inboundHandler.resolveUserInput,
     resolveApproval: connection.inboundHandler.resolveApproval,
     invalidate: connection.invalidateConnectionScope,
-    setConnected: (value: boolean) => {
-      connected = value;
-    },
   };
 }
 

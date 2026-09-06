@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { MarkdownView, TFile } from "obsidian";
+import { MarkdownView, Plugin, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
 import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command.obsidian";
@@ -51,7 +51,8 @@ describe("selection rewrite command", () => {
     const addedCommand = {
       current: null as null | { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean },
     };
-    const cleanup = { current: null as null | (() => void) };
+    const lifetime = new (class extends Plugin {})({} as never, {} as never);
+    lifetime.load();
     const plugin = {
       settings: {
         codexPath: "/usr/local/bin/codex",
@@ -60,9 +61,7 @@ describe("selection rewrite command", () => {
         rewriteSelectionEffort: null,
       },
       vaultPath: "/vault",
-      register: vi.fn((callback: () => void) => {
-        cleanup.current = callback;
-      }),
+      register: (callback: () => void) => lifetime.register(callback),
       addCommand: vi.fn((command: { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean }) => {
         addedCommand.current = command;
       }),
@@ -112,8 +111,13 @@ describe("selection rewrite command", () => {
     expect(popoverMock.instances[1]?.close).toHaveBeenCalledOnce();
     expect(selectionEmphasisMock.release).toHaveBeenCalledTimes(2);
 
-    cleanup.current?.();
-    expect(popoverMock.instances[1]?.close).toHaveBeenCalledOnce();
+    expect(addedCommand.current?.editorCheckCallback(false, editor, view)).toBe(true);
+    expect(popoverMock.instances[2]?.open).toHaveBeenCalledOnce();
+    lifetime.unload();
+    expect(popoverMock.instances[2]?.close).toHaveBeenCalledOnce();
+    expect(selectionEmphasisMock.release).toHaveBeenCalledTimes(3);
+    lifetime.unload();
+    expect(popoverMock.instances[2]?.close).toHaveBeenCalledOnce();
   });
 
   it("keeps the command unavailable without a non-empty markdown selection", () => {

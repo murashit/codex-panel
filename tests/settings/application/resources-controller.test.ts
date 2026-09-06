@@ -14,35 +14,14 @@ import {
   hook,
   model,
   panelThread,
-  setSettingsContextClientMock,
   settingsClient,
+  settingsContextClientMock,
   settingsRequestClient,
   settingsTabHost,
   useContextClients,
 } from "../test-support";
 
 type SettingsResourcesSnapshot = ReturnType<SettingsResourcesController["snapshot"]>;
-
-const { contextConnectionClientMock } = vi.hoisted(() => ({
-  contextConnectionClientMock: vi.fn(),
-}));
-
-vi.mock("../../../src/app-server/connection/context-connection", () => ({
-  AppServerContextConnection: class {
-    constructor(
-      private readonly codexPath: string,
-      private readonly cwd: string,
-    ) {}
-
-    withClient(operation: unknown) {
-      return contextConnectionClientMock(this.codexPath, this.cwd, operation);
-    }
-
-    dispose() {}
-  },
-}));
-
-setSettingsContextClientMock(contextConnectionClientMock);
 
 const noop = (): void => undefined;
 
@@ -55,7 +34,7 @@ function settingsResourcesController(
 
 describe("SettingsResourcesController", () => {
   beforeEach(() => {
-    contextConnectionClientMock.mockReset();
+    settingsContextClientMock.mockReset();
   });
 
   it("publishes archived thread catalog updates", () => {
@@ -108,7 +87,7 @@ describe("SettingsResourcesController", () => {
     await flushPromises();
 
     expect(refreshArchived).toHaveBeenCalledTimes(2);
-    expect(contextConnectionClientMock).toHaveBeenCalledTimes(2);
+    expect(settingsContextClientMock).toHaveBeenCalledTimes(2);
     expect(controller.snapshot().modelsLifecycle.kind).toBe("loading");
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["New"]);
 
@@ -120,6 +99,7 @@ describe("SettingsResourcesController", () => {
   });
 
   it("does not display dynamic refresh results after disposal", async () => {
+    useContextClients(settingsClient());
     const models = deferred<ModelMetadata[]>();
     const display = vi.fn();
     const controller = settingsResourcesController(
@@ -178,7 +158,7 @@ describe("SettingsResourcesController", () => {
     controller.activate();
     controller.maybeAutoLoad();
 
-    expect(contextConnectionClientMock).toHaveBeenCalledOnce();
+    expect(settingsContextClientMock).toHaveBeenCalledOnce();
 
     write.resolve({});
     await mutation;
@@ -221,8 +201,7 @@ describe("SettingsResourcesController", () => {
 
     const oldMutation = controller.trustHook(hook({ key: "hook-old-context", trustStatus: "untrusted" }));
     await flushPromises();
-    const publication = await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
-    controller.replaceResources(publication.replacementResources as NonNullable<typeof publication.replacementResources>);
+    controller.replaceResources(settingsTabHost().resources);
     await controller.refresh();
 
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
@@ -264,7 +243,7 @@ describe("SettingsResourcesController", () => {
 
     expect(refreshArchived).toHaveBeenCalledOnce();
     expect(refreshModels).toHaveBeenCalledTimes(2);
-    expect(contextConnectionClientMock).toHaveBeenCalledTimes(3);
+    expect(settingsContextClientMock).toHaveBeenCalledTimes(3);
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new" })]);
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Old archived"]);
@@ -295,13 +274,13 @@ describe("SettingsResourcesController", () => {
 
     expect(restoreRequest).toHaveBeenCalledOnce();
     expect(deleteRequest).not.toHaveBeenCalled();
-    expect(contextConnectionClientMock).toHaveBeenCalledOnce();
+    expect(settingsContextClientMock).toHaveBeenCalledOnce();
 
     restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await Promise.all([restore, deletion]);
 
     expect(deleteRequest).not.toHaveBeenCalled();
-    expect(contextConnectionClientMock).toHaveBeenCalledOnce();
+    expect(settingsContextClientMock).toHaveBeenCalledOnce();
   });
 
   it("retires a failed archived operation when the catalog refreshes successfully", async () => {
@@ -357,18 +336,18 @@ describe("SettingsResourcesController", () => {
       "thread/unarchive": vi.fn(() => oldRestore.promise),
     });
     useContextClients(oldClient, settingsClient());
-    const host = settingsTabHost({
-      archivedThreads: [panelThread({ id: "thread-new", preview: "New context", archived: true })],
-    });
+    const host = settingsTabHost();
     const notify = vi.fn();
     const controller = settingsResourcesController(host, { display: noop, notify });
     controller.activate();
 
     const staleMutation = controller.restoreArchivedThread("thread-old");
     await flushPromises();
-    const publication = await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
-    if (!publication.replacementResources) throw new Error("Expected replacement settings data.");
-    controller.replaceResources(publication.replacementResources);
+    controller.replaceResources(
+      settingsTabHost({
+        archivedThreads: [panelThread({ id: "thread-new", preview: "New context", archived: true })],
+      }).resources,
+    );
     await controller.refresh();
 
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.id)).toEqual(["thread-new"]);
