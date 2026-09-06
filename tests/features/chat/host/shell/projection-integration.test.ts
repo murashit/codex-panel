@@ -25,8 +25,8 @@ import {
   projectThreadStream,
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import { type ChatPanelToolbarDependencies, projectChatPanelToolbar } from "../../../../../src/features/chat/host/toolbar/view-projection";
-import { GoalPanel } from "../../../../../src/features/chat/ui/goal";
-import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
+import { GoalPanel } from "../../../../../src/features/chat/ui/goal/goal";
+import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 import {
@@ -353,7 +353,7 @@ describe("chat panel projection integration", () => {
       (item) => item.textContent === "Set goal...",
     );
     expect(goalAction?.classList.contains("is-disabled")).toBe(false);
-    expect(selectChatPanelGoal(restored).goalMutationsAllowed).toBe(false);
+    expect(selectChatPanelGoal(restored).readOnly).toBe(true);
     unmountUiRoot(parent);
   });
 
@@ -720,17 +720,22 @@ describe("chat panel projection integration", () => {
     expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture(), shared).placeholder).toBe("Ask Codex...");
   });
 
-  it("projects goal editor state before action wiring", () => {
+  it("saves the open goal draft without inheriting a refreshed goal budget", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     state = chatStateWith(state, {
-      ui: { goalEditor: { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 } },
+      ui: { goalEditor: { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: null } },
     });
-    const parent = renderWithShellModels(state, emptySharedResources, (models) =>
-      h(ProjectedGoal, { model: models.goal, dependencies: goalSurfaceFixture() }),
-    );
+    const dependencies = goalSurfaceFixture();
+    dependencies.actions.saveObjective = vi.fn(async () => true);
+    const parent = renderWithShellModels(state, emptySharedResources, (models) => h(ProjectedGoal, { model: models.goal, dependencies }), {
+      ...goalFixture("thread-1"),
+      tokenBudget: 1234,
+    });
 
     expect(parent.querySelector<HTMLTextAreaElement>(".codex-panel__goal-objective-input")?.value).toBe("Draft goal");
+    clickLabeledButton(parent, "Save goal");
+    expect(dependencies.actions.saveObjective).toHaveBeenCalledWith("Draft goal", null);
     unmountUiRoot(parent);
   });
 });

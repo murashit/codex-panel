@@ -1,6 +1,5 @@
 import type { SendShortcut } from "../../../../domain/input/send-shortcut";
-import type { GoalPanelActions, GoalPanelDisplayState, GoalPanelEditorState, GoalPanelOptions } from "../../ui/goal";
-import type { ChatPanelGoalModel } from "../shell/selectors";
+import type { GoalPanelProps, GoalPanelState } from "../../ui/goal/goal";
 
 interface ChatPanelGoalActions {
   saveObjective: (objective: string, tokenBudget: number | null) => Promise<boolean>;
@@ -17,25 +16,12 @@ export interface ChatPanelGoalDependencies {
   actions: ChatPanelGoalActions;
 }
 
-export function projectChatPanelGoal(
-  model: ChatPanelGoalModel,
-  dependencies: ChatPanelGoalDependencies,
-): {
-  goal: ChatPanelGoalModel["goal"];
-  actions: GoalPanelActions;
-  options: GoalPanelOptions;
-  editor: GoalPanelEditorState;
-  display: GoalPanelDisplayState;
-} {
+export function projectChatPanelGoal(model: GoalPanelState, dependencies: ChatPanelGoalDependencies): GoalPanelProps {
   const goal = model.goal;
   const goalThreadId = goal?.threadId ?? null;
-  const goalEditor = model.goalEditor;
-  const editor =
-    goalEditor.kind === "editing"
-      ? { editing: true, objectiveDraft: goalEditor.objectiveDraft, tokenBudgetDraft: goalEditor.tokenBudgetDraft }
-      : { editing: false, objectiveDraft: goal?.objective ?? "", tokenBudgetDraft: goal?.tokenBudget ?? null };
   return {
-    goal,
+    ...model,
+    sendShortcut: dependencies.sendShortcut(),
     actions: {
       onSave: (objective, tokenBudget) => {
         void dependencies.actions.saveObjective(objective, tokenBudget).then((saved) => {
@@ -67,14 +53,6 @@ export function projectChatPanelGoal(
         if (!goalThreadId) return;
         dependencies.actions.setObjectiveExpanded(goalThreadId, expanded);
       },
-    },
-    options: {
-      sendShortcut: dependencies.sendShortcut(),
-      readOnly: !model.goalMutationsAllowed,
-    },
-    editor,
-    display: {
-      objectiveExpanded: goalThreadId ? model.goalObjectiveExpanded.has(goalThreadId) : false,
     },
   };
 }

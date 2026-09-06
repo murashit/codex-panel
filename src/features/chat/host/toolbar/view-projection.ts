@@ -1,12 +1,12 @@
 import { serverDiagnostics } from "../../../../domain/server/diagnostics";
-import { compareThreadsPinnedFirst, type Thread } from "../../../../domain/threads/model";
-import { threadRowCoreProjection } from "../../../threads/list/row-projection";
+import type { Thread } from "../../../../domain/threads/model";
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
-import type { ToolbarThreadRow, ToolbarViewModel } from "../../ui/toolbar-model";
-import { appServerDiagnosticSections } from "../runtime/diagnostics";
-import { runtimePermissionSections } from "../runtime/permissions";
-import { rateLimitSummary } from "../runtime/status";
-import { toolInventoryDiagnosticSections } from "../runtime/tool-inventory";
+import { appServerDiagnosticSections } from "../../ui/runtime/diagnostics";
+import { runtimePermissionSections } from "../../ui/runtime/permissions";
+import { rateLimitSummary } from "../../ui/runtime/status";
+import { toolInventoryDiagnosticSections } from "../../ui/runtime/tool-inventory";
+import type { ToolbarViewModel } from "../../ui/toolbar/model";
+import { toolbarThreadRows } from "../../ui/toolbar/thread-rows";
 import type { ChatPanelToolbarModel } from "../shell/selectors";
 
 export interface ChatPanelToolbarDependencies {
@@ -59,12 +59,11 @@ export function projectChatPanelToolbar(
     openPanel,
     threads: toolbarThreadRows({
       threads: model.threads,
-      activeThreadId: model.activeThreadId,
+      archiveBlockedThreadId: model.turnBusy ? model.activeThreadId : null,
       selectedRowId,
-      turnBusy: model.turnBusy,
       archiveConfirmThreadId: model.archiveConfirmThreadId,
       archiveExportEnabled,
-      renameState: model.rename,
+      renameState: model.rename.kind === "idle" ? null : model.rename,
     }),
     hasMoreThreads: model.hasMoreThreads,
     threadListLoading: model.threadListLoading,
@@ -84,47 +83,4 @@ export function projectChatPanelToolbar(
       probe: diagnostics.serverDiagnostics.probes.skills,
     }),
   };
-}
-
-function toolbarThreadRows(input: {
-  threads: readonly Thread[];
-  activeThreadId: string | null;
-  selectedRowId: string | null;
-  turnBusy: boolean;
-  archiveConfirmThreadId: string | null;
-  archiveExportEnabled: boolean;
-  renameState: ChatPanelToolbarModel["rename"];
-}): ToolbarThreadRow[] {
-  return [...input.threads].sort(compareThreadsPinnedFirst).map((thread) => {
-    const threadId = thread.id;
-    const core = threadRowCoreProjection({
-      thread,
-      selected: threadId === input.selectedRowId,
-      renameState: toolbarActiveRenameState(input.renameState, threadId),
-      archiveConfirmActive: input.archiveConfirmThreadId === threadId,
-      defaultArchiveSaveMarkdown: input.archiveExportEnabled,
-    });
-    return {
-      title: core.title,
-      threadId: core.threadId,
-      selected: core.selected,
-      isPinned: core.isPinned,
-      renameDisabled: input.renameState.kind === "saving",
-      archiveDisabled: threadId === input.activeThreadId && input.turnBusy,
-      archiveConfirm: core.archiveConfirm,
-      rename: core.rename.active
-        ? {
-            draft: core.rename.draft,
-            generating: core.rename.generating,
-            saving: core.rename.saving,
-            autoNameDisabled: core.rename.autoNameDisabled,
-          }
-        : null,
-    };
-  });
-}
-
-function toolbarActiveRenameState(renameState: ChatPanelToolbarModel["rename"], threadId: string) {
-  if (renameState.kind === "idle" || renameState.threadId !== threadId) return undefined;
-  return renameState;
 }

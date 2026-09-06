@@ -18,7 +18,7 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
-import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
+import { ComposerShell } from "../../../../../src/features/chat/ui/composer/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";

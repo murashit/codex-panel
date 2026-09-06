@@ -20,6 +20,7 @@ import { collaborationModeLabel as formatCollaborationModeLabel } from "../../do
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
+import { toolbarOutsidePointerHit } from "../../ui/toolbar/hit-test.dom";
 import { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
@@ -30,7 +31,6 @@ import { createChatPanelRuntimeNotices } from "../runtime/notices";
 import { createChatThreadStreamDependencies } from "../thread-stream/context.obsidian";
 import type { ChatThreadStreamScrollBinding } from "../thread-stream/scroll-binding";
 import { createToolbarUiActions } from "../toolbar/actions";
-import { toolbarOutsidePointerHit } from "../toolbar/hit-test.dom";
 import { createSessionConnection } from "./connection";
 import type { ChatViewDeferredTasks } from "./deferred-work";
 import { createSessionSharedResources } from "./shared-resources";

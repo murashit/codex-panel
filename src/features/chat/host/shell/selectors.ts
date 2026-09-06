@@ -12,6 +12,7 @@ import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThr
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
+import type { GoalPanelState } from "../../ui/goal/goal";
 
 export interface ChatPanelToolbarSharedValues {
   readonly activeThreads: {
@@ -65,13 +66,6 @@ export interface ChatPanelToolbarModel {
   readonly toolbarPanel: ChatState["ui"]["toolbarPanel"];
   readonly archiveConfirmThreadId: ChatState["ui"]["archiveConfirmThreadId"];
   readonly rename: ChatState["ui"]["rename"];
-}
-
-export interface ChatPanelGoalModel {
-  readonly goal: ThreadGoal | null;
-  readonly goalMutationsAllowed: boolean;
-  readonly goalEditor: ChatState["ui"]["goalEditor"];
-  readonly goalObjectiveExpanded: ChatState["ui"]["disclosures"]["goalObjectiveExpanded"];
 }
 
 export interface ChatPanelThreadStreamModel {
@@ -150,12 +144,12 @@ export function selectChatPanelToolbar(state: ChatState, shared: ChatPanelToolba
   };
 }
 
-export function selectChatPanelGoal(state: ChatState, goal: ThreadGoal | null = null): ChatPanelGoalModel {
+export function selectChatPanelGoal(state: ChatState, goal: ThreadGoal | null = null): GoalPanelState {
   return {
     goal,
-    goalMutationsAllowed: activePanelOperationDecision(state, "goal-mutation").kind === "allowed",
-    goalEditor: state.ui.goalEditor,
-    goalObjectiveExpanded: state.ui.disclosures.goalObjectiveExpanded,
+    readOnly: activePanelOperationDecision(state, "goal-mutation").kind !== "allowed",
+    editor: state.ui.goalEditor.kind === "editing" ? state.ui.goalEditor : null,
+    objectiveExpanded: goal ? state.ui.disclosures.goalObjectiveExpanded.has(goal.threadId) : false,
   };
 }
 

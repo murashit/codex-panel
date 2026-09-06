@@ -3,7 +3,7 @@ import type { ComposerAttachment, ComposerAttachmentHandler } from "../../applic
 import { type ChatState, panelThreadId } from "../../application/state/model";
 import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
-import type { ComposerPendingSelection } from "../../ui/composer";
+import type { ComposerPendingSelection } from "../../ui/composer/composer";
 import {
   applyComposerInsertionToElement,
   type ComposerElementSelection,

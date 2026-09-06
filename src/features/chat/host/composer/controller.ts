@@ -41,8 +41,8 @@ import {
 import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
-import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer";
-import { syncComposerHeight } from "../../ui/composer.dom";
+import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer/composer";
+import { syncComposerHeight } from "../../ui/composer/composer.dom";
 import type { ChatPanelComposerModel } from "../shell/selectors";
 import { ComposerAttachmentTransfers } from "./attachment-transfers";
 import {

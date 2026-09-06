@@ -7,11 +7,11 @@ import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalo
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
-import { ComposerShell } from "../../ui/composer";
-import { GoalPanel } from "../../ui/goal";
+import { ComposerShell } from "../../ui/composer/composer";
+import { GoalPanel } from "../../ui/goal/goal";
 import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll.measure";
 import { ThreadStreamViewport } from "../../ui/thread-stream/stream-blocks";
-import { Toolbar, type ToolbarActions } from "../../ui/toolbar";
+import { Toolbar, type ToolbarActions } from "../../ui/toolbar/toolbar";
 import type { ChatPanelComposerActions, ChatPanelComposerPresenter } from "../composer/view-projection";
 import type { ChatThreadGoalQueries } from "../contracts";
 import { type ChatPanelGoalDependencies, projectChatPanelGoal } from "../goal/view-projection";

@@ -1,7 +1,6 @@
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
 import type { PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
-import type { ChatRequestState } from "../../application/pending-requests/state";
 import {
   type ThreadStreamRollbackCandidate,
   threadStreamActiveItems,
@@ -13,7 +12,6 @@ import {
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { implementPlanTarget } from "../../application/submission/plan-implementation";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
-import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import {
   type ForkCandidate,
@@ -22,12 +20,12 @@ import {
   threadStreamSegmentsEmpty,
 } from "../../domain/thread-stream/selectors";
 import type { ActiveSubagentActivity } from "../../domain/thread-stream/semantics/agent-run-summary";
-import type { ThreadStreamContext, ThreadStreamDisclosureBucket, ThreadStreamDisclosureState } from "../../ui/thread-stream/context";
-import type { PendingRequestBlockSnapshot, ThreadStreamTextActionTargets, ThreadStreamViewBlock } from "../../ui/thread-stream/model";
+import { threadStreamViewBlocks } from "../../ui/thread-stream/blocks";
+import type { ThreadStreamContext, ThreadStreamDisclosureBucket } from "../../ui/thread-stream/context";
+import type { ThreadStreamTextActionTargets, ThreadStreamViewBlock } from "../../ui/thread-stream/model";
+import { projectPendingRequestBlock } from "../../ui/thread-stream/pending-requests";
+import { subagentActivityPreview } from "../../ui/thread-stream/subagent-preview";
 import type { ChatPanelThreadStreamModel } from "../shell/selectors";
-import { threadStreamViewBlocks } from "./blocks";
-import { pendingRequestBlockSnapshotFromState } from "./pending-requests";
-import { subagentActivityPreview } from "./subagent-preview";
 
 export interface ChatThreadStreamActions {
   rollbackThread: (threadId: string) => void;
@@ -56,40 +54,29 @@ export interface ChatThreadStreamDependencies {
   requests: ChatThreadStreamRequests;
 }
 
-interface ThreadStreamStateProjection {
-  activeThreadId: string | null;
-  disclosures: ThreadStreamDisclosureState;
-  forkMenuItemId: string | null;
-  viewBlocks: readonly ThreadStreamViewBlock[];
-}
-
-interface PendingRequestProjection {
-  readonly signature: string;
-  readonly snapshot: PendingRequestBlockSnapshot;
-}
-
 interface ThreadStreamProjection {
   blocks: readonly ThreadStreamViewBlock[];
   context: ThreadStreamContext;
 }
 
 export function projectThreadStream(model: ChatPanelThreadStreamModel, dependencies: ChatThreadStreamDependencies): ThreadStreamProjection {
-  const projection = threadStreamStateProjection(model, dependencies);
   return {
-    blocks: projection.viewBlocks,
-    context: threadStreamContextFromProjection(projection, dependencies),
+    blocks: projectThreadStreamBlocks(model, dependencies),
+    context: threadStreamContext(model, dependencies),
   };
 }
 
-function threadStreamContextFromProjection(
-  projection: ThreadStreamStateProjection,
-  dependencies: ChatThreadStreamDependencies,
-): ThreadStreamContext {
+function threadStreamContext(model: ChatPanelThreadStreamModel, dependencies: ChatThreadStreamDependencies): ThreadStreamContext {
   return {
-    activeThreadId: projection.activeThreadId,
-    disclosures: projection.disclosures,
+    activeThreadId: model.activeThreadId,
+    disclosures: {
+      details: model.disclosureDetails,
+      activityGroups: model.disclosureActivityGroups,
+      textDetails: model.disclosureTextDetails,
+      userDialogueExpanded: model.disclosureUserDialogueExpanded,
+    },
     onDisclosureToggle: dependencies.setDisclosureOpen,
-    forkMenuItemId: projection.forkMenuItemId,
+    forkMenuItemId: model.forkMenuItemId,
     onForkMenuToggle: dependencies.setForkMenuItem,
     loadOlderTurns: dependencies.loadOlderTurns,
     renderObsidianMarkdown: dependencies.renderObsidianMarkdown,
@@ -99,11 +86,11 @@ function threadStreamContextFromProjection(
       dependencies.actions.implementPlan(target.itemId);
     },
     onRollback: () => {
-      if (projection.activeThreadId) dependencies.actions.rollbackThread(projection.activeThreadId);
+      if (model.activeThreadId) dependencies.actions.rollbackThread(model.activeThreadId);
     },
     onFork: (target, archiveSource) => {
-      if (projection.activeThreadId) {
-        dependencies.actions.forkThreadFromTurn(projection.activeThreadId, target.turnId, archiveSource);
+      if (model.activeThreadId) {
+        dependencies.actions.forkThreadFromTurn(model.activeThreadId, target.turnId, archiveSource);
       }
     },
     openThreadInNewView: dependencies.actions.openThreadInNewView,
@@ -116,29 +103,21 @@ function threadStreamContextFromProjection(
   };
 }
 
-function threadStreamStateProjection(
+function projectThreadStreamBlocks(
   model: ChatPanelThreadStreamModel,
   dependencies: ChatThreadStreamDependencies,
-): ThreadStreamStateProjection {
+): readonly ThreadStreamViewBlock[] {
   const stream = chatThreadStreamViewState(model.threadStream, model.activeTurn);
   const canonicalItems = threadStreamItems(stream);
   const pendingSteers = threadStreamPendingSteers(stream);
-  const stableItemsRaw = model.activeTurn.activeSegment
+  const stableItems = model.activeTurn.activeSegment
     ? threadStreamStableItems(model.threadStream)
     : appendPendingDisplayItems(threadStreamStableItems(model.threadStream), pendingSteers, model.pendingSubmission);
-  const activeItemsRaw = model.activeTurn.activeSegment
+  const activeItems = model.activeTurn.activeSegment
     ? appendPendingDisplayItems(threadStreamActiveItems(stream), pendingSteers, model.pendingSubmission)
     : threadStreamActiveItems(stream);
   const titleByThreadId = new Map(model.threads.map((thread) => [thread.id, threadDisplayTitle(thread)] as const));
-  const items = resolvedReferenceTitles(appendPendingDisplayItems(canonicalItems, pendingSteers, model.pendingSubmission), titleByThreadId);
-  const stableItems = resolvedReferenceTitles(stableItemsRaw, titleByThreadId);
-  const activeItems = resolvedReferenceTitles(activeItemsRaw, titleByThreadId);
-  const disclosures = {
-    details: model.disclosureDetails,
-    activityGroups: model.disclosureActivityGroups,
-    textDetails: model.disclosureTextDetails,
-    userDialogueExpanded: model.disclosureUserDialogueExpanded,
-  };
+  const items = appendPendingDisplayItems(canonicalItems, pendingSteers, model.pendingSubmission);
   const workspaceRoot = dependencies.vaultPath;
   const subagentActivities = new Map<string, ActiveSubagentActivity>();
   for (const [threadId, activity] of model.activeTurn.subagents.byThreadId) {
@@ -163,38 +142,23 @@ function threadStreamStateProjection(
   const textActionTargetsByItemId = textActionTargetsForThreadStreamItems(rollbackCandidate, forkCandidates, planTarget);
   const pendingRequests = threadStreamSegmentsEmpty(stableItems, activeItems)
     ? null
-    : pendingRequestProjectionFromState(model.requests, model.disclosureApprovalDetails);
+    : projectPendingRequestBlock({ ...model.requests, approvalDetails: model.disclosureApprovalDetails });
 
-  return {
+  return threadStreamViewBlocks({
+    referenceTitles: titleByThreadId,
     activeThreadId: model.activeThreadId,
-    disclosures,
-    forkMenuItemId: model.forkMenuItemId,
-    viewBlocks: threadStreamViewBlocks({
-      activeThreadId: model.activeThreadId,
-      activeTurnId: activeTurnId(model.activeTurn),
-      historyCursor: model.threadStream.historyCursor,
-      loadingHistory: model.threadStream.loadingHistory,
-      items,
-      stableItems,
-      activeItems,
-      workspaceRoot,
-      turnDiffs: model.threadStream.turnDiffs,
-      textActionTargetsByItemId,
-      pendingRequests,
-      subagentActivities,
-      authRecovery: model.activeTurn.authRecovery,
-    }),
-  };
-}
-
-function resolvedReferenceTitles(
-  items: readonly ThreadStreamItem[],
-  titleByThreadId: ReadonlyMap<string, string>,
-): readonly ThreadStreamItem[] {
-  return items.map((item) => {
-    if (item.kind !== "dialogue" || !item.referencedThread) return item;
-    const title = titleByThreadId.get(item.referencedThread.threadId);
-    return title ? { ...item, referencedThread: { ...item.referencedThread, title } } : item;
+    activeTurnId: activeTurnId(model.activeTurn),
+    historyCursor: model.threadStream.historyCursor,
+    loadingHistory: model.threadStream.loadingHistory,
+    items,
+    stableItems,
+    activeItems,
+    workspaceRoot,
+    turnDiffs: model.threadStream.turnDiffs,
+    textActionTargetsByItemId,
+    pendingRequests,
+    subagentActivities,
+    authRecovery: model.activeTurn.authRecovery,
   });
 }
 
@@ -223,25 +187,6 @@ function textActionTargetsForThreadStreamItems(
     patchTextActionTargets(byItemId, implementPlanTarget.itemId, { implementPlan: implementPlanTarget });
   }
   return byItemId;
-}
-
-function pendingRequestProjectionFromState(
-  requests: ChatRequestState,
-  approvalDetails: ReadonlySet<string>,
-): PendingRequestProjection | null {
-  const signature = pendingRequestFocusSignature(requests.approvals, requests.pendingUserInputs, requests.pendingMcpElicitations);
-  if (!signature) return null;
-  return {
-    signature,
-    snapshot: pendingRequestBlockSnapshotFromState({
-      approvals: requests.approvals,
-      pendingUserInputs: requests.pendingUserInputs,
-      pendingMcpElicitations: requests.pendingMcpElicitations,
-      userInputDrafts: requests.userInputDrafts,
-      mcpElicitationDrafts: requests.mcpElicitationDrafts,
-      approvalDetails,
-    }),
-  };
 }
 
 function patchTextActionTargets(

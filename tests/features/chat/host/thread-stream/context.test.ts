@@ -26,7 +26,7 @@ import { chatSharedResourcesFixture } from "../../support/shared-display-values"
 import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
-import { pendingApproval } from "./rendering/test-helpers";
+import { pendingApproval } from "../../ui/thread-stream/rendering/test-helpers";
 
 installObsidianDomShims();
 

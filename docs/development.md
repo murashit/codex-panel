@@ -65,6 +65,12 @@ Name modules by owned responsibility. Use lifecycle or boundary nouns only when 
 
 Prefer functions and factories. Reserve classes for mutable resource ownership, external class APIs, and `Error` types.
 
+## Chat Source Layout
+
+Keep chat rendering and display-only transformations under `src/features/chat/ui/`, grouped by the area they present. UI may turn domain values into display models, but must not depend on application state or workflows, app-server, host, or Obsidian directly.
+
+Use `host/` to connect application state and operations to UI: subscriptions, selectors, action wiring, and input coordination belong here, alongside session lifecycle and Obsidian integration. Keep application-dependent projections in host; move display-only helpers beside their UI consumers. Application state remains owned by `application/`.
+
 ## API Baselines
 
 ```sh

@@ -1,7 +1,7 @@
 import { textareaCursorAtVisualBoundary } from "../../../../shared/dom/textarea-caret.measure";
 import { type ComposerBoundaryScrollAction, composerBoundaryScrollDirection } from "../../application/composer/boundary-scroll";
 import { composerSuggestionSignature } from "../../application/composer/suggestions";
-import { syncComposerHeight } from "../../ui/composer.dom";
+import { syncComposerHeight } from "../../ui/composer/composer.dom";
 
 interface ComposerElementInsertion {
   value: string;

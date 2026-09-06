@@ -9,7 +9,8 @@ import type { ChatStateStore } from "../../application/state/store";
 import type { GoalCommands } from "../../application/threads/goal-commands";
 import type { ThreadCommands } from "../../application/threads/thread-commands";
 import type { ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
-import type { ToolbarActions } from "../../ui/toolbar";
+import type { ToolbarOutsidePointerHit } from "../../ui/toolbar/hit-test.dom";
+import type { ToolbarActions } from "../../ui/toolbar/toolbar";
 import type { ThreadRenameEditorActions } from "../session/rename-editor";
 
 interface ToolbarPanelActionsHost {
@@ -48,11 +49,6 @@ interface ToolbarUiActionDependencies {
     metadataDiagnostics: () => MetadataResourceDiagnostics;
     toolInventory: () => ToolInventorySnapshot | null;
   };
-}
-
-export interface ToolbarOutsidePointerHit {
-  insideToolbarPanel: boolean;
-  insideArchiveConfirm: boolean;
 }
 
 interface ToolbarOutsidePointerContext {
