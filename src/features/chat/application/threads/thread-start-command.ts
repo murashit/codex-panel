@@ -91,6 +91,7 @@ async function startThread(
   const action = resumedThreadAction({
     response: patchedActivation,
     preserveRequestedRuntimeSettings: activeThreadId(requestState) === null,
+    preserveGoalEditor: requestState.panelThread.kind === "empty",
     expectedPanelTargetRevision: panelTarget.revision,
     ...(options.preservePendingSubmissionId ? { preservePendingSubmissionId: options.preservePendingSubmissionId } : {}),
   });

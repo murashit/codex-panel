@@ -1,20 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
+import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { activeThreadId } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   createGoalCommands as createGoalCommandsImpl,
   type ThreadGoalEffects,
 } from "../../../../../src/features/chat/application/threads/goal-commands";
+import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 type GoalCommandsHost = Parameters<typeof createGoalCommandsImpl>[0];
 
 function createGoalCommands(
-  host: Omit<GoalCommandsHost, "ensureConnected" | "ensureRestoredThreadLoaded" | "startEditingGoal" | "goalQueries"> &
-    Partial<Pick<GoalCommandsHost, "ensureConnected" | "ensureRestoredThreadLoaded" | "startEditingGoal" | "goalQueries">>,
+  host: Omit<GoalCommandsHost, "ensureConnected" | "ensureRestoredThreadLoaded" | "goalQueries"> &
+    Partial<Pick<GoalCommandsHost, "ensureConnected" | "ensureRestoredThreadLoaded" | "goalQueries">>,
 ) {
   const goals = new Map<string, ThreadGoal | null>();
   const threadId = activeThreadId(host.stateStore.getState());
@@ -23,7 +26,6 @@ function createGoalCommands(
     ...host,
     ensureConnected: host.ensureConnected ?? (async () => true),
     ensureRestoredThreadLoaded: host.ensureRestoredThreadLoaded ?? (async () => true),
-    startEditingGoal: host.startEditingGoal ?? vi.fn(),
     goalQueries:
       host.goalQueries ??
       ({
@@ -197,47 +199,80 @@ describe("createGoalCommands", () => {
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("starts a thread before saving a new goal objective when no thread is active", async () => {
+  it.each(["unchanged", "edited", "reopened", "failed"] as const)("finishes a save with an %s editor", async (scenario) => {
+    const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
+    const saving = deferred<EffectOutcome<void>>();
+    const effects = effectsFixture({ setThreadGoal: vi.fn(() => saving.promise) });
+    const commands = createGoalCommands({ stateStore, effects, startThread: vi.fn(), addSystemMessage: vi.fn() });
+    commands.startEditing("thread", "Draft A", null);
+    const pending = commands.saveObjective("Draft A", null);
+    await vi.waitFor(() => expect(effects.setThreadGoal).toHaveBeenCalledOnce());
+    if (scenario === "edited") commands.updateObjectiveDraft("Draft B");
+    if (scenario === "reopened") {
+      commands.closeEditor();
+      commands.startEditing("thread", "Draft A", null);
+    }
+    saving.resolve(scenario === "failed" ? { kind: "not-started" } : completed(undefined));
+    await pending;
+    expect(stateStore.getState().ui.goalEditor).toMatchObject(
+      scenario === "unchanged" ? { kind: "closed" } : { kind: "editing", objectiveDraft: scenario === "edited" ? "Draft B" : "Draft A" },
+    );
+  });
+
+  it("keeps edits through thread creation and a failed save, then closes after retry", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const effects = effectsFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completed(undefined)) });
-    const { setThreadGoal } = effects;
-    const startThread = vi.fn().mockImplementation(async () => {
-      stateStore.dispatch({
-        type: "active-thread/resumed",
+    const creation = deferred<EffectOutcome<ThreadActivationSnapshot>>();
+    const startEffect = vi.fn(() => creation.promise);
+    const starter = createThreadStartCommand({
+      stateStore,
+      effects: { startThread: startEffect },
+      runtimeSnapshotForState: (state) =>
+        runtimeSnapshotForChatState(state, {
+          runtimeConfigSnapshot: () => null,
+          rateLimitsSnapshot: () => null,
+          modelsSnapshot: () => [],
+        }),
+      recordStartedThread: vi.fn(),
+    });
+    const effects = effectsFixture({
+      setThreadGoal: vi.fn().mockResolvedValueOnce({ kind: "not-started" }).mockResolvedValue(completed(undefined)),
+    });
+    const commands = createGoalCommands({ stateStore, effects, startThread: starter.startThread, addSystemMessage: vi.fn() });
+    commands.startEditing(null, "Draft A", null);
+    const pending = commands.saveObjective("Draft A", null);
+    await vi.waitFor(() => expect(startEffect).toHaveBeenCalledOnce());
+    commands.updateObjectiveDraft("Draft B");
+    creation.resolve(
+      completed({
+        thread: {
+          id: "thread-new",
+          name: null,
+          preview: "",
+          archived: false,
+          createdAt: 1,
+          updatedAt: 1,
+          provenance: { kind: "interactive" },
+        },
         canAcceptDirectInput: null,
+        model: null,
+        reasoningEffort: null,
+        serviceTier: null,
+        approvalsReviewer: null,
         approvalPolicyKnown: true,
         sandboxPolicyKnown: true,
         permissionProfileKnown: true,
         approvalPolicy: null,
         sandboxPolicy: null,
         activePermissionProfile: null,
-        thread: {
-          id: "thread-new",
-          name: null,
-          preview: "Plan release",
-          archived: false,
-          createdAt: 1,
-          updatedAt: 1,
-          provenance: { kind: "interactive" },
-        },
-        model: null,
-        reasoningEffort: null,
-        serviceTier: null,
-        approvalsReviewer: null,
-      });
-      return { kind: "created-activated" as const, threadId: "thread-new" };
-    });
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      startThread,
-      addSystemMessage: vi.fn(),
-    });
-
-    await expect(commands.saveObjective(" Plan release ", null)).resolves.toBe(true);
-
-    expect(startThread).toHaveBeenCalledWith("Plan release");
-    expect(setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Plan release", status: "active", tokenBudget: null });
+      }),
+    );
+    await expect(pending).resolves.toBe(false);
+    expect(activeThreadId(stateStore.getState())).toBe("thread-new");
+    expect(stateStore.getState().ui.goalEditor).toMatchObject({ kind: "editing", objectiveDraft: "Draft B" });
+    expect(effects.setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Draft A", status: "active", tokenBudget: null });
+    await expect(commands.saveObjective("Draft B", null)).resolves.toBe(true);
+    expect(stateStore.getState().ui.goalEditor.kind).toBe("closed");
+    expect(startEffect).toHaveBeenCalledOnce();
   });
 
   it("does not save a goal through a thread that was created but not activated", async () => {

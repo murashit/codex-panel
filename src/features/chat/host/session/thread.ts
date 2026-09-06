@@ -22,11 +22,8 @@ import type { ThreadStartCommand } from "../../application/threads/thread-start-
 import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
-import { createGoalEditorActions } from "../goal/view-projection";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../toolbar/actions";
 import { activeThreadRenameTitleContext, createThreadRenameEditorActions, type ThreadRenameEditorActions } from "./rename-editor";
-
-export type SessionGoalCommands = GoalCommands & ReturnType<typeof createGoalEditorActions>;
 
 export interface SessionThreadLifecycle {
   restoration: RestorationController;
@@ -73,7 +70,7 @@ interface SessionThreadFeaturesInput {
 }
 
 interface SessionThreadFeatures extends SessionThreadLifecycle {
-  goals: SessionGoalCommands;
+  goals: GoalCommands;
   rename: ThreadRenameEditorActions;
 }
 
@@ -156,8 +153,7 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     },
     notifyActiveThreadIdentityChanged,
   });
-  const goalEditor = createGoalEditorActions(host.stateStore);
-  const goalCommands = createGoalCommands({
+  const goals = createGoalCommands({
     stateStore: host.stateStore,
     effects: appServer.threadGoal,
     goalQueries: host.environment.plugin.threadGoalQueries,
@@ -167,12 +163,10 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     },
     startThread: (preview) => threadStart.startThread(preview),
     ensureRestoredThreadLoaded: lifecycle.ensureRestoredThreadLoaded,
-    startEditingGoal: goalEditor.startEditing,
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
     },
   });
-  const goals: SessionGoalCommands = { ...goalCommands, ...goalEditor };
   const rename = createThreadRenameEditorActions({
     stateStore: host.stateStore,
     threadById: (threadId) => host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),

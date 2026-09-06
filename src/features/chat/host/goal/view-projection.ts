@@ -2,18 +2,16 @@ import type { SendShortcut } from "../../../../domain/input/send-shortcut";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import type { ChatState } from "../../application/state/model";
-import type { ChatStateStore } from "../../application/state/store";
+import type { GoalCommands } from "../../application/threads/goal-commands";
 import type { GoalPanelProps, GoalPanelState } from "../../ui/goal/goal";
-
-interface ChatPanelGoalActions extends ReturnType<typeof createGoalEditorActions> {
-  saveObjective: (objective: string, tokenBudget: number | null) => Promise<boolean>;
-  setStatus: (threadId: string, status: "active" | "paused") => Promise<unknown>;
-  clear: (threadId: string) => Promise<unknown>;
-}
 
 export interface ChatPanelGoalDependencies {
   sendShortcut: () => SendShortcut;
-  actions: ChatPanelGoalActions;
+  actions: Pick<GoalCommands, "startEditing" | "closeEditor" | "updateObjectiveDraft" | "setObjectiveExpanded"> & {
+    saveObjective: (objective: string, tokenBudget: number | null) => Promise<unknown>;
+    setStatus: (threadId: string, status: "active" | "paused") => Promise<unknown>;
+    clear: (threadId: string) => Promise<unknown>;
+  };
 }
 
 export function projectChatPanelGoal(model: GoalPanelState, dependencies: ChatPanelGoalDependencies): GoalPanelProps {
@@ -24,9 +22,7 @@ export function projectChatPanelGoal(model: GoalPanelState, dependencies: ChatPa
     sendShortcut: dependencies.sendShortcut(),
     actions: {
       onSave: (objective, tokenBudget) => {
-        void dependencies.actions.saveObjective(objective, tokenBudget).then((saved) => {
-          if (saved) dependencies.actions.closeEditor();
-        });
+        void dependencies.actions.saveObjective(objective, tokenBudget);
       },
       onPause: () => {
         if (!goalThreadId) return;
@@ -53,23 +49,6 @@ export function projectChatPanelGoal(model: GoalPanelState, dependencies: ChatPa
         if (!goalThreadId) return;
         dependencies.actions.setObjectiveExpanded(goalThreadId, expanded);
       },
-    },
-  };
-}
-
-export function createGoalEditorActions(stateStore: ChatStateStore) {
-  return {
-    startEditing: (threadId: string | null, objective: string, tokenBudget: number | null) => {
-      stateStore.dispatch({ type: "ui/goal-editor-started", threadId, objective, tokenBudget });
-    },
-    updateObjectiveDraft: (objective: string) => {
-      stateStore.dispatch({ type: "ui/goal-editor-draft-updated", objective });
-    },
-    setObjectiveExpanded: (threadId: string, expanded: boolean) => {
-      stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: expanded });
-    },
-    closeEditor: () => {
-      stateStore.dispatch({ type: "ui/goal-editor-closed" });
     },
   };
 }

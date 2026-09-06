@@ -150,7 +150,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
         : null,
     requests: initialChatRequestState(),
     composer: panelThreadId(state) === action.thread.id ? state.composer : initialComposerState(),
-    ui: initialUiState(),
+    ui: action.preserveGoalEditor ? { ...initialUiState(), goalEditor: state.ui.goalEditor } : initialUiState(),
   });
 }
 

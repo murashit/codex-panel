@@ -21,7 +21,6 @@ export interface GoalCommandsHost {
   ensureConnected: () => Promise<boolean>;
   startThread: (preview?: string) => Promise<ThreadStartOutcome>;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
-  startEditingGoal: (threadId: string | null, objective: string, tokenBudget: number | null) => void;
 }
 
 export interface GoalCommands {
@@ -31,6 +30,10 @@ export interface GoalCommands {
   setStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
   clear: (threadId: string) => Promise<boolean>;
   startEditingCurrent: () => void;
+  startEditing: (threadId: string | null, objective: string, tokenBudget: number | null) => void;
+  updateObjectiveDraft: (objective: string) => void;
+  closeEditor: () => void;
+  setObjectiveExpanded: (threadId: string, expanded: boolean) => void;
 }
 
 type GoalObjectiveSavePlan =
@@ -45,7 +48,26 @@ const EMPTY_GOAL_OBJECTIVE_MESSAGE = "Goal objective cannot be empty.";
 export function createGoalCommands(host: GoalCommandsHost): GoalCommands {
   return {
     activeGoal: () => currentGoal(host),
-    saveObjective: (objective, tokenBudget) => saveObjective(host, objective, tokenBudget),
+    saveObjective: async (objective, tokenBudget) => {
+      const editor = host.stateStore.getState().ui.goalEditor;
+      const saved = await saveObjective(host, objective, tokenBudget);
+      if (saved && editor.kind === "editing" && host.stateStore.getState().ui.goalEditor === editor) {
+        host.stateStore.dispatch({ type: "ui/goal-editor-closed" });
+      }
+      return saved;
+    },
+    startEditing: (threadId, objective, tokenBudget) => {
+      host.stateStore.dispatch({ type: "ui/goal-editor-started", threadId, objective, tokenBudget });
+    },
+    updateObjectiveDraft: (objective) => {
+      host.stateStore.dispatch({ type: "ui/goal-editor-draft-updated", objective });
+    },
+    closeEditor: () => {
+      host.stateStore.dispatch({ type: "ui/goal-editor-closed" });
+    },
+    setObjectiveExpanded: (threadId, expanded) => {
+      host.stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: expanded });
+    },
     setObjective: (threadId, objective, tokenBudget) =>
       runGoalMutation(host, threadId, () => setObjective(host, threadId, objective, tokenBudget)),
     setStatus: (threadId, status) => runGoalMutation(host, threadId, () => setGoalStatus(host, threadId, status)),
@@ -80,7 +102,8 @@ async function setNormalizedObjective(
 }
 
 async function saveObjective(host: GoalCommandsHost, objective: string, tokenBudget: number | null): Promise<boolean> {
-  if (!(await prepareGoalMutation(host))) return false;
+  const panelTarget = capturePanelTargetLease(host.stateStore.getState());
+  if (!(await prepareGoalMutation(host)) || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
   const plan = planGoalObjectiveSave(activeThreadId(host.stateStore.getState()), objective, tokenBudget);
   switch (plan.kind) {
     case "reject":
@@ -127,7 +150,12 @@ async function startEditingCurrent(host: GoalCommandsHost): Promise<void> {
   if (!(await prepareGoalMutation(host))) return;
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   const goal = currentGoal(host);
-  host.startEditingGoal(goal?.threadId ?? null, goal?.objective ?? "", goal?.tokenBudget ?? null);
+  host.stateStore.dispatch({
+    type: "ui/goal-editor-started",
+    threadId: goal?.threadId ?? null,
+    objective: goal?.objective ?? "",
+    tokenBudget: goal?.tokenBudget ?? null,
+  });
 }
 
 async function prepareGoalMutation(host: GoalCommandsHost): Promise<boolean> {

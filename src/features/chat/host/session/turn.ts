@@ -9,6 +9,7 @@ import { activeThreadId } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { createSubmissionCommands, type SubmissionCommands as SessionSubmissionCommands } from "../../application/submission/commands";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import type { GoalCommands } from "../../application/threads/goal-commands";
 import type { ThreadCommands } from "../../application/threads/thread-commands";
 import type { ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
@@ -18,7 +19,7 @@ import type { ChatPanelEnvironment } from "../contracts";
 import { readWebUrl } from "../obsidian/web-context.obsidian";
 import type { ChatPanelRuntimeNotices } from "../runtime/notices";
 import { createPendingRequestActions, type PendingRequestActions } from "../thread-stream/pending-request-actions";
-import type { SessionGoalCommands, SessionThreadLifecycle } from "./thread";
+import type { SessionThreadLifecycle } from "./thread";
 
 interface SessionTurnStatus {
   set: (statusText: string) => void;
@@ -51,7 +52,7 @@ interface SessionTurnInput {
   composerController: ChatComposerController;
   runtimeSettings: ChatRuntimeSettingsCommands;
   threadStart: ThreadStartCommand;
-  goals: SessionGoalCommands;
+  goals: GoalCommands;
   autoTitleCoordinator: AutoTitleCoordinator;
   reconnect: (options?: ReconnectPanelOptions) => Promise<void>;
   runtimeProjection: ChatPanelRuntimeNotices;

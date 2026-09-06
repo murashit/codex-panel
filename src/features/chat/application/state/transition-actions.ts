@@ -20,6 +20,7 @@ interface ResumedThreadActionParams {
   preserveRequestedRuntimeSettings?: boolean;
   serviceTierKnown?: boolean;
   preservePendingSubmissionId?: string;
+  preserveGoalEditor?: boolean;
   expectedPanelTargetRevision?: number;
 }
 
@@ -36,6 +37,7 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState, Runti
   status?: string;
   preserveRequestedRuntimeSettings?: boolean;
   preservePendingSubmissionId?: string;
+  preserveGoalEditor?: boolean;
   expectedPanelTargetRevision?: number;
   lifetime?:
     | { readonly kind: "persistent" }
@@ -160,6 +162,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     lifetime: { kind: "persistent" },
     ...(params.items ? { items: params.items } : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
+    ...(params.preserveGoalEditor ? { preserveGoalEditor: true } : {}),
     ...(params.preservePendingSubmissionId ? { preservePendingSubmissionId: params.preservePendingSubmissionId } : {}),
     ...(params.expectedPanelTargetRevision === undefined ? {} : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
   };
