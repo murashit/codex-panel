@@ -4,7 +4,6 @@ import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import type { Thread } from "../../../../domain/threads/model";
 import { type ComposerAttachmentHandler, codexInputWithComposerAttachments } from "../../application/composer/attachments";
-import type { ComposerBoundaryScrollAction } from "../../application/composer/boundary-scroll";
 import {
   type ActiveNoteContextReference,
   activeNoteContextReferenceMarker,
@@ -38,6 +37,7 @@ import { ComposerAttachmentTransfers } from "./attachment-transfers";
 import {
   applyComposerInsertionToElement,
   applyComposerSuggestionInsertion,
+  type ComposerBoundaryScrollAction,
   composerBoundaryScrollActionFromElement,
   composerFilesFromTransfer,
   composerHasFocus,

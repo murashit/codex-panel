@@ -1,9 +1,15 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { describe, expect, it, vi } from "vitest";
 
 import {
   type ComposerBoundaryScrollAction,
-  composerBoundaryScrollDirection,
-} from "../../../../../src/features/chat/application/composer/boundary-scroll";
+  composerBoundaryScrollActionFromElement,
+} from "../../../../../src/features/chat/host/composer/element.dom";
+
+import { textareaCursorAtVisualBoundary } from "../../../../../src/shared/dom/textarea-caret.measure";
+
+vi.mock("../../../../../src/shared/dom/textarea-caret.measure", () => ({ textareaCursorAtVisualBoundary: vi.fn() }));
 
 describe("composer boundary scroll shortcuts", () => {
   it.each([
@@ -71,31 +77,12 @@ function direction(
     isComposing: boolean;
     repeat: boolean;
     cursorEnd: number;
-    visualBoundary: boolean | ((direction: -1 | 1) => boolean);
+    visualBoundary: boolean;
   }> = {},
 ): ComposerBoundaryScrollAction | null {
-  const visualOptions =
-    options.visualBoundary === undefined
-      ? {}
-      : {
-          cursorAtVisualBoundary:
-            typeof options.visualBoundary === "function" ? options.visualBoundary : () => options.visualBoundary as boolean,
-        };
-  return composerBoundaryScrollDirection(
-    {
-      key,
-      repeat: options.repeat ?? false,
-      ctrlKey: options.ctrlKey ?? false,
-      metaKey: options.metaKey ?? false,
-      altKey: options.altKey ?? false,
-      shiftKey: options.shiftKey ?? false,
-      isComposing: options.isComposing ?? false,
-    },
-    {
-      value,
-      cursorStart,
-      cursorEnd: options.cursorEnd ?? cursorStart,
-    },
-    visualOptions,
-  );
+  vi.mocked(textareaCursorAtVisualBoundary).mockReturnValue(options.visualBoundary ?? true);
+  const composer = document.createElement("textarea");
+  composer.value = value;
+  composer.setSelectionRange(cursorStart, options.cursorEnd ?? cursorStart);
+  return composerBoundaryScrollActionFromElement(new KeyboardEvent("keydown", { ...options, key }), composer);
 }
