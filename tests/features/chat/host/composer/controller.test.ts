@@ -955,6 +955,55 @@ describe("ChatComposerController", () => {
     expect(controller.captureInputSnapshot().activeNoteSnapshots).toEqual([]);
   });
 
+  it.each(["saved", "failed"] as const)("retains selection context until attachment replacement is %s", async (outcome) => {
+    const saved = deferred<ComposerAttachment[]>();
+    const selection = {
+      name: "Alpha",
+      path: "notes/Alpha.md",
+      linktext: "Alpha",
+      range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } },
+      text: "text",
+    };
+    const emphasis = { release: vi.fn(), setEnabled: vi.fn() };
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: () => saved.promise },
+        contextReferenceProvider: {
+          ...contextProvider(() => ({ activeNote: null, selection })),
+          retainSelectionEmphasis: () => emphasis,
+        },
+      },
+    });
+    renderShell();
+    setTextAreaValue(composer(parent), "@sel");
+    composer(parent).setSelectionRange(4, 4);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    const draft = composer(parent).value;
+    expect(controller.captureInputSnapshot().selectionSnapshots).toEqual([selection]);
+
+    composer(parent).setSelectionRange(0, draft.length);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
+    expect(emphasis.release).not.toHaveBeenCalled();
+
+    if (outcome === "saved") saved.resolve([attachmentFixture("first")]);
+    else saved.reject(new Error("Attachment save failed."));
+    await flushComposerAttachment();
+    await flushComposerAttachment();
+
+    const snapshot = controller.captureInputSnapshot();
+    if (outcome === "saved") {
+      expect(snapshot.selectionSnapshots).toEqual([]);
+      expect(snapshot.attachments).toEqual([attachmentFixture("first")]);
+      expect(emphasis.release).toHaveBeenCalledOnce();
+    } else {
+      expect(composer(parent).value).toBe(draft);
+      expect(snapshot.selectionSnapshots).toEqual([selection]);
+      expect(snapshot.attachments).toEqual([]);
+      expect(emphasis.release).not.toHaveBeenCalled();
+    }
+  });
+
   it("inserts multiple transfers that began at the same draft anchor", async () => {
     const first = deferred<ComposerAttachment[]>();
     const second = deferred<ComposerAttachment[]>();

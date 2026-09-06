@@ -16,13 +16,12 @@ interface ComposerAttachmentTransfersOptions {
   stateStore: ChatStateStore;
   composerElement: () => HTMLTextAreaElement | null;
   setPendingSelection: (selection: ComposerPendingSelection | null) => void;
-  onDraftReplaced: (draft: string) => void;
+  onDraftReplaced: (draft: string, attachments: readonly ComposerAttachment[]) => void;
   onError: (message: string) => void;
 }
 
 export class ComposerAttachmentTransfers {
   private readonly lifetime = new OwnerLifetime();
-  private attachments: ComposerAttachment[] = [];
   private pendingSaveId = 0;
   private pendingSaves = new Map<number, PendingAttachmentSave>();
 
@@ -34,26 +33,6 @@ export class ComposerAttachmentTransfers {
 
   private dispatch(action: ChatAction): void {
     this.options.stateStore.dispatch(action);
-  }
-
-  snapshot(): readonly ComposerAttachment[] {
-    return [...this.attachments];
-  }
-
-  restore(attachments: readonly ComposerAttachment[]): void {
-    this.attachments = [...attachments];
-  }
-
-  restoreClaimed(attachments: readonly ComposerAttachment[]): void {
-    this.attachments = mergeByMarker(attachments, this.attachments);
-  }
-
-  clear(): void {
-    this.attachments = [];
-  }
-
-  prune(draft: string): void {
-    this.attachments = this.activeAttachments(draft);
   }
 
   transfer(files: readonly File[]): void {
@@ -135,9 +114,7 @@ export class ComposerAttachmentTransfers {
     this.options.setPendingSelection(
       adjustedComposerSelection(composerSelectionSource(this.options.composerElement()), state.composer.draft, replacement),
     );
-    this.attachments = [...this.attachments, ...attachments];
-    this.prune(replacement.value);
-    this.options.onDraftReplaced(replacement.value);
+    this.options.onDraftReplaced(replacement.value, attachments);
     this.dispatch({ type: "composer/attachment-save-settled", saveId: pending.id, draft: replacement.value });
   }
 
@@ -150,19 +127,6 @@ export class ComposerAttachmentTransfers {
     );
     this.dispatch({ type: "composer/attachment-save-settled", saveId: pending.id, draft: replacement.value });
   }
-
-  private activeAttachments(draft: string): ComposerAttachment[] {
-    return this.attachments
-      .filter((attachment) => draft.includes(attachment.marker))
-      .sort((left, right) => draft.indexOf(left.marker) - draft.indexOf(right.marker));
-  }
-}
-
-function mergeByMarker(claimed: readonly ComposerAttachment[], current: readonly ComposerAttachment[]): ComposerAttachment[] {
-  const merged = new Map<string, ComposerAttachment>();
-  for (const attachment of claimed) merged.set(attachment.marker, attachment);
-  for (const attachment of current) merged.set(attachment.marker, attachment);
-  return [...merged.values()];
 }
 
 function collapsedComposerSelection(value: string, cursor: number): ComposerPendingSelection {
