@@ -23,8 +23,8 @@ import {
   normalizeAttachmentFolder,
   normalizeCodexPath,
 } from "../preferences";
-import { ArchivedThreadsContent } from "../ui/archived-threads";
-import { CodexHooksContent } from "../ui/codex-hooks";
+import { ArchivedThreadsContent, type ArchivedThreadsViewModel } from "../ui/archived-threads";
+import { CodexHooksContent, type CodexHooksViewModel } from "../ui/codex-hooks";
 import { ObsidianCommitTextInput } from "../ui/controls.obsidian";
 import {
   ACTIVE_FILE_REFERENCE_SETTING,
@@ -43,7 +43,6 @@ import {
   THREAD_NAMING_SETTING,
 } from "../ui/definitions";
 import { ModelEffortControl } from "../ui/panel-helpers";
-import type { ArchivedThreadsViewModel, CodexHooksViewModel, PanelHelpersViewModel } from "../ui/view-model";
 import type { SettingsTabHost } from "./contracts";
 
 export class CodexPanelSettingTab extends PluginSettingTab {
@@ -128,14 +127,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             desc: THREAD_NAMING_SETTING.desc,
             render: (setting) =>
               this.renderDeclarativeControl(setting, () => {
-                const helper = this.panelHelpersViewModel();
                 return (
                   <ModelEffortControl
-                    modelValue={helper.threadNamingModel}
-                    effortValue={helper.threadNamingEffort}
-                    models={helper.models}
-                    onModelChange={helper.onThreadNamingModelChange}
-                    onEffortChange={helper.onThreadNamingEffortChange}
+                    modelValue={this.plugin.settings.threadNamingModel}
+                    effortValue={this.plugin.settings.threadNamingEffort}
+                    models={this.resources.modelMetadata()}
+                    onModelChange={(value) => void this.setThreadNamingModel(value)}
+                    onEffortChange={(value) => void this.setThreadNamingEffort(value)}
                   />
                 );
               }),
@@ -145,17 +143,16 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             desc: SELECTION_REWRITE_SETTING.desc,
             render: (setting) =>
               this.renderDeclarativeControl(setting, () => {
-                const helper = this.panelHelpersViewModel();
-                setting.setDesc(
-                  helper.modelError ? `${SELECTION_REWRITE_SETTING.desc} ${helper.modelError}` : SELECTION_REWRITE_SETTING.desc,
-                );
+                const modelsLifecycle = this.resources.snapshot().modelsLifecycle;
+                const modelError = modelsLifecycle.kind === "failed" ? modelsLifecycle.error : null;
+                setting.setDesc(modelError ? `${SELECTION_REWRITE_SETTING.desc} ${modelError}` : SELECTION_REWRITE_SETTING.desc);
                 return (
                   <ModelEffortControl
-                    modelValue={helper.rewriteSelectionModel}
-                    effortValue={helper.rewriteSelectionEffort}
-                    models={helper.models}
-                    onModelChange={helper.onRewriteSelectionModelChange}
-                    onEffortChange={helper.onRewriteSelectionEffortChange}
+                    modelValue={this.plugin.settings.rewriteSelectionModel}
+                    effortValue={this.plugin.settings.rewriteSelectionEffort}
+                    models={this.resources.modelMetadata()}
+                    onModelChange={(value) => void this.setRewriteSelectionModel(value)}
+                    onEffortChange={(value) => void this.setRewriteSelectionEffort(value)}
                   />
                 );
               }),
@@ -361,22 +358,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             onCommit={(value) => void options.onCommit(value)}
           />
         )),
-    };
-  }
-
-  private panelHelpersViewModel(): PanelHelpersViewModel {
-    const resources = this.resources.snapshot();
-    return {
-      threadNamingModel: this.plugin.settings.threadNamingModel,
-      threadNamingEffort: this.plugin.settings.threadNamingEffort,
-      rewriteSelectionModel: this.plugin.settings.rewriteSelectionModel,
-      rewriteSelectionEffort: this.plugin.settings.rewriteSelectionEffort,
-      models: this.resources.modelMetadata(),
-      modelError: resources.modelsLifecycle.kind === "failed" ? resources.modelsLifecycle.error : null,
-      onThreadNamingModelChange: (value) => void this.setThreadNamingModel(value),
-      onThreadNamingEffortChange: (value) => void this.setThreadNamingEffort(value),
-      onRewriteSelectionModelChange: (value) => void this.setRewriteSelectionModel(value),
-      onRewriteSelectionEffortChange: (value) => void this.setRewriteSelectionEffort(value),
     };
   }
 

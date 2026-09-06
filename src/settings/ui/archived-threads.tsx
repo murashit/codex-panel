@@ -4,7 +4,15 @@ import type { Thread } from "../../domain/threads/model";
 import { threadCommandDisplayTitle } from "../../domain/threads/title";
 import { ObsidianExtraButton } from "./controls.obsidian";
 import { SettingRow, SettingsItems, SettingsStatusRow } from "./layout";
-import type { ArchivedThreadsViewModel } from "./view-model";
+export interface ArchivedThreadsViewModel {
+  threads: readonly Thread[] | null;
+  loading: boolean;
+  error: string | null;
+  deleteConfirmThreadId: string | null;
+  onRestore: (threadId: string) => void;
+  onStartDelete: (threadId: string) => void;
+  onDelete: (threadId: string) => void;
+}
 
 export function ArchivedThreadsContent({ state }: { state: ArchivedThreadsViewModel }): UiNode {
   const threads = state.threads;

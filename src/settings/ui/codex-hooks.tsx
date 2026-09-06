@@ -3,7 +3,13 @@ import type { ComponentChild as UiNode } from "preact";
 import type { HookItem } from "../../domain/catalog/metadata";
 import { ObsidianButton } from "./controls.obsidian";
 import { SettingRow, SettingsItems, SettingsStatusRow } from "./layout";
-import type { CodexHooksViewModel } from "./view-model";
+export interface CodexHooksViewModel {
+  catalog: { hooks: readonly HookItem[]; warnings: readonly string[]; errors: readonly string[] } | null;
+  loading: boolean;
+  error: string | null;
+  onTrust: (hook: HookItem) => void;
+  onToggleEnabled: (hook: HookItem, enabled: boolean) => void;
+}
 
 export function CodexHooksContent({ state }: { state: CodexHooksViewModel }): UiNode {
   const catalog = state.catalog;
