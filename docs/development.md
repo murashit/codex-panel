@@ -69,9 +69,9 @@ Prefer functions and factories. Reserve classes for mutable resource ownership, 
 
 ## Chat Source Layout
 
-Keep chat rendering and display-only transformations under `src/features/chat/ui/`, grouped by the area they present. UI may turn domain values into display models, but must not depend on application state or workflows, app-server, host, or Obsidian directly.
+Chat is organized by responsibility: `domain/` defines Panel-owned models and rules, `application/` owns state and workflows, `app-server/` adapts the protocol, `host/` connects application behavior to Obsidian and UI, and `ui/` renders supplied values and actions. UI must not import application, app-server, host, or Obsidian directly.
 
-Use `host/` to connect application state and operations to UI: subscriptions, selectors, action wiring, and input coordination belong here, alongside session lifecycle and Obsidian integration. Keep application-dependent projections in host; move display-only helpers beside their UI consumers. Application state remains owned by `application/`.
+Within host, group area-specific selectors, models, and view projections together. Keep screen composition and session lifecycle separate from those area-specific details. Display-only transformations belong beside their UI consumers.
 
 ## API Baselines
 

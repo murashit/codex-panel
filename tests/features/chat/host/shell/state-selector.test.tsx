@@ -5,16 +5,41 @@ import { act } from "preact/test-utils";
 import { describe, expect, it } from "vitest";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { selectChatPanelComposer } from "../../../../../src/features/chat/host/shell/selectors";
+import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
+import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import { useChatSelector } from "../../../../../src/features/chat/host/shell/state-selector";
+import { selectChatPanelToolbar } from "../../../../../src/features/chat/host/toolbar/view-projection";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
-import { chatSharedResourcesFixture, composerSharedValues } from "../../support/shared-display-values";
+import { chatSharedResourcesFixture, composerSharedValues, toolbarSharedValues } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const shared = chatSharedResourcesFixture();
 const composerSelector = (state: ChatState) => selectChatPanelComposer(state, composerSharedValues(shared));
 
 describe("useChatSelector", () => {
+  it.each([
+    ["composer", composerSelector],
+    ["toolbar", (state: ChatState) => selectChatPanelToolbar(state, toolbarSharedValues(shared))],
+  ] as const)("keeps %s runtime selection stable until displayed values change", async (_area, selector) => {
+    const store = controllableStore(chatStateFixture());
+    const parent = document.createElement("div");
+    let renders = 0;
+    function RuntimeValue(): ComponentChild {
+      renders += 1;
+      return useChatSelector<RuntimeSnapshot>(store, selector).active.model;
+    }
+    await act(async () => renderUiRoot(parent, <RuntimeValue />));
+    const initialRenders = renders;
+    await act(async () => store.replace({ ...store.getState() }));
+    expect(renders).toBe(initialRenders);
+    const state = store.getState();
+    await act(async () =>
+      store.replace({ ...state, runtime: { ...state.runtime, active: { ...state.runtime.active, model: "updated-model" } } }),
+    );
+    expect(parent.textContent).toBe("updated-model");
+    unmountUiRoot(parent);
+  });
+
   it("catches an update between the render read and subscription", async () => {
     const initial = chatStateFixture();
     const updated = chatStateWith(initial, { composer: { draft: "after subscribe" } });

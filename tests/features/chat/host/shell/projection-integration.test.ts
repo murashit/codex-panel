@@ -12,19 +12,25 @@ import { chatReducer } from "../../../../../src/features/chat/application/state/
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ChatPanelComposerRuntimeActions } from "../../../../../src/features/chat/host/composer/view-projection";
-import { projectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
-import { type ChatPanelGoalDependencies, projectChatPanelGoal } from "../../../../../src/features/chat/host/goal/view-projection";
 import {
+  projectChatPanelComposer,
   selectChatPanelComposer as selectChatPanelComposerFromResources,
+} from "../../../../../src/features/chat/host/composer/view-projection";
+import {
+  type ChatPanelGoalDependencies,
+  projectChatPanelGoal,
   selectChatPanelGoal,
-  selectChatPanelThreadStream as selectChatPanelThreadStreamFromResources,
-  selectChatPanelToolbar as selectChatPanelToolbarFromResources,
-} from "../../../../../src/features/chat/host/shell/selectors";
+} from "../../../../../src/features/chat/host/goal/view-projection";
 import {
   type ChatThreadStreamDependencies,
   projectThreadStream,
+  selectChatPanelThreadStream as selectChatPanelThreadStreamFromResources,
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
-import { type ChatPanelToolbarDependencies, projectChatPanelToolbar } from "../../../../../src/features/chat/host/toolbar/view-projection";
+import {
+  type ChatPanelToolbarDependencies,
+  projectChatPanelToolbar,
+  selectChatPanelToolbar as selectChatPanelToolbarFromResources,
+} from "../../../../../src/features/chat/host/toolbar/view-projection";
 import { GoalPanel } from "../../../../../src/features/chat/ui/goal/goal";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";

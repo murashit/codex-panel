@@ -13,11 +13,11 @@ import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-
 import { ThreadStreamViewport } from "../../ui/thread-stream/stream-blocks";
 import { Toolbar, type ToolbarActions } from "../../ui/toolbar/toolbar";
 import type { ChatPanelComposerActions, ChatPanelComposerPresenter } from "../composer/view-projection";
+import { selectChatPanelComposer } from "../composer/view-projection";
 import type { ChatThreadGoalQueries } from "../contracts";
-import { type ChatPanelGoalDependencies, projectChatPanelGoal } from "../goal/view-projection";
-import { type ChatThreadStreamDependencies, projectThreadStream } from "../thread-stream/view-projection";
-import { type ChatPanelToolbarDependencies, projectChatPanelToolbar } from "../toolbar/view-projection";
-import { selectChatPanelComposer, selectChatPanelGoal, selectChatPanelThreadStream, selectChatPanelToolbar } from "./selectors";
+import { type ChatPanelGoalDependencies, projectChatPanelGoal, selectChatPanelGoal } from "../goal/view-projection";
+import { type ChatThreadStreamDependencies, projectThreadStream, selectChatPanelThreadStream } from "../thread-stream/view-projection";
+import { type ChatPanelToolbarDependencies, projectChatPanelToolbar, selectChatPanelToolbar } from "../toolbar/view-projection";
 import {
   type ChatSharedDisplayQueries,
   type ChatToolInventoryDisplayQueries,

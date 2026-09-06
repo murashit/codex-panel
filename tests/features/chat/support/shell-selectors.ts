@@ -1,5 +1,6 @@
 import type { ChatState } from "../../../../src/features/chat/application/state/model";
-import { selectChatPanelComposer, selectChatPanelThreadStream } from "../../../../src/features/chat/host/shell/selectors";
+import { selectChatPanelComposer } from "../../../../src/features/chat/host/composer/view-projection";
+import { selectChatPanelThreadStream } from "../../../../src/features/chat/host/thread-stream/view-projection";
 import { type ChatSharedDisplayValues, composerSharedValues, threadStreamSharedValues } from "./shared-display-values";
 
 export function composerModelFromChatState(state: ChatState, shared: ChatSharedDisplayValues) {

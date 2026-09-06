@@ -5,11 +5,9 @@ import type { MetadataResourceDiagnostics } from "../../../../src/domain/server/
 import { createMetadataResourceDiagnostics } from "../../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../src/domain/server/tool-inventory";
 import type { Thread } from "../../../../src/domain/threads/model";
-import type {
-  ChatPanelComposerSharedValues,
-  ChatPanelThreadStreamSharedValues,
-  ChatPanelToolbarSharedValues,
-} from "../../../../src/features/chat/host/shell/selectors";
+import type { ChatPanelComposerSharedValues } from "../../../../src/features/chat/host/composer/view-projection";
+import type { ChatPanelThreadStreamSharedValues } from "../../../../src/features/chat/host/thread-stream/view-projection";
+import type { ChatPanelToolbarSharedValues } from "../../../../src/features/chat/host/toolbar/view-projection";
 
 export interface ChatSharedDisplayValues {
   readonly threads: readonly Thread[];

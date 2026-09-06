@@ -1,5 +1,8 @@
+import type { Thread } from "../../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
+import { activePanelOperationDecision } from "../../application/panel-operation-policy";
+import { activeThreadState, type ChatState } from "../../application/state/model";
 import {
   type ThreadStreamRollbackCandidate,
   threadStreamActiveItems,
@@ -24,7 +27,6 @@ import type { ThreadStreamContext, ThreadStreamDisclosureBucket } from "../../ui
 import type { ThreadStreamTextActionTargets, ThreadStreamViewBlock } from "../../ui/thread-stream/model";
 import { projectPendingRequestBlock } from "../../ui/thread-stream/pending-requests";
 import { subagentActivityPreview } from "../../ui/thread-stream/subagent-preview";
-import type { ChatPanelThreadStreamModel } from "../shell/selectors";
 import type { PendingRequestActions } from "./pending-request-actions";
 
 export interface ChatThreadStreamActions {
@@ -190,4 +192,49 @@ function patchTextActionTargets(
   patch: ThreadStreamTextActionTargets,
 ): void {
   byItemId.set(itemId, { ...byItemId.get(itemId), ...patch });
+}
+
+export interface ChatPanelThreadStreamSharedValues {
+  readonly threads: readonly Thread[];
+}
+
+export interface ChatPanelThreadStreamModel {
+  readonly threads: readonly Thread[];
+  readonly activeThreadId: string | null;
+  readonly forkAllowed: boolean;
+  readonly rollbackAllowed: boolean;
+  readonly planImplementationAllowed: boolean;
+  readonly activeTurn: ChatState["activeTurn"];
+  readonly runtimeCollaborationMode: ChatState["runtime"]["pending"]["collaborationMode"];
+  readonly threadStream: ChatState["threadStream"];
+  readonly pendingSubmission: ChatState["pendingSubmission"];
+  readonly requests: ChatState["requests"];
+  readonly disclosureDetails: ChatState["ui"]["disclosures"]["details"];
+  readonly disclosureActivityGroups: ChatState["ui"]["disclosures"]["activityGroups"];
+  readonly disclosureTextDetails: ChatState["ui"]["disclosures"]["textDetails"];
+  readonly disclosureUserDialogueExpanded: ChatState["ui"]["disclosures"]["userDialogueExpanded"];
+  readonly disclosureApprovalDetails: ChatState["ui"]["disclosures"]["approvalDetails"];
+  readonly forkMenuItemId: ChatState["ui"]["threadStreamActionMenu"]["forkMenuItemId"];
+}
+
+export function selectChatPanelThreadStream(state: ChatState, shared: ChatPanelThreadStreamSharedValues): ChatPanelThreadStreamModel {
+  const activeThread = activeThreadState(state);
+  return {
+    threads: shared.threads,
+    activeThreadId: activeThread?.id ?? null,
+    forkAllowed: activePanelOperationDecision(state, "fork").kind === "allowed",
+    rollbackAllowed: activePanelOperationDecision(state, "rollback").kind === "allowed",
+    planImplementationAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
+    activeTurn: state.activeTurn,
+    runtimeCollaborationMode: state.runtime.pending.collaborationMode,
+    threadStream: state.threadStream,
+    pendingSubmission: state.pendingSubmission,
+    requests: state.requests,
+    disclosureDetails: state.ui.disclosures.details,
+    disclosureActivityGroups: state.ui.disclosures.activityGroups,
+    disclosureTextDetails: state.ui.disclosures.textDetails,
+    disclosureUserDialogueExpanded: state.ui.disclosures.userDialogueExpanded,
+    disclosureApprovalDetails: state.ui.disclosures.approvalDetails,
+    forkMenuItemId: state.ui.threadStreamActionMenu.forkMenuItemId,
+  };
 }

@@ -157,7 +157,6 @@ function shellParts(
     composer: {
       presenter: {
         renderState: (model) => {
-          void model.runtime;
           return {
             viewId: "view",
             draft: model.draft,

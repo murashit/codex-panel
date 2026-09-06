@@ -32,7 +32,7 @@ import { type ComposerSubmissionClaim, SubmissionInput } from "../../application
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer/composer";
 import { syncComposerHeight } from "../../ui/composer/composer.dom";
-import type { ChatPanelComposerModel } from "../shell/selectors";
+import type { ChatPanelComposerModel } from "../composer/view-projection";
 import { ComposerAttachmentTransfers } from "./attachment-transfers";
 import {
   applyComposerInsertionToElement,

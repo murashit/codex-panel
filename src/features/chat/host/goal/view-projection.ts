@@ -1,4 +1,7 @@
 import type { SendShortcut } from "../../../../domain/input/send-shortcut";
+import type { ThreadGoal } from "../../../../domain/threads/goal";
+import { activePanelOperationDecision } from "../../application/panel-operation-policy";
+import type { ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { GoalPanelProps, GoalPanelState } from "../../ui/goal/goal";
 
@@ -68,5 +71,14 @@ export function createGoalEditorActions(stateStore: ChatStateStore) {
     closeEditor: () => {
       stateStore.dispatch({ type: "ui/goal-editor-closed" });
     },
+  };
+}
+
+export function selectChatPanelGoal(state: ChatState, goal: ThreadGoal | null = null): GoalPanelState {
+  return {
+    goal,
+    readOnly: activePanelOperationDecision(state, "goal-mutation").kind !== "allowed",
+    editor: state.ui.goalEditor.kind === "editing" ? state.ui.goalEditor : null,
+    objectiveExpanded: goal ? state.ui.disclosures.goalObjectiveExpanded.has(goal.threadId) : false,
   };
 }
