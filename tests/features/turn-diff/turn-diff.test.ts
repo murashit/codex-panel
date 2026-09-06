@@ -49,6 +49,20 @@ describe("turn diff view decisions", () => {
     expect(copyDiff).toHaveBeenCalled();
   });
 
+  it("renders file-marker content inside valid Git hunks as additions and removals", () => {
+    const parent = document.createElement("div");
+    renderTurnDiffView(parent, {
+      threadId: "thread",
+      turnId: "turn",
+      files: ["note.md"],
+      diff: "diff --git a/note.md b/note.md\n--- a/note.md\n+++ b/note.md\n@@ -1 +1 @@\n--- removed marker\n+++ frontmatter",
+    });
+
+    expect(parent.querySelector(".codex-panel-diff__line--file")?.textContent).toBe("note.md");
+    expect(parent.querySelector(".codex-panel-diff__line--removed")?.textContent).toBe("-- removed marker");
+    expect(parent.querySelector(".codex-panel-diff__line--added")?.textContent).toBe("++ frontmatter");
+  });
+
   it("highlights changed English words inside adjacent removed and added lines", () => {
     const parent = document.createElement("div");
 

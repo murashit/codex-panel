@@ -6,7 +6,7 @@ import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
 import { syncTextareaHeight } from "../../shared/dom/textarea-autogrow.measure";
 import { textareaCursorAtVisualBoundary } from "../../shared/dom/textarea-caret.measure";
 import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
-import { DiffLineList } from "../../shared/ui/diff-view";
+import { type DiffDisplayLine, DiffLineList } from "../../shared/ui/diff-view";
 import { IconButton } from "../../shared/ui/icon.dom";
 import { buildSelectionDiffLines } from "./diff";
 import {
@@ -306,7 +306,7 @@ function selectionRewriteInstructionCursorOnLogicalBoundary(
 interface SelectionRewritePopoverViewProps {
   applyButtonRef: (element: HTMLButtonElement | null) => void;
   debugText: string | null;
-  diffLines: readonly string[] | null;
+  diffLines: readonly DiffDisplayLine[] | null;
   generating: boolean;
   hasInstruction: boolean;
   hasReplacement: boolean;
@@ -407,6 +407,6 @@ function SelectionRewriteStatus({ status }: { status: SelectionRewriteSessionSta
   );
 }
 
-function SelectionRewriteDiff({ lines }: { lines: readonly string[] }): UiNode {
-  return <DiffLineList lines={lines.map((text) => ({ text }))} className="codex-panel-selection-rewrite__diff-body" />;
+function SelectionRewriteDiff({ lines }: { lines: readonly DiffDisplayLine[] }): UiNode {
+  return <DiffLineList lines={lines} className="codex-panel-selection-rewrite__diff-body" />;
 }

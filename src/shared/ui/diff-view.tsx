@@ -6,10 +6,10 @@ const MAX_INLINE_DIFF_EDIT_LENGTH = 500;
 
 export interface DiffDisplayLine {
   text: string;
-  kind?: "file";
+  kind: "added" | "removed" | "context" | "hunk" | "file";
 }
 
-type DiffLineClass = "added" | "removed" | "hunk" | "context" | "file";
+type DiffLineClass = DiffDisplayLine["kind"];
 
 interface InlineDiffPart {
   text: string;
@@ -21,12 +21,7 @@ interface InlineDiff {
   removed: InlineDiffPart[];
 }
 
-interface RenderDiffLine {
-  text: string;
-  className: DiffLineClass;
-}
-
-interface DiffLineView extends RenderDiffLine {
+interface DiffLineView extends DiffDisplayLine {
   inlineParts: InlineDiffPart[] | null;
 }
 
@@ -34,22 +29,36 @@ type ChangeLineClass = "added" | "removed";
 
 export function unifiedDiffDisplayLines(diff: string): DiffDisplayLine[] {
   const patches = parsedGitPatches(diff);
-  if (!patches) return diff.split("\n").map((text) => ({ text }));
+  if (!patches) return rawDiffDisplayLines(diff);
 
   const displayLines: DiffDisplayLine[] = [];
   let inFileHeader = false;
   let patchIndex = 0;
+  let hunkIndex = 0;
+  let remainingHunkLines = 0;
   for (const line of diff.split("\n")) {
+    if (remainingHunkLines > 0) {
+      displayLines.push({ text: line, kind: line.startsWith("+") ? "added" : line.startsWith("-") ? "removed" : "context" });
+      remainingHunkLines -= 1;
+      continue;
+    }
     if (line.startsWith("diff --git ")) {
       const file = displayFilePath(patches[patchIndex]);
       patchIndex += 1;
-      displayLines.push(file ? { text: file, kind: "file" } : { text: line });
+      hunkIndex = 0;
+      displayLines.push(file ? { text: file, kind: "file" } : { text: line, kind: "context" });
       inFileHeader = Boolean(file);
       continue;
     }
-    if (line.startsWith("@@")) inFileHeader = false;
+    if (line.startsWith("@@")) {
+      inFileHeader = false;
+      if (/^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/.test(line)) {
+        remainingHunkLines = patches[patchIndex - 1]?.hunks[hunkIndex]?.lines.length ?? 0;
+        hunkIndex += 1;
+      }
+    }
     if (inFileHeader && (line.startsWith("index ") || line.startsWith("--- ") || line.startsWith("+++ "))) continue;
-    displayLines.push({ text: line });
+    displayLines.push({ text: line, kind: diffLineClassFromText(line) });
   }
   return displayLines;
 }
@@ -59,18 +68,15 @@ export function UnifiedDiffView({ diff, className }: { diff: string; className?:
 }
 
 export function DiffLineList({ lines, className }: { lines: readonly DiffDisplayLine[]; className?: string | undefined }): UiNode {
-  return <DiffLineFrame lines={lines.map((line) => ({ text: line.text, className: diffLineClass(line) }))} className={className} />;
+  return <DiffLineFrame lines={lines} className={className} />;
 }
 
 export function RawDiffView({ diff, className }: { diff: string; className?: string | undefined }): UiNode {
-  return (
-    <DiffLineFrame lines={diff.split("\n").map((line) => ({ text: line, className: diffLineClassFromText(line) }))} className={className} />
-  );
+  return <DiffLineList lines={rawDiffDisplayLines(diff)} className={className} />;
 }
 
-function diffLineClass(line: DiffDisplayLine): DiffLineClass {
-  if (line.kind === "file") return "file";
-  return diffLineClassFromText(line.text);
+function rawDiffDisplayLines(diff: string): DiffDisplayLine[] {
+  return diff.split("\n").map((text) => ({ text, kind: diffLineClassFromText(text) }));
 }
 
 function diffLineClassFromText(text: string): Exclude<DiffLineClass, "file"> {
@@ -101,23 +107,23 @@ function displayFilePath(patch: StructuredPatch | undefined): string | null {
   return fileName.replace(/^[ab]\//, "");
 }
 
-function DiffLineFrame({ lines, className }: { lines: readonly RenderDiffLine[]; className?: string | undefined }): UiNode {
+function DiffLineFrame({ lines, className }: { lines: readonly DiffDisplayLine[]; className?: string | undefined }): UiNode {
   const preClassName = ["codex-panel-diff", className].filter(Boolean).join(" ");
   return (
     <pre className={preClassName}>
       {diffLineViews(lines).map((line, index) => (
-        <DiffLine key={`${String(index)}:${line.className}:${line.text}`} line={line} />
+        <DiffLine key={`${String(index)}:${line.kind}:${line.text}`} line={line} />
       ))}
     </pre>
   );
 }
 
-function diffLineViews(lines: readonly RenderDiffLine[]): DiffLineView[] {
+function diffLineViews(lines: readonly DiffDisplayLine[]): DiffLineView[] {
   const views: DiffLineView[] = [];
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     if (!line) continue;
-    const changeClass = changeLineClass(line.className);
+    const changeClass = changeLineClass(line.kind);
     if (!changeClass) {
       views.push({ ...line, inlineParts: null });
       continue;
@@ -141,13 +147,13 @@ function diffLineViews(lines: readonly RenderDiffLine[]): DiffLineView[] {
 }
 
 function collectChangeRun(
-  lines: readonly RenderDiffLine[],
+  lines: readonly DiffDisplayLine[],
   startIndex: number,
   className: ChangeLineClass,
-): { lines: RenderDiffLine[]; endIndex: number } {
-  const run: RenderDiffLine[] = [];
+): { lines: DiffDisplayLine[]; endIndex: number } {
+  const run: DiffDisplayLine[] = [];
   let index = startIndex;
-  while (index < lines.length && lines[index]?.className === className) {
+  while (index < lines.length && lines[index]?.kind === className) {
     const line = lines[index];
     if (line) run.push(line);
     index += 1;
@@ -155,23 +161,23 @@ function collectChangeRun(
   return { lines: run, endIndex: index };
 }
 
-function changeRunViews(firstRun: RenderDiffLine[], secondRun: RenderDiffLine[]): DiffLineView[] {
+function changeRunViews(firstRun: DiffDisplayLine[], secondRun: DiffDisplayLine[]): DiffLineView[] {
   const inlineDiffs = pairedInlineDiffs(firstRun, secondRun);
   const views: DiffLineView[] = [];
   for (let index = 0; index < firstRun.length; index += 1) {
     const line = firstRun[index];
     if (!line) continue;
-    views.push({ ...line, inlineParts: inlinePartsForLine(line.className, inlineDiffs[index] ?? null) });
+    views.push({ ...line, inlineParts: inlinePartsForLine(line.kind, inlineDiffs[index] ?? null) });
   }
   for (let index = 0; index < secondRun.length; index += 1) {
     const line = secondRun[index];
     if (!line) continue;
-    views.push({ ...line, inlineParts: inlinePartsForLine(line.className, inlineDiffs[index] ?? null) });
+    views.push({ ...line, inlineParts: inlinePartsForLine(line.kind, inlineDiffs[index] ?? null) });
   }
   return views;
 }
 
-function pairedInlineDiffs(firstRun: RenderDiffLine[], secondRun: RenderDiffLine[]): (InlineDiff | null)[] {
+function pairedInlineDiffs(firstRun: DiffDisplayLine[], secondRun: DiffDisplayLine[]): (InlineDiff | null)[] {
   const pairCount = Math.min(firstRun.length, secondRun.length);
   const inlineDiffs: (InlineDiff | null)[] = [];
   for (let index = 0; index < pairCount; index += 1) {
@@ -186,10 +192,10 @@ function pairedInlineDiffs(firstRun: RenderDiffLine[], secondRun: RenderDiffLine
   return inlineDiffs;
 }
 
-function inlineDiffForLines(firstLine: RenderDiffLine, secondLine: RenderDiffLine): InlineDiff | null {
-  const removedLine = firstLine.className === "removed" ? firstLine : secondLine;
-  const addedLine = firstLine.className === "added" ? firstLine : secondLine;
-  return inlineDiff(displayDiffLineText(removedLine.text, removedLine.className), displayDiffLineText(addedLine.text, addedLine.className));
+function inlineDiffForLines(firstLine: DiffDisplayLine, secondLine: DiffDisplayLine): InlineDiff | null {
+  const removedLine = firstLine.kind === "removed" ? firstLine : secondLine;
+  const addedLine = firstLine.kind === "added" ? firstLine : secondLine;
+  return inlineDiff(displayDiffLineText(removedLine.text, removedLine.kind), displayDiffLineText(addedLine.text, addedLine.kind));
 }
 
 function inlinePartsForLine(className: DiffLineClass, inlineDiff: InlineDiff | null): InlineDiffPart[] | null {
@@ -209,17 +215,17 @@ function oppositeChangeLineClass(className: ChangeLineClass): ChangeLineClass {
 
 function DiffLine({ line }: { line: DiffLineView }): UiNode {
   return (
-    <span className={diffLineClassName(line.className)}>
+    <span className={diffLineClassName(line.kind)}>
       {line.inlineParts
         ? line.inlineParts.map((part, index) => (
             <span
               key={`${String(index)}:${part.changed ? "changed" : "same"}:${part.text}`}
-              className={part.changed ? diffWordClassName(line.className) : undefined}
+              className={part.changed ? diffWordClassName(line.kind) : undefined}
             >
               {part.text}
             </span>
           ))
-        : displayDiffLineText(line.text, line.className)}
+        : displayDiffLineText(line.text, line.kind)}
     </span>
   );
 }

@@ -1,13 +1,14 @@
 import { diffLines } from "diff";
+import type { DiffDisplayLine } from "../../shared/ui/diff-view";
 
-export function buildSelectionDiffLines(originalText: string, replacementText: string): string[] {
+export function buildSelectionDiffLines(originalText: string, replacementText: string): DiffDisplayLine[] {
   const lines = lineChanges(withoutTrailingLineBreak(originalText), withoutTrailingLineBreak(replacementText));
   const originalHasTrailingLineBreak = hasTrailingLineBreak(originalText);
   const replacementHasTrailingLineBreak = hasTrailingLineBreak(replacementText);
   if (originalHasTrailingLineBreak !== replacementHasTrailingLineBreak) {
-    lines.push(`${originalHasTrailingLineBreak ? "-" : "+"}↵`);
+    lines.push({ text: `${originalHasTrailingLineBreak ? "-" : "+"}↵`, kind: originalHasTrailingLineBreak ? "removed" : "added" });
   }
-  return lines.length > 0 ? lines : [" "];
+  return lines.length > 0 ? lines : [{ text: " ", kind: "context" }];
 }
 
 const MAX_SELECTION_REWRITE_EDIT_LENGTH = 400;
@@ -28,7 +29,7 @@ function withoutTrailingLineBreak(text: string): string {
   return text.endsWith("\r\n") ? text.slice(0, -2) : text.slice(0, -1);
 }
 
-function lineChanges(originalText: string, replacementText: string): string[] {
+function lineChanges(originalText: string, replacementText: string): DiffDisplayLine[] {
   const changes = diffLines(originalText, replacementText, {
     maxEditLength: MAX_SELECTION_REWRITE_EDIT_LENGTH,
     oneChangePerToken: true,
@@ -38,19 +39,19 @@ function lineChanges(originalText: string, replacementText: string): string[] {
   return changes.map((change) => {
     const prefix = change.added ? "+" : change.removed ? "-" : " ";
     const text = change.value.endsWith("\n") ? change.value.slice(0, -1) : change.value;
-    return `${prefix}${text}`;
+    return { text: `${prefix}${text}`, kind: change.added ? "added" : change.removed ? "removed" : "context" };
   });
 }
 
-function linearLineChanges(originalLines: string[], replacementLines: string[]): string[] {
+function linearLineChanges(originalLines: string[], replacementLines: string[]): DiffDisplayLine[] {
   const prefixLength = commonPrefixLength(originalLines, replacementLines);
   const suffixLength = commonSuffixLength(originalLines, replacementLines, prefixLength);
-  const changes: string[] = [];
+  const changes: DiffDisplayLine[] = [];
 
-  pushLines(changes, " ", originalLines, 0, prefixLength);
-  pushLines(changes, "-", originalLines, prefixLength, originalLines.length - suffixLength);
-  pushLines(changes, "+", replacementLines, prefixLength, replacementLines.length - suffixLength);
-  pushLines(changes, " ", originalLines, originalLines.length - suffixLength, originalLines.length);
+  pushLines(changes, "context", originalLines, 0, prefixLength);
+  pushLines(changes, "removed", originalLines, prefixLength, originalLines.length - suffixLength);
+  pushLines(changes, "added", replacementLines, prefixLength, replacementLines.length - suffixLength);
+  pushLines(changes, "context", originalLines, originalLines.length - suffixLength, originalLines.length);
 
   return changes;
 }
@@ -75,8 +76,8 @@ function commonSuffixLength(left: string[], right: string[], prefixLength: numbe
   return suffixLength;
 }
 
-function pushLines(changes: string[], prefix: " " | "+" | "-", lines: string[], start: number, end: number): void {
+function pushLines(changes: DiffDisplayLine[], kind: "context" | "added" | "removed", lines: string[], start: number, end: number): void {
   for (let index = start; index < end; index += 1) {
-    changes.push(`${prefix}${lines[index] ?? ""}`);
+    changes.push({ text: `${kind === "added" ? "+" : kind === "removed" ? "-" : " "}${lines[index] ?? ""}`, kind });
   }
 }

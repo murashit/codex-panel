@@ -71,7 +71,11 @@ describe("selection rewrite prompt", () => {
 
 describe("selection rewrite diff", () => {
   it("builds selection-scoped display lines", () => {
-    expect(buildSelectionDiffLines("alpha\nbeta", "alpha\ngamma")).toEqual([" alpha", "-beta", "+gamma"]);
+    expect(buildSelectionDiffLines("alpha\nbeta", "alpha\ngamma")).toEqual([
+      { text: " alpha", kind: "context" },
+      { text: "-beta", kind: "removed" },
+      { text: "+gamma", kind: "added" },
+    ]);
   });
 
   it("orders full replacement blocks as removals before additions", () => {
@@ -80,7 +84,7 @@ describe("selection rewrite diff", () => {
       "これはdiffのてすとです。\nきょうはげんきです。\nとてもげんきです。",
     );
 
-    expect(diff.join("\n")).toContain(
+    expect(diff.map((line) => line.text).join("\n")).toContain(
       [
         "-これはdiffのテストです。",
         "-今日は元気です。",
@@ -98,7 +102,9 @@ describe("selection rewrite diff", () => {
     const originalText = ["same start", ...commonBefore, "old line", "shared middle", ...commonAfter, "same end"].join("\n");
     const replacementText = ["same start", ...commonBefore, "new line", "shared middle", ...commonAfter, "same end"].join("\n");
 
-    const diff = buildSelectionDiffLines(originalText, replacementText).join("\n");
+    const diff = buildSelectionDiffLines(originalText, replacementText)
+      .map((line) => line.text)
+      .join("\n");
 
     expect(diff).toContain("\n-old line\n+new line\n shared middle\n");
   });
@@ -119,7 +125,9 @@ describe("selection rewrite diff", () => {
       "same end",
     ].join("\n");
 
-    const diff = buildSelectionDiffLines(originalText, replacementText).join("\n");
+    const diff = buildSelectionDiffLines(originalText, replacementText)
+      .map((line) => line.text)
+      .join("\n");
 
     expect(diff.startsWith(" same start\n")).toBe(true);
     expect(diff).toContain("\n-old before 0\n");
@@ -130,17 +138,23 @@ describe("selection rewrite diff", () => {
   });
 
   it("renders additions and deletions", () => {
-    expect(buildSelectionDiffLines("", "added")).toContain("+added");
-    expect(buildSelectionDiffLines("removed", "")).toContain("-removed");
+    expect(buildSelectionDiffLines("", "added")).toContainEqual({ text: "+added", kind: "added" });
+    expect(buildSelectionDiffLines("removed", "")).toContainEqual({ text: "-removed", kind: "removed" });
   });
 
   it("shows a removed trailing line break", () => {
-    expect(buildSelectionDiffLines("same\n", "same")).toEqual([" same", "-↵"]);
+    expect(buildSelectionDiffLines("same\n", "same")).toEqual([
+      { text: " same", kind: "context" },
+      { text: "-↵", kind: "removed" },
+    ]);
   });
 
   it("shows an added trailing line break", () => {
-    expect(buildSelectionDiffLines("same", "same\n")).toEqual([" same", "+↵"]);
-    expect(buildSelectionDiffLines("", "\n")).toEqual(["+↵"]);
+    expect(buildSelectionDiffLines("same", "same\n")).toEqual([
+      { text: " same", kind: "context" },
+      { text: "+↵", kind: "added" },
+    ]);
+    expect(buildSelectionDiffLines("", "\n")).toEqual([{ text: "+↵", kind: "added" }]);
   });
 });
 
@@ -314,6 +328,25 @@ describe("selection rewrite popover", () => {
     expect(generate.disabled).toBe(false);
 
     closePopover(popover);
+  });
+
+  it("renders header-like selection content as edits and applies the original replacement", () => {
+    const editor = editorFixture({ currentText: "---" });
+    const popover = new SelectionRewritePopover(
+      popoverOptions({
+        editor: editor.editor,
+        state: rewriteState({ originalText: "---", replacementText: "++ frontmatter\n" }),
+      }),
+    );
+    openPopover(popover);
+
+    expect(document.querySelector(".codex-panel-diff__line--removed")?.textContent).toBe("---");
+    expect(Array.from(document.querySelectorAll(".codex-panel-diff__line--added"), (line) => line.textContent)).toEqual([
+      "++ frontmatter",
+      "↵",
+    ]);
+    void act(() => document.querySelector<HTMLButtonElement>('button[aria-label="Apply"]')?.click());
+    expect(editor.replaceRange).toHaveBeenCalledWith("++ frontmatter\n", { line: 1, ch: 0 }, { line: 1, ch: 22 }, "codex-panel-rewrite");
   });
 
   it("generates from the Enter shortcut, renders a preview diff, and applies from the action shortcut", async () => {
