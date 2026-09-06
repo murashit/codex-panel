@@ -22,6 +22,8 @@ Use `npm run test:mutation` for exploratory mutation testing of correctness-crit
 
 When reviewing tests, map each case to a reachable user action, external boundary, or distinct state transition. Keep representative coverage of normal workflows before adding variants; remove cases that only exercise test doubles, impossible configuration, duplicate ownership, or wording and internal shape without a durable contract.
 
+Extracting a module does not by itself justify a new test suite. Before adding tests, identify the behavior existing tests do not protect and exercise it at the appropriate layer. Consolidate or remove overlapping cases and fixtures while preserving meaningful behavior coverage.
+
 ## Commit Messages
 
 Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) for new commits:
