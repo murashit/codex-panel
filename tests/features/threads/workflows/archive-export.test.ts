@@ -24,7 +24,27 @@ describe("archive export workflow", () => {
     expect(destination.files.get(result.path)).toContain('tags: ["codex", "archive"]');
   });
 
-  it("rejects vault-external or empty export paths", async () => {
+  it("expands local date and time tokens into one sanitized Markdown filename", async () => {
+    const result = await exportArchivedThreadMarkdown(
+      thread({ name: "Review" }),
+      { archiveExportFolderTemplate: "Exports", archiveExportFilenameTemplate: "{{title}}/{{date}}-{{time}}.MD" },
+      new MemoryDestination(),
+      new Date(2026, 0, 2, 3, 4, 5),
+    );
+    expect(result.path).toBe("Exports/Review-2026-01-02-030405.MD");
+  });
+
+  it.each(["   ", ".", ".."])("rejects an empty filename after sanitization: %s", async (template) => {
+    await expect(
+      exportArchivedThreadMarkdown(
+        thread(),
+        { archiveExportFolderTemplate: "Exports", archiveExportFilenameTemplate: template },
+        new MemoryDestination(),
+      ),
+    ).rejects.toThrow("empty filename");
+  });
+
+  it("rejects vault-external export paths", async () => {
     const destination = new MemoryDestination();
     await expect(
       exportArchivedThreadMarkdown(
@@ -33,9 +53,6 @@ describe("archive export workflow", () => {
         destination,
       ),
     ).rejects.toThrow("relative path segments");
-    await expect(
-      exportArchivedThreadMarkdown(thread(), { archiveExportFolderTemplate: "Exports", archiveExportFilenameTemplate: "   " }, destination),
-    ).rejects.toThrow("empty filename");
   });
 
   it("normalizes generated vault paths through the archive destination", async () => {
