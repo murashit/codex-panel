@@ -51,10 +51,6 @@ export interface ComposerSubmitCommandHost {
   };
 }
 
-export interface ComposerSubmitCommand {
-  submit: () => Promise<void>;
-}
-
 export async function submitComposer(host: ComposerSubmitCommandHost): Promise<void> {
   const pendingSubmission = host.stateStore.getState().pendingSubmission;
   if (pendingSubmission) {

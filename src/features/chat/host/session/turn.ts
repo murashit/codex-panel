@@ -5,9 +5,12 @@ import type { ReconnectPanelOptions } from "../../application/connection/reconne
 import type { LocalIdSource } from "../../application/local-id-source";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import type { ChatRuntimeSharedResources } from "../../application/runtime/snapshot";
+import { executePanelSlashCommand, type PanelSlashCommandHost } from "../../application/slash-commands/execute-with-state";
 import { activeThreadId } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
-import { createSubmissionCommands, type SubmissionCommands as SessionSubmissionCommands } from "../../application/submission/commands";
+import { type ComposerSubmitCommandHost, submitComposer } from "../../application/submission/composer-submit-command";
+import { implementPlan, type PlanImplementationHost } from "../../application/submission/plan-implementation";
+import { createTurnSubmissionCommand, type TurnSubmissionRequest } from "../../application/submission/turn-submission-command";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { GoalCommands } from "../../application/threads/goal-commands";
 import type { ThreadCommands } from "../../application/threads/thread-commands";
@@ -37,7 +40,11 @@ interface SessionTurnHost {
 
 export interface SessionTurn {
   pendingRequests: PendingRequestActions;
-  submissionCommands: SessionSubmissionCommands;
+  submissionCommands: {
+    sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
+    planImplementation: { implement(itemId: string): Promise<void> };
+    composerSubmit: { submit(): Promise<void> };
+  };
 }
 
 interface SessionTurnInput {
@@ -95,80 +102,93 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
     setStatus: status.set,
   });
-  const submissionCommands = createSubmissionCommands(
-    {
-      stateStore: host.stateStore,
-      localItemIds,
-      connectionAvailable: () => appServer.connectionAvailable(),
-      ensureConnected,
-      sharedResources,
-      listedThreads: () => host.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
-      turnPort: appServer.turn,
-      referThread,
-      readWebUrl: (url, message, snapshot, isCurrent) =>
-        readWebUrl(
-          {
-            prepareInput: (text, inputSnapshot) => composerController.preparedInput(text, inputSnapshot),
-            viewWindow: host.environment.view.viewWindow,
-            ...(isCurrent ? { isCurrent } : {}),
-          },
-          url,
-          message,
-          snapshot,
-        ),
-      status,
-      runtime: {
-        connectionDiagnosticDetails: runtimeProjection.connectionDiagnosticDetails,
-        modelStatusDetails: runtimeProjection.modelStatusDetails,
-        effortStatusDetails: runtimeProjection.effortStatusDetails,
-        statusDetails: runtimeProjection.statusDetails,
-        permissionDetails: runtimeProjection.permissionDetails,
-        toolInventoryDetails: async () => {
-          const threadId = activeThreadId(host.stateStore.getState());
-          await sharedResources.ensureToolInventory(threadId);
-          return runtimeProjection.toolInventoryDetails();
-        },
-      },
-      thread: {
-        ensureRestoredThreadLoaded: threadLifecycle.ensureRestoredThreadLoaded,
-        startNewThread: () => navigation.startNewThread(),
-        selectThread: (threadId) => navigation.selectThread(threadId),
-        notifyIdentityChanged: notifyActiveThreadIdentityChanged,
-        resetTurnPresence: (hadTurns) => {
-          autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
-        },
-        openSideChat: async (threadId, message) => {
-          const source = host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((thread) => thread.id === threadId);
-          await host.environment.plugin.workspace.openSideChat(threadId, source?.name ?? source?.preview ?? null, message);
-        },
-      },
-      composer: {
-        prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
-        claimSubmission: () => composerController.claimSubmission(),
-        isSubmissionPreparing: () => composerController.isSubmissionPreparing(),
-        failActiveSubmissionClaim: () => {
-          composerController.failActiveSubmissionClaim();
-        },
-        draft: () => composerController.draft,
-        trimmedDraft: () => composerController.trimmedDraft,
-      },
-      scroll: {
-        showLatest: () => {
-          host.threadStreamScrollBinding.showLatest();
-        },
-      },
+  const turnSubmissionCommand = createTurnSubmissionCommand({
+    stateStore: host.stateStore,
+    localItemIds,
+    turnPort: appServer.turn,
+    ensureConnected,
+    ensureRestoredThreadLoaded: threadLifecycle.ensureRestoredThreadLoaded,
+    startThread: threadStart.startThread,
+    notifyActiveThreadIdentityChanged,
+    resetThreadTurnPresence: (hadTurns) => {
+      autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
-    {
-      threadStartCommand: threadStart,
-      runtimeSettings,
-      threadCommands,
-      reconnectCommand: reconnect,
-      goals,
+    applyPendingThreadSettings: () => runtimeSettings.applyPendingThreadSettings(),
+    prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
+    setStatus: status.set,
+    addSystemMessage: status.addSystemMessage,
+  });
+  const slashCommandHost: PanelSlashCommandHost = {
+    stateStore: host.stateStore,
+    connectionAvailable: () => appServer.connectionAvailable(),
+    sharedResources,
+    listedThreads: () => host.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
+    referThread,
+    readWebUrl: (url, message, snapshot, isCurrent) =>
+      readWebUrl(
+        {
+          prepareInput: (text, inputSnapshot) => composerController.preparedInput(text, inputSnapshot),
+          viewWindow: host.environment.view.viewWindow,
+          ...(isCurrent ? { isCurrent } : {}),
+        },
+        url,
+        message,
+        snapshot,
+      ),
+    startNewThread: () => navigation.startNewThread(),
+    resumeThread: (threadId) => navigation.selectThread(threadId),
+    threadCommands,
+    reconnect,
+    openSideChat: async (threadId, message) => {
+      const source = host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((thread) => thread.id === threadId);
+      await host.environment.plugin.workspace.openSideChat(threadId, source?.name ?? source?.preview ?? null, message);
     },
-  );
-
+    runtimeSettings,
+    goals,
+    addSystemMessage: status.addSystemMessage,
+    addStructuredSystemMessage: status.addStructuredSystemMessage,
+    statusDetails: runtimeProjection.statusDetails,
+    permissionDetails: runtimeProjection.permissionDetails,
+    connectionDiagnosticDetails: runtimeProjection.connectionDiagnosticDetails,
+    toolInventoryDetails: async () => {
+      const threadId = activeThreadId(host.stateStore.getState());
+      await sharedResources.ensureToolInventory(threadId);
+      return runtimeProjection.toolInventoryDetails();
+    },
+    modelStatusDetails: runtimeProjection.modelStatusDetails,
+    effortStatusDetails: runtimeProjection.effortStatusDetails,
+  };
+  const planImplementationHost: PlanImplementationHost = {
+    stateStore: host.stateStore,
+    ensureConnected,
+    sendTurnText: async (text) => {
+      await turnSubmissionCommand.sendTurnText({ text });
+    },
+    requestDefaultCollaborationModeForNextTurn: () => {
+      runtimeSettings.requestDefaultCollaborationModeForNextTurn();
+    },
+  };
+  const composerSubmitHost: ComposerSubmitCommandHost = {
+    stateStore: host.stateStore,
+    localItemIds,
+    ensureRestoredThreadLoaded: threadLifecycle.ensureRestoredThreadLoaded,
+    composer: composerController,
+    slashCommandExecutor: {
+      execute: (command, args, inputSnapshot, submission) =>
+        executePanelSlashCommand(slashCommandHost, command, args, inputSnapshot, submission),
+    },
+    turnSubmissionCommand,
+    connection: { ensureConnected },
+    turnPort: appServer.turn,
+    status: { setStatus: status.set, addSystemMessage: status.addSystemMessage },
+    scroll: host.threadStreamScrollBinding,
+  };
   return {
     pendingRequests,
-    submissionCommands,
+    submissionCommands: {
+      sendTurnText: (request) => turnSubmissionCommand.sendTurnText(request),
+      planImplementation: { implement: (itemId) => implementPlan(planImplementationHost, itemId) },
+      composerSubmit: { submit: () => submitComposer(composerSubmitHost) },
+    },
   };
 }

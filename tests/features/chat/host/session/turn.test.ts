@@ -1,11 +1,57 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
+import type { Thread } from "../../../../../src/domain/threads/model";
+import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { createSessionTurn } from "../../../../../src/features/chat/host/session/turn";
 import { deferred } from "../../../../support/async";
 
 describe("createSessionTurn", () => {
+  it("sends only plan text without composer context when implementing a plan", async () => {
+    const stateStore = createChatStateStore();
+    resumeThread(stateStore, [
+      { id: "plan", kind: "dialogue", role: "assistant", text: "Plan", dialogueKind: "proposedPlan", dialogueState: "completed" },
+    ]);
+    const prepareInput = vi.fn((text: string, _snapshot: ComposerInputSnapshot) => ({
+      text,
+      input: [
+        { type: "text", text },
+        { type: "fileReference", name: "unexpected", path: "notes/Alpha.md" },
+      ],
+    }));
+    const fixture = sessionTurnFixture({ stateStore, prepareInput });
+    await fixture.turn.submissionCommands.planImplementation.implement("plan");
+    expect(prepareInput).not.toHaveBeenCalled();
+    expect(fixture.startTurn).toHaveBeenCalledWith({
+      threadId: "thread",
+      input: [{ type: "text", text: "Please implement this plan." }],
+      clientUserMessageId: expect.any(String),
+    });
+  });
+
+  it("prevents a direct send from overtaking a plan submission waiting for connection", async () => {
+    const stateStore = createChatStateStore();
+    resumeThread(stateStore, [
+      { id: "plan", kind: "dialogue", role: "assistant", text: "Plan", dialogueKind: "proposedPlan", dialogueState: "completed" },
+    ]);
+    const connection = deferred<boolean>();
+    const ensureConnected = vi
+      .fn()
+      .mockResolvedValueOnce(true)
+      .mockImplementation(() => connection.promise);
+    const fixture = sessionTurnFixture({ stateStore, ensureConnected });
+    const plan = fixture.turn.submissionCommands.planImplementation.implement("plan");
+    await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledTimes(2));
+    await expect(fixture.turn.submissionCommands.sendTurnText({ text: "Another send" })).resolves.toBe(false);
+    connection.resolve(true);
+    await plan;
+    expect(fixture.startTurn).toHaveBeenCalledOnce();
+    expect(fixture.startTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ input: [{ type: "text", text: "Please implement this plan." }] }),
+    );
+  });
+
   it("lets the query owner settle cached tool inventory before rendering /tools", async () => {
     const inventory = deferred<ToolInventorySnapshot>();
     const ensureToolInventory = vi.fn(() => inventory.promise);
@@ -56,6 +102,8 @@ function sessionTurnFixture(
   options: {
     stateStore?: ReturnType<typeof createChatStateStore>;
     draft?: string;
+    prepareInput?: ReturnType<typeof vi.fn>;
+    ensureConnected?: ReturnType<typeof vi.fn>;
     referThread?: ReturnType<typeof vi.fn>;
     threads?: readonly import("../../../../../src/domain/threads/model").Thread[];
     toolInventory?: ToolInventorySnapshot | null;
@@ -79,6 +127,7 @@ function sessionTurnFixture(
     toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] }]),
   };
   const ensureToolInventory = options.ensureToolInventory ?? vi.fn().mockResolvedValue(toolInventory());
+  const startTurn = vi.fn().mockResolvedValue({ kind: "completed", value: { turnId: "turn" } });
   const turn = createSessionTurn(
     {
       environment: {
@@ -103,9 +152,9 @@ function sessionTurnFixture(
       appServer: {
         connectionAvailable: vi.fn(() => true),
         threadReferences: vi.fn(() => referThread),
-        turn: {},
+        turn: { startTurn },
       },
-      ensureConnected: vi.fn().mockResolvedValue(true),
+      ensureConnected: options.ensureConnected ?? vi.fn().mockResolvedValue(true),
       status,
       inboundHandler: {},
       threadLifecycle: {
@@ -125,7 +174,7 @@ function sessionTurnFixture(
           return draft;
         },
         setDraft: vi.fn(),
-        preparedInput: vi.fn(),
+        preparedInput: options.prepareInput ?? vi.fn(),
         captureInputSnapshot: vi.fn(() => ({ sourcePath: "snapshot.md" })),
         claimSubmission: vi.fn(() => ({
           text: draft,
@@ -139,7 +188,14 @@ function sessionTurnFixture(
         hasFocus: vi.fn(() => false),
         focusComposer: vi.fn(),
       },
-      runtimeSettings: {},
+      runtimeSettings: {
+        applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
+        requestDefaultCollaborationModeForNextTurn: () =>
+          stateStore.dispatch({
+            type: "runtime/pending-intent-patched",
+            patch: { collaborationMode: { kind: "set", value: "default" } },
+          }),
+      },
       threadStart: {},
       goals: {},
       autoTitleCoordinator: { resetThreadTurnPresence: vi.fn() },
@@ -156,6 +212,8 @@ function sessionTurnFixture(
     } as never,
   );
   return {
+    turn,
+    startTurn,
     submit: () => turn.submissionCommands.composerSubmit.submit(),
     ensureToolInventory,
     runtimeProjection,
@@ -172,4 +230,39 @@ function toolInventory(): ToolInventorySnapshot {
     mcpDiagnostics: [],
     mcpError: null,
   };
+}
+
+function thread(id: string): Thread {
+  return {
+    id,
+    preview: "",
+    createdAt: 0,
+    updatedAt: 0,
+    name: null,
+    archived: false,
+    provenance: { kind: "interactive" },
+  };
+}
+
+function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items: readonly ThreadStreamItem[]): void {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    canAcceptDirectInput: null,
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: thread("thread"),
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+    items,
+  });
+  stateStore.dispatch({
+    type: "runtime/pending-intent-patched",
+    patch: { collaborationMode: { kind: "set", value: "plan" } },
+  });
 }
