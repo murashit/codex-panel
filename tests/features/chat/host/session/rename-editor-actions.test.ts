@@ -11,22 +11,22 @@ import { deferred } from "../../../../support/async";
 
 describe("ThreadRenameEditorActions", () => {
   it("edits and cancels a panel rename draft", () => {
-    const { actions } = actionsFixture();
+    const { actions, stateStore } = actionsFixture();
 
     actions.start("thread");
     actions.updateDraft("thread", "New name");
 
-    expect(actions.editState("thread")).toEqual({ draft: "New name", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "New name", kind: "editing" });
     actions.cancel("thread");
-    expect(actions.editState("thread")).toBeNull();
+    expect(stateStore.getState().ui.rename).toEqual({ kind: "idle" });
   });
 
   it("starts rename drafts from useful titles instead of id fallbacks", () => {
-    const { actions } = actionsFixture({ threads: [{ ...threadFixture("thread"), preview: "" }] });
+    const { actions, stateStore } = actionsFixture({ threads: [{ ...threadFixture("thread"), preview: "" }] });
 
     actions.start("thread");
 
-    expect(actions.editState("thread")).toEqual({ draft: "", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "", kind: "editing" });
   });
 
   it("keeps auto-name disabled when no title context is available", async () => {
@@ -55,7 +55,7 @@ describe("ThreadRenameEditorActions", () => {
     const context = { userRequest: "Please name this.", assistantResponse: "Done." };
     const resolveThreadTitleContext = vi.fn().mockResolvedValue(context);
     const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
-    const { actions } = actionsFixture({ resolveThreadTitleContext, generateThreadTitle });
+    const { actions, stateStore } = actionsFixture({ resolveThreadTitleContext, generateThreadTitle });
 
     actions.start("thread");
     await flushPromises();
@@ -64,13 +64,13 @@ describe("ThreadRenameEditorActions", () => {
     expect(generateThreadTitle).toHaveBeenCalledOnce();
     expect(generateThreadTitle).toHaveBeenCalledWith(context, expect.any(AbortSignal));
     expect(resolveThreadTitleContext).toHaveBeenCalledOnce();
-    expect(actions.editState("thread")).toEqual({ draft: "Generated title", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Generated title", kind: "editing" });
   });
 
   it("returns to editing and ignores a generated title after auto-name cancellation", async () => {
     const generatedTitle = deferred<string>();
     let generationSignal: AbortSignal | undefined;
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       generateThreadTitle: vi.fn((_threadId, signal) => {
         generationSignal = signal;
         return generatedTitle.promise;
@@ -85,17 +85,17 @@ describe("ThreadRenameEditorActions", () => {
     actions.cancelAutoName("thread");
 
     expect(generationSignal?.aborted).toBe(true);
-    expect(actions.editState("thread")).toEqual({ draft: "Thread preview", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "editing" });
     generatedTitle.resolve("Generated title");
     await autoName;
 
-    expect(actions.editState("thread")).toEqual({ draft: "Thread preview", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "editing" });
   });
 
   it("aborts auto-name when rename moves to another thread", async () => {
     const generatedTitle = deferred<string>();
     let generationSignal: AbortSignal | undefined;
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       threads: [threadFixture("thread"), { ...threadFixture("other"), preview: "Other preview" }],
       generateThreadTitle: vi.fn((_threadId, signal) => {
         generationSignal = signal;
@@ -109,16 +109,16 @@ describe("ThreadRenameEditorActions", () => {
     actions.start("other");
 
     expect(generationSignal?.aborted).toBe(true);
-    expect(actions.editState("other")).toEqual({ draft: "Other preview", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "other", draft: "Other preview", kind: "editing" });
     generatedTitle.resolve("Stale generated title");
     await autoName;
-    expect(actions.editState("other")).toEqual({ draft: "Other preview", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "other", draft: "Other preview", kind: "editing" });
   });
 
   it("does not revive rename generation after cancellation while connection is pending", async () => {
     const connection = deferred<undefined>();
     const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       ensureConnected: vi.fn(() => connection.promise),
       generateThreadTitle,
     });
@@ -131,7 +131,7 @@ describe("ThreadRenameEditorActions", () => {
     await autoName;
 
     expect(generateThreadTitle).not.toHaveBeenCalled();
-    expect(actions.editState("thread")).toBeNull();
+    expect(stateStore.getState().ui.rename).toEqual({ kind: "idle" });
   });
 
   it("blocks cancellation while a rename save is pending", async () => {
@@ -145,18 +145,17 @@ describe("ThreadRenameEditorActions", () => {
     actions.start("thread");
     const save = actions.save("thread", "Saved title");
     actions.cancel("thread");
-    expect(actions.editState("thread")).toEqual({ draft: "Thread preview", generating: false });
-    expect(stateStore.getState().ui.rename.kind).toBe("saving");
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "saving" });
     connection.resolve(undefined);
     await save;
 
     expect(renameThreadRequest).toHaveBeenCalledExactlyOnceWith("thread", "Saved title", { shouldStart: expect.any(Function) });
-    expect(actions.editState("thread")).toBeNull();
+    expect(stateStore.getState().ui.rename).toEqual({ kind: "idle" });
   });
 
   it("keeps the draft and reports a connection failure while saving", async () => {
     const addSystemMessage = vi.fn();
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       ensureConnected: vi.fn().mockRejectedValue(new Error("Could not connect.")),
       addSystemMessage,
     });
@@ -165,14 +164,14 @@ describe("ThreadRenameEditorActions", () => {
     actions.updateDraft("thread", "Unsaved draft");
     await actions.save("thread", "Unsaved draft");
 
-    expect(actions.editState("thread")).toEqual({ draft: "Unsaved draft", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Unsaved draft", kind: "editing" });
     expect(addSystemMessage).toHaveBeenCalledWith("Could not connect.");
   });
 
   it("keeps the draft and reports an app-server rename failure", async () => {
     const addSystemMessage = vi.fn();
     const renameThreadRequest = vi.fn().mockRejectedValue(new Error("Rename failed."));
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       renameThread: renameThreadRequest,
       addSystemMessage,
     });
@@ -181,7 +180,7 @@ describe("ThreadRenameEditorActions", () => {
     actions.updateDraft("thread", "Unsaved draft");
     await actions.save("thread", "Unsaved draft");
 
-    expect(actions.editState("thread")).toEqual({ draft: "Unsaved draft", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Unsaved draft", kind: "editing" });
     expect(addSystemMessage).toHaveBeenCalledWith("Rename failed.");
   });
 
@@ -214,13 +213,13 @@ describe("ThreadRenameEditorActions", () => {
 
     await actions.autoNameDraft("thread");
     expect(generateThreadTitle).toHaveBeenCalledWith(readyContext, expect.any(AbortSignal));
-    expect(actions.editState("thread")).toEqual({ draft: "Generated title", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Generated title", kind: "editing" });
   });
 
   it("does not report a delayed save failure after the edit is invalidated", async () => {
     const saved = deferred<boolean>();
     const addSystemMessage = vi.fn();
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       renameThread: vi.fn(() => saved.promise),
       addSystemMessage,
     });
@@ -235,7 +234,7 @@ describe("ThreadRenameEditorActions", () => {
     saved.reject(new Error("Stale rename failed."));
     await save;
 
-    expect(actions.editState("thread")).toEqual({ draft: "New draft", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "New draft", kind: "editing" });
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -268,7 +267,7 @@ describe("ThreadRenameEditorActions", () => {
 
   it("ignores draft updates while auto-name generation is active", async () => {
     const generatedTitle = deferred<string>();
-    const { actions } = actionsFixture({
+    const { actions, stateStore } = actionsFixture({
       generateThreadTitle: vi.fn(() => generatedTitle.promise),
     });
 
@@ -277,21 +276,21 @@ describe("ThreadRenameEditorActions", () => {
     const autoName = actions.autoNameDraft("thread");
     await flushPromises();
 
-    expect(actions.editState("thread")).toEqual({ draft: "Thread preview", generating: true });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "generating" });
 
     actions.updateDraft("thread", "Manual draft");
-    expect(actions.editState("thread")).toEqual({ draft: "Thread preview", generating: true });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "generating" });
     generatedTitle.resolve("Generated title");
     await autoName;
 
-    expect(actions.editState("thread")).toEqual({ draft: "Generated title", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Generated title", kind: "editing" });
   });
 
   it("keeps a newer auto-name generation pending when the cancelled generation finishes", async () => {
     const firstTitle = deferred<string>();
     const secondTitle = deferred<string>();
     const generateThreadTitle = vi.fn().mockReturnValueOnce(firstTitle.promise).mockReturnValueOnce(secondTitle.promise);
-    const { actions } = actionsFixture({ generateThreadTitle });
+    const { actions, stateStore } = actionsFixture({ generateThreadTitle });
 
     actions.start("thread");
     await flushPromises();
@@ -304,17 +303,17 @@ describe("ThreadRenameEditorActions", () => {
     firstTitle.resolve("Cancelled title");
     await first;
 
-    expect(actions.editState("thread")).toEqual({ draft: "Thread preview", generating: true });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "generating" });
     secondTitle.resolve("Current title");
     await second;
-    expect(actions.editState("thread")).toEqual({ draft: "Current title", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Current title", kind: "editing" });
   });
 
   it("does not publish or report title work invalidated by a context replacement", async () => {
     const oldTitle = deferred<string>();
     const generateThreadTitle = vi.fn().mockReturnValueOnce(oldTitle.promise).mockResolvedValueOnce("Fresh title");
     const addSystemMessage = vi.fn();
-    const { actions } = actionsFixture({ generateThreadTitle, addSystemMessage });
+    const { actions, stateStore } = actionsFixture({ generateThreadTitle, addSystemMessage });
 
     actions.start("thread");
     await flushPromises();
@@ -328,7 +327,7 @@ describe("ThreadRenameEditorActions", () => {
     oldTitle.resolve("Stale title");
     await staleAutoName;
 
-    expect(actions.editState("thread")).toEqual({ draft: "Fresh title", generating: false });
+    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Fresh title", kind: "editing" });
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 });

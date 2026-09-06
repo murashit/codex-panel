@@ -9,11 +9,6 @@ import { threadStreamItems } from "../../application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { firstThreadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
 
-interface RenameEditState {
-  draft: string;
-  generating: boolean;
-}
-
 export interface ThreadRenameEditorActionsHost {
   stateStore: ChatStateStore;
   ensureConnected: () => Promise<void>;
@@ -25,7 +20,6 @@ export interface ThreadRenameEditorActionsHost {
 }
 
 export interface ThreadRenameEditorActions extends ThreadRenameEditor {
-  editState(threadId: string): RenameEditState | null;
   isEditing(): boolean;
 }
 
@@ -56,17 +50,8 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
 
   return {
     ...editor,
-    editState: (threadId) => {
-      const state = editorState(threadId);
-      return state ? { draft: state.draft, generating: state.kind === "generating" } : null;
-    },
     isEditing: () => host.stateStore.getState().ui.rename.kind !== "idle",
   };
-
-  function editorState(threadId: string) {
-    const state = host.stateStore.getState().ui.rename;
-    return state.kind !== "idle" && state.threadId === threadId ? state : undefined;
-  }
 }
 
 export function activeThreadRenameTitleContext(state: ChatState, threadId: string): ThreadTitleContext | null {
