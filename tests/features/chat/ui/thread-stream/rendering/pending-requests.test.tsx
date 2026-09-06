@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { createPendingRequestActions } from "../../../../../../src/features/chat/application/pending-requests/pending-request-actions";
 import { createChatState } from "../../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../../src/features/chat/application/state/store";
 import { userInputDraftKey } from "../../../../../../src/features/chat/domain/pending-requests/drafts";
@@ -12,6 +11,7 @@ import type {
 } from "../../../../../../src/features/chat/domain/pending-requests/model";
 import { pendingRequestFocusSignature } from "../../../../../../src/features/chat/domain/pending-requests/signatures";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
+import { createPendingRequestActions } from "../../../../../../src/features/chat/host/thread-stream/pending-request-actions";
 import type { PendingRequestBlockContext } from "../../../../../../src/features/chat/ui/thread-stream/context";
 import type { PendingRequestBlockSnapshot } from "../../../../../../src/features/chat/ui/thread-stream/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";

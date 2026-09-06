@@ -3,7 +3,6 @@ import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { ReconnectPanelOptions } from "../../application/connection/reconnect-command";
 import type { LocalIdSource } from "../../application/local-id-source";
-import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatRuntimeSettingsCommands } from "../../application/runtime/settings-commands";
 import type { ChatRuntimeSharedResources } from "../../application/runtime/snapshot";
 import { activeThreadId } from "../../application/state/model";
@@ -18,6 +17,7 @@ import type { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
 import { readWebUrl } from "../obsidian/web-context.obsidian";
 import type { ChatPanelRuntimeNotices } from "../runtime/notices";
+import { createPendingRequestActions, type PendingRequestActions } from "../thread-stream/pending-request-actions";
 import type { SessionGoalCommands, SessionThreadLifecycle } from "./thread";
 
 interface SessionTurnStatus {

@@ -3,7 +3,8 @@ import { copyTextWithNotice } from "../../../../shared/obsidian/clipboard.obsidi
 import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { renderStreamMarkdown, ThreadStreamMarkdownRenderer } from "./markdown-renderer.obsidian";
-import type { ChatThreadStreamActions, ChatThreadStreamDependencies, ChatThreadStreamRequests } from "./view-projection";
+import type { PendingRequestActions } from "./pending-request-actions";
+import type { ChatThreadStreamActions, ChatThreadStreamDependencies } from "./view-projection";
 
 interface ChatThreadStreamDependencyOptions {
   panelId: string;
@@ -13,7 +14,7 @@ interface ChatThreadStreamDependencyOptions {
   vaultPath: string;
   loadOlderTurns: () => void;
   actions: ChatThreadStreamActions;
-  requests: ChatThreadStreamRequests;
+  requests: PendingRequestActions;
 }
 
 export function createChatThreadStreamDependencies(options: ChatThreadStreamDependencyOptions): ChatThreadStreamDependencies {

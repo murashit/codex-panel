@@ -1,8 +1,9 @@
+import type { ChatStateStore } from "../../application/state/store";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
 import { answersForPendingUserInput } from "../../domain/pending-requests/drafts";
 import type { ApprovalAction, McpElicitationAction, PendingRequestId, PendingUserInput } from "../../domain/pending-requests/model";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
-import type { ChatStateStore } from "../state/store";
+import type { PendingRequestBlockActions } from "../../ui/thread-stream/context";
 
 interface PendingRequestResponder {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
@@ -21,16 +22,7 @@ export interface PendingRequestActionsHost {
 }
 
 export interface PendingRequestActions {
-  readonly actions: {
-    resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
-    resolveUserInput: (requestId: PendingRequestId) => void;
-    skipUserInput: (requestId: PendingRequestId) => void;
-    cancelUserInput: (requestId: PendingRequestId) => void;
-    resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
-    setApprovalDetailsExpanded: (requestId: PendingRequestId, expanded: boolean) => void;
-    setUserInputDraft: (requestId: PendingRequestId, key: string, value: string) => void;
-    setMcpElicitationDraft: (key: string, value: string) => void;
-  };
+  readonly actions: PendingRequestBlockActions;
   readonly consumeAutoFocus: () => boolean;
 }
 
@@ -42,31 +34,31 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
       const approval = host.stateStore.getState().requests.approvals.find((item) => item.requestId === requestId) ?? null;
       if (!approval) return;
       host.responder.resolveApproval(requestId, approvalAction);
-      commitRequestAction(host);
+      host.focusComposer();
     },
     resolveUserInput: (requestId) => {
       const input = pendingUserInput(host, requestId);
       if (!input) return;
       host.responder.resolveUserInput(requestId, answersForPendingUserInput(input, host.stateStore.getState().requests.userInputDrafts));
-      commitRequestAction(host);
+      host.focusComposer();
     },
     skipUserInput: (requestId) => {
       const input = pendingUserInput(host, requestId);
       if (!input || input.params.isBlocking) return;
       host.responder.skipUserInput(requestId);
-      commitRequestAction(host);
+      host.focusComposer();
     },
     cancelUserInput: (requestId) => {
       const input = pendingUserInput(host, requestId);
       if (!input) return;
       host.responder.cancelUserInput(requestId);
-      commitRequestAction(host);
+      host.focusComposer();
     },
     resolveMcpElicitation: (requestId, action) => {
       const elicitation = host.stateStore.getState().requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
       if (!elicitation) return;
       host.responder.resolveMcpElicitation(requestId, action);
-      commitRequestAction(host);
+      host.focusComposer();
     },
     setApprovalDetailsExpanded: (requestId, expanded) => {
       host.stateStore.dispatch({
@@ -109,8 +101,4 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
 
 function pendingUserInput(host: PendingRequestActionsHost, requestId: PendingRequestId): PendingUserInput | null {
   return host.stateStore.getState().requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
-}
-
-function commitRequestAction(host: PendingRequestActionsHost): void {
-  host.focusComposer();
 }

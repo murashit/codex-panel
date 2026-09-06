@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPendingRequestActions } from "../../../../../src/features/chat/application/pending-requests/pending-request-actions";
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type {
@@ -8,6 +7,7 @@ import type {
   PendingMcpElicitation,
   PendingUserInput,
 } from "../../../../../src/features/chat/domain/pending-requests/model";
+import { createPendingRequestActions } from "../../../../../src/features/chat/host/thread-stream/pending-request-actions";
 
 describe("PendingRequestActions", () => {
   it("resolves user input from immutable draft state and restores composer focus", () => {

@@ -1,6 +1,5 @@
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
-import type { PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import {
   type ThreadStreamRollbackCandidate,
   threadStreamActiveItems,
@@ -26,6 +25,7 @@ import type { ThreadStreamTextActionTargets, ThreadStreamViewBlock } from "../..
 import { projectPendingRequestBlock } from "../../ui/thread-stream/pending-requests";
 import { subagentActivityPreview } from "../../ui/thread-stream/subagent-preview";
 import type { ChatPanelThreadStreamModel } from "../shell/selectors";
+import type { PendingRequestActions } from "./pending-request-actions";
 
 export interface ChatThreadStreamActions {
   rollbackThread: (threadId: string) => void;
@@ -34,11 +34,6 @@ export interface ChatThreadStreamActions {
   openThreadInAvailableView: (threadId: string) => void;
   openThreadInNewView: (threadId: string) => void;
   openTurnDiff: (state: TurnDiffViewState) => void;
-}
-
-export interface ChatThreadStreamRequests {
-  actions: PendingRequestActions["actions"];
-  consumeAutoFocus: () => boolean;
 }
 
 export interface ChatThreadStreamDependencies {
@@ -51,7 +46,7 @@ export interface ChatThreadStreamDependencies {
   renderStreamMarkdown: (element: HTMLElement, text: string) => void;
   copyDialogueText: (text: string) => void;
   actions: ChatThreadStreamActions;
-  requests: ChatThreadStreamRequests;
+  requests: PendingRequestActions;
 }
 
 interface ThreadStreamProjection {
