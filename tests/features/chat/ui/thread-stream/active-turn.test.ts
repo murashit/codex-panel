@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
-import { activeTurnLiveItems } from "../../../../../../src/features/chat/domain/thread-stream/semantics/active-turn";
+import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { activeTurnLiveItems, threadStreamReasoningIsActive } from "../../../../../src/features/chat/ui/thread-stream/active-turn";
 
-describe("active turn semantics", () => {
+describe("active turn presentation", () => {
+  it("marks only the latest unfinished active-turn reasoning item as active", () => {
+    const firstReasoning: ThreadStreamItem = { id: "r1", kind: "reasoning", role: "tool", text: "first", turnId: "turn" };
+    const latestReasoning: ThreadStreamItem = { id: "r2", kind: "reasoning", role: "tool", text: "latest", turnId: "turn" };
+    const otherTurnReasoning: ThreadStreamItem = { id: "r3", kind: "reasoning", role: "tool", text: "other", turnId: "other" };
+
+    const context = { activeTurnId: "turn", items: [firstReasoning, latestReasoning, otherTurnReasoning] };
+
+    expect(threadStreamReasoningIsActive(firstReasoning, context)).toBe(false);
+    expect(threadStreamReasoningIsActive(latestReasoning, context)).toBe(true);
+    expect(threadStreamReasoningIsActive(otherTurnReasoning, context)).toBe(false);
+    expect(threadStreamReasoningIsActive({ ...latestReasoning, executionState: "completed" }, context)).toBe(false);
+  });
   it("projects v2 paths into the existing summary without treating interaction as a new lifecycle", () => {
     const started = {
       id: "started",

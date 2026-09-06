@@ -1,6 +1,6 @@
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import type { AgentCoordinationUpdate } from "./agent-coordination";
 import type { ThreadStreamItemProvenance } from "./provenance";
-import type { AgentCoordinationUpdate } from "./semantics/agent-coordination";
 
 export type ThreadStreamItemKind =
   | "dialogue"
@@ -290,13 +290,6 @@ interface AgentTargetSummary {
   readonly label?: string;
 }
 
-export interface AgentRunSummaryAgent {
-  readonly threadId: string;
-  readonly agentLabel?: string;
-  readonly status: string;
-  readonly messagePreview: string | null;
-}
-
 export interface AgentThreadStreamItem extends ThreadStreamBase {
   readonly kind: "agent";
   readonly role: "tool";
@@ -310,14 +303,6 @@ export interface AgentThreadStreamItem extends ThreadStreamBase {
   readonly model: string | null;
   readonly reasoningEffort: string | null;
   readonly agents: readonly AgentStateSummary[];
-}
-
-export interface AgentRunSummary {
-  readonly running: number;
-  readonly completed: number;
-  readonly failed: number;
-  readonly agents: readonly AgentRunSummaryAgent[];
-  readonly additionalAgents: number;
 }
 
 export type ThreadStreamItem =

@@ -1,12 +1,12 @@
-import { streamedItemOutputThreadStreamItem } from "../../domain/thread-stream/factories/streaming-items";
+import { threadStreamUserRoles } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
-import { threadStreamUserRoles } from "../../domain/thread-stream/semantics/classify";
 import {
   appendAssistantStreamingDelta,
   appendPlanStreamingDelta,
   appendTextStreamingDelta,
   appendToolOutputStreamingDelta,
-} from "../../domain/thread-stream/streaming-deltas";
+  streamedItemOutputThreadStreamItem,
+} from "../../domain/thread-stream/streaming-items";
 import { completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import { definedPatch, patchObject } from "./patch";
 

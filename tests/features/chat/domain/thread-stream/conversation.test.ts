@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
-import { forkCandidatesFromItems, lastTurnOutcomeItemsByTurn } from "../../../../../../src/features/chat/domain/thread-stream/selectors";
-import { threadStreamReasoningIsActive } from "../../../../../../src/features/chat/domain/thread-stream/semantics/active-turn";
-import { threadStreamUserRoles } from "../../../../../../src/features/chat/domain/thread-stream/semantics/classify";
 import {
+  forkCandidatesFromItems,
   isCompletedPlanCandidate,
   isCompletedTurnOutcomeDialogue,
-  threadStreamIsAutoReviewDecision,
-} from "../../../../../../src/features/chat/domain/thread-stream/semantics/predicates";
+  lastTurnOutcomeItemsByTurn,
+  threadStreamUserRoles,
+} from "../../../../../src/features/chat/domain/thread-stream/conversation";
+import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("shared conversation rules", () => {
   it("preserves supplied order and local steer provenance without consuming the first prompt slot", () => {
@@ -87,50 +86,6 @@ describe("shared conversation rules", () => {
       { itemId: "second", turnId: "two" },
     ]);
   });
-
-  it("recognizes auto-review decisions only for permission result kinds and exact provenance", () => {
-    const provenances = [
-      { source: "panel", channel: "notice", reason: "parsedAutoReview", sourceId: "review" },
-      { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: "review" },
-    ] as const;
-    for (const provenance of provenances) {
-      expect(threadStreamIsAutoReviewDecision({ id: "review", kind: "reviewResult", role: "tool", text: "approved", provenance })).toBe(
-        true,
-      );
-      expect(
-        threadStreamIsAutoReviewDecision({
-          id: "approval",
-          kind: "approvalResult",
-          role: "tool",
-          text: "approved",
-          approval: { status: "allowed", scope: "turn", request: "Approval", auditFacts: [] },
-          provenance,
-        }),
-      ).toBe(true);
-      expect(threadStreamIsAutoReviewDecision({ ...userMessage("user", "approved", "turn"), provenance })).toBe(false);
-    }
-    expect(
-      threadStreamIsAutoReviewDecision({
-        id: "review",
-        kind: "reviewResult",
-        role: "tool",
-        text: "Auto-review approved",
-        provenance: { source: "panel", channel: "notice", reason: "reviewMessage", sourceId: "review" },
-      }),
-    ).toBe(false);
-  });
-  it("marks only the latest unfinished active-turn reasoning item as active", () => {
-    const firstReasoning: ThreadStreamItem = { id: "r1", kind: "reasoning", role: "tool", text: "first", turnId: "turn" };
-    const latestReasoning: ThreadStreamItem = { id: "r2", kind: "reasoning", role: "tool", text: "latest", turnId: "turn" };
-    const otherTurnReasoning: ThreadStreamItem = { id: "r3", kind: "reasoning", role: "tool", text: "other", turnId: "other" };
-
-    const context = { activeTurnId: "turn", items: [firstReasoning, latestReasoning, otherTurnReasoning] };
-
-    expect(threadStreamReasoningIsActive(firstReasoning, context)).toBe(false);
-    expect(threadStreamReasoningIsActive(latestReasoning, context)).toBe(true);
-    expect(threadStreamReasoningIsActive(otherTurnReasoning, context)).toBe(false);
-    expect(threadStreamReasoningIsActive({ ...latestReasoning, executionState: "completed" }, context)).toBe(false);
-  });
 });
 
 function userMessage(id: string, text: string, turnId: string, clientId?: string | null): ThreadStreamItem {
@@ -152,4 +107,62 @@ function assistantDialogue(
     text: id,
     ...(turnId ? { turnId } : {}),
   };
+}
+
+describe("thread stream item selectors", () => {
+  it("selects final assistant messages as fork candidates", () => {
+    const streamItems = threadStreamItems();
+
+    const candidates = forkCandidatesFromItems(streamItems);
+
+    expect(candidates).toEqual([
+      { itemId: "a1", turnId: "turn-1" },
+      { itemId: "a2", turnId: "turn-2" },
+      { itemId: "a3", turnId: "turn-3" },
+    ]);
+  });
+});
+
+function threadStreamItems(): ThreadStreamItem[] {
+  return [
+    { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "first", turnId: "turn-1" },
+    {
+      id: "a1",
+      kind: "dialogue",
+      role: "assistant",
+      text: "first answer",
+      turnId: "turn-1",
+      dialogueKind: "assistantResponse",
+      dialogueState: "completed",
+    },
+    { id: "tool-1", kind: "tool", role: "tool", text: "work", turnId: "turn-2" },
+    {
+      id: "a2-delta",
+      kind: "dialogue",
+      role: "assistant",
+      text: "draft",
+      turnId: "turn-2",
+      dialogueKind: "proposedPlan",
+      dialogueState: "streaming",
+    },
+    {
+      id: "a2",
+      kind: "dialogue",
+      role: "assistant",
+      text: "second answer",
+      turnId: "turn-2",
+      dialogueKind: "assistantResponse",
+      dialogueState: "completed",
+    },
+    { id: "u3", kind: "dialogue", dialogueKind: "user", role: "user", text: "third", turnId: "turn-3" },
+    {
+      id: "a3",
+      kind: "dialogue",
+      role: "assistant",
+      text: "third answer",
+      turnId: "turn-3",
+      dialogueKind: "assistantResponse",
+      dialogueState: "completed",
+    },
+  ];
 }

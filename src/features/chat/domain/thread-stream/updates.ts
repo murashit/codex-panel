@@ -1,5 +1,5 @@
+import { threadStreamUserRoles } from "./conversation";
 import type { ThreadStreamFileChange, ThreadStreamItem } from "./items";
-import { threadStreamUserRoles } from "./semantics/classify";
 
 export function upsertThreadStreamItemById(items: readonly ThreadStreamItem[], next: ThreadStreamItem): ThreadStreamItem[] {
   const index = items.findIndex((item) => item.id === next.id);

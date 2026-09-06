@@ -1,7 +1,6 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { threadStreamSegmentsEmpty } from "../../domain/thread-stream/selectors";
-import { activeTurnLiveItems, threadStreamItemsWithoutActiveTaskProgress } from "../../domain/thread-stream/semantics/active-turn";
-import type { ActiveSubagentActivity } from "../../domain/thread-stream/semantics/agent-run-summary";
+import { activeTurnLiveItems, threadStreamItemsWithoutActiveTaskProgress } from "./active-turn";
+import type { ActiveSubagentActivity } from "./agent-run-summary";
 import { detailView } from "./detail-view";
 import { type ThreadStreamItemAnnotations, type ThreadStreamLayoutBlock, threadStreamLayoutBlocks } from "./layout";
 import type {
@@ -43,7 +42,7 @@ export function threadStreamViewBlocks(input: ThreadStreamBlockProjectionInput):
     };
   }
   const headerBlocks = historyViewBlocks(input);
-  if (threadStreamSegmentsEmpty(input.stableItems, input.activeItems) && !input.authRecovery) {
+  if (input.stableItems.length === 0 && input.activeItems.length === 0 && !input.authRecovery) {
     return [...headerBlocks, { kind: "empty", key: "empty" }];
   }
 

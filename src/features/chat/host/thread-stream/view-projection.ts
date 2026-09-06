@@ -14,14 +14,9 @@ import {
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { implementPlanTarget } from "../../application/submission/plan-implementation";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
+import { type ForkCandidate, forkCandidatesFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import {
-  type ForkCandidate,
-  forkCandidatesFromItems,
-  type PlanImplementationTarget,
-  threadStreamSegmentsEmpty,
-} from "../../domain/thread-stream/selectors";
-import type { ActiveSubagentActivity } from "../../domain/thread-stream/semantics/agent-run-summary";
+import type { ActiveSubagentActivity } from "../../ui/thread-stream/agent-run-summary";
 import { threadStreamViewBlocks } from "../../ui/thread-stream/blocks";
 import type { ThreadStreamContext, ThreadStreamDisclosureBucket } from "../../ui/thread-stream/context";
 import type { ThreadStreamTextActionTargets, ThreadStreamViewBlock } from "../../ui/thread-stream/model";
@@ -137,9 +132,10 @@ function projectThreadStreamBlocks(
     threadStream: stream,
   });
   const textActionTargetsByItemId = textActionTargetsForThreadStreamItems(rollbackCandidate, forkCandidates, planTarget);
-  const pendingRequests = threadStreamSegmentsEmpty(stableItems, activeItems)
-    ? null
-    : projectPendingRequestBlock({ ...model.requests, approvalDetails: model.disclosureApprovalDetails });
+  const pendingRequests =
+    stableItems.length === 0 && activeItems.length === 0
+      ? null
+      : projectPendingRequestBlock({ ...model.requests, approvalDetails: model.disclosureApprovalDetails });
 
   return threadStreamViewBlocks({
     referenceTitles: titleByThreadId,

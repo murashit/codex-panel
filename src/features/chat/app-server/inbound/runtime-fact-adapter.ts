@@ -2,9 +2,9 @@ import type { ServerNotification } from "../../../../app-server/connection/rpc-m
 import { jsonPreview } from "../../../../domain/display/json-preview";
 import { authRecoveryProgress } from "../../application/turns/auth-recovery";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
-import { STREAMED_COMMAND_RUNNING_TEXT, STREAMED_MCP_PROGRESS_LABEL } from "../../domain/thread-stream/factories/streaming-items";
 import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import { STREAMED_COMMAND_RUNNING_TEXT, STREAMED_MCP_PROGRESS_LABEL } from "../../domain/thread-stream/streaming-items";
 import { type AppServerFileChange, normalizeFileChanges, streamingFileChangeThreadStreamItem } from "../mappers/thread-stream/file-changes";
 import { hookRunThreadStreamItem } from "../mappers/thread-stream/hook-run-items";
 import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/thread-stream/review-result-items";

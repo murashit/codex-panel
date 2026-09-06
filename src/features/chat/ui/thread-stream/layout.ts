@@ -1,8 +1,7 @@
 import { pathRelativeToRoot } from "../../../../domain/vault/paths";
+import { lastTurnOutcomeItemsByTurn, threadStreamUserRoles } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { lastTurnOutcomeItemsByTurn } from "../../domain/thread-stream/selectors";
-import { threadStreamUserRoles } from "../../domain/thread-stream/semantics/classify";
-import { threadStreamIsAutoReviewDecision } from "../../domain/thread-stream/semantics/predicates";
+import { threadStreamIsAutoReviewDecision } from "../../domain/thread-stream/review-items";
 
 const STEERING_ACTIVITY_LABEL = "steering";
 

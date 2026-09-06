@@ -5,7 +5,7 @@ import {
   appendPlanStreamingDelta,
   appendTextStreamingDelta,
   appendToolOutputStreamingDelta,
-} from "../../../../../src/features/chat/domain/thread-stream/streaming-deltas";
+} from "../../../../../src/features/chat/domain/thread-stream/streaming-items";
 
 describe("streaming item deltas", () => {
   it("appends assistant text to an item matched by source identity", () => {

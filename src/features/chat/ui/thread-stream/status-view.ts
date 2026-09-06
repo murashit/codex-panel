@@ -1,6 +1,7 @@
 import { shortThreadId } from "../../../../domain/threads/id";
-import type { AgentRunSummary, AgentRunSummaryAgent, ReasoningThreadStreamItem, ThreadStreamItem } from "../../domain/thread-stream/items";
-import { threadStreamReasoningIsActive } from "../../domain/thread-stream/semantics/active-turn";
+import type { ReasoningThreadStreamItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import { threadStreamReasoningIsActive } from "./active-turn";
+import type { AgentRunSummary, AgentRunSummaryAgent } from "./agent-run-summary";
 import type { AgentRunSummaryView, ThreadStreamStatusView } from "./model";
 
 export interface ThreadStreamStatusViewContext {

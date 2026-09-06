@@ -1,6 +1,6 @@
 import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title-context";
+import { lastTurnOutcomeItemsByTurn } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
-import { lastTurnOutcomeItemsByTurn } from "../../domain/thread-stream/selectors";
 
 export function threadTitleContextFromThreadStreamItems(turnId: string, items: readonly ThreadStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);

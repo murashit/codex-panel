@@ -1,6 +1,6 @@
 import { truncate } from "../../../../domain/display/text-preview";
-import { agentMessagePreview } from "../../domain/thread-stream/format/agent-message-preview";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import { agentMessagePreview } from "./agent-message-preview";
 import { detailPreviewSummary } from "./detail-view";
 
 const SUBAGENT_ACTIVITY_PREVIEW_LIMIT = 96;

@@ -1,12 +1,12 @@
-import { agentMessagePreview } from "../format/agent-message-preview";
-import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateSummary, ExecutionState, ThreadStreamItem } from "../items";
 import {
   type AgentCoordinationLifecycle,
   type AgentCoordinationUpdate,
   agentCoordinationExecutionState,
   applyAgentCoordinationUpdate,
   UNKNOWN_AGENT_COORDINATION_LIFECYCLE,
-} from "./agent-coordination";
+} from "../../domain/thread-stream/agent-coordination";
+import type { AgentStateSummary, ExecutionState, ThreadStreamItem } from "../../domain/thread-stream/items";
+import { agentMessagePreview } from "./agent-message-preview";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
 const ACTIVE_AGENT_ROW_LIMIT = 3;
@@ -25,6 +25,36 @@ export function activeAgentRunSummary(
 ): AgentRunSummary | null {
   if (!activeTurnId) return null;
 
+  const agents = resolveActiveAgentStates(items, activeTurnId, subagentActivities);
+  const summary = { running: 0, completed: 0, failed: 0, agents: [] as AgentRunSummaryAgent[], additionalAgents: 0 };
+  for (const agent of agents) {
+    const state = agent.executionState;
+    if (state) summary[state] += 1;
+  }
+
+  if (summary.running === 0 && summary.failed === 0) return null;
+
+  const runningAgents = agents
+    .filter((agent) => agent.executionState === "running")
+    .map((agent) => ({
+      threadId: agent.threadId,
+      ...(agent.agentLabel ? { agentLabel: agent.agentLabel } : {}),
+      status: agent.status,
+      messagePreview:
+        subagentActivities?.get(agent.threadId)?.messagePreview ?? agentMessagePreview(agent.message, ACTIVE_AGENT_PREVIEW_LIMIT),
+    }))
+    .sort((a, b) => Number(Boolean(b.messagePreview)) - Number(Boolean(a.messagePreview)) || a.threadId.localeCompare(b.threadId));
+  summary.agents = runningAgents.slice(0, ACTIVE_AGENT_ROW_LIMIT);
+  summary.additionalAgents = runningAgents.length - summary.agents.length;
+
+  return summary;
+}
+
+function resolveActiveAgentStates(
+  items: readonly ThreadStreamItem[],
+  activeTurnId: string,
+  subagentActivities?: ReadonlyMap<string, ActiveSubagentActivity>,
+): ActiveAgentState[] {
   const agentStatuses = new Map<string, ActiveAgentState>();
   for (const item of items) {
     if (item.kind !== "agent" || item.turnId !== activeTurnId) continue;
@@ -74,31 +104,7 @@ export function activeAgentRunSummary(
     });
   }
 
-  if (agentStatuses.size === 0) return null;
-
-  const summary = { running: 0, completed: 0, failed: 0, agents: [] as AgentRunSummaryAgent[], additionalAgents: 0 };
-  const agents = [...agentStatuses.values()];
-  for (const agent of agents) {
-    const state = agent.executionState;
-    if (state) summary[state] += 1;
-  }
-
-  if (summary.running === 0 && summary.failed === 0) return null;
-
-  const runningAgents = agents
-    .filter((agent) => agent.executionState === "running")
-    .map((agent) => ({
-      threadId: agent.threadId,
-      ...(agent.agentLabel ? { agentLabel: agent.agentLabel } : {}),
-      status: agent.status,
-      messagePreview:
-        subagentActivities?.get(agent.threadId)?.messagePreview ?? agentMessagePreview(agent.message, ACTIVE_AGENT_PREVIEW_LIMIT),
-    }))
-    .sort((a, b) => Number(Boolean(b.messagePreview)) - Number(Boolean(a.messagePreview)) || a.threadId.localeCompare(b.threadId));
-  summary.agents = runningAgents.slice(0, ACTIVE_AGENT_ROW_LIMIT);
-  summary.additionalAgents = runningAgents.length - summary.agents.length;
-
-  return summary;
+  return [...agentStatuses.values()];
 }
 
 function applyAgentLifecycleUpdate(
@@ -148,4 +154,19 @@ function agentCoordinationLifecycleFromExecutionState(executionState: ExecutionS
 
 function definedAgentLabel(label: string | undefined): { agentLabel: string } | Record<string, never> {
   return label ? { agentLabel: label } : {};
+}
+
+export interface AgentRunSummaryAgent {
+  readonly threadId: string;
+  readonly agentLabel?: string;
+  readonly status: string;
+  readonly messagePreview: string | null;
+}
+
+export interface AgentRunSummary {
+  readonly running: number;
+  readonly completed: number;
+  readonly failed: number;
+  readonly agents: readonly AgentRunSummaryAgent[];
+  readonly additionalAgents: number;
 }

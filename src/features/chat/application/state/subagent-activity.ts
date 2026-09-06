@@ -1,16 +1,16 @@
-import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import {
   type AgentCoordinationLifecycle,
   type AgentCoordinationUpdate,
   applyAgentCoordinationUpdate,
   UNKNOWN_AGENT_COORDINATION_LIFECYCLE,
-} from "../../domain/thread-stream/semantics/agent-coordination";
+} from "../../domain/thread-stream/agent-coordination";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import {
   appendAssistantStreamingDelta,
   appendPlanStreamingDelta,
   appendTextStreamingDelta,
   appendToolOutputStreamingDelta,
-} from "../../domain/thread-stream/streaming-deltas";
+} from "../../domain/thread-stream/streaming-items";
 import { upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import type { TurnRuntimeFact } from "../turns/runtime-facts";
 

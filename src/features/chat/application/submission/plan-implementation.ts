@@ -1,5 +1,5 @@
 import type { ChatRuntimeState } from "../../domain/runtime/state";
-import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/selectors";
+import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/conversation";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/model";
 import type { ChatStateStore } from "../state/store";

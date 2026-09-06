@@ -1,5 +1,5 @@
-import type { AgentRunSummary, ReasoningThreadStreamItem, TaskProgressThreadStreamItem, ThreadStreamItem } from "../items";
-import { type ActiveSubagentActivity, activeAgentRunSummary } from "./agent-run-summary";
+import type { ReasoningThreadStreamItem, TaskProgressThreadStreamItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import { type ActiveSubagentActivity, type AgentRunSummary, activeAgentRunSummary } from "./agent-run-summary";
 
 export interface ActiveTurnItemsContext {
   activeTurnId: string | null;

@@ -1,7 +1,6 @@
 import { truncate } from "../../../../domain/display/text-preview";
 import { shortThreadId } from "../../../../domain/threads/id";
 import { pathRelativeToRoot } from "../../../../domain/vault/paths";
-import { agentMessagePreview } from "../../domain/thread-stream/format/agent-message-preview";
 import type {
   AgentThreadStreamItem,
   ApprovalResultThreadStreamItem,
@@ -16,6 +15,7 @@ import type {
   ThreadStreamPrimaryTarget,
   ToolCallThreadStreamItem,
 } from "../../domain/thread-stream/items";
+import { agentMessagePreview } from "./agent-message-preview";
 import type { DetailSection, DetailView } from "./model";
 
 const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;

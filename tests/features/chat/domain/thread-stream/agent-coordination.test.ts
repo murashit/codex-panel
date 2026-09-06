@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AgentCoordinationLifecycle,
   applyAgentCoordinationUpdate,
-} from "../../../../../../src/features/chat/domain/thread-stream/semantics/agent-coordination";
+} from "../../../../../src/features/chat/domain/thread-stream/agent-coordination";
 
 describe("agent coordination lifecycle", () => {
   it.each([
