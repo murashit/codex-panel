@@ -24,6 +24,8 @@ When reviewing tests, map each case to a reachable user action, external boundar
 
 Extracting a module does not by itself justify a new test suite. Before adding tests, identify the behavior existing tests do not protect and exercise it at the appropriate layer. Consolidate or remove overlapping cases and fixtures while preserving meaningful behavior coverage.
 
+For development scripts, prefer running the real command and reviewing its output or generated diff over maintaining synthetic workspaces and command mocks. Keep representative tests for custom lint matching, where false positives and missed violations are difficult to spot in ordinary use. Do not add permanent tests for straightforward metadata comparisons or editable release-note drafts by default; verify changed failure paths while working on the script.
+
 ## Commit Messages
 
 Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) for new commits:

@@ -1,30 +1,27 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 const validArgs = new Set(["--json"]);
 const obsidianCodeMirrorPeers = ["@codemirror/state", "@codemirror/view"];
 
-if (isMain()) {
-  const args = new Set(process.argv.slice(2));
-  const asJson = args.has("--json");
-  for (const arg of args) {
-    if (!validArgs.has(arg)) {
-      console.error("Usage: node scripts/api-baseline.mjs [--json]");
-      process.exit(1);
-    }
+const args = new Set(process.argv.slice(2));
+const asJson = args.has("--json");
+for (const arg of args) {
+  if (!validArgs.has(arg)) {
+    console.error("Usage: node scripts/api-baseline.mjs [--json]");
+    process.exit(1);
   }
-
-  const report = await createApiBaselineReport();
-  if (asJson) {
-    console.log(JSON.stringify(report, null, 2));
-  } else {
-    printReport(report);
-  }
-
-  if (report.failures.length > 0) process.exit(1);
 }
+
+const report = await createApiBaselineReport();
+if (asJson) {
+  console.log(JSON.stringify(report, null, 2));
+} else {
+  printReport(report);
+}
+
+if (report.failures.length > 0) process.exit(1);
 
 function parseSemver(value) {
   const match = String(value ?? "").match(/\b(\d+)\.(\d+)\.(\d+)\b/);
@@ -51,17 +48,17 @@ function readCodexVersion() {
   return parseSemver(`${result.stdout}\n${result.stderr}`)?.version ?? null;
 }
 
-export async function createApiBaselineReport(options = {}) {
+async function createApiBaselineReport() {
   const failures = [];
   const fail = (message) => {
     failures.push(message);
   };
-  const inputs = await readBaselineInputs(options.cwd ?? process.cwd());
+  const inputs = await readBaselineInputs(process.cwd());
   const readmeBaselines = readCompatibilityBaselines(inputs.readme);
 
   const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
   const codexRecordedVersion = inputs.appServerCompatibilityJson.codexAppServer?.testedCliVersion ?? null;
-  const codexLocalVersion = options.readCodexVersion ? await options.readCodexVersion() : readCodexVersion();
+  const codexLocalVersion = readCodexVersion();
   const codexReadmeSemver = parseSemver(codexReadmeVersion);
   const codexRecordedSemver = parseSemver(codexRecordedVersion);
   const codexLocalSemver = parseSemver(codexLocalVersion);
@@ -266,10 +263,6 @@ async function readBaselineInputs(cwd) {
 
 async function readJson(cwd, file) {
   return JSON.parse(await readFile(path.join(cwd, file), "utf8"));
-}
-
-function isMain() {
-  return process.argv[1] ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
 }
 
 function printReport(report) {

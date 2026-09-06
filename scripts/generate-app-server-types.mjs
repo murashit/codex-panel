@@ -1,33 +1,28 @@
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { readAppServerGenerationPolicy } from "./app-server-compatibility.mjs";
 
 const generatedRelativeDir = "src/generated/app-server";
 const generatedHeader = "// GENERATED CODE! DO NOT MODIFY BY HAND!";
 const normalizationNotice = "// This file was mechanically normalized after generation by scripts/generate-app-server-types.mjs.";
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {
-    const args = process.argv.slice(2);
-    if (args.some((arg) => arg !== "--check") || args.length > 1) {
-      throw new Error("Usage: node scripts/generate-app-server-types.mjs [--check]");
-    }
-    await generateAppServerTypes({ check: args.includes("--check") });
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
+try {
+  const args = process.argv.slice(2);
+  if (args.some((arg) => arg !== "--check") || args.length > 1) {
+    throw new Error("Usage: node scripts/generate-app-server-types.mjs [--check]");
   }
+  await generateAppServerTypes(args.includes("--check"));
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
 }
 
-export async function generateAppServerTypes(options = {}) {
-  const cwd = options.cwd ?? process.cwd();
+async function generateAppServerTypes(check) {
+  const cwd = process.cwd();
   const generatedDir = path.resolve(cwd, generatedRelativeDir);
-  const runCommand = options.runCommand ?? run;
-  const readCodexVersion = options.readCodexVersion ?? readInstalledCodexVersion;
   const policy = await readAppServerGenerationPolicy(cwd);
-  const installedCliVersion = await readCodexVersion(cwd);
+  const installedCliVersion = readInstalledCodexVersion(cwd);
   if (installedCliVersion !== policy.testedCliVersion) {
     throw new Error(
       `Codex CLI ${policy.testedCliVersion} is required to generate app-server bindings; found ${installedCliVersion ?? "an unreadable version"}.`,
@@ -38,9 +33,9 @@ export async function generateAppServerTypes(options = {}) {
   const stagedDir = await mkdtemp(path.join(generatedParent, ".app-server-"));
   try {
     const stagedRelativeDir = path.relative(cwd, stagedDir);
-    await runCommand("codex", [...policy.generationArguments, "--out", stagedRelativeDir], { cwd });
+    run("codex", [...policy.generationArguments, "--out", stagedRelativeDir], cwd);
     await normalizeGeneratedTypes(stagedDir);
-    if (options.check === true) {
+    if (check) {
       const differences = await compareGeneratedTrees(generatedDir, stagedDir);
       if (differences.length > 0) {
         throw new Error(`generated app-server bindings are out of date:\n${differences.map((difference) => `  ${difference}`).join("\n")}`);
@@ -157,9 +152,9 @@ function addNormalizationNotice(source) {
   return source.replace(generatedHeader, `${generatedHeader}\n${normalizationNotice}`);
 }
 
-function run(command, args, options = {}) {
+function run(command, args, cwd) {
   const result = spawnSync(command, args, {
-    cwd: options.cwd ?? process.cwd(),
+    cwd,
     stdio: "inherit",
     shell: false,
   });

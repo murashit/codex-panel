@@ -28,7 +28,7 @@ function formatSubject(subject) {
   return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
 }
 
-export function releaseNoteForCommit(message) {
+function releaseNoteForCommit(message) {
   const commit = parser.parse(message);
   if (!commit.subject) return null;
 
@@ -38,13 +38,13 @@ export function releaseNoteForCommit(message) {
   return formatSubject(commit.subject);
 }
 
-export function renderReleaseNotes(messages) {
+function renderReleaseNotes(messages) {
   const entries = messages.map(releaseNoteForCommit).filter((entry) => entry !== null);
   const bullets = entries.length > 0 ? entries.map((entry) => `- ${entry}`).join("\n") : "- ";
   return `## Changes\n\n${bullets}\n`;
 }
 
-export function readCommitMessagesSince(tag, cwd = process.cwd()) {
+function readCommitMessagesSince(tag, cwd = process.cwd()) {
   runGit(["rev-parse", "--verify", `refs/tags/${tag}`], cwd);
   const output = runGit(["log", "--format=%B%x00", `${tag}..HEAD`], cwd);
   return output
