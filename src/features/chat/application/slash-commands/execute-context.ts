@@ -16,7 +16,6 @@ type ContextSlashCommandContext = Pick<
   | "submission"
   | "referThread"
   | "readWebUrl"
-  | "startThreadForGoal"
   | "goals"
   | "addSystemMessage"
   | "addStructuredSystemMessage"
@@ -87,13 +86,7 @@ async function executeGoalCommand(args: string, context: ContextSlashCommandCont
   }
   const goal = context.goals.activeGoal();
   if (parsed.kind === "set") {
-    if (context.activeThreadId) context.submission.markAdopted();
-    const threadId = context.activeThreadId ?? (await context.startThreadForGoal(parsed.objective, context.submission.adoptPanelTarget));
-    if (!threadId) {
-      context.addSystemMessage("No active thread for goal management.");
-      return;
-    }
-    await context.goals.setObjective(threadId, parsed.objective, goal?.tokenBudget ?? null);
+    await context.goals.setObjective(parsed.objective, goal?.tokenBudget ?? null, context.submission);
     return;
   }
   const threadId = context.activeThreadId;

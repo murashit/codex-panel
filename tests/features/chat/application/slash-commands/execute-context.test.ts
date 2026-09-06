@@ -19,7 +19,6 @@ function context(overrides: Partial<ContextCommandContext> = {}): ContextCommand
         { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
       ],
     }),
-    startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     goals: {
       activeGoal: vi.fn(() => null),
       setObjective: vi.fn().mockResolvedValue(true),
@@ -177,11 +176,11 @@ describe("context slash commands", () => {
     await executeContextSlashCommand("goal", "resume", ctx);
     await executeContextSlashCommand("goal", "clear", ctx);
 
-    expect(ctx.goals.setObjective).toHaveBeenCalledWith("thread-1", "Ship this", null);
+    expect(ctx.goals.setObjective).toHaveBeenCalledWith("Ship this", null, ctx.submission);
     expect(ctx.goals.setStatus).toHaveBeenCalledWith("thread-1", "paused");
     expect(ctx.goals.setStatus).toHaveBeenCalledWith("thread-1", "active");
     expect(ctx.goals.clear).toHaveBeenCalledWith("thread-1");
-    expect(ctx.submission.markAdopted).toHaveBeenCalledTimes(4);
+    expect(ctx.submission.markAdopted).toHaveBeenCalledTimes(3);
   });
 
   it("loads the current goal into the composer for /goal edit", async () => {
@@ -239,14 +238,13 @@ describe("context slash commands", () => {
     );
   });
 
-  it("starts a thread before setting a goal without an active thread", async () => {
+  it("delegates setting an objective and input adoption to the goal workflow", async () => {
     const ctx = context({ activeThreadId: null });
 
     await executeContextSlashCommand("goal", "set Ship this", ctx);
 
     expect(ctx.submission.adoptPanelTarget).not.toHaveBeenCalled();
-    expect(ctx.startThreadForGoal).toHaveBeenCalledWith("Ship this", ctx.submission.adoptPanelTarget);
-    expect(ctx.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
+    expect(ctx.goals.setObjective).toHaveBeenCalledWith("Ship this", null, ctx.submission);
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("No active thread for goal management.");
   });
 
@@ -255,7 +253,6 @@ describe("context slash commands", () => {
 
     await executeContextSlashCommand("goal", "pause", ctx);
 
-    expect(ctx.startThreadForGoal).not.toHaveBeenCalled();
     expect(ctx.goals.setStatus).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread for goal management.");
   });

@@ -12,7 +12,6 @@ import type { ThreadCommandTarget } from "./thread-arguments";
 
 export interface SlashCommandExecutionPorts {
   startNewThread: () => Promise<void>;
-  startThreadForGoal: (objective: string, adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"]) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
   threadCommands: {
     forkThread: ThreadCommands["forkThread"];

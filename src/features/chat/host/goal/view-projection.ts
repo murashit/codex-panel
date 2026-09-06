@@ -1,8 +1,11 @@
 import type { SendShortcut } from "../../../../domain/input/send-shortcut";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
+import type { LocalIdSource } from "../../application/local-id-source";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
-import type { ChatState } from "../../application/state/model";
+import { activeThreadId, type ChatState } from "../../application/state/model";
+import type { ChatStateStore } from "../../application/state/store";
 import type { GoalCommands } from "../../application/threads/goal-commands";
+import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import type { GoalPanelProps, GoalPanelState } from "../../ui/goal/goal";
 
 export interface ChatPanelGoalDependencies {
@@ -60,4 +63,29 @@ export function selectChatPanelGoal(state: ChatState, goal: ThreadGoal | null = 
     editor: state.ui.goalEditor.kind === "editing" ? state.ui.goalEditor : null,
     objectiveExpanded: goal ? state.ui.disclosures.goalObjectiveExpanded.has(goal.threadId) : false,
   };
+}
+
+export function applyGoalChange(
+  stateStore: ChatStateStore,
+  localItemIds: LocalIdSource,
+  threadId: string,
+  previous: ThreadGoal | null,
+  next: ThreadGoal | null,
+): void {
+  const state = stateStore.getState();
+  if (activeThreadId(state) !== threadId) return;
+  if (goalPresentationChanged(previous, next) && state.ui.disclosures.goalObjectiveExpanded.has(threadId)) {
+    stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: false });
+  }
+  const item = goalChangeItem(localItemIds.next("goal"), previous, next);
+  if (item) stateStore.dispatch({ type: "thread-stream/item-upserted", item });
+}
+
+function goalPresentationChanged(previous: ThreadGoal | null, next: ThreadGoal | null): boolean {
+  return (
+    previous?.threadId !== next?.threadId ||
+    previous?.objective !== next?.objective ||
+    previous?.status !== next?.status ||
+    previous?.tokenBudget !== next?.tokenBudget
+  );
 }

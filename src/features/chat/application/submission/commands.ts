@@ -126,7 +126,6 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
     referThread,
     readWebUrl,
     startNewThread: thread.startNewThread,
-    startThreadForGoal: (objective, adoptPanelTarget) => startThreadForGoal(refs.threadStartCommand, objective, adoptPanelTarget),
     resumeThread: thread.selectThread,
     threadCommands: refs.threadCommands,
     reconnect: refs.reconnectCommand,
@@ -192,15 +191,4 @@ export function createSubmissionCommands(context: SubmissionCommandsContext, ref
       submit: () => submitComposer(composerSubmitHost),
     },
   };
-}
-
-async function startThreadForGoal(
-  starter: SubmissionThreadStarter,
-  objective: string,
-  adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"],
-): Promise<string | null> {
-  const outcome = await starter.startThread(objective, {
-    ...(adoptPanelTarget ? { adoptPanelTarget } : {}),
-  });
-  return outcome.kind === "created-activated" ? outcome.threadId : null;
 }

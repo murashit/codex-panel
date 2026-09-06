@@ -161,7 +161,7 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
       await ensureConnected();
       return appServer.connectionAvailable();
     },
-    startThread: (preview) => threadStart.startThread(preview),
+    startThread: threadStart.startThread,
     ensureRestoredThreadLoaded: lifecycle.ensureRestoredThreadLoaded,
     addSystemMessage: (text) => {
       status.addSystemMessage(text);

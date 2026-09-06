@@ -1,5 +1,4 @@
 import { Notice } from "obsidian";
-import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { DeferredTask } from "../../../../shared/async/deferred-task";
 import { createChatAppServerGateway } from "../../app-server/session-gateway";
@@ -17,12 +16,12 @@ import type { ChatResumeWorkTracker } from "../../application/threads/resume-wor
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
 import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
-import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import { toolbarOutsidePointerHit } from "../../ui/toolbar/hit-test.dom";
 import { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
+import { applyGoalChange } from "../goal/view-projection";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
 import { obsidianFuzzyMatcher } from "../obsidian/fuzzy-search.obsidian";
 import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
@@ -65,13 +64,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   });
   const status = createSessionStatus(stateStore, localItemIds);
   const unsubscribeGoalChanges = environment.plugin.threadGoalQueries.observeChanges((threadId, previous, next) => {
-    const state = stateStore.getState();
-    if (activeThreadId(state) !== threadId) return;
-    if (goalPresentationChanged(previous, next) && state.ui.disclosures.goalObjectiveExpanded.has(threadId)) {
-      stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: false });
-    }
-    const item = goalChangeItem(localItemIds.next("goal"), previous, next);
-    if (item) stateStore.dispatch({ type: "thread-stream/item-upserted", item });
+    applyGoalChange(stateStore, localItemIds, threadId, previous, next);
   });
   const refreshTabHeader = () => {
     host.environment.view.refreshTabHeader();
@@ -403,15 +396,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       }
     },
   } as const;
-}
-
-function goalPresentationChanged(previous: ThreadGoal | null, next: ThreadGoal | null): boolean {
-  return (
-    previous?.threadId !== next?.threadId ||
-    previous?.objective !== next?.objective ||
-    previous?.status !== next?.status ||
-    previous?.tokenBudget !== next?.tokenBudget
-  );
 }
 
 function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {

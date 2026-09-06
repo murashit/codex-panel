@@ -12,11 +12,14 @@ import type {
 } from "../../../../../src/features/chat/application/composer/context-references";
 import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
+import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { executeContextSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-context";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
+import { createGoalCommands } from "../../../../../src/features/chat/application/threads/goal-commands";
+import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
@@ -147,6 +150,99 @@ function composerControllerFixture(
 }
 
 describe("ChatComposerController", () => {
+  it.each([
+    ["empty", "failed"],
+    ["existing", "failed"],
+    ["existing", "saved"],
+  ] as const)("preserves the next draft and inline editor after a slash goal save from an %s panel (%s)", async (panel, outcome) => {
+    const { controller, stateStore } = composerControllerFixture();
+    if (panel === "existing") resumeComposerThread(stateStore, "thread");
+    const starter = createThreadStartCommand({
+      stateStore,
+      runtimeSnapshotForState: (state) =>
+        runtimeSnapshotForChatState(state, {
+          runtimeConfigSnapshot: () => null,
+          rateLimitsSnapshot: () => null,
+          modelsSnapshot: () => [],
+        }),
+      recordStartedThread: vi.fn(),
+      effects: {
+        startThread: vi.fn().mockResolvedValue({
+          kind: "completed",
+          value: {
+            thread: {
+              id: "thread",
+              preview: "",
+              name: null,
+              archived: false,
+              createdAt: 1,
+              updatedAt: 1,
+              provenance: { kind: "interactive" },
+            },
+            canAcceptDirectInput: null,
+            model: null,
+            reasoningEffort: null,
+            serviceTier: null,
+            approvalsReviewer: null,
+            approvalPolicyKnown: true,
+            sandboxPolicyKnown: true,
+            permissionProfileKnown: true,
+            approvalPolicy: null,
+            sandboxPolicy: null,
+            activePermissionProfile: null,
+          },
+        }),
+      },
+    });
+    const saving = deferred<{ kind: "completed"; value: undefined }>();
+    const setThreadGoal = vi.fn(() => saving.promise);
+    const goals = createGoalCommands({
+      stateStore,
+      startThread: starter.startThread,
+      effects: { setThreadGoal, clearThreadGoal: vi.fn() },
+      goalQueries: { snapshot: () => null },
+      ensureConnected: async () => true,
+      ensureRestoredThreadLoaded: async () => true,
+      addSystemMessage: vi.fn(),
+    });
+    goals.startEditing(panel === "existing" ? "thread" : null, "Inline draft", null);
+    controller.setDraft("/goal set Ship this");
+    const pending = submitComposer({
+      stateStore,
+      localItemIds: createLocalIdSource(),
+      composer: controller,
+      slashCommandExecutor: {
+        execute: (_command, args, inputSnapshot, submission) =>
+          executeContextSlashCommand("goal", args, {
+            activeThreadId: panel === "existing" ? "thread" : null,
+            listedThreads: [],
+            inputSnapshot,
+            submission,
+            goals,
+            referThread: vi.fn(),
+            readWebUrl: vi.fn(),
+            addSystemMessage: vi.fn(),
+            addStructuredSystemMessage: vi.fn(),
+          }),
+      },
+      turnSubmissionCommand: { sendTurnText: vi.fn() },
+      connection: { ensureConnected: async () => true },
+      turnPort: { interruptTurn: vi.fn() },
+      status: { setStatus: vi.fn(), addSystemMessage: vi.fn() },
+      scroll: { showLatest: vi.fn() },
+    });
+    await vi.waitFor(() =>
+      expect(setThreadGoal).toHaveBeenCalledWith("thread", { objective: "Ship this", status: "active", tokenBudget: null }),
+    );
+    controller.setDraft("Next input");
+    if (outcome === "saved") saving.resolve({ kind: "completed", value: undefined });
+    else saving.reject(new Error("save failed"));
+    await pending;
+    expect(controller.draft).toBe("Next input");
+    expect(controller.isSubmissionPreparing()).toBe(false);
+    expect(stateStore.getState().ui.goalEditor).toMatchObject({ kind: "editing", objectiveDraft: "Inline draft" });
+  });
+
   it.each(["rpc-error", "empty-history", "stale-target"] as const)(
     "preserves unsent reference input after %s without publishing into another thread",
     async (failure) => {
@@ -196,7 +292,6 @@ describe("ChatComposerController", () => {
               submission: adoption,
               referThread,
               readWebUrl: vi.fn(),
-              startThreadForGoal: vi.fn(),
               goals: { activeGoal: vi.fn(), setObjective: vi.fn(), setStatus: vi.fn(), clear: vi.fn() },
               addSystemMessage,
               addStructuredSystemMessage: vi.fn(),

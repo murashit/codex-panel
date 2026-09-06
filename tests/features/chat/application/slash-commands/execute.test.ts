@@ -10,7 +10,6 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
     submission: { isCurrent: vi.fn(() => true), markAdopted: vi.fn(), adoptPanelTarget: vi.fn() },
     startNewThread: vi.fn().mockResolvedValue(undefined),
-    startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     referThread: vi.fn().mockResolvedValue({ text: "referenced", input: [{ type: "text", text: "referenced" }] }),
     readWebUrl: vi.fn().mockResolvedValue({

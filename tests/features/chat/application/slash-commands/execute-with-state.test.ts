@@ -45,7 +45,6 @@ function createHost(overrides: PanelSlashCommandHostOverrides = {}) {
     referThread,
     readWebUrl,
     startNewThread: vi.fn().mockResolvedValue(undefined),
-    startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     threadCommands: {
       forkThread: vi.fn().mockResolvedValue(undefined),
@@ -190,13 +189,16 @@ describe("executePanelSlashCommand", () => {
     expect(compactThread).toHaveBeenCalledWith("thread");
   });
 
-  it("starts an empty panel before setting a slash command goal", async () => {
+  it("routes an empty panel goal command to the goal workflow", async () => {
     const { host } = createHost();
 
     await executePanelSlashCommand(host, "goal", "set Ship this");
 
-    expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this", expect.any(Function));
-    expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
+    expect(host.goals.setObjective).toHaveBeenCalledWith(
+      "Ship this",
+      null,
+      expect.objectContaining({ adoptPanelTarget: expect.any(Function) }),
+    );
   });
 
   it("rejects a directly typed goal command in a side chat before it reaches the goal port", async () => {

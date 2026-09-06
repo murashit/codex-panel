@@ -53,7 +53,7 @@ describe("createGoalCommands", () => {
       addSystemMessage,
     });
 
-    await commands.setObjective("thread", " Updated ", 250);
+    await commands.setObjective(" Updated ", 250);
     await commands.setStatus("thread", "paused");
     await commands.clear("thread");
 
@@ -78,7 +78,7 @@ describe("createGoalCommands", () => {
       addSystemMessage: vi.fn(),
     });
 
-    await expect(commands.setObjective("thread", "Stale", null)).resolves.toBe(false);
+    await expect(commands.setObjective("Stale", null)).resolves.toBe(false);
     await expect(commands.clear("thread")).resolves.toBe(false);
   });
 
@@ -100,7 +100,7 @@ describe("createGoalCommands", () => {
       addSystemMessage,
     });
 
-    await expect(commands.setObjective("side", "Ship", null)).resolves.toBe(false);
+    await expect(commands.setObjective("Ship", null)).resolves.toBe(false);
     await expect(commands.clear("side")).resolves.toBe(false);
 
     expect(effects.setThreadGoal).not.toHaveBeenCalled();
@@ -189,7 +189,7 @@ describe("createGoalCommands", () => {
       addSystemMessage,
     });
 
-    const pending = commands.setObjective("thread", "Finish", null);
+    const pending = commands.setObjective("Finish", null);
     await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
     connection.resolve(true);
