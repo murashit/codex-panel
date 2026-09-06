@@ -1,11 +1,11 @@
 import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title-context";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
-import { isCompletedTurnOutcomeDialogue } from "../../domain/thread-stream/selectors";
+import { lastTurnOutcomeItemsByTurn } from "../../domain/thread-stream/selectors";
 
 export function threadTitleContextFromThreadStreamItems(turnId: string, items: readonly ThreadStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
   const userRequest = turnItems.find(isUserThreadStreamDialogueItem)?.text.trim() ?? precedingUnscopedTitleSeed(turnId, items) ?? "";
-  const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeDialogueItem)?.text.trim() ?? "";
+  const assistantResponse = lastTurnOutcomeItemsByTurn(turnItems).get(turnId)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
   return {
     userRequest: threadTitleContextPromptText(userRequest),
@@ -26,10 +26,6 @@ export function firstThreadTitleContextFromThreadStreamItems(items: readonly Thr
 
 function isUserThreadStreamDialogueItem(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {
   return item.kind === "dialogue" && item.role === "user";
-}
-
-function isCompletedTurnOutcomeDialogueItem(item: ThreadStreamItem): item is ThreadStreamDialogueItem {
-  return item.kind === "dialogue" && isCompletedTurnOutcomeDialogue(item);
 }
 
 function precedingUnscopedTitleSeed(turnId: string, items: readonly ThreadStreamItem[]): string | null {

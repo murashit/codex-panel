@@ -1,7 +1,6 @@
 import { streamedItemOutputThreadStreamItem } from "../../domain/thread-stream/factories/streaming-items";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
-import { threadStreamSemanticClassifications } from "../../domain/thread-stream/semantics/classify";
-import { threadStreamIsTurnInitiator } from "../../domain/thread-stream/semantics/predicates";
+import { threadStreamUserRoles } from "../../domain/thread-stream/semantics/classify";
 import {
   appendAssistantStreamingDelta,
   appendPlanStreamingDelta,
@@ -499,9 +498,7 @@ function latestTurnId(items: readonly ThreadStreamItem[]): string | null {
 }
 
 function turnInitiatorDialogueForTurn(items: readonly ThreadStreamItem[], turnId: string): ThreadStreamDialogueItem | null {
-  const classification = threadStreamSemanticClassifications(items).find(
-    (classification) => classification.item.turnId === turnId && threadStreamIsTurnInitiator(classification),
-  );
-  const item = classification?.item;
+  const roles = threadStreamUserRoles(items);
+  const item = items.find((item, index) => item.turnId === turnId && roles[index] === "initiator");
   return item?.kind === "dialogue" ? item : null;
 }

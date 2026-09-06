@@ -1,5 +1,5 @@
-import type { ThreadStreamItem } from "./items";
-import { threadStreamSemanticClassifications } from "./semantics/classify";
+import type { ThreadStreamDialogueItem, ThreadStreamItem } from "./items";
+import { isCompletedPlanCandidate, isCompletedTurnOutcomeDialogue } from "./semantics/predicates";
 
 export interface ForkCandidate {
   itemId: string;
@@ -15,19 +15,18 @@ export function threadStreamSegmentsEmpty(stableItems: readonly ThreadStreamItem
 }
 
 export function forkCandidatesFromItems(items: readonly ThreadStreamItem[]): readonly ForkCandidate[] {
-  const turnOutcomeItemsByTurn = new Map<string, ForkCandidate>();
-  for (const { item, capabilities } of threadStreamSemanticClassifications(items)) {
-    if (!item.turnId || !capabilities.isTurnOutcome) continue;
-    turnOutcomeItemsByTurn.set(item.turnId, { itemId: item.id, turnId: item.turnId });
+  return [...lastTurnOutcomeItemsByTurn(items)].map(([turnId, item]) => ({ itemId: item.id, turnId }));
+}
+
+export function lastTurnOutcomeItemsByTurn(items: readonly ThreadStreamItem[]): Map<string, ThreadStreamDialogueItem> {
+  const outcomes = new Map<string, ThreadStreamDialogueItem>();
+  for (const item of items) {
+    if (isCompletedTurnOutcomeDialogue(item)) outcomes.set(item.turnId, item);
   }
-  return [...turnOutcomeItemsByTurn.values()];
+  return outcomes;
 }
 
 export function latestImplementablePlanTargetFromItems(items: readonly ThreadStreamItem[]): PlanImplementationTarget | null {
-  const classification = [...threadStreamSemanticClassifications(items)].reverse().find((item) => item.capabilities.canImplementPlan);
-  return classification ? { itemId: classification.item.id } : null;
-}
-
-export function isCompletedTurnOutcomeDialogue(item: ThreadStreamItem): boolean {
-  return threadStreamSemanticClassifications([item])[0]?.capabilities.isTurnOutcome ?? false;
+  const item = [...items].reverse().find(isCompletedPlanCandidate);
+  return item ? { itemId: item.id } : null;
 }

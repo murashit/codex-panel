@@ -1,6 +1,5 @@
 import type { ThreadStreamFileChange, ThreadStreamItem } from "./items";
-import { threadStreamSemanticClassifications } from "./semantics/classify";
-import { threadStreamIsTurnInitiator } from "./semantics/predicates";
+import { threadStreamUserRoles } from "./semantics/classify";
 
 export function upsertThreadStreamItemById(items: readonly ThreadStreamItem[], next: ThreadStreamItem): ThreadStreamItem[] {
   const index = items.findIndex((item) => item.id === next.id);
@@ -65,11 +64,10 @@ export function attachHookRunsToTurn(
 }
 
 function lastUserMessageAnchorId(items: readonly ThreadStreamItem[], turnId: string): string | null {
-  const anchor = [...threadStreamSemanticClassifications(items)]
-    .reverse()
-    .find(
-      (classification) =>
-        threadStreamIsTurnInitiator(classification) && (!classification.item.turnId || classification.item.turnId === turnId),
-    );
-  return anchor?.item.id ?? null;
+  const roles = threadStreamUserRoles(items);
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item && roles[index] === "initiator" && (!item.turnId || item.turnId === turnId)) return item.id;
+  }
+  return null;
 }

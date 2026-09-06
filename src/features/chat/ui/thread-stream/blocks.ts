@@ -2,7 +2,6 @@ import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamSegmentsEmpty } from "../../domain/thread-stream/selectors";
 import { activeTurnLiveItems, threadStreamItemsWithoutActiveTaskProgress } from "../../domain/thread-stream/semantics/active-turn";
 import type { ActiveSubagentActivity } from "../../domain/thread-stream/semantics/agent-run-summary";
-import type { ThreadStreamSemanticClassification } from "../../domain/thread-stream/semantics/types";
 import { detailView } from "./detail-view";
 import { type ThreadStreamItemAnnotations, type ThreadStreamLayoutBlock, threadStreamLayoutBlocks } from "./layout";
 import type {
@@ -67,7 +66,7 @@ function threadStreamViewBlockFromLayoutBlock(
   if (block.type === "item") {
     return {
       key: threadStreamItemViewKey(block.item),
-      ...threadStreamRenderedItemView(block.classification, input, block.annotations),
+      ...threadStreamRenderedItemView(block.item, input, block.annotations),
     };
   }
   return {
@@ -154,33 +153,33 @@ function threadStreamActivityItemView(
   input: ThreadStreamBlockProjectionInput,
 ): ThreadStreamActivityItemView {
   if (activity.type === "steering") return activity;
-  return { type: "item", id: activity.id, ...threadStreamRenderedItemView(activity.classification, input) };
+  return { type: "item", id: activity.id, ...threadStreamRenderedItemView(activity.item, input) };
 }
 
 function threadStreamRenderedItemView(
-  classification: ThreadStreamSemanticClassification,
+  item: ThreadStreamItem,
   input: ThreadStreamBlockProjectionInput,
   annotations?: ThreadStreamItemAnnotations,
 ): ThreadStreamRenderedItemView {
-  const renderFamily = threadStreamRenderFamily(classification);
+  const renderFamily = threadStreamRenderFamily(item);
   switch (renderFamily) {
     case "text":
       return {
         kind: "text",
-        view: threadStreamTextView(classification.item, annotations, {
+        view: threadStreamTextView(item, annotations, {
           activeTurnId: input.activeTurnId,
-          ...definedProp("actionTargets", input.textActionTargetsByItemId.get(classification.item.id)),
+          ...definedProp("actionTargets", input.textActionTargetsByItemId.get(item.id)),
         }),
       };
     case "detail":
-      return { kind: "detail", view: detailView(classification.item, input.workspaceRoot) };
+      return { kind: "detail", view: detailView(item, input.workspaceRoot) };
     case "status":
-      return { kind: "status", view: threadStreamStatusView(classification.item, statusViewContext(input)) };
+      return { kind: "status", view: threadStreamStatusView(item, statusViewContext(input)) };
   }
 }
 
-function threadStreamRenderFamily(classification: ThreadStreamSemanticClassification): ThreadStreamRenderFamily {
-  switch (classification.item.kind) {
+function threadStreamRenderFamily(item: ThreadStreamItem): ThreadStreamRenderFamily {
+  switch (item.kind) {
     case "dialogue":
     case "system":
     case "userInputResult":

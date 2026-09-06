@@ -1,43 +1,27 @@
-import type { ThreadStreamMeaningEvent, ThreadStreamMeaningPlane, ThreadStreamSemanticClassification } from "./types";
+import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../items";
 
-function threadStreamHasMeaning(
-  classification: ThreadStreamSemanticClassification,
-  plane: ThreadStreamMeaningPlane,
-  event: ThreadStreamMeaningEvent,
-): boolean {
-  return classification.meaning.plane === plane && classification.meaning.event === event;
-}
-
-export function threadStreamIsTurnInitiator(classification: ThreadStreamSemanticClassification): boolean {
+export function isCompletedTurnOutcomeDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { turnId: string } {
   return (
-    (classification.placement.scope === "turn" || classification.placement.scope === "pendingTurn") &&
-    classification.placement.turnRole === "initiator"
+    item.kind === "dialogue" &&
+    item.dialogueKind !== "user" &&
+    !!item.turnId &&
+    item.dialogueState === "completed" &&
+    (item.executionState ?? "completed") === "completed"
   );
 }
 
-export function threadStreamIsTurnSteer(classification: ThreadStreamSemanticClassification): boolean {
+export function isCompletedPlanCandidate(item: ThreadStreamItem): boolean {
   return (
-    (classification.placement.scope === "turn" || classification.placement.scope === "pendingTurn") &&
-    classification.placement.turnRole === "steer"
+    item.kind === "dialogue" &&
+    item.dialogueKind === "proposedPlan" &&
+    (item.executionState ? item.executionState === "completed" : item.dialogueState === "completed")
   );
 }
 
-export function threadStreamIsWorkspaceResult(classification: ThreadStreamSemanticClassification): boolean {
-  return threadStreamHasMeaning(classification, "workspace", "result");
-}
-
-export function threadStreamIsCoordinationProgress(classification: ThreadStreamSemanticClassification): boolean {
-  return threadStreamHasMeaning(classification, "coordination", "progress");
-}
-
-function threadStreamIsPermissionDecision(classification: ThreadStreamSemanticClassification): boolean {
-  return threadStreamHasMeaning(classification, "permission", "decision");
-}
-
-export function threadStreamIsAutoReviewDecision(classification: ThreadStreamSemanticClassification): boolean {
-  const { provenance } = classification;
-  if (!threadStreamIsPermissionDecision(classification) || !provenance) return false;
-  if (provenance.source === "appServer" && provenance.channel === "notification") return provenance.event === "autoReview";
-  if (provenance.source === "panel" && provenance.channel === "notice") return provenance.reason === "parsedAutoReview";
+export function threadStreamIsAutoReviewDecision(item: ThreadStreamItem): boolean {
+  if (item.kind !== "reviewResult" && item.kind !== "approvalResult") return false;
+  const { provenance } = item;
+  if (provenance?.source === "appServer" && provenance.channel === "notification") return provenance.event === "autoReview";
+  if (provenance?.source === "panel" && provenance.channel === "notice") return provenance.reason === "parsedAutoReview";
   return false;
 }

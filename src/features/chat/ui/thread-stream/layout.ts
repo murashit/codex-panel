@@ -1,13 +1,8 @@
 import { pathRelativeToRoot } from "../../../../domain/vault/paths";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { threadStreamSemanticClassifications } from "../../domain/thread-stream/semantics/classify";
-import {
-  threadStreamIsAutoReviewDecision,
-  threadStreamIsTurnInitiator,
-  threadStreamIsTurnSteer,
-  threadStreamIsWorkspaceResult,
-} from "../../domain/thread-stream/semantics/predicates";
-import type { ThreadStreamSemanticClassification } from "../../domain/thread-stream/semantics/types";
+import { lastTurnOutcomeItemsByTurn } from "../../domain/thread-stream/selectors";
+import { threadStreamUserRoles } from "../../domain/thread-stream/semantics/classify";
+import { threadStreamIsAutoReviewDecision } from "../../domain/thread-stream/semantics/predicates";
 
 const STEERING_ACTIVITY_LABEL = "steering";
 
@@ -22,7 +17,6 @@ type ThreadStreamActivityGroupItem =
       type: "item";
       id: string;
       item: ThreadStreamItem;
-      classification: ThreadStreamSemanticClassification;
     }
   | {
       type: "steering";
@@ -36,7 +30,6 @@ export type ThreadStreamLayoutBlock =
   | {
       type: "item";
       item: ThreadStreamItem;
-      classification: ThreadStreamSemanticClassification;
       annotations?: ThreadStreamItemAnnotations;
     }
   | {
@@ -53,35 +46,34 @@ export function threadStreamLayoutBlocks(
   workspaceRoot: string,
   turnDiffs: ReadonlyMap<string, string>,
 ): ThreadStreamLayoutBlock[] {
-  const visibleItems = threadStreamSemanticClassifications(items).filter(shouldShowPresentationItem);
+  const visibleItems = items.filter((item) => !isEmptyCompletedReasoningItem(item));
+  const roles = threadStreamUserRoles(visibleItems);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
-  const turnOutcomeIdByTurn = turnOutcomeItemsByTurn(visibleItems);
+  const turnOutcomeIdByTurn = new Map([...lastTurnOutcomeItemsByTurn(visibleItems)].map(([turnId, item]) => [turnId, item.id]));
   const groupedTurnIds = new Set([...turnOutcomeIdByTurn.keys()].filter((turnId) => turnId !== activeTurnId));
   const summaryOutcomeIdByTurn = new Map([...turnOutcomeIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
 
   const groupedActivities = new Map<string, GroupedActivity[]>();
-  for (const classification of visibleItems) {
-    const { item } = classification;
+  for (const [index, item] of visibleItems.entries()) {
     const turnId = item.turnId;
     if (!turnId || !groupedTurnIds.has(turnId)) continue;
-    if (threadStreamIsTurnSteer(classification) && item.kind === "dialogue") {
+    if (roles[index] === "steer" && item.kind === "dialogue") {
       const group = groupedActivities.get(turnId) ?? [];
-      group.push(steeringActivityGroupItem(classification));
+      group.push(steeringActivityGroupItem(item));
       groupedActivities.set(turnId, group);
       continue;
     }
-    if (!isCompletedTurnDetailItem(classification, turnOutcomeIdByTurn)) continue;
+    if (!isCompletedTurnDetailItem(item, roles[index], turnOutcomeIdByTurn)) continue;
     const group = groupedActivities.get(turnId) ?? [];
-    group.push({ type: "item", id: item.id, item, classification });
+    group.push({ type: "item", id: item.id, item });
     groupedActivities.set(turnId, group);
   }
 
   const blocks: ThreadStreamLayoutBlock[] = [];
-  for (const classification of visibleItems) {
-    const { item } = classification;
+  for (const [index, item] of visibleItems.entries()) {
     const turnId = item.turnId;
-    if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(classification, turnOutcomeIdByTurn)) {
+    if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, roles[index], turnOutcomeIdByTurn)) {
       continue;
     }
     if (turnId && turnOutcomeIdByTurn.get(turnId) === item.id && groupedActivities.has(turnId)) {
@@ -97,7 +89,6 @@ export function threadStreamLayoutBlocks(
     blocks.push({
       type: "item",
       item,
-      classification,
       ...definedProp(
         "annotations",
         annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
@@ -110,21 +101,17 @@ export function threadStreamLayoutBlocks(
 
 type GroupedActivity = ThreadStreamActivityGroupItem;
 
-function shouldShowPresentationItem(classification: ThreadStreamSemanticClassification): boolean {
-  return !isEmptyCompletedReasoningItem(classification.item);
-}
-
 function isEmptyCompletedReasoningItem(item: ThreadStreamItem): boolean {
   return item.kind === "reasoning" && item.executionState === "completed" && textForThreadStreamItem(item).trim().length === 0;
 }
 
-function steeringActivityGroupItem(classification: ThreadStreamSemanticClassification): ThreadStreamActivityGroupItem {
+function steeringActivityGroupItem(item: ThreadStreamItem): ThreadStreamActivityGroupItem {
   return {
     type: "steering",
-    id: steerActivityGroupId(classification.item.id),
+    id: steerActivityGroupId(item.id),
     label: STEERING_ACTIVITY_LABEL,
-    text: textForThreadStreamItem(classification.item),
-    sourceItemId: classification.item.sourceItemId ?? classification.item.id,
+    text: textForThreadStreamItem(item),
+    sourceItemId: item.sourceItemId ?? item.id,
   };
 }
 
@@ -136,19 +123,14 @@ function steerActivityGroupId(itemId: string): string {
   return `steer-activity-${itemId}`;
 }
 
-function isCompletedTurnDetailItem(classification: ThreadStreamSemanticClassification, turnOutcomeIdByTurn: Map<string, string>): boolean {
-  const turnId = classification.item.turnId;
-  if (!turnId || threadStreamIsTurnInitiator(classification) || threadStreamIsTurnSteer(classification)) return false;
-  return turnOutcomeIdByTurn.get(turnId) !== classification.item.id;
-}
-
-function turnOutcomeItemsByTurn(items: readonly ThreadStreamSemanticClassification[]): Map<string, string> {
-  const turnOutcomeIdByTurn = new Map<string, string>();
-  for (const { item, capabilities } of items) {
-    if (!item.turnId || !capabilities.isTurnOutcome) continue;
-    turnOutcomeIdByTurn.set(item.turnId, item.id);
-  }
-  return turnOutcomeIdByTurn;
+function isCompletedTurnDetailItem(
+  item: ThreadStreamItem,
+  role: "initiator" | "steer" | null | undefined,
+  turnOutcomeIdByTurn: Map<string, string>,
+): boolean {
+  const turnId = item.turnId;
+  if (!turnId || role) return false;
+  return turnOutcomeIdByTurn.get(turnId) !== item.id;
 }
 
 function annotationsForTurnOutcome(
@@ -174,11 +156,10 @@ function annotationsForTurnOutcome(
   };
 }
 
-function editedFilesForTurns(items: readonly ThreadStreamSemanticClassification[], workspaceRoot: string): Map<string, string[]> {
+function editedFilesForTurns(items: readonly ThreadStreamItem[], workspaceRoot: string): Map<string, string[]> {
   const byTurn = new Map<string, Set<string>>();
-  for (const classification of items) {
-    const { item } = classification;
-    if (!item.turnId || !threadStreamIsWorkspaceResult(classification)) continue;
+  for (const item of items) {
+    if (!item.turnId || item.kind !== "fileChange") continue;
     const files = editedFilesForItem(item, workspaceRoot);
     if (files.length === 0) continue;
     const set = byTurn.get(item.turnId) ?? new Set<string>();
@@ -196,11 +177,10 @@ function editedFilesForItem(item: ThreadStreamItem, workspaceRoot: string): stri
   );
 }
 
-function autoReviewSummariesForTurns(items: readonly ThreadStreamSemanticClassification[]): Map<string, string[]> {
+function autoReviewSummariesForTurns(items: readonly ThreadStreamItem[]): Map<string, string[]> {
   const byTurn = new Map<string, string[]>();
-  for (const classification of items) {
-    const { item } = classification;
-    if (!item.turnId || !threadStreamIsAutoReviewDecision(classification)) {
+  for (const item of items) {
+    if (!item.turnId || !threadStreamIsAutoReviewDecision(item)) {
       continue;
     }
     const summary = textForThreadStreamItem(item).trim();

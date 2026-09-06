@@ -1,8 +1,5 @@
 import type { AgentRunSummary, ReasoningThreadStreamItem, TaskProgressThreadStreamItem, ThreadStreamItem } from "../items";
 import { type ActiveSubagentActivity, activeAgentRunSummary } from "./agent-run-summary";
-import { threadStreamSemanticClassifications } from "./classify";
-import { threadStreamIsCoordinationProgress } from "./predicates";
-import type { ThreadStreamSemanticClassification } from "./types";
 
 export interface ActiveTurnItemsContext {
   activeTurnId: string | null;
@@ -27,12 +24,10 @@ export function activeTurnLiveItems(
   activeTurnId: string,
 ): ActiveTurnLiveItem[] {
   const items = input.activeItems ?? input.items;
-  const semanticItems = threadStreamSemanticClassifications(items);
-  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(semanticItems, activeTurnId);
+  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(items, activeTurnId);
   const agentSummary = agentSummaryAnchorId ? activeAgentRunSummary(items, activeTurnId, input.subagentActivities) : null;
 
-  return semanticItems.flatMap((classification): ActiveTurnLiveItem[] => {
-    const { item } = classification;
+  return items.flatMap((item): ActiveTurnLiveItem[] => {
     if (threadStreamItemIsActiveTaskProgress(item, activeTurnId)) {
       return [{ kind: "taskProgress", item }];
     }
@@ -59,9 +54,7 @@ function threadStreamItemIsActiveTaskProgress(item: ThreadStreamItem, activeTurn
   return item.kind === "taskProgress" && item.turnId === activeTurnId;
 }
 
-function activeAgentRunSummaryAnchorId(items: readonly ThreadStreamSemanticClassification[], activeTurnId: string): string | null {
-  const firstActiveAgent = items.find(
-    (classification) => threadStreamIsCoordinationProgress(classification) && classification.item.turnId === activeTurnId,
-  );
-  return firstActiveAgent?.item.id ?? null;
+function activeAgentRunSummaryAnchorId(items: readonly ThreadStreamItem[], activeTurnId: string): string | null {
+  const firstActiveAgent = items.find((item) => item.kind === "agent" && item.turnId === activeTurnId);
+  return firstActiveAgent?.id ?? null;
 }
