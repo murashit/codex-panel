@@ -11,7 +11,6 @@ import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from ".
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import { createGoalCommands, type GoalCommands } from "../../application/threads/goal-commands";
-import { createGoalEditorActions, type GoalEditorActions } from "../../application/threads/goal-editor-actions";
 import { HistoryController } from "../../application/threads/history-controller";
 import type { PersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import { RestorationController } from "../../application/threads/restoration-controller";
@@ -23,10 +22,11 @@ import type { ThreadStartCommand } from "../../application/threads/thread-start-
 import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
+import { createGoalEditorActions } from "../goal/view-projection";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../toolbar/actions";
 import { activeThreadRenameTitleContext, createThreadRenameEditorActions, type ThreadRenameEditorActions } from "./rename-editor";
 
-export type SessionGoalCommands = GoalCommands & GoalEditorActions;
+export type SessionGoalCommands = GoalCommands & ReturnType<typeof createGoalEditorActions>;
 
 export interface SessionThreadLifecycle {
   restoration: RestorationController;
@@ -156,7 +156,7 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     },
     notifyActiveThreadIdentityChanged,
   });
-  const goalEditor = createGoalEditorActions({ stateStore: host.stateStore });
+  const goalEditor = createGoalEditorActions(host.stateStore);
   const goalCommands = createGoalCommands({
     stateStore: host.stateStore,
     effects: appServer.threadGoal,

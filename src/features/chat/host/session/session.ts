@@ -1,4 +1,5 @@
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
+import { DeferredTask } from "../../../../shared/async/deferred-task";
 import {
   activeThreadState,
   awaitingResumeThreadState,
@@ -15,14 +16,13 @@ import type { ChatPanelEnvironment, ChatPanelHandle, ChatPanelRuntimeSnapshot, C
 import { renderChatPanelShell, unmountChatPanelShell } from "../shell/render.dom";
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../thread-stream/scroll-binding";
 import { parseChatPanelViewState } from "../view-state";
-import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./deferred-work";
 import { createChatPanelSessionRuntime } from "./runtime";
 
 export class ChatPanelSession implements ChatPanelHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();
   private readonly runtime: ReturnType<typeof createChatPanelSessionRuntime>;
 
-  private readonly deferredTasks: ChatViewDeferredTasks;
+  private readonly appServerWarmup: DeferredTask;
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly threadStreamScrollBinding: ChatThreadStreamScrollBinding = createChatThreadStreamScrollBinding();
   private opened = false;
@@ -38,7 +38,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     snapshot: ChatPanelRuntimeSnapshot | null = null,
   ) {
     this.pendingRuntimeRestore = snapshot;
-    this.deferredTasks = createChatViewDeferredTasks(() => this.viewWindow());
+    this.appServerWarmup = new DeferredTask(() => this.viewWindow(), 0);
     this.runtime = this.createSessionRuntime();
     if (snapshot) {
       this.applyViewState(snapshot.viewState);
@@ -304,7 +304,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     const shouldWarmup = (): boolean => this.opened && !this.runtime.connection.manager.isConnected();
     if (!shouldWarmup()) return;
 
-    this.deferredTasks.scheduleAppServerWarmup(() => {
+    this.appServerWarmup.schedule(() => {
       if (!shouldWarmup() || this.closing) return;
       void this.runtime.connection.coordinator.ensureHydrated();
     });
@@ -397,7 +397,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     return createChatPanelSessionRuntime({
       environment: this.environment,
       stateStore: this.stateStore,
-      deferredTasks: this.deferredTasks,
+      appServerWarmup: this.appServerWarmup,
       resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,

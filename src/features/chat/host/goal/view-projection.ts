@@ -1,14 +1,11 @@
 import type { SendShortcut } from "../../../../domain/input/send-shortcut";
+import type { ChatStateStore } from "../../application/state/store";
 import type { GoalPanelProps, GoalPanelState } from "../../ui/goal/goal";
 
-interface ChatPanelGoalActions {
+interface ChatPanelGoalActions extends ReturnType<typeof createGoalEditorActions> {
   saveObjective: (objective: string, tokenBudget: number | null) => Promise<boolean>;
   setStatus: (threadId: string, status: "active" | "paused") => Promise<unknown>;
   clear: (threadId: string) => Promise<unknown>;
-  startEditing: (threadId: string | null, objective: string, tokenBudget: number | null) => void;
-  updateObjectiveDraft: (objective: string) => void;
-  setObjectiveExpanded: (threadId: string, expanded: boolean) => void;
-  closeEditor: () => void;
 }
 
 export interface ChatPanelGoalDependencies {
@@ -53,6 +50,23 @@ export function projectChatPanelGoal(model: GoalPanelState, dependencies: ChatPa
         if (!goalThreadId) return;
         dependencies.actions.setObjectiveExpanded(goalThreadId, expanded);
       },
+    },
+  };
+}
+
+export function createGoalEditorActions(stateStore: ChatStateStore) {
+  return {
+    startEditing: (threadId: string | null, objective: string, tokenBudget: number | null) => {
+      stateStore.dispatch({ type: "ui/goal-editor-started", threadId, objective, tokenBudget });
+    },
+    updateObjectiveDraft: (objective: string) => {
+      stateStore.dispatch({ type: "ui/goal-editor-draft-updated", objective });
+    },
+    setObjectiveExpanded: (threadId: string, expanded: boolean) => {
+      stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: expanded });
+    },
+    closeEditor: () => {
+      stateStore.dispatch({ type: "ui/goal-editor-closed" });
     },
   };
 }

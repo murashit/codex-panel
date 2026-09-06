@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
@@ -12,10 +11,10 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
-import { createChatViewDeferredTasks } from "../../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionRuntime } from "../../../../../src/features/chat/host/session/runtime";
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../../src/settings/preferences";
+import { DeferredTask } from "../../../../../src/shared/async/deferred-task";
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
@@ -242,7 +241,7 @@ describe("chat panel session runtime", () => {
     vi.useFakeTimers();
     const unsubscribeThreads = vi.fn();
     const unsubscribeMetadata = vi.fn();
-    const { runtime, stateStore, deferredTasks, threadStreamScrollBinding, resumeWork } = sessionRuntimeFixture({
+    const { runtime, stateStore, appServerWarmup, threadStreamScrollBinding, resumeWork } = sessionRuntimeFixture({
       environment: {
         plugin: {
           threadCatalog: { observeActiveThreadsResult: vi.fn(() => unsubscribeThreads) },
@@ -256,7 +255,7 @@ describe("chat panel session runtime", () => {
     stateStore.dispatch({ type: "thread-stream/history-loading-set", loading: true });
     runtime.observers.threadCatalog.subscribe();
     const warmup = vi.fn();
-    deferredTasks.scheduleAppServerWarmup(warmup);
+    appServerWarmup.schedule(warmup);
     const dispatchScrollCommand = vi.fn();
     threadStreamScrollBinding.mountScrollPort({ dispatchScrollCommand });
     const composer = document.body.createEl("textarea");
@@ -429,24 +428,24 @@ describe("chat panel session runtime", () => {
     runtime: ReturnType<typeof createChatPanelSessionRuntime>;
     stateStore: ChatStateStore;
     resumeWork: ChatResumeWorkTracker;
-    deferredTasks: ReturnType<typeof createChatViewDeferredTasks>;
+    appServerWarmup: DeferredTask;
     threadStreamScrollBinding: ReturnType<typeof createChatThreadStreamScrollBinding>;
   } {
     const stateStore = createChatStateStore();
     const resumeWork = new ChatResumeWorkTracker();
-    const deferredTasks = createChatViewDeferredTasks(() => window);
+    const appServerWarmup = new DeferredTask(() => window, 0);
     const threadStreamScrollBinding = createChatThreadStreamScrollBinding();
     const environment = chatPanelEnvironmentFixture(options.environment);
     const runtime = createChatPanelSessionRuntime({
       environment,
       stateStore,
-      deferredTasks,
+      appServerWarmup,
       resumeWork,
       threadStreamScrollBinding,
       getClosing: options.getClosing ?? (() => false),
       activatePersistentThread: vi.fn().mockResolvedValue(undefined),
     });
-    return { runtime, stateStore, resumeWork, deferredTasks, threadStreamScrollBinding };
+    return { runtime, stateStore, resumeWork, appServerWarmup, threadStreamScrollBinding };
   }
 
   interface PartialChatPanelEnvironment {

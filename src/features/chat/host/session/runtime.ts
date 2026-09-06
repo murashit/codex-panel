@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
-
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
+import type { DeferredTask } from "../../../../shared/async/deferred-task";
 import { createChatAppServerGateway } from "../../app-server/session-gateway";
 import { createReconnectPanelCommand, type ReconnectPanelOptions } from "../../application/connection/reconnect-command";
 import { createLocalIdSource, type LocalIdSource } from "../../application/local-id-source";
@@ -32,7 +32,6 @@ import { createChatThreadStreamDependencies } from "../thread-stream/context.obs
 import type { ChatThreadStreamScrollBinding } from "../thread-stream/scroll-binding";
 import { createToolbarUiActions } from "../toolbar/actions";
 import { createSessionConnection } from "./connection";
-import type { ChatViewDeferredTasks } from "./deferred-work";
 import { createSessionSharedResources } from "./shared-resources";
 import { createSessionThreadCommands, createSessionThreadFeatures, createSessionThreadFoundation } from "./thread";
 import { createSessionTurn } from "./turn";
@@ -46,7 +45,7 @@ interface ChatPanelSessionStatus {
 interface ChatPanelSessionRuntimeHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
-  deferredTasks: ChatViewDeferredTasks;
+  appServerWarmup: DeferredTask;
   resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
@@ -388,7 +387,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       try {
         sessionConnection.deactivate();
         commands.invalidateThreadWork();
-        host.deferredTasks.clearAll();
+        host.appServerWarmup.clear();
         threadCatalogObserver.unsubscribe();
         unsubscribeGoalChanges();
         threadFeatures.rename.invalidate();

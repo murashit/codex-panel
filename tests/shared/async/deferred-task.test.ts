@@ -2,9 +2,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createChatViewDeferredTasks } from "../../../../../src/features/chat/host/session/deferred-work";
+import { DeferredTask } from "../../../src/shared/async/deferred-task";
 
-describe("createChatViewDeferredTasks", () => {
+describe("DeferredTask", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -14,25 +14,25 @@ describe("createChatViewDeferredTasks", () => {
   });
 
   it("coalesces pending warmups and allows another after completion", async () => {
-    const tasks = createChatViewDeferredTasks(() => window);
+    const tasks = new DeferredTask(() => window, 0);
     const warmup = vi.fn();
 
-    tasks.scheduleAppServerWarmup(warmup);
-    tasks.scheduleAppServerWarmup(warmup);
+    tasks.schedule(warmup);
+    tasks.schedule(warmup);
     await vi.runOnlyPendingTimersAsync();
     expect(warmup).toHaveBeenCalledOnce();
 
-    tasks.scheduleAppServerWarmup(warmup);
+    tasks.schedule(warmup);
     await vi.runOnlyPendingTimersAsync();
     expect(warmup).toHaveBeenCalledTimes(2);
   });
 
   it("clears scheduled deferred work", async () => {
-    const tasks = createChatViewDeferredTasks(() => window);
+    const tasks = new DeferredTask(() => window, 0);
     const warmup = vi.fn();
 
-    tasks.scheduleAppServerWarmup(warmup);
-    tasks.clearAll();
+    tasks.schedule(warmup);
+    tasks.clear();
 
     await vi.advanceTimersByTimeAsync(1_500);
 
