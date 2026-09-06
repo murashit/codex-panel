@@ -19,12 +19,7 @@ import type { NoteCandidate, NoteCandidateProvider } from "../../application/com
 import type { PreparedInput } from "../../application/composer/prepared-input";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
-import {
-  activeComposerSuggestions,
-  applyComposerSuggestionInsertion,
-  composerSuggestionNavigationDirection,
-  nextComposerSuggestionIndex,
-} from "../../application/composer/suggestions";
+import { activeComposerSuggestions } from "../../application/composer/suggestions";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../application/composer/wikilink-context";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
@@ -42,14 +37,17 @@ import type { ChatPanelComposerModel } from "../shell/selectors";
 import { ComposerAttachmentTransfers } from "./attachment-transfers";
 import {
   applyComposerInsertionToElement,
+  applyComposerSuggestionInsertion,
   composerBoundaryScrollActionFromElement,
   composerFilesFromTransfer,
   composerHasFocus,
   composerInsertionSource,
+  composerSuggestionNavigationDirection,
   composerSuggestionSignatureFromElement,
   composerTextBeforeCursor,
   composerTransferHasFiles,
   focusComposer,
+  nextComposerSuggestionIndex,
 } from "./element.dom";
 import { type ChatPanelComposerRuntimeActions, projectChatPanelComposer } from "./view-projection";
 
@@ -405,24 +403,11 @@ export class ChatComposerController {
   }
 
   private updateSuggestions(): void {
-    const beforeCursor = composerTextBeforeCursor(this.composer);
-    if (beforeCursor === null) {
-      this.clearSuggestions();
-      return;
-    }
-
-    const signature = this.suggestionSignature();
-    const state = this.state;
-    if (state.composer.suggestionsDismissedSignature === signature) {
-      this.dispatch({ type: "composer/suggestions-set", suggestions: [] });
-      return;
-    }
-    const suggestions = this.activeSuggestions(beforeCursor, state);
-
+    const { suggestions, selected, dismissedSignature } = this.inputSuggestionState();
     this.dispatch({
       type: "composer/suggestions-set",
       suggestions,
-      selected: state.composer.suggestSelected >= suggestions.length ? 0 : state.composer.suggestSelected,
+      selected: dismissedSignature === null ? selected : this.state.composer.suggestSelected,
     });
   }
 
@@ -446,14 +431,13 @@ export class ChatComposerController {
     selected: number;
     dismissedSignature: string | null;
   } {
-    if (!this.composer) return { suggestions: [], selected: 0, dismissedSignature: null };
+    const beforeCursor = composerTextBeforeCursor(this.composer);
+    if (beforeCursor === null) return { suggestions: [], selected: 0, dismissedSignature: null };
     const signature = this.suggestionSignature();
     const state = this.state;
     if (state.composer.suggestionsDismissedSignature === signature) {
       return { suggestions: [], selected: 0, dismissedSignature: signature };
     }
-    const beforeCursor = composerTextBeforeCursor(this.composer);
-    if (beforeCursor === null) return { suggestions: [], selected: 0, dismissedSignature: null };
     const suggestions = this.activeSuggestions(beforeCursor, state);
     return {
       suggestions,
@@ -516,10 +500,6 @@ export class ChatComposerController {
   private readonly clearPendingSelection = (): void => {
     this.pendingSelection = null;
   };
-
-  private clearSuggestions(): void {
-    this.dispatch({ type: "composer/suggestions-set", suggestions: [], selected: 0 });
-  }
 
   private dismissSuggestions(): void {
     this.dispatch({

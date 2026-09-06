@@ -1577,7 +1577,7 @@ describe("ChatComposerController", () => {
     });
   });
 
-  it("rerenders suggestion selection from keyboard navigation", () => {
+  it("navigates suggestions and keeps them dismissed until the input changes", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     let controller: ChatComposerController | null = null;
@@ -1619,6 +1619,20 @@ describe("ChatComposerController", () => {
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "p", ctrlKey: true }));
     expect(stateStore.getState().composer.suggestSelected).toBe(0);
     expect(selectedSuggestion(parent).textContent).toBe(firstSelected.textContent);
+
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    const dismissed = stateStore.getState().composer.suggestionsDismissedSignature;
+    expect(dismissed).not.toBeNull();
+    composer(parent).dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Escape" }));
+    expect(stateStore.getState().composer.suggestions).toEqual([]);
+    expect(stateStore.getState().composer.suggestionsDismissedSignature).toBe(dismissed);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(stateStore.getState().composer.suggestions).toEqual([]);
+    setTextAreaValue(composer(parent), "/st");
+    composer(parent).setSelectionRange(3, 3);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    expect(stateStore.getState().composer.suggestions.length).toBeGreaterThan(0);
+    expect(stateStore.getState().composer.suggestionsDismissedSignature).toBeNull();
   });
 
   it("keeps suggestions closed after inserting at a cursor before later trigger text", () => {

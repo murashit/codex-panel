@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
-import {
-  activeComposerSuggestions as activeComposerSuggestionsWithMatcher,
-  applyComposerSuggestionInsertion,
-  composerSuggestionNavigationDirection,
-  composerSuggestionSignature,
-  nextComposerSuggestionIndex,
-} from "../../../../../src/features/chat/application/composer/suggestions";
+import { activeComposerSuggestions as activeComposerSuggestionsWithMatcher } from "../../../../../src/features/chat/application/composer/suggestions";
 import {
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,
   type WikiLinkFileReferenceResolver,
 } from "../../../../../src/features/chat/application/composer/wikilink-context";
+import {
+  applyComposerSuggestionInsertion,
+  composerSuggestionNavigationDirection,
+  composerSuggestionSignature,
+  nextComposerSuggestionIndex,
+} from "../../../../../src/features/chat/host/composer/element.dom";
 import { testFuzzyMatcher } from "./fuzzy-matcher.test-support";
 
 type ActiveComposerSuggestionsArguments = Parameters<typeof activeComposerSuggestionsWithMatcher>;
