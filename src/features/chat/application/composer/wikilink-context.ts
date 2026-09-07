@@ -64,14 +64,13 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   options: PreparedComposerInputOptions,
 ): PreparedInput {
   const codeRanges = markdownReferenceCodeRanges(text);
-  const contextReplacement = textWithContextReferences(text, contextReferences, codeRanges);
-  const resolvedText = contextReplacement.text;
+  const selections = selectionsReferencedByText(text, contextReferences.selectionSnapshots ?? [], codeRanges);
   const fileReferences: VaultFileReference[] = [];
   const wikilinkReferences: ObsidianReference[] = [];
   const seenPaths = new Set<string>();
   const activeNoteSnapshots = contextReferences.activeNoteSnapshots ?? [];
 
-  for (const link of parsedWikiLinks(resolvedText, codeRanges)) {
+  for (const link of parsedWikiLinks(text, codeRanges)) {
     const fileReference = activeNoteFileReferenceForLink(link, activeNoteSnapshots) ?? resolveFileReference(link.target);
     if (!fileReference || seenPaths.has(fileReference.path)) continue;
     seenPaths.add(fileReference.path);
@@ -79,7 +78,7 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
     wikilinkReferences.push({ marker: `[[${link.raw}]]`, path: fileReference.path });
   }
 
-  for (const selection of contextReplacement.selections) {
+  for (const selection of selections) {
     if (seenPaths.has(selection.path)) continue;
     seenPaths.add(selection.path);
     fileReferences.push({ name: selection.name, path: selection.path });
@@ -91,7 +90,7 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   const skillByName = firstEnabledSkillByName(skills);
   const resolvedSkills: SkillReference[] = [];
   const seenSkillPaths = new Set<string>();
-  for (const reference of parsedSkillReferences(resolvedText, codeRanges)) {
+  for (const reference of parsedSkillReferences(text, codeRanges)) {
     const skill = skillByName.get(reference.toLowerCase());
     if (!skill || seenSkillPaths.has(skill.path)) continue;
     seenSkillPaths.add(skill.path);
@@ -99,12 +98,12 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
   }
 
   return {
-    text: resolvedText,
+    text,
     input: codexTextInputWithReferences(
-      resolvedText,
+      text,
       fileReferences,
       resolvedSkills,
-      additionalContext(wikilinkReferences, contextReplacement.selections, attachedActiveNote),
+      additionalContext(wikilinkReferences, selections, attachedActiveNote),
     ),
   };
 }
@@ -112,17 +111,6 @@ export function preparedUserInputWithWikiLinkReferencesSkillsAndContext(
 function activeNoteFileReferenceForLink(link: ParsedWikiLink, snapshots: readonly ActiveNoteContextReference[]): VaultFileReference | null {
   const snapshot = snapshots.find((item) => link.raw.trim() === item.linktext && link.target === item.linktext);
   return snapshot ? { name: snapshot.name, path: snapshot.path } : null;
-}
-
-function textWithContextReferences(
-  text: string,
-  contextReferences: ComposerContextReferences,
-  codeRanges: readonly MarkdownCodeRange[],
-): { text: string; selections: SelectionContextReference[] } {
-  return {
-    text,
-    selections: selectionsReferencedByText(text, contextReferences.selectionSnapshots ?? [], codeRanges),
-  };
 }
 
 function selectionsReferencedByText(

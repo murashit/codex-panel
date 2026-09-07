@@ -107,10 +107,10 @@ export function appServerApprovalResponse(request: ApprovalRequest, action: Appr
         if (selected === undefined) throw new Error(`Unknown command approval option: ${action.optionId}`);
         return { decision: selected };
       }
-      return { decision: commandDecision(intent) } satisfies CommandExecutionRequestApprovalResponse;
+      return { decision: simpleApprovalDecision(intent) } satisfies CommandExecutionRequestApprovalResponse;
     }
     case "item/fileChange/requestApproval":
-      return { decision: fileChangeDecision(intent) } satisfies FileChangeRequestApprovalResponse;
+      return { decision: simpleApprovalDecision(intent) } satisfies FileChangeRequestApprovalResponse;
     case "item/permissions/requestApproval":
       return {
         scope: intent === "accept-session" ? "session" : "turn",
@@ -249,14 +249,7 @@ function permissionsApprovalRequest(requestId: PendingApproval["requestId"], par
   };
 }
 
-function commandDecision(intent: ApprovalActionIntent): SimpleApprovalDecision {
-  if (intent === "accept") return "accept";
-  if (intent === "accept-session") return "acceptForSession";
-  if (intent === "cancel") return "cancel";
-  return "decline";
-}
-
-function fileChangeDecision(intent: ApprovalActionIntent): SimpleApprovalDecision {
+function simpleApprovalDecision(intent: ApprovalActionIntent): SimpleApprovalDecision {
   if (intent === "accept") return "accept";
   if (intent === "accept-session") return "acceptForSession";
   if (intent === "cancel") return "cancel";

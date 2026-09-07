@@ -1,4 +1,4 @@
-export type ClassifiedAppServerLog = { kind: "plain"; text: string } | { kind: "error"; text: string } | null;
+export type ClassifiedAppServerLog = { kind: "error"; text: string } | null;
 
 const ESCAPE_CHARACTER = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-?]*[ -/]*[@-~]`, "g");

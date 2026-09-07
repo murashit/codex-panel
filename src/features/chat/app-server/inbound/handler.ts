@@ -225,11 +225,7 @@ async function respondToDynamicToolCall(
 function handleAppServerLog(context: ChatInboundHandlerContext, message: string): void {
   const classified = classifyAppServerLog(message);
   if (classified === null) return;
-  if (classified.kind === "plain") {
-    addDedupedSystemMessage(context, classified.text);
-  } else {
-    addDedupedSystemMessage(context, `app-server error: ${classified.text}`);
-  }
+  addDedupedSystemMessage(context, `app-server error: ${classified.text}`);
 }
 
 function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: ApprovalAction): void {
