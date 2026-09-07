@@ -27,7 +27,7 @@ export function toolInventoryDiagnosticSections(
   skills: { value: readonly SkillMetadata[]; probe: DiagnosticProbeResult },
 ): DiagnosticSection[] {
   const inventorySections = inventory
-    ? toolInventorySnapshotSections(inventory, inventory.mcpDiagnostics)
+    ? toolInventorySnapshotSections(inventory)
     : [
         {
           title: TOOL_PROVIDERS_LABEL,
@@ -37,13 +37,10 @@ export function toolInventoryDiagnosticSections(
   return [...inventorySections, { title: "Skills", rows: skillRows(skills.value, skills.probe) }];
 }
 
-function toolInventorySnapshotSections(
-  inventory: ToolInventorySnapshot,
-  mcpDiagnostics: readonly McpServerDiagnostic[],
-): DiagnosticSection[] {
+function toolInventorySnapshotSections(inventory: ToolInventorySnapshot): DiagnosticSection[] {
   return [
     { title: "Plugins", rows: pluginRows(inventory) },
-    { title: TOOL_PROVIDERS_LABEL, rows: mcpToolProviderRows(inventory, mcpDiagnostics) },
+    { title: TOOL_PROVIDERS_LABEL, rows: mcpToolProviderRows(inventory) },
   ];
 }
 
@@ -63,7 +60,8 @@ function pluginRow(plugin: ToolInventoryPlugin): DiagnosticRow {
   };
 }
 
-function mcpToolProviderRows(inventory: ToolInventorySnapshot, mcpDiagnostics: readonly McpServerDiagnostic[]): DiagnosticRow[] {
+function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
+  const { mcpDiagnostics } = inventory;
   const failure = inventory.mcpError ? [{ label: "Refresh", value: inventory.mcpError, level: "error" as const }] : [];
   if (inventory.mcpServers === null && mcpDiagnostics.length === 0) {
     return [...failure, { label: TOOL_PROVIDERS_LABEL, value: "not loaded", level: "warning" }];
@@ -75,57 +73,34 @@ function mcpToolProviderRows(inventory: ToolInventorySnapshot, mcpDiagnostics: r
   const rows = [...names].map((name) => {
     const server = statusByName.get(name);
     const diagnostic = diagnosticByName.get(name);
-    return server ? mcpToolProviderStatusRow(server, diagnostic) : mcpToolProviderDiagnosticRow(name, diagnostic);
+    return mcpToolProviderRow(name, server, diagnostic);
   });
   return [...failure, ...rows.sort((left, right) => left.label.localeCompare(right.label))];
 }
 
-function mcpToolProviderStatusRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
-  if (server.name === "codex_apps") return codexAppsToolProviderRow(server, diagnostic);
-
-  const connectionStatus = diagnostic?.connectionStatus ?? server.connectionStatus ?? "unknown";
-  const connection = mcpConnectionStatusLabel(connectionStatus, true);
-  const parts = ["MCP server", connection, `auth ${mcpAuthStatusLabel(server.authStatus)}`, countLabel(server.toolCount, "tool")];
-  if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
-  if (diagnostic?.message) parts.push(diagnostic.message);
-  return {
-    label: server.name,
-    value: parts.join(", "),
-    level: mcpToolProviderLevel(connectionStatus, server.authStatus),
-  };
-}
-
-function codexAppsToolProviderRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
-  const connectionStatus = diagnostic?.connectionStatus ?? server.connectionStatus ?? "unknown";
-  const level = mcpToolProviderLevel(connectionStatus, server.authStatus);
-  const apps = server.codexAppIds && server.codexAppIds.length > 0 ? listSummary(server.codexAppIds) : "(none)";
-  if (level === "normal" && !diagnostic?.message && !diagnostic?.authenticationIssue) {
-    return { label: server.name, value: apps, level };
+function mcpToolProviderRow(
+  name: string,
+  server: McpServerStatusSummary | undefined,
+  diagnostic: McpServerDiagnostic | undefined,
+): DiagnosticRow {
+  const connectionStatus = diagnostic?.connectionStatus ?? server?.connectionStatus ?? "unknown";
+  const authStatus = server?.authStatus ?? diagnostic?.authStatus ?? "unknown";
+  const toolCount = server?.toolCount ?? diagnostic?.toolCount;
+  const level = mcpToolProviderLevel(connectionStatus, authStatus);
+  const apps = server?.name === "codex_apps" ? listSummary(server.codexAppIds ?? []) : null;
+  if (apps !== null && level === "normal" && !diagnostic?.message && !diagnostic?.authenticationIssue) {
+    return { label: name, value: apps, level };
   }
 
-  const parts = [apps, mcpConnectionStatusLabel(connectionStatus, true), `auth ${mcpAuthStatusLabel(server.authStatus)}`];
+  const parts = [
+    apps ?? "MCP server",
+    mcpConnectionStatusLabel(connectionStatus, server !== undefined),
+    `auth ${mcpAuthStatusLabel(authStatus)}`,
+  ];
+  if (apps === null) parts.push(toolCount == null ? "tools unknown" : countLabel(toolCount, "tool"));
   if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
   if (diagnostic?.message) parts.push(diagnostic.message);
-  return {
-    label: server.name,
-    value: parts.join(", "),
-    level,
-  };
-}
-
-function mcpToolProviderDiagnosticRow(name: string, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
-  const connection = mcpConnectionStatusLabel(diagnostic?.connectionStatus ?? "unknown", false);
-  const auth = diagnostic?.authStatus ? `auth ${mcpAuthStatusLabel(diagnostic.authStatus)}` : "auth unknown";
-  const tools =
-    diagnostic?.toolCount === null || diagnostic?.toolCount === undefined ? "tools unknown" : countLabel(diagnostic.toolCount, "tool");
-  const parts = ["MCP server", connection, auth, tools];
-  if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
-  if (diagnostic?.message) parts.push(diagnostic.message);
-  return {
-    label: name,
-    value: parts.join(", "),
-    level: mcpToolProviderLevel(diagnostic?.connectionStatus ?? "unknown", diagnostic?.authStatus ?? null),
-  };
+  return { label: name, value: parts.join(", "), level };
 }
 
 function mcpToolProviderLevel(
@@ -169,22 +144,21 @@ function skillRows(skills: readonly SkillMetadata[], probe: DiagnosticProbeResul
   if (probe.status === "failed") return [{ label: "Skills", value: probe.message ?? "unavailable", level: "error" }];
   if (probe.status === "unknown") return [{ label: "Skills", value: "not loaded", level: "warning" }];
 
-  const skillsByProvenance = new Map<string, Set<string>>();
-  const provenanceRanks = new Map<string, SkillProvenanceRank>();
+  const groups = new Map<string, SkillProvenance & { names: string[] }>();
   for (const skill of skills) {
     if (!skill.enabled) continue;
     const provenance = skillProvenance(skill);
-    const skills = skillsByProvenance.get(provenance.label) ?? new Set<string>();
-    skills.add(skillDisplayName(skill));
-    skillsByProvenance.set(provenance.label, skills);
-    provenanceRanks.set(provenance.label, provenance.rank);
+    const group = groups.get(provenance.label) ?? { ...provenance, names: [] };
+    group.rank = provenance.rank;
+    group.names.push(skillDisplayName(skill));
+    groups.set(provenance.label, group);
   }
 
-  if (skillsByProvenance.size === 0) return [{ label: "Skills", value: "(none)" }];
+  if (groups.size === 0) return [{ label: "Skills", value: "(none)" }];
 
-  return [...skillsByProvenance.entries()]
-    .sort(([left], [right]) => compareSkillProvenance(left, right, provenanceRanks))
-    .map(([provenance, skills]) => ({ label: provenance, value: listSummary([...skills]) }));
+  return [...groups.values()]
+    .sort((left, right) => left.rank - right.rank || left.label.localeCompare(right.label))
+    .map((group) => ({ label: group.label, value: listSummary(group.names) }));
 }
 
 function pluginBundleSummary(plugin: ToolInventoryPlugin): string {
@@ -226,12 +200,6 @@ function skillProvenance(skill: SkillMetadata): SkillProvenance {
 function listSummary(names: readonly string[]): string {
   const sortedNames = [...new Set(names)].sort((left, right) => left.localeCompare(right));
   return sortedNames.length > 0 ? sortedNames.join(", ") : "(none)";
-}
-
-function compareSkillProvenance(left: string, right: string, ranks: ReadonlyMap<string, SkillProvenanceRank>): number {
-  const leftRank = ranks.get(left) ?? SKILL_PROVENANCE_RANKS.plugin;
-  const rightRank = ranks.get(right) ?? SKILL_PROVENANCE_RANKS.plugin;
-  return leftRank - rightRank || left.localeCompare(right);
 }
 
 function normalizedPath(path: string): string {

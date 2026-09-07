@@ -293,6 +293,33 @@ describe("connection diagnostics", () => {
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, connected, auth OAuth, 1 tool"]);
   });
 
+  it("keeps inventory auth and zero tool counts when connection diagnostics disagree", () => {
+    const sections = toolInventoryDiagnosticSections(
+      {
+        plugins: [],
+        pluginMarketplaceErrors: [],
+        pluginsError: null,
+        mcpServers: [{ name: "github", authStatus: "oAuth", toolCount: 0, connectionStatus: "connected" }],
+        mcpDiagnostics: [
+          {
+            name: "github",
+            connectionStatus: "failed",
+            authStatus: "notLoggedIn",
+            toolCount: 10,
+            message: "connection lost",
+            authenticationIssue: null,
+          },
+        ],
+        mcpError: null,
+      },
+      { value: [], probe: diagnosticProbeOk("skills", "0 skills", 1) },
+    );
+
+    expect(sections.find((section) => section.title === "Tool providers")?.rows).toEqual([
+      { label: "github", value: "MCP server, failed, auth OAuth, 0 tools, connection lost", level: "error" },
+    ]);
+  });
+
   it("keeps diagnostic-only MCP server failures in MCP servers", () => {
     const inventory: InventoryFixture = {
       plugins: [],
