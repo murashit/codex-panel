@@ -181,7 +181,6 @@ function taskProgressItem(id: string, turnId: string): ThreadStreamItem {
     turnId,
     steps: [{ step: "Work", status: "inProgress" }],
     explanation: "Working",
-    status: "running",
     executionState: "running",
   };
 }

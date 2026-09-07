@@ -296,7 +296,7 @@ describe("panel thread stream item rendering", () => {
             { step: "Inspect code", status: "completed" },
             { step: "Patch UI", status: "inProgress" },
           ],
-          status: "inProgress",
+          executionState: "running",
         },
       ],
     })[0];

@@ -277,7 +277,6 @@ export interface TaskProgressThreadStreamItem extends ThreadStreamBase {
   readonly text?: string;
   readonly explanation: string | null;
   readonly steps: readonly TaskProgressStep[];
-  readonly status: string;
 }
 
 export interface AgentStateSummary {

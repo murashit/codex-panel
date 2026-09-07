@@ -29,7 +29,7 @@ describe("subagent activity preview", () => {
             { step: "Read code", status: "completed" },
             { step: "Patch notification routing", status: "inProgress" },
           ],
-          status: "inProgress",
+          executionState: "running",
         },
         "/vault",
       ),

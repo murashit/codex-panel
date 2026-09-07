@@ -257,7 +257,7 @@ function webSearchThreadStreamItem(item: WebSearchItem, turnId?: string): Thread
     kind: "tool",
     role: "tool",
     toolName: "web search",
-    operation: item.action?.type ?? (item.query ? "search" : "webSearch"),
+    operation: item.action ? webSearchActionLabel(item.action.type) : item.query ? "search" : "web search",
     ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
     ...definedProp("webSearch", webSearchDetails(item)),
     output: "",

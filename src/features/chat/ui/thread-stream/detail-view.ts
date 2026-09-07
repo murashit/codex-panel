@@ -391,7 +391,7 @@ function commandTargetSummary(target: CommandThreadStreamTarget, cwd: string): s
 function genericToolSummary(item: ToolCallThreadStreamItem | HookThreadStreamItem, workspaceRoot: string): string {
   const target = primaryTargetSummary(item.primaryTarget, workspaceRoot);
   if (!target) return item.resultLabel ? compactSummary(null, item.text ?? item.toolName, item.resultLabel) : (item.text ?? "details");
-  return compactSummary(toolOperationLabel(item.operation), target, item.resultLabel);
+  return compactSummary(item.operation ?? null, target, item.resultLabel);
 }
 
 function fileChangeSummary(item: FileChangeThreadStreamItem, changes: (ThreadStreamFileChange & { displayPath: string })[]): string {
@@ -443,16 +443,6 @@ function fileChangeTargetSummary(changes: (ThreadStreamFileChange & { displayPat
   if (changes.length === 0) return "no files";
   if (changes.length === 1) return changes[0]?.displayPath ?? "1 file";
   return `${String(changes.length)} files`;
-}
-
-function toolOperationLabel(operation: string | null | undefined): string | null {
-  if (!operation) return null;
-  if (operation === "openPage") return "open page";
-  if (operation === "findInPage") return "find in page";
-  if (operation === "search") return "search";
-  if (operation === "webSearch") return "web search";
-  if (operation === "other") return "other";
-  return operation;
 }
 
 function quoteInline(value: string): string {

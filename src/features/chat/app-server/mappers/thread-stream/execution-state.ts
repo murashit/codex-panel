@@ -68,16 +68,23 @@ export function collabAgentStateExecutionState(status: string): ExecutionState {
 }
 
 export function executionStatusLabel(status: string): string {
-  const labels: Readonly<Record<string, string>> = {
-    inProgress: "Running",
-    running: "Running",
-    completed: "Completed",
-    failed: "Failed",
-    declined: "Declined",
-    blocked: "Blocked",
-    stopped: "Stopped",
-  };
-  return Object.hasOwn(labels, status) ? (labels[status] ?? "Unknown") : "Unknown";
+  switch (status) {
+    case "inProgress":
+    case "running":
+      return "Running";
+    case "completed":
+      return "Completed";
+    case "failed":
+      return "Failed";
+    case "declined":
+      return "Declined";
+    case "blocked":
+      return "Blocked";
+    case "stopped":
+      return "Stopped";
+    default:
+      return "Unknown";
+  }
 }
 
 export function executionResultLabel(status: string, failure?: string | null): string | null {

@@ -215,7 +215,7 @@ describe("ChatInboundHandler", () => {
           kind: "taskProgress",
           explanation: "Plan",
           steps: [{ step: "Inspect code", status: "inProgress" }],
-          status: "inProgress",
+          executionState: "running",
         },
       ]);
     });

@@ -377,7 +377,7 @@ describe("turn item conversion preserves app-server semantics", () => {
         { step: "Patch UI", status: "inProgress" },
         { step: "Run tests", status: "pending" },
       ],
-      status: "inProgress",
+      executionState: "running",
     });
   });
 
@@ -893,13 +893,32 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it.each([
+    { action: { type: "openPage", url: "https://example.com" }, label: "open page", target: "https://example.com" },
+    { action: { type: "findInPage", url: "https://example.com", pattern: "Codex" }, label: "find in page", target: "Codex" },
+  ] as const)("normalizes $action.type for both the summary and detail action", ({ action, label, target }) => {
+    const item: TurnItem = {
+      type: "webSearch",
+      id: "web-action",
+      query: "",
+      action,
+      results: null,
+    };
+
+    expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({
+      operation: label,
+      primaryTarget: { kind: "value", value: target },
+      webSearch: { action: label },
+    });
+  });
+
   it("keeps a web search recognizable when its target and action are unavailable", () => {
     const item: TurnItem = { type: "webSearch", id: "search-empty", query: "", action: null, results: null };
 
     expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       toolName: "web search",
-      operation: "webSearch",
+      operation: "web search",
     });
   });
 

@@ -241,7 +241,6 @@ function taskProgress(turnId: string): ThreadStreamItem {
     turnId,
     explanation: null,
     steps: [{ step: "Keep this", status: "completed" }],
-    status: "completed",
     executionState: "completed",
   };
 }

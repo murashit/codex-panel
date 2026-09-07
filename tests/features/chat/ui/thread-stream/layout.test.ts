@@ -274,7 +274,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
         turnId: "t1",
         explanation: null,
         steps: [{ step: "Patch UI", status: "inProgress" }],
-        status: "inProgress",
+        executionState: "running",
       },
       {
         id: "a1",
@@ -303,7 +303,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
         turnId: "t1",
         explanation: null,
         steps: [{ step: "Patch UI", status: "inProgress" }],
-        status: "inProgress",
+        executionState: "running",
       },
       {
         id: "agent-1",
