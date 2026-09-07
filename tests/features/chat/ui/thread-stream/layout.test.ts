@@ -41,6 +41,7 @@ function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): Threa
 
 function autoReviewResultItem(id: string, turnId: string, text = "Auto-review approved: npm test"): ThreadStreamItem {
   return {
+    reviewKind: "automaticResult",
     id,
     kind: "reviewResult",
     role: "tool",

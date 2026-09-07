@@ -82,7 +82,9 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("renders review result items as compact auto-review tool rows", () => {
     const block = projectedThreadStreamBlocks({
-      items: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." }],
+      items: [
+        { reviewKind: "automaticWarning", id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." },
+      ],
     })[0];
 
     const element = renderThreadStreamBlockElement(block);
@@ -98,6 +100,7 @@ describe("panel thread stream rendering and action menu", () => {
     const block = projectedThreadStreamBlocks({
       items: [
         {
+          reviewKind: "automaticResult",
           id: "review-1",
           kind: "reviewResult",
           role: "tool",

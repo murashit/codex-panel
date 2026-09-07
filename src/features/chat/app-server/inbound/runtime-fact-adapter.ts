@@ -1,5 +1,6 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { jsonPreview } from "../../../../domain/display/json-preview";
+import type { TurnOutcome } from "../../../../domain/runtime/turn-outcome";
 import { authRecoveryProgress } from "../../application/turns/auth-recovery";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
 import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
@@ -129,9 +130,8 @@ export function turnRuntimeFactFromNotification(
         type: "turnCompleted",
         threadId: notification.params.threadId,
         turnId: notification.params.turn.id,
-        status: notification.params.turn.status,
-        itemsView: notification.params.turn.itemsView,
-        completedItems: threadStreamItemsFromTurns([notification.params.turn]),
+        outcome: completedTurnOutcome(notification.params.turn.status),
+        completedItems: notification.params.turn.itemsView === "notLoaded" ? [] : threadStreamItemsFromTurns([notification.params.turn]),
         completedTurnTranscriptSummary: completedTurnTranscriptSummaryFromAppServerTurn(notification.params.turn),
       };
     case "serverRequest/resolved":
@@ -174,7 +174,7 @@ function hookRunFact(
   status: string,
 ): TurnRuntimeFact | null {
   const item = hookRunThreadStreamItem(run, turnId, status);
-  return item ? { type: "hookRunObserved", item, turnId, eventName: run.eventName } : null;
+  return item ? { type: "hookRunObserved", item, turnId, isPromptSubmission: run.eventName === "userPromptSubmit" } : null;
 }
 
 function jsonNoticeFact(notification: UserVisibleNoticeNotification, localItemId: (prefix: string) => string): TurnRuntimeFact {
@@ -182,4 +182,17 @@ function jsonNoticeFact(notification: UserVisibleNoticeNotification, localItemId
     type: "systemNotice",
     item: createSystemItem(localItemId("system"), `${notification.method}: ${jsonPreview(notification.params)}`),
   };
+}
+
+function completedTurnOutcome(status: Extract<ServerNotification, { method: "turn/completed" }>["params"]["turn"]["status"]): TurnOutcome {
+  switch (status) {
+    case "completed":
+      return "completed";
+    case "failed":
+      return "failed";
+    case "interrupted":
+      return "interrupted";
+    case "inProgress":
+      return "unknown";
+  }
 }

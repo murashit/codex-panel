@@ -1,3 +1,4 @@
+import type { TurnOutcome } from "../../../../domain/runtime/turn-outcome";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
@@ -75,8 +76,7 @@ export type TurnRuntimeFact =
       type: "turnCompleted";
       threadId: string;
       turnId: string;
-      status: string;
-      itemsView: "notLoaded" | "summary" | "full";
+      outcome: TurnOutcome;
       completedItems: readonly ThreadStreamItem[];
       completedTurnTranscriptSummary: TurnTranscriptSummary | null;
     }
@@ -89,7 +89,7 @@ export type TurnRuntimeFact =
       type: "hookRunObserved";
       item: ThreadStreamItem;
       turnId: string | null;
-      eventName: string;
+      isPromptSubmission: boolean;
     }
   | {
       type: "requestResolved";

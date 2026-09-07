@@ -120,7 +120,7 @@ function reduceChildRuntimeFact(state: ChatSubagentActivityState, threadId: stri
         childTurnId: fact.turnId,
         latestItem: latestDisplayableItem(fact.completedItems) ?? entry.latestItem,
         liveness: "stopped",
-        outcome: fact.status === "completed" || fact.status === "failed" ? fact.status : null,
+        outcome: fact.outcome === "completed" || fact.outcome === "failed" ? fact.outcome : null,
         statusPreview: null,
       }));
     case "userMessageObserved":

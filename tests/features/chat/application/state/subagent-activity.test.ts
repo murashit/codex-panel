@@ -136,8 +136,8 @@ describe("subagent activity state", () => {
             text: "Everything passes.",
           },
         ],
-        status: "completed",
-        itemsView: "full",
+        outcome: "completed",
+
         completedTurnTranscriptSummary: null,
       },
     });
@@ -177,8 +177,8 @@ describe("subagent activity state", () => {
         threadId: "child",
         turnId: "old-turn",
         completedItems: [reasoningItem("stale", "Older work", "old-turn")],
-        status: "completed",
-        itemsView: "full",
+        outcome: "completed",
+
         completedTurnTranscriptSummary: null,
       },
     });
@@ -201,8 +201,8 @@ describe("subagent activity state", () => {
         threadId: "child",
         turnId: "child-turn",
         completedItems: [],
-        status: "completed",
-        itemsView: "full",
+        outcome: "completed",
+
         completedTurnTranscriptSummary: null,
       },
     });

@@ -651,7 +651,7 @@ describe("chatReducer", () => {
     const next = chatReducer(state, {
       type: "turn/completed",
       turnId: "stale-turn",
-      status: "completed",
+      outcome: "completed",
       items: [],
     });
 

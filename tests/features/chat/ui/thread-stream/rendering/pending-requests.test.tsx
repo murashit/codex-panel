@@ -576,6 +576,7 @@ describe("panel pending request rendering", () => {
     const blocks = projectedThreadStreamBlocks({
       items: [
         {
+          reviewKind: "automaticResult",
           id: "review-1",
           kind: "reviewResult",
           role: "tool",
@@ -584,6 +585,7 @@ describe("panel pending request rendering", () => {
           provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: "review-1" },
         },
         {
+          reviewKind: "automaticResult",
           id: "review-2",
           kind: "reviewResult",
           role: "tool",

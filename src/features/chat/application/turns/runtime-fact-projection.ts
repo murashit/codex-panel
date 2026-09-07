@@ -162,14 +162,14 @@ function turnCompletedProjection(state: ChatState, fact: Extract<TurnRuntimeFact
   const reconciledItems = reconcileCompletedTurnItems({
     currentItems: threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)),
     completedTurnId: fact.turnId,
-    turnItems: fact.itemsView === "notLoaded" ? [] : fact.completedItems,
+    turnItems: fact.completedItems,
   });
   return {
     actions: [
       {
         type: "turn/completed",
         turnId: fact.turnId,
-        status: fact.status,
+        outcome: fact.outcome,
         items: completeReasoningItems(reconciledItems, fact.turnId),
       },
     ],
@@ -199,7 +199,7 @@ function hookRunProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { ty
   const item = resolvedTurnId ? { ...fact.item, turnId: resolvedTurnId } : fact.item;
   const currentPendingTurnStart = pendingTurnStartForState(state.activeTurn);
   let pendingTurnStart = currentPendingTurnStart;
-  if (!resolvedTurnId && currentPendingTurnStart && fact.eventName === "userPromptSubmit") {
+  if (!resolvedTurnId && currentPendingTurnStart && fact.isPromptSubmission) {
     const hookIds = currentPendingTurnStart.promptSubmitHookItemIds;
     pendingTurnStart = hookIds.includes(item.id)
       ? currentPendingTurnStart
@@ -214,7 +214,7 @@ function hookRunProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { ty
 
 function hookTurnId(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "hookRunObserved" }>): string | null {
   if (fact.turnId) return fact.turnId;
-  if (fact.eventName === "userPromptSubmit" && !pendingTurnStartForState(state.activeTurn)) return activeTurnId(state.activeTurn);
+  if (fact.isPromptSubmission && !pendingTurnStartForState(state.activeTurn)) return activeTurnId(state.activeTurn);
   return null;
 }
 
@@ -256,16 +256,12 @@ function hasStructuredAutoReviewResult(items: readonly ThreadStreamItem[], activ
       item.kind === "reviewResult" &&
       Boolean(item.turnId) &&
       (!activeTurnId || item.turnId === activeTurnId) &&
-      isAutoReviewText(item.text),
+      item.reviewKind === "automaticResult",
   );
 }
 
 function isUnstructuredAutoReviewWarning(item: ThreadStreamItem): boolean {
-  return item.kind === "reviewResult" && !item.turnId && isAutoReviewText(item.text);
-}
-
-function isAutoReviewText(text: string): boolean {
-  return /^Auto-review\b/i.test(text.trim());
+  return item.kind === "reviewResult" && item.reviewKind === "automaticWarning";
 }
 
 function actionProjection(action: ChatAction): TurnRuntimeProjection {

@@ -1,3 +1,4 @@
+import { turnOutcomeLabel } from "../../../../domain/runtime/turn-outcome";
 import { unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
 import { initialActiveChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
@@ -223,7 +224,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   return patchObject(state, {
     activeTurn: activeTurnWithLifecycle(state.activeTurn, lifecycle),
     threadStream: threadStreamWithItems(state.threadStream, action.items),
-    connection: { ...state.connection, statusText: `Turn ${action.status}.` },
+    connection: { ...state.connection, statusText: turnOutcomeLabel(action.outcome) },
   });
 }
 

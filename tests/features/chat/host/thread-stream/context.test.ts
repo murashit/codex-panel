@@ -101,7 +101,7 @@ describe("thread stream surface", () => {
     store.dispatch({
       type: "turn/completed",
       turnId: "turn",
-      status: "completed",
+      outcome: "completed",
       items: [
         {
           id: "assistant",

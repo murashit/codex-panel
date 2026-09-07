@@ -1973,11 +1973,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
 
       expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
-        {
-          kind: "reviewResult",
-          role: "tool",
-          text: "Auto-review denied this command.",
-        },
+        { reviewKind: "automaticWarning", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." },
       ]);
     });
 

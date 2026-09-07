@@ -64,8 +64,8 @@ describe("TurnRuntimeFact projection", () => {
       type: "turnCompleted",
       threadId: "thread-active",
       turnId: "turn-active",
-      status: "completed",
-      itemsView: "full",
+      outcome: "completed",
+
       completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
       completedItems: [
         {
@@ -177,8 +177,8 @@ describe("TurnRuntimeFact projection", () => {
       type: "turnCompleted",
       threadId: "thread-active",
       turnId: "turn-active",
-      status: "completed",
-      itemsView: "summary",
+      outcome: "completed",
+
       completedTurnTranscriptSummary: { userText: null, assistantText: "done" },
       completedItems: [
         {
@@ -221,8 +221,8 @@ describe("TurnRuntimeFact projection", () => {
       type: "turnCompleted",
       threadId: "thread-active",
       turnId: "turn-active",
-      status: "interrupted",
-      itemsView: "notLoaded",
+      outcome: "interrupted",
+
       completedTurnTranscriptSummary: null,
       completedItems: [],
     });
@@ -235,13 +235,25 @@ describe("TurnRuntimeFact projection", () => {
     let state = activeRunningState();
     state = withChatStateStableThreadStreamItems(state, [
       { id: "m1", kind: "dialogue", dialogueKind: "assistantResponse", role: "assistant", text: "working", dialogueState: "completed" },
-      { id: "warning-1", kind: "reviewResult", role: "tool", text: "Auto-review warning", executionState: "completed" },
+      {
+        reviewKind: "automaticWarning",
+        id: "warning-1",
+        kind: "reviewResult",
+        role: "tool",
+        text: "Approval checking is underway",
+        executionState: "completed",
+      },
+    ]);
+    state = withChatStateStableThreadStreamItems(state, [
+      ...chatStateThreadStreamItems(state),
+      { id: "unrelated", kind: "reviewResult", reviewKind: "message", role: "tool", text: "Auto-review documentation changed" },
     ]);
     const item: ThreadStreamItem = {
+      reviewKind: "automaticResult",
       id: "review-1",
       kind: "reviewResult",
       role: "tool",
-      text: "Auto-review approved",
+      text: "Approval check accepted",
       turnId: "turn-active",
       executionState: "completed",
     };
@@ -249,6 +261,6 @@ describe("TurnRuntimeFact projection", () => {
     const projection = projectTurnRuntimeFact(state, { type: "autoReviewUpdated", item });
     const next = applyActions(state, projection.actions);
 
-    expect(chatStateThreadStreamItems(next).map((streamItem) => streamItem.id)).toEqual(["m1", "review-1"]);
+    expect(chatStateThreadStreamItems(next).map((streamItem) => streamItem.id)).toEqual(["m1", "unrelated", "review-1"]);
   });
 });

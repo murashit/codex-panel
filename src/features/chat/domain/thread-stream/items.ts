@@ -192,6 +192,7 @@ export interface ApprovalResultThreadStreamItem extends ThreadStreamBase {
 }
 
 export interface ReviewResultThreadStreamItem extends ThreadStreamBase {
+  readonly reviewKind: "automaticResult" | "automaticWarning" | "message";
   readonly kind: "reviewResult";
   readonly role: "tool";
   readonly text: string;

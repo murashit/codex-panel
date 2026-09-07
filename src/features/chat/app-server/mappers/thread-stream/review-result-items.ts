@@ -59,6 +59,7 @@ export function createReviewResultItem(id: string, text: string): ThreadStreamIt
       kind: "reviewResult",
       role: "tool",
       text: parsed.summary,
+      reviewKind: "automaticWarning",
       provenance: { source: "panel", channel: "notice", reason: "parsedAutoReview", sourceId: id },
       executionState: autoReviewExecutionState(parsed.status),
       review: { auditFacts: parsed.rows },
@@ -69,6 +70,7 @@ export function createReviewResultItem(id: string, text: string): ThreadStreamIt
     kind: "reviewResult",
     role: "tool",
     text,
+    reviewKind: /^Auto-review\b/i.test(text.trim()) ? "automaticWarning" : "message",
     provenance: { source: "panel", channel: "notice", reason: "reviewMessage", sourceId: id },
   };
 }
@@ -92,6 +94,7 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Thre
     kind: "reviewResult",
     role: "tool",
     text,
+    reviewKind: "automaticResult",
     turnId: params.turnId,
     provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: params.reviewId },
     executionState: completed ? autoReviewExecutionState(status) : RUNNING_EXECUTION_STATE,

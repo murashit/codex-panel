@@ -104,8 +104,8 @@ describe("app-server turn runtime fact adapter", () => {
         type: "turnCompleted",
         threadId: "thread-active",
         turnId: "turn-active",
-        status: "completed",
-        itemsView: "summary",
+        outcome: "completed",
+
         completedTurnTranscriptSummary: null,
       }),
     );
@@ -144,7 +144,7 @@ describe("app-server turn runtime fact adapter", () => {
     expect(facts).toEqual({
       type: "hookRunObserved",
       turnId: "turn-active",
-      eventName: "postToolUse",
+      isPromptSubmission: false,
       item: expect.objectContaining({
         id: "hook-hook-1-1",
         kind: "hook",
@@ -162,5 +162,73 @@ describe("app-server turn runtime fact adapter", () => {
     if (fact?.type !== "hookRunObserved") throw new Error("Expected a hook runtime fact");
     if (fact.item.kind !== "hook") throw new Error("Expected a hook item");
     expect(fact.item.hookRun).not.toHaveProperty("durationMs");
+  });
+  it.each(["completed", "failed", "interrupted"] as const)(
+    "preserves %s as a distinct turn outcome without wire item metadata",
+    (status) => {
+      const fact = turnRuntimeFactFromNotification(
+        {
+          method: "turn/completed",
+          params: {
+            threadId: "thread",
+            turn: {
+              id: "turn",
+              status,
+              error: null,
+              startedAt: null,
+              completedAt: null,
+              durationMs: null,
+              itemsView: "notLoaded",
+              items: [],
+            },
+          },
+        },
+        () => "unused",
+      );
+      expect(fact).toMatchObject({ type: "turnCompleted", outcome: status, completedItems: [] });
+      expect(fact).not.toHaveProperty("status");
+      expect(fact).not.toHaveProperty("itemsView");
+    },
+  );
+
+  it.each([
+    ["Automatic approval review approved: safe operation", "automaticWarning"],
+    ["Auto-review warning", "automaticWarning"],
+    ["Please check the command", "message"],
+  ])("classifies review warning meaning at the input boundary: %s", (message, reviewKind) => {
+    const fact = turnRuntimeFactFromNotification({ method: "guardianWarning", params: { threadId: "thread", message } }, () => "warning");
+    expect(fact).toMatchObject({ type: "reviewWarning", item: { reviewKind } });
+  });
+  it("does not treat items accompanying an unacquired completion as a replacement snapshot", () => {
+    const fact = turnRuntimeFactFromNotification(
+      {
+        method: "turn/completed",
+        params: {
+          threadId: "thread",
+          turn: {
+            id: "turn",
+            status: "completed",
+            error: null,
+            startedAt: null,
+            completedAt: null,
+            durationMs: null,
+            itemsView: "notLoaded",
+            items: [
+              {
+                type: "agentMessage",
+                id: "a",
+                text: "not acquired",
+                phase: "final_answer",
+                memoryCitation: null,
+                delivery: null,
+                questions: null,
+              },
+            ],
+          },
+        },
+      },
+      () => "unused",
+    );
+    expect(fact).toMatchObject({ type: "turnCompleted", completedItems: [], completedTurnTranscriptSummary: null });
   });
 });

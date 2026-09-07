@@ -113,7 +113,7 @@ describe("active turn aggregate", () => {
     const completed = chatReducer(withAuthRecovery, {
       type: "turn/completed",
       turnId: "turn-1",
-      status: "completed",
+      outcome: "completed",
       items: [userItem("local-user", "turn-1"), assistantItem("assistant", "turn-1", "working more")],
     });
     expect(completed.activeTurn.lifecycle).toEqual({ kind: "idle" });
@@ -145,7 +145,7 @@ describe("active turn aggregate", () => {
         turnId: "turn-a",
       },
     });
-    state = chatReducer(state, { type: "turn/completed", turnId: "turn-a", status: "completed", items: [] });
+    state = chatReducer(state, { type: "turn/completed", turnId: "turn-a", outcome: "completed", items: [] });
     const optimisticItem = userItem("local-user-b");
     state = chatReducer(state, {
       type: "turn/optimistic-started",

@@ -5,6 +5,7 @@ import {
   runtimePermissionStateOrDefault,
 } from "../../../../domain/runtime/permissions";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
+import type { TurnOutcome } from "../../../../domain/runtime/turn-outcome";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { Thread } from "../../../../domain/threads/model";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
@@ -102,7 +103,7 @@ export interface TurnStartedAction {
 export interface TurnCompletedAction {
   type: "turn/completed";
   turnId: string;
-  status: string;
+  outcome: TurnOutcome;
   items: readonly ThreadStreamItem[];
 }
 
