@@ -148,20 +148,6 @@ function userThreadStreamItem(item: UserMessageItem, turnId?: string): ThreadStr
   const referencedThread = projection.referencedThread;
   const referencedFiles = threadStreamFileReferences(projection.fileReferences);
   const contextAttachments = contextAttachmentsFromHistoryContexts(projection.contexts, text);
-  if (referencedThread) {
-    return {
-      ...turnItemSourceFields(item, turnId),
-      kind: "dialogue",
-      dialogueKind: "user",
-      role: "user",
-      text: userMessageDisplayText(text, item.content),
-      copyText: text,
-      referencedThread,
-      ...definedProp("clientId", item.clientId),
-      ...(referencedFiles.length > 0 ? { referencedFiles } : {}),
-      ...(contextAttachments.length > 0 ? { contextAttachments } : {}),
-    };
-  }
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "dialogue",
@@ -169,6 +155,7 @@ function userThreadStreamItem(item: UserMessageItem, turnId?: string): ThreadStr
     role: "user",
     text: userMessageDisplayText(text, item.content),
     copyText: text,
+    ...(referencedThread ? { referencedThread } : {}),
     ...definedProp("clientId", item.clientId),
     ...(referencedFiles.length > 0 ? { referencedFiles } : {}),
     ...(contextAttachments.length > 0 ? { contextAttachments } : {}),
@@ -546,7 +533,6 @@ function jsonTargetPrimitive(value: unknown): string | null {
 
 function durationLabel(durationMs: number): string {
   if (durationMs < 1000) return `${String(durationMs)}ms`;
-  if (durationMs % 1000 === 0) return `${String(durationMs / 1000)}s`;
   return `${String(durationMs / 1000)}s`;
 }
 

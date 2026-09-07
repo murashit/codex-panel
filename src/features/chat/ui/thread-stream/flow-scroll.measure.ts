@@ -6,7 +6,6 @@ import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "./content-rendered-event.d
 type ThreadStreamScrollDirection = -1 | 1;
 
 const THREAD_STREAM_FLOW_TEXT_LINE_SCROLL_LINES = 4;
-const THREAD_STREAM_FLOW_REPEATED_TEXT_LINE_SCROLL_LINES = 4;
 
 export type ThreadStreamScrollCommand =
   | { kind: "show-latest" }
@@ -43,6 +42,7 @@ interface ThreadStreamFlowRuntime {
   followingEnd: boolean;
   restoreFrame: number | null;
   resizeObserver: ResizeObserver | null;
+  cleanupContainer: (() => void) | null;
 }
 
 export class ThreadStreamFlowFrame<Block extends ThreadStreamFlowBlockIdentity> extends Component<ThreadStreamFlowFrameProps<Block>> {
@@ -127,6 +127,7 @@ function createThreadStreamFlowRuntime(): ThreadStreamFlowRuntime {
     followingEnd: false,
     restoreFrame: null,
     resizeObserver: null,
+    cleanupContainer: null,
   };
 }
 
@@ -176,26 +177,21 @@ function attachThreadStreamFlowContainer(runtime: ThreadStreamFlowRuntime, conta
   }
 
   runtime.restoreFrame = null;
-  cleanupThreadStreamFlowContainer.set(
-    runtime,
-    disposeDomListeners(
-      listenDomEvent(container, "scroll", handleScroll, { passive: true }),
-      listenDomEvent(container, THREAD_STREAM_CONTENT_RENDERED_EVENT, handleContentChange, true),
-      listenDomEvent(container, "toggle", handleContentChange, true),
-      () => {
-        runtime.resizeObserver?.disconnect();
-        runtime.resizeObserver = null;
-      },
-    ),
+  runtime.cleanupContainer = disposeDomListeners(
+    listenDomEvent(container, "scroll", handleScroll, { passive: true }),
+    listenDomEvent(container, THREAD_STREAM_CONTENT_RENDERED_EVENT, handleContentChange, true),
+    listenDomEvent(container, "toggle", handleContentChange, true),
+    () => {
+      runtime.resizeObserver?.disconnect();
+      runtime.resizeObserver = null;
+    },
   );
 }
 
-const cleanupThreadStreamFlowContainer = new WeakMap<ThreadStreamFlowRuntime, () => void>();
-
 function detachThreadStreamFlowContainer(runtime: ThreadStreamFlowRuntime): void {
   cancelThreadStreamFlowEndRestore(runtime);
-  cleanupThreadStreamFlowContainer.get(runtime)?.();
-  cleanupThreadStreamFlowContainer.delete(runtime);
+  runtime.cleanupContainer?.();
+  runtime.cleanupContainer = null;
   runtime.container = null;
 }
 
@@ -222,7 +218,7 @@ function applyThreadStreamFlowScrollCommand(runtime: ThreadStreamFlowRuntime, co
     case "scroll-by":
       scrollThreadStreamFlowBy(
         runtime,
-        threadStreamFlowScrollDelta(runtime, command.amount, command.direction, command.repeated === true),
+        threadStreamFlowScrollDelta(runtime, command.amount, command.direction),
         threadStreamFlowManualScrollBehavior(runtime, command.repeated === true),
       );
       break;
@@ -254,13 +250,11 @@ function threadStreamFlowScrollDelta(
   runtime: ThreadStreamFlowRuntime,
   amount: "text-lines" | "page",
   direction: ThreadStreamScrollDirection,
-  repeated: boolean,
 ): number {
   const container = runtime.container;
   if (!container) return 0;
   if (amount === "page") return Math.max(1, Math.floor(container.clientHeight * 0.8)) * direction;
-  const lines = repeated ? THREAD_STREAM_FLOW_REPEATED_TEXT_LINE_SCROLL_LINES : THREAD_STREAM_FLOW_TEXT_LINE_SCROLL_LINES;
-  return Math.max(1, Math.round(textLineHeight(container) * lines)) * direction;
+  return Math.max(1, Math.round(textLineHeight(container) * THREAD_STREAM_FLOW_TEXT_LINE_SCROLL_LINES)) * direction;
 }
 
 function scrollThreadStreamFlowToEnd(runtime: ThreadStreamFlowRuntime, behavior: ScrollBehavior = "auto"): void {
