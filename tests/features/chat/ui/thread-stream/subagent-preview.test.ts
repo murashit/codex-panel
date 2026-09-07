@@ -43,7 +43,6 @@ describe("subagent activity preview", () => {
           id: "command",
           kind: "command",
           role: "tool",
-          commandAction: "search",
           commandTarget: { kind: "search", query: "inactive", path: "/vault/src" },
           command: 'rg "inactive" src',
           cwd: "/vault",

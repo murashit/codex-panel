@@ -9,16 +9,18 @@ import {
   threadStreamExecutionClassName,
 } from "./model";
 
+type TextItem = Extract<ThreadStreamItem, { kind: "dialogue" | "system" | "userInputResult" }>;
+
 type ThreadStreamTextRenderMode = "text" | "streamMarkdown" | "obsidianMarkdown";
 type ThreadStreamTextMetadataView = ThreadStreamTextView["metadata"];
 
 export function threadStreamTextView(
-  item: ThreadStreamItem,
+  item: TextItem,
   annotations: ThreadStreamItemAnnotations | undefined,
   options: { activeTurnId: string | null; actionTargets?: ThreadStreamTextActionTargets },
 ): ThreadStreamTextView {
   const renderMode = textRenderMode(item);
-  const body = bodyForTextItem(item);
+  const body = item.text;
   return {
     id: item.id,
     roleLabel: roleLabelForTextItem(item),
@@ -33,30 +35,26 @@ export function threadStreamTextView(
   };
 }
 
-function textRenderMode(item: ThreadStreamItem): ThreadStreamTextRenderMode {
+function textRenderMode(item: TextItem): ThreadStreamTextRenderMode {
   if (item.kind !== "dialogue") return "text";
   if (item.dialogueKind === "assistantResponse" && item.dialogueState === "streaming") return "streamMarkdown";
   return item.dialogueKind !== "proposedPlan" || item.dialogueState === "completed" ? "obsidianMarkdown" : "text";
 }
 
-function bodyForTextItem(item: ThreadStreamItem): string {
-  return "text" in item && typeof item.text === "string" ? item.text : "";
-}
-
-function roleLabelForTextItem(item: ThreadStreamItem): string {
+function roleLabelForTextItem(item: TextItem): string {
   if (item.kind === "userInputResult") return "Input";
   if (item.role === "user") return "You";
   if (item.role === "assistant") return "Codex";
   return "System";
 }
 
-function copyTextForTextItem(item: ThreadStreamItem, activeTurnId: string | null): string | undefined {
+function copyTextForTextItem(item: TextItem, activeTurnId: string | null): string | undefined {
   if (item.kind !== "dialogue" || item.copyText === undefined) return undefined;
   if (activeTurnId && item.role === "assistant" && item.turnId === activeTurnId) return undefined;
   return item.copyText;
 }
 
-function textMetadataView(item: ThreadStreamItem, annotations?: ThreadStreamItemAnnotations): ThreadStreamTextMetadataView {
+function textMetadataView(item: TextItem, annotations?: ThreadStreamItemAnnotations): ThreadStreamTextMetadataView {
   return {
     ...definedProp("editedFiles", editedFilesView(item, annotations)),
     ...definedProp("referencedThread", referencedThreadView(item)),
@@ -67,7 +65,7 @@ function textMetadataView(item: ThreadStreamItem, annotations?: ThreadStreamItem
   };
 }
 
-function editedFilesView(item: ThreadStreamItem, annotations?: ThreadStreamItemAnnotations): EditedFilesTextView | undefined {
+function editedFilesView(item: TextItem, annotations?: ThreadStreamItemAnnotations): EditedFilesTextView | undefined {
   if (item.kind !== "dialogue" || !annotations?.editedFiles || annotations.editedFiles.length === 0) return undefined;
   return {
     files: annotations.editedFiles,
@@ -75,12 +73,12 @@ function editedFilesView(item: ThreadStreamItem, annotations?: ThreadStreamItemA
   };
 }
 
-function referencedThreadView(item: ThreadStreamItem): ReferencedThreadTextView | undefined {
+function referencedThreadView(item: TextItem): ReferencedThreadTextView | undefined {
   if (item.kind !== "dialogue" || !item.referencedThread) return undefined;
   return item.referencedThread;
 }
 
-function contextItemsView(item: ThreadStreamItem): ThreadStreamTextMetadataView["contextItems"] | undefined {
+function contextItemsView(item: TextItem): ThreadStreamTextMetadataView["contextItems"] | undefined {
   if (item.kind !== "dialogue") return undefined;
   const items = [
     ...(item.referencedFiles ?? []).map((file) => ({ label: file.name, detail: file.path })),
@@ -107,11 +105,9 @@ function userInputQuestionDetailViews(questions: readonly ThreadStreamUserInputQ
   }));
 }
 
-function textItemClass(item: ThreadStreamItem): string {
+function textItemClass(item: TextItem): string {
   const classes = ["codex-panel__stream-item", streamItemRoleClassName(item.role)];
-  if (item.kind === "approvalResult") classes.push("codex-panel__stream-item--approval-result");
   if (item.kind === "userInputResult") classes.push("codex-panel__stream-item--user-input-result");
-  if (item.kind === "reviewResult") classes.push("codex-panel__stream-item--review-result");
   return classes.join(" ");
 }
 

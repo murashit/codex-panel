@@ -165,7 +165,6 @@ export function streamedItemOutputThreadStreamItem(params: {
           executionState: RUNNING_EXECUTION_STATE,
         }
       : {
-          commandAction: "command",
           commandTarget: { kind: "command", commandLine: params.fallbackText },
           command: params.fallbackText,
           cwd: UNKNOWN_STREAMED_COMMAND_CWD,

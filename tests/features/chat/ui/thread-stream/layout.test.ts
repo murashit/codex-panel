@@ -19,7 +19,6 @@ function commandItem(id: string, text: string, turnId: string): ThreadStreamItem
     kind: "command",
     role: "tool",
     turnId,
-    commandAction: "command",
     commandTarget: { kind: "command", commandLine: text },
     command: text,
     cwd: "/vault",

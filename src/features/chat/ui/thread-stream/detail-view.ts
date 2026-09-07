@@ -21,17 +21,18 @@ import type { DetailSection, DetailView } from "./model";
 const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
 const AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT = 96;
 
-export function detailView(item: ThreadStreamItem, workspaceRoot: string): DetailView {
-  return codexDetailView(item, workspaceRoot) ?? genericDetailView(item, workspaceRoot);
-}
+type DetailItem = Extract<
+  ThreadStreamItem,
+  { kind: "command" | "fileChange" | "goal" | "approvalResult" | "reviewResult" | "agent" | "tool" | "hook" }
+>;
 
-export function detailPreviewSummary(item: ThreadStreamItem, workspaceRoot: string): string {
+export function detailPreviewSummary(item: DetailItem, workspaceRoot: string): string {
   let summary: string;
   let label: string;
   switch (item.kind) {
     case "command":
       summary = commandSummary(item);
-      label = commandActionLabel(item.commandAction);
+      label = commandActionLabel(item.commandTarget.kind);
       break;
     case "fileChange": {
       const displayChanges = fileChangeDisplayChanges(item, workspaceRoot);
@@ -60,14 +61,11 @@ export function detailPreviewSummary(item: ThreadStreamItem, workspaceRoot: stri
       summary = genericToolSummary(item, workspaceRoot);
       label = item.toolName ?? item.kind;
       break;
-    default:
-      summary = genericDetailSummary(item, workspaceRoot);
-      label = detailLabel(item);
   }
   return summary !== "details" ? summary : (outputField(item) ?? label);
 }
 
-function codexDetailView(item: ThreadStreamItem, workspaceRoot: string): DetailView | null {
+export function detailView(item: DetailItem, workspaceRoot: string): DetailView {
   switch (item.kind) {
     case "command":
       return commandDetailView(item);
@@ -84,8 +82,6 @@ function codexDetailView(item: ThreadStreamItem, workspaceRoot: string): DetailV
     case "tool":
     case "hook":
       return genericToolDetailView(item, workspaceRoot);
-    default:
-      return null;
   }
 }
 
@@ -127,7 +123,7 @@ function commandDetailView(item: CommandThreadStreamItem): DetailView {
   return detailViewBase(
     item,
     "codex-panel__detail-item",
-    commandActionLabel(item.commandAction),
+    commandActionLabel(item.commandTarget.kind),
     `${item.id}:command-details`,
     sections,
     commandSummary(item),
@@ -222,17 +218,6 @@ function approvalDetailView(item: ApprovalResultThreadStreamItem): DetailView {
   );
 }
 
-function genericDetailView(item: ThreadStreamItem, workspaceRoot: string): DetailView {
-  return detailViewBase(
-    item,
-    "codex-panel__detail-item",
-    detailLabel(item),
-    itemDetailKey(item.id, "details"),
-    genericDetailSections(item, workspaceRoot),
-    genericDetailSummary(item, workspaceRoot),
-  );
-}
-
 function itemDetailKey(itemId: string, suffix: string): string {
   return `${itemId}:${suffix}`;
 }
@@ -307,17 +292,6 @@ function genericToolDetails(item: ToolCallThreadStreamItem | HookThreadStreamIte
   return [...diagnosticDetails(item), ...webSearchDetails(item), ...imageGenerationDetails(item)];
 }
 
-function genericDetailSections(item: ThreadStreamItem, workspaceRoot: string): DetailSection[] {
-  const rows = [
-    ...metaRow("kind", item.kind),
-    ...metaRow("status", stringField(item, "status")),
-    ...metaRow("operation", stringField(item, "operation")),
-    ...metaRow("target", primaryTargetSummary(primaryTargetField(item), workspaceRoot)),
-    ...metaRow("failure", stringField(item, "failureReason")),
-  ];
-  return [...(rows.length > 0 ? [{ kind: "kv" as const, rows }] : []), ...outputSection("Output", outputField(item))];
-}
-
 function diagnosticDetails(item: ToolCallThreadStreamItem): DetailSection[] {
   return item.diagnostics?.map((section) => ({ kind: "output" as const, title: section.title, body: section.body })) ?? [];
 }
@@ -368,10 +342,6 @@ function metaRow(key: string, value: string | null | undefined): { key: string; 
 function outputField(item: ThreadStreamItem): string | null {
   return "output" in item && typeof item.output === "string" && item.output.trim().length > 0 ? item.output : null;
 }
-function primaryTargetField(item: ThreadStreamItem): ThreadStreamPrimaryTarget | undefined {
-  if (!("primaryTarget" in item)) return undefined;
-  return item.primaryTarget;
-}
 
 function primaryTargetSummary(target: ThreadStreamPrimaryTarget | undefined, workspaceRoot: string): string | null {
   if (!target) return null;
@@ -381,12 +351,6 @@ function primaryTargetSummary(target: ThreadStreamPrimaryTarget | undefined, wor
 
 function textField(item: ThreadStreamItem): string | null {
   return "text" in item && typeof item.text === "string" && item.text.trim().length > 0 ? item.text : null;
-}
-
-function stringField(item: ThreadStreamItem, key: "failureReason" | "operation" | "status" | "toolName"): string | null {
-  if (!(key in item)) return null;
-  const value = (item as unknown as Record<string, unknown>)[key];
-  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
 function compactSummary(label: string | null, target?: string | null, qualifier?: string | null): string {
@@ -405,7 +369,7 @@ function fallbackSummary(item: ThreadStreamItem): string {
   return textField(item) ?? "details";
 }
 
-function commandActionLabel(action: CommandThreadStreamItem["commandAction"]): string {
+function commandActionLabel(action: CommandThreadStreamTarget["kind"]): string {
   if (action === "read") return "read";
   if (action === "search") return "search";
   if (action === "listFiles") return "list files";
@@ -433,15 +397,6 @@ function commandTargetSummary(target: CommandThreadStreamTarget, cwd: string): s
 function commandQualifier(item: CommandThreadStreamItem): string | null {
   if (typeof item.exitCode === "number" && item.exitCode !== 0) return `exit ${String(item.exitCode)}`;
   return statusQualifier(item.status, failedStatusLabel(item.status));
-}
-
-function genericDetailSummary(item: ThreadStreamItem, workspaceRoot: string): string {
-  const target = primaryTargetSummary(primaryTargetField(item), workspaceRoot);
-  return compactSummary(null, target ?? textField(item) ?? outputField(item) ?? stringField(item, "status") ?? item.kind);
-}
-
-function detailLabel(item: ThreadStreamItem): string {
-  return stringField(item, "toolName") ?? item.kind;
 }
 
 function genericToolSummary(item: ToolCallThreadStreamItem | HookThreadStreamItem, workspaceRoot: string): string {

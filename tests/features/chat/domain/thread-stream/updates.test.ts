@@ -128,7 +128,6 @@ function commandItem(id: string, status: string): Extract<ThreadStreamItem, { ki
     sourceItemId: id,
     kind: "command",
     role: "tool",
-    commandAction: "command",
     commandTarget: { kind: "command", commandLine: "npm test" },
     command: "npm test",
     cwd: "/vault",

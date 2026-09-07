@@ -629,7 +629,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       kind: "command",
-      commandAction: "read",
       commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
       executionState: "completed",
     });
@@ -646,7 +645,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       kind: "command",
-      commandAction: "command",
       commandTarget: { kind: "command", commandLine: "npm run check" },
       command: "/bin/zsh -lc 'npm run check'",
       cwd: "/vault",
@@ -665,7 +663,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       kind: "command",
-      commandAction: "search",
       commandTarget: { kind: "search", query: "command target", path: "src/display" },
       command: "rg 'command target' src/display",
       cwd: "/vault",
@@ -684,7 +681,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       kind: "command",
-      commandAction: "listFiles",
       commandTarget: { kind: "listFiles", path: "src/display" },
       executionState: "completed",
     });
@@ -704,7 +700,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       kind: "command",
-      commandAction: "search",
       commandTarget: { kind: "search", query: "target", path: "src" },
       executionState: "completed",
     });
@@ -721,7 +716,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       }),
     ).toMatchObject({
       kind: "command",
-      commandAction: "listFiles",
       commandTarget: { kind: "listFiles" },
       executionState: "completed",
     });

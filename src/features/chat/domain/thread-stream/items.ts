@@ -201,7 +201,6 @@ export interface ReviewResultThreadStreamItem extends ThreadStreamBase {
 export interface CommandThreadStreamItem extends ThreadStreamBase {
   readonly kind: "command";
   readonly role: "tool";
-  readonly commandAction: "read" | "search" | "listFiles" | "command";
   readonly commandTarget: CommandThreadStreamTarget;
   readonly command: string;
   readonly cwd: string;

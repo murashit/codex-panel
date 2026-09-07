@@ -363,14 +363,6 @@ function commandTarget(item: CommandExecutionItem): CommandThreadStreamTarget {
   return { kind: "command", commandLine: unwrapShellLoginCommand(firstCommandLine(item.command)) };
 }
 
-function commandActionKind(item: CommandExecutionItem): "read" | "search" | "listFiles" | "command" {
-  const action = representativeCommandAction(item.commandActions);
-  if (action?.type === "read") return "read";
-  if (action?.type === "search") return "search";
-  if (action?.type === "listFiles") return "listFiles";
-  return "command";
-}
-
 function representativeCommandAction(actions: CommandAction[]): CommandAction | null {
   return (
     actions.find((action) => action.type === "read") ??
@@ -467,7 +459,6 @@ function commandThreadStreamItem(item: CommandExecutionItem, turnId?: string): T
     ...turnItemSourceFields(item, turnId),
     kind: "command",
     role: "tool",
-    commandAction: commandActionKind(item),
     commandTarget: commandTarget(item),
     command: item.command,
     cwd: item.cwd,

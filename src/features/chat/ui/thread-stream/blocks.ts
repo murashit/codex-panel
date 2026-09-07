@@ -30,8 +30,6 @@ interface ThreadStreamBlockProjectionInput {
   authRecovery: { readonly message: string; readonly phase: "running" | "completed" } | null;
 }
 
-type ThreadStreamRenderFamily = "text" | "detail" | "status";
-
 export function threadStreamViewBlocks(input: ThreadStreamBlockProjectionInput): ThreadStreamViewBlock[] {
   if (input.referenceTitles) {
     input = {
@@ -160,9 +158,10 @@ function threadStreamRenderedItemView(
   input: ThreadStreamBlockProjectionInput,
   annotations?: ThreadStreamItemAnnotations,
 ): ThreadStreamRenderedItemView {
-  const renderFamily = threadStreamRenderFamily(item);
-  switch (renderFamily) {
-    case "text":
+  switch (item.kind) {
+    case "dialogue":
+    case "system":
+    case "userInputResult":
       return {
         kind: "text",
         view: threadStreamTextView(item, annotations, {
@@ -170,19 +169,6 @@ function threadStreamRenderedItemView(
           ...definedProp("actionTargets", input.textActionTargetsByItemId.get(item.id)),
         }),
       };
-    case "detail":
-      return { kind: "detail", view: detailView(item, input.workspaceRoot) };
-    case "status":
-      return { kind: "status", view: threadStreamStatusView(item, statusViewContext(input)) };
-  }
-}
-
-function threadStreamRenderFamily(item: ThreadStreamItem): ThreadStreamRenderFamily {
-  switch (item.kind) {
-    case "dialogue":
-    case "system":
-    case "userInputResult":
-      return "text";
     case "command":
     case "fileChange":
     case "tool":
@@ -191,14 +177,13 @@ function threadStreamRenderFamily(item: ThreadStreamItem): ThreadStreamRenderFam
     case "approvalResult":
     case "reviewResult":
     case "agent":
-      return "detail";
+      return { kind: "detail", view: detailView(item, input.workspaceRoot) };
     case "taskProgress":
     case "reasoning":
     case "wait":
     case "contextCompaction":
-      return "status";
+      return { kind: "status", view: threadStreamStatusView(item, statusViewContext(input)) };
   }
-  return "status";
 }
 
 function statusViewContext(input: ThreadStreamBlockProjectionInput): ThreadStreamStatusViewContext {

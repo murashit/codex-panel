@@ -100,7 +100,7 @@ describe("thread stream presentation blocks", () => {
     expect(blocks.map((block) => block.key)).toEqual(["item:turn:local-steer"]);
   });
 
-  it("renders unknown item kinds as generic status updates", () => {
+  it("renders completed sleep items as wait status updates", () => {
     const blocks = threadStreamViewBlocks(
       blockInput({
         activeThreadId: "thread",
@@ -110,13 +110,12 @@ describe("thread stream presentation blocks", () => {
         workspaceRoot: "/vault",
         items: [
           {
-            id: "unknown",
-            kind: "futureKind",
+            id: "wait",
+            kind: "wait",
             role: "tool",
-            status: "running",
-            output: "raw output",
-            operation: "future operation",
-          } as unknown as ThreadStreamItem,
+            text: "Waited 2s",
+            executionState: "completed",
+          },
         ],
       }),
     );
@@ -124,11 +123,12 @@ describe("thread stream presentation blocks", () => {
     expect(blocks).toMatchObject([
       {
         kind: "status",
-        key: "item:unknown",
+        key: "item:wait",
         view: {
           kind: "generic",
-          label: "futureKind",
-          text: "running",
+          label: "wait",
+          text: "Waited 2s",
+          state: "completed",
         },
       },
     ]);

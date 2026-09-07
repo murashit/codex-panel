@@ -10,7 +10,9 @@ export interface ThreadStreamStatusViewContext {
   activeItems: readonly ThreadStreamItem[];
 }
 
-export function threadStreamStatusView(item: ThreadStreamItem, context: ThreadStreamStatusViewContext): ThreadStreamStatusView {
+type StatusItem = Extract<ThreadStreamItem, { kind: "taskProgress" | "contextCompaction" | "reasoning" | "wait" }>;
+
+export function threadStreamStatusView(item: StatusItem, context: ThreadStreamStatusViewContext): ThreadStreamStatusView {
   if (item.kind === "taskProgress") {
     return {
       kind: "taskProgress",
@@ -23,7 +25,7 @@ export function threadStreamStatusView(item: ThreadStreamItem, context: ThreadSt
   }
   if (item.kind === "contextCompaction") return contextCompactionStatusView(item, context);
   if (item.kind === "reasoning") return reasoningStatusView(item, context);
-  return genericStatusView(item);
+  return waitStatusView(item);
 }
 
 export function agentRunSummaryView(summary: AgentRunSummary): AgentRunSummaryView {
@@ -58,19 +60,13 @@ function reasoningStatusView(item: ReasoningThreadStreamItem, context: ThreadStr
   };
 }
 
-function genericStatusView(item: ThreadStreamItem): ThreadStreamStatusView {
+function waitStatusView(item: Extract<ThreadStreamItem, { kind: "wait" }>): ThreadStreamStatusView {
   return {
     kind: "generic",
     label: item.kind,
     className: "codex-panel__status-item",
     state: item.executionState ?? null,
-    text:
-      stringField(item, "text") ??
-      stringField(item, "status") ??
-      stringField(item, "output") ??
-      stringField(item, "failureReason") ??
-      stringField(item, "operation") ??
-      item.kind,
+    text: item.text,
   };
 }
 
@@ -88,10 +84,4 @@ function agentRunSummaryRow(agent: AgentRunSummaryAgent): { threadId: string; th
     threadLabel: agent.agentLabel ?? shortThreadId(agent.threadId),
     status: agent.messagePreview ?? agent.status,
   };
-}
-
-function stringField(item: ThreadStreamItem, key: "failureReason" | "operation" | "output" | "status" | "text"): string | null {
-  if (!(key in item)) return null;
-  const value = (item as unknown as Record<string, unknown>)[key];
-  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
