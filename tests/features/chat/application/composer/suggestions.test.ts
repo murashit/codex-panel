@@ -18,14 +18,14 @@ type ActiveComposerSuggestionsArguments = Parameters<typeof activeComposerSugges
 
 function activeComposerSuggestions(
   beforeCursor: ActiveComposerSuggestionsArguments[0],
-  notes: ActiveComposerSuggestionsArguments[1],
+  notes: ReturnType<ActiveComposerSuggestionsArguments[1]>,
   skills: ActiveComposerSuggestionsArguments[2],
   threads: ActiveComposerSuggestionsArguments[3] = [],
   models: ActiveComposerSuggestionsArguments[4] = [],
   currentModel: ActiveComposerSuggestionsArguments[5] = null,
   options: Omit<ActiveComposerSuggestionsArguments[6], "fuzzyMatcher"> = {},
 ): ReturnType<typeof activeComposerSuggestionsWithMatcher> {
-  return activeComposerSuggestionsWithMatcher(beforeCursor, notes, skills, threads, models, currentModel, {
+  return activeComposerSuggestionsWithMatcher(beforeCursor, () => notes, skills, threads, models, currentModel, {
     ...options,
     fuzzyMatcher: testFuzzyMatcher,
   });
@@ -126,6 +126,50 @@ describe("composer suggestions", () => {
       display: "Beta Note",
       replacement: "[[Beta Note]]",
     });
+  });
+
+  it("loads notes only for open wikilinks and preserves empty wikilink precedence", () => {
+    const loadNotes = vi.fn(() => notes);
+    const suggest = (text: string) =>
+      activeComposerSuggestionsWithMatcher(text, loadNotes, [], [], [], null, { fuzzyMatcher: testFuzzyMatcher });
+    for (const text of ["plain text", "/pla", "@active", "#tag", "[[Alpha]]", "[[line\nbreak"]) suggest(text);
+    expect(loadNotes).not.toHaveBeenCalled();
+    expect(suggest("[[alp")[0]?.replacement).toBe("[[projects/Alpha]]");
+    expect(loadNotes).toHaveBeenCalledOnce();
+    expect(suggest("/plan [[missing")).toEqual([]);
+  });
+
+  it("ranks scores before recency, then names and paths without mutating candidates", () => {
+    const candidates = Object.freeze(
+      [
+        ["B", "b.md", 10, 5],
+        ["A", "z.md", 10, 5],
+        ["A", "a.md", 10, 5],
+        ["Recent", "recent.md", 20, 5],
+        ["Best", "best.md", 0, 10],
+      ].map(([name, path, mtime, score]) => ({
+        ...expectPresent(notes[0]),
+        basename: String(name),
+        displayName: String(name),
+        path: String(path),
+        linktext: String(path),
+        mtime: Number(mtime),
+        score: Number(score),
+      })),
+    );
+    const originalOrder = candidates.map((note) => note.path);
+    const suggestions = activeComposerSuggestionsWithMatcher("[[query", () => candidates, [], [], [], null, {
+      fuzzyMatcher: {
+        prepare: () => ({
+          match: (text) => {
+            const note = candidates.find((candidate) => candidate.path === text);
+            return note ? { score: note.score } : null;
+          },
+        }),
+      },
+    });
+    expect(suggestions.map((suggestion) => suggestion.detail)).toEqual(["best.md", "recent.md", "a.md", "z.md", "b.md"]);
+    expect(candidates.map((note) => note.path)).toEqual(originalOrder);
   });
 
   it("uses recent files only for empty wikilink suggestions", () => {

@@ -18,7 +18,7 @@ import {
 } from "../../application/composer/context-references";
 import type { FuzzyMatcher } from "../../application/composer/fuzzy-search";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
-import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
+import type { NoteCandidateProvider } from "../../application/composer/note-context";
 import type { PreparedInput } from "../../application/composer/prepared-input";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
@@ -456,7 +456,7 @@ export class ChatComposerController {
   private activeSuggestions(beforeCursor: string, state: ChatState): readonly ComposerSuggestion[] {
     return activeComposerSuggestions(
       beforeCursor,
-      this.noteCandidates(),
+      () => this.options.noteCandidateProvider.candidates(this.options.sourcePath()),
       this.options.sharedResources.skillsSnapshot() ?? [],
       this.options.sharedResources.activeThreadsSnapshot() ?? [],
       this.options.sharedResources.modelsSnapshot() ?? [],
@@ -519,10 +519,6 @@ export class ChatComposerController {
 
   private suggestionSignature(): string | null {
     return composerSuggestionSignatureFromElement(this.composer);
-  }
-
-  private noteCandidates(): NoteCandidate[] {
-    return [...this.options.noteCandidateProvider.candidates(this.options.sourcePath())];
   }
 
   private currentModelForSuggestions(): string | null {
