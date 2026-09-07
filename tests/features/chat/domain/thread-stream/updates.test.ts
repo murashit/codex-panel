@@ -9,41 +9,41 @@ import {
 describe("thread stream item updates", () => {
   it("appends new items and replaces matching items in place", () => {
     const first = reasoningItem("r1", "turn");
-    const previous = commandItem("c1", "running");
-    const completed = { ...previous, status: "completed", executionState: "completed" } satisfies ThreadStreamItem;
+    const previous = commandItem("c1", "Running");
+    const completed = { ...previous, statusLabel: "Completed", executionState: "completed" } satisfies ThreadStreamItem;
 
     expect(upsertThreadStreamItemById([first], previous)).toEqual([first, previous]);
 
     const replaced = upsertThreadStreamItemById([first, previous], completed);
     expect(replaced.map((item) => item.id)).toEqual(["r1", "c1"]);
     expect(replaced[0]).toBe(first);
-    expect(replaced[1]).toMatchObject({ status: "completed", executionState: "completed" });
+    expect(replaced[1]).toMatchObject({ statusLabel: "Completed", executionState: "completed" });
   });
 
   it("does not overwrite streamed output with an empty completed item", () => {
-    const streamed = { ...commandItem("c1", "running"), output: "partial output" } satisfies ThreadStreamItem;
-    const completed = { ...commandItem("c1", "completed"), output: "" } satisfies ThreadStreamItem;
+    const streamed = { ...commandItem("c1", "Running"), output: "partial output" } satisfies ThreadStreamItem;
+    const completed = { ...commandItem("c1", "Completed"), output: "" } satisfies ThreadStreamItem;
 
     expect(upsertThreadStreamItemById([streamed], completed)[0]).toMatchObject({
       output: "partial output",
-      status: "completed",
+      statusLabel: "Completed",
     });
   });
 
   it("uses non-empty replacement output and preserves streamed file changes when completion omits them", () => {
-    const streamedCommand = { ...commandItem("c1", "running"), output: "partial" } satisfies ThreadStreamItem;
-    const completedCommand = { ...commandItem("c1", "completed"), output: "complete" } satisfies ThreadStreamItem;
-    const streamedChange = fileChangeItem("f1", "running", [{ kind: "update", path: "src/a.ts", diff: "@@ streamed" }]);
-    const completedChange = fileChangeItem("f1", "completed", []);
+    const streamedCommand = { ...commandItem("c1", "Running"), output: "partial" } satisfies ThreadStreamItem;
+    const completedCommand = { ...commandItem("c1", "Completed"), output: "complete" } satisfies ThreadStreamItem;
+    const streamedChange = fileChangeItem("f1", "Running", [{ kind: "update", path: "src/a.ts", diff: "@@ streamed" }]);
+    const completedChange = fileChangeItem("f1", "Completed", []);
 
     expect(upsertThreadStreamItemById([streamedCommand], completedCommand)[0]).toMatchObject({ output: "complete" });
     expect(upsertThreadStreamItemById([streamedChange], completedChange)[0]).toMatchObject({
-      status: "completed",
+      statusLabel: "Completed",
       changes: streamedChange.changes,
     });
 
     const finalChanges = [{ kind: "update", path: "src/a.ts", diff: "@@ complete" }];
-    expect(upsertThreadStreamItemById([streamedChange], fileChangeItem("f1", "completed", finalChanges))[0]).toMatchObject({
+    expect(upsertThreadStreamItemById([streamedChange], fileChangeItem("f1", "Completed", finalChanges))[0]).toMatchObject({
       changes: finalChanges,
     });
   });
@@ -51,20 +51,20 @@ describe("thread stream item updates", () => {
   it("completes reasoning only for the selected turn while preserving unrelated item references", () => {
     const selected = reasoningItem("selected", "turn");
     const otherTurn = reasoningItem("other", "other-turn");
-    const command = { ...commandItem("command", "running"), turnId: "turn" } satisfies ThreadStreamItem;
+    const command = { ...commandItem("command", "Running"), turnId: "turn" } satisfies ThreadStreamItem;
 
     const result = completeReasoningItems([selected, otherTurn, command], "turn");
 
-    expect(result[0]).toEqual({ ...selected, status: "completed", executionState: "completed" });
+    expect(result[0]).toEqual({ ...selected, statusLabel: "Completed", executionState: "completed" });
     expect(result[1]).toBe(otherTurn);
     expect(result[2]).toBe(command);
   });
 
   it("attaches selected hooks to a turn immediately after an explicit anchor", () => {
     const first = userMessage("user", "turn");
-    const anchor = commandItem("anchor", "completed");
+    const anchor = commandItem("anchor", "Completed");
     const firstHook = hookItem("hook-1");
-    const last = commandItem("last", "completed");
+    const last = commandItem("last", "Completed");
     const secondHook = hookItem("hook-2");
 
     const result = attachHookRunsToTurn([first, firstHook, anchor, last, secondHook], "turn", ["hook-1", "hook-2"], "anchor");
@@ -97,7 +97,7 @@ describe("thread stream item updates", () => {
   });
 
   it("appends attached hooks when no user-message anchor exists", () => {
-    const command = commandItem("command", "completed");
+    const command = commandItem("command", "Completed");
     const hook = hookItem("hook");
 
     const result = attachHookRunsToTurn([hook, command], "turn", ["hook"]);
@@ -122,7 +122,7 @@ function userMessage(id: string, turnId?: string): ThreadStreamItem {
   return { id, kind: "dialogue", dialogueKind: "user", role: "user", text: id, ...(turnId ? { turnId } : {}) };
 }
 
-function commandItem(id: string, status: string): Extract<ThreadStreamItem, { kind: "command" }> {
+function commandItem(id: string, statusLabel: string): Extract<ThreadStreamItem, { kind: "command" }> {
   return {
     id,
     sourceItemId: id,
@@ -131,20 +131,20 @@ function commandItem(id: string, status: string): Extract<ThreadStreamItem, { ki
     commandTarget: { kind: "command", commandLine: "npm test" },
     command: "npm test",
     cwd: "/vault",
-    status,
+    statusLabel,
   };
 }
 
 function fileChangeItem(
   id: string,
-  status: string,
+  statusLabel: string,
   changes: Extract<ThreadStreamItem, { kind: "fileChange" }>["changes"],
 ): Extract<ThreadStreamItem, { kind: "fileChange" }> {
-  return { id, kind: "fileChange", role: "tool", status, changes };
+  return { id, kind: "fileChange", role: "tool", statusLabel, changes };
 }
 
 function reasoningItem(id: string, turnId: string): Extract<ThreadStreamItem, { kind: "reasoning" }> {
-  return { id, kind: "reasoning", role: "tool", text: id, turnId, status: "running", executionState: "running" };
+  return { id, kind: "reasoning", role: "tool", text: id, turnId, statusLabel: "Running", executionState: "running" };
 }
 
 function hookItem(id: string): Extract<ThreadStreamItem, { kind: "hook" }> {

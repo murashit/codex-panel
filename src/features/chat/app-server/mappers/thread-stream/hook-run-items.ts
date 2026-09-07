@@ -1,5 +1,11 @@
 import type { HookThreadStreamItem } from "../../../domain/thread-stream/items";
-import { type ExecutionStateByStatus, executionStateFromStatus, RUNNING_EXECUTION_STATE } from "./execution-state";
+import {
+  type ExecutionStateByStatus,
+  executionResultLabel,
+  executionStateFromStatus,
+  executionStatusLabel,
+  RUNNING_EXECUTION_STATE,
+} from "./execution-state";
 
 interface ThreadStreamHookRun {
   id: string;
@@ -33,7 +39,8 @@ export function hookRunThreadStreamItem(run: ThreadStreamHookRun, turnId: string
     ...definedProp("turnId", turnId),
     sourceItemId: displayId,
     provenance: { source: "appServer", channel: "notification", event: "hookRun", sourceItemId: displayId },
-    status,
+    statusLabel: executionStatusLabel(status),
+    resultLabel: executionResultLabel(status),
     executionState: executionStateFromStatus(status, HOOK_RUN_STATES),
     hookRun: {
       eventName,

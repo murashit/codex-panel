@@ -67,9 +67,24 @@ export function collabAgentStateExecutionState(status: string): ExecutionState {
   return executionStateFromStatus(status, COLLAB_AGENT_STATES);
 }
 
-export function appServerFailedStatusLabel(status: unknown): string | null {
-  if (status === "failed") return "failed";
+export function executionStatusLabel(status: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    inProgress: "Running",
+    running: "Running",
+    completed: "Completed",
+    failed: "Failed",
+    declined: "Declined",
+    blocked: "Blocked",
+    stopped: "Stopped",
+  };
+  return Object.hasOwn(labels, status) ? (labels[status] ?? "Unknown") : "Unknown";
+}
+
+export function executionResultLabel(status: string, failure?: string | null): string | null {
   if (status === "declined") return "declined";
+  if (status === "failed") return failure || "failed";
+  if (status === "blocked") return "blocked";
+  if (status === "stopped") return "stopped";
   return null;
 }
 

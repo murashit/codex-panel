@@ -46,7 +46,7 @@ describe("subagent activity preview", () => {
           commandTarget: { kind: "search", query: "inactive", path: "/vault/src" },
           command: 'rg "inactive" src',
           cwd: "/vault",
-          status: "inProgress",
+          statusLabel: "Running",
         },
         "/vault",
       ),

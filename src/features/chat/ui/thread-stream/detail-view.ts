@@ -109,7 +109,7 @@ function commandDetailView(item: CommandThreadStreamItem): DetailView {
   const rows = [
     { key: "command", value: item.command },
     { key: "cwd", value: item.cwd },
-    { key: "status", value: item.status },
+    { key: "status", value: item.statusLabel },
     ...(item.exitCode !== undefined ? [{ key: "exit", value: String(item.exitCode) }] : []),
     ...(item.durationMs !== undefined ? [{ key: "duration", value: `${String(item.durationMs)}ms` }] : []),
   ];
@@ -136,7 +136,7 @@ function fileChangeDetailView(item: FileChangeThreadStreamItem, workspaceRoot: s
     {
       kind: "kv",
       rows: [
-        { key: "status", value: item.status },
+        { key: "status", value: item.statusLabel },
         { key: "files", value: String(item.changes.length) },
       ],
     },
@@ -322,7 +322,7 @@ function hookRunDetails(item: HookThreadStreamItem): DetailSection[] {
   const details = item.hookRun;
   if (!details) return [];
   const rows = [
-    ...metaRow("status", item.status),
+    ...metaRow("status", item.statusLabel),
     { key: "event", value: details.eventName },
     ...metaRow("message", details.statusMessage),
     ...metaRow("duration", details.durationMs),
@@ -359,12 +359,6 @@ function compactSummary(label: string | null, target?: string | null, qualifier?
   return truncate(qualifier ? `${base} (${qualifier})` : base, 140);
 }
 
-function statusQualifier(status: unknown, failure?: string | null): string | null {
-  if (status === "declined") return "declined";
-  if (status === "failed") return failure && failure.length > 0 ? failure : "failed";
-  return null;
-}
-
 function fallbackSummary(item: ThreadStreamItem): string {
   return textField(item) ?? "details";
 }
@@ -377,7 +371,7 @@ function commandActionLabel(action: CommandThreadStreamTarget["kind"]): string {
 }
 
 function commandSummary(item: CommandThreadStreamItem): string {
-  return compactSummary(null, commandTargetSummary(item.commandTarget, item.cwd), commandQualifier(item));
+  return compactSummary(null, commandTargetSummary(item.commandTarget, item.cwd), item.resultLabel);
 }
 
 function commandTargetSummary(target: CommandThreadStreamTarget, cwd: string): string {
@@ -394,26 +388,15 @@ function commandTargetSummary(target: CommandThreadStreamTarget, cwd: string): s
   return target.commandLine;
 }
 
-function commandQualifier(item: CommandThreadStreamItem): string | null {
-  if (typeof item.exitCode === "number" && item.exitCode !== 0) return `exit ${String(item.exitCode)}`;
-  return statusQualifier(item.status, failedStatusLabel(item.status));
-}
-
 function genericToolSummary(item: ToolCallThreadStreamItem | HookThreadStreamItem, workspaceRoot: string): string {
   const target = primaryTargetSummary(item.primaryTarget, workspaceRoot);
-  if (!target) return item.text ?? "details";
-  return compactSummary(toolOperationLabel(item.operation), target, statusQualifier(item.status, item.failureReason));
+  if (!target) return item.resultLabel ? compactSummary(null, item.text ?? item.toolName, item.resultLabel) : (item.text ?? "details");
+  return compactSummary(toolOperationLabel(item.operation), target, item.resultLabel);
 }
 
 function fileChangeSummary(item: FileChangeThreadStreamItem, changes: (ThreadStreamFileChange & { displayPath: string })[]): string {
   const target = fileChangeTargetSummary(changes);
-  return compactSummary(null, target, statusQualifier(item.status, failedStatusLabel(item.status)));
-}
-
-function failedStatusLabel(status: unknown): string | null {
-  if (status === "failed") return "failed";
-  if (status === "declined") return "declined";
-  return null;
+  return compactSummary(null, target, item.resultLabel);
 }
 
 function agentSummaryText(item: AgentThreadStreamItem): string {

@@ -16,6 +16,16 @@ import {
 } from "./test-helpers";
 
 describe("panel thread stream item rendering", () => {
+  it("renders a supplied failure label even without a tool target or wire status", () => {
+    const block = projectedThreadStreamBlocks({
+      items: [
+        { id: "failed-tool", kind: "tool", role: "tool", toolName: "lookup", resultLabel: "access denied", executionState: "failed" },
+      ],
+    })[0];
+    const element = renderThreadStreamBlockElement(block);
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("lookup (access denied)");
+  });
+
   it("renders generic tool details as visible sections inside one details block", () => {
     const block = projectedThreadStreamBlocks({
       turnLifecycle: runningTurnLifecycle("turn"),
@@ -27,7 +37,7 @@ describe("panel thread stream item rendering", () => {
           text: "123",
           toolName: "github.pull_request_read",
           turnId: "turn",
-          status: "completed",
+          statusLabel: "Completed",
           diagnostics: [
             { title: "Arguments JSON", body: '{\n  "id": 123\n}' },
             { title: "Result JSON", body: '{\n  "ok": true\n}' },
@@ -57,7 +67,7 @@ describe("panel thread stream item rendering", () => {
           toolName: "dynamic tool",
           primaryTarget: { kind: "value", value: "codex_panel.resolve_wikilinks" },
           turnId: "turn",
-          status: "completed",
+          statusLabel: "Completed",
           diagnostics: [{ title: "Arguments JSON", body: '{"wikilinks":["[[Note]]"]}' }],
         },
       ],
@@ -201,7 +211,7 @@ describe("panel thread stream item rendering", () => {
           text: "postToolUse: Formatted 1 file.",
           toolName: "hook",
           turnId: "turn",
-          status: "completed",
+          statusLabel: "Completed",
           executionState: "completed",
           hookRun: {
             eventName: "postToolUse",
@@ -220,7 +230,7 @@ describe("panel thread stream item rendering", () => {
     expect(textContents(element, "details summary")).toEqual(["hook"]);
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.textContent).not.toContain("Details");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusCompleted");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("messageFormatted 1 file.");
     expect(textContents(element, ".codex-panel__output-title")).toEqual(["Hook output"]);
@@ -238,7 +248,7 @@ describe("panel thread stream item rendering", () => {
           text: "postToolUse: Formatted 1 file.",
           toolName: "hook",
           turnId: "turn",
-          status: "completed",
+          statusLabel: "Completed",
           executionState: "completed",
           hookRun: {
             eventName: "postToolUse",
@@ -265,7 +275,7 @@ describe("panel thread stream item rendering", () => {
     expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details");
     expect(element.querySelector(".codex-panel__detail-item")?.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusCompleted");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
     expect(element.querySelector(".codex-panel__output-title")?.textContent).toBe("Hook output");
     expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");

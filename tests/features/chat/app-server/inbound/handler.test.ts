@@ -137,7 +137,7 @@ describe("ChatInboundHandler", () => {
 
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ id: "r1", kind: "reasoning", status: "completed", executionState: "completed" }),
+          expect.objectContaining({ id: "r1", kind: "reasoning", statusLabel: "Completed", executionState: "completed" }),
           expect.objectContaining({ id: "a1", kind: "dialogue", text: "answer" }),
         ]),
       );
@@ -455,7 +455,7 @@ describe("ChatInboundHandler", () => {
           role: "tool",
           text: "userPromptSubmit: Saving jj baseline",
           toolName: "hook",
-          status: "completed",
+          statusLabel: "Completed",
         },
       ]);
       const maybeNameThread = vi.fn();

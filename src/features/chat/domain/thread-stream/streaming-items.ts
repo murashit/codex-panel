@@ -160,7 +160,7 @@ export function streamedItemOutputThreadStreamItem(params: {
     output: params.output,
     ...(params.kind === "fileChange"
       ? {
-          status: "inProgress",
+          statusLabel: "Running",
           changes: [],
           executionState: RUNNING_EXECUTION_STATE,
         }
@@ -168,7 +168,7 @@ export function streamedItemOutputThreadStreamItem(params: {
           commandTarget: { kind: "command", commandLine: params.fallbackText },
           command: params.fallbackText,
           cwd: UNKNOWN_STREAMED_COMMAND_CWD,
-          status: "running",
+          statusLabel: "Running",
           executionState: RUNNING_EXECUTION_STATE,
         }),
   } as ThreadStreamItem;

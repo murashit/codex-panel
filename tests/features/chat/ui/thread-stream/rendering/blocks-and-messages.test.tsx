@@ -54,7 +54,7 @@ describe("panel thread stream rendering and action menu", () => {
             text: "userPromptSubmit: Saving jj baseline",
             toolName: "hook",
             turnId: "t1",
-            status: "completed",
+            statusLabel: "Completed",
           },
           {
             id: "a1",
@@ -747,8 +747,9 @@ describe("panel thread stream rendering and action menu", () => {
           turnId: "turn",
           command: "npm run check",
           cwd: "/vault",
-          status: "failed",
+          statusLabel: "Failed",
           exitCode: 1,
+          resultLabel: "exit 1",
           output: "stderr details",
         },
       ],
@@ -778,7 +779,7 @@ describe("panel thread stream rendering and action menu", () => {
           turnId: "turn",
           command: "npm run check",
           cwd: "/vault",
-          status: "inProgress",
+          statusLabel: "Running",
           output: "",
         },
       ],
@@ -788,7 +789,7 @@ describe("panel thread stream rendering and action menu", () => {
     const metaText = element.querySelector(".codex-panel__meta-grid")?.textContent ?? "";
 
     expect(metaText).toContain("commandnpm run check");
-    expect(metaText).toContain("statusinProgress");
+    expect(metaText).toContain("statusRunning");
     expect(metaText).not.toContain("exit");
     expect(metaText).not.toContain("duration");
     expect(metaText).not.toContain("undefined");
@@ -806,7 +807,7 @@ describe("panel thread stream rendering and action menu", () => {
           turnId: "turn",
           command: "different raw command",
           cwd: "/vault",
-          status: "completed",
+          statusLabel: "Completed",
           output: "results",
         },
       ],
@@ -827,7 +828,7 @@ describe("panel thread stream rendering and action menu", () => {
           kind: "fileChange",
           role: "tool",
           turnId: "turn",
-          status: "completed",
+          statusLabel: "Completed",
           changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
           output: "patch applied",
         },
@@ -853,7 +854,7 @@ describe("panel thread stream rendering and action menu", () => {
           kind: "fileChange",
           role: "tool",
           turnId: "turn",
-          status: "completed",
+          statusLabel: "Completed",
           changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
         },
         {
@@ -985,7 +986,7 @@ describe("panel thread stream rendering and action menu", () => {
           kind: "fileChange",
           role: "tool",
           turnId: "turn",
-          status: "completed",
+          statusLabel: "Completed",
           changes: [{ kind: "update", path: "src/main.ts", diff: "@@\n-old\n+new" }],
         },
         {

@@ -205,10 +205,11 @@ export interface CommandThreadStreamItem extends ThreadStreamBase {
   readonly commandTarget: CommandThreadStreamTarget;
   readonly command: string;
   readonly cwd: string;
-  readonly status: string;
+  readonly statusLabel: string;
   readonly exitCode?: number;
   readonly durationMs?: number;
   readonly output?: string;
+  readonly resultLabel?: string | null;
 }
 
 export interface ThreadStreamFileChange {
@@ -220,9 +221,10 @@ export interface ThreadStreamFileChange {
 export interface FileChangeThreadStreamItem extends ThreadStreamBase {
   readonly kind: "fileChange";
   readonly role: "tool";
-  readonly status: string;
+  readonly statusLabel: string;
   readonly changes: readonly ThreadStreamFileChange[];
   readonly output?: string;
+  readonly resultLabel?: string | null;
 }
 
 interface ToolThreadStreamBase extends ThreadStreamBase {
@@ -231,9 +233,9 @@ interface ToolThreadStreamBase extends ThreadStreamBase {
   readonly toolName?: string;
   readonly primaryTarget?: ThreadStreamPrimaryTarget;
   readonly operation?: string;
-  readonly failureReason?: string;
-  readonly status?: string;
+  readonly statusLabel?: string;
   readonly output?: string;
+  readonly resultLabel?: string | null;
 }
 
 export interface ToolCallThreadStreamItem extends ToolThreadStreamBase {

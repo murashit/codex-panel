@@ -38,7 +38,7 @@ export function completeReasoningItems(items: readonly ThreadStreamItem[], turnI
     changed = true;
     nextItems.push({
       ...item,
-      status: "completed",
+      statusLabel: "Completed",
       executionState: "completed",
     } satisfies ThreadStreamItem);
   }

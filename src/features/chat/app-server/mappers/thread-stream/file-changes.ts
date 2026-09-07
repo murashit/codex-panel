@@ -1,5 +1,5 @@
 import type { ThreadStreamFileChange, ThreadStreamItem } from "../../../domain/thread-stream/items";
-import { patchApplyExecutionState } from "./execution-state";
+import { executionResultLabel, executionStatusLabel, patchApplyExecutionState } from "./execution-state";
 
 export interface AppServerFileChange {
   readonly path: string;
@@ -30,7 +30,8 @@ export function streamingFileChangeThreadStreamItem(
     turnId,
     sourceItemId: itemId,
     provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: itemId },
-    status,
+    statusLabel: executionStatusLabel(status),
+    resultLabel: executionResultLabel(status),
     executionState: patchApplyExecutionState(status),
     changes,
   };

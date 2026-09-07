@@ -15,9 +15,10 @@ import type { CommandThreadStreamTarget, ThreadStreamDiagnosticSection, ThreadSt
 import type { ThreadStreamItemProvenance } from "../../../domain/thread-stream/provenance";
 import { agentThreadStreamItem, subagentActivityThreadStreamItem } from "./agent-items";
 import {
-  appServerFailedStatusLabel,
   commandExecutionState,
   dynamicToolCallExecutionState,
+  executionResultLabel,
+  executionStatusLabel,
   imageGenerationExecutionState,
   mcpToolCallExecutionState,
   patchApplyExecutionState,
@@ -214,8 +215,8 @@ function mcpToolCallThreadStreamItem(item: McpToolCallItem, turnId?: string): Th
     role: "tool",
     toolName: name,
     ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
-    ...(item.error?.message ? { failureReason: item.error.message } : {}),
-    status: item.status,
+    resultLabel: executionResultLabel(item.status, item.error?.message),
+    statusLabel: executionStatusLabel(item.status),
     ...definedProp(
       "diagnostics",
       jsonDiagnosticSections(
@@ -231,15 +232,15 @@ function mcpToolCallThreadStreamItem(item: McpToolCallItem, turnId?: string): Th
 
 function dynamicToolCallThreadStreamItem(item: DynamicToolCallItem, turnId?: string): ThreadStreamItem {
   const qualifiedName = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
-  const failure = item.success === false ? "failed" : appServerFailedStatusLabel(item.status);
+  const failure = item.success === false ? "failed" : executionResultLabel(item.status);
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "tool",
     role: "tool",
     toolName: "dynamic tool",
     primaryTarget: { kind: "value", value: qualifiedName },
-    ...(failure ? { failureReason: failure } : {}),
-    status: item.status,
+    resultLabel: failure,
+    statusLabel: executionStatusLabel(item.status),
     ...definedProp(
       "diagnostics",
       jsonDiagnosticSections({ title: "Arguments JSON", value: item.arguments }, { title: "Result JSON", value: item.contentItems }),
@@ -285,7 +286,6 @@ function sleepThreadStreamItem(item: SleepItem, turnId?: string): ThreadStreamIt
 
 function imageGenerationThreadStreamItem(item: ImageGenerationItem, turnId?: string): ThreadStreamItem {
   const target = item.savedPath ?? item.result;
-  const failureReason = appServerFailedStatusLabel(item.status);
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "tool",
@@ -294,8 +294,8 @@ function imageGenerationThreadStreamItem(item: ImageGenerationItem, turnId?: str
     ...(target
       ? { primaryTarget: item.savedPath ? { kind: "path" as const, path: item.savedPath } : { kind: "value" as const, value: target } }
       : {}),
-    ...(failureReason ? { failureReason } : {}),
-    status: item.status,
+    resultLabel: executionResultLabel(item.status),
+    statusLabel: executionStatusLabel(item.status),
     imageGeneration: {
       ...definedProp("savedPath", item.savedPath),
       revisedPrompt: item.revisedPrompt,
@@ -449,7 +449,8 @@ function commandThreadStreamItem(item: CommandExecutionItem, turnId?: string): T
     commandTarget: commandTarget(item),
     command: item.command,
     cwd: item.cwd,
-    status: item.status,
+    statusLabel: executionStatusLabel(item.status),
+    resultLabel: exitCode !== undefined && exitCode !== 0 ? `exit ${String(exitCode)}` : executionResultLabel(item.status),
     ...definedProp("exitCode", exitCode),
     ...definedProp("durationMs", durationMs),
     output: item.aggregatedOutput ?? "",
@@ -463,8 +464,9 @@ function fileChangeThreadStreamItem(item: FileChangeItem, turnId?: string): Thre
     ...turnItemSourceFields(item, turnId),
     kind: "fileChange",
     role: "tool",
-    status: item.status,
+    statusLabel: executionStatusLabel(item.status),
     changes,
+    resultLabel: executionResultLabel(item.status),
     executionState: patchApplyExecutionState(item.status),
   };
 }

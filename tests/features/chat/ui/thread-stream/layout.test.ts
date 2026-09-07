@@ -22,7 +22,7 @@ function commandItem(id: string, text: string, turnId: string): ThreadStreamItem
     commandTarget: { kind: "command", commandLine: text },
     command: text,
     cwd: "/vault",
-    status: "completed",
+    statusLabel: "Completed",
     executionState: "completed",
   };
 }
@@ -33,7 +33,7 @@ function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): Threa
     kind: "fileChange",
     role: "tool",
     turnId,
-    status: "completed",
+    statusLabel: "Completed",
     executionState: "completed",
     changes: [{ kind: "update", path, diff: "" }],
   };
@@ -63,10 +63,10 @@ describe("display block grouping keeps thread stream details subordinate to conv
         text: "userPromptSubmit: Saving jj baseline",
         toolName: "hook",
         turnId: "t1",
-        status: "completed",
+        statusLabel: "Completed",
       },
       commandItem("c1", "npm test", "t1"),
-      { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1", status: "completed" },
+      { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1", statusLabel: "Completed" },
       autoReviewResultItem("review-1", "t1"),
       autoReviewResultItem("review-2", "t1"),
       {
@@ -102,7 +102,7 @@ describe("display block grouping keeps thread stream details subordinate to conv
   it("hides empty completed reasoning items", () => {
     const items: ThreadStreamItem[] = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
-      { id: "r1", kind: "reasoning", role: "tool", text: "", turnId: "t1", status: "completed", executionState: "completed" },
+      { id: "r1", kind: "reasoning", role: "tool", text: "", turnId: "t1", statusLabel: "Completed", executionState: "completed" },
       {
         id: "a1",
         kind: "dialogue",

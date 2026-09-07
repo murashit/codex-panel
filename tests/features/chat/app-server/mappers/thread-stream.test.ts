@@ -770,7 +770,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     ).toMatchObject({
       kind: "tool",
       primaryTarget: { kind: "value", value: "123" },
-      failureReason: "Not found",
+      resultLabel: "Not found",
       toolName: "github.pull_request_read",
       diagnostics: expect.arrayContaining([
         { title: "Arguments JSON", body: expect.stringContaining('"id": 123') },
@@ -841,7 +841,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       kind: "tool",
       toolName: "imageGeneration",
       primaryTarget: { kind: "path", path: "/vault/project/assets/generated.png" },
-      status: "completed",
+      statusLabel: "Completed",
       imageGeneration: {
         savedPath: "/vault/project/assets/generated.png",
         revisedPrompt: "A precise UI mockup.",
@@ -1183,12 +1183,16 @@ describe("execution state uses typed status adapters before rendered text", () =
   });
 
   it("keeps command exit code precedence as a Panel display rule", () => {
-    expect(commandExecutionItem({ status: "completed", exitCode: 1 })).toMatchObject({ executionState: "failed" });
+    expect(commandExecutionItem({ status: "completed", exitCode: 1 })).toMatchObject({ executionState: "failed", resultLabel: "exit 1" });
     expect(commandExecutionItem({ status: "unknown", exitCode: 0 })).toMatchObject({ executionState: "completed" });
   });
 
   it("maps app-server status strings into Panel execution states", () => {
-    expect(fileChangeStreamItem({ status: "declined" })).toMatchObject({ executionState: "failed" });
+    expect(fileChangeStreamItem({ status: "declined" })).toMatchObject({
+      executionState: "failed",
+      statusLabel: "Declined",
+      resultLabel: "declined",
+    });
     expect(mcpToolCallItem({ status: "completed" })).toMatchObject({ executionState: "completed" });
     expect(
       taskProgressThreadStreamItem("turn", "Planning", [
@@ -1199,7 +1203,11 @@ describe("execution state uses typed status adapters before rendered text", () =
     expect(autoReviewItem("approved")).toMatchObject({ executionState: "completed" });
     expect(autoReviewItem("timedOut")).toMatchObject({ executionState: "failed" });
     expect(hookRunThreadStreamItem(hookRun(), "turn", "completed")).toMatchObject({ executionState: "completed" });
-    expect(hookRunThreadStreamItem(hookRun(), "turn", "stopped")).toMatchObject({ executionState: "failed" });
+    expect(hookRunThreadStreamItem(hookRun(), "turn", "stopped")).toMatchObject({
+      executionState: "failed",
+      statusLabel: "Stopped",
+      resultLabel: "stopped",
+    });
     expect(collabAgentStateExecutionState("inProgress")).toBe("running");
     expect(collabAgentStateExecutionState("failed")).toBe("failed");
     expect(threadStreamItemFromTurnItem(collabAgentToolCall({ status: "interrupted" }), "turn")).toMatchObject({
@@ -1209,11 +1217,15 @@ describe("execution state uses typed status adapters before rendered text", () =
 
   it("uses dynamic tool success as a display fallback", () => {
     expect(dynamicToolCallItem({ status: "unknown", success: true })).toMatchObject({ executionState: "completed" });
-    expect(dynamicToolCallItem({ status: "completed", success: false })).toMatchObject({ executionState: "failed" });
+    expect(dynamicToolCallItem({ status: "completed", success: false })).toMatchObject({ executionState: "failed", resultLabel: "failed" });
   });
 
   it("does not infer unknown status strings with broad matching", () => {
-    expect(fileChangeStreamItem({ status: "done_with_errors" })).toMatchObject({ executionState: null });
+    expect(fileChangeStreamItem({ status: "done_with_errors" })).toMatchObject({
+      executionState: null,
+      statusLabel: "Unknown",
+      resultLabel: null,
+    });
     expect(commandExecutionItem({ status: "done_with_errors", exitCode: null })).toMatchObject({ executionState: null });
   });
 });
