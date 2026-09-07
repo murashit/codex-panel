@@ -1,9 +1,7 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
-import { jsonPreview } from "../../../../domain/display/json-preview";
 import type { TurnOutcome } from "../../../../domain/runtime/turn-outcome";
 import { authRecoveryProgress } from "../../application/turns/auth-recovery";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
-import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { STREAMED_COMMAND_RUNNING_TEXT, STREAMED_MCP_PROGRESS_LABEL } from "../../domain/thread-stream/streaming-items";
 import { type AppServerFileChange, normalizeFileChanges, streamingFileChangeThreadStreamItem } from "../mappers/thread-stream/file-changes";
@@ -18,6 +16,7 @@ import {
   threadStreamItemsFromTurns,
 } from "../mappers/thread-stream/turn-items";
 import type { StreamUpdateNotification, TurnLifecycleNotification, UserVisibleNoticeNotification } from "./notification-routing";
+import { userVisibleNoticeItem } from "./user-visible-notice";
 
 export type RuntimeFactSource =
   | StreamUpdateNotification
@@ -142,9 +141,10 @@ export function turnRuntimeFactFromNotification(
     case "warning":
     case "configWarning":
     case "windows/worldWritableWarning":
-      return jsonNoticeFact(notification, localItemId);
-    case "windowsSandbox/setupCompleted":
-      return notification.params.success ? null : jsonNoticeFact(notification, localItemId);
+    case "windowsSandbox/setupCompleted": {
+      const item = userVisibleNoticeItem(notification, localItemId("system"));
+      return item ? { type: "systemNotice", item } : null;
+    }
   }
 }
 
@@ -175,13 +175,6 @@ function hookRunFact(
 ): TurnRuntimeFact | null {
   const item = hookRunThreadStreamItem(run, turnId, status);
   return item ? { type: "hookRunObserved", item, turnId, isPromptSubmission: run.eventName === "userPromptSubmit" } : null;
-}
-
-function jsonNoticeFact(notification: UserVisibleNoticeNotification, localItemId: (prefix: string) => string): TurnRuntimeFact {
-  return {
-    type: "systemNotice",
-    item: createSystemItem(localItemId("system"), `${notification.method}: ${jsonPreview(notification.params)}`),
-  };
 }
 
 function completedTurnOutcome(status: Extract<ServerNotification, { method: "turn/completed" }>["params"]["turn"]["status"]): TurnOutcome {

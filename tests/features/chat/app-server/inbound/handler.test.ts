@@ -1423,7 +1423,7 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({
           kind: "system",
-          text: 'warning: {\n  "threadId": null,\n  "message": "careful"\n}',
+          text: "careful",
         }),
       ]);
     });
@@ -1439,12 +1439,12 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({
           kind: "system",
-          text: expect.stringContaining("windows/worldWritableWarning"),
+          text: "Windows sandbox filesystem warning.",
         }),
       ]);
       expect(chatStateThreadStreamItems(handler.currentState())[0]).toEqual(
         expect.objectContaining({
-          text: expect.stringContaining("open"),
+          noticeSections: expect.arrayContaining([expect.objectContaining({ body: "C:\\tmp\\open" })]),
         }),
       );
     });
@@ -1460,12 +1460,12 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({
           kind: "system",
-          text: expect.stringContaining("windowsSandbox/setupCompleted"),
+          text: "Windows sandbox setup failed.",
         }),
       ]);
       expect(chatStateThreadStreamItems(handler.currentState())[0]).toEqual(
         expect.objectContaining({
-          text: expect.stringContaining("setup failed"),
+          noticeSections: expect.arrayContaining([expect.objectContaining({ body: "setup failed" })]),
         }),
       );
     });
