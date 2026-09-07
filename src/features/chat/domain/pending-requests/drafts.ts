@@ -97,8 +97,8 @@ function numericMcpElicitationFieldValue(
   draft: string,
 ): number | null {
   if (draft.trim() === "") return null;
-  const parsed = field.type === "integer" ? Number.parseInt(draft, 10) : Number(draft);
-  if (Number.isFinite(parsed)) return parsed;
+  const parsed = Number(draft);
+  if (Number.isFinite(parsed) && (field.type !== "integer" || Number.isInteger(parsed))) return parsed;
   return field.defaultValue;
 }
 

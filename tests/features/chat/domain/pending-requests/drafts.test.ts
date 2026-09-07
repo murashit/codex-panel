@@ -8,6 +8,19 @@ import {
 import type { PendingMcpElicitation, PendingMcpElicitationField } from "../../../../../src/features/chat/domain/pending-requests/model";
 
 describe("pending MCP elicitation drafts", () => {
+  it.each([
+    ["1e3", 1000],
+    ["-2e2", -200],
+    ["4.5", 3],
+    ["4oops", 3],
+    ["1e999", 3],
+    ["", null],
+  ])("preserves integer meaning or falls back for draft %s", (draft, expected) => {
+    const count = field({ id: "count", type: "integer", defaultValue: 3 });
+    const drafts = new Map([[mcpElicitationDraftKey(7, "count"), draft]]);
+    expect(contentForPendingMcpElicitation(elicitation([count]), drafts)).toEqual({ count: expected });
+  });
+
   it("serializes boolean, numeric, and integer form values", () => {
     const fields: PendingMcpElicitationField[] = [
       field({ id: "enabled", type: "boolean", defaultValue: false }),
