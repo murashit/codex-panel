@@ -124,7 +124,6 @@ type AppServerClientLifecycleState =
 export class AppServerClient {
   private lifecycle: AppServerClientLifecycleState = { kind: "disconnected" };
   private readonly rpc: JsonRpcClient;
-  private readonly intentionallyStoppedTransports = new WeakSet<AppServerTransport>();
   private readonly codexPath: string;
   private readonly cwd: string;
   private readonly handlers: AppServerClientHandlers;
@@ -188,11 +187,10 @@ export class AppServerClient {
         const transport = transportRef.current;
         if (!transport) return;
         if (!this.isActiveTransport(transport)) return;
-        const intentional = this.intentionallyStoppedTransports.has(transport);
         const wasInitialized = this.lifecycle.kind === "initialized";
         this.lifecycle = { kind: "disconnected" };
         this.rpc.rejectAll(new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`));
-        if (intentional || !wasInitialized) return;
+        if (!wasInitialized) return;
         this.handlers.onExit(code, signal);
       },
     };
@@ -212,7 +210,6 @@ export class AppServerClient {
         const normalized = error instanceof Error ? error : new Error(String(error));
         this.lifecycle = { kind: "disconnected" };
         this.rpc.rejectAll(normalized);
-        this.intentionallyStoppedTransports.add(transport);
         transport.stop();
       }
       throw error;
@@ -224,7 +221,6 @@ export class AppServerClient {
     this.lifecycle = { kind: "disconnected" };
     this.rpc.rejectAll(new Error("Codex app-server disconnected."));
     if (!transport) return;
-    this.intentionallyStoppedTransports.add(transport);
     transport.stop();
   }
 
@@ -278,7 +274,6 @@ export class AppServerClient {
     const wasInitialized = this.lifecycle.kind === "initialized";
     this.lifecycle = { kind: "disconnected" };
     this.rpc.rejectAll(error);
-    this.intentionallyStoppedTransports.add(transport);
     transport.stop();
     if (wasInitialized) {
       this.handlers.onExit(null, null);
