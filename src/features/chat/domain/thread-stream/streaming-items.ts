@@ -150,26 +150,24 @@ export function streamedItemOutputThreadStreamItem(params: {
   kind: "command" | "fileChange";
   fallbackText: string;
 }): ThreadStreamItem {
-  return {
+  const base = {
     id: params.id,
-    kind: params.kind,
     role: "tool",
     turnId: params.turnId,
     sourceItemId: params.id,
     provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: params.id },
     output: params.output,
-    ...(params.kind === "fileChange"
-      ? {
-          statusLabel: "Running",
-          changes: [],
-          executionState: RUNNING_EXECUTION_STATE,
-        }
-      : {
-          commandTarget: { kind: "command", commandLine: params.fallbackText },
-          command: params.fallbackText,
-          cwd: UNKNOWN_STREAMED_COMMAND_CWD,
-          statusLabel: "Running",
-          executionState: RUNNING_EXECUTION_STATE,
-        }),
-  } as ThreadStreamItem;
+    statusLabel: "Running",
+    executionState: RUNNING_EXECUTION_STATE,
+  } satisfies Partial<ThreadStreamItem>;
+  if (params.kind === "fileChange") {
+    return { ...base, kind: "fileChange", changes: [] };
+  }
+  return {
+    ...base,
+    kind: "command",
+    commandTarget: { kind: "command", commandLine: params.fallbackText },
+    command: params.fallbackText,
+    cwd: UNKNOWN_STREAMED_COMMAND_CWD,
+  };
 }

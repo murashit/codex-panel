@@ -498,11 +498,11 @@ function McpElicitationFieldControl({
           ))}
         </fieldset>
       );
-    case "multi-select":
+    case "multi-select": {
+      const selected = selectedMcpElicitationValues(current);
       return (
         <fieldset className="codex-panel__mcp-elicitation-options" aria-labelledby={labelId}>
           {field.options?.map((option) => {
-            const selected = selectedMcpElicitationValues(current);
             return (
               <label key={option.value} className="codex-panel__mcp-elicitation-option">
                 <input
@@ -526,6 +526,7 @@ function McpElicitationFieldControl({
           })}
         </fieldset>
       );
+    }
     case "number":
     case "integer":
       return (
