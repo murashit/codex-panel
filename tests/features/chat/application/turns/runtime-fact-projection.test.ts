@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
-import { projectTurnRuntimeFacts } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
+import { projectTurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-facts";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -20,23 +20,25 @@ function applyActions(state: ChatState, actions: readonly ChatAction[]): ChatSta
 describe("TurnRuntimeFact projection", () => {
   it("keeps completed auth recovery visible until the next normal activity", () => {
     const state = activeRunningState();
-    const completed = projectTurnRuntimeFacts(state, [
-      {
-        type: "authRecoveryUpdated",
-        turnId: "turn-active",
-        progress: {
-          message: "Authentication refreshed.",
-          phase: "completed",
-        },
+    const completed = projectTurnRuntimeFact(state, {
+      type: "authRecoveryUpdated",
+      turnId: "turn-active",
+      progress: {
+        message: "Authentication refreshed.",
+        phase: "completed",
       },
-    ]);
+    });
     const completedState = applyActions(state, completed.actions);
 
     expect(completedState.activeTurn.authRecovery).toMatchObject({ phase: "completed", message: "Authentication refreshed." });
 
-    const nextActivity = projectTurnRuntimeFacts(completedState, [
-      { type: "assistantDelta", turnId: "turn-active", itemId: "assistant", delta: "Continuing", completeReasoning: true },
-    ]);
+    const nextActivity = projectTurnRuntimeFact(completedState, {
+      type: "assistantDelta",
+      turnId: "turn-active",
+      itemId: "assistant",
+      delta: "Continuing",
+      completeReasoning: true,
+    });
     const nextState = applyActions(completedState, nextActivity.actions);
 
     expect(nextState.activeTurn.authRecovery).toBeNull();
@@ -44,13 +46,11 @@ describe("TurnRuntimeFact projection", () => {
 
   it("does not apply auth recovery state from another turn", () => {
     const state = activeRunningState();
-    const projection = projectTurnRuntimeFacts(state, [
-      {
-        type: "authRecoveryUpdated",
-        turnId: "turn-other",
-        progress: { message: "Refreshing credentials...", phase: "running" },
-      },
-    ]);
+    const projection = projectTurnRuntimeFact(state, {
+      type: "authRecoveryUpdated",
+      turnId: "turn-other",
+      progress: { message: "Refreshing credentials...", phase: "running" },
+    });
 
     expect(applyActions(state, projection.actions).activeTurn.authRecovery).toBeNull();
   });
@@ -60,40 +60,38 @@ describe("TurnRuntimeFact projection", () => {
     state = withChatStateStableThreadStreamItems(state, [
       { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "turn-active" },
     ]);
-    const facts: TurnRuntimeFact[] = [
-      {
-        type: "turnCompleted",
-        threadId: "thread-active",
-        turnId: "turn-active",
-        status: "completed",
-        itemsView: "full",
-        completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
-        completedItems: [
-          {
-            id: "u1",
-            sourceItemId: "u1",
-            kind: "dialogue",
-            dialogueKind: "user",
-            role: "user",
-            text: "hello",
-            clientId: "local-user-1",
-            turnId: "turn-active",
-          },
-          {
-            id: "a1",
-            sourceItemId: "a1",
-            kind: "dialogue",
-            dialogueKind: "assistantResponse",
-            role: "assistant",
-            text: "done",
-            dialogueState: "completed",
-            turnId: "turn-active",
-          },
-        ],
-      },
-    ];
+    const facts: TurnRuntimeFact = {
+      type: "turnCompleted",
+      threadId: "thread-active",
+      turnId: "turn-active",
+      status: "completed",
+      itemsView: "full",
+      completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
+      completedItems: [
+        {
+          id: "u1",
+          sourceItemId: "u1",
+          kind: "dialogue",
+          dialogueKind: "user",
+          role: "user",
+          text: "hello",
+          clientId: "local-user-1",
+          turnId: "turn-active",
+        },
+        {
+          id: "a1",
+          sourceItemId: "a1",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
+          role: "assistant",
+          text: "done",
+          dialogueState: "completed",
+          turnId: "turn-active",
+        },
+      ],
+    };
 
-    const projection = projectTurnRuntimeFacts(state, facts);
+    const projection = projectTurnRuntimeFact(state, facts);
     const next = applyActions(state, projection.actions);
 
     expect(chatStateThreadStreamItems(next).map((item) => item.id)).toEqual(["u1", "a1"]);
@@ -123,21 +121,19 @@ describe("TurnRuntimeFact projection", () => {
       },
     });
 
-    const projection = projectTurnRuntimeFacts(state, [
-      {
-        type: "userMessageObserved",
-        item: {
-          id: "server-steer",
-          clientId: "local-steer",
-          sourceItemId: "server-steer",
-          kind: "dialogue",
-          dialogueKind: "user",
-          role: "user",
-          text: "follow up",
-          turnId: "turn-active",
-        },
+    const projection = projectTurnRuntimeFact(state, {
+      type: "userMessageObserved",
+      item: {
+        id: "server-steer",
+        clientId: "local-steer",
+        sourceItemId: "server-steer",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "follow up",
+        turnId: "turn-active",
       },
-    ]);
+    });
     const next = applyActions(state, projection.actions);
 
     expect(next.activeTurn.pendingSteers).toEqual([]);
@@ -177,28 +173,26 @@ describe("TurnRuntimeFact projection", () => {
       },
     });
 
-    const projection = projectTurnRuntimeFacts(state, [
-      {
-        type: "turnCompleted",
-        threadId: "thread-active",
-        turnId: "turn-active",
-        status: "completed",
-        itemsView: "summary",
-        completedTurnTranscriptSummary: { userText: null, assistantText: "done" },
-        completedItems: [
-          {
-            id: "assistant",
-            sourceItemId: "assistant",
-            kind: "dialogue",
-            dialogueKind: "assistantResponse",
-            role: "assistant",
-            text: "done",
-            dialogueState: "completed",
-            turnId: "turn-active",
-          },
-        ],
-      },
-    ]);
+    const projection = projectTurnRuntimeFact(state, {
+      type: "turnCompleted",
+      threadId: "thread-active",
+      turnId: "turn-active",
+      status: "completed",
+      itemsView: "summary",
+      completedTurnTranscriptSummary: { userText: null, assistantText: "done" },
+      completedItems: [
+        {
+          id: "assistant",
+          sourceItemId: "assistant",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
+          role: "assistant",
+          text: "done",
+          dialogueState: "completed",
+          turnId: "turn-active",
+        },
+      ],
+    });
     const next = applyActions(state, projection.actions);
 
     expect(next.activeTurn.pendingSteers).toEqual([]);
@@ -223,17 +217,15 @@ describe("TurnRuntimeFact projection", () => {
       },
     });
 
-    const projection = projectTurnRuntimeFacts(state, [
-      {
-        type: "turnCompleted",
-        threadId: "thread-active",
-        turnId: "turn-active",
-        status: "interrupted",
-        itemsView: "notLoaded",
-        completedTurnTranscriptSummary: null,
-        completedItems: [],
-      },
-    ]);
+    const projection = projectTurnRuntimeFact(state, {
+      type: "turnCompleted",
+      threadId: "thread-active",
+      turnId: "turn-active",
+      status: "interrupted",
+      itemsView: "notLoaded",
+      completedTurnTranscriptSummary: null,
+      completedItems: [],
+    });
     const next = applyActions(state, projection.actions);
 
     expect(next.activeTurn.pendingSteers).toEqual([]);
@@ -254,7 +246,7 @@ describe("TurnRuntimeFact projection", () => {
       executionState: "completed",
     };
 
-    const projection = projectTurnRuntimeFacts(state, [{ type: "autoReviewUpdated", item }]);
+    const projection = projectTurnRuntimeFact(state, { type: "autoReviewUpdated", item });
     const next = applyActions(state, projection.actions);
 
     expect(chatStateThreadStreamItems(next).map((streamItem) => streamItem.id)).toEqual(["m1", "review-1"]);

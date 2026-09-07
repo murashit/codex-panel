@@ -2,7 +2,7 @@ import { reconcileCompletedTurnItems } from "../../domain/thread-stream/complete
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { attachHookRunsToTurn, completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import type { ChatState } from "../state/model";
-import { type ChatAction, chatReducer } from "../state/reducer";
+import type { ChatAction } from "../state/reducer";
 import { threadStreamItems, threadStreamPendingSteers } from "../state/thread-stream";
 import { chatThreadStreamViewState } from "../state/turn-scope";
 import type { TurnRuntimeFact } from "./runtime-facts";
@@ -24,20 +24,11 @@ export interface TurnRuntimeProjection {
 
 const EMPTY_PROJECTION: TurnRuntimeProjection = { actions: [], outcomes: [] };
 
-export function projectTurnRuntimeFacts(state: ChatState, facts: readonly TurnRuntimeFact[]): TurnRuntimeProjection {
-  let currentState = state;
-  const actions: ChatAction[] = [];
-  const outcomes: TurnRuntimeProjectionOutcome[] = [];
-  for (const fact of facts) {
-    const projection = withCompletedAuthRecoveryCleared(currentState, fact, projectTurnRuntimeFact(currentState, fact));
-    actions.push(...projection.actions);
-    outcomes.push(...projection.outcomes);
-    currentState = reduceProjectedActions(currentState, projection.actions);
-  }
-  return actions.length === 0 && outcomes.length === 0 ? EMPTY_PROJECTION : { actions, outcomes };
+export function projectTurnRuntimeFact(state: ChatState, fact: TurnRuntimeFact): TurnRuntimeProjection {
+  return withCompletedAuthRecoveryCleared(state, fact, runtimeFactProjection(state, fact));
 }
 
-function projectTurnRuntimeFact(state: ChatState, fact: TurnRuntimeFact): TurnRuntimeProjection {
+function runtimeFactProjection(state: ChatState, fact: TurnRuntimeFact): TurnRuntimeProjection {
   switch (fact.type) {
     case "authRecoveryUpdated":
       return actionProjection({ type: "auth-recovery/updated", turnId: fact.turnId, progress: fact.progress });
@@ -275,14 +266,6 @@ function isUnstructuredAutoReviewWarning(item: ThreadStreamItem): boolean {
 
 function isAutoReviewText(text: string): boolean {
   return /^Auto-review\b/i.test(text.trim());
-}
-
-function reduceProjectedActions(state: ChatState, actions: readonly ChatAction[]): ChatState {
-  return actions.reduce(reduceProjectedAction, state);
-}
-
-function reduceProjectedAction(state: ChatState, action: ChatAction): ChatState {
-  return chatReducer(state, action);
 }
 
 function actionProjection(action: ChatAction): TurnRuntimeProjection {

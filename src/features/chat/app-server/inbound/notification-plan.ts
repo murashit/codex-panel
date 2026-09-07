@@ -6,10 +6,10 @@ import { activeThreadId, activeThreadState, type ChatState } from "../../applica
 import type { ChatAction } from "../../application/state/reducer";
 import type { SubagentActivityAction } from "../../application/state/subagent-activity";
 import { activeThreadSettingsAppliedAction } from "../../application/state/transition-actions";
-import { projectTurnRuntimeFacts, type TurnRuntimeProjectionOutcome } from "../../application/turns/runtime-fact-projection";
+import { projectTurnRuntimeFact, type TurnRuntimeProjectionOutcome } from "../../application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
 import { type DiagnosticStatusNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
-import { type RuntimeFactSource, turnRuntimeFactsFromNotification } from "./runtime-fact-adapter";
+import { type RuntimeFactSource, turnRuntimeFactFromNotification } from "./runtime-fact-adapter";
 
 export type ChatInboundEffect = {
   type: "maybe-name-thread";
@@ -57,10 +57,11 @@ export function planChatInboundNotification(
 }
 
 function planTurnRuntimeNotification(state: ChatState, notification: RuntimeFactSource, localItemId: LocalItemIdProvider): ChatInboundPlan {
-  const facts = turnRuntimeFactsFromNotification(notification, localItemId);
-  const projection = projectTurnRuntimeFacts(state, facts);
+  const fact = turnRuntimeFactFromNotification(notification, localItemId);
+  if (!fact) return EMPTY_PLAN;
+  const projection = projectTurnRuntimeFact(state, fact);
   return {
-    actions: [...projection.actions, ...subagentTrackingActionsFromParentFacts(state, facts)],
+    actions: [...projection.actions, ...subagentTrackingActionsFromParentFact(state, fact)],
     effects: projection.outcomes.flatMap((outcome) => chatInboundEffectsFromTurnProjectionOutcome(state, outcome)),
   };
 }
@@ -72,13 +73,11 @@ function planTrackedSubagentNotification(
   localItemId: LocalItemIdProvider,
 ): ChatInboundPlan {
   if (!threadId || !state.activeTurn.subagents.byThreadId.has(threadId)) return EMPTY_PLAN;
-  const facts = subagentRuntimeFacts(notification, localItemId);
-  if (!facts) return EMPTY_PLAN;
-  const actions = facts.map((fact): SubagentActivityAction => ({ type: "subagent-activity/runtime-fact", threadId, fact }));
-  return actions.length > 0 ? { actions, effects: [] } : EMPTY_PLAN;
+  const fact = subagentRuntimeFact(notification, localItemId);
+  return fact ? { actions: [{ type: "subagent-activity/runtime-fact", threadId, fact }], effects: [] } : EMPTY_PLAN;
 }
 
-function subagentRuntimeFacts(notification: ServerNotification, localItemId: LocalItemIdProvider): readonly TurnRuntimeFact[] | null {
+function subagentRuntimeFact(notification: ServerNotification, localItemId: LocalItemIdProvider): TurnRuntimeFact | null {
   switch (notification.method) {
     case "item/agentMessage/delta":
     case "item/plan/delta":
@@ -101,42 +100,36 @@ function subagentRuntimeFacts(notification: ServerNotification, localItemId: Loc
     case "turn/completed":
     case "modelProvider/authRecoveryStarted":
     case "modelProvider/authRecoveryCompleted":
-      return turnRuntimeFactsFromNotification(notification, localItemId);
+      return turnRuntimeFactFromNotification(notification, localItemId);
     default:
       return null;
   }
 }
 
-function subagentTrackingActionsFromParentFacts(state: ChatState, facts: readonly TurnRuntimeFact[]): SubagentActivityAction[] {
+function subagentTrackingActionsFromParentFact(state: ChatState, fact: TurnRuntimeFact): SubagentActivityAction[] {
   const parentTurnId = activeTurnIdForState(state);
   if (!parentTurnId) return [];
-  const actions: SubagentActivityAction[] = [];
-  const trackedThreadIds = new Set<string>();
-  for (const fact of facts) {
-    if (
-      fact.type !== "itemStarted" &&
-      fact.type !== "itemContentUpdated" &&
-      fact.type !== "taskProgressUpdated" &&
-      fact.type !== "itemCompleted"
-    )
-      continue;
-    if (fact.item.kind !== "agent" || fact.item.turnId !== parentTurnId) continue;
-    if (fact.item.coordinationUpdate === "snapshot") {
-      for (const target of fact.item.targets) trackedThreadIds.add(target.threadId);
-      for (const agent of fact.item.agents) trackedThreadIds.add(agent.threadId);
-      continue;
-    }
-    for (const target of fact.item.targets) {
-      actions.push({
-        type: "subagent-activity/coordination-observed",
-        threadId: target.threadId,
-        parentTurnId,
-        agentLabel: target.label ?? null,
-        coordinationUpdate: fact.item.coordinationUpdate,
-      });
-    }
+  if (
+    fact.type !== "itemStarted" &&
+    fact.type !== "itemContentUpdated" &&
+    fact.type !== "taskProgressUpdated" &&
+    fact.type !== "itemCompleted"
+  )
+    return [];
+  if (fact.item.kind !== "agent" || fact.item.turnId !== parentTurnId) return [];
+  const item = fact.item;
+  if (item.coordinationUpdate === "snapshot") {
+    const threadIds = new Set([...item.targets.map((target) => target.threadId), ...item.agents.map((agent) => agent.threadId)]);
+    return [...threadIds].map((threadId) => ({ type: "subagent-activity/tracked", threadId, parentTurnId }));
   }
-  return [...[...trackedThreadIds].map((threadId) => ({ type: "subagent-activity/tracked" as const, threadId, parentTurnId })), ...actions];
+  const coordinationUpdate = item.coordinationUpdate;
+  return item.targets.map((target) => ({
+    type: "subagent-activity/coordination-observed",
+    threadId: target.threadId,
+    parentTurnId,
+    agentLabel: target.label ?? null,
+    coordinationUpdate,
+  }));
 }
 
 function chatInboundEffectsFromTurnProjectionOutcome(

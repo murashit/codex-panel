@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
-import { turnRuntimeFactsFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
+import { turnRuntimeFactFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
 
 describe("app-server turn runtime fact adapter", () => {
   it.each([
@@ -12,16 +12,14 @@ describe("app-server turn runtime fact adapter", () => {
       params: { threadId: "thread-active", turnId: "turn-active", provider: " aws ", message: " Refreshing AWS authentication. " },
     } satisfies Extract<ServerNotification, { method: typeof method }>;
 
-    expect(turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`)).toEqual([
-      {
-        type: "authRecoveryUpdated",
-        turnId: "turn-active",
-        progress: {
-          message: "Refreshing AWS authentication.",
-          phase,
-        },
+    expect(turnRuntimeFactFromNotification(notification, (prefix) => `${prefix}-1`)).toEqual({
+      type: "authRecoveryUpdated",
+      turnId: "turn-active",
+      progress: {
+        message: "Refreshing AWS authentication.",
+        phase,
       },
-    ]);
+    });
   });
 
   it("provides an auth recovery fallback without exposing blank protocol values", () => {
@@ -30,13 +28,11 @@ describe("app-server turn runtime fact adapter", () => {
       params: { threadId: "thread-active", turnId: "turn-active", provider: "", message: " " },
     } satisfies Extract<ServerNotification, { method: "modelProvider/authRecoveryCompleted" }>;
 
-    expect(turnRuntimeFactsFromNotification(notification, () => "unused")).toEqual([
-      {
-        type: "authRecoveryUpdated",
-        turnId: "turn-active",
-        progress: { message: "Credentials refreshed.", phase: "completed" },
-      },
-    ]);
+    expect(turnRuntimeFactFromNotification(notification, () => "unused")).toEqual({
+      type: "authRecoveryUpdated",
+      turnId: "turn-active",
+      progress: { message: "Credentials refreshed.", phase: "completed" },
+    });
   });
 
   it("maps assistant deltas to panel-owned runtime facts", () => {
@@ -45,9 +41,9 @@ describe("app-server turn runtime fact adapter", () => {
       params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
     } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>;
 
-    const facts = turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`);
+    const facts = turnRuntimeFactFromNotification(notification, (prefix) => `${prefix}-1`);
 
-    expect(facts).toEqual([{ type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true }]);
+    expect(facts).toEqual({ type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true });
   });
 
   it("maps observed user messages to a reconciliation fact", () => {
@@ -66,21 +62,19 @@ describe("app-server turn runtime fact adapter", () => {
       },
     } satisfies Extract<ServerNotification, { method: "item/started" }>;
 
-    const facts = turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`);
+    const facts = turnRuntimeFactFromNotification(notification, (prefix) => `${prefix}-1`);
 
-    expect(facts).toEqual([
-      {
-        type: "userMessageObserved",
-        item: expect.objectContaining({
-          id: "server-steer",
-          clientId: "local-steer",
-          kind: "dialogue",
-          role: "user",
-          text: "follow up",
-          turnId: "turn-active",
-        }),
-      },
-    ]);
+    expect(facts).toEqual({
+      type: "userMessageObserved",
+      item: expect.objectContaining({
+        id: "server-steer",
+        clientId: "local-steer",
+        kind: "dialogue",
+        role: "user",
+        text: "follow up",
+        turnId: "turn-active",
+      }),
+    });
   });
 
   it("preserves the normal completed-turn summary contract", () => {
@@ -103,9 +97,9 @@ describe("app-server turn runtime fact adapter", () => {
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;
 
-    const facts = turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`);
+    const facts = turnRuntimeFactFromNotification(notification, (prefix) => `${prefix}-1`);
 
-    expect(facts).toEqual([
+    expect(facts).toEqual(
       expect.objectContaining({
         type: "turnCompleted",
         threadId: "thread-active",
@@ -114,8 +108,8 @@ describe("app-server turn runtime fact adapter", () => {
         itemsView: "summary",
         completedTurnTranscriptSummary: null,
       }),
-    ]);
-    expect(facts[0]).toMatchObject({
+    );
+    expect(facts).toMatchObject({
       completedItems: [expect.objectContaining({ id: "a1", kind: "dialogue", role: "assistant", text: "done" })],
     });
   });
@@ -145,28 +139,26 @@ describe("app-server turn runtime fact adapter", () => {
       },
     } satisfies Extract<ServerNotification, { method: "hook/completed" }>;
 
-    const facts = turnRuntimeFactsFromNotification(notification, (prefix) => `${prefix}-1`);
+    const facts = turnRuntimeFactFromNotification(notification, (prefix) => `${prefix}-1`);
 
-    expect(facts).toEqual([
-      {
-        type: "hookRunObserved",
-        turnId: "turn-active",
-        eventName: "postToolUse",
-        item: expect.objectContaining({
-          id: "hook-hook-1-1",
-          kind: "hook",
-          operation: "postToolUse",
-          primaryTarget: { kind: "value", value: "Formatted 1 file." },
-          executionState: "completed",
-          hookRun: {
-            eventName: "postToolUse",
-            statusMessage: "Formatted 1 file.",
-            entries: [{ kind: "feedback", text: "ok" }],
-          },
-        }),
-      },
-    ]);
-    const fact = facts[0];
+    expect(facts).toEqual({
+      type: "hookRunObserved",
+      turnId: "turn-active",
+      eventName: "postToolUse",
+      item: expect.objectContaining({
+        id: "hook-hook-1-1",
+        kind: "hook",
+        operation: "postToolUse",
+        primaryTarget: { kind: "value", value: "Formatted 1 file." },
+        executionState: "completed",
+        hookRun: {
+          eventName: "postToolUse",
+          statusMessage: "Formatted 1 file.",
+          entries: [{ kind: "feedback", text: "ok" }],
+        },
+      }),
+    });
+    const fact = facts;
     if (fact?.type !== "hookRunObserved") throw new Error("Expected a hook runtime fact");
     if (fact.item.kind !== "hook") throw new Error("Expected a hook item");
     expect(fact.item.hookRun).not.toHaveProperty("durationMs");

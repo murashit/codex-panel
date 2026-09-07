@@ -24,179 +24,157 @@ export type RuntimeFactSource =
   | Extract<ServerNotification, { method: "serverRequest/resolved" }>
   | UserVisibleNoticeNotification;
 
-export function turnRuntimeFactsFromNotification(
+export function turnRuntimeFactFromNotification(
   notification: RuntimeFactSource,
   localItemId: (prefix: string) => string,
-): readonly TurnRuntimeFact[] {
+): TurnRuntimeFact | null {
   switch (notification.method) {
     case "modelProvider/authRecoveryStarted":
     case "modelProvider/authRecoveryCompleted":
-      return [
-        {
-          type: "authRecoveryUpdated",
-          turnId: notification.params.turnId,
-          progress: authRecoveryProgress(
-            notification.params.provider,
-            notification.params.message,
-            notification.method === "modelProvider/authRecoveryStarted" ? "running" : "completed",
-          ),
-        },
-      ];
+      return {
+        type: "authRecoveryUpdated",
+        turnId: notification.params.turnId,
+        progress: authRecoveryProgress(
+          notification.params.provider,
+          notification.params.message,
+          notification.method === "modelProvider/authRecoveryStarted" ? "running" : "completed",
+        ),
+      };
     case "item/agentMessage/delta":
-      return [
-        {
-          type: "assistantDelta",
-          itemId: notification.params.itemId,
-          turnId: notification.params.turnId,
-          delta: notification.params.delta,
-          completeReasoning: true,
-        },
-      ];
+      return {
+        type: "assistantDelta",
+        itemId: notification.params.itemId,
+        turnId: notification.params.turnId,
+        delta: notification.params.delta,
+        completeReasoning: true,
+      };
     case "item/plan/delta":
-      return [
-        {
-          type: "planDelta",
-          itemId: notification.params.itemId,
-          turnId: notification.params.turnId,
-          delta: notification.params.delta,
-        },
-      ];
+      return {
+        type: "planDelta",
+        itemId: notification.params.itemId,
+        turnId: notification.params.turnId,
+        delta: notification.params.delta,
+      };
     case "turn/plan/updated":
-      return [
-        {
-          type: "taskProgressUpdated",
-          item: taskProgressThreadStreamItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
-        },
-      ];
+      return {
+        type: "taskProgressUpdated",
+        item: taskProgressThreadStreamItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
+      };
     case "item/reasoning/summaryTextDelta":
     case "item/reasoning/textDelta":
-      return [
-        {
-          type: "textDelta",
-          itemId: notification.params.itemId,
-          turnId: notification.params.turnId,
-          label: "reasoning",
-          delta: notification.params.delta,
-          kind: "reasoning",
-          source: notification.method === "item/reasoning/textDelta" ? "body" : "summary",
-        },
-      ];
+      return {
+        type: "textDelta",
+        itemId: notification.params.itemId,
+        turnId: notification.params.turnId,
+        label: "reasoning",
+        delta: notification.params.delta,
+        kind: "reasoning",
+        source: notification.method === "item/reasoning/textDelta" ? "body" : "summary",
+      };
     case "item/reasoning/summaryPartAdded":
-      return [
-        {
-          type: "textDelta",
-          itemId: notification.params.itemId,
-          turnId: notification.params.turnId,
-          label: "reasoning",
-          delta: "",
-          kind: "reasoning",
-          source: "summary",
-        },
-      ];
+      return {
+        type: "textDelta",
+        itemId: notification.params.itemId,
+        turnId: notification.params.turnId,
+        label: "reasoning",
+        delta: "",
+        kind: "reasoning",
+        source: "summary",
+      };
     case "item/started":
-      return startedItemFacts(notification.params.item, notification.params.turnId);
+      return startedItemFact(notification.params.item, notification.params.turnId);
     case "item/completed":
-      return completedItemFacts(notification.params.item, notification.params.turnId);
+      return completedItemFact(notification.params.item, notification.params.turnId);
     case "item/commandExecution/outputDelta":
-      return [
-        {
-          type: "itemOutputDelta",
-          itemId: notification.params.itemId,
-          turnId: notification.params.turnId,
-          delta: notification.params.delta,
-          kind: "command",
-          fallbackText: STREAMED_COMMAND_RUNNING_TEXT,
-        },
-      ];
+      return {
+        type: "itemOutputDelta",
+        itemId: notification.params.itemId,
+        turnId: notification.params.turnId,
+        delta: notification.params.delta,
+        kind: "command",
+        fallbackText: STREAMED_COMMAND_RUNNING_TEXT,
+      };
     case "item/fileChange/patchUpdated":
-      return [
-        {
-          type: "itemContentUpdated",
-          item: fileChangeItem(notification.params.itemId, notification.params.turnId, notification.params.changes, "inProgress"),
-        },
-      ];
+      return {
+        type: "itemContentUpdated",
+        item: fileChangeItem(notification.params.itemId, notification.params.turnId, notification.params.changes, "inProgress"),
+      };
     case "turn/diff/updated":
-      return [{ type: "turnDiffUpdated", turnId: notification.params.turnId, diff: notification.params.diff }];
+      return { type: "turnDiffUpdated", turnId: notification.params.turnId, diff: notification.params.diff };
     case "hook/started":
-      return hookRunFacts(notification.params.run, notification.params.turnId, "running");
+      return hookRunFact(notification.params.run, notification.params.turnId, "running");
     case "hook/completed":
-      return hookRunFacts(notification.params.run, notification.params.turnId, notification.params.run.status);
+      return hookRunFact(notification.params.run, notification.params.turnId, notification.params.run.status);
     case "item/mcpToolCall/progress":
-      return [
-        {
-          type: "toolOutputDelta",
-          itemId: notification.params.itemId,
-          turnId: notification.params.turnId,
-          delta: notification.params.message,
-          fallbackLabel: STREAMED_MCP_PROGRESS_LABEL,
-        },
-      ];
+      return {
+        type: "toolOutputDelta",
+        itemId: notification.params.itemId,
+        turnId: notification.params.turnId,
+        delta: notification.params.message,
+        fallbackLabel: STREAMED_MCP_PROGRESS_LABEL,
+      };
     case "item/autoApprovalReview/started":
     case "item/autoApprovalReview/completed":
-      return [{ type: "autoReviewUpdated", item: createAutoReviewResultItem(notification.params) }];
+      return { type: "autoReviewUpdated", item: createAutoReviewResultItem(notification.params) };
     case "guardianWarning":
-      return [{ type: "reviewWarning", item: createReviewResultItem(localItemId("review"), notification.params.message) }];
+      return { type: "reviewWarning", item: createReviewResultItem(localItemId("review"), notification.params.message) };
     case "turn/started":
-      return [
-        {
-          type: "turnStarted",
-          threadId: notification.params.threadId,
-          turnId: notification.params.turn.id,
-        },
-      ];
+      return {
+        type: "turnStarted",
+        threadId: notification.params.threadId,
+        turnId: notification.params.turn.id,
+      };
     case "turn/completed":
-      return [
-        {
-          type: "turnCompleted",
-          threadId: notification.params.threadId,
-          turnId: notification.params.turn.id,
-          status: notification.params.turn.status,
-          itemsView: notification.params.turn.itemsView,
-          completedItems: threadStreamItemsFromTurns([notification.params.turn]),
-          completedTurnTranscriptSummary: completedTurnTranscriptSummaryFromAppServerTurn(notification.params.turn),
-        },
-      ];
+      return {
+        type: "turnCompleted",
+        threadId: notification.params.threadId,
+        turnId: notification.params.turn.id,
+        status: notification.params.turn.status,
+        itemsView: notification.params.turn.itemsView,
+        completedItems: threadStreamItemsFromTurns([notification.params.turn]),
+        completedTurnTranscriptSummary: completedTurnTranscriptSummaryFromAppServerTurn(notification.params.turn),
+      };
     case "serverRequest/resolved":
-      return [{ type: "requestResolved", requestId: notification.params.requestId }];
+      return { type: "requestResolved", requestId: notification.params.requestId };
     case "model/rerouted":
     case "deprecationNotice":
     case "error":
     case "warning":
     case "configWarning":
     case "windows/worldWritableWarning":
-      return [jsonNoticeFact(notification, localItemId)];
+      return jsonNoticeFact(notification, localItemId);
     case "windowsSandbox/setupCompleted":
-      return notification.params.success ? [] : [jsonNoticeFact(notification, localItemId)];
+      return notification.params.success ? null : jsonNoticeFact(notification, localItemId);
   }
 }
 
-function startedItemFacts(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeFact[] {
+function startedItemFact(item: AppServerTurnItem, turnId: string): TurnRuntimeFact | null {
   if (item.type === "userMessage") {
     const streamItem = threadStreamItemFromTurnItem(item, turnId);
-    return streamItem?.kind === "dialogue" ? [{ type: "userMessageObserved", item: streamItem }] : [];
+    return streamItem?.kind === "dialogue" ? { type: "userMessageObserved", item: streamItem } : null;
   }
-  if (shouldSuppressLifecycleItem(item)) return [];
+  if (shouldSuppressLifecycleItem(item)) return null;
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
-  return streamItem ? [{ type: "itemStarted", item: streamItem }] : [];
+  return streamItem ? { type: "itemStarted", item: streamItem } : null;
 }
 
-function completedItemFacts(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeFact[] {
-  if (item.type === "userMessage") return [];
+function completedItemFact(item: AppServerTurnItem, turnId: string): TurnRuntimeFact | null {
+  if (item.type === "userMessage") return null;
   const streamItem = threadStreamItemFromTurnItem(item, turnId);
-  return streamItem ? [{ type: "itemCompleted", turnId, item: streamItem }] : [];
+  return streamItem ? { type: "itemCompleted", turnId, item: streamItem } : null;
 }
 
 function fileChangeItem(itemId: string, turnId: string, changes: readonly AppServerFileChange[], status: string): ThreadStreamItem {
   return streamingFileChangeThreadStreamItem(itemId, turnId, normalizeFileChanges(changes), status);
 }
 
-function hookRunFacts(
+function hookRunFact(
   run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"],
   turnId: string | null,
   status: string,
-): readonly TurnRuntimeFact[] {
+): TurnRuntimeFact | null {
   const item = hookRunThreadStreamItem(run, turnId, status);
-  return item ? [{ type: "hookRunObserved", item, turnId, eventName: run.eventName }] : [];
+  return item ? { type: "hookRunObserved", item, turnId, eventName: run.eventName } : null;
 }
 
 function jsonNoticeFact(notification: UserVisibleNoticeNotification, localItemId: (prefix: string) => string): TurnRuntimeFact {

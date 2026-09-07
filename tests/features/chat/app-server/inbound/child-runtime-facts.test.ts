@@ -3,7 +3,7 @@ import type { ServerNotification } from "../../../../../src/app-server/connectio
 import { planChatInboundNotification } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
 import {
   type RuntimeFactSource,
-  turnRuntimeFactsFromNotification,
+  turnRuntimeFactFromNotification,
 } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
@@ -25,9 +25,9 @@ describe("normalized child runtime facts", () => {
       params: { ...childScope, itemId: "reasoning", summaryIndex: 0 },
     } satisfies RuntimeFactSource;
 
-    expect(facts(summary)).toMatchObject([{ type: "textDelta", source: "summary", delta: "Summary" }]);
-    expect(facts(body)).toMatchObject([{ type: "textDelta", source: "body", delta: "Body" }]);
-    expect(facts(part)).toMatchObject([{ type: "textDelta", source: "summary", delta: "" }]);
+    expect(fact(summary)).toMatchObject({ type: "textDelta", source: "summary", delta: "Summary" });
+    expect(fact(body)).toMatchObject({ type: "textDelta", source: "body", delta: "Body" });
+    expect(fact(part)).toMatchObject({ type: "textDelta", source: "summary", delta: "" });
 
     let child = receive(trackedParent(), part);
     expect(preview(child)).toMatchObject({ id: "reasoning", kind: "reasoning" });
@@ -56,9 +56,9 @@ describe("normalized child runtime facts", () => {
       method: "turn/plan/updated",
       params: { ...childScope, explanation: "Review", plan: [{ step: "Check changes", status: "inProgress" }] },
     } satisfies RuntimeFactSource;
-    expect(facts(started)).toMatchObject([{ type: "itemStarted" }]);
-    expect(facts(patch)).toMatchObject([{ type: "itemContentUpdated" }]);
-    expect(facts(task)).toMatchObject([{ type: "taskProgressUpdated" }]);
+    expect(fact(started)).toMatchObject({ type: "itemStarted" });
+    expect(fact(patch)).toMatchObject({ type: "itemContentUpdated" });
+    expect(fact(task)).toMatchObject({ type: "taskProgressUpdated" });
 
     let state = receive(trackedParent(), started);
     state = receive(state, patch);
@@ -117,7 +117,7 @@ describe("normalized child runtime facts", () => {
     expect(planChatInboundNotification(runningParent(), notification, localId).actions).toEqual([]);
     let state = trackedParent();
     const plan = planChatInboundNotification(state, notification, localId);
-    expect(plan.actions).toEqual([{ type: "subagent-activity/runtime-fact", threadId: "child", fact: facts(notification)[0] }]);
+    expect(plan.actions).toEqual([{ type: "subagent-activity/runtime-fact", threadId: "child", fact: fact(notification) }]);
 
     const idle = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
     expect(plan.actions.reduce(chatReducer, idle).activeTurn.subagents).toBe(idle.activeTurn.subagents);
@@ -162,8 +162,8 @@ function trackedParent(): ChatState {
 function localId(prefix: string): string {
   return prefix;
 }
-function facts(notification: RuntimeFactSource) {
-  return turnRuntimeFactsFromNotification(notification, localId);
+function fact(notification: RuntimeFactSource) {
+  return turnRuntimeFactFromNotification(notification, localId);
 }
 function receive(state: ChatState, notification: ServerNotification): ChatState {
   return planChatInboundNotification(state, notification, localId).actions.reduce(chatReducer, state);
