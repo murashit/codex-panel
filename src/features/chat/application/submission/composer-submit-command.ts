@@ -9,8 +9,8 @@ import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurre
 import { cancellablePendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import type { ChatTurnPort } from "../turns/turn-port";
+import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
-import { submissionStateSnapshot } from "./snapshot";
 import type { TurnSubmissionRequest } from "./turn-submission-command";
 import { pendingWebSubmissionItem } from "./web-submission";
 
@@ -75,10 +75,14 @@ export async function submitComposer(host: ComposerSubmitCommandHost): Promise<v
       return;
     if (submissionClaim ? !submissionClaim.isCurrent() : !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
     const chatState = host.stateStore.getState();
-    const state = submissionStateSnapshot(chatState);
-    if (host.stateStore.getState().pendingSubmission) return;
+    if (chatState.pendingSubmission) return;
     const operationDecision = activePanelOperationDecision(chatState, "submit");
-    if (state.busy && state.activeThreadId && state.activeTurnId && (draft.length === 0 || operationDecision.kind === "blocked")) {
+    if (
+      chatTurnBusy(chatState.activeTurn) &&
+      activeThreadState(chatState)?.id &&
+      activeTurnId(chatState.activeTurn) &&
+      (draft.length === 0 || operationDecision.kind === "blocked")
+    ) {
       await interruptTurn(host, panelTarget);
       return;
     }
@@ -226,11 +230,12 @@ function rollbackPendingWebSubmission(host: ComposerSubmitCommandHost, id: strin
 }
 
 async function interruptTurn(host: ComposerSubmitCommandHost, panelTarget: PanelTargetLease): Promise<void> {
-  const state = submissionStateSnapshot(host.stateStore.getState());
-  const turnId = state.activeTurnId;
-  if (!state.activeThreadId || !turnId) return;
+  const state = host.stateStore.getState();
+  const threadId = activeThreadState(state)?.id;
+  const turnId = activeTurnId(state.activeTurn);
+  if (!threadId || !turnId) return;
   try {
-    if (!(await host.turnPort.interruptTurn(state.activeThreadId, turnId))) return;
+    if (!(await host.turnPort.interruptTurn(threadId, turnId))) return;
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return;
     host.status.setStatus(STATUS_INTERRUPT_REQUESTED);
   } catch (error) {

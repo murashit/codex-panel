@@ -3,10 +3,11 @@ import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
+import { activeThreadState, type ChatState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadStartOutcome } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
-import { STATUS_TURN_RUNNING } from "../turns/turn-state";
+import { activeTurnId, chatTurnBusy, STATUS_TURN_RUNNING } from "../turns/turn-state";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
 import {
   acknowledgeOptimisticTurnStart,
@@ -15,7 +16,7 @@ import {
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
-import { type SubmissionStateSnapshot, submissionStateSnapshot } from "./snapshot";
+import { submissionStateSnapshot } from "./snapshot";
 import { TurnSubmissionAttempt } from "./turn-submission-attempt";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
@@ -105,8 +106,7 @@ async function sendTurnText(
     return false;
   }
 
-  const initialState = submissionStateSnapshot(host.stateStore.getState());
-  const plan = planTurnSubmission(initialState);
+  const plan = planTurnSubmission(host.stateStore.getState());
 
   try {
     switch (plan.kind) {
@@ -134,7 +134,7 @@ async function sendTurnText(
       case "start-turn":
         break;
     }
-    const activeThreadId = plan.kind === "start-turn" ? plan.threadId : submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
+    const activeThreadId = plan.kind === "start-turn" ? plan.threadId : (activeThreadState(host.stateStore.getState())?.id ?? null);
     if (!activeThreadId) {
       attempt.failPending();
       return false;
@@ -145,7 +145,7 @@ async function sendTurnText(
       attempt.failPending();
       return false;
     }
-    if (!attempt.isCurrent() || submissionStateSnapshot(host.stateStore.getState()).activeThreadId !== activeThreadId) {
+    if (!attempt.isCurrent() || (activeThreadState(host.stateStore.getState())?.id ?? null) !== activeThreadId) {
       return false;
     }
 
@@ -237,13 +237,13 @@ async function startThreadForTurn(
   return started;
 }
 
-function planTurnSubmission(state: SubmissionStateSnapshot): TurnSubmissionPlan {
-  if (state.busy) {
-    return state.activeThreadId && state.activeTurnId
-      ? { kind: "steer", threadId: state.activeThreadId, turnId: state.activeTurnId }
-      : { kind: "blocked", message: "Current turn is not steerable yet." };
+function planTurnSubmission(state: ChatState): TurnSubmissionPlan {
+  const threadId = activeThreadState(state)?.id;
+  const turnId = activeTurnId(state.activeTurn);
+  if (chatTurnBusy(state.activeTurn)) {
+    return threadId && turnId ? { kind: "steer", threadId, turnId } : { kind: "blocked", message: "Current turn is not steerable yet." };
   }
-  return state.activeThreadId ? { kind: "start-turn", threadId: state.activeThreadId } : { kind: "start-thread-then-turn" };
+  return threadId ? { kind: "start-turn", threadId } : { kind: "start-thread-then-turn" };
 }
 
 async function steerCurrentTurn(
@@ -304,6 +304,6 @@ function steerTargetIsCurrent(host: TurnSubmissionCommandHost, plan: Extract<Tur
 }
 
 function isCurrentTurn(host: TurnSubmissionCommandHost, threadId: string, turnId: string): boolean {
-  const state = submissionStateSnapshot(host.stateStore.getState());
-  return state.activeThreadId === threadId && state.activeTurnId === turnId;
+  const state = host.stateStore.getState();
+  return activeThreadState(state)?.id === threadId && activeTurnId(state.activeTurn) === turnId;
 }

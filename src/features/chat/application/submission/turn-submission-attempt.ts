@@ -2,8 +2,8 @@ import { activeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
+import { pendingTurnStart } from "../turns/turn-state";
 import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
-import { submissionStateSnapshot } from "./snapshot";
 
 export interface TurnSubmissionAttemptInput {
   pendingSubmissionId?: string;
@@ -74,9 +74,11 @@ export class TurnSubmissionAttempt {
   }
 
   failureStillApplies(): boolean {
-    const state = submissionStateSnapshot(this.stateStore.getState());
     if (!this.optimisticItemId) return this.isCurrent();
-    return state.activeThreadId === this.expectedThreadId && state.pendingTurnStart?.anchorItemId === this.optimisticItemId;
+    const state = this.stateStore.getState();
+    return (
+      activeThreadState(state)?.id === this.expectedThreadId && pendingTurnStart(state.activeTurn)?.anchorItemId === this.optimisticItemId
+    );
   }
 
   settle(accepted: boolean): void {
