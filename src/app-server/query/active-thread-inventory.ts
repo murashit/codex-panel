@@ -1,5 +1,5 @@
 import type { InfiniteData } from "@tanstack/query-core";
-import { type ThreadCatalogChange, threadCatalogEntryEqual } from "../../domain/threads/catalog-read-model";
+import { type ThreadCatalogChange, threadCatalogEntryEqual, threadCatalogUpdateEqual } from "../../domain/threads/catalog-read-model";
 import { compareThreadsPinnedFirst, isThreadVisibleInCatalog, type Thread } from "../../domain/threads/model";
 import type { ThreadPage } from "../services/threads";
 
@@ -56,12 +56,7 @@ export function applyActiveThreadMutation(data: ActiveThreadData | undefined, ch
 }
 
 function threadCatalogUpdateChangesEntry(thread: Thread, change: Extract<ThreadCatalogChange, { kind: "update" }>): boolean {
-  if (thread.id !== change.threadId) return false;
-  return (
-    (Object.hasOwn(change.changes, "name") && thread.name !== change.changes.name) ||
-    (Object.hasOwn(change.changes, "isPinned") && (thread.isPinned === true) !== (change.changes.isPinned === true)) ||
-    (Object.hasOwn(change.changes, "recencyAt") && thread.recencyAt !== change.changes.recencyAt)
-  );
+  return thread.id === change.threadId && !threadCatalogUpdateEqual(thread, change.changes);
 }
 
 function orderedUniqueThreads(threads: readonly Thread[]): readonly Thread[] {

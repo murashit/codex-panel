@@ -53,7 +53,7 @@ export function threadCatalogEntryEqual(left: Thread | undefined, right: Thread)
   );
 }
 
-function threadCatalogUpdateEqual(thread: Thread, changes: Partial<Pick<Thread, "name" | "isPinned" | "recencyAt">>): boolean {
+export function threadCatalogUpdateEqual(thread: Thread, changes: Partial<Pick<Thread, "name" | "isPinned" | "recencyAt">>): boolean {
   return (
     (!Object.hasOwn(changes, "name") || changes.name === thread.name) &&
     (!Object.hasOwn(changes, "isPinned") || (changes.isPinned === true) === (thread.isPinned === true)) &&
