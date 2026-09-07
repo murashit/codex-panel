@@ -9,7 +9,6 @@ import {
 } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import { listenDomEvent } from "../../shared/dom/events.dom";
 import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
 import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
@@ -98,20 +97,14 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             />
           )),
       },
-      {
+      this.commitTextDefinition({
         name: CODEX_EXECUTABLE_SETTING.name,
         desc: CODEX_EXECUTABLE_SETTING.desc,
-        render: (setting) =>
-          this.renderDeclarativeControl(setting, () => (
-            <ObsidianCommitTextInput
-              key={this.renderRevision}
-              value={this.plugin.settings.codexPath}
-              placeholder={CODEX_EXECUTABLE_SETTING.placeholder}
-              normalizeValue={normalizeCodexPath}
-              onCommit={(value) => void this.setCodexPath(value)}
-            />
-          )),
-      },
+        value: () => this.plugin.settings.codexPath,
+        placeholder: CODEX_EXECUTABLE_SETTING.placeholder,
+        normalizeValue: normalizeCodexPath,
+        onCommit: (value) => this.setCodexPath(value),
+      }),
       {
         name: SHOW_TOOLBAR_SETTING.name,
         desc: SHOW_TOOLBAR_SETTING.desc,
@@ -133,7 +126,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
                     effortValue={this.plugin.settings.threadNamingEffort}
                     models={this.resources.modelMetadata()}
                     onModelChange={(value) => void this.setThreadNamingModel(value)}
-                    onEffortChange={(value) => void this.setThreadNamingEffort(value)}
+                    onEffortChange={(value) => void this.setPreference("threadNamingEffort", value)}
                   />
                 );
               }),
@@ -152,7 +145,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
                     effortValue={this.plugin.settings.rewriteSelectionEffort}
                     models={this.resources.modelMetadata()}
                     onModelChange={(value) => void this.setRewriteSelectionModel(value)}
-                    onEffortChange={(value) => void this.setRewriteSelectionEffort(value)}
+                    onEffortChange={(value) => void this.setPreference("rewriteSelectionEffort", value)}
                   />
                 );
               }),
@@ -184,20 +177,14 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             desc: ACTIVE_FILE_REFERENCE_SETTING.desc,
             control: { type: "toggle", key: "referenceActiveNoteOnSend" },
           },
-          {
+          this.commitTextDefinition({
             name: ATTACHMENT_FOLDER_SETTING.name,
             desc: ATTACHMENT_FOLDER_SETTING.desc,
-            render: (setting) =>
-              this.renderDeclarativeControl(setting, () => (
-                <ObsidianCommitTextInput
-                  key={this.renderRevision}
-                  value={this.plugin.settings.attachmentFolder}
-                  placeholder={ATTACHMENT_FOLDER_SETTING.placeholder}
-                  normalizeValue={normalizeAttachmentFolder}
-                  onCommit={(value) => void this.setAttachmentFolder(value)}
-                />
-              )),
-          },
+            value: () => this.plugin.settings.attachmentFolder,
+            placeholder: ATTACHMENT_FOLDER_SETTING.placeholder,
+            normalizeValue: normalizeAttachmentFolder,
+            onCommit: (value) => this.setPreference("attachmentFolder", normalizeAttachmentFolder(value)),
+          }),
         ],
       },
       {
@@ -216,7 +203,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             value: () => this.plugin.settings.archiveExportFolderTemplate,
             placeholder: ARCHIVE_EXPORT_FOLDER_SETTING.placeholder,
             normalizeValue: normalizeArchiveExportFolderTemplate,
-            onCommit: (value) => this.setArchiveExportFolderTemplate(value),
+            onCommit: (value) => this.setPreference("archiveExportFolderTemplate", normalizeArchiveExportFolderTemplate(value)),
           }),
           this.commitTextDefinition({
             name: ARCHIVE_EXPORT_FILENAME_SETTING.name,
@@ -224,7 +211,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             value: () => this.plugin.settings.archiveExportFilenameTemplate,
             placeholder: ARCHIVE_EXPORT_FILENAME_SETTING.placeholder,
             normalizeValue: normalizeArchiveExportFilenameTemplate,
-            onCommit: (value) => this.setArchiveExportFilenameTemplate(value),
+            onCommit: (value) => this.setPreference("archiveExportFilenameTemplate", normalizeArchiveExportFilenameTemplate(value)),
           }),
           this.commitTextDefinition({
             name: ARCHIVE_EXPORT_TAGS_SETTING.name,
@@ -232,7 +219,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             value: () => this.plugin.settings.archiveExportTags,
             placeholder: ARCHIVE_EXPORT_TAGS_SETTING.placeholder,
             normalizeValue: normalizeArchiveExportTags,
-            onCommit: (value) => this.setArchiveExportTags(value),
+            onCommit: (value) => this.setPreference("archiveExportTags", normalizeArchiveExportTags(value)),
           }),
         ],
       },
@@ -272,19 +259,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   override async setControlValue(key: string, value: unknown): Promise<void> {
     switch (key) {
       case "showToolbar":
-        if (typeof value === "boolean") await this.setShowToolbar(value);
+      case "scrollThreadFromComposerEdges":
+      case "referenceActiveNoteOnSend":
+      case "archiveExportEnabled":
+        if (typeof value === "boolean") await this.setPreference(key, value);
         return;
       case "sendShortcut":
-        if (value === "enter" || value === "mod-enter") await this.setSendShortcut(value);
-        return;
-      case "scrollThreadFromComposerEdges":
-        if (typeof value === "boolean") await this.setScrollThreadFromComposerEdges(value);
-        return;
-      case "referenceActiveNoteOnSend":
-        if (typeof value === "boolean") await this.setReferenceActiveNoteOnSend(value);
-        return;
-      case "archiveExportEnabled":
-        if (typeof value === "boolean") await this.setArchiveExportEnabled(value);
+        if (value === "enter" || value === "mod-enter") await this.setPreference(key, value);
         return;
       default:
         throw new Error(`Unknown declarative setting key: ${key}`);
@@ -310,7 +291,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.disposeOutsidePointer = listenDomEvent(this.containerEl, "pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
     this.resources.activate();
     queueMicrotask(() => {
-      if (this.displayed) this.maybeAutoLoadResources();
+      if (this.displayed) this.resources.maybeAutoLoad();
     });
   }
 
@@ -396,70 +377,12 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     };
   }
 
-  private maybeAutoLoadResources(): void {
-    this.resources.maybeAutoLoad();
-  }
-
   private setCodexPath(value: string): Promise<void> {
     const codexPath = normalizeCodexPath(value);
     return this.queueSettingsMutation((settings) => {
       if (codexPath === settings.codexPath) return false;
       settings.codexPath = codexPath;
       return true;
-    });
-  }
-
-  private setShowToolbar(value: boolean): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.showToolbar = value;
-    });
-  }
-
-  private setSendShortcut(value: "enter" | "mod-enter"): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.sendShortcut = value;
-    });
-  }
-
-  private setScrollThreadFromComposerEdges(value: boolean): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.scrollThreadFromComposerEdges = value;
-    });
-  }
-
-  private setReferenceActiveNoteOnSend(value: boolean): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.referenceActiveNoteOnSend = value;
-    });
-  }
-
-  private setAttachmentFolder(value: string): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.attachmentFolder = normalizeAttachmentFolder(value);
-    });
-  }
-
-  private setArchiveExportEnabled(enabled: boolean): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.archiveExportEnabled = enabled;
-    });
-  }
-
-  private setArchiveExportFolderTemplate(value: string): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.archiveExportFolderTemplate = normalizeArchiveExportFolderTemplate(value);
-    });
-  }
-
-  private setArchiveExportFilenameTemplate(value: string): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.archiveExportFilenameTemplate = normalizeArchiveExportFilenameTemplate(value);
-    });
-  }
-
-  private setArchiveExportTags(value: string): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.archiveExportTags = normalizeArchiveExportTags(value);
     });
   }
 
@@ -472,12 +395,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
   }
 
-  private setThreadNamingEffort(value: ReasoningEffort | null): Promise<void> {
-    return this.queueSettingsMutation((settings) => {
-      settings.threadNamingEffort = value;
-    });
-  }
-
   private setRewriteSelectionModel(value: string | null): Promise<void> {
     return this.queueSettingsMutation((settings) => {
       settings.rewriteSelectionModel = value;
@@ -487,9 +404,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
   }
 
-  private setRewriteSelectionEffort(value: ReasoningEffort | null): Promise<void> {
+  private setPreference<Key extends keyof CodexPanelSettings>(key: Key, value: CodexPanelSettings[Key]): Promise<void> {
     return this.queueSettingsMutation((settings) => {
-      settings.rewriteSelectionEffort = value;
+      settings[key] = value;
     });
   }
 
