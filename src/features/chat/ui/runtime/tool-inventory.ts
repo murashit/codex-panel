@@ -87,7 +87,7 @@ function mcpToolProviderRow(
   const authStatus = server?.authStatus ?? diagnostic?.authStatus ?? "unknown";
   const toolCount = server?.toolCount ?? diagnostic?.toolCount;
   const level = mcpToolProviderLevel(connectionStatus, authStatus);
-  const apps = server?.name === "codex_apps" ? listSummary(server.codexAppIds ?? []) : null;
+  const apps = server?.name === "codex_apps" && !server.toolDiscoveryFailed ? listSummary(server.codexAppIds ?? []) : null;
   if (apps !== null && level === "normal" && !diagnostic?.message && !diagnostic?.authenticationIssue) {
     return { label: name, value: apps, level };
   }
@@ -97,7 +97,8 @@ function mcpToolProviderRow(
     mcpConnectionStatusLabel(connectionStatus, server !== undefined),
     `auth ${mcpAuthStatusLabel(authStatus)}`,
   ];
-  if (apps === null) parts.push(toolCount == null ? "tools unknown" : countLabel(toolCount, "tool"));
+  if (server?.toolDiscoveryFailed) parts.push("tool discovery failed");
+  else if (apps === null) parts.push(toolCount == null ? "tools unknown" : countLabel(toolCount, "tool"));
   if (diagnostic?.authenticationIssue === "reauthenticationRequired") parts.push("re-authentication required");
   if (diagnostic?.message) parts.push(diagnostic.message);
   return { label: name, value: parts.join(", "), level };

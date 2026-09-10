@@ -185,6 +185,7 @@ describe("createChatPanelRuntimeNotices", () => {
           name: "github",
           authStatus: "oAuth",
           toolCount: 1,
+          toolDiscoveryFailed: false,
           connectionStatus: "connected",
         },
       ],

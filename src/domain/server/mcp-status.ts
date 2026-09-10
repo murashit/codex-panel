@@ -25,6 +25,7 @@ export interface McpServerStatusSummary {
   readonly name: string;
   readonly authStatus: McpAuthStatus;
   readonly toolCount: number;
+  readonly toolDiscoveryFailed: boolean;
   readonly connectionStatus: Exclude<McpServerConnectionStatus, "unknown"> | null;
   readonly codexAppIds?: readonly string[];
 }

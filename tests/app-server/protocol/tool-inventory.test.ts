@@ -8,6 +8,7 @@ describe("MCP status projection", () => {
         name: "codex_apps",
         runtimeStatus: "connected",
         authStatus: "oAuth",
+        toolsError: null,
         tools: {
           "github.fetch_issue": { name: "github.fetch_issue" },
           "google_drive.get_document_text": { name: "google_drive.get_document_text" },
@@ -19,6 +20,7 @@ describe("MCP status projection", () => {
         name: "github",
         runtimeStatus: null,
         authStatus: "oAuth",
+        toolsError: null,
         tools: {
           "github.fetch_issue": { name: "github.fetch_issue" },
         },

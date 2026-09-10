@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { mcpServerStatusSummariesFromStatuses } from "../../../../../src/app-server/protocol/tool-inventory";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import {
   createServerDiagnostics,
@@ -182,6 +183,7 @@ describe("connection diagnostics", () => {
           name: "codex_apps",
           authStatus: "oAuth",
           toolCount: 219,
+          toolDiscoveryFailed: false,
           connectionStatus: "connected",
           codexAppIds: ["apple_music", "github", "google_drive"],
         },
@@ -189,6 +191,7 @@ describe("connection diagnostics", () => {
           name: "github",
           authStatus: "oAuth",
           toolCount: 2,
+          toolDiscoveryFailed: false,
           connectionStatus: "connected",
         },
       ],
@@ -269,6 +272,7 @@ describe("connection diagnostics", () => {
           name: "github",
           authStatus: "oAuth",
           toolCount: 1,
+          toolDiscoveryFailed: false,
           connectionStatus: null,
         },
       ],
@@ -293,13 +297,37 @@ describe("connection diagnostics", () => {
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, connected, auth OAuth, 1 tool"]);
   });
 
+  it.each(["github", "codex_apps"])("distinguishes discovery errors from empty catalogs for %s without highlighting", (name) => {
+    const rowsFor = (toolsError: string | null) =>
+      toolInventoryDiagnosticSections(
+        {
+          plugins: [],
+          pluginMarketplaceErrors: [],
+          pluginsError: null,
+          mcpServers: mcpServerStatusSummariesFromStatuses([
+            { name, runtimeStatus: "connected", authStatus: "oAuth", tools: {}, toolsError },
+          ]),
+          mcpDiagnostics: [],
+          mcpError: null,
+        },
+        { value: [], probe: diagnosticProbeOk("skills", "0 skills", 1) },
+      ).find((section) => section.title === "Tool providers")?.rows;
+
+    expect(rowsFor("Tool listing failed")).toEqual([
+      { label: name, value: "MCP server, connected, auth OAuth, tool discovery failed", level: "normal" },
+    ]);
+    expect(rowsFor(null)).toEqual([
+      { label: name, value: name === "codex_apps" ? "(none)" : "MCP server, connected, auth OAuth, 0 tools", level: "normal" },
+    ]);
+  });
+
   it("keeps inventory auth and zero tool counts when connection diagnostics disagree", () => {
     const sections = toolInventoryDiagnosticSections(
       {
         plugins: [],
         pluginMarketplaceErrors: [],
         pluginsError: null,
-        mcpServers: [{ name: "github", authStatus: "oAuth", toolCount: 0, connectionStatus: "connected" }],
+        mcpServers: [{ name: "github", authStatus: "oAuth", toolCount: 0, toolDiscoveryFailed: false, connectionStatus: "connected" }],
         mcpDiagnostics: [
           {
             name: "github",
@@ -361,6 +389,7 @@ describe("connection diagnostics", () => {
           name: "codex_apps",
           authStatus: "notLoggedIn",
           toolCount: 2,
+          toolDiscoveryFailed: false,
           connectionStatus: "authenticationRequired",
           codexAppIds: ["github", "google_drive"],
         },

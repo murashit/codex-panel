@@ -53,7 +53,7 @@ function pluginSourceLabel(source: PluginSource): string {
 }
 
 // Tool names may be absent in status payloads; retain the map-key fallback at this boundary.
-type McpStatusRecord = Pick<McpServerStatus, "name" | "runtimeStatus" | "authStatus"> & {
+type McpStatusRecord = Pick<McpServerStatus, "name" | "runtimeStatus" | "authStatus" | "toolsError"> & {
   readonly tools: Readonly<Record<string, unknown>>;
 };
 
@@ -66,6 +66,7 @@ function mcpServerStatusSummaryFromStatus(server: McpStatusRecord): McpServerSta
     name: server.name,
     authStatus: server.authStatus,
     toolCount: Object.keys(server.tools).length,
+    toolDiscoveryFailed: server.toolsError != null,
     connectionStatus: server.runtimeStatus,
     codexAppIds: server.name === "codex_apps" ? codexAppIdsFromTools(server.tools) : [],
   };

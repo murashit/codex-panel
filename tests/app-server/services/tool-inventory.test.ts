@@ -43,7 +43,14 @@ describe("tool inventory", () => {
     const result = await readMcpServerInventory(client, "thread");
 
     expect(result.servers).toEqual([
-      { name: "github", authStatus: "notLoggedIn", toolCount: 0, connectionStatus: "authenticationRequired", codexAppIds: [] },
+      {
+        name: "github",
+        authStatus: "notLoggedIn",
+        toolCount: 0,
+        toolDiscoveryFailed: false,
+        connectionStatus: "authenticationRequired",
+        codexAppIds: [],
+      },
     ]);
   });
 
@@ -144,6 +151,7 @@ function mcpServerStatus(name: string) {
     runtimeStatus: "connected",
     serverInfo: null,
     tools: {},
+    toolsError: null,
     resources: [],
     resourceTemplates: [],
     authStatus: "oAuth",
