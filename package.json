@@ -41,7 +41,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11",
+    "@biomejs/biome": "^2.5.12",
     "@codemirror/state": "6.5.0",
     "@codemirror/view": "6.38.6",
     "@commitlint/cli": "^21.2.2",
@@ -49,8 +49,8 @@
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^26.4.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@types/node": "^26.4.1",
+    "@vitest/coverage-v8": "^5.0.0",
     "concurrently": "^10.0.5",
     "conventional-changelog-conventionalcommits": "^10.4.0",
     "conventional-commits-parser": "^7.1.2",
@@ -58,12 +58,12 @@
     "eslint": "^10.9.1",
     "eslint-plugin-obsidianmd": "^0.4.2",
     "jsdom": "^30.0.1",
-    "knip": "^6.32.3",
+    "knip": "^6.34.0",
     "moment": "^2.30.1",
     "obsidian": "^1.13.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.68.0",
-    "vitest": "^4.1.10"
+    "typescript-eslint": "^8.69.0",
+    "vitest": "^5.0.0"
   },
   "dependencies": {
     "@tanstack/query-core": "^5.102.8",

@@ -206,20 +206,20 @@
   color: var(--codex-panel-color-warning);
 }
 
-.codex-panel__stream-item--approval-result.codex-panel__execution--completed .codex-panel__stream-item-role {
-  color: var(--codex-panel-color-success);
-}
-
-.codex-panel__stream-item--approval-result.codex-panel__execution--failed .codex-panel__stream-item-role {
-  color: var(--codex-panel-color-danger);
-}
-
 .codex-panel__stream-item--user-input-result {
   border-left-color: var(--codex-panel-color-accent);
 }
 
 .codex-panel__stream-item--user-input-result .codex-panel__stream-item-role {
   color: var(--codex-panel-color-accent);
+}
+
+.codex-panel__stream-item--approval-result.codex-panel__execution--completed .codex-panel__stream-item-role {
+  color: var(--codex-panel-color-success);
+}
+
+.codex-panel__stream-item--approval-result.codex-panel__execution--failed .codex-panel__stream-item-role {
+  color: var(--codex-panel-color-danger);
 }
 
 .codex-panel__reasoning {

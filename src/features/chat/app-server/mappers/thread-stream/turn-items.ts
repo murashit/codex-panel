@@ -475,8 +475,9 @@ export function shouldSuppressLifecycleItem(item: TurnItem): boolean {
   return item.type === "agentMessage" || item.type === "userMessage";
 }
 
-function ignoredUnsupportedTurnItem(item: never): null {
-  void item;
+// The unused argument enforces exhaustive TurnItem handling while ignoring unknown runtime items.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function ignoredUnsupportedTurnItem(_item: never): null {
   return null;
 }
 

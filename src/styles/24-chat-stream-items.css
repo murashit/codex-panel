@@ -62,13 +62,13 @@
   cursor: text;
 }
 
+.codex-panel__detail-header .codex-panel__stream-item-role {
+  margin-bottom: 0;
+}
+
 .codex-panel__detail-disclosure > .codex-panel__detail-header:hover,
 .codex-panel__detail-disclosure > .codex-panel__detail-header:hover .codex-panel__stream-item-role {
   color: var(--nav-item-color-hover, var(--text-normal));
-}
-
-.codex-panel__detail-header .codex-panel__stream-item-role {
-  margin-bottom: 0;
 }
 
 .codex-panel__output,
