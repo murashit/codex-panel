@@ -53,6 +53,9 @@ function threadFixture(id: string, name: string): AppServerThread {
   return {
     id,
     extra: null,
+    environments: null,
+    originator: null,
+    daybreakEnabled: null,
     sessionId: "session",
     forkedFromId: null,
     parentThreadId: null,

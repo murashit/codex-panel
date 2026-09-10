@@ -550,6 +550,9 @@ function thread(id: string): AppServerThread {
   return {
     id,
     extra: null,
+    environments: null,
+    originator: null,
+    daybreakEnabled: null,
     sessionId: "session",
     forkedFromId: null,
     parentThreadId: null,

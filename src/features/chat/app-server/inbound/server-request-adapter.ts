@@ -558,6 +558,8 @@ function pendingUserInputQuestion(question: UserInputQuestion): PendingUserInput
 
 function normalizeMcpElicitationParams(params: McpElicitationParams): NormalizedMcpElicitationParams | null {
   switch (params.mode) {
+    case "openai/userVerification":
+      return null;
     case "form":
     case "openai/form":
     case "openaiForm":

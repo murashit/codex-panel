@@ -2217,6 +2217,9 @@ function appServerThread(id: string, cwd: string): ThreadStartedNotification["pa
   return {
     id,
     extra: null,
+    environments: null,
+    originator: null,
+    daybreakEnabled: null,
     sessionId: id,
     forkedFromId: null,
     parentThreadId: null,

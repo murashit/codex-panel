@@ -75,6 +75,7 @@ function appServerRateLimitFixture(limitId: string, usedPercent: number): AppSer
   return {
     limitId,
     limitName: limitId,
+    normalModelSlug: null,
     primary: { usedPercent, windowDurationMins: 300, resetsAt: null },
     secondary: null,
     credits: null,

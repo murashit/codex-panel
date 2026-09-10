@@ -121,6 +121,24 @@ describe("chat inbound routing", () => {
     expectRequestRouteKind({ ...request, params: { ...request.params, threadId: "thread-other" } } as ServerRequest, "inactive");
   });
 
+  it("routes native user verification to diagnostic rejection without presenting a form", () => {
+    const request = {
+      id: "verification-1",
+      method: "mcpServer/elicitation/request",
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        serverName: "verification-server",
+        mode: "openai/userVerification",
+        title: "Verify your identity",
+        description: "Confirm access",
+        challenge: "Y2hhbGxlbmdl",
+      },
+    } satisfies ServerRequest;
+
+    expectRequestRouteKind(request, "unsupported");
+  });
+
   it("routes MCP forms with unsupported fields to diagnostic rejection", () => {
     const request = mcpElicitationRequest();
     const unsupported = {
@@ -680,6 +698,9 @@ function threadSnapshot(id: string): Extract<ServerNotification, { method: "thre
   return {
     id,
     extra: null,
+    environments: null,
+    originator: null,
+    daybreakEnabled: null,
     sessionId: "session",
     forkedFromId: null,
     parentThreadId: null,
