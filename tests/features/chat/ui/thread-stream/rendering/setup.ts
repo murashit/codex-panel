@@ -1,27 +1,27 @@
-import { beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { installObsidianDomShims } from "../../../../../support/dom";
 
-// Panel rendering integration tests exercise the UI through panel-owned projections.
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
-installObsidianDomShims();
-
-beforeEach(() => {
-  let nextAnimationFrameId = 1;
-  const callbacks = new Map<number, FrameRequestCallback>();
-  window.requestAnimationFrame = (callback) => {
-    const id = nextAnimationFrameId;
-    nextAnimationFrameId += 1;
-    callbacks.set(id, callback);
-    queueMicrotask(() => {
-      const scheduled = callbacks.get(id);
-      if (!scheduled) return;
-      callbacks.delete(id);
-      scheduled(0);
+export function setupThreadStreamRendering(): void {
+  installObsidianDomShims();
+  let callbacks = new Map<number, FrameRequestCallback>();
+  beforeEach(() => {
+    let nextAnimationFrameId = 1;
+    callbacks = new Map();
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      const id = nextAnimationFrameId++;
+      callbacks.set(id, callback);
+      queueMicrotask(() => {
+        const scheduled = callbacks.get(id);
+        if (!scheduled) return;
+        callbacks.delete(id);
+        scheduled(0);
+      });
+      return id;
     });
-    return id;
-  };
-  window.cancelAnimationFrame = (id) => {
-    callbacks.delete(id);
-  };
-});
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => callbacks.delete(id));
+  });
+  afterEach(() => {
+    callbacks.clear();
+    vi.unstubAllGlobals();
+  });
+}

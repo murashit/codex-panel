@@ -69,6 +69,7 @@ export class StdioAppServerTransport implements AppServerTransport {
     private readonly codexPath: string,
     private readonly cwd: string,
     private readonly handlers: AppServerTransportHandlers,
+    private readonly spawnProcess: typeof spawn = spawn,
   ) {}
 
   start(): void {
@@ -79,7 +80,7 @@ export class StdioAppServerTransport implements AppServerTransport {
     const launch = createAppServerSpawnSpec(this.codexPath);
     this.killProcessTreeOnStop = launch.killProcessTreeOnStop;
     const environment = createAppServerEnvironment(this.codexPath);
-    this.process = spawn(launch.command, launch.args, {
+    this.process = this.spawnProcess(launch.command, launch.args, {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
       windowsVerbatimArguments: launch.windowsVerbatimArguments,
@@ -133,7 +134,7 @@ export class StdioAppServerTransport implements AppServerTransport {
     const child = this.process;
     if (child && !child.killed) {
       if (this.killProcessTreeOnStop && typeof child.pid === "number") {
-        killWindowsProcessTree(child.pid);
+        killWindowsProcessTree(child.pid, this.spawnProcess);
       } else {
         child.kill();
       }
@@ -163,8 +164,8 @@ export class StdioAppServerTransport implements AppServerTransport {
   }
 }
 
-function killWindowsProcessTree(pid: number): void {
-  const killer = spawn("taskkill", ["/pid", String(pid), "/t", "/f"], {
+function killWindowsProcessTree(pid: number, spawnProcess: typeof spawn): void {
+  const killer = spawnProcess("taskkill", ["/pid", String(pid), "/t", "/f"], {
     stdio: "ignore",
     windowsHide: true,
   });

@@ -2,8 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
+import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
 import type { Thread } from "../../../src/domain/threads/model";
-import type * as ThreadTitleGeneratorModule from "../../../src/features/threads/app-server/thread-title-generation";
 import { createThreadMutationAdapter, createThreadTitleAdapter } from "../../../src/features/threads/app-server/workflow-adapters";
 import type { ThreadFactSink } from "../../../src/features/threads/workflows/thread-facts";
 import { createThreadMutationCommands } from "../../../src/features/threads/workflows/thread-mutation-commands";
@@ -16,30 +16,9 @@ import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
-const connectionMock = vi.hoisted(() => {
-  const state = {
-    client: null as Record<string, unknown> | null,
-  };
+let currentClient: Record<string, unknown> | null = null;
 
-  return {
-    state,
-    reset(): void {
-      state.client = null;
-    },
-  };
-});
-
-const namingMock = vi.hoisted(() => ({
-  generateThreadTitleWithCodex: vi.fn(),
-}));
-
-vi.mock("../../../src/features/threads/app-server/thread-title-generation", async (importOriginal) => {
-  const actual = await importOriginal<typeof ThreadTitleGeneratorModule>();
-  return {
-    ...actual,
-    generateThreadTitleWithCodex: namingMock.generateThreadTitleWithCodex,
-  };
-});
+const titleRunner = vi.fn<EphemeralStructuredTurnRunner>();
 
 installObsidianDomShims();
 
@@ -47,12 +26,13 @@ describe("CodexThreadsView", () => {
   beforeEach(() => {
     vi.useRealTimers();
     notices.length = 0;
-    connectionMock.reset();
-    namingMock.generateThreadTitleWithCodex.mockReset();
+    currentClient = null;
+    titleRunner.mockReset();
+    titleRunner.mockRejectedValue(new Error("Unexpected structured turn."));
   });
 
   it("renders thread list from app-server history", async () => {
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
     });
     const host = threadsHost();
@@ -71,7 +51,7 @@ describe("CodexThreadsView", () => {
           resolveThreads = resolve;
         }),
     );
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": listThreads,
     });
     const view = await threadsView();
@@ -89,7 +69,7 @@ describe("CodexThreadsView", () => {
 
   it("renders shared thread refresh failures", async () => {
     const listThreads = vi.fn().mockRejectedValue(new Error("Codex app-server stopped."));
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": listThreads,
     });
     const view = await threadsView();
@@ -106,7 +86,7 @@ describe("CodexThreadsView", () => {
       .fn()
       .mockResolvedValueOnce({ data: [threadFixture({ id: "thread", preview: "Cached thread" })] })
       .mockRejectedValueOnce(new Error("Refresh failed."));
-    connectionMock.state.client = clientFixture({ "thread/list": listThreads });
+    currentClient = clientFixture({ "thread/list": listThreads });
     const view = await threadsView();
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Cached thread"));
 
@@ -141,7 +121,7 @@ describe("CodexThreadsView", () => {
   });
 
   it("opens selected threads through the shared panel selection path", async () => {
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
     });
     const host = threadsHost({
@@ -168,7 +148,7 @@ describe("CodexThreadsView", () => {
       archiveConfirmVisibleWhenOpening = view.containerEl.querySelector(".codex-panel-threads__archive-confirm") !== null;
       return opened.promise;
     });
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": archiveThread,
     });
@@ -212,7 +192,7 @@ describe("CodexThreadsView", () => {
   });
 
   it("opens a new panel from the threads view toolbar", async () => {
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
     });
     const host = threadsHost({
@@ -231,7 +211,7 @@ describe("CodexThreadsView", () => {
 
   it("refreshes threads from the threads view toolbar", async () => {
     const listThreads = vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] });
-    connectionMock.state.client = clientFixture({ "thread/list": listThreads });
+    currentClient = clientFixture({ "thread/list": listThreads });
     const view = await threadsView();
 
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
@@ -319,7 +299,7 @@ describe("CodexThreadsView", () => {
   it("lets a completed archive settle after the threads view closes", async () => {
     const archived = deferred<object>();
     const archiveThread = vi.fn(() => archived.promise);
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": archiveThread,
     });
@@ -341,7 +321,7 @@ describe("CodexThreadsView", () => {
 
   it("does not archive a thread while its panel is pending or running", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": archiveThread,
     });
@@ -399,7 +379,7 @@ describe("CodexThreadsView", () => {
   it("keeps the rename editor locked until a save finishes", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
@@ -430,7 +410,7 @@ describe("CodexThreadsView", () => {
   it("restores the same editor when a locked rename save fails", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": renameThreadRequest,
     });
@@ -458,7 +438,7 @@ describe("CodexThreadsView", () => {
   });
 
   it("notifies an archive failure without adding list status", async () => {
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/archive": vi.fn().mockRejectedValue(new Error("Archive failed.")),
     });
@@ -496,8 +476,8 @@ describe("CodexThreadsView", () => {
       ],
       nextCursor: null,
     });
-    namingMock.generateThreadTitleWithCodex.mockResolvedValue("Threads rename UI");
-    connectionMock.state.client = clientFixture({
+    titleRunner.mockResolvedValue(titleTurn("Threads rename UI"));
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/turns/list": threadTurnsList,
     });
@@ -519,7 +499,9 @@ describe("CodexThreadsView", () => {
         itemsView: "full",
       });
       expect(threadTurnsList).toHaveBeenCalledOnce();
-      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+      expect(titleRunner).toHaveBeenCalledOnce();
+      expect(titleRunner.mock.calls[0]?.[0].prompt).toContain("threads viewのrenameを直したい");
+      expect(titleRunner.mock.calls[0]?.[0].prompt).toContain("rename UIを調整しました。");
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
     });
   });
@@ -527,7 +509,7 @@ describe("CodexThreadsView", () => {
   it("disables auto-name while completed history is loading", async () => {
     const history = deferred<unknown>();
     const threadTurnsList = vi.fn().mockReturnValue(history.promise);
-    connectionMock.state.client = clientFixture({
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/turns/list": threadTurnsList,
     });
@@ -541,7 +523,7 @@ describe("CodexThreadsView", () => {
 
     expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
-    expect(namingMock.generateThreadTitleWithCodex).not.toHaveBeenCalled();
+    expect(titleRunner).not.toHaveBeenCalled();
     await view.onClose();
     history.resolve({ data: [], nextCursor: null });
   });
@@ -559,8 +541,8 @@ describe("CodexThreadsView", () => {
       nextCursor: null,
     };
     const threadTurnsList = vi.fn().mockReturnValue(history.promise);
-    namingMock.generateThreadTitleWithCodex.mockResolvedValue("Generated title");
-    connectionMock.state.client = clientFixture({
+    titleRunner.mockResolvedValue(titleTurn("Generated title"));
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/name/set": vi.fn(() => saved.promise),
       "thread/turns/list": threadTurnsList,
@@ -584,7 +566,7 @@ describe("CodexThreadsView", () => {
     const autoName = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
     autoName?.click();
     await waitForAsyncWork(() => {
-      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+      expect(titleRunner).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Generated title");
     });
   });
@@ -613,8 +595,8 @@ describe("CodexThreadsView", () => {
       nextCursor: null,
     });
     const generatedTitle = deferred<string | null>();
-    namingMock.generateThreadTitleWithCodex.mockReturnValue(generatedTitle.promise);
-    connectionMock.state.client = clientFixture({
+    titleRunner.mockReturnValue(generatedTitle.promise.then(titleTurn));
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/turns/list": threadTurnsList,
     });
@@ -628,7 +610,7 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     await waitForAsyncWork(() => {
-      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+      expect(titleRunner).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')).toBeNull();
       expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')).not.toBeNull();
     });
@@ -641,8 +623,8 @@ describe("CodexThreadsView", () => {
 
   it("does not remount the threads view when auto-name finishes after close", async () => {
     const generatedTitle = deferred<string | null>();
-    namingMock.generateThreadTitleWithCodex.mockReturnValue(generatedTitle.promise);
-    connectionMock.state.client = clientFixture({
+    titleRunner.mockReturnValue(generatedTitle.promise.then(titleTurn));
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/turns/list": vi.fn().mockResolvedValue({
         data: [
@@ -663,9 +645,9 @@ describe("CodexThreadsView", () => {
     });
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     await waitForAsyncWork(() => {
-      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+      expect(titleRunner).toHaveBeenCalledOnce();
     });
-    const generationSignal = namingMock.generateThreadTitleWithCodex.mock.calls[0]?.[4]?.signal as AbortSignal | undefined;
+    const generationSignal = titleRunner.mock.calls[0]?.[0].signal;
     await view.onClose();
     expect(generationSignal?.aborted).toBe(true);
     generatedTitle.resolve("Late title");
@@ -699,8 +681,8 @@ describe("CodexThreadsView", () => {
       nextCursor: null,
     });
     const generatedTitle = deferred<string | null>();
-    namingMock.generateThreadTitleWithCodex.mockReturnValue(generatedTitle.promise);
-    connectionMock.state.client = clientFixture({
+    titleRunner.mockReturnValue(generatedTitle.promise.then(titleTurn));
+    currentClient = clientFixture({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       "thread/turns/list": threadTurnsList,
     });
@@ -714,14 +696,14 @@ describe("CodexThreadsView", () => {
     });
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     await waitForAsyncWork(() => {
-      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+      expect(titleRunner).toHaveBeenCalledOnce();
     });
 
     const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
     expect(input).not.toBeNull();
     if (!input) return;
     expect(input.disabled).toBe(true);
-    const generationSignal = namingMock.generateThreadTitleWithCodex.mock.calls[0]?.[4]?.signal as AbortSignal | undefined;
+    const generationSignal = titleRunner.mock.calls[0]?.[0].signal;
     expect(generationSignal?.aborted).toBe(false);
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')?.click();
     const editableInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
@@ -824,7 +806,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
   };
   const clientAccess = {
     withClient: async <T>(operation: (client: never) => Promise<T>): Promise<T> => {
-      const client = connectionMock.state.client;
+      const client = currentClient;
       if (!client) throw new Error("No current client.");
       return operation(client as never);
     },
@@ -867,7 +849,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       vaultPath: "/vault",
       threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
       threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
-      runner: vi.fn(() => Promise.reject(new Error("Unexpected structured turn."))),
+      runner: titleRunner,
     }),
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
@@ -887,7 +869,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
           emitActive(threads);
           return threads;
         }
-        const client = connectionMock.state.client;
+        const client = currentClient;
         if (!client) return [];
         const request = client["request"] as (
           method: string,
@@ -905,7 +887,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
           emitActive(threads);
           return;
         }
-        const client = connectionMock.state.client;
+        const client = currentClient;
         if (!client) return;
         const request = client["request"] as (
           method: string,
@@ -1026,4 +1008,22 @@ function turnFixture(items: TurnRecord["items"], overrides: Partial<TurnRecord> 
     durationMs: 1,
     ...overrides,
   };
+}
+
+function titleTurn(title: string | null): TurnRecord {
+  return turnFixture(
+    title === null
+      ? []
+      : [
+          {
+            type: "agentMessage",
+            id: "title",
+            text: JSON.stringify({ title }),
+            phase: "final_answer",
+            memoryCitation: null,
+            delivery: null,
+            questions: null,
+          },
+        ],
+  );
 }

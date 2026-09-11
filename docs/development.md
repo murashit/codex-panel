@@ -16,6 +16,10 @@ Use the Node.js version in `.node-version`.
 
 Use focused scripts while iterating. Before handoff, run `npm run fix`, review its diff, and run the full `npm run check`; focused or ad hoc checks do not replace this standard sequence unless validation is explicitly scoped otherwise.
 
+Vitest reuses workers with `isolate: false`. Keep boundary spies, timers, globals, and DOM overrides local to each test and restore them afterward. Avoid per-file `vi.mock` replacements of shared modules; use scoped spies or existing dependency injection instead. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
+
+Run `npm run test:order` after changing test fixtures or shared state. It runs the full suite in one worker with shuffled files and tests; CI also runs it with a fresh seed. Replay a failure with `npm run test:order -- --sequence.seed <reported-seed>`. This complements the normal six-worker run by forcing test files to share the same worker within each environment.
+
 Use `npm run test:coverage` to identify source modules and branches that lack exercised behavior. It reports every authored TypeScript source file, including files not imported by tests, while excluding generated app-server bindings. Open `coverage/index.html` to inspect line-level gaps. Coverage is diagnostic and has no pass/fail threshold; prioritize user-visible behavior and state-transition invariants rather than raising the aggregate percentage.
 
 Use `npm run test:mutation` for exploratory mutation testing of correctness-critical logic. Configure mutation targets by responsibility directory in `stryker.config.mjs`. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run skips static mutants to avoid costly module reinitialization, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.

@@ -4,11 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type AppServerTransportHandlers, StdioAppServerTransport } from "../../../src/app-server/connection/transport";
 
-const spawnMock = vi.hoisted(() => vi.fn());
-
-vi.mock("node:child_process", () => ({
-  spawn: spawnMock,
-}));
+const spawnMock = vi.fn();
 
 describe("StdioAppServerTransport", () => {
   beforeEach(() => {
@@ -225,12 +221,17 @@ describe("StdioAppServerTransport", () => {
 
     spawnMock.mockReturnValue(fakeChildProcess());
 
-    new StdioAppServerTransport(codexCmd, cwd, {
-      onLine: vi.fn(),
-      onLog: vi.fn(),
-      onExit: vi.fn(),
-      onError: vi.fn(),
-    }).start();
+    new StdioAppServerTransport(
+      codexCmd,
+      cwd,
+      {
+        onLine: vi.fn(),
+        onLog: vi.fn(),
+        onExit: vi.fn(),
+        onError: vi.fn(),
+      },
+      spawnMock,
+    ).start();
 
     expect(spawnMock).toHaveBeenCalledWith(String.raw`C:\Windows\System32\cmd.exe`, ["/d", "/s", "/c", `""${codexCmd}" app-server"`], {
       cwd,
@@ -247,12 +248,17 @@ describe("StdioAppServerTransport", () => {
 
     spawnMock.mockReturnValue(cmdProcess);
 
-    const transport = new StdioAppServerTransport(codexCmd, String.raw`C:\vault`, {
-      onLine: vi.fn(),
-      onLog: vi.fn(),
-      onExit: vi.fn(),
-      onError: vi.fn(),
-    });
+    const transport = new StdioAppServerTransport(
+      codexCmd,
+      String.raw`C:\vault`,
+      {
+        onLine: vi.fn(),
+        onLog: vi.fn(),
+        onExit: vi.fn(),
+        onError: vi.fn(),
+      },
+      spawnMock,
+    );
     transport.start();
     transport.stop();
 
@@ -273,7 +279,7 @@ function transportInstance(codexPath = "codex") {
   };
   return {
     handlers,
-    instance: new StdioAppServerTransport(codexPath, "/vault", handlers),
+    instance: new StdioAppServerTransport(codexPath, "/vault", handlers, spawnMock),
   };
 }
 

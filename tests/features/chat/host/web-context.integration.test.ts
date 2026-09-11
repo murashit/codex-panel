@@ -1,28 +1,26 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import * as obsidian from "obsidian";
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 
 import type { ComposerInputSnapshot } from "../../../../src/features/chat/application/composer/input-snapshot";
+import { readWebUrl } from "../../../../src/features/chat/host/obsidian/web-context.obsidian";
 
-const mocks = vi.hoisted(() => ({
-  htmlToMarkdown: vi.fn(),
-  requestUrl: vi.fn(),
-}));
+let requestUrl: MockInstance<typeof obsidian.requestUrl>;
+let htmlToMarkdown: MockInstance<typeof obsidian.htmlToMarkdown>;
 
-vi.mock("obsidian", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("obsidian")>();
-  return {
-    ...actual,
-    htmlToMarkdown: mocks.htmlToMarkdown,
-    requestUrl: mocks.requestUrl,
-  };
+beforeEach(() => {
+  requestUrl = vi.spyOn(obsidian, "requestUrl");
+  htmlToMarkdown = vi.spyOn(obsidian, "htmlToMarkdown");
 });
-
-const { readWebUrl } = await import("../../../../src/features/chat/host/obsidian/web-context.obsidian");
+afterEach(() => vi.restoreAllMocks());
 
 describe("web context parser integration", () => {
   it("extracts article HTML with the Defuddle core bundle before Markdown conversion", async () => {
-    mocks.requestUrl.mockResolvedValue({
+    requestUrl.mockResolvedValue({
+      headers: {},
+      json: {},
+      arrayBuffer: new ArrayBuffer(0),
       status: 200,
       text: `<!doctype html>
         <html>
@@ -39,7 +37,7 @@ describe("web context parser integration", () => {
           </body>
         </html>`,
     });
-    mocks.htmlToMarkdown.mockReturnValue("## Parser contract heading\n\nReadable article");
+    htmlToMarkdown.mockReturnValue("## Parser contract heading\n\nReadable article");
 
     const result = await readWebUrl(
       {
@@ -51,7 +49,7 @@ describe("web context parser integration", () => {
       {} as ComposerInputSnapshot,
     );
 
-    const extractedHtml = mocks.htmlToMarkdown.mock.calls[0]?.[0] as string;
+    const extractedHtml = htmlToMarkdown.mock.calls[0]?.[0] as string;
     expect(extractedHtml).toContain("This readable paragraph exercises the real Defuddle core browser bundle.");
     expect(extractedHtml).not.toContain("Navigation that should not be included");
     expect(result.text).toBe("https://example.com/article");

@@ -8,7 +8,10 @@ import type { ThreadStreamItem } from "../../../../../../src/features/chat/domai
 import { ThreadStreamMarkdownRenderer } from "../../../../../../src/features/chat/host/thread-stream/markdown-renderer.obsidian";
 import { deferred } from "../../../../../support/async";
 import { attributeValues, textContents, topLevelDetailsSummaries } from "../../../../../support/dom";
-import "./setup";
+import { setupThreadStreamRendering } from "./setup";
+
+setupThreadStreamRendering();
+
 import {
   expectPresent,
   idleTurnLifecycle,

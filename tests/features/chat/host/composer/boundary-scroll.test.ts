@@ -7,9 +7,9 @@ import {
   composerBoundaryScrollActionFromElement,
 } from "../../../../../src/features/chat/host/composer/element.dom";
 
-import { textareaCursorAtVisualBoundary } from "../../../../../src/shared/dom/textarea-caret.measure";
+import { installObsidianDomShims } from "../../../../support/dom";
 
-vi.mock("../../../../../src/shared/dom/textarea-caret.measure", () => ({ textareaCursorAtVisualBoundary: vi.fn() }));
+installObsidianDomShims();
 
 describe("composer boundary scroll shortcuts", () => {
   it.each([
@@ -53,8 +53,8 @@ describe("composer boundary scroll shortcuts", () => {
   });
 
   it("keeps cursor movement when the visual line has not reached the composer edge", () => {
-    expect(direction("ArrowUp", "wrapped first line", 8, { visualBoundary: false })).toBeNull();
-    expect(direction("ArrowDown", "wrapped last line", 8, { visualBoundary: false })).toBeNull();
+    expect(direction("ArrowUp", "wrapped first line", 8, { wrapped: true })).toBeNull();
+    expect(direction("ArrowDown", "wrapped last line", 8, { wrapped: true })).toBeNull();
   });
 
   it("ignores selections, composition, and modified arrow keys", () => {
@@ -77,12 +77,24 @@ function direction(
     isComposing: boolean;
     repeat: boolean;
     cursorEnd: number;
-    visualBoundary: boolean;
+    wrapped: boolean;
   }> = {},
 ): ComposerBoundaryScrollAction | null {
-  vi.mocked(textareaCursorAtVisualBoundary).mockReturnValue(options.visualBoundary ?? true);
   const composer = document.createElement("textarea");
   composer.value = value;
   composer.setSelectionRange(cursorStart, options.cursorEnd ?? cursorStart);
-  return composerBoundaryScrollActionFromElement(new KeyboardEvent("keydown", { ...options, key }), composer);
+  // jsdom has no text layout. Supply geometry while exercising the real caret measurement and scroll decision.
+  const bounds = vi.spyOn(composer, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 120, 80));
+  const caretTop = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (this: HTMLElement) {
+    const position = this.previousSibling?.textContent?.length ?? 0;
+    if (!options.wrapped) return 0;
+    if (position < cursorStart) return 0;
+    return position === cursorStart ? 20 : 40;
+  });
+  try {
+    return composerBoundaryScrollActionFromElement(new KeyboardEvent("keydown", { ...options, key }), composer);
+  } finally {
+    caretTop.mockRestore();
+    bounds.mockRestore();
+  }
 }

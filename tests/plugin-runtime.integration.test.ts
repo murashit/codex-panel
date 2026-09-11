@@ -1,3 +1,4 @@
+import * as contextConnection from "../src/app-server/connection/context-connection";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,28 +25,7 @@ import {
 
 installObsidianDomShims();
 
-const { contextConnectionClientMock } = vi.hoisted(() => ({
-  contextConnectionClientMock: vi.fn(),
-}));
-
-vi.mock("../src/app-server/connection/context-connection", () => ({
-  AppServerContextConnection: class {
-    constructor(
-      private readonly codexPath: string,
-      private readonly cwd: string,
-    ) {}
-
-    withClient(operation: unknown) {
-      return contextConnectionClientMock(this.codexPath, this.cwd, operation);
-    }
-
-    createLease() {
-      throw new Error("Unexpected panel connection lease.");
-    }
-
-    dispose() {}
-  },
-}));
+const contextConnectionClientMock = vi.fn();
 
 function threadCatalog(plugin: CodexPanelPlugin) {
   return currentChatHost(plugin).threadCatalog;
@@ -88,6 +68,21 @@ describe("CodexPanelPlugin runtime integration", () => {
   beforeEach(() => {
     vi.useRealTimers();
     contextConnectionClientMock.mockReset();
+    vi.spyOn(contextConnection, "AppServerContextConnection").mockImplementation(
+      class {
+        constructor(
+          private readonly codexPath: string,
+          private readonly cwd: string,
+        ) {}
+        withClient(operation: unknown) {
+          return contextConnectionClientMock(this.codexPath, this.cwd, operation);
+        }
+        createLease() {
+          throw new Error("Unexpected panel connection lease.");
+        }
+        dispose() {}
+      } as never,
+    );
   });
 
   it("creates and loads a turn diff leaf before publishing its session payload", async () => {

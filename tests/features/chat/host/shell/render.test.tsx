@@ -16,7 +16,6 @@ import { installObsidianDomShims } from "../../../../support/dom";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 
 installObsidianDomShims();
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("ChatPanelShell", () => {
   it("updates shell components from the state store", async () => {

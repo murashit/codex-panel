@@ -1,73 +1,68 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as contextConnection from "../src/app-server/connection/context-connection";
+import * as ephemeralStructuredTurn from "../src/app-server/services/ephemeral-structured-turn";
 import type { ThreadGoal } from "../src/domain/threads/goal";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import type { ThreadPickerController } from "../src/features/thread-picker/modal.obsidian";
+import * as threadPicker from "../src/features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost } from "../src/features/threads-view/session";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import { DEFAULT_SETTINGS } from "../src/settings/preferences";
 
-const { contextConnectionMock, openThreadPickerMock, runEphemeralStructuredTurnMock } = vi.hoisted(() => ({
-  contextConnectionMock: {
-    client: { disconnect: vi.fn(), request: vi.fn() },
-    instances: [] as Array<{
-      dispose: ReturnType<typeof vi.fn>;
-      handlers: { onNotification(notification: unknown): void; onExit(): void };
-    }>,
-  },
-  openThreadPickerMock: vi.fn(),
-  runEphemeralStructuredTurnMock: vi.fn(),
-}));
-
-vi.mock("../src/features/thread-picker/modal.obsidian", () => ({
-  openThreadPicker: openThreadPickerMock,
-}));
-
-vi.mock("../src/app-server/connection/context-connection", () => ({
-  AppServerContextConnection: class {
-    readonly dispose = vi.fn(() => {
-      contextConnectionMock.client.disconnect();
-    });
-
-    constructor(
-      _codexPath: string,
-      _cwd: string,
-      _initializeParams: unknown,
-      readonly handlers: { onNotification(notification: unknown): void; onExit(): void },
-    ) {
-      contextConnectionMock.instances.push(this);
-    }
-
-    createLease() {
-      return {
-        connect: vi.fn(),
-        currentClient: () => contextConnectionMock.client,
-        isConnected: () => true,
-        disconnect: vi.fn(),
-      };
-    }
-
-    withClient<T>(operation: (client: typeof contextConnectionMock.client) => Promise<T>): Promise<T> {
-      return operation(contextConnectionMock.client);
-    }
-
-    currentClient() {
-      return contextConnectionMock.client;
-    }
-
-    isConnected() {
-      return true;
-    }
-  },
-}));
-
-vi.mock("../src/app-server/services/ephemeral-structured-turn", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../src/app-server/services/ephemeral-structured-turn")>()),
-  runEphemeralStructuredTurn: runEphemeralStructuredTurnMock,
-}));
+const contextConnectionMock = {
+  client: { disconnect: vi.fn(), request: vi.fn() },
+  instances: [] as Array<{
+    dispose: ReturnType<typeof vi.fn>;
+    handlers: { onNotification(notification: unknown): void; onExit(): void };
+  }>,
+};
+const openThreadPickerMock = vi.fn();
+const runEphemeralStructuredTurnMock = vi.fn();
 
 describe("CodexExecutionRuntime", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(() => {
+    vi.spyOn(threadPicker, "openThreadPicker").mockImplementation(openThreadPickerMock);
+    vi.spyOn(ephemeralStructuredTurn, "runEphemeralStructuredTurn").mockImplementation(runEphemeralStructuredTurnMock);
+    vi.spyOn(contextConnection, "AppServerContextConnection").mockImplementation(
+      class {
+        readonly dispose = vi.fn(() => {
+          contextConnectionMock.client.disconnect();
+        });
+
+        constructor(
+          _codexPath: string,
+          _cwd: string,
+          _initializeParams: unknown,
+          readonly handlers: { onNotification(notification: unknown): void; onExit(): void },
+        ) {
+          contextConnectionMock.instances.push(this);
+        }
+
+        createLease() {
+          return {
+            connect: vi.fn(),
+            currentClient: () => contextConnectionMock.client,
+            isConnected: () => true,
+            disconnect: vi.fn(),
+          };
+        }
+
+        withClient<T>(operation: (client: typeof contextConnectionMock.client) => Promise<T>): Promise<T> {
+          return operation(contextConnectionMock.client);
+        }
+
+        currentClient() {
+          return contextConnectionMock.client;
+        }
+
+        isConnected() {
+          return true;
+        }
+      } as never,
+    );
     openThreadPickerMock.mockReset();
     contextConnectionMock.client.disconnect.mockReset();
     contextConnectionMock.client.request.mockReset();
@@ -137,11 +132,11 @@ describe("CodexExecutionRuntime", () => {
   });
 
   it("routes read-only queries and archive through the panel context client", async () => {
-    contextConnectionMock.client.request.mockImplementation(async (method: string) => {
-      if (method === "model/list") return { data: [] };
-      if (method === "thread/archive") return {};
-      throw new Error(`Unexpected app-server request: ${method}`);
-    });
+    vi.when(contextConnectionMock.client.request, { onUnmatched: "throw" })
+      .calledWith("model/list", { cursor: null, includeHidden: false, limit: 100 })
+      .thenResolve({ data: [] })
+      .calledWith("thread/archive", { threadId: "thread" })
+      .thenResolve({});
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
 
@@ -167,7 +162,7 @@ describe("CodexExecutionRuntime", () => {
   });
 
   it("reuses hydrated metadata across chat panels in one execution context", async () => {
-    contextConnectionMock.client.request.mockImplementation(metadataRequestFixture);
+    mockMetadataRequests();
     const runtime = executionRuntime();
     const first = attachChatHost(runtime);
     const second = attachChatHost(runtime);
@@ -182,7 +177,7 @@ describe("CodexExecutionRuntime", () => {
   });
 
   it("owns tool inventory and its notification revalidation once per execution context", async () => {
-    contextConnectionMock.client.request.mockImplementation(toolInventoryRequestFixture);
+    mockToolInventoryRequests();
     const runtime = executionRuntime();
     const first = attachChatHost(runtime);
     const second = attachChatHost(runtime);
@@ -254,7 +249,7 @@ describe("CodexExecutionRuntime", () => {
     ["skills/changed", "skills/list"],
     ["account/rateLimits/updated", "account/rateLimits/read"],
   ] as const)("revalidates used shared metadata once for %s", async (notificationMethod, requestMethod) => {
-    contextConnectionMock.client.request.mockImplementation(metadataRequestFixture);
+    mockMetadataRequests();
     const runtime = executionRuntime();
     const queries = attachChatHost(runtime).appServerQueries;
     attachChatHost(runtime);
@@ -271,7 +266,7 @@ describe("CodexExecutionRuntime", () => {
   });
 
   it("does not fetch metadata solely because an unused resource notification arrived", async () => {
-    contextConnectionMock.client.request.mockImplementation(metadataRequestFixture);
+    mockMetadataRequests();
     executionRuntime();
 
     contextConnectionMock.instances[0]?.handlers.onNotification({ method: "skills/changed", params: {} });
@@ -281,7 +276,7 @@ describe("CodexExecutionRuntime", () => {
   });
 
   it("invalidates context queries when the app-server process exits", async () => {
-    contextConnectionMock.client.request.mockImplementation(metadataRequestFixture);
+    mockMetadataRequests();
     const queries = attachChatHost(executionRuntime()).appServerQueries;
     await queries.ensureAppServerMetadata();
     const hydratedRequestCount = contextConnectionMock.client.request.mock.calls.length;
@@ -390,42 +385,36 @@ function executionRuntime(onThreadFacts = vi.fn()): CodexExecutionRuntime {
   });
 }
 
-function metadataRequestFixture(method: string): Promise<unknown> {
-  switch (method) {
-    case "config/read":
-      return Promise.resolve({});
-    case "model/list":
-      return Promise.resolve({ data: [] });
-    case "skills/list":
-      return Promise.resolve({ data: [{ skills: [] }] });
-    case "permissionProfile/list":
-      return Promise.resolve({ data: [], nextCursor: null });
-    case "account/rateLimits/read":
-      return Promise.resolve({
-        rateLimits: {
-          limitId: "codex",
-          limitName: "Codex",
-          primary: null,
-          secondary: null,
-          individualLimit: null,
-          rateLimitReachedType: null,
-        },
-        rateLimitsByLimitId: null,
-      });
-    default:
-      return Promise.reject(new Error(`Unexpected app-server request: ${method}`));
-  }
+function mockMetadataRequests(): void {
+  vi.when(contextConnectionMock.client.request, { onUnmatched: "throw" })
+    .calledWith("config/read", expect.anything())
+    .thenResolve({})
+    .calledWith("model/list", expect.anything())
+    .thenResolve({ data: [] })
+    .calledWith("skills/list", expect.anything())
+    .thenResolve({ data: [{ skills: [] }] })
+    .calledWith("permissionProfile/list", expect.anything())
+    .thenResolve({ data: [], nextCursor: null })
+    .calledWith("account/rateLimits/read", undefined)
+    .thenResolve({
+      rateLimits: {
+        limitId: "codex",
+        limitName: "Codex",
+        primary: null,
+        secondary: null,
+        individualLimit: null,
+        rateLimitReachedType: null,
+      },
+      rateLimitsByLimitId: null,
+    });
 }
 
-function toolInventoryRequestFixture(method: string): Promise<unknown> {
-  switch (method) {
-    case "plugin/installed":
-      return Promise.resolve({ marketplaces: [], marketplaceLoadErrors: [] });
-    case "mcpServerStatus/list":
-      return Promise.resolve({ data: [], nextCursor: null });
-    default:
-      return Promise.reject(new Error(`Unexpected app-server request: ${method}`));
-  }
+function mockToolInventoryRequests(): void {
+  vi.when(contextConnectionMock.client.request, { onUnmatched: "throw" })
+    .calledWith("plugin/installed", expect.anything())
+    .thenResolve({ marketplaces: [], marketplaceLoadErrors: [] })
+    .calledWith("mcpServerStatus/list", expect.anything())
+    .thenResolve({ data: [], nextCursor: null });
 }
 
 function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {

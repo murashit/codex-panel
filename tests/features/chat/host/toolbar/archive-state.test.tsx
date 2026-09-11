@@ -20,7 +20,6 @@ import { installObsidianDomShims } from "../../../../support/dom";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 
 installObsidianDomShims();
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("chat toolbar archive confirmation state", () => {
   it("updates a mounted toolbar archive confirmation through reducer-backed shell signals", async () => {

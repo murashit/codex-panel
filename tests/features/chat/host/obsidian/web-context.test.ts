@@ -1,40 +1,31 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
 
+import * as obsidian from "obsidian";
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import type { CodexInput } from "../../../../../src/domain/turns/input";
 import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
+import { readWebUrl } from "../../../../../src/features/chat/host/obsidian/web-context.obsidian";
 import { deferred } from "../../../../support/async";
 
-const mocks = vi.hoisted(() => ({
-  defuddleParse: vi.fn(),
-  htmlToMarkdown: vi.fn(),
-  requestUrl: vi.fn(),
-}));
+let requestUrl: MockInstance<typeof obsidian.requestUrl>;
+let htmlToMarkdown: MockInstance<typeof obsidian.htmlToMarkdown>;
 
-vi.mock("obsidian", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("obsidian")>();
-  return {
-    ...actual,
-    htmlToMarkdown: mocks.htmlToMarkdown,
-    requestUrl: mocks.requestUrl,
-  };
+beforeEach(() => {
+  requestUrl = vi.spyOn(obsidian, "requestUrl");
+  htmlToMarkdown = vi.spyOn(obsidian, "htmlToMarkdown");
 });
-
-vi.mock("defuddle", () => ({
-  default: vi.fn().mockImplementation(function MockDefuddle() {
-    return { parse: mocks.defuddleParse };
-  }),
-}));
-
-const { readWebUrl } = await import("../../../../../src/features/chat/host/obsidian/web-context.obsidian");
+afterEach(() => vi.restoreAllMocks());
 
 describe("web context reader", () => {
   beforeEach(() => {
-    mocks.requestUrl.mockReset();
-    mocks.defuddleParse.mockReset();
-    mocks.htmlToMarkdown.mockReset();
-    mocks.requestUrl.mockResolvedValue({ status: 200, text: "<html><body>Article</body></html>" });
-    mocks.defuddleParse.mockReturnValue({ title: "Example", content: "<article>Readable article</article>" });
-    mocks.htmlToMarkdown.mockReturnValue("Readable article");
+    requestUrl.mockResolvedValue({
+      headers: {},
+      json: {},
+      arrayBuffer: new ArrayBuffer(0),
+      status: 200,
+      text: "<html><head><title>Example</title></head><body><article><p>Readable article</p></article></body></html>",
+    });
+    htmlToMarkdown.mockReturnValue("Readable article");
   });
 
   it("attaches fetched Markdown as untrusted context while preserving prepared message input", async () => {
@@ -54,15 +45,15 @@ describe("web context reader", () => {
     const result = await readWebUrl(
       {
         prepareInput,
-        viewWindow: fakeDomWindow,
+        viewWindow: () => window,
       },
       "https://example.com/article",
       "  Summarize [[Alpha]] [[Files/Sketch.png]]  ",
       inputSnapshot,
     );
 
-    expect(mocks.requestUrl).toHaveBeenCalledWith({ url: "https://example.com/article", method: "GET", throw: false });
-    expect(mocks.htmlToMarkdown).toHaveBeenCalledWith("<article>Readable article</article>");
+    expect(requestUrl).toHaveBeenCalledWith({ url: "https://example.com/article", method: "GET", throw: false });
+    expect(htmlToMarkdown).toHaveBeenCalledWith(expect.stringContaining("Readable article"));
     expect(prepareInput).toHaveBeenCalledWith("Summarize [[Alpha]] [[Files/Sketch.png]]", inputSnapshot);
     expect(result).toEqual({
       text: "https://example.com/article Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]",
@@ -83,13 +74,13 @@ describe("web context reader", () => {
   });
 
   it("rejects HTTP error responses", async () => {
-    mocks.requestUrl.mockResolvedValue({ status: 400, text: "Error" });
+    requestUrl.mockResolvedValue({ headers: {}, json: {}, arrayBuffer: new ArrayBuffer(0), status: 400, text: "Error" });
 
     await expect(
       readWebUrl(
         {
           prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-          viewWindow: fakeDomWindow,
+          viewWindow: () => window,
         },
         "https://example.com/article",
         "",
@@ -97,17 +88,17 @@ describe("web context reader", () => {
       ),
     ).rejects.toThrow("Web request failed for https://example.com/article (HTTP 400).");
 
-    expect(mocks.defuddleParse).not.toHaveBeenCalled();
+    expect(htmlToMarkdown).not.toHaveBeenCalled();
   });
 
   it("rejects empty converted content", async () => {
-    mocks.htmlToMarkdown.mockReturnValue("  \n");
+    htmlToMarkdown.mockReturnValue("  \n");
 
     await expect(
       readWebUrl(
         {
           prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-          viewWindow: fakeDomWindow,
+          viewWindow: () => window,
         },
         "https://example.com/article",
         "",
@@ -121,7 +112,7 @@ describe("web context reader", () => {
       readWebUrl(
         {
           prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-          viewWindow: fakeDomWindow,
+          viewWindow: () => window,
         },
         "file:///tmp/article.html",
         "",
@@ -129,7 +120,7 @@ describe("web context reader", () => {
       ),
     ).rejects.toThrow("Unsupported web URL: file:///tmp/article.html");
 
-    expect(mocks.requestUrl).not.toHaveBeenCalled();
+    expect(requestUrl).not.toHaveBeenCalled();
   });
 
   it("rejects URLs containing credentials before fetching", async () => {
@@ -137,7 +128,7 @@ describe("web context reader", () => {
       readWebUrl(
         {
           prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-          viewWindow: fakeDomWindow,
+          viewWindow: () => window,
         },
         "https://user:secret@example.com/article",
         "",
@@ -145,17 +136,17 @@ describe("web context reader", () => {
       ),
     ).rejects.toThrow("Unsupported web URL: https://user:secret@example.com/article");
 
-    expect(mocks.requestUrl).not.toHaveBeenCalled();
+    expect(requestUrl).not.toHaveBeenCalled();
   });
 
-  it("stops before DOM parsing when the import is cancelled after the response", async () => {
+  it("discards the response when the import is cancelled", async () => {
     const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
 
     await expect(
       readWebUrl(
         {
           prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-          viewWindow: fakeDomWindow,
+          viewWindow: () => window,
           isCurrent,
         },
         "https://example.com/article",
@@ -164,19 +155,20 @@ describe("web context reader", () => {
       ),
     ).rejects.toThrow("Web import cancelled.");
 
-    expect(mocks.defuddleParse).not.toHaveBeenCalled();
-    expect(mocks.htmlToMarkdown).not.toHaveBeenCalled();
+    expect(htmlToMarkdown).not.toHaveBeenCalled();
   });
 
   it("rejects web requests that do not respond before the timeout", async () => {
     vi.useFakeTimers();
     try {
       const response = deferred<never>();
-      mocks.requestUrl.mockReturnValue(response.promise);
+      requestUrl.mockReturnValue(
+        Object.assign(response.promise, { arrayBuffer: response.promise, json: response.promise, text: response.promise }),
+      );
       const reading = readWebUrl(
         {
           prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-          viewWindow: fakeDomWindow,
+          viewWindow: () => window,
           requestTimeoutMs: 10,
         },
         "https://example.com/article",
@@ -193,17 +185,3 @@ describe("web context reader", () => {
     }
   });
 });
-
-class FakeDOMParser {
-  parseFromString(): Document {
-    return {} as Document;
-  }
-}
-
-function fakeDomWindow(): Window {
-  return {
-    DOMParser: FakeDOMParser,
-    setTimeout: globalThis.setTimeout.bind(globalThis),
-    clearTimeout: globalThis.clearTimeout.bind(globalThis),
-  } as unknown as Window;
-}

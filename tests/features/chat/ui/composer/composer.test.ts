@@ -712,6 +712,7 @@ describe("ComposerShell decisions", () => {
       width: "240px",
       getPropertyValue: () => "",
     } as unknown as CSSStyleDeclaration);
+    const viewportDescriptor = Object.getOwnPropertyDescriptor(window, "innerHeight");
     Object.defineProperty(window, "innerHeight", { value: 400, configurable: true });
     const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "scrollHeight");
     Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
@@ -723,6 +724,8 @@ describe("ComposerShell decisions", () => {
       syncComposerHeight(composer);
     } finally {
       getComputedStyleMock.mockRestore();
+      if (viewportDescriptor) Object.defineProperty(window, "innerHeight", viewportDescriptor);
+      else Reflect.deleteProperty(window, "innerHeight");
       if (descriptor) {
         Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);
       } else {

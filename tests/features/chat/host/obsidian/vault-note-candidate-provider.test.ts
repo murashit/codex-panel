@@ -1,22 +1,15 @@
 // @vitest-environment jsdom
 
 import { type App, type EventRef, TFile } from "obsidian";
+import * as dailyNotesInterface from "obsidian-daily-notes-interface";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as selectionEmphasis from "../../../../../src/shared/obsidian/editor-selection-emphasis.obsidian";
 
-const dailyNotesInterface = vi.hoisted(() => ({
-  appHasDailyNotesPluginLoaded: vi.fn<() => boolean>(),
-  getDailyNoteSettings: vi.fn(),
-}));
-const selectionEmphasisMock = vi.hoisted(() => ({
+const selectionEmphasisMock = {
   release: vi.fn(),
   retain: vi.fn(),
   setVisible: vi.fn(),
-}));
-
-vi.mock("obsidian-daily-notes-interface", () => dailyNotesInterface);
-vi.mock("../../../../../src/shared/obsidian/editor-selection-emphasis.obsidian", () => ({
-  retainEditorSelectionEmphasis: selectionEmphasisMock.retain,
-}));
+};
 
 import { VaultComposerContextReferenceProvider } from "../../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
 import { configuredDailyNoteReferences } from "../../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
@@ -24,8 +17,9 @@ import { VaultNoteCandidateProvider } from "../../../../../src/features/chat/hos
 
 describe("VaultNoteCandidateProvider", () => {
   beforeEach(() => {
-    dailyNotesInterface.appHasDailyNotesPluginLoaded.mockReset().mockReturnValue(false);
-    dailyNotesInterface.getDailyNoteSettings.mockReset().mockReturnValue(undefined);
+    vi.spyOn(dailyNotesInterface, "appHasDailyNotesPluginLoaded").mockReturnValue(false);
+    vi.spyOn(dailyNotesInterface, "getDailyNoteSettings").mockReturnValue({ format: "", folder: "", template: "" });
+    vi.spyOn(selectionEmphasis, "retainEditorSelectionEmphasis").mockImplementation(selectionEmphasisMock.retain);
     selectionEmphasisMock.release.mockReset();
     selectionEmphasisMock.setVisible.mockReset();
     selectionEmphasisMock.retain
@@ -34,11 +28,12 @@ describe("VaultNoteCandidateProvider", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
   it("keeps optional daily-note integration failures out of composer suggestions", () => {
-    dailyNotesInterface.appHasDailyNotesPluginLoaded.mockImplementation(() => {
+    vi.mocked(dailyNotesInterface.appHasDailyNotesPluginLoaded).mockImplementation(() => {
       throw new Error("Daily Notes API unavailable");
     });
 
@@ -48,8 +43,8 @@ describe("VaultNoteCandidateProvider", () => {
   it("builds relative references from the configured daily-note folder and format", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 6, 10, 12));
-    dailyNotesInterface.appHasDailyNotesPluginLoaded.mockReturnValue(true);
-    dailyNotesInterface.getDailyNoteSettings.mockReturnValue({
+    vi.mocked(dailyNotesInterface.appHasDailyNotesPluginLoaded).mockReturnValue(true);
+    vi.mocked(dailyNotesInterface.getDailyNoteSettings).mockReturnValue({
       folder: "Journal",
       format: "YYYY/MM/YYYY-MM-DD",
       template: "",

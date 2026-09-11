@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../../../src/app-server/connection/client";
 import {
@@ -55,6 +55,7 @@ class SilentTransport implements AppServerTransport {
 }
 
 describe("ConnectionManager", () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     vi.stubGlobal("window", {
       clearTimeout,

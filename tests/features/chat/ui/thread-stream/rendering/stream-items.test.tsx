@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { textContents, topLevelDetailsSummaries } from "../../../../../support/dom";
-import "./setup";
+import { setupThreadStreamRendering } from "./setup";
+
+setupThreadStreamRendering();
+
 import {
   expectPresent,
   projectedThreadStreamBlocks,
