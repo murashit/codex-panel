@@ -35,6 +35,7 @@ describe("chat panel session runtime", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     document.body.replaceChildren();
   });

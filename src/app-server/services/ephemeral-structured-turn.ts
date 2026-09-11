@@ -145,8 +145,7 @@ export async function runEphemeralStructuredTurn(
     onNotification: (notification) => {
       handleNotification(notification);
     },
-    onServerRequest: (request, responder) => {
-      void request;
+    onServerRequest: (_request, responder) => {
       responder.reject(-32601, options.serverRequests.message);
     },
     onLog: () => undefined,

@@ -136,6 +136,14 @@
   opacity: 0;
 }
 
+.codex-panel-threads__row--archive-confirming .codex-panel-threads__actions {
+  gap: var(--codex-panel-panel-gap);
+  width: auto;
+  overflow: visible;
+  pointer-events: auto;
+  opacity: 1;
+}
+
 .codex-panel-threads__row:hover .codex-panel-threads__actions,
 .codex-panel-threads__row:focus-within .codex-panel-threads__actions {
   gap: var(--codex-panel-panel-gap);
@@ -167,14 +175,6 @@
 }
 
 .codex-panel-threads__rename-actions {
-  gap: var(--codex-panel-panel-gap);
-  width: auto;
-  overflow: visible;
-  pointer-events: auto;
-  opacity: 1;
-}
-
-.codex-panel-threads__row--archive-confirming .codex-panel-threads__actions {
   gap: var(--codex-panel-panel-gap);
   width: auto;
   overflow: visible;

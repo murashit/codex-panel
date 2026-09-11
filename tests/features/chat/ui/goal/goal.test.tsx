@@ -10,7 +10,6 @@ import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("GoalPanel", () => {
   it("renders nothing when there is no goal", async () => {

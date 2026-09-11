@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../../src/constants";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
@@ -12,6 +12,7 @@ import { chatView, leaf, panelSnapshot, pluginWithLeaves } from "../support/plug
 installObsidianDomShims();
 
 describe("WorkspacePanelCoordinator", () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.useRealTimers();
   });

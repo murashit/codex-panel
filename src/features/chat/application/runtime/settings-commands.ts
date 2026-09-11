@@ -119,7 +119,7 @@ async function commitPendingThreadSettings(
   const threadId = activeThreadId(state(host));
   if (!threadId) return { ok: true, collaborationModeApplied: true };
   const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
-  if (collaborationModeWarning) reportCollaborationModeWarning(host, collaborationModeWarning);
+  if (collaborationModeWarning) reportCollaborationModeWarning(host);
   const collaborationModeApplied = !collaborationModeWarning && "collaborationMode" in update;
   if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
 
@@ -363,11 +363,7 @@ function pendingRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost): Pending
   return buildPendingRuntimeSettingsPatch(snapshot, config);
 }
 
-function reportCollaborationModeWarning(
-  host: RuntimeSettingsCommandsHost,
-  warning: NonNullable<PendingRuntimeSettingsPatch["collaborationModeWarning"]>,
-): void {
-  void warning;
+function reportCollaborationModeWarning(host: RuntimeSettingsCommandsHost): void {
   host.addSystemMessage(
     `${host.collaborationModeLabel()} mode is selected, but No effective model is available. Sending without a mode override.`,
   );

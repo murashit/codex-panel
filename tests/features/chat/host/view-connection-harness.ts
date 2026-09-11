@@ -44,30 +44,28 @@ interface TrackedView {
 }
 let createdViews: TrackedView[] = [];
 
-const connectionMock = vi.hoisted(() => {
-  const state = {
-    client: null as Record<string, unknown> | null,
-    connectCalls: 0,
-    connected: false,
-    onNotification: null as ((notification: ServerNotification) => void) | null,
-    onServerRequest: null as
-      | ((request: ServerRequest, responder: { respond(result: unknown): void; reject(code: number, message: string): void }) => void)
-      | null,
-    onExit: null as (() => void) | null,
-  };
+const connectionState = {
+  client: null as Record<string, unknown> | null,
+  connectCalls: 0,
+  connected: false,
+  onNotification: null as ((notification: ServerNotification) => void) | null,
+  onServerRequest: null as
+    | ((request: ServerRequest, responder: { respond(result: unknown): void; reject(code: number, message: string): void }) => void)
+    | null,
+  onExit: null as (() => void) | null,
+};
 
-  return {
-    state,
-    reset(): void {
-      state.client = null;
-      state.connectCalls = 0;
-      state.connected = false;
-      state.onNotification = null;
-      state.onServerRequest = null;
-      state.onExit = null;
-    },
-  };
-});
+const connectionMock = {
+  state: connectionState,
+  reset(): void {
+    connectionState.client = null;
+    connectionState.connectCalls = 0;
+    connectionState.connected = false;
+    connectionState.onNotification = null;
+    connectionState.onServerRequest = null;
+    connectionState.onExit = null;
+  },
+};
 
 export function connectionMockState(): typeof connectionMock.state {
   return connectionMock.state;
@@ -113,10 +111,10 @@ function contextConnectionMock(
   };
 }
 
-installObsidianDomShims();
 const { CodexChatView } = await import("../../../../src/features/chat/host/view.obsidian");
 
 export function setupViewConnectionHarness(): void {
+  installObsidianDomShims();
   let restoreDefaultThreadStreamViewportMetrics: (() => void) | null = null;
 
   beforeEach(() => {

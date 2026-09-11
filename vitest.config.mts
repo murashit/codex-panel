@@ -8,6 +8,8 @@ export default defineConfig({
     },
   },
   test: {
+    fsModuleCache: true,
+    isolate: false,
     coverage: {
       exclude: ["src/generated/**"],
       include: ["src/**/*.{ts,tsx}"],

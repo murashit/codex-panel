@@ -2,7 +2,7 @@
 
 import { h, type ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
 import {
   ThreadStreamFlowFrame,
@@ -10,7 +10,7 @@ import {
   type ThreadStreamScrollPort,
   type ThreadStreamScrollPortBinding,
 } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
-import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
@@ -19,16 +19,19 @@ describe("thread stream flow scrolling", () => {
   beforeEach(() => {
     resizeObserverCallbacks = [];
     animationFrameCallbacks = [];
-    window.ResizeObserver = TestResizeObserver;
-    window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+    vi.stubGlobal("ResizeObserver", TestResizeObserver);
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
       animationFrameCallbacks.push(callback);
       return animationFrameCallbacks.length;
-    }) as typeof window.requestAnimationFrame;
-    window.cancelAnimationFrame = (() => undefined) as typeof window.cancelAnimationFrame;
-    window.matchMedia = createTestMatchMedia(false);
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    vi.stubGlobal("matchMedia", createTestMatchMedia(false));
   });
 
   afterEach(() => {
+    for (const root of mountedRoots) unmountUiRoot(root);
+    mountedRoots.length = 0;
+    vi.unstubAllGlobals();
     document.body.replaceChildren();
   });
 
@@ -193,7 +196,7 @@ describe("thread stream flow scrolling", () => {
   });
 
   it("uses instant composer scrolling when reduced motion is preferred", () => {
-    window.matchMedia = createTestMatchMedia(true);
+    vi.stubGlobal("matchMedia", createTestMatchMedia(true));
     const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
     const scrollCalls = installScrollToCapture(scrollViewport);
     scrollViewport.style.lineHeight = "20px";
@@ -284,6 +287,8 @@ function createTestThreadStreamScrollPortBinding(): TestThreadStreamScrollPortBi
   };
 }
 
+const mountedRoots: HTMLElement[] = [];
+
 function renderFlowThreadStream(
   keys: readonly string[],
   heights: Record<string, number>,
@@ -301,6 +306,7 @@ function renderFlowThreadStream(
 } {
   const parent = document.createElement("div");
   document.body.append(parent);
+  mountedRoots.push(parent);
   const controller = createTestThreadStreamScrollPortBinding();
   let currentHeights = heights;
   let currentKeys = keys;

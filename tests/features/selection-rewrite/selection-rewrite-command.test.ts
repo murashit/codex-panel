@@ -1,49 +1,39 @@
 // @vitest-environment jsdom
 
 import { MarkdownView, Plugin, TFile } from "obsidian";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command.obsidian";
 import type { SelectionRewritePopoverOptions } from "../../../src/features/selection-rewrite/popover.dom";
+import * as popover from "../../../src/features/selection-rewrite/popover.dom";
 import type { SelectionRewritePort } from "../../../src/features/selection-rewrite/port";
+import * as selectionEmphasis from "../../../src/shared/obsidian/editor-selection-emphasis.obsidian";
 
-const popoverMock = vi.hoisted(() => {
-  const instances: { options: SelectionRewritePopoverOptions; open: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }[] = [];
-  return {
-    instances,
-    reset(): void {
-      instances.length = 0;
-    },
-  };
-});
-const selectionEmphasisMock = vi.hoisted(() => ({
+const popoverMock = {
+  instances: [] as { options: SelectionRewritePopoverOptions; open: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }[],
+};
+const selectionEmphasisMock = {
   release: vi.fn(),
   retain: vi.fn(),
   setVisible: vi.fn(),
-}));
-
-vi.mock("../../../src/shared/obsidian/editor-selection-emphasis.obsidian", () => ({
-  retainEditorSelectionEmphasis: selectionEmphasisMock.retain,
-}));
-
-vi.mock("../../../src/features/selection-rewrite/popover.dom", () => {
-  class SelectionRewritePopover {
-    readonly open = vi.fn();
-    readonly close = vi.fn(() => {
-      this.options.onClose?.();
-    });
-
-    constructor(readonly options: SelectionRewritePopoverOptions) {
-      popoverMock.instances.push({ options, open: this.open, close: this.close });
-    }
-  }
-
-  return { SelectionRewritePopover };
-});
+};
 
 describe("selection rewrite command", () => {
+  beforeEach(() => {
+    popoverMock.instances.length = 0;
+    vi.spyOn(selectionEmphasis, "retainEditorSelectionEmphasis").mockImplementation(selectionEmphasisMock.retain);
+    vi.spyOn(popover, "SelectionRewritePopover").mockImplementation(
+      class {
+        readonly open = vi.fn();
+        readonly close = vi.fn(() => this.options.onClose?.());
+        constructor(readonly options: SelectionRewritePopoverOptions) {
+          popoverMock.instances.push({ options, open: this.open, close: this.close });
+        }
+      } as unknown as typeof popover.SelectionRewritePopover,
+    );
+  });
+  afterEach(() => vi.restoreAllMocks());
   it("captures the unsaved editor buffer and clones the target range", () => {
-    popoverMock.reset();
     selectionEmphasisMock.release.mockReset();
     selectionEmphasisMock.retain
       .mockReset()
@@ -121,7 +111,6 @@ describe("selection rewrite command", () => {
   });
 
   it("keeps the command unavailable without a non-empty markdown selection", () => {
-    popoverMock.reset();
     const addedCommand = {
       current: null as null | { editorCheckCallback: (checking: boolean, editor: unknown, view: unknown) => boolean },
     };

@@ -86,3 +86,6 @@ jobs:
 
       - name: Check
         run: npm run check
+
+      - name: Check test order independence
+        run: npm run test:order

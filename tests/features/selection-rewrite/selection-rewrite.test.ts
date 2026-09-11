@@ -19,7 +19,6 @@ type SelectionRewriteTestRunOptions = SelectionRewritePortRequest & { runner: Ep
 const selectionRewriteGenerate = vi.fn();
 
 installObsidianDomShims();
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 beforeEach(() => {
   document.body.replaceChildren();

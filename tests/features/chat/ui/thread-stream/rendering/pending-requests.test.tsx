@@ -16,7 +16,10 @@ import type { PendingRequestBlockContext } from "../../../../../../src/features/
 import type { PendingRequestBlockSnapshot } from "../../../../../../src/features/chat/ui/thread-stream/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";
 import { changeInputValue, textContents } from "../../../../../support/dom";
-import "./setup";
+import { setupThreadStreamRendering } from "./setup";
+
+setupThreadStreamRendering();
+
 import {
   actEvent,
   dispatchComposingInputValue,

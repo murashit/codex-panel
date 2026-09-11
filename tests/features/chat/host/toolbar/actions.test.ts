@@ -8,9 +8,6 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import type { ThreadCommands } from "../../../../../src/features/chat/application/threads/thread-commands";
 import { createToolbarPanelActions, createToolbarUiActions } from "../../../../../src/features/chat/host/toolbar/actions";
 
-const copyTextWithNotice = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-vi.mock("../../../../../src/shared/obsidian/clipboard.obsidian", () => ({ copyTextWithNotice }));
-
 describe("createToolbarPanelActions", () => {
   it("tracks archive confirmation and delegates archive actions", async () => {
     const stateStore = createChatStateStore(createChatState());
@@ -119,9 +116,17 @@ describe("createToolbarPanelActions", () => {
       patch: { model: { kind: "set", value: "gpt-live" } },
     });
 
-    actions.status.copyDebugDetails();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      actions.status.copyDebugDetails();
+    } finally {
+      if (clipboardDescriptor) Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
 
-    const debugContent = copyTextWithNotice.mock.calls.at(-1)?.[0];
+    const debugContent = writeText.mock.calls.at(-1)?.[0];
     if (typeof debugContent !== "string") throw new Error("Expected copied debug details.");
     expect(JSON.parse(debugContent)).toMatchObject({
       vaultPath: "/vault",
