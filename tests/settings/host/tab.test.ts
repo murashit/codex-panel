@@ -245,10 +245,11 @@ describe("settings tab", () => {
   it("binds the replacement executable data source when a hidden tab is shown again", async () => {
     const save = deferred<void>();
     const observeModels = vi.fn(() => vi.fn());
+    const fetchModels = vi.fn().mockResolvedValue([]);
     useContextClients(settingsClient(), settingsClient());
     const host = settingsTabHost({
       saveSettings: vi.fn(() => save.promise),
-      replacementResources: settingsTabHost({ observeModels }).resources,
+      replacementResources: settingsTabHost({ observeModels, fetchModels }).resources,
     });
     const tab = new CodexPanelSettingTab({} as never, {} as never, host);
 
@@ -262,10 +263,13 @@ describe("settings tab", () => {
 
     save.resolve(undefined);
     await flushPromises();
+    expect(fetchModels).not.toHaveBeenCalled();
     tab.display();
+    await flushPromises();
 
     expect(host.settings.codexPath).toBe("/opt/codex-next");
     expect(observeModels).toHaveBeenCalledOnce();
+    expect(fetchModels).toHaveBeenCalledOnce();
   });
 
   it("serializes overlapping settings saves", async () => {
@@ -391,7 +395,7 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).not.toContain("Old");
   });
 
-  it("clears dynamic sections when the Codex executable changes", async () => {
+  it("loads replacement dynamic sections automatically when the Codex executable changes", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const oldClient = settingsClient({
       models: [model("gpt-old")],
@@ -403,12 +407,12 @@ describe("settings tab", () => {
     });
     useContextClients(oldClient, newClient);
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-old")]));
-    const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-new")]));
+    const replacementModels = deferred<ReturnType<typeof modelMetadataFromCatalogModels>>();
     const refreshArchived = vi
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const replacementResources = settingsTabHost({ refreshModels, refreshArchived }).resources;
+    const replacementResources = settingsTabHost({ fetchModels: () => replacementModels.promise, refreshArchived }).resources;
     const tab = newSettingsTab({ saveSettings, fetchModels, refreshArchived, replacementResources });
 
     tab.display();
@@ -429,11 +433,11 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingsContextClientMock).toHaveBeenCalledTimes(1);
+    expect(settingsContextClientMock).toHaveBeenCalledTimes(2);
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
     expect(tab.containerEl.textContent).not.toContain("Old archived");
 
-    clickButtonByLabel(tab, "Refresh Codex details");
+    replacementModels.resolve(modelMetadataFromCatalogModels([model("gpt-new")]));
     await flushPromises();
 
     expect(settingsContextClientMock).toHaveBeenCalledTimes(2);

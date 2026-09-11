@@ -416,7 +416,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       if (mutate(candidateSettings) === false) return;
       try {
         const { replacementResources } = await this.plugin.publishSettings(candidateSettings);
-        if (replacementResources) this.resources.replaceResources(replacementResources);
+        if (replacementResources) {
+          this.resources.replaceResources(replacementResources);
+          if (this.displayed) this.resources.maybeAutoLoad();
+        }
       } catch (error) {
         this.renderRevision += 1;
         new Notice(`Could not apply Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);
