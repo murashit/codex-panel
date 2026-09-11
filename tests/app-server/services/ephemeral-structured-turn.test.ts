@@ -75,18 +75,19 @@ describe("runEphemeralStructuredTurn", () => {
     }
   });
 
-  it("deletes the ephemeral thread before disconnecting after a completed turn", async () => {
+  it("returns the completed turn and disconnects without requesting deletion of an unpersisted thread", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      vi.spyOn(fake, "request");
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn(runOptions(), { clientFactory });
+    await expect(runEphemeralStructuredTurn(runOptions(), { clientFactory })).resolves.toMatchObject({
+      items: [agentMessage("answer", '{"ok":true}')],
+    });
 
     const fake = expectPresent(client.current);
-    expect(fake.deleteThreadRequest).toHaveBeenCalledWith({ threadId: "thread" }, { timeoutMs: 5_000 });
-    expect(expectPresent(fake.disconnect.mock.invocationCallOrder[0])).toBeGreaterThan(
-      expectPresent(fake.deleteThreadRequest.mock.invocationCallOrder[0]),
-    );
+    expect(vi.mocked(fake.request).mock.calls.map(([method]) => method)).not.toContain("thread/delete");
+    expect(fake.disconnect).toHaveBeenCalledOnce();
   });
 
   it("reports its client lifetime to the owning execution runtime", async () => {
@@ -101,16 +102,18 @@ describe("runEphemeralStructuredTurn", () => {
     expect(clientLifecycle.disposed).toHaveBeenCalledWith(client.current);
   });
 
-  it("keeps the completed turn result when deleting the ephemeral thread fails", async () => {
-    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
-      fake.deleteThreadRequest.mockRejectedValueOnce(new Error("delete failed"));
-      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
-    });
+  it("disconnects and releases its client when generation is cancelled", async () => {
+    const controller = new AbortController();
+    const { clientFactory, client } = fakeStructuredTurnClientFactory();
+    const clientLifecycle = { created: vi.fn(), disposed: vi.fn() };
+    const running = runEphemeralStructuredTurn({ ...runOptions(), signal: controller.signal }, { clientFactory, clientLifecycle });
+    await expectPresent(client.current).structuredTurnStarted;
 
-    await expect(runEphemeralStructuredTurn(runOptions(), { clientFactory })).resolves.toMatchObject({
-      items: [agentMessage("answer", '{"ok":true}')],
-    });
+    controller.abort();
+
+    await expect(running).rejects.toThrow("Ephemeral structured turn cancelled.");
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
+    expect(clientLifecycle.disposed).toHaveBeenCalledWith(client.current);
   });
 
   it("rejects server requests with the configured message", async () => {
@@ -231,7 +234,7 @@ describe("runEphemeralStructuredTurn", () => {
 
     const fake = expectPresent(client.current);
     expect(fake.startEphemeralThreadParams).toBeNull();
-    expect(fake.deleteThreadRequest).not.toHaveBeenCalled();
+    expect(fake.disconnect).toHaveBeenCalledOnce();
   });
 
   it("rejects a known unsupported reasoning effort before creating the ephemeral thread", async () => {
@@ -312,7 +315,7 @@ describe("runEphemeralStructuredTurn", () => {
         };
       },
     },
-  ])("times out during $stage and disconnects the client", async ({ stage, configure, runtimeSettings }) => {
+  ])("times out during $stage and disconnects the client", async ({ configure, runtimeSettings }) => {
     const timers = timerHarness();
     const reached = vi.fn();
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => configure(fake, reached));
@@ -331,11 +334,6 @@ describe("runEphemeralStructuredTurn", () => {
     await expect(running).rejects.toThrow("Structured test timed out.");
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
     expect(timers.clearTimeout).toHaveBeenCalledWith(123);
-    if (stage === "structured turn start" || stage === "completion wait") {
-      expect(expectPresent(client.current).deleteThreadRequest).toHaveBeenCalledWith({ threadId: "thread" }, { timeoutMs: 5_000 });
-    } else {
-      expect(expectPresent(client.current).deleteThreadRequest).not.toHaveBeenCalled();
-    }
   });
 });
 
@@ -411,9 +409,6 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   readonly configReadRequests: ClientRequestParams<"config/read">[] = [];
   readonly modelListRequests: ClientRequestParams<"model/list">[] = [];
   readonly rejectServerRequest = vi.fn();
-  readonly deleteThreadRequest = vi.fn(
-    async (_params: ClientRequestParams<"thread/delete">, _options?: { timeoutMs?: number }) => undefined,
-  );
   readonly disconnect = vi.fn();
   readonly structuredTurnStarted: Promise<void>;
   private resolveStructuredTurnStarted!: () => void;
@@ -428,11 +423,7 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
     return this.connectImpl ? this.connectImpl() : ({ codexHome: "/tmp/codex" } as InitializeResponse);
   }
 
-  async request<M extends TypedClientRequestMethod>(
-    method: M,
-    params: ClientRequestParams<M>,
-    options: { timeoutMs?: number } = {},
-  ): Promise<ClientResponseByMethod[M]> {
+  async request<M extends TypedClientRequestMethod>(method: M, params: ClientRequestParams<M>): Promise<ClientResponseByMethod[M]> {
     switch (method) {
       case "config/read":
         this.configReadRequests.push(params as ClientRequestParams<"config/read">);
@@ -454,9 +445,6 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
         return (this.startStructuredTurnImpl
           ? await this.startStructuredTurnImpl()
           : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
-      case "thread/delete":
-        await this.deleteThreadRequest(params as ClientRequestParams<"thread/delete">, options);
-        return {} as unknown as ClientResponseByMethod[M];
       default:
         throw new Error(`Unexpected app-server request: ${method}`);
     }

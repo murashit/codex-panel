@@ -9,7 +9,7 @@ import {
 } from "../protocol/turn";
 import type { AppServerRequestClient } from "./request-client";
 import { type RuntimeOverrideSettings, validatedRuntimeOverrideForClient } from "./runtime-overrides";
-import { deleteThread, startEphemeralThread } from "./threads";
+import { startEphemeralThread } from "./threads";
 import { type AppServerStartStructuredTurnOptions, startStructuredTurn } from "./turns";
 
 export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["outputSchema"];
@@ -17,8 +17,6 @@ export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["ou
 type StructuredTurnRuntimeOverride = NonNullable<AppServerStartStructuredTurnOptions["runtime"]>;
 
 type StructuredTurnProgressEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
-
-const EPHEMERAL_THREAD_CLEANUP_TIMEOUT_MS = 5_000;
 
 interface EphemeralStructuredTurnTimers {
   setTimeout(callback: () => void, delayMs: number): ReturnType<Window["setTimeout"]>;
@@ -140,7 +138,6 @@ export async function runEphemeralStructuredTurn(
         handlers,
         initializeParams: codexPanelAppServerInitializeParams(),
       }));
-  let threadId: string | null = null;
   const client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {
       handleNotification(notification);
@@ -169,7 +166,7 @@ export async function runEphemeralStructuredTurn(
         developerInstructions: options.developerInstructions,
       }),
     );
-    threadId = threadResponse.thread.id;
+    const threadId = threadResponse.thread.id;
     if (state.lifecycle.kind !== "completed") state.lifecycle = { kind: "thread-started", threadId };
     const turnResponse = await runAbortable(
       startStructuredTurn(client, {
@@ -189,12 +186,9 @@ export async function runEphemeralStructuredTurn(
   } finally {
     state.lifecycle = { kind: "completed" };
     timers.clearTimeout(timeout);
-    try {
-      await deleteEphemeralStructuredTurnThread(client, threadId);
-    } finally {
-      client.disconnect();
-      dependencies.clientLifecycle?.disposed(client);
-    }
+    // Ephemeral threads are not persisted; thread/delete rejects them. Stop their private process instead.
+    client.disconnect();
+    dependencies.clientLifecycle?.disposed(client);
   }
 }
 
@@ -233,15 +227,6 @@ function ephemeralStructuredTurnMatches(state: EphemeralStructuredTurnLifecycleS
 function turnWithCollectedItems(turn: TurnRecord, completedItems: readonly TurnItem[]): TurnRecord {
   if (turn.items.length > 0 || completedItems.length === 0) return turn;
   return { ...turn, items: [...completedItems], itemsView: "full" };
-}
-
-async function deleteEphemeralStructuredTurnThread(client: EphemeralStructuredTurnClient, threadId: string | null): Promise<void> {
-  if (!threadId) return;
-  try {
-    await deleteThread(client, threadId, { timeoutMs: EPHEMERAL_THREAD_CLEANUP_TIMEOUT_MS });
-  } catch {
-    // Ephemeral helpers must not fail visible workflows because cleanup raced app-server shutdown.
-  }
 }
 
 function throwIfAborted(signal: AbortSignal | undefined, message: string | undefined): void {
