@@ -121,7 +121,9 @@ function threadStreamItemFromTurnItemCore(item: TurnItem, turnId?: string): Thre
     case "functionCallOutput":
       return null;
     default:
-      return ignoredUnsupportedTurnItem(item);
+      // Enforce exhaustive handling of known types while ignoring unknown runtime items.
+      item satisfies never;
+      return null;
   }
 }
 
@@ -473,12 +475,6 @@ function fileChangeThreadStreamItem(item: FileChangeItem, turnId?: string): Thre
 
 export function shouldSuppressLifecycleItem(item: TurnItem): boolean {
   return item.type === "agentMessage" || item.type === "userMessage";
-}
-
-// The unused argument enforces exhaustive TurnItem handling while ignoring unknown runtime items.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function ignoredUnsupportedTurnItem(_item: never): null {
-  return null;
 }
 
 function jsonTargetLabel(value: unknown): string | null {
