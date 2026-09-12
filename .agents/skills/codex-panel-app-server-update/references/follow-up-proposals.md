@@ -1,0 +1,7 @@
+## Follow-Up Proposals
+
+- Make each proposal decision-ready. Explain the capability's intent, the user workflow or problem it serves, and the expected Panel behavior; use protocol types, method names, and generated diffs as supporting evidence rather than presenting API names as the proposal itself. State material tradeoffs, prerequisites, and unknowns.
+- Prioritize and shape proposals against the product boundaries in `docs/design.md`: Codex Panel is a thin Obsidian surface for Codex, Codex owns runtime semantics and state, and Obsidian supplies the host interaction model. Account for user value, ownership fit, whether Codex or Obsidian already provides the capability, implementation and maintenance cost, and compatibility risk. Recommend deferring or omitting a surface when that is the better product decision.
+- For any proposal involving UI, inspect the relevant feature, state, host, component, and styling paths in the current codebase before proposing a design. Describe the existing interaction and ownership model, the concrete integration point, and how the proposal follows established Preact composition, Obsidian-native patterns, and Panel display conventions. Release notes or generated bindings alone are not sufficient UI design evidence.
+- Keep required compatibility work, optional product opportunities, and speculative possibilities visibly distinct. Rank optional proposals and explain why their order fits Codex Panel, Codex, and Obsidian rather than ranking them only by API novelty or implementation ease.
+

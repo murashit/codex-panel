@@ -1,6 +1,6 @@
 ---
 name: codex-panel-obsidian-dev
-description: Use when validating Codex Panel inside a live Obsidian app with the local `obsidian` CLI, including plugin reloads, command execution, DOM/CSS inspection, screenshots, captured console output, captured runtime errors, Electron devtools, CDP commands, or mobile emulation.
+description: Validate Codex Panel in live Obsidian using the local CLI for runtime, DOM, styling, and interaction checks.
 ---
 
 # Codex Panel Obsidian Dev
@@ -8,7 +8,7 @@ description: Use when validating Codex Panel inside a live Obsidian app with the
 ## Ground Rules
 
 - Use `docs/development.md` for the build and generated-asset expectations before live Obsidian validation.
-- Ask before altering or reloading the live Obsidian session, attaching a debugger, or running intrusive evaluation or input commands.
+- Use existing authorization for live validation, including the necessary build, plugin reload, and Panel interaction. Ask only when a needed action exceeds that scope, such as unrelated vault changes or intrusive debugging not covered by the request.
 - Prefer read-only inspection before state-changing commands.
 - Do not clear console or error buffers unless the user approves; clearing can destroy useful failure context.
 
@@ -20,7 +20,7 @@ description: Use when validating Codex Panel inside a live Obsidian app with the
    npm run build
    ```
 
-2. If approved, reload the plugin when the live session needs the new build:
+2. Reload the plugin when authorized live validation needs the new build:
 
    ```bash
    obsidian plugin:reload id=codex-panel
@@ -51,4 +51,4 @@ When behavior depends on layout, asynchronous rendering, or virtualized DOM stat
 
 ## Reporting
 
-Report the observed behavior, runtime errors, intrusive actions taken, and evidence paths. State when an approval-gated check was skipped.
+Report the observed behavior, runtime errors, intrusive actions taken, and evidence paths. State any material validation gap and its cause.

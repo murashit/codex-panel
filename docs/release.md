@@ -22,12 +22,23 @@ Release notes are a short public summary of user-visible behavior, not a changel
 
 Use the existing notes as the style reference and the audited diff as the factual reference. Keep the final file to one short `## Changes` section in the same language as the existing release notes.
 
-After choosing the version, prepare it, replace the generated draft with the reviewed notes, commit the release changes, and run the preflight before pushing the matching tag:
+## Preparation and approval
+
+After choosing the version, prepare it and replace the generated draft with the reviewed notes:
 
 ```sh
 npm run release:prepare -- X.Y.Z
 # Replace .github/release-notes/X.Y.Z.md with the reviewed release notes.
 jj status
+```
+
+For agent-assisted releases, present the final notes, selected version, and included range and wait for user approval before creating the release commit, tag, or push. A general request to release authorizes preparation, not this approval. Reuse approval of these concrete contents; an approved wording correction needs no further approval unless it changes the scope, version, or meaning.
+
+## Commit and publish
+
+After approval, commit the release changes and run the preflight before pushing the matching tag:
+
+```sh
 jj commit -m "chore(release): X.Y.Z"
 jj bookmark move main --to @-
 npm run release:preflight

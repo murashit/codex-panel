@@ -47,7 +47,7 @@ CI checks commits introduced by pull requests and direct pushes; GitHub-generate
 
 CSS is authored in `src/styles/` and generated into the ignored root `styles.css` release asset. Use `npm run build:styles` when only regenerating CSS; it also verifies the authored CSS order before writing `styles.css`.
 
-The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI:
+The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI. Generation requires its exact version to match `codexAppServer.testedCliVersion` in `src/app-server/connection/compatibility.json`. For an upgrade, set that generation target and use the matching CLI before regenerating; keep the README Compatibility table aligned with the target before baseline checks. Treat the update as verified only after the required validation succeeds:
 
 ```sh
 npm run generate:app-server-types
@@ -55,7 +55,7 @@ npm run generate:app-server-types:check
 npm run check
 ```
 
-Do not hand-edit the bindings. `src/app-server/connection/compatibility.json` records their CLI patch and generation arguments; the check command regenerates and compares them without replacing tracked files.
+Do not hand-edit the bindings. Put necessary output normalization in `scripts/generate-app-server-types.mjs` and regenerate. `src/app-server/connection/compatibility.json` records their CLI patch and generation arguments; the check command regenerates and compares them without replacing tracked files.
 
 ## Executable Policies
 
