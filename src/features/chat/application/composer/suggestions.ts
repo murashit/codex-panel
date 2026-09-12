@@ -148,7 +148,7 @@ function activeTagSuggestions(
   const start = match.index + prefix.length;
   return normalizedTags
     .map((tag) => ({ tag, lower: tag.toLowerCase() }))
-    .filter(({ lower }) => query.length === 0 || lower.startsWith(query) || lower.includes(query))
+    .filter(({ lower }) => lower.includes(query))
     .sort((a, b) => tagSuggestionScore(a.lower, query) - tagSuggestionScore(b.lower, query) || a.tag.localeCompare(b.tag))
     .slice(0, 8)
     .map(({ tag }) => ({
@@ -182,7 +182,6 @@ function normalizeTag(tag: string): string {
 }
 
 function tagSuggestionScore(tag: string, query: string): number {
-  if (query.length === 0) return 0;
   return tag.startsWith(query) ? 0 : 1;
 }
 
@@ -264,8 +263,7 @@ function fuzzyHeadingSuggestions(
     })
     .filter((item): item is { heading: NoteHeadingCandidate; match: FuzzyMatch } => item !== null);
 
-  sortByFuzzyScore(results);
-  return results;
+  return results.sort((a, b) => b.match.score - a.match.score);
 }
 
 function emptyWikiLinkSuggestions(notes: readonly NoteCandidate[]): NoteCandidateMatch[] {
@@ -299,10 +297,6 @@ function bestSearchResult(a: FuzzyMatch | null, b: FuzzyMatch | null): FuzzyMatc
   if (!a) return b;
   if (!b) return a;
   return a.score >= b.score ? a : b;
-}
-
-function sortByFuzzyScore(results: { match: FuzzyMatch }[]): void {
-  results.sort((a, b) => b.match.score - a.match.score);
 }
 
 function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCandidateMatch): number {

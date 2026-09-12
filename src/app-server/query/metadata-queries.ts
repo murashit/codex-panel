@@ -91,7 +91,7 @@ export class AppServerMetadataQueries {
 
   metadataSnapshot<Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id] {
     if (this.scope.isDisposed()) return (id === "rateLimits" ? undefined : null) as SharedServerMetadataSnapshotValues[Id];
-    const descriptor = this.metadataDescriptor(id);
+    const descriptor = this.metadataDescriptors[id];
     const data = this.scope.client.getQueryData<MetadataQueryData[Id]>(descriptor.queryOptions.queryKey);
     return data === undefined
       ? ((id === "rateLimits" ? undefined : null) as SharedServerMetadataSnapshotValues[Id])
@@ -104,14 +104,14 @@ export class AppServerMetadataQueries {
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     this.scope.assertUsable();
-    const descriptor = this.metadataDescriptor(id);
+    const descriptor = this.metadataDescriptors[id];
     return this.observeMetadataQueryResource(descriptor.queryOptions, descriptor.project, listener, options);
   }
 
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options: { emitCurrent?: boolean } = {}): () => void {
     this.scope.assertUsable();
     return this.scope.observeResult(
-      this.metadataDescriptor("models").queryOptions,
+      this.metadataDescriptors["models"].queryOptions,
       (data) => cloneModelMetadata(data.value),
       listener,
       options,
@@ -135,11 +135,11 @@ export class AppServerMetadataQueries {
   }
 
   handleSkillsChanged(): void {
-    this.revalidateUsedResource(this.metadataDescriptor("skills").queryOptions);
+    this.revalidateUsedResource(this.metadataDescriptors["skills"].queryOptions);
   }
 
   handleRateLimitsUpdated(): void {
-    this.revalidateUsedResource(this.metadataDescriptor("rateLimits").queryOptions);
+    this.revalidateUsedResource(this.metadataDescriptors["rateLimits"].queryOptions);
   }
 
   private async loadAppServerMetadata(): Promise<void> {
@@ -156,13 +156,13 @@ export class AppServerMetadataQueries {
 
   async fetchModels(): Promise<readonly ModelMetadata[]> {
     this.scope.assertUsable();
-    const descriptor = this.metadataDescriptor("models");
+    const descriptor = this.metadataDescriptors["models"];
     const data = await this.scope.client.query(descriptor.queryOptions);
     return cloneModelMetadata(data.value);
   }
 
   async refreshModels(): Promise<readonly ModelMetadata[]> {
-    const queryOptions = this.metadataDescriptor("models").queryOptions;
+    const queryOptions = this.metadataDescriptors["models"].queryOptions;
     await this.scope.client.invalidateQueries({ queryKey: queryOptions.queryKey, exact: true, refetchType: "none" });
     this.scope.assertUsable();
     return this.fetchModels();
@@ -202,7 +202,7 @@ export class AppServerMetadataQueries {
         queryOptions: {
           queryKey: MODELS_QUERY_KEY,
           queryFn: () =>
-            this.readMetadataResource(async (client) => {
+            this.scope.runWithClient(async (client) => {
               const models = cloneModelMetadata(await listModelMetadata(client));
               return { value: models, summary: `${String(models.length)} models` };
             }),
@@ -218,7 +218,7 @@ export class AppServerMetadataQueries {
         queryOptions: {
           queryKey: SKILLS_QUERY_KEY,
           queryFn: () =>
-            this.readMetadataResource(async (client) => {
+            this.scope.runWithClient(async (client) => {
               const catalog = await listSkillCatalog(client, this.scope.context.vaultPath, {
                 forceReload: false,
               });
@@ -236,7 +236,7 @@ export class AppServerMetadataQueries {
         queryOptions: {
           queryKey: PERMISSION_PROFILES_QUERY_KEY,
           queryFn: () =>
-            this.readMetadataResource(async (client) => {
+            this.scope.runWithClient(async (client) => {
               const profiles = await listPermissionProfiles(client, this.scope.context.vaultPath);
               return { value: profiles, summary: `${String(profiles.length)} profiles` };
             }),
@@ -252,7 +252,7 @@ export class AppServerMetadataQueries {
         queryOptions: {
           queryKey: RATE_LIMITS_QUERY_KEY,
           queryFn: () =>
-            this.readMetadataResource(async (client) => {
+            this.scope.runWithClient(async (client) => {
               const response = await readAccountRateLimits(client);
               return {
                 value: rateLimitSnapshotFromAccountRateLimitsResponse(response),
@@ -270,18 +270,8 @@ export class AppServerMetadataQueries {
     };
   }
 
-  private metadataDescriptor<Id extends SharedServerMetadataResourceId>(id: Id): MetadataResourceDescriptors[Id] {
-    return this.metadataDescriptors[id];
-  }
-
-  private readMetadataResource<T>(
-    read: (client: AppServerRequestClient) => Promise<{ value: T; summary: string }>,
-  ): Promise<MetadataResourceData<T>> {
-    return this.scope.runWithClient(read);
-  }
-
   private async fetchMetadataResource<Id extends SharedServerMetadataResourceId>(id: Id): Promise<MetadataQueryData[Id]> {
-    return this.scope.client.query(this.metadataDescriptor(id).queryOptions);
+    return this.scope.client.query(this.metadataDescriptors[id].queryOptions);
   }
 
   private revalidateUsedResource(queryOptions: AppServerQueryOptions<unknown>): void {
@@ -298,7 +288,7 @@ export class AppServerMetadataQueries {
   }
 
   private metadataProbe(resource: MetadataResourceKind): DiagnosticProbeResult {
-    const key = this.metadataDescriptor(resource).queryOptions.queryKey;
+    const key = this.metadataDescriptors[resource].queryOptions.queryKey;
     const state = this.scope.client.getQueryState<MetadataResourceData<unknown>>(key);
     if (state?.status === "error") return diagnosticProbeError(resource, state.error, state.errorUpdatedAt);
     if (state?.data) return diagnosticProbeOk(resource, state.data.summary, state.dataUpdatedAt);

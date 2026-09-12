@@ -53,19 +53,19 @@ export function threadStreamLayoutBlocks(
   const groupedTurnIds = new Set([...turnOutcomeIdByTurn.keys()].filter((turnId) => turnId !== activeTurnId));
   const summaryOutcomeIdByTurn = new Map([...turnOutcomeIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
 
-  const groupedActivities = new Map<string, GroupedActivity[]>();
+  const groupedActivities = new Map<string, ThreadStreamActivityGroupItem[]>();
   for (const [index, item] of visibleItems.entries()) {
     const turnId = item.turnId;
     if (!turnId || !groupedTurnIds.has(turnId)) continue;
+    let activity: ThreadStreamActivityGroupItem;
     if (roles[index] === "steer" && item.kind === "dialogue") {
-      const group = groupedActivities.get(turnId) ?? [];
-      group.push(steeringActivityGroupItem(item));
-      groupedActivities.set(turnId, group);
-      continue;
+      activity = steeringActivityGroupItem(item);
+    } else {
+      if (!isCompletedTurnDetailItem(item, roles[index], turnOutcomeIdByTurn)) continue;
+      activity = { type: "item", id: item.id, item };
     }
-    if (!isCompletedTurnDetailItem(item, roles[index], turnOutcomeIdByTurn)) continue;
     const group = groupedActivities.get(turnId) ?? [];
-    group.push({ type: "item", id: item.id, item });
+    group.push(activity);
     groupedActivities.set(turnId, group);
   }
 
@@ -85,20 +85,12 @@ export function threadStreamLayoutBlocks(
         items: groupItems,
       });
     }
-    blocks.push({
-      type: "item",
-      item,
-      ...definedProp(
-        "annotations",
-        annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
-      ),
-    });
+    const annotations = annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs);
+    blocks.push({ type: "item", item, ...(annotations === undefined ? {} : { annotations }) });
   }
 
   return blocks;
 }
-
-type GroupedActivity = ThreadStreamActivityGroupItem;
 
 function isEmptyCompletedReasoningItem(item: ThreadStreamItem): boolean {
   return item.kind === "reasoning" && item.executionState === "completed" && textForThreadStreamItem(item).trim().length === 0;
@@ -193,8 +185,4 @@ function autoReviewSummariesForTurns(items: readonly ThreadStreamItem[]): Map<st
 
 function textForThreadStreamItem(item: ThreadStreamItem): string {
   return "text" in item && typeof item.text === "string" ? item.text : "";
-}
-
-function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
-  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
 }

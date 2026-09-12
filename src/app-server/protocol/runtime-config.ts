@@ -59,9 +59,9 @@ function sandboxPolicyFromConfig(config: Record<string, unknown>): RuntimeSandbo
   return {
     type: "workspaceWrite",
     writableRoots: stringArrayOrEmpty(workspaceWrite?.["writable_roots"]),
-    networkAccess: booleanOrFalse(workspaceWrite?.["network_access"]),
-    excludeTmpdirEnvVar: booleanOrFalse(workspaceWrite?.["exclude_tmpdir_env_var"]),
-    excludeSlashTmp: booleanOrFalse(workspaceWrite?.["exclude_slash_tmp"]),
+    networkAccess: workspaceWrite?.["network_access"] === true,
+    excludeTmpdirEnvVar: workspaceWrite?.["exclude_tmpdir_env_var"] === true,
+    excludeSlashTmp: workspaceWrite?.["exclude_slash_tmp"] === true,
   };
 }
 
@@ -73,11 +73,11 @@ function approvalPolicyOrNull(value: unknown): RuntimeApprovalPolicy | null {
   const granularRecord = granular as Record<string, unknown>;
   return {
     granular: {
-      sandbox_approval: booleanOrFalse(granularRecord["sandbox_approval"]),
-      rules: booleanOrFalse(granularRecord["rules"]),
-      skill_approval: booleanOrFalse(granularRecord["skill_approval"]),
-      request_permissions: booleanOrFalse(granularRecord["request_permissions"]),
-      mcp_elicitations: booleanOrFalse(granularRecord["mcp_elicitations"]),
+      sandbox_approval: granularRecord["sandbox_approval"] === true,
+      rules: granularRecord["rules"] === true,
+      skill_approval: granularRecord["skill_approval"] === true,
+      request_permissions: granularRecord["request_permissions"] === true,
+      mcp_elicitations: granularRecord["mcp_elicitations"] === true,
     },
   };
 }
@@ -108,10 +108,6 @@ function recordOrNull(value: unknown): Record<string, unknown> | null {
 
 function stringArrayOrEmpty(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length > 0) : [];
-}
-
-function booleanOrFalse(value: unknown): boolean {
-  return value === true;
 }
 
 function reasoningSummaryOrNull(value: unknown): ReasoningSummary | null {

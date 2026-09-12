@@ -11,13 +11,7 @@ import {
   setRuntimeIntentValue,
   unchangedRuntimeIntent,
 } from "./intent";
-import {
-  type RuntimeLayeredValue,
-  type RuntimeValueSource,
-  resolveRuntimeNullablePendingValue,
-  resolveRuntimeValue,
-  runtimeLayeredValue,
-} from "./layered-value";
+import { type RuntimeLayeredValue, type RuntimeValueSource, resolveRuntimeValue, runtimeLayeredValue } from "./layered-value";
 import type { RuntimeSnapshot } from "./snapshot";
 
 interface AutoReviewResolution {
@@ -74,7 +68,7 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     active: snapshot.active.model,
     pending: snapshot.pending.model,
   });
-  const reasoningEffort = resolveRuntimeNullablePendingValue({
+  const reasoningEffort = resolveRuntimeValue({
     configured: config.reasoningEffort,
     active: snapshot.active.reasoningEffort,
     pending: snapshot.pending.reasoningEffort,
@@ -218,7 +212,7 @@ function resolveRuntimeSandboxPolicy(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigSnapshot,
 ): RuntimeLayeredValue<RuntimeSandboxPolicy, RuntimeSandboxPolicy | null> {
-  return resolveRuntimeNullablePendingValue({
+  return resolveRuntimeValue({
     configured: cloneRuntimeSandboxPolicy(config.startupPermissions.sandboxPolicy),
     active: cloneRuntimeSandboxPolicy(snapshot.active.sandboxPolicy),
     pending: sandboxPolicyIntentFromPermissionProfile(snapshot.pending.permissionProfile, config),

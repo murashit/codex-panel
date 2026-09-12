@@ -119,13 +119,10 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
         ]
       : [];
   }
-  if (item.type === "agentMessage") {
+  if (item.type === "agentMessage" || item.type === "plan") {
     const text = item.text.trim();
-    return text ? [{ kind: "assistant", text, timestamp: turn.completedAt ?? turn.startedAt }] : [];
-  }
-  if (item.type === "plan") {
-    const text = item.text.trim();
-    return text ? [{ kind: "plan", text, timestamp: turn.completedAt ?? turn.startedAt }] : [];
+    const kind = item.type === "agentMessage" ? "assistant" : "plan";
+    return text ? [{ kind, text, timestamp: turn.completedAt ?? turn.startedAt }] : [];
   }
   return [];
 }

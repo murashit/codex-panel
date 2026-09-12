@@ -125,13 +125,11 @@ function threadCommandSuggestions(
 
   const { command, query, start } = completion;
   const policy = THREAD_COMMAND_SUGGESTION_POLICIES[command];
-  const candidateThreads = threads.filter((thread) => !shouldExcludeActiveThreadSuggestion(policy, thread.id, activeThreadId));
+  const candidateThreads = threads.filter((thread) => !policy.excludeActiveThread || thread.id !== activeThreadId);
 
+  const prioritizeActive = policy.prioritizeActiveThreadForEmptyQuery && query.length === 0;
   return threadSearchMatches(candidateThreads, query)
-    .map((match) => {
-      const activePriority = activeThreadSuggestionPriority(policy, query, match.thread.id, activeThreadId);
-      return { ...match, activePriority };
-    })
+    .map((match) => ({ ...match, activePriority: prioritizeActive && match.thread.id === activeThreadId ? 0 : 1 }))
     .sort((a, b) => a.activePriority - b.activePriority || compareThreadSearchMatches(a, b))
     .map(({ thread }) => {
       const title = threadCommandDisplayTitle(thread);
@@ -144,23 +142,6 @@ function threadCommandSuggestions(
         threadCommandTarget: { command, threadId: thread.id, title },
       };
     });
-}
-
-function shouldExcludeActiveThreadSuggestion(
-  policy: ThreadCommandSuggestionPolicy,
-  threadId: string,
-  activeThreadId: string | null,
-): boolean {
-  return policy.excludeActiveThread && activeThreadId !== null && threadId === activeThreadId;
-}
-
-function activeThreadSuggestionPriority(
-  policy: ThreadCommandSuggestionPolicy,
-  query: string,
-  threadId: string,
-  activeThreadId: string | null,
-): number {
-  return policy.prioritizeActiveThreadForEmptyQuery && query.length === 0 && activeThreadId !== null && threadId === activeThreadId ? 0 : 1;
 }
 
 function activeThreadCommandCompletionQuery(beforeCursor: string): { command: ThreadTitleCommand; query: string; start: number } | null {

@@ -12,31 +12,6 @@ export interface RuntimeLayeredValue<T, Pending = T> {
   readonly source: RuntimeValueSource;
 }
 
-export function resolveRuntimeValue<T>(input: {
-  configured: T | null | undefined;
-  active: T | null | undefined;
-  pending?: PendingRuntimeIntent<T>;
-  activeKnown?: boolean;
-}): RuntimeLayeredValue<T> {
-  return resolveRuntimeLayeredValue({
-    ...input,
-    pending: input.pending ?? ({ kind: "unchanged" } satisfies PendingRuntimeIntent<T>),
-    pendingEffectiveValue: (value) => value,
-  });
-}
-
-export function resolveRuntimeNullablePendingValue<T>(input: {
-  configured: T | null | undefined;
-  active: T | null | undefined;
-  pending: PendingRuntimeIntent<T | null>;
-  activeKnown?: boolean;
-}): RuntimeLayeredValue<T, T | null> {
-  return resolveRuntimeLayeredValue({
-    ...input,
-    pendingEffectiveValue: (value) => value,
-  });
-}
-
 export function runtimeLayeredValue<T, Pending = T>(input: {
   configured: T | null | undefined;
   active: T | null | undefined;
@@ -59,32 +34,25 @@ export function runtimeLayeredValue<T, Pending = T>(input: {
   };
 }
 
-function resolveRuntimeLayeredValue<T, Pending>(input: {
+export function resolveRuntimeValue<T, Pending extends T | null = T>(input: {
   configured: T | null | undefined;
   active: T | null | undefined;
   pending: PendingRuntimeIntent<Pending>;
   activeKnown?: boolean;
-  pendingEffectiveValue: (value: Pending) => T | null;
 }): RuntimeLayeredValue<T, Pending> {
   const configured = input.configured ?? null;
   const active = input.active ?? null;
   const activeKnown = input.activeKnown ?? active !== null;
   const { confirmed, confirmedSource } = confirmedRuntimeValue(configured, active, activeKnown);
-  if (input.pending.kind === "set") {
-    return {
-      configured,
-      active,
-      pending: input.pending,
-      confirmed,
-      confirmedSource,
-      effective: input.pendingEffectiveValue(input.pending.value),
-      source: "pending",
-    };
+  const base = { configured, active, pending: input.pending, confirmed, confirmedSource };
+  switch (input.pending.kind) {
+    case "set":
+      return { ...base, effective: input.pending.value, source: "pending" };
+    case "resetToConfig":
+      return { ...base, effective: configured, source: "config" };
+    case "unchanged":
+      return { ...base, effective: confirmed, source: confirmedSource };
   }
-  if (input.pending.kind === "resetToConfig") {
-    return { configured, active, pending: input.pending, confirmed, confirmedSource, effective: configured, source: "config" };
-  }
-  return { configured, active, pending: input.pending, confirmed, confirmedSource, effective: confirmed, source: confirmedSource };
 }
 
 function confirmedRuntimeValue<T>(

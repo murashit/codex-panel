@@ -147,12 +147,10 @@ export class AppServerToolInventoryQueries {
       queryFn: async ({ signal }) => {
         for (;;) {
           const revalidationRevision = this.mcpRevalidationRevision(threadId);
-          const globalRevision = this.mcpStartupDiagnostics(null).revision;
-          const scopedRevision = this.mcpStartupDiagnostics(threadId).revision;
+          const startupRevision = this.mcpStartupDiagnostics(threadId).revision;
           const inventory = await this.scope.runWithClient((client) => readMcpServerInventory(client, threadId, { signal }));
           if (revalidationRevision !== this.mcpRevalidationRevision(threadId)) continue;
-          if (threadId === null) this.clearMcpStartupDiagnostics(null, globalRevision);
-          if (threadId !== null) this.clearMcpStartupDiagnostics(threadId, scopedRevision);
+          this.clearMcpStartupDiagnostics(threadId, startupRevision);
           return inventory;
         }
       },

@@ -67,12 +67,12 @@ export class SelectionRewritePopover {
     const elements = this.createElements();
     this.elements = elements;
 
-    this.addCleanup(
+    this.cleanups.push(
       listenDomEvent(this.options.viewWindow, "resize", () => {
         this.position();
       }),
     );
-    this.addCleanup(
+    this.cleanups.push(
       listenDomEvent(
         this.options.viewWindow,
         "scroll",
@@ -82,13 +82,13 @@ export class SelectionRewritePopover {
         true,
       ),
     );
-    this.addCleanup(
+    this.cleanups.push(
       listenDomEscapeKey(this.options.viewDocument, (event) => {
         event.preventDefault();
         this.cancel();
       }),
     );
-    this.addCleanup(
+    this.cleanups.push(
       listenOutsideDomEvent(
         elements.root,
         "pointerdown",
@@ -101,7 +101,7 @@ export class SelectionRewritePopover {
 
     this.session.setStatus("");
     this.syncInstructionHeight();
-    this.syncControls();
+    this.renderView();
     this.position();
     elements.instruction?.focus();
   }
@@ -173,10 +173,6 @@ export class SelectionRewritePopover {
     this.elements.applyButton.focus({ preventScroll: true });
   }
 
-  private syncControls(): void {
-    this.renderView();
-  }
-
   private syncInstructionHeight(): void {
     const instruction = this.elements?.instruction ?? null;
     syncTextareaHeight(instruction, {
@@ -216,7 +212,7 @@ export class SelectionRewritePopover {
         onInstructionInput={(value) => {
           this.session.setInstructionDraft(value);
           this.syncInstructionHeight();
-          this.syncControls();
+          this.renderView();
           this.position();
         }}
         onInstructionKeyDown={(event) => {
@@ -247,7 +243,7 @@ export class SelectionRewritePopover {
     event.preventDefault();
     event.stopPropagation();
     this.syncInstructionHeight();
-    this.syncControls();
+    this.renderView();
     this.position();
     this.focusInstructionEnd();
     return true;
@@ -259,10 +255,6 @@ export class SelectionRewritePopover {
     const cursor = instruction.value.length;
     instruction.focus({ preventScroll: true });
     instruction.setSelectionRange(cursor, cursor);
-  }
-
-  private addCleanup(cleanup: Cleanup): void {
-    this.cleanups.push(cleanup);
   }
 }
 
@@ -365,7 +357,9 @@ function SelectionRewritePopoverView({
       <SelectionRewriteStatus status={status} />
       <pre className={`codex-panel-selection-rewrite__stream-preview${streamPreview ? "" : " is-hidden"}`}>{streamPreview}</pre>
       <div className={`codex-panel-selection-rewrite__result${hasReplacement ? "" : " is-hidden"}`}>
-        <div className="codex-panel-selection-rewrite__diff">{diffLines ? <SelectionRewriteDiff lines={diffLines} /> : null}</div>
+        <div className="codex-panel-selection-rewrite__diff">
+          {diffLines ? <DiffLineList lines={diffLines} className="codex-panel-selection-rewrite__diff-body" /> : null}
+        </div>
         <div className="codex-panel-selection-rewrite__result-actions">
           <IconButton
             buttonRef={applyButtonRef}
@@ -405,8 +399,4 @@ function SelectionRewriteStatus({ status }: { status: SelectionRewriteSessionSta
       ) : null}
     </div>
   );
-}
-
-function SelectionRewriteDiff({ lines }: { lines: readonly DiffDisplayLine[] }): UiNode {
-  return <DiffLineList lines={lines} className="codex-panel-selection-rewrite__diff-body" />;
 }
