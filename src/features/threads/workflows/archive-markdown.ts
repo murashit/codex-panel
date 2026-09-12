@@ -61,7 +61,7 @@ function normalizedArchiveTags(value: string): string[] {
 }
 
 function transcriptMarkdownLines(entries: readonly ThreadTranscriptEntry[]): string[] {
-  return [...entries].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)).flatMap(markdownLinesFromTranscriptEntry);
+  return entries.flatMap(markdownLinesFromTranscriptEntry);
 }
 
 function markdownLinesFromTranscriptEntry(entry: ThreadTranscriptEntry): string[] {

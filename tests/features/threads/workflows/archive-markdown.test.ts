@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { transcriptEntriesFromTurnRecords } from "../../../../src/app-server/protocol/turn";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
 import { type ArchiveMarkdownOptions, archivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-markdown";
@@ -74,20 +75,60 @@ describe("thread archive export", () => {
     expect(output).toContain("## Codex - 2026-05-18 10:01\n\n途中の回答");
   });
 
-  it("orders transcript entries chronologically while preserving source order for equal timestamps", () => {
+  it("preserves mid-turn guidance after the response it follows despite shared turn timestamps", () => {
     const output = exportedMarkdown(
       thread({
-        transcriptEntries: [
-          transcriptEntry("assistant", "newest", timestamp(2026, 5, 18, 10, 0)),
-          transcriptEntry("assistant", "equal-first", timestamp(2026, 5, 18, 9, 0)),
-          transcriptEntry("user", "oldest", timestamp(2026, 5, 18, 8, 0)),
-          transcriptEntry("plan", "equal-second", timestamp(2026, 5, 18, 9, 0)),
-        ],
+        transcriptEntries: transcriptEntriesFromTurnRecords([
+          {
+            id: "turn",
+            itemsView: "full",
+            status: "completed",
+            error: null,
+            startedAt: timestamp(2026, 5, 18, 9, 0),
+            completedAt: timestamp(2026, 5, 18, 9, 5),
+            durationMs: 300000,
+            items: [
+              {
+                type: "userMessage",
+                id: "prompt",
+                clientId: "prompt",
+                content: [{ type: "text", text: "Initial request", text_elements: [] }],
+              },
+              {
+                type: "agentMessage",
+                id: "commentary",
+                text: "Intermediate response",
+                phase: "commentary",
+                memoryCitation: null,
+                delivery: null,
+                questions: null,
+              },
+              {
+                type: "userMessage",
+                id: "steer",
+                clientId: "steer",
+                content: [{ type: "text", text: "Follow-up guidance", text_elements: [] }],
+              },
+              {
+                type: "agentMessage",
+                id: "answer",
+                text: "Final response",
+                phase: "final_answer",
+                memoryCitation: null,
+                delivery: null,
+                questions: null,
+              },
+            ],
+          },
+        ]),
       }),
       new Date(2026, 4, 18),
     );
 
-    const positions = ["oldest", "equal-first", "equal-second", "newest"].map((text) => output.indexOf(text));
+    const positions = ["Initial request", "Intermediate response", "Follow-up guidance", "Final response"].map((text) =>
+      output.indexOf(text),
+    );
+    expect(positions.every((position) => position >= 0)).toBe(true);
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 
