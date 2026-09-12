@@ -17,11 +17,13 @@ export function createThreadMutationAdapter(clientAccess: AppServerClientAccess)
   return {
     renameThread: (threadId, name) => clientAccess.withClient((client) => renameThread(client, threadId, name)),
     setThreadPinned: (threadId, isPinned) => clientAccess.withClient((client) => setThreadPinned(client, threadId, isPinned)),
-    archiveThread: (threadId, prepare) =>
+    archiveThread: (threadId, { prepare, canArchive }) =>
       clientAccess.withClient(async (client) => {
         const prepared = prepare ? await prepare(await readThreadForArchiveExport(client, threadId)) : null;
+        // Recheck after export; keep admission and RPC dispatch in the same synchronous step.
+        if (!canArchive()) return { kind: "blocked", reason: "thread-busy" };
         await archiveThread(client, threadId);
-        return prepared;
+        return { kind: "archived", exportedPath: prepared };
       }),
     restoreThread: (threadId) => clientAccess.withClient((client) => restoreArchivedThread(client, threadId)),
     deleteThread: (threadId) => clientAccess.withClient((client) => deleteThread(client, threadId)),

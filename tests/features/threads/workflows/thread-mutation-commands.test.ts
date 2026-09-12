@@ -1,13 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadMutationAdapter } from "../../../../src/features/threads/app-server/workflow-adapters";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
+import type { ArchiveThreadResult } from "../../../../src/features/threads/workflows/ports";
 import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import {
-  type ArchiveThreadResult,
   createThreadMutationCommands,
   type ThreadMutationCommandsHost,
 } from "../../../../src/features/threads/workflows/thread-mutation-commands";
@@ -119,6 +118,23 @@ describe("ThreadMutationCommands", () => {
     expect(client?.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(callOrder(archiveDestination.createMarkdownFile)).toBeLessThan(requestCallOrder(client, "thread/archive"));
     expect(catalog.apply).not.toHaveBeenCalled();
+  });
+
+  it("blocks archive when the thread becomes busy during markdown export", async () => {
+    let busy = false;
+    const write = deferred<void>();
+    const { mutations, client, archiveDestination } = operationsFixture({ threadIsBusy: () => busy });
+    archiveDestination.createMarkdownFile.mockReturnValue(write.promise);
+    const afterArchive = vi.fn();
+
+    const operation = mutations.archiveThread("thread", { saveMarkdown: true, afterArchive });
+    await vi.waitFor(() => expect(archiveDestination.createMarkdownFile).toHaveBeenCalledOnce());
+    busy = true;
+    write.resolve();
+
+    await expect(operation).resolves.toEqual({ kind: "blocked", reason: "thread-busy" });
+    expect(requestMethods(client)).not.toContain("thread/archive");
+    expect(afterArchive).not.toHaveBeenCalled();
   });
 
   it("does not write or archive when a later history page fails", async () => {

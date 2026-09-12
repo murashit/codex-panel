@@ -2,7 +2,7 @@ import { normalizeExplicitThreadName, type Thread } from "../../../domain/thread
 import { threadDisplayTitle } from "../../../domain/threads/title";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
-import type { ThreadMutationPort } from "./ports";
+import type { ArchiveThreadResult, ThreadMutationPort } from "./ports";
 import type { ThreadFactSink } from "./thread-facts";
 
 export interface ThreadMutationCommandsHost {
@@ -23,10 +23,6 @@ interface ArchiveThreadOptions {
   saveMarkdown?: boolean;
   afterArchive?: () => void;
 }
-
-export type ArchiveThreadResult =
-  | { readonly kind: "archived"; readonly exportedPath: string | null }
-  | { readonly kind: "blocked"; readonly reason: "thread-busy" };
 
 interface RenameThreadOptions {
   shouldStart?: () => boolean;
@@ -82,9 +78,9 @@ async function archiveThread(
   return archiveMutations.run(threadId, async () => {
     if (host.threadIsBusy(threadId)) return { kind: "blocked", reason: "thread-busy" };
     const shouldExport = options.saveMarkdown ?? host.archiveExport.enabled();
-    const exportedPath = await host.port.archiveThread(
-      threadId,
-      shouldExport
+    const result = await host.port.archiveThread(threadId, {
+      canArchive: () => !host.threadIsBusy(threadId),
+      prepare: shouldExport
         ? async (thread) => {
             const archiveSettings = host.archiveExport.settings();
             const threads = host.referenceThreads();
@@ -108,8 +104,8 @@ async function archiveThread(
             return result.path;
           }
         : undefined,
-    );
-    options.afterArchive?.();
-    return { kind: "archived", exportedPath };
+    });
+    if (result.kind === "archived") options.afterArchive?.();
+    return result;
   });
 }
