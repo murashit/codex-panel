@@ -1,6 +1,6 @@
 import { pathRelativeToRoot } from "../../../../domain/vault/paths";
 import { lastTurnOutcomeItemsByTurn, threadStreamUserRoles } from "../../domain/thread-stream/conversation";
-import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamIsAutoReviewDecision } from "../../domain/thread-stream/review-items";
 
 const STEERING_ACTIVITY_LABEL = "steering";
@@ -49,19 +49,18 @@ export function threadStreamLayoutBlocks(
   const roles = threadStreamUserRoles(visibleItems);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
-  const turnOutcomeIdByTurn = new Map([...lastTurnOutcomeItemsByTurn(visibleItems)].map(([turnId, item]) => [turnId, item.id]));
-  const groupedTurnIds = new Set([...turnOutcomeIdByTurn.keys()].filter((turnId) => turnId !== activeTurnId));
-  const summaryOutcomeIdByTurn = new Map([...turnOutcomeIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
+  const completedOutcomes = lastTurnOutcomeItemsByTurn(visibleItems);
+  if (activeTurnId !== null) completedOutcomes.delete(activeTurnId);
 
   const groupedActivities = new Map<string, ThreadStreamActivityGroupItem[]>();
   for (const [index, item] of visibleItems.entries()) {
     const turnId = item.turnId;
-    if (!turnId || !groupedTurnIds.has(turnId)) continue;
+    if (!turnId || !completedOutcomes.has(turnId)) continue;
     let activity: ThreadStreamActivityGroupItem;
     if (roles[index] === "steer" && item.kind === "dialogue") {
       activity = steeringActivityGroupItem(item);
     } else {
-      if (!isCompletedTurnDetailItem(item, roles[index], turnOutcomeIdByTurn)) continue;
+      if (!isCompletedTurnDetailItem(item, roles[index], completedOutcomes)) continue;
       activity = { type: "item", id: item.id, item };
     }
     const group = groupedActivities.get(turnId) ?? [];
@@ -72,10 +71,10 @@ export function threadStreamLayoutBlocks(
   const blocks: ThreadStreamLayoutBlock[] = [];
   for (const [index, item] of visibleItems.entries()) {
     const turnId = item.turnId;
-    if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, roles[index], turnOutcomeIdByTurn)) {
+    if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, roles[index], completedOutcomes)) {
       continue;
     }
-    if (turnId && turnOutcomeIdByTurn.get(turnId) === item.id && groupedActivities.has(turnId)) {
+    if (turnId && completedOutcomes.get(turnId)?.id === item.id && groupedActivities.has(turnId)) {
       const groupItems = groupedActivities.get(turnId) ?? [];
       blocks.push({
         type: "activityGroup",
@@ -85,7 +84,7 @@ export function threadStreamLayoutBlocks(
         items: groupItems,
       });
     }
-    const annotations = annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs);
+    const annotations = annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, completedOutcomes, turnDiffs);
     blocks.push({ type: "item", item, ...(annotations === undefined ? {} : { annotations }) });
   }
 
@@ -117,21 +116,21 @@ function steerActivityGroupId(itemId: string): string {
 function isCompletedTurnDetailItem(
   item: ThreadStreamItem,
   role: "initiator" | "steer" | null | undefined,
-  turnOutcomeIdByTurn: Map<string, string>,
+  completedOutcomes: ReadonlyMap<string, ThreadStreamDialogueItem>,
 ): boolean {
   const turnId = item.turnId;
   if (!turnId || role) return false;
-  return turnOutcomeIdByTurn.get(turnId) !== item.id;
+  return completedOutcomes.get(turnId)?.id !== item.id;
 }
 
 function annotationsForTurnOutcome(
   item: ThreadStreamItem,
   editedFilesByTurn: Map<string, string[]>,
   autoReviewSummariesByTurn: Map<string, string[]>,
-  turnOutcomeIdByTurn: Map<string, string>,
+  completedOutcomes: ReadonlyMap<string, ThreadStreamDialogueItem>,
   turnDiffs: ReadonlyMap<string, string>,
 ): ThreadStreamItemAnnotations | undefined {
-  if (!item.turnId || turnOutcomeIdByTurn.get(item.turnId) !== item.id) return undefined;
+  if (!item.turnId || completedOutcomes.get(item.turnId)?.id !== item.id) return undefined;
   if (item.kind !== "dialogue") return undefined;
   const editedFiles = editedFilesByTurn.get(item.turnId);
   const autoReviewSummaries = autoReviewSummariesByTurn.get(item.turnId);

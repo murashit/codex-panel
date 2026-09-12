@@ -624,15 +624,17 @@ function mcpElicitationFieldFromSchema(
         type: schema.type,
         defaultValue: typeof schema.default === "number" && Number.isFinite(schema.default) ? schema.default : null,
       };
-    case "array":
+    case "array": {
+      const items = asRecordOrNull(schema.items);
       return {
         ...base,
         type: "multi-select",
-        options: multiSelectOptions(schema),
+        options: selectOptions(items?.["anyOf"], items?.["enum"]),
         defaultValue: stringArrayOrEmpty(schema.default),
       };
+    }
     case "string": {
-      const options = singleSelectOptions(schema);
+      const options = selectOptions(schema.oneOf, schema.enum);
       if (options.length > 0) {
         return {
           ...base,
@@ -650,28 +652,15 @@ function mcpElicitationFieldFromSchema(
   }
 }
 
-function singleSelectOptions(schema: Extract<AppServerMcpElicitationPrimitiveSchema, { type: "string" }>): PendingMcpElicitationOption[] {
-  if (Array.isArray(schema.oneOf)) {
-    const options = schema.oneOf.flatMap((option) => {
+function selectOptions(choices: unknown, enumValues: unknown): PendingMcpElicitationOption[] {
+  if (Array.isArray(choices)) {
+    const options = choices.flatMap((option) => {
       const selected = selectOption(option);
       return selected ? [selected] : [];
     });
     if (options.length > 0) return options;
   }
-  return enumOptions(schema.enum);
-}
-
-function multiSelectOptions(schema: Extract<AppServerMcpElicitationPrimitiveSchema, { type: "array" }>): PendingMcpElicitationOption[] {
-  const items = asRecordOrNull(schema.items);
-  const anyOf = items?.["anyOf"];
-  if (Array.isArray(anyOf)) {
-    const options = anyOf.flatMap((option) => {
-      const selected = selectOption(option);
-      return selected ? [selected] : [];
-    });
-    if (options.length > 0) return options;
-  }
-  return enumOptions(items?.["enum"]);
+  return enumOptions(enumValues);
 }
 
 function stringArrayOrEmpty(value: unknown): readonly string[] {

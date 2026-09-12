@@ -9,7 +9,7 @@ export interface RestorationControllerHost {
 export type RestoredThreadLoader = (threadId: string) => Promise<void>;
 
 export class RestorationController {
-  private loading: { threadId: string; panelTarget: PanelTargetLease; promise: Promise<void> } | null = null;
+  private loading: { panelTarget: PanelTargetLease; promise: Promise<void> } | null = null;
 
   constructor(private readonly host: RestorationControllerHost) {}
 
@@ -22,28 +22,27 @@ export class RestorationController {
     if (!restoredThread) return true;
     const panelTarget = capturePanelTargetLease(this.host.stateStore.getState());
     const activeLoading = this.loading;
-    if (activeLoading?.threadId === restoredThread.threadId && panelTargetLeasesMatch(activeLoading.panelTarget, panelTarget)) {
+    if (activeLoading && panelTargetLeasesMatch(activeLoading.panelTarget, panelTarget)) {
       await activeLoading.promise;
-      return this.restorationLoaded(activeLoading.panelTarget, restoredThread.threadId);
+      return this.restorationLoaded(activeLoading.panelTarget);
     }
 
-    const threadId = restoredThread.threadId;
-    const loading = { threadId, panelTarget, promise: loadThread(threadId) };
+    const loading = { panelTarget, promise: loadThread(restoredThread.threadId) };
     this.loading = loading;
     try {
       await loading.promise;
     } finally {
       if (this.loading === loading) this.loading = null;
     }
-    return this.restorationLoaded(loading.panelTarget, threadId);
+    return this.restorationLoaded(loading.panelTarget);
   }
 
   isPending(threadId: string): boolean {
     return awaitingResumeThreadState(this.host.stateStore.getState())?.threadId === threadId;
   }
 
-  private restorationLoaded(panelTarget: PanelTargetLease, threadId: string): boolean {
+  private restorationLoaded(panelTarget: PanelTargetLease): boolean {
     const state = this.host.stateStore.getState();
-    return panelTargetLeaseIsCurrent(state, panelTarget) && activeThreadId(state) === threadId;
+    return panelTarget.threadId !== null && panelTargetLeaseIsCurrent(state, panelTarget) && activeThreadId(state) === panelTarget.threadId;
   }
 }

@@ -68,17 +68,13 @@ function boundedContextParts(value: string, maxParts: number): string[] {
 }
 
 function allocatedPartCounts(contexts: readonly Extract<CodexInputItem, { type: "additionalContext" }>[]): number[] {
-  const allocations = contexts.map(() => 1);
-  const desired = contexts.map(
-    (context) => splitUtf8Context(context.value, ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES, ADDITIONAL_CONTEXT_MAX_PARTS).parts.length,
-  );
   let remaining = ADDITIONAL_CONTEXT_MAX_PARTS - contexts.length;
-  for (let index = 0; index < contexts.length && remaining > 0; index += 1) {
-    const extra = Math.min(Math.max((desired[index] ?? 1) - 1, 0), remaining);
-    allocations[index] = (allocations[index] ?? 1) + extra;
+  return contexts.map((context) => {
+    const desired = splitUtf8Context(context.value, ADDITIONAL_CONTEXT_PART_BODY_MAX_BYTES, ADDITIONAL_CONTEXT_MAX_PARTS).parts.length;
+    const extra = Math.min(Math.max(desired - 1, 0), remaining);
     remaining -= extra;
-  }
-  return allocations;
+    return 1 + extra;
+  });
 }
 
 function appServerUserInputItemFromCodexInputItem(item: CodexInputItem): AppServerUserInput[] {

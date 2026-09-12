@@ -1,15 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
-import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createAutoTitleCoordinator } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 
 describe("AutoTitleCoordinator", () => {
   it("captures visible first-turn context and hands it to shared title work", () => {
-    const stateStore = listedThreadState();
     const submitTitleWork = vi.fn();
     const coordinator = createAutoTitleCoordinator({
-      stateStore,
       completedTurnTitleContext: () => ({
         userRequest: "Visible streamed request.",
         assistantResponse: "Visible streamed response.",
@@ -30,10 +27,8 @@ describe("AutoTitleCoordinator", () => {
   });
 
   it("does not submit a title when the thread already has one", () => {
-    const stateStore = listedThreadState("Manual title");
     const submitTitleWork = vi.fn();
     const coordinator = createAutoTitleCoordinator({
-      stateStore,
       completedTurnTitleContext: vi.fn(() => ({
         userRequest: "Request",
         assistantResponse: "Response",
@@ -48,10 +43,8 @@ describe("AutoTitleCoordinator", () => {
   });
 
   it("submits only the first completed turn for the active thread", () => {
-    const stateStore = listedThreadState();
     const submitTitleWork = vi.fn();
     const coordinator = createAutoTitleCoordinator({
-      stateStore,
       completedTurnTitleContext: (_turnId, summary) =>
         summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
       submitTitleWork,
@@ -65,10 +58,8 @@ describe("AutoTitleCoordinator", () => {
   });
 
   it("tracks first-turn presence independently after switching active threads", () => {
-    const stateStore = listedThreadState();
     const submitTitleWork = vi.fn();
     const coordinator = createAutoTitleCoordinator({
-      stateStore,
       completedTurnTitleContext: (_turnId, summary) =>
         summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
       submitTitleWork,
@@ -89,10 +80,6 @@ describe("AutoTitleCoordinator", () => {
     });
   });
 });
-
-function listedThreadState(_name: string | null = null) {
-  return createChatStateStore();
-}
 
 function catalogThreadById(name: string | null = null) {
   const threads: Thread[] = [

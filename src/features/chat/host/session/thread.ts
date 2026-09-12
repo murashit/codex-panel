@@ -107,7 +107,6 @@ export function createSessionThreadFoundation(host: SessionThreadHost, input: Se
   });
   const threadMutations = environment.plugin.threadMutations;
   const autoTitleCoordinator = createAutoTitleCoordinator({
-    stateStore,
     threadById: (threadId) => environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),
     completedTurnTitleContext: (turnId, completedTurnTranscriptSummary) =>
       titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
