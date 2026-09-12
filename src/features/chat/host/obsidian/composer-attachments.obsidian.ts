@@ -4,7 +4,7 @@ import { sanitizeVaultPathSegment, vaultRelativeFolderPath } from "../../../../d
 import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/preferences";
 import { createObsidianVaultPathDestination } from "../../../../shared/obsidian/vault-write-destination.obsidian";
 import { ensureVaultFolder, uniqueVaultPath, withVaultWriteLock } from "../../../../shared/vault/write-operations";
-import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
+import type { ComposerAttachment, ComposerAttachmentHandler, ComposerAttachmentSaveResult } from "../../application/composer/attachments";
 
 interface VaultComposerAttachmentHandlerOptions {
   app: App;
@@ -40,8 +40,8 @@ export function createVaultComposerAttachmentHandler(options: VaultComposerAttac
 async function saveComposerAttachmentFiles(
   options: VaultComposerAttachmentHandlerOptions,
   files: readonly File[],
-): Promise<ComposerAttachment[]> {
-  if (files.length === 0) return [];
+): Promise<ComposerAttachmentSaveResult> {
+  if (files.length === 0) return { attachments: [], failures: [] };
 
   const vault = options.app.vault;
   const destination = createObsidianVaultPathDestination(vault);
@@ -49,19 +49,24 @@ async function saveComposerAttachmentFiles(
   return withVaultWriteLock(destination, async () => {
     await ensureVaultFolder(destination, folder);
     const attachments: ComposerAttachment[] = [];
+    const failures: { name: string; message: string }[] = [];
     for (const file of files) {
-      const filename = attachmentFilename(file, options.now?.() ?? new Date());
-      const path = await uniqueVaultPath(destination, folder, filename);
-      await vault.createBinary(path, await file.arrayBuffer());
-      const kind = isImageFile(file, path) ? "image" : "file";
-      attachments.push({
-        kind,
-        name: attachmentDisplayName(path),
-        path,
-        marker: kind === "image" ? `![[${path}]]` : `[[${path}]]`,
-      });
+      try {
+        const filename = attachmentFilename(file, options.now?.() ?? new Date());
+        const path = await uniqueVaultPath(destination, folder, filename);
+        await vault.createBinary(path, await file.arrayBuffer());
+        const kind = isImageFile(file, path) ? "image" : "file";
+        attachments.push({
+          kind,
+          name: attachmentDisplayName(path),
+          path,
+          marker: kind === "image" ? `![[${path}]]` : `[[${path}]]`,
+        });
+      } catch (error) {
+        failures.push({ name: file.name.trim() || "Unnamed attachment", message: error instanceof Error ? error.message : String(error) });
+      }
     }
-    return attachments;
+    return { attachments, failures };
   });
 }
 

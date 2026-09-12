@@ -59,9 +59,16 @@ export class ComposerAttachmentTransfers {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime)) return;
     try {
-      const attachments = await this.options.attachmentHandler.saveFiles(files);
+      const result = await this.options.attachmentHandler.saveFiles(files);
       if (!this.lifetime.isCurrent(lifetime)) return;
-      this.completePendingSave(pending, attachments);
+      const state = this.state;
+      const targetIsCurrent = state.panelTargetRevision === pending.panelTargetRevision && panelThreadId(state) === pending.threadId;
+      this.completePendingSave(pending, result.attachments);
+      if (targetIsCurrent && result.failures.length > 0) {
+        this.options.onError(
+          `Could not save attachments:\n${result.failures.map((failure) => `${failure.name}: ${failure.message}`).join("\n")}`,
+        );
+      }
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime)) return;
       this.settlePendingSave(pending);

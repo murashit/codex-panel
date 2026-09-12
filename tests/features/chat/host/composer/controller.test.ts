@@ -5,7 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { createThreadReferenceResolver } from "../../../../../src/features/chat/app-server/adapters/thread-reference-resolver";
-import type { ComposerAttachment, ComposerAttachmentHandler } from "../../../../../src/features/chat/application/composer/attachments";
+import type {
+  ComposerAttachment,
+  ComposerAttachmentHandler,
+  ComposerAttachmentSaveResult,
+} from "../../../../../src/features/chat/application/composer/attachments";
 import type {
   ComposerContextReferenceProvider,
   ComposerContextReferences,
@@ -21,6 +25,7 @@ import { pendingWebSubmissionItem } from "../../../../../src/features/chat/appli
 import { createGoalCommands } from "../../../../../src/features/chat/application/threads/goal-commands";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
+import { createVaultComposerAttachmentHandler } from "../../../../../src/features/chat/host/obsidian/composer-attachments.obsidian";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { deferred } from "../../../../support/async";
@@ -90,12 +95,16 @@ function resumeComposerThread(stateStore: ChatStateStore, threadId: string): voi
 
 type ComposerControllerOptions = ConstructorParameters<typeof ChatComposerController>[0];
 
+function attachmentSaveResult(attachments: readonly ComposerAttachment[]) {
+  return { attachments, failures: [] };
+}
+
 function defaultComposerAttachmentOptions(): Pick<
   ComposerControllerOptions,
   "attachmentHandler" | "fuzzyMatcher" | "onAttachmentError" | "sharedResources"
 > {
   return {
-    attachmentHandler: { saveFiles: async () => [] },
+    attachmentHandler: { saveFiles: async () => attachmentSaveResult([]) },
     fuzzyMatcher: testFuzzyMatcher,
     onAttachmentError: vi.fn(),
     sharedResources: sharedResourcesFixture(),
@@ -813,14 +822,16 @@ describe("ChatComposerController", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn().mockResolvedValue([
-        {
-          kind: "image",
-          name: "diagram",
-          path: "Codex Attachments/diagram.png",
-          marker: "![[Codex Attachments/diagram.png]]",
-        },
-      ]),
+      saveFiles: vi.fn().mockResolvedValue(
+        attachmentSaveResult([
+          {
+            kind: "image",
+            name: "diagram",
+            path: "Codex Attachments/diagram.png",
+            marker: "![[Codex Attachments/diagram.png]]",
+          },
+        ]),
+      ),
     };
     let controller: ChatComposerController | null = null;
     const renderShell = vi.fn(() => {
@@ -866,7 +877,7 @@ describe("ChatComposerController", () => {
     const { controller, parent, renderShell } = composerControllerFixture({
       stateStore,
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
     });
     renderShell();
@@ -890,7 +901,7 @@ describe("ChatComposerController", () => {
     const { controller, parent, renderShell } = composerControllerFixture({
       stateStore,
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
     });
     renderShell();
@@ -913,7 +924,7 @@ describe("ChatComposerController", () => {
     const saved = deferred<ComposerAttachment[]>();
     const { controller, parent, renderShell } = composerControllerFixture({
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
     });
     renderShell();
@@ -935,7 +946,7 @@ describe("ChatComposerController", () => {
     const activeNote = { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" };
     const { controller, parent, renderShell } = composerControllerFixture({
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
     });
     controller.restoreRuntimeSnapshot({
@@ -967,7 +978,7 @@ describe("ChatComposerController", () => {
     const emphasis = { release: vi.fn(), setEnabled: vi.fn() };
     const { controller, parent, renderShell } = composerControllerFixture({
       controller: {
-        attachmentHandler: { saveFiles: () => saved.promise },
+        attachmentHandler: { saveFiles: () => saved.promise.then(attachmentSaveResult) },
         contextReferenceProvider: {
           ...contextProvider(() => ({ activeNote: null, selection })),
           retainSelectionEmphasis: () => emphasis,
@@ -1013,7 +1024,7 @@ describe("ChatComposerController", () => {
         attachmentHandler: {
           saveFiles: vi.fn(() => {
             call += 1;
-            return call === 1 ? first.promise : second.promise;
+            return (call === 1 ? first.promise : second.promise).then(attachmentSaveResult);
           }),
         },
       },
@@ -1037,14 +1048,16 @@ describe("ChatComposerController", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn().mockResolvedValue([
-        {
-          kind: "image",
-          name: "diagram",
-          path: "Codex Attachments/diagram.png",
-          marker: "![[Codex Attachments/diagram.png]]",
-        },
-      ]),
+      saveFiles: vi.fn().mockResolvedValue(
+        attachmentSaveResult([
+          {
+            kind: "image",
+            name: "diagram",
+            path: "Codex Attachments/diagram.png",
+            marker: "![[Codex Attachments/diagram.png]]",
+          },
+        ]),
+      ),
     };
     let controller: ChatComposerController | null = null;
     const renderShell = vi.fn(() => {
@@ -1163,11 +1176,10 @@ describe("ChatComposerController", () => {
     };
     const saveResolver: { current?: (attachments: ComposerAttachment[]) => void } = {};
     const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn(
-        () =>
-          new Promise<ComposerAttachment[]>((resolve) => {
-            saveResolver.current = resolve;
-          }),
+      saveFiles: vi.fn(() =>
+        new Promise<ComposerAttachment[]>((resolve) => {
+          saveResolver.current = resolve;
+        }).then(attachmentSaveResult),
       ),
     };
     let controller: ChatComposerController | null = null;
@@ -1220,13 +1232,63 @@ describe("ChatComposerController", () => {
     expect(submit).toHaveBeenCalledOnce();
   });
 
+  it("keeps successfully saved files in the draft when another dropped file cannot be written", async () => {
+    const paths = new Set<string>(["Files"]);
+    const vault = {
+      getAbstractFileByPath: (path: string) => (paths.has(path) ? {} : null),
+      createFolder: async (path: string) => {
+        paths.add(path);
+      },
+      createBinary: async (path: string) => {
+        if (path === "Files/broken.txt") throw new Error("Write failed");
+        paths.add(path);
+      },
+    };
+    const onAttachmentError = vi.fn();
+    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
+      controller: {
+        attachmentHandler: createVaultComposerAttachmentHandler({ app: { vault } as never, attachmentFolder: () => "Files" }),
+        onAttachmentError,
+      },
+    });
+    renderShell();
+    controller.setDraft("Read these");
+    composer(parent).dispatchEvent(
+      transferEvent("drop", "dataTransfer", [new File(["first"], "first.txt"), new File(["broken"], "broken.txt")]),
+    );
+    await vi.waitFor(() => expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]));
+    expect(composer(parent).value).toBe("Read these\n[[Files/first.txt]]");
+    expect(controller.captureInputSnapshot().attachments.map((attachment) => attachment.path)).toEqual(["Files/first.txt"]);
+    expect(onAttachmentError).toHaveBeenCalledWith("Could not save attachments:\nbroken.txt: Write failed");
+    expect(paths.has("Files/first.txt")).toBe(true);
+  });
+
+  it.each(["switch", "dispose"] as const)("ignores partial attachment results after owner %s", async (action) => {
+    const saved = deferred<ComposerAttachmentSaveResult>();
+    const onAttachmentError = vi.fn();
+    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: () => saved.promise },
+        onAttachmentError,
+      },
+    });
+    renderShell();
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png")]));
+    if (action === "switch") resumeComposerThread(stateStore, "another-thread");
+    else controller.dispose();
+    saved.resolve({ attachments: [attachmentFixture("diagram")], failures: [{ name: "broken.txt", message: "Write failed" }] });
+    await flushComposerAttachment();
+    expect(controller.captureInputSnapshot().attachments).toEqual([]);
+    expect(onAttachmentError).not.toHaveBeenCalled();
+  });
+
   it("removes a failed attachment placeholder without submitting the draft", async () => {
     const saved = deferred<ComposerAttachment[]>();
     const submit = vi.fn();
     const onAttachmentError = vi.fn();
     const { controller, parent, renderShell, stateStore } = composerControllerFixture({
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
         onAttachmentError,
       },
       renderActions: { submit },
@@ -1250,7 +1312,7 @@ describe("ChatComposerController", () => {
     const saved = deferred<ComposerAttachment[]>();
     const { controller, parent, renderShell } = composerControllerFixture({
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
     });
     controller.setDraft("keep selected text");
@@ -1272,7 +1334,7 @@ describe("ChatComposerController", () => {
     const saved = deferred<ComposerAttachment[]>();
     const { controller, parent, renderShell } = composerControllerFixture({
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
     });
     controller.setDraft("Keep this draft");
@@ -1301,7 +1363,7 @@ describe("ChatComposerController", () => {
     const saved = deferred<ComposerAttachment[]>();
     const { controller, parent, renderShell } = composerControllerFixture({
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
     });
     controller.setDraft("keep selected text");
@@ -1328,7 +1390,7 @@ describe("ChatComposerController", () => {
     const { controller, parent, renderShell } = composerControllerFixture({
       stateStore,
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
       renderActions: { submit },
     });
@@ -1354,7 +1416,7 @@ describe("ChatComposerController", () => {
     };
     const { controller, parent, renderShell, stateStore } = composerControllerFixture({
       controller: {
-        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)) },
       },
     });
     renderShell();
@@ -1375,7 +1437,7 @@ describe("ChatComposerController", () => {
     const parent = document.createElement("div");
     const saved = deferred<ComposerAttachment[]>();
     const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn(() => saved.promise),
+      saveFiles: vi.fn(() => saved.promise.then(attachmentSaveResult)),
     };
     const submit = vi.fn();
     const controller = new ChatComposerController({
@@ -1421,14 +1483,16 @@ describe("ChatComposerController", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn().mockResolvedValue([
-        {
-          kind: "file",
-          name: "paper",
-          path: "Codex Attachments/paper.pdf",
-          marker: "[[Codex Attachments/paper.pdf]]",
-        },
-      ]),
+      saveFiles: vi.fn().mockResolvedValue(
+        attachmentSaveResult([
+          {
+            kind: "file",
+            name: "paper",
+            path: "Codex Attachments/paper.pdf",
+            marker: "[[Codex Attachments/paper.pdf]]",
+          },
+        ]),
+      ),
     };
     let controller: ChatComposerController | null = null;
     const renderShell = vi.fn(() => {

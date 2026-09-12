@@ -15,7 +15,12 @@ export interface ComposerAttachment {
 }
 
 export interface ComposerAttachmentHandler {
-  saveFiles(files: readonly File[]): Promise<readonly ComposerAttachment[]>;
+  saveFiles(files: readonly File[]): Promise<ComposerAttachmentSaveResult>;
+}
+
+export interface ComposerAttachmentSaveResult {
+  readonly attachments: readonly ComposerAttachment[];
+  readonly failures: readonly { readonly name: string; readonly message: string }[];
 }
 
 export function codexInputWithComposerAttachments(text: string, input: CodexInput, attachments: readonly ComposerAttachment[]): CodexInput {
