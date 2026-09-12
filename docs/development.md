@@ -61,7 +61,7 @@ Do not hand-edit the bindings. Put necessary output normalization in `scripts/ge
 
 Executable source policies live in `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks. When intentionally changing one, update the implementation, matcher, and its representative policy case together.
 
-Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
+Fix the code rather than suppress diagnostics. Suppressions are exceptional: use one only when a concrete constraint prevents a reasonable implementation that satisfies the rule. Keep it local and explain that constraint in the directive, including the Obsidian-specific reason when a native Obsidian UI pattern diverges from a generic browser rule.
 
 Keep one representative rejection and acceptance per Grit policy. Add another case only when it protects a materially different matcher behavior; do not mirror every regex branch or diagnostic detail in tests.
 
