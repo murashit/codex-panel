@@ -15,6 +15,6 @@ Use the range audit and release-note drafting procedure in `docs/release.md`. In
 
 Prepare the version and final notes, then follow the approval checkpoint in `docs/release.md`: present the notes, version, and included range and stop before the release commit, tag, or push. A general request such as “let’s release” does not waive this checkpoint.
 
-After approval, follow the documented commit, preflight, tag, and push procedure. Verify the Actions result and expected assets before reporting publication complete.
+After approval, follow the documented commit, preflight, tag, and push procedure. Finish after a successful tag push; monitor Actions or verify release assets only when requested.
 
 If publication fails, inspect whether a release or assets already exist before selecting the documented recovery procedure. Do not infer authorization to rewrite a published tag from authorization to prepare a release.
