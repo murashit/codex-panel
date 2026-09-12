@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
+  acknowledgeOptimisticTurnStart,
+  optimisticTurnStart,
+} from "../../../../../src/features/chat/application/submission/optimistic-turn-start";
+import {
   HistoryController,
   type ThreadHistoryPage,
   type ThreadHistorySource,
 } from "../../../../../src/features/chat/application/threads/history-controller";
+import { projectTurnRuntimeFact } from "../../../../../src/features/chat/application/turns/runtime-fact-projection";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -58,7 +63,7 @@ describe("HistoryController", () => {
       .mockReturnValueOnce(current.promise)
       .mockResolvedValueOnce(historyPage([message("recovered", "Recovered")], null));
     const { loader, stateStore, addSystemMessage } = historyFixture({ readHistoryPage });
-    stateStore.dispatch({ type: "thread-stream/items-replaced", items: [], historyCursor: "older" });
+    stateStore.dispatch({ type: "thread-stream/content-replaced", items: [], historyCursor: "older" });
 
     const staleLoad = loader[method]();
     loader.invalidate();
@@ -125,7 +130,7 @@ describe("HistoryController", () => {
     const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older", "older-turn")], "next"));
     const { loader, stateStore, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
     stateStore.dispatch({
-      type: "thread-stream/items-replaced",
+      type: "thread-stream/content-replaced",
       items: [message("current", "Current", "current-turn")],
       historyCursor: "cursor",
     });
@@ -145,7 +150,7 @@ describe("HistoryController", () => {
     const { loader, stateStore } = historyFixture({ readHistoryPage });
     const progress = taskProgress("older-turn");
     stateStore.dispatch({
-      type: "thread-stream/items-replaced",
+      type: "thread-stream/content-replaced",
       items: [inheritedUser, progress, message("current", "Current", "current-turn")],
       historyCursor: "cursor",
     });
@@ -160,6 +165,98 @@ describe("HistoryController", () => {
       }),
       progress,
       expect.objectContaining({ id: "current", text: "Current" }),
+    ]);
+  });
+
+  it.each(["loadLatest", "loadOlder"] as const)("keeps streaming and pending guidance when %s settles during a turn", async (method) => {
+    const pending = deferred<ThreadHistoryPage>();
+    const { loader, stateStore } = historyFixture({ readHistoryPage: vi.fn<HistoryPageReader>().mockReturnValue(pending.promise) });
+    loader.applyLatestPage("thread", historyPage([], "cursor"));
+    const loading = loader[method]();
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "running" });
+    stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: "Hello" });
+    const steer = {
+      id: "steer",
+      clientId: "steer",
+      kind: "dialogue",
+      dialogueKind: "user",
+      role: "user",
+      text: "Clarify",
+      turnId: "running",
+    } as const;
+    stateStore.dispatch({ type: "thread-stream/pending-steer-added", item: steer });
+
+    pending.resolve(historyPage([message("older", "Earlier answer", "older-turn")], null));
+    await loading;
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([steer]);
+    stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: " world" });
+    const observed = projectTurnRuntimeFact(stateStore.getState(), { type: "userMessageObserved", item: { ...steer, id: "server-steer" } });
+    for (const action of observed.actions) stateStore.dispatch(action);
+
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining({ id: "older" }),
+      expect.objectContaining({ id: "answer", text: "Hello world" }),
+      expect.objectContaining({ id: "server-steer", text: "Clarify" }),
+    ]);
+    expect(stateStore.getState().activeTurn.pendingSteers).toEqual([]);
+  });
+
+  it.each(["loadLatest", "loadOlder"] as const)(
+    "keeps an optimistic prompt in its turn when %s settles before acknowledgement",
+    async (method) => {
+      const pending = deferred<ThreadHistoryPage>();
+      const { loader, stateStore } = historyFixture({ readHistoryPage: vi.fn<HistoryPageReader>().mockReturnValue(pending.promise) });
+      loader.applyLatestPage("thread", historyPage([], "cursor"));
+      const loading = loader[method]();
+      const start = optimisticTurnStart({ id: "prompt", text: "Continue", codexInput: [] });
+      stateStore.dispatch({ type: "turn/optimistic-started", ...start });
+      const hook = { id: "prompt-hook", sourceItemId: "prompt-hook", kind: "hook", role: "tool", text: "Preparing" } as const;
+      const hookProjection = projectTurnRuntimeFact(stateStore.getState(), {
+        type: "hookRunObserved",
+        item: hook,
+        turnId: null,
+        isPromptSubmission: true,
+      });
+      for (const action of hookProjection.actions) stateStore.dispatch(action);
+
+      pending.resolve(historyPage([message("older", "Earlier answer", "older-turn")], null));
+      await loading;
+      expect(stateStore.getState().activeTurn.activeSegment?.items).toEqual([start.item, hook]);
+      const lifecycle = stateStore.getState().activeTurn.lifecycle;
+      stateStore.dispatch({
+        type: "turn/start-acknowledged",
+        turnId: "running",
+        items: acknowledgeOptimisticTurnStart({
+          items: chatStateThreadStreamItems(stateStore.getState()),
+          optimisticUserId: "prompt",
+          turnId: "running",
+          pendingTurnStart: lifecycle.kind === "starting" ? lifecycle.pendingTurnStart : null,
+        }),
+      });
+
+      expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+        expect.objectContaining({ id: "older" }),
+        expect.objectContaining({ id: "prompt", text: "Continue", turnId: "running" }),
+        expect.objectContaining({ id: "prompt-hook", text: "Preparing", turnId: "running" }),
+      ]);
+    },
+  );
+
+  it("hydrates missing active-turn history before live content without replacing newer text", async () => {
+    const pending = deferred<ThreadHistoryPage>();
+    const { loader, stateStore } = historyFixture({ readHistoryPage: vi.fn<HistoryPageReader>().mockReturnValue(pending.promise) });
+    const loading = loader.loadLatest();
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "running" });
+    stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: "Hello" });
+    pending.resolve(
+      historyPage([userMessage("prompt", "Explain", "running", "prompt-client"), message("answer", "Earlier snapshot", "running")], null),
+    );
+    await loading;
+    stateStore.dispatch({ type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "running", delta: " world" });
+
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining({ id: "prompt", text: "Explain" }),
+      expect.objectContaining({ id: "answer", text: "Hello world" }),
     ]);
   });
 

@@ -231,7 +231,7 @@ describe("TurnRuntimeFact projection", () => {
     expect(next.activeTurn.pendingSteers).toEqual([]);
   });
 
-  it("upserts structured auto-review results without dropping unrelated stream items", () => {
+  it("updates auto-review results without interrupting streaming or pending guidance", () => {
     let state = activeRunningState();
     state = withChatStateStableThreadStreamItems(state, [
       { id: "m1", kind: "dialogue", dialogueKind: "assistantResponse", role: "assistant", text: "working", dialogueState: "completed" },
@@ -248,6 +248,17 @@ describe("TurnRuntimeFact projection", () => {
       ...chatStateThreadStreamItems(state),
       { id: "unrelated", kind: "reviewResult", reviewKind: "message", role: "tool", text: "Auto-review documentation changed" },
     ]);
+    state = chatReducer(state, { type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "turn-active", delta: "Hello" });
+    const steer = {
+      id: "steer",
+      clientId: "steer",
+      kind: "dialogue",
+      dialogueKind: "user",
+      role: "user",
+      text: "Clarify",
+      turnId: "turn-active",
+    } as const;
+    state = chatReducer(state, { type: "thread-stream/pending-steer-added", item: steer });
     const item: ThreadStreamItem = {
       reviewKind: "automaticResult",
       id: "review-1",
@@ -259,8 +270,23 @@ describe("TurnRuntimeFact projection", () => {
     };
 
     const projection = projectTurnRuntimeFact(state, { type: "autoReviewUpdated", item });
-    const next = applyActions(state, projection.actions);
+    let next = applyActions(state, projection.actions);
+    next = applyActions(next, projectTurnRuntimeFact(next, { type: "autoReviewUpdated", item }).actions);
+    expect(next.activeTurn.pendingSteers).toEqual([steer]);
+    next = chatReducer(next, { type: "thread-stream/assistant-delta-appended", itemId: "answer", turnId: "turn-active", delta: " world" });
+    next = applyActions(
+      next,
+      projectTurnRuntimeFact(next, { type: "userMessageObserved", item: { ...steer, id: "server-steer" } }).actions,
+    );
 
-    expect(chatStateThreadStreamItems(next).map((streamItem) => streamItem.id)).toEqual(["m1", "unrelated", "review-1"]);
+    expect(chatStateThreadStreamItems(next).map((streamItem) => streamItem.id)).toEqual([
+      "m1",
+      "unrelated",
+      "answer",
+      "review-1",
+      "server-steer",
+    ]);
+    expect(chatStateThreadStreamItems(next).find((streamItem) => streamItem.id === "answer")).toMatchObject({ text: "Hello world" });
+    expect(next.activeTurn.pendingSteers).toEqual([]);
   });
 });

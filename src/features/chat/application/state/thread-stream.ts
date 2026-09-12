@@ -44,7 +44,7 @@ export type ThreadStreamAction =
   | { type: "thread-stream/deduped-log-added"; text: string; item: ThreadStreamItem }
   | { type: "thread-stream/history-loading-set"; loading: boolean }
   | {
-      type: "thread-stream/items-replaced";
+      type: "thread-stream/content-replaced";
       items: readonly ThreadStreamItem[];
       historyCursor?: string | null;
       loadingHistory?: boolean;
@@ -87,7 +87,7 @@ export function isThreadStreamAction(action: { type: string }): action is Thread
     case "thread-stream/system-item-added":
     case "thread-stream/deduped-log-added":
     case "thread-stream/history-loading-set":
-    case "thread-stream/items-replaced":
+    case "thread-stream/content-replaced":
     case "thread-stream/item-upserted":
     case "thread-stream/pending-steer-added":
     case "thread-stream/pending-steer-removed":
@@ -204,11 +204,9 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamViewState, action
         reportedLogs: new Set([...state.reportedLogs, action.text]),
         ...appendThreadStreamItemPatch(state, action.item),
       });
-    case "thread-stream/items-replaced":
+    case "thread-stream/content-replaced":
       return patchObject(state, {
-        stableItems: action.items,
-        activeSegment: null,
-        pendingSteers: [],
+        ...replaceThreadStreamContent(state, action.items),
         ...definedPatch("historyCursor", action.historyCursor),
         ...definedPatch("loadingHistory", action.loadingHistory),
       });
@@ -242,6 +240,22 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamViewState, action
         turnDiffs: updatedTurnDiffs(state.turnDiffs, action.turnId, action.diff),
       });
   }
+}
+
+function replaceThreadStreamContent(
+  state: ChatThreadStreamViewState,
+  items: readonly ThreadStreamItem[],
+): Partial<ChatThreadStreamViewState> {
+  const segment = state.activeSegment;
+  if (!segment) return { stableItems: items };
+  const stableItems: ThreadStreamItem[] = [];
+  const activeItems: ThreadStreamItem[] = [];
+  for (const item of items) {
+    // Optimistic prompts and their hooks can belong to the active segment before it has a turn ID.
+    const active = segment.indexById.has(item.id) || (segment.turnId !== null && item.turnId === segment.turnId);
+    (active ? activeItems : stableItems).push(item);
+  }
+  return { stableItems, activeSegment: activeSegmentFromItems(segment.turnId, activeItems) };
 }
 
 function removePendingSteer(state: ChatThreadStreamViewState, clientId: string): ChatThreadStreamViewState {

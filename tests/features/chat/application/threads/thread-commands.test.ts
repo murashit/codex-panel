@@ -494,7 +494,7 @@ describe("thread management commands", () => {
       approvalsReviewer: null,
     });
     host.stateStore.dispatch({
-      type: "thread-stream/items-replaced",
+      type: "thread-stream/content-replaced",
       items,
       historyCursor: null,
       loadingHistory: false,
@@ -557,7 +557,7 @@ describe("thread management commands", () => {
       approvalsReviewer: "auto_review",
     });
     host.stateStore.dispatch({
-      type: "thread-stream/items-replaced",
+      type: "thread-stream/content-replaced",
       items: turnItems(),
       historyCursor: null,
       loadingHistory: false,
@@ -665,7 +665,7 @@ describe("thread management commands", () => {
       approvalsReviewer: null,
     });
     host.stateStore.dispatch({
-      type: "thread-stream/items-replaced",
+      type: "thread-stream/content-replaced",
       items: turnItems(),
       historyCursor: null,
       loadingHistory: false,
@@ -724,7 +724,7 @@ describe("thread management commands", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    host.stateStore.dispatch({ type: "thread-stream/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
+    host.stateStore.dispatch({ type: "thread-stream/content-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
     const controller = threadCommands(host);
 
     const pendingRollback = controller.rollbackThread("source");
@@ -763,7 +763,7 @@ describe("thread management commands", () => {
       approvalsReviewer: null,
     });
     host.stateStore.dispatch({
-      type: "thread-stream/items-replaced",
+      type: "thread-stream/content-replaced",
       items: turnItems(),
       historyCursor: null,
       loadingHistory: false,

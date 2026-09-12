@@ -70,11 +70,10 @@ export class HistoryController {
     if (activeThreadId(this.state) !== threadId) return false;
     this.host.setThreadTurnPresence(response.hadTurns);
     this.host.showLatestPageAtBottom();
-    this.dispatch({
-      type: "thread-stream/items-replaced",
-      items: options.displayItems ? reconcileForkDisplayItems(options.displayItems, response.items) : response.items,
-      historyCursor: response.nextCursor,
-    });
+    this.publishHistoryItems(
+      options.displayItems ? reconcileForkDisplayItems(options.displayItems, response.items) : response.items,
+      response.nextCursor,
+    );
     return true;
   }
 
@@ -90,17 +89,27 @@ export class HistoryController {
       if (!this.isCurrent(load)) return;
       const current = this.state;
       const currentItems = threadStreamItems(chatThreadStreamViewState(current.threadStream, current.activeTurn));
-      this.dispatch({
-        type: "thread-stream/items-replaced",
-        items: reconcileForkDisplayItems(currentItems, response.items, { missingTurns: "prepend" }),
-        historyCursor: response.nextCursor,
-      });
+      this.publishHistoryItems(reconcileForkDisplayItems(currentItems, response.items, { missingTurns: "prepend" }), response.nextCursor);
     } catch (error) {
       if (!this.isCurrent(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     } finally {
       this.finishLoading(load);
     }
+  }
+
+  private publishHistoryItems(items: readonly ThreadStreamItem[], historyCursor: string | null): void {
+    const liveItems = this.state.activeTurn.activeSegment?.items ?? [];
+    const liveById = new Map(liveItems.map((item) => [item.id, item]));
+    // Hydration may settle after live notifications. Keep that content while admitting history-only items.
+    const reconciled = reconcileForkDisplayItems(liveItems, items, { missingTurns: "prepend" });
+    const orderedItems = new Map(items.map((item) => [item.id, item]));
+    for (const item of reconciled) orderedItems.set(item.id, liveById.get(item.id) ?? item);
+    this.dispatch({
+      type: "thread-stream/content-replaced",
+      items: [...orderedItems.values()],
+      historyCursor,
+    });
   }
 
   private startLoading(threadId: string): ActiveThreadHistoryLoad {

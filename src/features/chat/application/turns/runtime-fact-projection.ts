@@ -233,7 +233,7 @@ function reviewWarningProjection(state: ChatState, item: ThreadStreamItem): Turn
 
 function autoReviewUpdatedProjection(state: ChatState, item: ThreadStreamItem): TurnRuntimeProjection {
   return actionProjection({
-    type: "thread-stream/items-replaced",
+    type: "thread-stream/content-replaced",
     items: upsertThreadStreamItemById(
       threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)).filter(
         (currentItem) => !isUnstructuredAutoReviewWarning(currentItem),
