@@ -8,7 +8,12 @@ import type { SubagentActivityAction } from "../../application/state/subagent-ac
 import { activeThreadSettingsAppliedAction } from "../../application/state/transition-actions";
 import { projectTurnRuntimeFact, type TurnRuntimeProjectionOutcome } from "../../application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
-import { type DiagnosticStatusNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
+import {
+  type DiagnosticStatusNotification,
+  isStreamOrTurnLifecycleNotification,
+  routeServerNotification,
+  type ThreadLifecycleNotification,
+} from "./notification-routing";
 import { type RuntimeFactSource, turnRuntimeFactFromNotification } from "./runtime-fact-adapter";
 
 export type ChatInboundEffect = {
@@ -73,37 +78,9 @@ function planTrackedSubagentNotification(
   localItemId: LocalItemIdProvider,
 ): ChatInboundPlan {
   if (!threadId || !state.activeTurn.subagents.byThreadId.has(threadId)) return EMPTY_PLAN;
-  const fact = subagentRuntimeFact(notification, localItemId);
+  if (!isStreamOrTurnLifecycleNotification(notification)) return EMPTY_PLAN;
+  const fact = turnRuntimeFactFromNotification(notification, localItemId);
   return fact ? { actions: [{ type: "subagent-activity/runtime-fact", threadId, fact }], effects: [] } : EMPTY_PLAN;
-}
-
-function subagentRuntimeFact(notification: ServerNotification, localItemId: LocalItemIdProvider): TurnRuntimeFact | null {
-  switch (notification.method) {
-    case "item/agentMessage/delta":
-    case "item/plan/delta":
-    case "turn/plan/updated":
-    case "item/reasoning/summaryTextDelta":
-    case "item/reasoning/textDelta":
-    case "item/reasoning/summaryPartAdded":
-    case "item/started":
-    case "item/completed":
-    case "item/commandExecution/outputDelta":
-    case "item/fileChange/patchUpdated":
-    case "turn/diff/updated":
-    case "hook/started":
-    case "hook/completed":
-    case "item/mcpToolCall/progress":
-    case "item/autoApprovalReview/started":
-    case "item/autoApprovalReview/completed":
-    case "guardianWarning":
-    case "turn/started":
-    case "turn/completed":
-    case "modelProvider/authRecoveryStarted":
-    case "modelProvider/authRecoveryCompleted":
-      return turnRuntimeFactFromNotification(notification, localItemId);
-    default:
-      return null;
-  }
 }
 
 function subagentTrackingActionsFromParentFact(state: ChatState, fact: TurnRuntimeFact): SubagentActivityAction[] {

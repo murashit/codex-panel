@@ -145,6 +145,14 @@ type RequestResolvedNotification = NotificationForKind<"requestResolved">;
 export type DiagnosticStatusNotification = NotificationForKind<"diagnosticStatus">;
 export type UserVisibleNoticeNotification = NotificationForKind<"userVisibleNotice">;
 
+export function isStreamOrTurnLifecycleNotification(
+  notification: ServerNotification,
+): notification is StreamUpdateNotification | TurnLifecycleNotification {
+  if (!isRegisteredNotificationMethod(notification.method)) return false;
+  const kind = SERVER_NOTIFICATION_REGISTRY[notification.method].kind;
+  return kind === "streamUpdate" || kind === "turnLifecycle";
+}
+
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {
   const registered = registeredNotification(notification);
   if (registered === null) {
