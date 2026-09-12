@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AppServerClient } from "../src/app-server/connection/client";
 import * as contextConnection from "../src/app-server/connection/context-connection";
-import * as ephemeralStructuredTurn from "../src/app-server/services/ephemeral-structured-turn";
 import type { ThreadGoal } from "../src/domain/threads/goal";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
@@ -18,14 +20,12 @@ const contextConnectionMock = {
   }>,
 };
 const openThreadPickerMock = vi.fn();
-const runEphemeralStructuredTurnMock = vi.fn();
 
 describe("CodexExecutionRuntime", () => {
   afterEach(() => vi.restoreAllMocks());
 
   beforeEach(() => {
     vi.spyOn(threadPicker, "openThreadPicker").mockImplementation(openThreadPickerMock);
-    vi.spyOn(ephemeralStructuredTurn, "runEphemeralStructuredTurn").mockImplementation(runEphemeralStructuredTurnMock);
     vi.spyOn(contextConnection, "AppServerContextConnection").mockImplementation(
       class {
         readonly dispose = vi.fn(() => {
@@ -67,7 +67,6 @@ describe("CodexExecutionRuntime", () => {
     contextConnectionMock.client.disconnect.mockReset();
     contextConnectionMock.client.request.mockReset();
     contextConnectionMock.instances.length = 0;
-    runEphemeralStructuredTurnMock.mockReset();
   });
 
   describe("thread picker ownership", () => {
@@ -298,36 +297,60 @@ describe("CodexExecutionRuntime", () => {
     expect(contextConnectionMock.client.disconnect).toHaveBeenCalledOnce();
   });
 
-  it("aborts an in-flight structured turn when the runtime is disposed", async () => {
-    runEphemeralStructuredTurnMock.mockImplementation(
-      ({ signal }: { signal?: AbortSignal }) =>
-        new Promise<never>((_resolve, reject) => {
-          const abort = () => reject(new Error("structured turn aborted"));
-          if (signal?.aborted) {
-            abort();
-            return;
-          }
-          signal?.addEventListener("abort", abort, { once: true });
-        }),
-    );
-    const runtime = executionRuntime();
-    const request = runtime.selectionRewritePort().generate({
-      prompt: "Rewrite this.",
-      runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
-      onActivity: vi.fn(),
-      onPreview: vi.fn(),
-      signal: new AbortController().signal,
-    });
-    await vi.waitFor(() => expect(runEphemeralStructuredTurnMock).toHaveBeenCalledOnce());
+  it.each([
+    { stage: "connect", cancellation: "runtime" },
+    { stage: "thread/start", cancellation: "runtime" },
+    { stage: "turn/start", cancellation: "runtime" },
+    { stage: "completion", cancellation: "runtime" },
+    { stage: "completion", cancellation: "caller" },
+  ] as const)(
+    "disconnects a private structured-turn client on $cancellation cancellation during $stage",
+    async ({ stage, cancellation }) => {
+      const reached = vi.fn();
+      vi.spyOn(AppServerClient.prototype, "connect").mockImplementation(() => {
+        if (stage === "connect") {
+          reached();
+          return new Promise(() => undefined);
+        }
+        return Promise.resolve({} as never);
+      });
+      vi.spyOn(AppServerClient.prototype, "request").mockImplementation(async (method) => {
+        if (method === stage) {
+          reached();
+          return new Promise(() => undefined);
+        }
+        if (method === "config/read") return { config: {} } as never;
+        if (method === "thread/start") return { thread: { id: "helper" } } as never;
+        if (method === "turn/start") {
+          reached();
+          return { turn: { id: "turn", status: "inProgress", items: [] } } as never;
+        }
+        throw new Error(`Unexpected request: ${method}`);
+      });
+      const disconnect = vi.spyOn(AppServerClient.prototype, "disconnect").mockImplementation(() => undefined);
+      const runtime = executionRuntime();
+      const port = runtime.selectionRewritePort();
+      const controller = new AbortController();
+      const options = {
+        prompt: "Rewrite this.",
+        runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
+        onActivity: vi.fn(),
+        onPreview: vi.fn(),
+        signal: controller.signal,
+      };
+      const request = port.generate(options);
+      await vi.waitFor(() => expect(reached).toHaveBeenCalledOnce());
 
-    runtime.dispose();
+      if (cancellation === "caller") controller.abort();
+      else runtime.dispose();
 
-    await expect(request).rejects.toThrow("structured turn aborted");
-    expect(runEphemeralStructuredTurnMock).toHaveBeenCalledWith(
-      expect.objectContaining({ codexPath: "codex", cwd: "/vault", prompt: "Rewrite this." }),
-      expect.anything(),
-    );
-  });
+      await expect(request).rejects.toThrow("Selection rewrite cancelled.");
+      expect(disconnect).toHaveBeenCalledOnce();
+      runtime.dispose();
+      await expect(port.generate(options)).rejects.toThrow("Codex execution runtime is no longer active.");
+      expect(disconnect).toHaveBeenCalledOnce();
+    },
+  );
 });
 
 function attachChatHost(runtime: CodexExecutionRuntime): CodexChatHost {

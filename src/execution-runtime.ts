@@ -8,11 +8,7 @@ import { AppServerQueryScope } from "./app-server/query/query-scope";
 import { AppServerThreadCatalog } from "./app-server/query/thread-catalog-queries";
 import { AppServerThreadGoalQueries } from "./app-server/query/thread-goal-queries";
 import { AppServerToolInventoryQueries } from "./app-server/query/tool-inventory-queries";
-import {
-  type EphemeralStructuredTurnClient,
-  type EphemeralStructuredTurnRunner,
-  runEphemeralStructuredTurn,
-} from "./app-server/services/ephemeral-structured-turn";
+import { type EphemeralStructuredTurnRunner, runEphemeralStructuredTurn } from "./app-server/services/ephemeral-structured-turn";
 import type { ChatPanelSettingsAccess, ChatRuntimeView, CodexChatHost, WorkspacePanels } from "./features/chat/host/contracts";
 import { createAppServerSelectionRewriteAdapter } from "./features/selection-rewrite/app-server-adapter";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
@@ -63,7 +59,6 @@ export class CodexExecutionRuntime {
   private threadAutoTitleWork: ThreadAutoTitleWork | null = null;
   readonly settingsResources: SettingsResources;
   private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-  private readonly structuredTurnClients = new Set<EphemeralStructuredTurnClient>();
   private readonly structuredTurnOperations = new Set<AbortController>();
   private activeThreadPicker: ThreadPickerController | null = null;
   private disposed = false;
@@ -239,11 +234,6 @@ export class CodexExecutionRuntime {
         operation.abort();
       });
     this.structuredTurnOperations.clear();
-    for (const client of this.structuredTurnClients)
-      this.tryCleanup(() => {
-        client.disconnect();
-      });
-    this.structuredTurnClients.clear();
     this.tryCleanup(() => {
       this.appServerConnection.dispose();
     });
@@ -263,23 +253,7 @@ export class CodexExecutionRuntime {
       else options.signal?.addEventListener("abort", abort, { once: true });
       this.structuredTurnOperations.add(operation);
       try {
-        return await runEphemeralStructuredTurn(
-          { ...options, signal: operation.signal },
-          {
-            clientLifecycle: {
-              created: (client) => {
-                if (this.disposed) {
-                  client.disconnect();
-                  throw new Error("Codex execution runtime is no longer active.");
-                }
-                this.structuredTurnClients.add(client);
-              },
-              disposed: (client) => {
-                this.structuredTurnClients.delete(client);
-              },
-            },
-          },
-        );
+        return await runEphemeralStructuredTurn({ ...options, signal: operation.signal });
       } finally {
         options.signal?.removeEventListener("abort", abort);
         this.structuredTurnOperations.delete(operation);

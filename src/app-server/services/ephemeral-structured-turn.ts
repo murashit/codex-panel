@@ -67,12 +67,6 @@ export type EphemeralStructuredTurnRunner = (options: RunEphemeralStructuredTurn
 export interface EphemeralStructuredTurnDependencies {
   clientFactory?: EphemeralStructuredTurnClientFactory | undefined;
   timers?: EphemeralStructuredTurnTimers | undefined;
-  clientLifecycle?:
-    | {
-        created(client: EphemeralStructuredTurnClient): void;
-        disposed(client: EphemeralStructuredTurnClient): void;
-      }
-    | undefined;
 }
 
 export async function runEphemeralStructuredTurn(
@@ -152,7 +146,6 @@ export async function runEphemeralStructuredTurn(
       abortOperation(new Error(options.exitedMessage));
     },
   });
-  dependencies.clientLifecycle?.created(client);
 
   try {
     await runAbortable(client.connect());
@@ -188,7 +181,6 @@ export async function runEphemeralStructuredTurn(
     timers.clearTimeout(timeout);
     // Ephemeral threads are not persisted; thread/delete rejects them. Stop their private process instead.
     client.disconnect();
-    dependencies.clientLifecycle?.disposed(client);
   }
 }
 

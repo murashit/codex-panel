@@ -90,30 +90,16 @@ describe("runEphemeralStructuredTurn", () => {
     expect(fake.disconnect).toHaveBeenCalledOnce();
   });
 
-  it("reports its client lifetime to the owning execution runtime", async () => {
-    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
-      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
-    });
-    const clientLifecycle = { created: vi.fn(), disposed: vi.fn() };
-
-    await runEphemeralStructuredTurn(runOptions(), { clientFactory, clientLifecycle });
-
-    expect(clientLifecycle.created).toHaveBeenCalledWith(client.current);
-    expect(clientLifecycle.disposed).toHaveBeenCalledWith(client.current);
-  });
-
   it("disconnects and releases its client when generation is cancelled", async () => {
     const controller = new AbortController();
     const { clientFactory, client } = fakeStructuredTurnClientFactory();
-    const clientLifecycle = { created: vi.fn(), disposed: vi.fn() };
-    const running = runEphemeralStructuredTurn({ ...runOptions(), signal: controller.signal }, { clientFactory, clientLifecycle });
+    const running = runEphemeralStructuredTurn({ ...runOptions(), signal: controller.signal }, { clientFactory });
     await expectPresent(client.current).structuredTurnStarted;
 
     controller.abort();
 
     await expect(running).rejects.toThrow("Ephemeral structured turn cancelled.");
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
-    expect(clientLifecycle.disposed).toHaveBeenCalledWith(client.current);
   });
 
   it("rejects server requests with the configured message", async () => {
