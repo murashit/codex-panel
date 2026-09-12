@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Panel Design Review"
+  short_description: "Review architecture and refactoring opportunities"
+  default_prompt: "Use $codex-panel-design-review to conduct a repository-wide review of behavior, architecture, maintainability, and refactoring opportunities."
