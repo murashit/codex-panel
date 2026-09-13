@@ -261,11 +261,11 @@ export class ThreadsViewSession {
         saveMarkdown,
       });
       if (!this.lifetime.isCurrent(viewLifetime)) return;
-      if (result.kind === "blocked") {
-        new Notice("Finish or interrupt the thread before archiving it.");
+      if (result.exportedPath) new Notice(`Saved thread to ${result.exportedPath}.`);
+      if (result.kind !== "archived") {
+        new Notice(result.kind === "blocked" ? "Finish or interrupt the thread before archiving it." : result.message);
         return;
       }
-      if (result.exportedPath) new Notice(`Saved archived thread to ${result.exportedPath}.`);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
     } catch (error) {

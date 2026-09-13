@@ -453,6 +453,24 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).not.toBeNull();
   });
 
+  it("reports the saved note as well as an archive failure and keeps retry controls", async () => {
+    currentClient = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/read": vi.fn().mockResolvedValue({ thread: { ...threadFixture({ id: "thread" }), turns: [] } }),
+      "thread/archive": vi.fn().mockRejectedValue(new Error("Archive failed.")),
+    });
+    const view = await threadsView();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
+
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.click();
+    await waitForAsyncWork(() => expect(notices).toContain("Archive failed."));
+
+    expect(notices).toEqual(expect.arrayContaining([expect.stringMatching(/^Saved thread to Codex Archives\/.+\.md\.$/)]));
+    expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).not.toBeNull();
+    await view.onClose();
+  });
+
   it("auto-names a thread rename draft from completed history", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [

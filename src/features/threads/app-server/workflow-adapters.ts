@@ -21,8 +21,12 @@ export function createThreadMutationAdapter(clientAccess: AppServerClientAccess)
       clientAccess.withClient(async (client) => {
         const prepared = prepare ? await prepare(await readThreadForArchiveExport(client, threadId)) : null;
         // Recheck after export; keep admission and RPC dispatch in the same synchronous step.
-        if (!canArchive()) return { kind: "blocked", reason: "thread-busy" };
-        await archiveThread(client, threadId);
+        if (!canArchive()) return { kind: "blocked", reason: "thread-busy", exportedPath: prepared };
+        try {
+          await archiveThread(client, threadId);
+        } catch (error) {
+          return { kind: "failed", message: error instanceof Error ? error.message : String(error), exportedPath: prepared };
+        }
         return { kind: "archived", exportedPath: prepared };
       }),
     restoreThread: (threadId) => clientAccess.withClient((client) => restoreArchivedThread(client, threadId)),

@@ -76,7 +76,7 @@ async function archiveThread(
   options: ArchiveThreadOptions = {},
 ): Promise<ArchiveThreadResult> {
   return archiveMutations.run(threadId, async () => {
-    if (host.threadIsBusy(threadId)) return { kind: "blocked", reason: "thread-busy" };
+    if (host.threadIsBusy(threadId)) return { kind: "blocked", reason: "thread-busy", exportedPath: null };
     const shouldExport = options.saveMarkdown ?? host.archiveExport.enabled();
     const result = await host.port.archiveThread(threadId, {
       canArchive: () => !host.threadIsBusy(threadId),

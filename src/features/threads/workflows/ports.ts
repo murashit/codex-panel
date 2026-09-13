@@ -4,7 +4,8 @@ import type { ThreadTranscript } from "../../../domain/threads/transcript";
 
 export type ArchiveThreadResult =
   | { readonly kind: "archived"; readonly exportedPath: string | null }
-  | { readonly kind: "blocked"; readonly reason: "thread-busy" };
+  | { readonly kind: "blocked"; readonly reason: "thread-busy"; readonly exportedPath: string | null }
+  | { readonly kind: "failed"; readonly message: string; readonly exportedPath: string | null };
 
 export interface ThreadMutationPort {
   renameThread(threadId: string, name: string): Promise<void>;

@@ -132,8 +132,32 @@ describe("ThreadMutationCommands", () => {
     busy = true;
     write.resolve();
 
-    await expect(operation).resolves.toEqual({ kind: "blocked", reason: "thread-busy" });
+    await expect(operation).resolves.toEqual({
+      kind: "blocked",
+      reason: "thread-busy",
+      exportedPath: "Archive/Archived Thread abcdef12.md",
+    });
     expect(requestMethods(client)).not.toContain("thread/archive");
+    expect(afterArchive).not.toHaveBeenCalled();
+  });
+
+  it("reports the committed export when archiving fails and does not run the success callback", async () => {
+    const client = clientMock();
+    const request = client.request.getMockImplementation();
+    client.request.mockImplementation((method, params) => {
+      if (method === "thread/archive") return Promise.reject(new Error("Archive failed."));
+      if (!request) throw new Error("Missing request implementation");
+      return request(method, params);
+    });
+    const { mutations, archiveDestination } = operationsFixture({ client });
+    const afterArchive = vi.fn();
+
+    await expect(mutations.archiveThread("thread", { saveMarkdown: true, afterArchive })).resolves.toEqual({
+      kind: "failed",
+      message: "Archive failed.",
+      exportedPath: "Archive/Archived Thread abcdef12.md",
+    });
+    expect(archiveDestination.createMarkdownFile).toHaveBeenCalledOnce();
     expect(afterArchive).not.toHaveBeenCalled();
   });
 
@@ -185,7 +209,7 @@ describe("ThreadMutationCommands", () => {
   it("blocks archive before contacting the app server when the thread is active", async () => {
     const { mutations, client, catalog } = operationsFixture({ threadIsBusy: () => true });
 
-    await expect(mutations.archiveThread("thread")).resolves.toEqual({ kind: "blocked", reason: "thread-busy" });
+    await expect(mutations.archiveThread("thread")).resolves.toEqual({ kind: "blocked", reason: "thread-busy", exportedPath: null });
 
     expect(client?.request).not.toHaveBeenCalled();
     expect(catalog.apply).not.toHaveBeenCalled();
@@ -198,7 +222,7 @@ describe("ThreadMutationCommands", () => {
     const archive = mutations.archiveThread("thread");
     busy = true;
 
-    await expect(archive).resolves.toEqual({ kind: "blocked", reason: "thread-busy" });
+    await expect(archive).resolves.toEqual({ kind: "blocked", reason: "thread-busy", exportedPath: null });
     expect(client?.request).not.toHaveBeenCalled();
     expect(catalog.apply).not.toHaveBeenCalled();
   });
