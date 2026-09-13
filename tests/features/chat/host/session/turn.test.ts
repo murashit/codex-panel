@@ -224,7 +224,6 @@ function sessionTurnFixture(
 function toolInventory(): ToolInventorySnapshot {
   return {
     plugins: [],
-    pluginMarketplaceErrors: [],
     pluginsError: null,
     mcpServers: [],
     mcpDiagnostics: [],

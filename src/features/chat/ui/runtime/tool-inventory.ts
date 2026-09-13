@@ -45,9 +45,10 @@ function toolInventorySnapshotSections(inventory: ToolInventorySnapshot): Diagno
 }
 
 function pluginRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
-  const failure = inventory.pluginsError ? [{ label: "Refresh", value: inventory.pluginsError, level: "error" as const }] : [];
+  const failure: DiagnosticRow[] = inventory.pluginsError ? [{ label: "Refresh", value: inventory.pluginsError, level: "error" }] : [];
   if (!inventory.plugins) return [...failure, { label: "Plugins", value: "not loaded", level: "warning" }];
 
+  if (inventory.pluginsError) failure.push({ label: "Plugins", value: "showing last known inventory", level: "warning" });
   const rows = inventory.plugins.filter((plugin) => plugin.enabled && plugin.installed).map(pluginRow);
   return [...failure, ...(rows.length > 0 ? rows : [{ label: "Plugins", value: "(none)" }])];
 }

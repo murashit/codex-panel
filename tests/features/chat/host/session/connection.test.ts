@@ -110,7 +110,6 @@ function sessionConnectionFixture() {
         toolInventoryQueries: {
           refresh: async () => ({
             plugins: [],
-            pluginMarketplaceErrors: [],
             pluginsError: null,
             mcpServers: [],
             mcpDiagnostics: [],

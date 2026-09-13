@@ -178,7 +178,6 @@ describe("createChatPanelRuntimeNotices", () => {
   it("projects connection and tool inventory diagnostics into runtime notices", () => {
     const inventory: ToolInventorySnapshot = {
       plugins: [],
-      pluginMarketplaceErrors: [],
       pluginsError: null,
       mcpServers: [
         {

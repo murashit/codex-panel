@@ -1,12 +1,11 @@
 import type { McpServerStatusSummary } from "../../domain/server/mcp-status";
-import type { ToolInventoryMarketplaceError, ToolInventoryPlugin } from "../../domain/server/tool-inventory";
+import type { ToolInventoryPlugin } from "../../domain/server/tool-inventory";
 import type { ClientResponseByMethod } from "../connection/client";
 import { mcpServerStatusSummariesFromStatuses, toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
 import type { AppServerRequestClient } from "./request-client";
 
 export interface InstalledPluginInventory {
   readonly plugins: readonly ToolInventoryPlugin[];
-  readonly marketplaceErrors: readonly ToolInventoryMarketplaceError[];
 }
 
 export interface McpServerInventory {
@@ -24,11 +23,7 @@ export async function readInstalledPluginInventory(
   options.signal?.throwIfAborted();
   const response = await client.request("plugin/installed", { cwds: [cwd] });
   options.signal?.throwIfAborted();
-  const { plugins, marketplaceErrors } = toolInventoryPluginsFromInstalledResponse(response);
-  return {
-    plugins,
-    marketplaceErrors,
-  };
+  return { plugins: toolInventoryPluginsFromInstalledResponse(response) };
 }
 
 export async function readMcpServerInventory(

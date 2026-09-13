@@ -623,7 +623,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       }),
       ensure: vi.fn().mockResolvedValue({
         plugins: null,
-        pluginMarketplaceErrors: [],
         pluginsError: null,
         mcpServers: null,
         mcpDiagnostics: [],
@@ -631,7 +630,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       }),
       refresh: vi.fn().mockResolvedValue({
         plugins: null,
-        pluginMarketplaceErrors: [],
         pluginsError: null,
         mcpServers: null,
         mcpDiagnostics: [],

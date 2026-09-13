@@ -173,7 +173,6 @@ function chatHostFixture(): CodexChatHost {
       }),
       ensure: vi.fn<CodexChatHost["toolInventoryQueries"]["ensure"]>().mockResolvedValue({
         plugins: [],
-        pluginMarketplaceErrors: [],
         pluginsError: null,
         mcpServers: [],
         mcpDiagnostics: [],
@@ -181,7 +180,6 @@ function chatHostFixture(): CodexChatHost {
       }),
       refresh: vi.fn<CodexChatHost["toolInventoryQueries"]["refresh"]>().mockResolvedValue({
         plugins: [],
-        pluginMarketplaceErrors: [],
         pluginsError: null,
         mcpServers: [],
         mcpDiagnostics: [],

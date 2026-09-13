@@ -13,14 +13,8 @@ export interface ToolInventoryPlugin {
   readonly source: string;
 }
 
-export interface ToolInventoryMarketplaceError {
-  readonly marketplacePath: string;
-  readonly message: string;
-}
-
 export interface ToolInventorySnapshot {
   readonly plugins: readonly ToolInventoryPlugin[] | null;
-  readonly pluginMarketplaceErrors: readonly ToolInventoryMarketplaceError[];
   readonly pluginsError: string | null;
   readonly mcpServers: readonly McpServerStatusSummary[] | null;
   readonly mcpDiagnostics: readonly McpServerDiagnostic[];
@@ -31,7 +25,6 @@ export function cloneToolInventorySnapshot(snapshot: ToolInventorySnapshot): Too
   return {
     ...snapshot,
     plugins: snapshot.plugins ? snapshot.plugins.map((plugin) => ({ ...plugin })) : null,
-    pluginMarketplaceErrors: snapshot.pluginMarketplaceErrors.map((error) => ({ ...error })),
     mcpServers: snapshot.mcpServers ? snapshot.mcpServers.map(cloneMcpServerStatusSummary) : null,
     mcpDiagnostics: snapshot.mcpDiagnostics.map(cloneMcpServerDiagnostic),
   };

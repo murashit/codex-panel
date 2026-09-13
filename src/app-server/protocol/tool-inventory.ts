@@ -1,22 +1,18 @@
 import type { McpServerStatusSummary } from "../../domain/server/mcp-status";
-import type { ToolInventoryMarketplaceError, ToolInventoryPlugin } from "../../domain/server/tool-inventory";
-import type { MarketplaceLoadErrorInfo } from "../../generated/app-server/v2/MarketplaceLoadErrorInfo";
+import type { ToolInventoryPlugin } from "../../domain/server/tool-inventory";
 import type { McpServerStatus } from "../../generated/app-server/v2/McpServerStatus";
 import type { PluginInstalledResponse } from "../../generated/app-server/v2/PluginInstalledResponse";
 import type { PluginMarketplaceEntry } from "../../generated/app-server/v2/PluginMarketplaceEntry";
 import type { PluginSource } from "../../generated/app-server/v2/PluginSource";
 import type { PluginSummary } from "../../generated/app-server/v2/PluginSummary";
 
-export function toolInventoryPluginsFromInstalledResponse(response: PluginInstalledResponse): {
-  plugins: ToolInventoryPlugin[];
-  marketplaceErrors: ToolInventoryMarketplaceError[];
-} {
-  return {
-    plugins: response.marketplaces
-      .flatMap((marketplace) => marketplace.plugins.map((plugin) => toolInventoryPluginFromSummary(plugin, marketplace)))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    marketplaceErrors: response.marketplaceLoadErrors.map(toolInventoryMarketplaceError),
-  };
+export function toolInventoryPluginsFromInstalledResponse(response: PluginInstalledResponse): ToolInventoryPlugin[] {
+  if (response.marketplaceLoadErrors.length > 0) {
+    throw new Error(response.marketplaceLoadErrors.map((error) => `${error.marketplacePath}: ${error.message}`).join("; "));
+  }
+  return response.marketplaces
+    .flatMap((marketplace) => marketplace.plugins.map((plugin) => toolInventoryPluginFromSummary(plugin, marketplace)))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function toolInventoryPluginFromSummary(plugin: PluginSummary, marketplace: PluginMarketplaceEntry): ToolInventoryPlugin {
@@ -31,13 +27,6 @@ function toolInventoryPluginFromSummary(plugin: PluginSummary, marketplace: Plug
     enabled: plugin.enabled,
     availability: plugin.availability,
     source: pluginSourceLabel(plugin.source),
-  };
-}
-
-function toolInventoryMarketplaceError(error: MarketplaceLoadErrorInfo): ToolInventoryMarketplaceError {
-  return {
-    marketplacePath: error.marketplacePath,
-    message: error.message,
   };
 }
 

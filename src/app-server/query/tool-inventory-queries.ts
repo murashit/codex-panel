@@ -47,7 +47,6 @@ export class AppServerToolInventoryQueries {
     const mcpDiagnostics = scopedDiagnostics.servers.reduce(upsertMcpServerDiagnostic, globalDiagnostics.servers);
     return cloneToolInventorySnapshot({
       plugins: plugins?.data?.plugins ?? null,
-      pluginMarketplaceErrors: plugins?.data?.marketplaceErrors ?? [],
       pluginsError: queryErrorMessage(plugins?.error),
       mcpServers: mcp?.data?.servers ?? null,
       mcpDiagnostics,
@@ -188,7 +187,6 @@ function queryErrorMessage(error: unknown): string | null {
 function emptyToolInventorySnapshot(): ToolInventorySnapshot {
   return {
     plugins: null,
-    pluginMarketplaceErrors: [],
     pluginsError: null,
     mcpServers: null,
     mcpDiagnostics: [],

@@ -139,6 +139,58 @@ describe("app-server query resources", () => {
     expect(refreshed.mcpError).toBe("MCP offline");
   });
 
+  it("treats a partial plugin read as failure and preserves the last complete inventory until recovery", async () => {
+    const partial = {
+      marketplaces: [],
+      marketplaceLoadErrors: [{ marketplacePath: "/marketplace.json", message: "permission denied" }],
+    };
+    const complete = {
+      marketplaces: [
+        {
+          name: "local",
+          path: "/marketplace.json",
+          plugins: [
+            {
+              id: "notes@local",
+              name: "notes",
+              interface: null,
+              localVersion: "1.0",
+              installed: true,
+              enabled: true,
+              availability: "AVAILABLE",
+              source: { type: "local", path: "/plugins/notes" },
+            },
+          ],
+        },
+      ],
+      marketplaceLoadErrors: [],
+    };
+    const plugins = vi
+      .fn()
+      .mockResolvedValueOnce(partial)
+      .mockResolvedValueOnce(complete)
+      .mockResolvedValueOnce(partial)
+      .mockResolvedValueOnce({ marketplaces: [], marketplaceLoadErrors: [] });
+    const cache = cacheWithRequestHandlers({
+      "plugin/installed": plugins,
+      "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+    });
+
+    const cold = await cache.toolInventoryQueries.ensure("thread");
+    expect(cold.plugins).toBeNull();
+    expect(cold.pluginsError).toContain("/marketplace.json: permission denied");
+    const loaded = await cache.toolInventoryQueries.refresh("thread");
+    expect(loaded.plugins?.map((plugin) => plugin.name)).toEqual(["notes"]);
+    expect(loaded.pluginsError).toBeNull();
+    const failed = await cache.toolInventoryQueries.refresh("thread");
+    expect(failed.plugins).toEqual(loaded.plugins);
+    expect(failed.pluginsError).toContain("permission denied");
+    const recovered = await cache.toolInventoryQueries.refresh("thread");
+    expect(recovered.plugins).toEqual([]);
+    expect(recovered.pluginsError).toBeNull();
+    cache.scope.dispose();
+  });
+
   it("revalidates only the observed thread-scoped MCP resource named by OAuth", async () => {
     const mcpServers = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
     const cache = cacheWithRequestHandlers({

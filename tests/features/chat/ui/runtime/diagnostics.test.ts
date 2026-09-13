@@ -86,6 +86,30 @@ describe("connection diagnostics", () => {
     expect(rows.find((row) => row.label === "mcp github")).toBeUndefined();
   });
 
+  it("distinguishes unavailable plugins from last known inventory after a failed read", () => {
+    const inventory: ToolInventorySnapshot = {
+      plugins: null,
+      pluginsError: "marketplace unavailable",
+      mcpServers: [],
+      mcpDiagnostics: [],
+      mcpError: null,
+    };
+    const sections = (value: ToolInventorySnapshot) =>
+      toolInventoryDiagnosticSections(value, {
+        value: [],
+        probe: diagnosticProbeOk("skills", "0 skills", 1),
+      }).find((section) => section.title === "Plugins")?.rows;
+    expect(sections(inventory)).toEqual([
+      { label: "Refresh", value: "marketplace unavailable", level: "error" },
+      { label: "Plugins", value: "not loaded", level: "warning" },
+    ]);
+    expect(sections({ ...inventory, plugins: [] })).toEqual([
+      { label: "Refresh", value: "marketplace unavailable", level: "error" },
+      { label: "Plugins", value: "showing last known inventory", level: "warning" },
+      { label: "Plugins", value: "(none)" },
+    ]);
+  });
+
   it("summarizes usable Codex capabilities and groups skills by provenance", () => {
     const skills = [
       {
@@ -176,7 +200,6 @@ describe("connection diagnostics", () => {
           source: "remote",
         },
       ],
-      pluginMarketplaceErrors: [],
       pluginsError: null,
       mcpServers: [
         {
@@ -245,7 +268,6 @@ describe("connection diagnostics", () => {
     const sections = toolInventoryDiagnosticSections(
       {
         plugins: [],
-        pluginMarketplaceErrors: [],
         pluginsError: "plugins offline",
         mcpServers: [],
         mcpDiagnostics: [],
@@ -265,7 +287,6 @@ describe("connection diagnostics", () => {
   it("projects Codex capabilities from the latest diagnostic snapshot", () => {
     const inventory: InventoryFixture = {
       plugins: [],
-      pluginMarketplaceErrors: [],
       pluginsError: null,
       mcpServers: [
         {
@@ -302,7 +323,6 @@ describe("connection diagnostics", () => {
       toolInventoryDiagnosticSections(
         {
           plugins: [],
-          pluginMarketplaceErrors: [],
           pluginsError: null,
           mcpServers: mcpServerStatusSummariesFromStatuses([
             { name, runtimeStatus: "connected", authStatus: "oAuth", tools: {}, toolsError },
@@ -325,7 +345,6 @@ describe("connection diagnostics", () => {
     const sections = toolInventoryDiagnosticSections(
       {
         plugins: [],
-        pluginMarketplaceErrors: [],
         pluginsError: null,
         mcpServers: [{ name: "github", authStatus: "oAuth", toolCount: 0, toolDiscoveryFailed: false, connectionStatus: "connected" }],
         mcpDiagnostics: [
@@ -351,7 +370,6 @@ describe("connection diagnostics", () => {
   it("keeps diagnostic-only MCP server failures in MCP servers", () => {
     const inventory: InventoryFixture = {
       plugins: [],
-      pluginMarketplaceErrors: [],
       pluginsError: null,
       mcpServers: [],
       mcpDiagnostics: [
@@ -382,7 +400,6 @@ describe("connection diagnostics", () => {
   it("keeps codex app provider failures visible alongside the app inventory", () => {
     const inventory: InventoryFixture = {
       plugins: [],
-      pluginMarketplaceErrors: [],
       pluginsError: null,
       mcpServers: [
         {
