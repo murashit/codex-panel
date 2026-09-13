@@ -78,7 +78,7 @@ export function threadStreamLayoutBlocks(
       const groupItems = groupedActivities.get(turnId) ?? [];
       blocks.push({
         type: "activityGroup",
-        id: turnActivityGroupId(turnId),
+        id: `turn-${turnId}-activity`,
         turnId,
         summary: "Work details",
         items: groupItems,
@@ -98,19 +98,11 @@ function isEmptyCompletedReasoningItem(item: ThreadStreamItem): boolean {
 function steeringActivityGroupItem(item: ThreadStreamItem): ThreadStreamActivityGroupItem {
   return {
     type: "steering",
-    id: steerActivityGroupId(item.id),
+    id: `steer-activity-${item.id}`,
     label: STEERING_ACTIVITY_LABEL,
     text: textForThreadStreamItem(item),
     sourceItemId: item.sourceItemId ?? item.id,
   };
-}
-
-function turnActivityGroupId(turnId: string): string {
-  return `turn-${turnId}-activity`;
-}
-
-function steerActivityGroupId(itemId: string): string {
-  return `steer-activity-${itemId}`;
 }
 
 function isCompletedTurnDetailItem(
@@ -136,13 +128,13 @@ function annotationsForTurnOutcome(
   const autoReviewSummaries = autoReviewSummariesByTurn.get(item.turnId);
   const diff = turnDiffs.get(item.turnId);
   const turnDiff = diff && diff.trim().length > 0 ? { diff } : undefined;
-  if ((!editedFiles || editedFiles.length === 0) && (!autoReviewSummaries || autoReviewSummaries.length === 0) && !turnDiff) {
+  if (!editedFiles?.length && !autoReviewSummaries?.length && !turnDiff) {
     return undefined;
   }
   return {
-    ...(editedFiles && editedFiles.length > 0 ? { editedFiles } : {}),
+    ...(editedFiles?.length ? { editedFiles } : {}),
     ...(turnDiff ? { turnDiff } : {}),
-    ...(autoReviewSummaries && autoReviewSummaries.length > 0 ? { autoReviewSummaries } : {}),
+    ...(autoReviewSummaries?.length ? { autoReviewSummaries } : {}),
   };
 }
 

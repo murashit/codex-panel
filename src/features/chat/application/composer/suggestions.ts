@@ -256,12 +256,10 @@ function fuzzyHeadingSuggestions(
   fuzzyMatcher: FuzzyMatcher,
 ): { heading: NoteHeadingCandidate; match: FuzzyMatch }[] {
   const search = fuzzyMatcher.prepare(query);
-  const results = headings
-    .map((heading) => {
-      const match = search.match(heading.heading);
-      return match ? { heading, match } : null;
-    })
-    .filter((item): item is { heading: NoteHeadingCandidate; match: FuzzyMatch } => item !== null);
+  const results = headings.flatMap((heading) => {
+    const match = search.match(heading.heading);
+    return match ? [{ heading, match }] : [];
+  });
 
   return results.sort((a, b) => b.match.score - a.match.score);
 }
@@ -281,14 +279,12 @@ function emptyWikiLinkSuggestions(notes: readonly NoteCandidate[]): NoteCandidat
 
 function fuzzyWikiLinkSuggestions(query: string, notes: readonly NoteCandidate[], fuzzyMatcher: FuzzyMatcher): NoteCandidateMatch[] {
   const search = fuzzyMatcher.prepare(query);
-  const results = notes
-    .map((file) => {
-      const basenameMatch = search.match(file.basename);
-      const pathMatch = search.match(file.path);
-      const match = bestSearchResult(basenameMatch, pathMatch);
-      return match ? { file, match, mtime: file.mtime, basename: file.basename, path: file.path } : null;
-    })
-    .filter((item): item is NoteCandidateMatch => item !== null);
+  const results = notes.flatMap((file) => {
+    const basenameMatch = search.match(file.basename);
+    const pathMatch = search.match(file.path);
+    const match = bestSearchResult(basenameMatch, pathMatch);
+    return match ? [{ file, match, mtime: file.mtime, basename: file.basename, path: file.path }] : [];
+  });
 
   return results.sort((a, b) => b.match.score - a.match.score || compareWikiLinkSuggestionTiebreakers(a, b));
 }

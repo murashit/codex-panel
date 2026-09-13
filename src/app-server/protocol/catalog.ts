@@ -35,8 +35,8 @@ export type CatalogHookMetadata = Pick<
 
 export type AppServerHookOperation = Pick<HookMetadata, "key" | "currentHash" | "trustStatus">;
 
-function modelMetadataFromCatalogModel(model: CatalogModel): ModelMetadata {
-  return {
+export function modelMetadataFromCatalogModels(models: readonly CatalogModel[]): ModelMetadata[] {
+  return models.map((model) => ({
     id: model.id,
     model: model.model,
     displayName: model.displayName,
@@ -51,30 +51,22 @@ function modelMetadataFromCatalogModel(model: CatalogModel): ModelMetadata {
     serviceTiers: model.serviceTiers.map((tier) => ({ id: tier.id, name: tier.name })),
     defaultServiceTier: model.defaultServiceTier,
     isDefault: model.isDefault,
-  };
+  }));
 }
 
-export function modelMetadataFromCatalogModels(models: readonly CatalogModel[]): ModelMetadata[] {
-  return models.map((model) => modelMetadataFromCatalogModel(model));
-}
-
-function skillMetadataFromCatalogSkill(skill: CatalogSkillMetadata): SkillMetadata {
-  return {
+export function skillMetadataFromCatalogSkills(skills: readonly CatalogSkillMetadata[]): SkillMetadata[] {
+  return skills.map((skill) => ({
     name: skill.name,
     description: skill.description,
     ...(skill.shortDescription !== undefined ? { shortDescription: skill.shortDescription } : {}),
     ...(skill.interface?.shortDescription !== undefined ? { interfaceShortDescription: skill.interface.shortDescription } : {}),
     path: skill.path,
     enabled: skill.enabled,
-  };
+  }));
 }
 
-export function skillMetadataFromCatalogSkills(skills: readonly CatalogSkillMetadata[]): SkillMetadata[] {
-  return skills.map((skill) => skillMetadataFromCatalogSkill(skill));
-}
-
-function hookItemFromCatalogHook(hook: CatalogHookMetadata): HookItem {
-  return {
+export function hookItemsFromCatalogHooks(hooks: readonly CatalogHookMetadata[]): HookItem[] {
+  return hooks.map((hook) => ({
     key: hook.key,
     eventName: hook.eventName,
     matcher: hook.matcher,
@@ -85,17 +77,13 @@ function hookItemFromCatalogHook(hook: CatalogHookMetadata): HookItem {
     isManaged: hook.isManaged,
     currentHash: hook.currentHash,
     trustStatus: hook.trustStatus,
-  };
+  }));
 }
 
 function hookHandlerSummary(hook: CatalogHookMetadata): string | null {
   if (hook.handlerType === "command") return hook.command;
   if (hook.handlerType !== "mcpTool") return null;
   return `${hook.server}/${hook.tool}`;
-}
-
-export function hookItemsFromCatalogHooks(hooks: readonly CatalogHookMetadata[]): HookItem[] {
-  return hooks.map((hook) => hookItemFromCatalogHook(hook));
 }
 
 export function appServerHookOperationFromHookItem(hook: HookItem): AppServerHookOperation {

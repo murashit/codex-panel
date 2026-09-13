@@ -5,21 +5,18 @@ type AppServerRuntimeSettingsPatch = Pick<ThreadSettingsUpdateParams, keyof Runt
 
 export function appServerRuntimeSettingsPatch(update: RuntimeSettingsPatch): AppServerRuntimeSettingsPatch {
   const { collaborationMode, ...settings } = update;
+  if (!("collaborationMode" in update)) return settings;
   return {
     ...settings,
-    ...("collaborationMode" in update
+    collaborationMode: collaborationMode
       ? {
-          collaborationMode: collaborationMode
-            ? {
-                mode: collaborationMode.mode,
-                settings: {
-                  model: collaborationMode.settings.model,
-                  reasoning_effort: collaborationMode.settings.reasoningEffort,
-                  developer_instructions: collaborationMode.settings.developerInstructions,
-                },
-              }
-            : null,
+          mode: collaborationMode.mode,
+          settings: {
+            model: collaborationMode.settings.model,
+            reasoning_effort: collaborationMode.settings.reasoningEffort,
+            developer_instructions: collaborationMode.settings.developerInstructions,
+          },
         }
-      : {}),
+      : null,
   };
 }

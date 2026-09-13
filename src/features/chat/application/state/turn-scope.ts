@@ -172,7 +172,7 @@ function staleThreadStreamAction(activeTurn: ChatActiveTurnState, action: Thread
     case "thread-stream/tool-output-appended":
     case "thread-stream/item-output-appended":
     case "thread-stream/reasoning-completed":
-      return activeTurn.lifecycle.kind !== "running" ? activeTurnId !== action.turnId : action.turnId !== activeTurnId;
+      return action.turnId !== activeTurnId;
     case "thread-stream/item-added":
     case "thread-stream/system-item-added":
     case "thread-stream/item-upserted":

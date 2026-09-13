@@ -184,10 +184,6 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     for (const view of this.threadsViews()) view.refreshSettings();
   }
 
-  private applyThreadUnavailable(threadId: string): void {
-    this.panels.applyThreadUnavailable(threadId);
-  }
-
   private applyThreadRenamed(threadId: string, name: string | null): void {
     for (const view of this.panels.panelViews()) {
       const surface: ChatSharedThreadSurface = view.surface;
@@ -196,22 +192,16 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
   }
 
   private applyThreadFacts(facts: readonly ThreadFact[]): void {
-    for (const fact of facts) this.applyThreadFact(fact);
-  }
-
-  private applyThreadFact(fact: ThreadFact): void {
-    switch (fact.type) {
-      case "thread-archived":
-      case "thread-deleted":
-        this.applyThreadUnavailable(fact.threadId);
-        return;
-      case "thread-renamed":
-        this.applyThreadRenamed(fact.threadId, fact.name);
-        return;
-      case "thread-pinned":
-        return;
-      default:
-        return;
+    for (const fact of facts) {
+      switch (fact.type) {
+        case "thread-archived":
+        case "thread-deleted":
+          this.panels.applyThreadUnavailable(fact.threadId);
+          break;
+        case "thread-renamed":
+          this.applyThreadRenamed(fact.threadId, fact.name);
+          break;
+      }
     }
   }
 

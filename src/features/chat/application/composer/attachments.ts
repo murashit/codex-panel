@@ -1,9 +1,4 @@
-import {
-  type CodexInput,
-  type CodexInputItem,
-  codexTextInputWithAttachments,
-  type VaultFileReference,
-} from "../../../../domain/turns/input";
+import { type CodexInput, type CodexInputItem, codexTextInputWithAttachments } from "../../../../domain/turns/input";
 
 type ComposerAttachmentKind = "image" | "file";
 
@@ -38,7 +33,7 @@ function inputItemsForAttachments(input: readonly CodexInputItem[], attachments:
   for (const attachment of attachments) {
     if (!seenFileReferencePaths.has(attachment.path)) {
       seenFileReferencePaths.add(attachment.path);
-      items.push(fileReferenceInputItem(attachment));
+      items.push({ type: "fileReference", name: attachment.name, path: attachment.path });
     }
     if (attachment.kind === "image" && !seenLocalImagePaths.has(attachment.path)) {
       seenLocalImagePaths.add(attachment.path);
@@ -46,12 +41,4 @@ function inputItemsForAttachments(input: readonly CodexInputItem[], attachments:
     }
   }
   return items;
-}
-
-function fileReferenceInputItem(attachment: ComposerAttachment): VaultFileReference & { type: "fileReference" } {
-  return {
-    type: "fileReference",
-    name: attachment.name,
-    path: attachment.path,
-  };
 }

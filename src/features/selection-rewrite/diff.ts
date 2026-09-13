@@ -3,8 +3,8 @@ import type { DiffDisplayLine } from "../../shared/ui/diff-view";
 
 export function buildSelectionDiffLines(originalText: string, replacementText: string): DiffDisplayLine[] {
   const lines = lineChanges(withoutTrailingLineBreak(originalText), withoutTrailingLineBreak(replacementText));
-  const originalHasTrailingLineBreak = hasTrailingLineBreak(originalText);
-  const replacementHasTrailingLineBreak = hasTrailingLineBreak(replacementText);
+  const originalHasTrailingLineBreak = originalText.endsWith("\n");
+  const replacementHasTrailingLineBreak = replacementText.endsWith("\n");
   if (originalHasTrailingLineBreak !== replacementHasTrailingLineBreak) {
     lines.push({ text: `${originalHasTrailingLineBreak ? "-" : "+"}↵`, kind: originalHasTrailingLineBreak ? "removed" : "added" });
   }
@@ -20,12 +20,8 @@ function textLines(text: string): string[] {
   return lines;
 }
 
-function hasTrailingLineBreak(text: string): boolean {
-  return text.endsWith("\n");
-}
-
 function withoutTrailingLineBreak(text: string): string {
-  if (!hasTrailingLineBreak(text)) return text;
+  if (!text.endsWith("\n")) return text;
   return text.endsWith("\r\n") ? text.slice(0, -2) : text.slice(0, -1);
 }
 

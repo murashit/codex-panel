@@ -82,9 +82,5 @@ function HookRow({ hook, state }: { hook: HookItem; state: CodexHooksViewModel }
 }
 
 function firstNonEmptyString(...values: (string | null | undefined)[]): string {
-  return (
-    values.find((value): value is string => typeof value === "string" && value.length > 0) ??
-    values.find((value): value is string => typeof value === "string") ??
-    ""
-  );
+  return values.find((value): value is string => typeof value === "string" && value.length > 0) ?? "";
 }

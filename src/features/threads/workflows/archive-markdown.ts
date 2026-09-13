@@ -49,15 +49,12 @@ function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string, vau
 }
 
 function normalizedArchiveTags(value: string): string[] {
-  const seen = new Set<string>();
-  const tags: string[] = [];
+  const tags = new Set<string>();
   for (const rawTag of value.split(",")) {
     const tag = stripMatchingQuotes(stripLeadingHashes(rawTag.trim()).trim()).trim();
-    if (!tag || seen.has(tag)) continue;
-    seen.add(tag);
-    tags.push(tag);
+    if (tag) tags.add(tag);
   }
-  return tags;
+  return [...tags];
 }
 
 function transcriptMarkdownLines(entries: readonly ThreadTranscriptEntry[]): string[] {

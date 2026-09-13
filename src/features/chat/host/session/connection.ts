@@ -120,18 +120,14 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     inboundHandler.clearServerRequests();
     serverRequestResponders.rejectAll(-32000, "Codex Panel disconnected before the request was answered.");
   };
-  const connectionExitHost = {
+  const connectionCoordinator = createChatConnectionCoordinator({
     stateStore,
     invalidateThreadWork: () => {
       host.invalidateThreadWork();
     },
-    setStatus: status.set,
     resetThreadTurnPresence: (hadTurns: boolean) => {
       autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
-  };
-  const connectionCoordinator = createChatConnectionCoordinator({
-    ...connectionExitHost,
     canConnect: host.canConnect,
     connection: {
       connect: () =>

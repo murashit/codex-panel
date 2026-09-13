@@ -43,9 +43,7 @@ function threadListChangesForFact(
       const thread = threadById(snapshots.active, fact.threadId);
       return [
         { kind: "remove", list: "active", threadId: fact.threadId },
-        ...(thread
-          ? [{ kind: "upsert", list: "archived", thread: { ...thread, archived: true } } satisfies ThreadCatalogChange]
-          : [{ kind: "revalidate", list: "archived" } satisfies ThreadCatalogChange]),
+        thread ? { kind: "upsert", list: "archived", thread: { ...thread, archived: true } } : { kind: "revalidate", list: "archived" },
       ];
     }
     case "thread-deleted":
@@ -57,9 +55,7 @@ function threadListChangesForFact(
       const thread = threadById(snapshots.archived, fact.threadId);
       return [
         { kind: "remove", list: "archived", threadId: fact.threadId },
-        ...(thread
-          ? [{ kind: "upsert", list: "active", thread: { ...thread, archived: false } } satisfies ThreadCatalogChange]
-          : [{ kind: "revalidate", list: "active" } satisfies ThreadCatalogChange]),
+        thread ? { kind: "upsert", list: "active", thread: { ...thread, archived: false } } : { kind: "revalidate", list: "active" },
       ];
     }
   }

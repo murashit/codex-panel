@@ -45,12 +45,8 @@ export class WorkspacePanelCoordinator {
   }
 
   async activateView(): Promise<CodexChatView | null> {
-    return this.activateViewNow();
-  }
-
-  private async activateViewNow(focus = true): Promise<CodexChatView | null> {
     const target = this.findCurrentThreadPanelLeaf();
-    if (target) return this.activatePanelLeaf(target, focus);
+    if (target) return this.activatePanelLeaf(target, true);
 
     const leaf = await this.options.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_PANEL, "right", {
       active: false,
@@ -61,7 +57,7 @@ export class WorkspacePanelCoordinator {
     if (!(await this.revealAndVerifyPanel(leaf, view))) return null;
     const surface = workspacePanelSurface(view);
     await surface.connect();
-    if (focus) this.focusOwnedPanel(leaf, view);
+    this.focusOwnedPanel(leaf, view);
     return view;
   }
 
@@ -91,14 +87,6 @@ export class WorkspacePanelCoordinator {
   async activateNewView(
     options: { connect?: boolean; focus?: boolean; state?: Record<string, unknown> } = {},
   ): Promise<CodexChatView | null> {
-    return this.activateNewViewNow(options);
-  }
-
-  private async activateNewViewNow(options: {
-    connect?: boolean;
-    focus?: boolean;
-    state?: Record<string, unknown>;
-  }): Promise<CodexChatView | null> {
     const view = await this.createNewViewNow(options.state);
     if (!view) return null;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
@@ -144,7 +132,7 @@ export class WorkspacePanelCoordinator {
   }
 
   async openNewPanel(): Promise<void> {
-    await this.activateNewViewNow({});
+    await this.activateNewView();
   }
 
   async openThreadInAvailableView(threadId: string): Promise<void> {
@@ -400,7 +388,7 @@ export class WorkspacePanelCoordinator {
 
   private async activatePanelLeaf(leaf: WorkspaceLeaf, focus: boolean): Promise<CodexChatView | null> {
     await this.options.app.workspace.revealLeaf(leaf);
-    if (!isAttachedChatView(leaf.view)) return this.activateNewViewNow({ focus });
+    if (!isAttachedChatView(leaf.view)) return this.activateNewView({ focus });
     const view = leaf.view;
     if (!this.panelStillOwnsView(leaf, view)) return null;
     const surface = workspacePanelSurface(view);

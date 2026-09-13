@@ -68,7 +68,14 @@ export function UnifiedDiffView({ diff, className }: { diff: string; className?:
 }
 
 export function DiffLineList({ lines, className }: { lines: readonly DiffDisplayLine[]; className?: string | undefined }): UiNode {
-  return <DiffLineFrame lines={lines} className={className} />;
+  const preClassName = ["codex-panel-diff", className].filter(Boolean).join(" ");
+  return (
+    <pre className={preClassName}>
+      {diffLineViews(lines).map((line, index) => (
+        <DiffLine key={`${String(index)}:${line.kind}:${line.text}`} line={line} />
+      ))}
+    </pre>
+  );
 }
 
 export function RawDiffView({ diff, className }: { diff: string; className?: string | undefined }): UiNode {
@@ -105,17 +112,6 @@ function displayFilePath(patch: StructuredPatch | undefined): string | null {
   const fileName = patch.newFileName && patch.newFileName !== "/dev/null" ? patch.newFileName : patch.oldFileName;
   if (!fileName || fileName === "/dev/null") return null;
   return fileName.replace(/^[ab]\//, "");
-}
-
-function DiffLineFrame({ lines, className }: { lines: readonly DiffDisplayLine[]; className?: string | undefined }): UiNode {
-  const preClassName = ["codex-panel-diff", className].filter(Boolean).join(" ");
-  return (
-    <pre className={preClassName}>
-      {diffLineViews(lines).map((line, index) => (
-        <DiffLine key={`${String(index)}:${line.kind}:${line.text}`} line={line} />
-      ))}
-    </pre>
-  );
 }
 
 function diffLineViews(lines: readonly DiffDisplayLine[]): DiffLineView[] {
@@ -164,15 +160,10 @@ function collectChangeRun(
 function changeRunViews(firstRun: DiffDisplayLine[], secondRun: DiffDisplayLine[]): DiffLineView[] {
   const inlineDiffs = pairedInlineDiffs(firstRun, secondRun);
   const views: DiffLineView[] = [];
-  for (let index = 0; index < firstRun.length; index += 1) {
-    const line = firstRun[index];
-    if (!line) continue;
-    views.push({ ...line, inlineParts: inlinePartsForLine(line.kind, inlineDiffs[index] ?? null) });
-  }
-  for (let index = 0; index < secondRun.length; index += 1) {
-    const line = secondRun[index];
-    if (!line) continue;
-    views.push({ ...line, inlineParts: inlinePartsForLine(line.kind, inlineDiffs[index] ?? null) });
+  for (const run of [firstRun, secondRun]) {
+    for (const [index, line] of run.entries()) {
+      views.push({ ...line, inlineParts: inlinePartsForLine(line.kind, inlineDiffs[index] ?? null) });
+    }
   }
   return views;
 }
