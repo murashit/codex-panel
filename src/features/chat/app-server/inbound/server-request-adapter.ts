@@ -479,12 +479,12 @@ function fileSystemPathLabel(path: unknown): string {
   const special = asRecordOrNull(record["value"]);
   if (!special) return stringValue(path, "unknown");
   if (special["kind"] === "project_roots") {
-    const subpath = nonEmptyString(special["subpath"]);
+    const subpath = nullableString(special["subpath"]);
     return subpath ? `project_roots/${subpath}` : "project_roots";
   }
   if (special["kind"] === "unknown") {
-    const specialPath = nonEmptyString(special["path"]) ?? "unknown";
-    const subpath = nonEmptyString(special["subpath"]);
+    const specialPath = nullableString(special["path"]) ?? "unknown";
+    const subpath = nullableString(special["subpath"]);
     return subpath ? `${specialPath}/${subpath}` : specialPath;
   }
   return nonEmptyString(special["kind"]) ?? "unknown";

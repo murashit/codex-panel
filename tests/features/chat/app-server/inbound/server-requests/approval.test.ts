@@ -389,6 +389,45 @@ describe("approval model", () => {
     ]);
   });
 
+  it("preserves whitespace in permission paths shown for approval", () => {
+    const approval = expectPresent(
+      toPendingApproval({
+        id: 24,
+        method: "item/permissions/requestApproval",
+        params: {
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "permissions",
+          environmentId: null,
+          startedAtMs: 1,
+          reason: null,
+          permissions: {
+            network: null,
+            fileSystem: {
+              read: null,
+              write: null,
+              entries: [
+                { path: { type: "path", path: "/tmp/ notes " }, access: "read" },
+                { path: { type: "glob_pattern", pattern: "/tmp/ *.md " }, access: "read" },
+                { path: { type: "special", value: { kind: "project_roots", subpath: " notes " } }, access: "read" },
+                { path: { type: "special", value: { kind: "unknown", path: " custom ", subpath: " cache " } }, access: "write" },
+                { path: { type: "special", value: { kind: "project_roots", subpath: " " } }, access: "read" },
+                { path: { type: "special", value: { kind: "project_roots", subpath: null } }, access: "read" },
+              ],
+            },
+          },
+        },
+      }),
+    );
+
+    expect(approval.details).toContainEqual({
+      key: "filesystem",
+      value:
+        "/tmp/ notes  (read)\n/tmp/ *.md  (read)\nproject_roots/ notes  (read)\n custom / cache  (write)\nproject_roots/  (read)\nproject_roots (read)",
+    });
+  });
+
   it("formats command approval request payloads as compact detail rows", () => {
     const approval = expectPresent(
       toPendingApproval({

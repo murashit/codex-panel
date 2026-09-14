@@ -1171,8 +1171,8 @@ describe("auto-review permission detail rows", () => {
           entries: [
             { path: { type: "path", path: "/vault/notes.md" }, access: "read" },
             { path: { type: "glob_pattern", pattern: "/vault/**/*.md" }, access: "write" },
-            { path: { type: "special", value: { kind: "project_roots", subpath: "src" } }, access: "read" },
-            { path: { type: "special", value: { kind: "unknown", path: "custom", subpath: "cache" } }, access: "write" },
+            { path: { type: "special", value: { kind: "project_roots", subpath: " src " } }, access: "read" },
+            { path: { type: "special", value: { kind: "unknown", path: " custom ", subpath: " cache " } }, access: "write" },
           ],
           read: [],
           write: null,
@@ -1183,7 +1183,7 @@ describe("auto-review permission detail rows", () => {
       { key: "network", value: "enabled" },
       {
         key: "filesystem",
-        value: "/vault/notes.md (read)\n/vault/**/*.md (write)\nproject_roots/src (read)\ncustom/cache (write)",
+        value: "/vault/notes.md (read)\n/vault/**/*.md (write)\nproject_roots/ src  (read)\n custom / cache  (write)",
       },
       { key: "glob depth", value: "4" },
     ]);
