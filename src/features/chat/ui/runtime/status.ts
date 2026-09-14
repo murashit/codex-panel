@@ -1,11 +1,7 @@
 import { jsonPreview } from "../../../../domain/display/json-preview";
-import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
+import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import {
-  collaborationModeLabel,
-  serviceTierLabel as formatServiceTierLabel,
-  pendingRuntimeSettingLabel,
-} from "../../domain/runtime/labels";
+import { collaborationModeLabel, pendingRuntimeSettingLabel, serviceTierLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ToolbarStatusRow as DiagnosticRow, RateLimitSummary } from "../toolbar/model";
@@ -23,10 +19,6 @@ interface StatusDetailsInput {
 }
 
 const CODEX_DEFAULT_LABEL = "(Codex default)";
-
-function serviceTierLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
-  return formatServiceTierLabel(resolveRuntimeControls(snapshot, config).serviceTier.effective);
-}
 
 export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null {
   const usage = snapshot.tokenUsage;
@@ -97,7 +89,7 @@ export function modelStatusDetails(snapshot: RuntimeSnapshot): DiagnosticRow[] {
     { label: "Provider", value: stringValue(config.modelProvider, CODEX_DEFAULT_LABEL) },
     { label: "Effort", value: resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL },
     { label: "Mode", value: collaborationModeLabel(resolution.collaborationMode.effective) },
-    { label: "Service tier", value: serviceTierLabel(snapshot, config) },
+    { label: "Service tier", value: serviceTierLabel(resolution.serviceTier.effective) },
   ];
 }
 

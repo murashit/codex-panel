@@ -172,7 +172,7 @@ function goalDetailView(item: GoalThreadStreamItem): DetailView {
     item,
     "codex-panel__detail-item codex-panel__detail-item--goal",
     "goal",
-    itemDetailKey(item.id, "goal-details"),
+    `${item.id}:goal-details`,
     goalDetails(item),
   );
 }
@@ -182,7 +182,7 @@ function agentDetailView(item: AgentThreadStreamItem): DetailView {
     item,
     "codex-panel__detail-item codex-panel__agent-activity",
     "agent",
-    itemDetailKey(item.id, "agent-details"),
+    `${item.id}:agent-details`,
     agentDetailSections(item),
     agentSummaryText(item),
     agentThreadIds(item),
@@ -194,7 +194,7 @@ function genericToolDetailView(item: ToolCallThreadStreamItem | HookThreadStream
     item,
     "codex-panel__detail-item",
     item.toolName ?? item.kind,
-    itemDetailKey(item.id, "details"),
+    `${item.id}:details`,
     [...genericToolDetails(item), ...outputSection(item.kind === "hook" ? "Hook output" : "Output", item.output)],
     genericToolSummary(item, workspaceRoot),
   );
@@ -204,7 +204,7 @@ function reviewDetailView(item: ReviewResultThreadStreamItem): DetailView {
   return resultDetailView(
     item,
     "auto-review",
-    itemDetailKey(item.id, "review-details"),
+    `${item.id}:review-details`,
     "codex-panel__stream-item--review-result codex-panel__detail-item--review",
   );
 }
@@ -213,13 +213,9 @@ function approvalDetailView(item: ApprovalResultThreadStreamItem): DetailView {
   return resultDetailView(
     item,
     "approval",
-    itemDetailKey(item.id, "approval-details"),
+    `${item.id}:approval-details`,
     "codex-panel__stream-item--approval-result codex-panel__detail-item--approval",
   );
-}
-
-function itemDetailKey(itemId: string, suffix: string): string {
-  return `${itemId}:${suffix}`;
 }
 
 function resultDetailView(
@@ -416,12 +412,7 @@ function agentTargetLabel(target: AgentThreadStreamItem["targets"][number]): str
 }
 
 function agentActivityMetaLabel(tool: string): string {
-  if (tool === "spawn") return "spawn";
-  if (tool === "interact") return "interact with";
-  if (tool === "resume") return "resume";
-  if (tool === "wait") return "wait";
-  if (tool === "close") return "close";
-  return tool;
+  return tool === "interact" ? "interact with" : tool;
 }
 
 function agentPromptPreview(prompt: string | null): string | null {

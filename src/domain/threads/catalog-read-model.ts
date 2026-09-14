@@ -1,6 +1,6 @@
 import { isThreadVisibleInCatalog, type Thread } from "./model";
 
-export type ThreadCatalogList = "active" | "archived";
+type ThreadCatalogList = "active" | "archived";
 
 export type ThreadCatalogChange =
   | { readonly kind: "upsert"; readonly list: ThreadCatalogList; readonly thread: Thread }

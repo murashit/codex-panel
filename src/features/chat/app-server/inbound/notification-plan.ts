@@ -8,6 +8,7 @@ import type { SubagentActivityAction } from "../../application/state/subagent-ac
 import { activeThreadSettingsAppliedAction } from "../../application/state/transition-actions";
 import { projectTurnRuntimeFact, type TurnRuntimeProjectionOutcome } from "../../application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
+import { activeTurnId } from "../../application/turns/turn-state";
 import {
   type DiagnosticStatusNotification,
   isStreamOrTurnLifecycleNotification,
@@ -41,7 +42,7 @@ export function planChatInboundNotification(
 ): ChatInboundPlan {
   const route = routeServerNotification(notification, {
     activeThreadId: activeThreadId(state),
-    activeTurnId: activeTurnIdForState(state),
+    activeTurnId: activeTurnId(state.activeTurn),
   });
   switch (route.kind) {
     case "inactive":
@@ -84,7 +85,7 @@ function planTrackedSubagentNotification(
 }
 
 function subagentTrackingActionsFromParentFact(state: ChatState, fact: TurnRuntimeFact): SubagentActivityAction[] {
-  const parentTurnId = activeTurnIdForState(state);
+  const parentTurnId = activeTurnId(state.activeTurn);
   if (!parentTurnId) return [];
   if (
     fact.type !== "itemStarted" &&
@@ -153,17 +154,12 @@ function threadStartedPlan(
   notification: Extract<ThreadLifecycleNotification, { method: "thread/started" }>,
 ): ChatInboundPlan {
   const thread = threadFromAppServerRecord(notification.params.thread);
-  const activeParentTurnId = activeTurnIdForState(state);
+  const activeParentTurnId = activeTurnId(state.activeTurn);
   const trackAction: SubagentActivityAction[] =
     thread.provenance.kind === "subagent" && thread.provenance.parentThreadId === activeThreadId(state) && activeParentTurnId
       ? [{ type: "subagent-activity/tracked", threadId: thread.id, parentTurnId: activeParentTurnId }]
       : [];
   return { actions: trackAction, effects: [] };
-}
-
-function activeTurnIdForState(state: ChatState): string | null {
-  const lifecycle = state.activeTurn.lifecycle;
-  return lifecycle.kind === "running" ? lifecycle.turnId : null;
 }
 
 function actionPlan(action: ChatAction): ChatInboundPlan {

@@ -4,7 +4,7 @@ import {
   type InfiniteQueryObserverOptions,
   type InfiniteQueryObserverResult,
 } from "@tanstack/query-core";
-import { applyThreadCatalogChange, type ThreadCatalogChange, type ThreadCatalogList } from "../../domain/threads/catalog-read-model";
+import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../domain/threads/catalog-read-model";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResultListener } from "../../shared/async/observed-result";
 import { listPinnedThreads, listThreads, readThreadPage, type ThreadPage } from "../services/threads";
@@ -68,7 +68,8 @@ export class AppServerThreadCatalog {
 
   archivedThreadsSnapshot(): readonly Thread[] | null {
     if (this.scope.isDisposed()) return null;
-    return this.threadListSnapshot("archived");
+    const threads = this.scope.client.getQueryData<readonly Thread[]>(ARCHIVED_THREADS_QUERY_KEY);
+    return threads ? cloneThreads(threads) : null;
   }
 
   observeActiveThreadsResult(
@@ -232,12 +233,6 @@ export class AppServerThreadCatalog {
         // Query observers retain refresh failures while exact facts remain last-known-good state.
       });
     }
-  }
-
-  private threadListSnapshot(kind: ThreadCatalogList): readonly Thread[] | null {
-    if (kind === "active") return this.activeThreadsSnapshot();
-    const threads = this.scope.client.getQueryData<readonly Thread[]>(ARCHIVED_THREADS_QUERY_KEY);
-    return threads ? cloneThreads(threads) : null;
   }
 
   private activeThreadsFrozenSnapshot(): readonly Thread[] | undefined {

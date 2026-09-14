@@ -1,4 +1,3 @@
-import { truncate } from "../../../../domain/display/text-preview";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { agentMessagePreview } from "./agent-message-preview";
 import { detailPreviewSummary } from "./detail-view";
@@ -35,6 +34,5 @@ function stripStreamingLabel(text: string | undefined, label: string): string | 
 }
 
 function previewText(text: string | null | undefined): string | null {
-  const preview = agentMessagePreview(text ?? null, SUBAGENT_ACTIVITY_PREVIEW_LIMIT);
-  return preview ? truncate(preview, SUBAGENT_ACTIVITY_PREVIEW_LIMIT) : null;
+  return agentMessagePreview(text ?? null, SUBAGENT_ACTIVITY_PREVIEW_LIMIT);
 }

@@ -21,19 +21,13 @@ type TurnCollaborationModeSettings =
       warning: TurnCollaborationModeWarning;
     };
 
-// Patch intent is the runtime settings request vocabulary:
-// omit -> leave the field out, clear -> send null, set -> send a concrete value.
-// For service tiers, app-server treats null as clearing to its baseline/default tier,
-// not as "use the configured service_tier" for thread/start.
-type RuntimeSettingsPatchIntent<T> = { readonly kind: "omit" } | { readonly kind: "clear" } | { readonly kind: "set"; readonly value: T };
-
 export interface PendingRuntimeSettingsPatch {
   update: RuntimeSettingsPatch;
   collaborationModeWarning: TurnCollaborationModeWarning | null;
 }
 
 export function serviceTierRequestForThreadStart(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimeServiceTierRequest {
-  return runtimeSettingsPatchValue(serviceTierPatchIntent(snapshot, resolveRuntimeControls(snapshot, config), "thread-start"));
+  return serviceTierRequest(snapshot, resolveRuntimeControls(snapshot, config), "thread-start");
 }
 
 export function permissionProfileRequestForThreadStart(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string | undefined {
@@ -44,53 +38,20 @@ export function permissionProfileRequestForThreadStart(snapshot: RuntimeSnapshot
 export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): PendingRuntimeSettingsPatch {
   const update: RuntimeSettingsPatch = {};
   const resolution = resolveRuntimeControls(snapshot, config);
-  const runtimeCollaborationModeSettings = requestedTurnCollaborationModeSettings(resolution);
+  const pending = snapshot.pending;
 
-  if (snapshot.pending.model.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(
-      update,
-      "model",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.model)),
-    );
-  }
-  if (snapshot.pending.reasoningEffort.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(
-      update,
-      "effort",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.reasoningEffort)),
-    );
-  }
-  applyRuntimeSettingsPatchValue(
-    update,
-    "serviceTier",
-    runtimeSettingsPatchValue(serviceTierPatchIntent(snapshot, resolution, "thread-update")),
-  );
-  if (snapshot.pending.approvalPolicy.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(
-      update,
-      "approvalPolicy",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.approvalPolicy)),
-    );
-  }
-  if (snapshot.pending.permissionProfile.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(
-      update,
-      "permissions",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.permissionProfile)),
-    );
-  }
-  if (snapshot.pending.approvalsReviewer.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(
-      update,
-      "approvalsReviewer",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.approvalsReviewer)),
-    );
-  }
+  applyRuntimeSettingsPatchValue(update, "model", pendingRuntimeRequestValue(pending.model));
+  applyRuntimeSettingsPatchValue(update, "effort", pendingRuntimeRequestValue(pending.reasoningEffort));
+  applyRuntimeSettingsPatchValue(update, "serviceTier", serviceTierRequest(snapshot, resolution, "thread-update"));
+  applyRuntimeSettingsPatchValue(update, "approvalPolicy", pendingRuntimeRequestValue(pending.approvalPolicy));
+  applyRuntimeSettingsPatchValue(update, "permissions", pendingRuntimeRequestValue(pending.permissionProfile));
+  applyRuntimeSettingsPatchValue(update, "approvalsReviewer", pendingRuntimeRequestValue(pending.approvalsReviewer));
   if (resolution.collaborationMode.dirty) {
-    if (runtimeCollaborationModeSettings.warning) {
-      return { update, collaborationModeWarning: runtimeCollaborationModeSettings.warning };
+    const requestedMode = requestedTurnCollaborationModeSettings(resolution);
+    if (requestedMode.warning) {
+      return { update, collaborationModeWarning: requestedMode.warning };
     }
-    applyRuntimeSettingsPatchValue(update, "collaborationMode", runtimeCollaborationModeSettings.collaborationMode);
+    applyRuntimeSettingsPatchValue(update, "collaborationMode", requestedMode.collaborationMode);
   }
   return { update, collaborationModeWarning: null };
 }
@@ -105,40 +66,32 @@ function requestedTurnCollaborationModeSettings(resolution: RuntimeControlsResol
   };
 }
 
-function runtimeSettingsPatchIntentFromPending<T>(intent: PendingRuntimeIntent<T>): RuntimeSettingsPatchIntent<T> {
-  if (intent.kind === "set") return { kind: "set", value: intent.value };
-  if (intent.kind === "resetToConfig") return { kind: "clear" };
-  return { kind: "omit" };
+function pendingRuntimeRequestValue<T>(intent: PendingRuntimeIntent<T>): T | null | undefined {
+  if (intent.kind === "set") return intent.value;
+  if (intent.kind === "resetToConfig") return null;
+  return undefined;
 }
 
-function serviceTierPatchIntent(
+function serviceTierRequest(
   snapshot: RuntimeSnapshot,
   resolution: RuntimeControlsResolution,
   target: "thread-start" | "thread-update",
-): RuntimeSettingsPatchIntent<string> {
+): RuntimeServiceTierRequest {
   // app-server has no separate "reset to config" token for service tiers.
   // thread/start null falls back to app-server's baseline/default tier, so a reset
   // to configured service_tier must send the configured id explicitly.
   if (snapshot.pending.fastMode.kind === "set") {
-    if (snapshot.pending.fastMode.value === "disabled") return { kind: "clear" };
-    return resolution.fastMode.serviceTierRequestValue
-      ? { kind: "set", value: resolution.fastMode.serviceTierRequestValue }
-      : { kind: "omit" };
+    if (snapshot.pending.fastMode.value === "disabled") return null;
+    return resolution.fastMode.serviceTierRequestValue || undefined;
   }
   if (snapshot.pending.fastMode.kind === "resetToConfig") {
     if (target === "thread-start") {
-      return resolution.serviceTier.configured ? { kind: "set", value: resolution.serviceTier.configured } : { kind: "omit" };
+      return resolution.serviceTier.configured || undefined;
     }
-    return { kind: "clear" };
+    return null;
   }
   if (target === "thread-start" && resolution.serviceTier.configured) {
-    return { kind: "set", value: resolution.serviceTier.configured };
+    return resolution.serviceTier.configured;
   }
-  return { kind: "omit" };
-}
-
-function runtimeSettingsPatchValue<T>(intent: RuntimeSettingsPatchIntent<T>): T | null | undefined {
-  if (intent.kind === "set") return intent.value;
-  if (intent.kind === "clear") return null;
   return undefined;
 }

@@ -161,14 +161,16 @@ function threadStreamRenderedItemView(
   switch (item.kind) {
     case "dialogue":
     case "system":
-    case "userInputResult":
+    case "userInputResult": {
+      const actionTargets = input.textActionTargetsByItemId.get(item.id);
       return {
         kind: "text",
         view: threadStreamTextView(item, annotations, {
           activeTurnId: input.activeTurnId,
-          ...definedProp("actionTargets", input.textActionTargetsByItemId.get(item.id)),
+          ...(actionTargets === undefined ? {} : { actionTargets }),
         }),
       };
+    }
     case "command":
     case "fileChange":
     case "tool":
@@ -192,10 +194,6 @@ function statusViewContext(input: ThreadStreamBlockProjectionInput): ThreadStrea
     items: input.items,
     activeItems: input.activeItems,
   };
-}
-
-function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
-  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
 }
 
 function resolvedReferenceTitles(
