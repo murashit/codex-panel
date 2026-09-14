@@ -7,7 +7,7 @@ import {
   appendToolOutputStreamingDelta,
   streamedItemOutputThreadStreamItem,
 } from "../../domain/thread-stream/streaming-items";
-import { completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
+import { completeReasoningItems, mergeThreadStreamItem, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import { definedPatch, patchObject } from "./patch";
 
 interface ChatThreadStreamActiveSegment {
@@ -225,16 +225,37 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamViewState, action
       return commitPendingSteer(state, action.item);
     case "thread-stream/reasoning-completed":
       return completeReasoningInThreadStream(state, action.turnId);
-    case "thread-stream/assistant-delta-appended":
-      return appendAssistantDeltaToThreadStream(state, action.itemId, action.turnId, action.delta, action.completeReasoning ?? false);
+    case "thread-stream/assistant-delta-appended": {
+      const current = action.completeReasoning ? completeReasoningInThreadStream(state, action.turnId) : state;
+      return updateStreamItemBySourceId(current, action.turnId, action.itemId, (item) =>
+        appendAssistantStreamingDelta(item, action.itemId, action.turnId, action.delta),
+      );
+    }
     case "thread-stream/plan-delta-appended":
-      return appendPlanDeltaToThreadStream(state, action.itemId, action.turnId, action.delta);
+      return updateStreamItemBySourceId(state, action.turnId, action.itemId, (item) =>
+        appendPlanStreamingDelta(item, action.itemId, action.turnId, action.delta),
+      );
     case "thread-stream/item-text-appended":
-      return appendItemTextToThreadStream(state, action.itemId, action.turnId, action.label, action.delta, action.kind);
+      return updateStreamItemBySourceId(state, action.turnId, action.itemId, (item) =>
+        appendTextStreamingDelta(item, action.itemId, action.turnId, action.label, action.delta, action.kind),
+      );
     case "thread-stream/tool-output-appended":
-      return appendToolOutputToThreadStream(state, action.itemId, action.turnId, action.delta, action.fallbackLabel);
+      return updateStreamItemBySourceId(state, action.turnId, action.itemId, (item) =>
+        appendToolOutputStreamingDelta(item, action.itemId, action.turnId, action.delta, action.fallbackLabel, { allowReasoning: true }),
+      );
     case "thread-stream/item-output-appended":
-      return appendItemOutputToThreadStream(state, action.itemId, action.turnId, action.delta, action.kind, action.fallbackText);
+      return updateStreamItemBySourceId(state, action.turnId, action.itemId, (item) => {
+        if (item) {
+          return item.kind === "command" || item.kind === "fileChange" ? { ...item, output: `${item.output ?? ""}${action.delta}` } : item;
+        }
+        return streamedItemOutputThreadStreamItem({
+          id: action.itemId,
+          turnId: action.turnId,
+          output: action.delta,
+          kind: action.kind,
+          fallbackText: action.fallbackText,
+        });
+      });
     case "thread-stream/turn-diff-updated":
       return patchObject(state, {
         turnDiffs: updatedTurnDiffs(state.turnDiffs, action.turnId, action.diff),
@@ -299,98 +320,18 @@ function upsertThreadStreamItem(state: ChatThreadStreamViewState, item: ThreadSt
   return patchObject(state, { stableItems: upsertThreadStreamItemById(state.stableItems, item) });
 }
 
-function appendAssistantDeltaToThreadStream(
+function updateStreamItemBySourceId(
   state: ChatThreadStreamViewState,
-  sourceItemId: string,
   turnId: string,
-  delta: string,
-  completeReasoning: boolean,
-): ChatThreadStreamViewState {
-  const current = completeReasoning ? completeReasoningInThreadStream(state, turnId) : state;
-  return updateActiveSegment(current, turnId, (segment) => {
-    const index = segment.indexBySourceItemId.get(sourceItemId);
-    if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) => appendAssistantStreamingDelta(item, sourceItemId, turnId, delta));
-    }
-    return appendActiveSegmentItem(segment, appendAssistantStreamingDelta(null, sourceItemId, turnId, delta));
-  });
-}
-
-function appendPlanDeltaToThreadStream(
-  state: ChatThreadStreamViewState,
   sourceItemId: string,
-  turnId: string,
-  delta: string,
+  update: (item: ThreadStreamItem | null) => ThreadStreamItem,
 ): ChatThreadStreamViewState {
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) => appendPlanStreamingDelta(item, sourceItemId, turnId, delta));
+      return replaceActiveSegmentItem(segment, index, update);
     }
-    return appendActiveSegmentItem(segment, appendPlanStreamingDelta(null, sourceItemId, turnId, delta));
-  });
-}
-
-function appendItemTextToThreadStream(
-  state: ChatThreadStreamViewState,
-  sourceItemId: string,
-  turnId: string,
-  label: string,
-  delta: string,
-  kind: "tool" | "hook" | "reasoning",
-): ChatThreadStreamViewState {
-  return updateActiveSegment(state, turnId, (segment) => {
-    const index = segment.indexBySourceItemId.get(sourceItemId);
-    if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) => appendTextStreamingDelta(item, sourceItemId, turnId, label, delta, kind));
-    }
-    return appendActiveSegmentItem(segment, appendTextStreamingDelta(null, sourceItemId, turnId, label, delta, kind));
-  });
-}
-
-function appendToolOutputToThreadStream(
-  state: ChatThreadStreamViewState,
-  sourceItemId: string,
-  turnId: string,
-  delta: string,
-  fallbackLabel: string,
-): ChatThreadStreamViewState {
-  return updateActiveSegment(state, turnId, (segment) => {
-    const index = segment.indexBySourceItemId.get(sourceItemId);
-    if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) =>
-        appendToolOutputStreamingDelta(item, sourceItemId, turnId, delta, fallbackLabel, { allowReasoning: true }),
-      );
-    }
-    return appendActiveSegmentItem(segment, appendToolOutputStreamingDelta(null, sourceItemId, turnId, delta, fallbackLabel));
-  });
-}
-
-function appendItemOutputToThreadStream(
-  state: ChatThreadStreamViewState,
-  sourceItemId: string,
-  turnId: string,
-  delta: string,
-  kind: "command" | "fileChange",
-  fallbackText: string,
-): ChatThreadStreamViewState {
-  return updateActiveSegment(state, turnId, (segment) => {
-    const index = segment.indexBySourceItemId.get(sourceItemId);
-    if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) =>
-        item.kind === "command" || item.kind === "fileChange" ? { ...item, output: `${item.output ?? ""}${delta}` } : item,
-      );
-    }
-    return appendActiveSegmentItem(
-      segment,
-      streamedItemOutputThreadStreamItem({
-        id: sourceItemId,
-        kind,
-        turnId,
-        output: delta,
-        fallbackText,
-      }),
-    );
+    return appendActiveSegmentItem(segment, update(null));
   });
 }
 
@@ -453,7 +394,7 @@ function appendActiveSegmentItem(segment: ChatThreadStreamActiveSegment, item: T
 function upsertActiveSegmentItem(segment: ChatThreadStreamActiveSegment, item: ThreadStreamItem): ChatThreadStreamActiveSegment {
   const index = segment.indexById.get(item.id);
   if (index === undefined) return appendActiveSegmentItem(segment, item);
-  return replaceActiveSegmentItem(segment, index, (previous) => upsertThreadStreamItemById([previous], item)[0] ?? item);
+  return replaceActiveSegmentItem(segment, index, (previous) => mergeThreadStreamItem(previous, item));
 }
 
 function replaceActiveSegmentItem(
