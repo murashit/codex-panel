@@ -200,8 +200,8 @@ describe("settings tab", () => {
 
     expect(settingsContextClientMock).toHaveBeenCalledTimes(1);
     expect(buttonLabels(tab)).toContain("Refresh Codex details");
-    expect(settingNames(tab)).toContain("Codex hooks");
-    expect(settingNames(tab)).toContain("Archived threads");
+    expect(settingElement(tab, "Codex hooks")).not.toBeNull();
+    expect(settingElement(tab, "Archived threads")).not.toBeNull();
   });
 
   it("publishes the toolbar visibility setting", async () => {
@@ -706,40 +706,6 @@ function renderDeclarativeDefinition(definition: SettingDefinition | undefined, 
   const container = document.createElement("div");
   definition.render(new Setting(container), {} as never);
   return container;
-}
-
-function settingNames(tab: CodexPanelSettingTab): string[] {
-  return Array.from(settingsSectionRoots(tab)).flatMap((element) => {
-    if (element.classList.contains("codex-panel-settings__header")) return [];
-    if (element.classList.contains("setting-item")) {
-      return [element.querySelector(".setting-item-name")?.textContent ?? ""];
-    }
-    if (element.classList.contains("codex-panel-settings__section")) {
-      return settingsGroupNames(element);
-    }
-    if (element.classList.contains("codex-panel-settings__dynamic-section")) {
-      return settingsGroupNames(element);
-    }
-    return [];
-  });
-}
-
-function settingsGroupNames(element: Element): string[] {
-  const names = Array.from(element.querySelectorAll(":scope > .setting-item-heading")).map((setting) => {
-    return setting.querySelector(".setting-item-name")?.textContent ?? "";
-  });
-  names.push(
-    ...Array.from(element.querySelectorAll(":scope > .setting-items:not(.codex-panel-settings__dynamic-list) > .setting-item")).flatMap(
-      (setting) => {
-        return [setting.querySelector(".setting-item-name")?.textContent ?? ""];
-      },
-    ),
-  );
-  return names;
-}
-
-function settingsSectionRoots(tab: CodexPanelSettingTab): Element[] {
-  return Array.from(tab.containerEl.children);
 }
 
 function buttonTexts(tab: CodexPanelSettingTab): string[] {

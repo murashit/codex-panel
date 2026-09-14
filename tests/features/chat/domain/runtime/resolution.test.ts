@@ -6,20 +6,7 @@ import {
 } from "../../../../../src/features/chat/domain/runtime/intent";
 import { resolveRuntimeControls } from "../../../../../src/features/chat/domain/runtime/resolution";
 import { serviceTierRequestForThreadStart } from "../../../../../src/features/chat/domain/runtime/thread-settings-patch";
-import {
-  autoReviewActive,
-  configLayer,
-  currentModel,
-  currentReasoningEffort,
-  currentServiceTier,
-  fastModeActive,
-  fastRuntimeServiceTierRequestValue,
-  modelFixture,
-  runtimeConfigFixture,
-  runtimeSnapshot,
-  snapshotConfig,
-  supportedReasoningEfforts,
-} from "./support";
+import { modelFixture, runtimeConfigFixture, runtimeSnapshot, snapshotConfig } from "./support";
 
 describe("runtime control resolution", () => {
   it("falls back to startup permissions until active thread permissions are reported", () => {
@@ -179,31 +166,27 @@ describe("runtime control resolution", () => {
       active: { approvalsReviewer: "guardian_subagent" },
     });
 
-    expect(autoReviewActive(requested, snapshotConfig(requested))).toBe(false);
-    expect(autoReviewActive(active, snapshotConfig(active))).toBe(false);
-    expect(autoReviewActive(configured, snapshotConfig(configured))).toBe(true);
-    expect(autoReviewActive(activeGuardian, snapshotConfig(activeGuardian))).toBe(true);
+    expect(resolveRuntimeControls(requested, snapshotConfig(requested)).autoReview.active).toBe(false);
+    expect(resolveRuntimeControls(active, snapshotConfig(active)).autoReview.active).toBe(false);
+    expect(resolveRuntimeControls(configured, snapshotConfig(configured)).autoReview.active).toBe(true);
+    expect(resolveRuntimeControls(activeGuardian, snapshotConfig(activeGuardian)).autoReview.active).toBe(true);
   });
 
   it("uses effective model, effort, and fast mode config values", () => {
     const snapshot = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture(
-        {
-          model: "gpt-profile",
-          model_reasoning_effort: "high",
-          service_tier: "fast",
-        },
-        [
-          configLayer({}, null),
-          configLayer({ model: "gpt-profile", model_reasoning_effort: "high", service_tier: "fast" }, "fast-profile"),
-        ],
-      ),
+      runtimeConfig: runtimeConfigFixture({
+        model: "gpt-profile",
+        model_reasoning_effort: "high",
+        service_tier: "fast",
+      }),
     });
 
-    expect(currentModel(snapshot, snapshotConfig(snapshot))).toBe("gpt-profile");
-    expect(currentReasoningEffort(snapshot, snapshotConfig(snapshot))).toBe("high");
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.model.effective).toBe("gpt-profile");
+    expect(resolution.reasoningEffort.effective).toBe("high");
+    expect(resolution.serviceTier.effective).toBe("fast");
+    expect(resolution.fastMode.active).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
   });
 
@@ -215,8 +198,6 @@ describe("runtime control resolution", () => {
     });
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("flex");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
     expect(resolution.serviceTier).toMatchObject({ effective: "flex", source: "active-thread" });
     expect(resolution.fastMode).toMatchObject({ active: false, source: "active-thread", effectiveServiceTier: "flex" });
   });
@@ -235,9 +216,11 @@ describe("runtime control resolution", () => {
       availableModels: [model],
     });
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("priority");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
-    expect(fastRuntimeServiceTierRequestValue(snapshot, snapshotConfig(snapshot))).toBe("priority");
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.serviceTier.effective).toBe("priority");
+    expect(resolution.fastMode.active).toBe(true);
+    expect(resolution.fastMode.serviceTierRequestValue).toBe("priority");
   });
 
   it("treats the app-server reported default tier after clearing Fast as fast mode off", () => {
@@ -252,8 +235,10 @@ describe("runtime control resolution", () => {
       availableModels: [model],
     });
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("default");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.serviceTier.effective).toBe("default");
+    expect(resolution.fastMode.active).toBe(false);
   });
 
   it("uses requested Fast mode above active and configured service tiers", () => {
@@ -264,8 +249,6 @@ describe("runtime control resolution", () => {
     });
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBeNull();
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
     expect(resolution.serviceTier).toMatchObject({ effective: null, source: "pending" });
     expect(resolution.fastMode).toMatchObject({ active: false, source: "pending", effectiveServiceTier: null });
   });
@@ -278,8 +261,7 @@ describe("runtime control resolution", () => {
     });
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBeNull();
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
+    expect(resolution.fastMode.active).toBe(false);
     expect(resolution.serviceTier).toMatchObject({ effective: null, source: "active-thread" });
   });
 
@@ -417,7 +399,7 @@ describe("runtime control resolution", () => {
     });
     const explicitConfig = runtimeConfigFixture({ model: "explicit-model" });
 
-    expect(supportedReasoningEfforts(snapshot, explicitConfig)).toEqual(["high"]);
+    expect(resolveRuntimeControls(snapshot, explicitConfig).supportedReasoningEfforts).toEqual(["high"]);
   });
 
   it.each([
@@ -432,6 +414,8 @@ describe("runtime control resolution", () => {
       availableModels: [{ ...modelFixture("gpt-5.5"), serviceTiers }],
     });
 
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(expected);
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.fastMode.active).toBe(expected);
   });
 });

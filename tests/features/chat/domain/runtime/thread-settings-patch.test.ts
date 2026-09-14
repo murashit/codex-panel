@@ -10,17 +10,7 @@ import {
   permissionProfileRequestForThreadStart,
   serviceTierRequestForThreadStart,
 } from "../../../../../src/features/chat/domain/runtime/thread-settings-patch";
-import {
-  autoReviewActive,
-  currentModel,
-  currentReasoningEffort,
-  currentServiceTier,
-  fastModeActive,
-  modelFixture,
-  runtimeConfigFixture,
-  runtimeSnapshot,
-  snapshotConfig,
-} from "./support";
+import { modelFixture, runtimeConfigFixture, runtimeSnapshot, snapshotConfig } from "./support";
 
 describe("runtime thread settings patch", () => {
   it("keeps permission display scope separate from pending permission source", () => {
@@ -117,7 +107,7 @@ describe("runtime thread settings patch", () => {
     expect(permissionProfileRequestForThreadStart(legacySandbox, snapshotConfig(legacySandbox))).toBeUndefined();
   });
 
-  it("keeps runtime defaults, resets, and collaboration mode semantics distinct", () => {
+  it("resolves model and effort resets from config while serializing null", () => {
     const snapshot = runtimeSnapshot({
       pending: {
         model: resetRuntimeIntentToConfig(),
@@ -125,8 +115,10 @@ describe("runtime thread settings patch", () => {
       },
     });
 
-    expect(currentModel(snapshot, snapshotConfig(snapshot))).toBe("gpt-5.5");
-    expect(currentReasoningEffort(snapshot, snapshotConfig(snapshot))).toBe("high");
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.model.effective).toBe("gpt-5.5");
+    expect(resolution.reasoningEffort.effective).toBe("high");
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: { model: null, effort: null },
       collaborationModeWarning: null,
@@ -142,8 +134,6 @@ describe("runtime thread settings patch", () => {
     });
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
-    expect(currentModel(snapshot, snapshotConfig(snapshot))).toBe("gpt-5.4");
-    expect(currentReasoningEffort(snapshot, snapshotConfig(snapshot))).toBe("low");
     expect(resolution.model).toMatchObject({ effective: "gpt-5.4", source: "pending" });
     expect(resolution.reasoningEffort).toMatchObject({ effective: "low", source: "pending" });
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
@@ -152,18 +142,15 @@ describe("runtime thread settings patch", () => {
     });
   });
 
-  it("treats unreported thread collaboration mode as default without losing the unknown state", () => {
+  it("omits collaboration mode settings when the thread has not reported a mode and no change is requested", () => {
     const snapshot = runtimeSnapshot({
       active: { collaborationMode: null },
     });
 
-    expect(snapshot.active.collaborationMode).toBeNull();
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toEqual({
       update: {},
       collaborationModeWarning: null,
     });
-
-    expect(snapshot.pending.collaborationMode).toEqual({ kind: "unchanged" });
   });
 
   it("keeps model reset tied to config when active thread model differs", () => {
@@ -177,7 +164,9 @@ describe("runtime thread settings patch", () => {
       }),
     });
 
-    expect(currentModel(snapshot, snapshotConfig(snapshot))).toBeNull();
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.model.effective).toBeNull();
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: { model: null },
       collaborationModeWarning: null,
@@ -273,11 +262,10 @@ describe("runtime thread settings patch", () => {
     expect(pendingRuntimeSettingsPatch(activeRuntimeSnapshot, snapshotConfig(activeRuntimeSnapshot)).update).not.toHaveProperty("effort");
   });
 
-  it("resolves requested approval reviewer without adding it to turn runtime settings", () => {
+  it("projects the requested approval reviewer into display and thread settings", () => {
     const snapshot = runtimeSnapshot({ pending: { approvalsReviewer: setRuntimeIntentValue("auto_review") } });
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
-    expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
     expect(resolution.autoReview).toMatchObject({ active: true, confirmedActive: false, source: "pending", confirmedSource: "none" });
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: { approvalsReviewer: "auto_review" },
@@ -291,8 +279,10 @@ describe("runtime thread settings patch", () => {
       runtimeConfig: runtimeConfigFixture({}),
     });
 
-    expect(currentModel(snapshot, snapshotConfig(snapshot))).toBe("gpt-5-active");
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.model.effective).toBe("gpt-5-active");
+    expect(resolution.serviceTier.effective).toBe("fast");
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot)).update).not.toHaveProperty("model");
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot)).update).not.toHaveProperty("effort");
   });
@@ -303,8 +293,10 @@ describe("runtime thread settings patch", () => {
       pending: { fastMode: setRuntimeIntentValue("disabled") },
     });
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBeNull();
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.serviceTier.effective).toBeNull();
+    expect(resolution.fastMode.active).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBeNull();
   });
 
@@ -314,8 +306,10 @@ describe("runtime thread settings patch", () => {
       pending: { fastMode: resetRuntimeIntentToConfig() },
     });
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.serviceTier.effective).toBe("fast");
+    expect(resolution.fastMode.active).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
   });
 
@@ -325,8 +319,10 @@ describe("runtime thread settings patch", () => {
       pending: { fastMode: resetRuntimeIntentToConfig() },
     });
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBeNull();
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.serviceTier.effective).toBeNull();
+    expect(resolution.fastMode.active).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBeUndefined();
   });
 
@@ -341,9 +337,10 @@ describe("runtime thread settings patch", () => {
       availableModels: [model],
     });
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("priority");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
-    expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot)).fastMode).toMatchObject({
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.serviceTier.effective).toBe("priority");
+    expect(resolution.fastMode).toMatchObject({
       active: true,
       effectiveServiceTier: "priority",
       serviceTierRequestValue: "priority",
@@ -360,8 +357,10 @@ describe("runtime thread settings patch", () => {
   it("passes through configured non-fast service tier ids", () => {
     const snapshot = runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({ service_tier: "flex" }) });
 
-    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("flex");
-    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
+
+    expect(resolution.serviceTier.effective).toBe("flex");
+    expect(resolution.fastMode.active).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("flex");
   });
 });

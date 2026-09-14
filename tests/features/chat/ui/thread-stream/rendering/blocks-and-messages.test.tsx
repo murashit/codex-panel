@@ -208,8 +208,9 @@ describe("panel thread stream rendering and action menu", () => {
     expect(element.querySelector("pre")?.textContent).toBe("Ship the feature");
   });
 
-  it("renders rollback action only for the eligible user dialogue", () => {
+  it("renders rollback only for the eligible user dialogue alongside its copy action", () => {
     const onRollback = vi.fn();
+    const copyText = vi.fn();
     const items = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "older", turnId: "turn-1" },
       {
@@ -221,12 +222,13 @@ describe("panel thread stream rendering and action menu", () => {
         dialogueKind: "assistantResponse",
         dialogueState: "completed",
       },
-      { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "latest", turnId: "turn-2" },
+      { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-2" },
     ] as const;
     const blocks = projectedThreadStreamBlocks({
       items: [...items],
       textActionTargetsByItemId: new Map([["u2", { rollback: true }]]),
       onRollback,
+      copyText,
     });
 
     const rendered = blocks.map((block) => renderThreadStreamBlockElement(block));
@@ -235,6 +237,8 @@ describe("panel thread stream rendering and action menu", () => {
     expect(expectPresent(rendered[1]).querySelector(".codex-panel__rollback-turn")).toBeNull();
     const button = expectPresent(rendered[2]).querySelector<HTMLButtonElement>(".codex-panel__rollback-turn");
     expect(button?.getAttribute("aria-label")).toBe("Roll back latest turn");
+    expectPresent(rendered[2]).querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue")?.click();
+    expect(copyText).toHaveBeenCalledWith("latest");
     button?.click();
     expect(onRollback).toHaveBeenCalledWith();
   });
@@ -270,7 +274,7 @@ describe("panel thread stream rendering and action menu", () => {
     expect(copyText).toHaveBeenNthCalledWith(2, "# Answer");
   });
 
-  it("expands assistant fork actions in the copy action region and defaults repeat clicks to plain fork", () => {
+  it("expands assistant fork actions in the copy region and dispatches both fork choices", () => {
     const onForkMenuToggle = vi.fn();
     const onFork = vi.fn();
     const item: ThreadStreamItem = {
@@ -318,34 +322,9 @@ describe("panel thread stream rendering and action menu", () => {
     expect(openFork.getAttribute("aria-label")).toBe("Fork");
     expect(openFork.getAttribute("data-icon")).toBe("file-plus-corner");
     openFork.click();
-    expect(onFork).toHaveBeenCalledWith({ itemId: "a1", turnId: "turn-1" }, false);
-  });
-
-  it("runs fork and archive from the expanded assistant fork actions", () => {
-    const onFork = vi.fn();
-    const item: ThreadStreamItem = {
-      id: "a1",
-      kind: "dialogue",
-      role: "assistant",
-      dialogueKind: "assistantResponse",
-      dialogueState: "completed",
-      text: "answer",
-      copyText: "answer",
-      turnId: "turn-1",
-    };
-    const block = projectedThreadStreamBlocks({
-      items: [item],
-      forkMenuItemId: "a1",
-      onForkMenuToggle: vi.fn(),
-      copyText: vi.fn(),
-      textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
-      onFork,
-    })[0];
-
-    const element = renderThreadStreamBlockElement(block);
-    expectPresent(element.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-dialogue")).click();
-
-    expect(onFork).toHaveBeenCalledWith({ itemId: "a1", turnId: "turn-1" }, true);
+    expect(onFork).toHaveBeenNthCalledWith(1, { itemId: "a1", turnId: "turn-1" }, false);
+    expectPresent(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-dialogue")).click();
+    expect(onFork).toHaveBeenNthCalledWith(2, { itemId: "a1", turnId: "turn-1" }, true);
   });
 
   it("updates text item content when a streaming plan delta completes", () => {
@@ -618,24 +597,6 @@ describe("panel thread stream rendering and action menu", () => {
     })[0];
 
     expect(renderThreadStreamBlockElement(block).querySelector(".codex-panel__copy-dialogue")).toBeNull();
-  });
-
-  it("renders copy and rollback actions together when both apply", () => {
-    const copyText = vi.fn();
-    const onRollback = vi.fn();
-    const block = projectedThreadStreamBlocks({
-      items: [{ id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-1" }],
-      copyText,
-      textActionTargetsByItemId: new Map([["u1", { rollback: true }]]),
-      onRollback,
-    })[0];
-
-    const element = renderThreadStreamBlockElement(block);
-    element.querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue")?.click();
-    element.querySelector<HTMLButtonElement>(".codex-panel__rollback-turn")?.click();
-
-    expect(copyText).toHaveBeenCalledWith("latest");
-    expect(onRollback).toHaveBeenCalledWith();
   });
 
   it("collapses tall user dialogues without changing the copy payload", () => {
