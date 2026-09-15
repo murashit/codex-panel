@@ -80,7 +80,6 @@ async function replaceGeneratedTypes(generatedDir, stagedDir) {
       if (!isMissingPathError(error)) throw error;
     }
     await rename(stagedDir, generatedDir);
-    if (hasBackup) await rm(backupDir, { recursive: true, force: true });
   } catch (error) {
     if (hasBackup) {
       await rm(generatedDir, { recursive: true, force: true });
@@ -88,6 +87,7 @@ async function replaceGeneratedTypes(generatedDir, stagedDir) {
     }
     throw error;
   }
+  if (hasBackup) await rm(backupDir, { recursive: true, force: true });
 }
 
 function isMissingPathError(error) {
