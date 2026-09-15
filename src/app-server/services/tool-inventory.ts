@@ -1,7 +1,7 @@
 import type { McpServerStatusSummary } from "../../domain/server/mcp-status";
 import type { ToolInventoryPlugin } from "../../domain/server/tool-inventory";
-import type { ClientResponseByMethod } from "../connection/client";
 import { mcpServerStatusSummariesFromStatuses, toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
+import { collectCursorPages } from "./cursor-pages";
 import type { AppServerRequestClient } from "./request-client";
 
 export interface InstalledPluginInventory {
@@ -31,23 +31,16 @@ export async function readMcpServerInventory(
   threadId: string | null,
   options: { signal?: AbortSignal } = {},
 ): Promise<McpServerInventory> {
-  const servers: McpServerStatusSummary[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-  for (;;) {
+  const servers = await collectCursorPages(async (cursor) => {
     options.signal?.throwIfAborted();
-    const response: ClientResponseByMethod["mcpServerStatus/list"] = await client.request("mcpServerStatus/list", {
+    const response = await client.request("mcpServerStatus/list", {
       detail: "toolsAndAuthOnly",
       cursor,
       limit: 100,
       ...(threadId ? { threadId } : {}),
     });
     options.signal?.throwIfAborted();
-    servers.push(...mcpServerStatusSummariesFromStatuses(response.data));
-    cursor = response.nextCursor ?? null;
-    if (!cursor) break;
-    if (seenCursors.has(cursor)) throw new Error("Codex app-server returned a repeated MCP server status list cursor.");
-    seenCursors.add(cursor);
-  }
+    return { ...response, data: mcpServerStatusSummariesFromStatuses(response.data) };
+  }, "MCP server status list");
   return { servers };
 }

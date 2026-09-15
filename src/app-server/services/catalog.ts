@@ -1,6 +1,5 @@
 import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
-import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import {
   type AppServerHookOperation,
@@ -9,6 +8,7 @@ import {
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
 } from "../protocol/catalog";
+import { collectCursorPages } from "./cursor-pages";
 import type { AppServerRequestClient } from "./request-client";
 
 export interface ModelMetadataClient {
@@ -16,47 +16,19 @@ export interface ModelMetadataClient {
 }
 
 export async function listModelMetadata(client: ModelMetadataClient, options: { includeHidden?: boolean } = {}): Promise<ModelMetadata[]> {
-  const models: ClientResponseByMethod["model/list"]["data"] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-
-  for (;;) {
-    const response: ClientResponseByMethod["model/list"] = await client.request("model/list", {
-      includeHidden: options.includeHidden ?? false,
-      cursor,
-      limit: 100,
-    });
-    models.push(...response.data);
-    cursor = response.nextCursor ?? null;
-    if (!cursor) break;
-    if (seenCursors.has(cursor)) throw new Error("Codex app-server returned a repeated model list cursor.");
-    seenCursors.add(cursor);
-  }
+  const models = await collectCursorPages(
+    (cursor) => client.request("model/list", { includeHidden: options.includeHidden ?? false, cursor, limit: 100 }),
+    "model list",
+  );
 
   return modelMetadataFromCatalogModels(models);
 }
 
 export async function listPermissionProfiles(client: AppServerRequestClient, cwd: string): Promise<RuntimePermissionProfileSummary[]> {
-  const profiles: RuntimePermissionProfileSummary[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-
-  for (;;) {
-    const response: ClientResponseByMethod["permissionProfile/list"] = await client.request("permissionProfile/list", {
-      cwd,
-      cursor,
-      limit: 100,
-    });
-    profiles.push(...response.data.map((profile) => ({ ...profile })));
-    cursor = response.nextCursor ?? null;
-    if (!cursor) break;
-    if (seenCursors.has(cursor)) {
-      throw new Error("Codex app-server returned a repeated permission profile list cursor.");
-    }
-    seenCursors.add(cursor);
-  }
-
-  return profiles;
+  return collectCursorPages(async (cursor) => {
+    const response = await client.request("permissionProfile/list", { cwd, cursor, limit: 100 });
+    return { ...response, data: response.data.map((profile) => ({ ...profile })) };
+  }, "permission profile list");
 }
 
 export async function listSkillCatalog(
