@@ -84,7 +84,7 @@ describe("ResumeCommand", () => {
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
     expect(activeThreadId(stateStore.getState())).toBe("thread");
-    expect(loadLatest).toHaveBeenCalledWith("thread");
+    expect(loadLatest).toHaveBeenCalledWith("thread", {});
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.recordResumedThread).toHaveBeenCalledWith(panelThread("thread"));
@@ -99,7 +99,7 @@ describe("ResumeCommand", () => {
     const resumed = await commands.resumeThread("thread");
     await resumed?.hydrate();
 
-    expect(applyInitialPage).toHaveBeenCalledWith("thread", initialHistoryPage);
+    expect(applyInitialPage).toHaveBeenCalledWith("thread", initialHistoryPage, {});
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
@@ -274,7 +274,7 @@ describe("ResumeCommand", () => {
     await resumed?.hydrate();
 
     expect(recoverTokenUsageFromRollout).toHaveBeenCalledWith("/tmp/rollout.jsonl");
-    expect(loadLatest).toHaveBeenCalledWith("thread");
+    expect(loadLatest).toHaveBeenCalledWith("thread", {});
     expect(activeThreadState(stateStore.getState())?.tokenUsage).toBeNull();
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));

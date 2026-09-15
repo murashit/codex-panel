@@ -100,18 +100,11 @@ async function hydrateResumedThread(
   try {
     if (isStaleResume(host, resume, panelTarget)) return false;
     recoverResumedThreadTokenUsage(host, response.activation.thread.id, response.rolloutPath, resume, panelTarget);
+    const historyOptions = displaySnapshot ? { displayItems: displaySnapshot.items } : {};
     if (response.initialHistoryPage) {
-      if (displaySnapshot) {
-        host.history.applyInitialPage(response.activation.thread.id, response.initialHistoryPage, { displayItems: displaySnapshot.items });
-      } else {
-        host.history.applyInitialPage(response.activation.thread.id, response.initialHistoryPage);
-      }
+      host.history.applyInitialPage(response.activation.thread.id, response.initialHistoryPage, historyOptions);
     } else {
-      if (displaySnapshot) {
-        await host.history.loadLatest(response.activation.thread.id, { displayItems: displaySnapshot.items });
-      } else {
-        await host.history.loadLatest(response.activation.thread.id);
-      }
+      await host.history.loadLatest(response.activation.thread.id, historyOptions);
     }
     if (isStaleResume(host, resume, panelTarget)) return false;
     const state = host.stateStore.getState();
