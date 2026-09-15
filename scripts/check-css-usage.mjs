@@ -1,14 +1,14 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { readStyleFiles } from "./build-styles.mjs";
 
 const root = process.cwd();
-const stylesDir = path.join(root, "src", "styles");
 if (process.argv.length > 2) {
   console.error("Usage: node scripts/check-css-usage.mjs");
   process.exit(1);
 }
 
-const cssFiles = await orderedCssFiles();
+const cssFiles = await readStyleFiles();
 const sourceFiles = await filesInTree(path.join(root, "src"), new Set([".ts", ".tsx"]), {
   excludedPrefixes: [path.join(root, "src", "generated")],
 });
@@ -49,15 +49,6 @@ for (const [propertyName, locations] of cssCustomProperties) {
 if (candidates.length + testOnlyCandidates.length + unusedCustomProperties.length + dynamicPrefixes.length > 0) {
   printCandidates({ testOnlyCandidates, candidates, unusedCustomProperties, dynamicPrefixes });
   process.exit(1);
-}
-
-async function orderedCssFiles() {
-  const orderPath = path.join(stylesDir, "order.json");
-  const order = JSON.parse(await readFile(orderPath, "utf8"));
-  if (!Array.isArray(order) || !order.every((item) => typeof item === "string")) {
-    throw new Error(`${relative(orderPath)} must be a JSON array of CSS file names.`);
-  }
-  return order.map((file) => path.join(stylesDir, file));
 }
 
 function collectCssClasses(texts) {
