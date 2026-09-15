@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
@@ -10,6 +9,7 @@ import {
   threadFromAppServerRecord,
   unsubscribeThread,
 } from "../../../src/app-server/services/threads";
+import { deferred } from "../../support/async";
 
 describe("app-server thread response adapters", () => {
   it("preserves spawned subagent provenance in the domain thread", () => {
@@ -374,14 +374,6 @@ describe("app-server thread response adapters", () => {
     await expect(listThreads(client, "/vault")).rejects.toThrow("repeated thread list cursor");
   });
 });
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((promiseResolve) => {
-    resolve = promiseResolve;
-  });
-  return { promise, resolve };
-}
 
 function archiveThread(historyMode: unknown, turns: readonly TurnRecord[] = []): ThreadRecord {
   return {

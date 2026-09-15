@@ -14,6 +14,7 @@ import {
   createKeyedOperationCoordinator,
   type KeyedOperationCoordinator,
 } from "../../../../../src/shared/async/keyed-operation-coordinator";
+import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -609,8 +610,8 @@ describe("createChatRuntimeSettingsCommands", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
-    const firstUpdate = deferred(true);
-    const secondUpdate = deferred(true);
+    const firstUpdate = deferred<boolean>();
+    const secondUpdate = deferred<boolean>();
     const port = settingsPortFixture({
       updateThreadSettings: vi
         .fn()
@@ -626,11 +627,11 @@ describe("createChatRuntimeSettingsCommands", () => {
     const secondRequest = commands.requestModel("gpt-new");
     expect(port.updateThreadSettings).toHaveBeenCalledTimes(1);
 
-    firstUpdate.resolve();
+    firstUpdate.resolve(true);
     await expect(firstRequest).resolves.toBe(false);
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" }));
 
-    secondUpdate.resolve();
+    secondUpdate.resolve(true);
     await expect(secondRequest).resolves.toBe(true);
     expect(store.getState().runtime.active.model).toBe("gpt-new");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
@@ -642,8 +643,8 @@ describe("createChatRuntimeSettingsCommands", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
     const store = createChatStateStore(state);
-    const firstUpdate = deferred(true);
-    const secondUpdate = deferred(true);
+    const firstUpdate = deferred<boolean>();
+    const secondUpdate = deferred<boolean>();
     const port = settingsPortFixture({
       updateThreadSettings: vi
         .fn()
@@ -669,10 +670,10 @@ describe("createChatRuntimeSettingsCommands", () => {
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-mini", effort: "medium" }));
     const secondRequest = commands.requestModel("gpt-next");
 
-    firstUpdate.resolve();
+    firstUpdate.resolve(true);
     await expect(firstRequest).resolves.toBe(false);
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-next", effort: "medium" }));
-    secondUpdate.resolve();
+    secondUpdate.resolve(true);
 
     await expect(secondRequest).resolves.toBe(true);
     expect(store.getState().runtime.active.model).toBe("gpt-next");
@@ -685,7 +686,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
     const store = createChatStateStore(state);
-    const firstUpdate = deferred(false);
+    const firstUpdate = deferred<boolean>();
     const port = settingsPortFixture({
       updateThreadSettings: vi
         .fn()
@@ -710,7 +711,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const firstRequest = commands.requestModel("gpt-mini");
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenCalledOnce());
     const secondRequest = commands.requestModel("gpt-next");
-    firstUpdate.resolve();
+    firstUpdate.resolve(false);
 
     await expect(firstRequest).resolves.toBe(false);
     await expect(secondRequest).resolves.toBe(true);
@@ -724,8 +725,8 @@ describe("createChatRuntimeSettingsCommands", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5", reasoningEffort: "high" } } });
     const store = createChatStateStore(state);
-    const modelUpdate = deferred(true);
-    const effortUpdate = deferred(true);
+    const modelUpdate = deferred<boolean>();
+    const effortUpdate = deferred<boolean>();
     const port = settingsPortFixture({
       updateThreadSettings: vi
         .fn()
@@ -746,11 +747,11 @@ describe("createChatRuntimeSettingsCommands", () => {
     const modelRequest = commands.requestModel("gpt-mini");
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-mini", effort: "medium" }));
     const effortRequest = commands.requestReasoningEffort("low");
-    modelUpdate.resolve();
+    modelUpdate.resolve(true);
 
     await expect(modelRequest).resolves.toBe(false);
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { effort: "low" }));
-    effortUpdate.resolve();
+    effortUpdate.resolve(true);
 
     await expect(effortRequest).resolves.toBe(true);
     expect(store.getState().runtime.active.model).toBe("gpt-mini");
@@ -763,7 +764,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
     const firstStore = createChatStateStore(panelState);
     const secondStore = createChatStateStore(panelState);
-    const firstUpdate = deferred(true);
+    const firstUpdate = deferred<boolean>();
     const order: string[] = [];
     let serverModel: string | null = null;
     const firstPort = settingsPortFixture({
@@ -791,7 +792,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const a2 = firstCommands.requestModel("a2");
     expect(order).toEqual(["A:a1"]);
 
-    firstUpdate.resolve();
+    firstUpdate.resolve(true);
 
     await expect(a1).resolves.toBe(false);
     await expect(b).resolves.toBe(true);
@@ -805,7 +806,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
-    const firstUpdate = deferred(true);
+    const firstUpdate = deferred<boolean>();
     const port = settingsPortFixture({
       updateThreadSettings: vi
         .fn()
@@ -819,7 +820,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" }));
 
     store.dispatch({ type: "runtime/pending-intent-patched", patch: { model: { kind: "set", value: "gpt-new" } } });
-    firstUpdate.resolve();
+    firstUpdate.resolve(true);
 
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" }));
     await expect(settingsSettled).resolves.toBe(true);
@@ -831,7 +832,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
     const firstStore = createChatStateStore(panelState);
     const secondStore = createChatStateStore(panelState);
-    const firstUpdate = deferred(true);
+    const firstUpdate = deferred<boolean>();
     const order: string[] = [];
     let serverModel: string | null = null;
     const firstPort = settingsPortFixture({
@@ -858,7 +859,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const b = secondCommands.requestModel("b");
     const a2 = firstCommands.requestModel("a2");
 
-    firstUpdate.resolve();
+    firstUpdate.resolve(true);
 
     await expect(b).resolves.toBe(true);
     await expect(a2).resolves.toBe(true);
@@ -871,8 +872,8 @@ describe("createChatRuntimeSettingsCommands", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
-    const modelUpdate = deferred(true);
-    const effortUpdate = deferred(true);
+    const modelUpdate = deferred<boolean>();
+    const effortUpdate = deferred<boolean>();
     const port = settingsPortFixture({
       updateThreadSettings: vi
         .fn()
@@ -888,14 +889,14 @@ describe("createChatRuntimeSettingsCommands", () => {
     const effortRequest = commands.requestReasoningEffort("high");
     expect(port.updateThreadSettings).toHaveBeenCalledTimes(1);
 
-    modelUpdate.resolve();
+    modelUpdate.resolve(true);
     await expect(modelRequest).resolves.toBe(true);
     await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { effort: "high" }));
     expect(store.getState().runtime.active.model).toBe("gpt-5.5");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
 
-    effortUpdate.resolve();
+    effortUpdate.resolve(true);
     await expect(effortRequest).resolves.toBe(true);
     expect(store.getState().runtime.active.reasoningEffort).toBe("high");
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
@@ -1007,18 +1008,5 @@ function threadSettings(
     approvalPolicy: null,
     sandboxPolicy: null,
     activePermissionProfile: null,
-  };
-}
-
-function deferred<T>(initialValue: T): { promise: Promise<T>; resolve: (value?: T) => void } {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((promiseResolve) => {
-    resolve = promiseResolve;
-  });
-  return {
-    promise,
-    resolve: (value = initialValue) => {
-      resolve(value);
-    },
   };
 }

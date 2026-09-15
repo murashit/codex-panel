@@ -2,9 +2,9 @@
 
 import { SuggestModal } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
-
 import type { Thread } from "../../../src/domain/threads/model";
 import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
+import { deferred } from "../../support/async";
 
 describe("threadPickerSuggestions", () => {
   it("places pinned threads first only for empty queries", async () => {
@@ -258,14 +258,6 @@ function thread(options: Partial<Thread> & { id: string }): Thread {
     archived: false,
     provenance: options.provenance ?? { kind: "interactive" },
   };
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((promiseResolve) => {
-    resolve = promiseResolve;
-  });
-  return { promise, resolve };
 }
 
 async function flushMicrotasks(): Promise<void> {

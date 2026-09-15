@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { VIEW_TYPE_CODEX_PANEL } from "../../src/constants";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../../src/main";
 import { WorkspacePanelCoordinator } from "../../src/workspace/panel-coordinator";
+import { deferred } from "../support/async";
 import { installObsidianDomShims } from "../support/dom";
 import { chatView, leaf, panelSnapshot, pluginWithLeaves } from "../support/plugin-fixtures";
 
@@ -107,8 +107,8 @@ describe("WorkspacePanelCoordinator", () => {
   it("deduplicates concurrent restored-panel loads for each leaf", async () => {
     const firstLeaf = leaf({ state: { threadId: "first" } });
     const secondLeaf = leaf({ state: { threadId: "second" } });
-    const firstLoad = deferred();
-    const secondLoad = deferred();
+    const firstLoad = deferred<void>();
+    const secondLoad = deferred<void>();
     firstLeaf.loadIfDeferred.mockReturnValue(firstLoad.promise);
     secondLeaf.loadIfDeferred.mockReturnValue(secondLoad.promise);
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
@@ -266,8 +266,8 @@ describe("WorkspacePanelCoordinator", () => {
     const secondFocusThread = vi.spyOn(secondView.surface, "activateThread").mockResolvedValue(undefined);
     const firstFocusComposer = vi.spyOn(firstView.surface, "focusComposer");
     const secondFocusComposer = vi.spyOn(secondView.surface, "focusComposer");
-    const firstReveal = deferred();
-    const secondReveal = deferred();
+    const firstReveal = deferred<void>();
+    const secondReveal = deferred<void>();
     (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mockImplementation(async (target) => {
       if (target === firstLeaf) {
         await firstReveal.promise;
@@ -368,7 +368,7 @@ describe("WorkspacePanelCoordinator", () => {
     const firstView = chatView(CodexChatView, firstLeaf);
     const secondView = chatView(CodexChatView, secondLeaf);
     vi.spyOn(firstView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "first", threadId: "same-thread" }));
-    const firstFocusThread = deferred();
+    const firstFocusThread = deferred<void>();
     const firstOpen = vi.spyOn(firstView.surface, "activateThread").mockReturnValue(firstFocusThread.promise);
     vi.spyOn(secondView.surface, "activateThread").mockResolvedValue(undefined);
     firstLeaf.setViewState.mockImplementation(async () => {
@@ -406,7 +406,7 @@ describe("WorkspacePanelCoordinator", () => {
     vi.spyOn(secondView.surface, "openPanelSnapshot").mockImplementation(() =>
       panelSnapshot({ viewId: "second", threadId: secondThreadId, hasComposerDraft: secondHasDraft }),
     );
-    const firstActivation = deferred();
+    const firstActivation = deferred<void>();
     const firstOpen = vi.spyOn(firstView.surface, "activateThread").mockImplementation(async (threadId) => {
       if (firstOpen.mock.calls.length === 1) {
         await firstActivation.promise;
@@ -443,8 +443,8 @@ describe("WorkspacePanelCoordinator", () => {
     panelLeaf.view = chatView(CodexChatView, panelLeaf);
     const view = panelLeaf.view as CodexChatView;
     const replacementView = chatView(CodexChatView, panelLeaf);
-    const operation = deferred();
-    const reveal = deferred();
+    const operation = deferred<void>();
+    const reveal = deferred<void>();
     const open = vi.spyOn(view.surface, "activateThread").mockReturnValue(operation.promise);
     const oldFocus = vi.spyOn(view.surface, "focusComposer");
     const newFocus = vi.spyOn(replacementView.surface, "focusComposer");
@@ -579,12 +579,4 @@ describe("WorkspacePanelCoordinator", () => {
 
 function panels(plugin: CodexPanelPlugin): WorkspacePanelCoordinator {
   return new WorkspacePanelCoordinator({ app: plugin.app, refreshThreadsViewLiveState: vi.fn() });
-}
-
-function deferred(): { promise: Promise<void>; resolve: () => void } {
-  let resolve!: () => void;
-  const promise = new Promise<void>((promiseResolve) => {
-    resolve = promiseResolve;
-  });
-  return { promise, resolve };
 }

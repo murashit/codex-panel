@@ -17,6 +17,7 @@ import type { RateLimitSnapshot } from "../../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../../src/domain/runtime/permissions";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { Thread } from "../../../src/domain/threads/model";
+import { deferred } from "../../support/async";
 
 describe("app-server query resources", () => {
   it("shares thread goal reads and scopes them by thread", async () => {
@@ -1335,19 +1336,6 @@ function thread(id: string, archived = false): Thread {
     updatedAt: 1,
     provenance: { kind: "interactive" as const },
   };
-}
-
-interface Deferred<T> {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-}
-
-function deferred<T>(): Deferred<T> {
-  let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
 }
 
 async function flushMicrotasks(): Promise<void> {
