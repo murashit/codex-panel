@@ -30,6 +30,7 @@ interface LatestHistoryDisplayOptions {
 
 interface ActiveThreadHistoryLoad {
   readonly threadId: string;
+  readonly stableItems: readonly ThreadStreamItem[];
 }
 
 export class HistoryController {
@@ -57,7 +58,7 @@ export class HistoryController {
       const response = await this.host.source.readHistoryPage(threadId, null, 20);
       if (!response) return;
       if (!this.isCurrent(load)) return;
-      this.applyLatestPage(threadId, response, options);
+      this.applyLatestPage(threadId, response, options, load.stableItems);
     } catch (error) {
       if (!this.isCurrent(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -66,13 +67,23 @@ export class HistoryController {
     }
   }
 
-  applyLatestPage(threadId: string, response: ThreadHistoryPage, options: LatestHistoryDisplayOptions = {}): boolean {
+  applyInitialPage(threadId: string, response: ThreadHistoryPage, options: LatestHistoryDisplayOptions = {}): boolean {
+    return this.applyLatestPage(threadId, response, options, options.displayItems ?? []);
+  }
+
+  private applyLatestPage(
+    threadId: string,
+    response: ThreadHistoryPage,
+    options: LatestHistoryDisplayOptions,
+    stableItems: readonly ThreadStreamItem[],
+  ): boolean {
     if (activeThreadId(this.state) !== threadId) return false;
-    this.host.setThreadTurnPresence(response.hadTurns);
+    if (response.hadTurns) this.host.setThreadTurnPresence(true);
     this.host.showLatestPageAtBottom();
     this.publishHistoryItems(
       options.displayItems ? reconcileForkDisplayItems(options.displayItems, response.items) : response.items,
       response.nextCursor,
+      stableItems,
     );
     return true;
   }
@@ -87,9 +98,11 @@ export class HistoryController {
       const response = await this.host.source.readHistoryPage(threadId, cursor, 20);
       if (!response) return;
       if (!this.isCurrent(load)) return;
-      const current = this.state;
-      const currentItems = threadStreamItems(chatThreadStreamViewState(current.threadStream, current.activeTurn));
-      this.publishHistoryItems(reconcileForkDisplayItems(currentItems, response.items, { missingTurns: "prepend" }), response.nextCursor);
+      this.publishHistoryItems(
+        reconcileForkDisplayItems(load.stableItems, response.items, { missingTurns: "prepend" }),
+        response.nextCursor,
+        load.stableItems,
+      );
     } catch (error) {
       if (!this.isCurrent(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -98,8 +111,16 @@ export class HistoryController {
     }
   }
 
-  private publishHistoryItems(items: readonly ThreadStreamItem[], historyCursor: string | null): void {
-    const liveItems = this.state.activeTurn.activeSegment?.items ?? [];
+  private publishHistoryItems(
+    items: readonly ThreadStreamItem[],
+    historyCursor: string | null,
+    stableItems: readonly ThreadStreamItem[],
+  ): void {
+    const state = this.state;
+    const baselineById = new Map(stableItems.map((item) => [item.id, item]));
+    const liveItems = threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)).filter(
+      (item) => baselineById.get(item.id) !== item,
+    );
     const liveById = new Map(liveItems.map((item) => [item.id, item]));
     // Hydration may settle after live notifications. Keep that content while admitting history-only items.
     const reconciled = reconcileForkDisplayItems(liveItems, items, { missingTurns: "prepend" });
@@ -113,7 +134,7 @@ export class HistoryController {
   }
 
   private startLoading(threadId: string): ActiveThreadHistoryLoad {
-    const load = { threadId };
+    const load = { threadId, stableItems: this.state.threadStream.stableItems };
     this.activeLoad = load;
     this.dispatch({ type: "thread-stream/history-loading-set", loading: true });
     return load;

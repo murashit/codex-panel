@@ -102,9 +102,9 @@ async function hydrateResumedThread(
     recoverResumedThreadTokenUsage(host, response.activation.thread.id, response.rolloutPath, resume, panelTarget);
     if (response.initialHistoryPage) {
       if (displaySnapshot) {
-        host.history.applyLatestPage(response.activation.thread.id, response.initialHistoryPage, { displayItems: displaySnapshot.items });
+        host.history.applyInitialPage(response.activation.thread.id, response.initialHistoryPage, { displayItems: displaySnapshot.items });
       } else {
-        host.history.applyLatestPage(response.activation.thread.id, response.initialHistoryPage);
+        host.history.applyInitialPage(response.activation.thread.id, response.initialHistoryPage);
       }
     } else {
       if (displaySnapshot) {

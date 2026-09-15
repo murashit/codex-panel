@@ -44,12 +44,12 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     .fn<ThreadResumeEffects["resumeThread"]>()
     .mockResolvedValue(response ? { kind: "completed", value: response } : { kind: "not-started" });
   const loadLatest = vi.fn().mockResolvedValue(undefined);
-  const applyLatestPage = vi.fn();
+  const applyInitialPage = vi.fn();
   const invalidateHistory = vi.fn();
   const host: ResumeCommandHost & { systemItem: (text: string) => ThreadStreamItem } = {
     stateStore,
     resumeWork: new ChatResumeWorkTracker(),
-    history: { loadLatest, applyLatestPage, invalidate: invalidateHistory } as unknown as HistoryController,
+    history: { loadLatest, applyInitialPage, invalidate: invalidateHistory } as unknown as HistoryController,
     closing: () => false,
     systemItem: (text: string) => ({ id: "system", kind: "system" as const, role: "system" as const, text }),
     resetThreadTurnPresence: vi.fn(),
@@ -63,7 +63,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
   return {
     commands: createResumeCommand(host),
     host,
-    applyLatestPage,
+    applyInitialPage,
     invalidateHistory,
     loadLatest,
     resumeThread,
@@ -94,12 +94,12 @@ describe("ResumeCommand", () => {
   it("hydrates resumed threads from the initial turns page when app-server returns one", async () => {
     const initialHistoryPage = historyPage([message("u1", "hello", "user")], "older");
     const response = activation("thread", { initialHistoryPage });
-    const { commands, applyLatestPage, loadLatest } = createActions(response);
+    const { commands, applyInitialPage, loadLatest } = createActions(response);
 
     const resumed = await commands.resumeThread("thread");
     await resumed?.hydrate();
 
-    expect(applyLatestPage).toHaveBeenCalledWith("thread", initialHistoryPage);
+    expect(applyInitialPage).toHaveBeenCalledWith("thread", initialHistoryPage);
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
