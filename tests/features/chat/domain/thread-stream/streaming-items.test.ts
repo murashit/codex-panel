@@ -36,8 +36,16 @@ describe("streaming item deltas", () => {
       sourceItemId: "plan",
       kind: "dialogue",
       dialogueKind: "proposedPlan",
-      text: "Work",
+      text: "<proposed_plan>\nWork\n</proposed_plan>",
     });
+  });
+
+  it("preserves plan text regardless of chunk boundaries", () => {
+    const text = "<proposed_plan>\n# Plan\n\n- First step\n- Second step\n</proposed_plan>";
+    for (let split = 1; split < text.length; split++) {
+      const first = appendPlanStreamingDelta(null, "plan", "turn", text.slice(0, split));
+      expect(appendPlanStreamingDelta(first, "plan", "turn", text.slice(split))).toMatchObject({ text, copyText: text });
+    }
   });
 
   it("does not reinterpret an existing source item with an incompatible kind", () => {

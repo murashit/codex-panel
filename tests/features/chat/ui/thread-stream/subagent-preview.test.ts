@@ -72,5 +72,11 @@ describe("subagent activity preview", () => {
 
     expect(subagentActivityPreview(assistant, "/vault")).toBe("Tests are passing.");
     expect(subagentActivityPreview(user, "/vault")).toBeNull();
+    expect(
+      subagentActivityPreview(
+        { ...assistant, dialogueKind: "proposedPlan", dialogueState: "streaming", text: "<proposed_plan>\nRead code\n</proposed_plan>" },
+        "/vault",
+      ),
+    ).toBe("Read code");
   });
 });

@@ -143,7 +143,7 @@ describe("ChatInboundHandler", () => {
       );
     });
 
-    it("streams plan deltas as plain assistant text until completion", () => {
+    it("preserves streamed plan text until completion", () => {
       const state = activeRunningState();
       const handler = handlerForState(state);
 
@@ -153,7 +153,14 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "item/plan/delta" }>);
 
       expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
-        { id: "p1", kind: "dialogue", dialogueKind: "proposedPlan", role: "assistant", text: "# Plan", dialogueState: "streaming" },
+        {
+          id: "p1",
+          kind: "dialogue",
+          dialogueKind: "proposedPlan",
+          role: "assistant",
+          text: "<proposed_plan>\n# Plan",
+          dialogueState: "streaming",
+        },
       ]);
     });
 

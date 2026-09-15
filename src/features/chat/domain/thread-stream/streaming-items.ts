@@ -1,4 +1,3 @@
-import { normalizeProposedPlanMarkdown } from "./format/proposed-plan";
 import { RUNNING_EXECUTION_STATE, type ThreadStreamItem, type ThreadStreamItemKind } from "./items";
 
 export function appendAssistantStreamingDelta(
@@ -31,7 +30,7 @@ export function appendPlanStreamingDelta(
   const matching = matchingSourceItem(current, itemId);
   if (matching) {
     if (matching.kind !== "dialogue" || matching.role !== "assistant") return matching;
-    const text = normalizeProposedPlanMarkdown(`${matching.text}${delta}`);
+    const text = `${matching.text}${delta}`;
     return {
       ...matching,
       dialogueKind: "proposedPlan",
@@ -41,7 +40,7 @@ export function appendPlanStreamingDelta(
       dialogueState: "streaming",
     };
   }
-  return streamedAssistantDialogueItem(itemId, turnId, normalizeProposedPlanMarkdown(delta), "proposedPlan");
+  return streamedAssistantDialogueItem(itemId, turnId, delta, "proposedPlan");
 }
 
 export function appendTextStreamingDelta(

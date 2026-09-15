@@ -342,7 +342,7 @@ describe("panel thread stream rendering and action menu", () => {
             id: "a1",
             kind: "dialogue",
             role: "assistant",
-            text: "**answer** [[Note]]",
+            text: "<proposed_plan>\n**answer** [[Note]]\n</proposed_plan>",
             turnId: "turn-1",
             dialogueKind: "proposedPlan",
             dialogueState: "streaming",

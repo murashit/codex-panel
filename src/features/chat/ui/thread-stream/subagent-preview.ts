@@ -1,3 +1,4 @@
+import { normalizeProposedPlanMarkdown } from "../../domain/thread-stream/format/proposed-plan";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { agentMessagePreview } from "./agent-message-preview";
 import { detailPreviewSummary } from "./detail-view";
@@ -8,7 +9,13 @@ export function subagentActivityPreview(item: ThreadStreamItem | null, workspace
   if (!item) return null;
   switch (item.kind) {
     case "dialogue":
-      return item.role === "assistant" ? previewText(item.text) : null;
+      return item.role === "assistant"
+        ? previewText(
+            item.dialogueKind === "proposedPlan" && item.dialogueState === "streaming"
+              ? normalizeProposedPlanMarkdown(item.text)
+              : item.text,
+          )
+        : null;
     case "reasoning":
       return previewText(stripStreamingLabel(item.text, "reasoning")) ?? "Reasoning";
     case "taskProgress":

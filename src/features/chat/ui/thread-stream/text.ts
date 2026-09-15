@@ -1,3 +1,4 @@
+import { normalizeProposedPlanMarkdown } from "../../domain/thread-stream/format/proposed-plan";
 import type { ThreadStreamItem, ThreadStreamNoticeSection, ThreadStreamUserInputQuestionResult } from "../../domain/thread-stream/items";
 import type { ThreadStreamItemAnnotations } from "./layout";
 import {
@@ -20,7 +21,10 @@ export function threadStreamTextView(
   options: { activeTurnId: string | null; actionTargets?: ThreadStreamTextActionTargets },
 ): ThreadStreamTextView {
   const renderMode = textRenderMode(item);
-  const body = item.text;
+  const body =
+    item.kind === "dialogue" && item.dialogueKind === "proposedPlan" && item.dialogueState === "streaming"
+      ? normalizeProposedPlanMarkdown(item.text)
+      : item.text;
   return {
     id: item.id,
     roleLabel: roleLabelForTextItem(item),
@@ -51,7 +55,9 @@ function roleLabelForTextItem(item: TextItem): string {
 function copyTextForTextItem(item: TextItem, activeTurnId: string | null): string | undefined {
   if (item.kind !== "dialogue" || item.copyText === undefined) return undefined;
   if (activeTurnId && item.role === "assistant" && item.turnId === activeTurnId) return undefined;
-  return item.copyText;
+  return item.dialogueKind === "proposedPlan" && item.dialogueState === "streaming"
+    ? normalizeProposedPlanMarkdown(item.copyText)
+    : item.copyText;
 }
 
 function textMetadataView(item: TextItem, annotations?: ThreadStreamItemAnnotations): ThreadStreamTextMetadataView {
