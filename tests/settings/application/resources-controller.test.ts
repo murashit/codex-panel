@@ -252,7 +252,7 @@ describe("SettingsResourcesController", () => {
     await restore;
   });
 
-  it("rejects a conflicting archived mutation while one is pending", async () => {
+  it("rejects a conflicting archived mutation while one is pending, including after reopening", async () => {
     const restoreResult = deferred<{ thread: ThreadRecord }>();
     const restoreRequest = vi.fn(() => restoreResult.promise);
     const deleteRequest = vi.fn().mockResolvedValue({});
@@ -269,6 +269,9 @@ describe("SettingsResourcesController", () => {
     });
 
     const restore = controller.restoreArchivedThread("thread-old");
+    await controller.deleteArchivedThread("thread-old");
+    controller.dispose();
+    controller.activate();
     const deletion = controller.deleteArchivedThread("thread-old");
     await flushPromises();
 
@@ -278,6 +281,7 @@ describe("SettingsResourcesController", () => {
 
     restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await Promise.all([restore, deletion]);
+    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("idle");
 
     expect(deleteRequest).not.toHaveBeenCalled();
     expect(settingsContextClientMock).toHaveBeenCalledOnce();

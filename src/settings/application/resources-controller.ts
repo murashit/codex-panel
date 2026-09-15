@@ -92,7 +92,6 @@ export class SettingsResourcesController {
   dispose(): void {
     this.lifetime.dispose();
     this.autoLoadStarted = false;
-    if (this.archivedThreadsOperation?.kind === "loading") this.archivedThreadsOperation = null;
     this.unsubscribe();
   }
 
@@ -218,7 +217,7 @@ export class SettingsResourcesController {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime) || this.archivedThreadsLifecycle().kind === "loading") return;
     const resources = this.resources;
-    const isCurrent = (): boolean => this.lifetime.isCurrent(lifetime) && this.resourcesAreCurrent(resources);
+    const isCurrent = (): boolean => this.resourcesAreCurrent(resources);
 
     this.archivedThreadsOperation = { kind: "loading" };
     this.callbacks.display();
@@ -229,9 +228,9 @@ export class SettingsResourcesController {
     } catch (error) {
       if (!isCurrent()) return;
       this.archivedThreadsOperation = { kind: "failed", error: options.failureError(error) };
-      this.callbacks.notify(options.failureNotice);
+      if (this.lifetime.isActive()) this.callbacks.notify(options.failureNotice);
     } finally {
-      if (isCurrent()) this.callbacks.display();
+      if (isCurrent() && this.lifetime.isActive()) this.callbacks.display();
     }
   }
 
