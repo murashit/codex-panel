@@ -1,4 +1,3 @@
-import json from "@eslint/json";
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import { PlainTextParser } from "eslint-plugin-obsidianmd/dist/lib/plainTextParser.js";
@@ -59,10 +58,12 @@ export default defineConfig([
   {
     files: ["manifest.json"],
     plugins: {
-      json,
       obsidianmd,
     },
-    language: "json/json",
+    languageOptions: {
+      // Obsidian's manifest rule expects this parser's JSON output.
+      parser: tseslint.parser,
+    },
     rules: {
       "obsidianmd/validate-manifest": "error",
     },
