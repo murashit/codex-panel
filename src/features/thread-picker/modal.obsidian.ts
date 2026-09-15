@@ -79,6 +79,7 @@ function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMod
 }
 
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
+  private closed = false;
   private readonly recentThreads: readonly Thread[];
   private completeThreadsPromise: Promise<readonly Thread[]> | null = null;
   private completeThreads: readonly Thread[] | null = null;
@@ -104,6 +105,7 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   }
 
   override onClose(): void {
+    this.closed = true;
     this.inputEl.removeEventListener("keydown", this.handleInputKeydown, THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS);
     super.onClose();
     this.onClosed();
@@ -118,12 +120,13 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
     this.emptyStateText = "Searching older Codex threads…";
     this.onNoSuggestion();
     try {
-      return threadPickerSuggestions(await this.loadCompleteThreadList(), query);
+      const threads = await this.loadCompleteThreadList();
+      return this.closed ? [] : threadPickerSuggestions(threads, query);
     } catch (error) {
-      new Notice(error instanceof Error ? error.message : String(error));
+      if (!this.closed) new Notice(error instanceof Error ? error.message : String(error));
       return [];
     } finally {
-      this.emptyStateText = "No matching Codex threads";
+      if (!this.closed) this.emptyStateText = "No matching Codex threads";
     }
   }
 

@@ -4,6 +4,7 @@ import { SuggestModal } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
 import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
+import { notices } from "../../mocks/obsidian";
 import { deferred } from "../../support/async";
 
 describe("threadPickerSuggestions", () => {
@@ -98,6 +99,20 @@ describe("threadOpenModeFromEvent", () => {
 });
 
 describe("thread picker lifecycle", () => {
+  it.each(["success", "failure"])("ignores search %s after the modal closes", async (outcome) => {
+    const pending = deferred<readonly Thread[]>();
+    const host = threadPickerHost([thread({ id: "recent" })]);
+    host.threadCatalog.fetchActiveThreadSearchInventory = () => pending.promise;
+    const { modal } = await openedThreadPickerSession(host);
+    const searching = modal.getSuggestions("needle");
+    modal.onClose();
+    const noticesBefore = [...notices];
+    if (outcome === "success") pending.resolve([thread({ id: "older", name: "Needle" })]);
+    else pending.reject(new Error("old search failed"));
+    await expect(searching).resolves.toEqual([]);
+    expect(notices).toEqual(noticesBefore);
+  });
+
   it("reports natural close only once", async () => {
     const onClosed = vi.fn();
     const { controller, modal } = await openedThreadPickerSession([thread({ id: "thread" })], onClosed);
