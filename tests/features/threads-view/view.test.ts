@@ -209,6 +209,32 @@ describe("CodexThreadsView", () => {
     expect(host.openThreadInAvailableView).not.toHaveBeenCalled();
   });
 
+  it.each(["thread", "new-panel"])("reports %s navigation failure only while the view is open", async (target) => {
+    currentClient = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+    });
+    const pending = deferred<void>();
+    const navigate = vi.fn().mockRejectedValueOnce(new Error("Could not open panel")).mockReturnValueOnce(pending.promise);
+    const host = threadsHost({
+      openThreadInAvailableView: navigate,
+      openNewPanel: navigate,
+    });
+    const view = await threadsView(host);
+    await view.refresh();
+    const selector = target === "thread" ? ".codex-panel-threads__row-main" : '[aria-label="Open new panel"]';
+    view.containerEl.querySelector<HTMLElement>(selector)?.click();
+    await waitForAsyncWork(() => {
+      expect(notices).toEqual(["Could not open panel"]);
+    });
+    view.containerEl.querySelector<HTMLElement>(selector)?.click();
+    await view.onClose();
+    pending.reject(new Error("Closed view navigation failed"));
+    await waitForAsyncWork(() => {
+      expect(navigate).toHaveBeenCalledTimes(2);
+    });
+    expect(notices).toEqual(["Could not open panel"]);
+  });
+
   it("refreshes threads from the threads view toolbar", async () => {
     const listThreads = vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] });
     currentClient = clientFixture({ "thread/list": listThreads });

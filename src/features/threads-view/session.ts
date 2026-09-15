@@ -222,11 +222,21 @@ export class ThreadsViewSession {
 
   private async openThread(threadId: string): Promise<void> {
     this.archiveConfirmThreadId = null;
-    await this.host.openThreadInAvailableView(threadId);
+    await this.navigate(() => this.host.openThreadInAvailableView(threadId));
   }
 
   private async openNewPanel(): Promise<void> {
-    await this.host.openNewPanel();
+    await this.navigate(() => this.host.openNewPanel());
+  }
+
+  private async navigate(operation: () => Promise<unknown>): Promise<void> {
+    const lifetime = this.lifetime.signal();
+    if (!this.lifetime.isCurrent(lifetime)) return;
+    try {
+      await operation();
+    } catch (error) {
+      if (this.lifetime.isCurrent(lifetime)) this.noticeError(error);
+    }
   }
 
   private startArchive(threadId: string): void {
