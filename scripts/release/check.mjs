@@ -62,9 +62,7 @@ if (notes !== undefined) {
   const changesHeading = normalizedNotes.match(/^## Changes\n\n/m);
   if (!changesHeading) {
     fail(`${notesPath} must contain "## Changes" followed by a blank line`);
-  }
-  const changesBody = normalizedNotes.slice((changesHeading.index ?? 0) + changesHeading[0].length);
-  if (!/^-\s+\S/m.test(changesBody)) {
+  } else if (!/^-\s+\S/m.test(normalizedNotes.slice(changesHeading.index + changesHeading[0].length))) {
     fail(`${notesPath} must contain at least one bullet under Changes`);
   }
   const headings = [...normalizedNotes.matchAll(/^##\s+(.+)$/gm)];
