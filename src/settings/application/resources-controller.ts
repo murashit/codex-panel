@@ -140,7 +140,8 @@ export class SettingsResourcesController {
   }
 
   async trustHook(hook: HookItem): Promise<void> {
-    await this.runHookOperation({
+    if (this.hooksLifecycle().kind === "loading") return;
+    await this.runOperation("hooksOperation", {
       failureError: (error) => `Could not trust hook: ${errorMessage(error)}`,
       failureNotice: "Could not trust Codex hook.",
       operation: (resources) => resources.queries.trustHook(hook),
@@ -148,7 +149,8 @@ export class SettingsResourcesController {
   }
 
   async setHookEnabled(hook: HookItem, enabled: boolean): Promise<void> {
-    await this.runHookOperation({
+    if (this.hooksLifecycle().kind === "loading") return;
+    await this.runOperation("hooksOperation", {
       failureError: (error) => `Could not update hook: ${errorMessage(error)}`,
       failureNotice: "Could not update Codex hook.",
       operation: (resources) => resources.queries.setHookEnabled(hook, enabled),
@@ -156,7 +158,8 @@ export class SettingsResourcesController {
   }
 
   async restoreArchivedThread(threadId: string): Promise<void> {
-    await this.runArchivedThreadOperation({
+    if (!this.lifetime.isActive() || this.archivedThreadsLifecycle().kind === "loading") return;
+    await this.runOperation("archivedThreadsOperation", {
       failureError: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not restore archived Codex thread.",
       operation: async (resources) => {
@@ -166,7 +169,8 @@ export class SettingsResourcesController {
   }
 
   async deleteArchivedThread(threadId: string): Promise<void> {
-    await this.runArchivedThreadOperation({
+    if (!this.lifetime.isActive() || this.archivedThreadsLifecycle().kind === "loading") return;
+    await this.runOperation("archivedThreadsOperation", {
       failureError: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not delete archived Codex thread.",
       operation: (resources) => resources.threadMutations.deleteThread(threadId),
@@ -186,51 +190,27 @@ export class SettingsResourcesController {
     return !effort || this.effortOptions(modelIdOrName).includes(effort);
   }
 
-  private async runHookOperation(options: {
-    failureError: (error: unknown) => string;
-    failureNotice: string;
-    operation: (resources: SettingsResources) => Promise<void>;
-  }): Promise<void> {
-    if (this.hooksLifecycle().kind === "loading") return;
+  private async runOperation(
+    stateKey: "hooksOperation" | "archivedThreadsOperation",
+    options: {
+      failureError: (error: unknown) => string;
+      failureNotice: string;
+      operation: (resources: SettingsResources) => Promise<void>;
+    },
+  ): Promise<void> {
     const resources = this.resources;
-    const isCurrent = (): boolean => this.resourcesAreCurrent(resources);
-    this.hooksOperation = { kind: "loading" };
+    this[stateKey] = { kind: "loading" };
     this.callbacks.display();
     try {
       await options.operation(resources);
-      if (!isCurrent()) return;
-      this.hooksOperation = null;
+      if (!this.resourcesAreCurrent(resources)) return;
+      this[stateKey] = null;
     } catch (error) {
-      if (!isCurrent()) return;
-      this.hooksOperation = { kind: "failed", error: options.failureError(error) };
+      if (!this.resourcesAreCurrent(resources)) return;
+      this[stateKey] = { kind: "failed", error: options.failureError(error) };
       if (this.lifetime.isActive()) this.callbacks.notify(options.failureNotice);
     } finally {
-      if (isCurrent() && this.lifetime.isActive()) this.callbacks.display();
-    }
-  }
-
-  private async runArchivedThreadOperation(options: {
-    failureError: (error: unknown) => string;
-    failureNotice: string;
-    operation: (resources: SettingsResources) => Promise<void>;
-  }): Promise<void> {
-    const lifetime = this.lifetime.signal();
-    if (!this.lifetime.isCurrent(lifetime) || this.archivedThreadsLifecycle().kind === "loading") return;
-    const resources = this.resources;
-    const isCurrent = (): boolean => this.resourcesAreCurrent(resources);
-
-    this.archivedThreadsOperation = { kind: "loading" };
-    this.callbacks.display();
-    try {
-      await options.operation(resources);
-      if (!isCurrent()) return;
-      this.archivedThreadsOperation = null;
-    } catch (error) {
-      if (!isCurrent()) return;
-      this.archivedThreadsOperation = { kind: "failed", error: options.failureError(error) };
-      if (this.lifetime.isActive()) this.callbacks.notify(options.failureNotice);
-    } finally {
-      if (isCurrent() && this.lifetime.isActive()) this.callbacks.display();
+      if (this.resourcesAreCurrent(resources) && this.lifetime.isActive()) this.callbacks.display();
     }
   }
 
