@@ -527,27 +527,13 @@ function McpElicitationFieldControl({
         </fieldset>
       );
     }
-    case "number":
-    case "integer":
-      return (
-        <input
-          id={controlId}
-          className="codex-panel__mcp-elicitation-input"
-          type="number"
-          step={field.type === "integer" ? "1" : "any"}
-          required={field.required}
-          value={current}
-          onInput={(event) => {
-            actions.setMcpElicitationDraft(field.draftKey, event.currentTarget.value);
-          }}
-        />
-      );
     default:
       return (
         <input
           id={controlId}
           className="codex-panel__mcp-elicitation-input"
-          type="text"
+          type={field.type === "number" || field.type === "integer" ? "number" : "text"}
+          step={field.type === "integer" ? "1" : field.type === "number" ? "any" : undefined}
           required={field.required}
           value={current}
           onInput={(event) => {

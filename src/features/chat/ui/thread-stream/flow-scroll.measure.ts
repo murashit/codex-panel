@@ -41,7 +41,6 @@ interface ThreadStreamFlowRuntime {
   container: HTMLElement | null;
   followingEnd: boolean;
   restoreFrame: number | null;
-  resizeObserver: ResizeObserver | null;
   cleanupContainer: (() => void) | null;
 }
 
@@ -126,7 +125,6 @@ function createThreadStreamFlowRuntime(): ThreadStreamFlowRuntime {
     container: null,
     followingEnd: false,
     restoreFrame: null,
-    resizeObserver: null,
     cleanupContainer: null,
   };
 }
@@ -169,12 +167,12 @@ function attachThreadStreamFlowContainer(runtime: ThreadStreamFlowRuntime, conta
     scheduleThreadStreamFlowEndRestore(runtime);
   };
   const win = container.ownerDocument.defaultView;
-  if (win?.ResizeObserver) {
-    runtime.resizeObserver = new win.ResizeObserver(() => {
-      if (runtime.followingEnd) scheduleThreadStreamFlowEndRestore(runtime);
-    });
-    runtime.resizeObserver.observe(container);
-  }
+  const resizeObserver = win?.ResizeObserver
+    ? new win.ResizeObserver(() => {
+        if (runtime.followingEnd) scheduleThreadStreamFlowEndRestore(runtime);
+      })
+    : null;
+  resizeObserver?.observe(container);
 
   runtime.restoreFrame = null;
   runtime.cleanupContainer = disposeDomListeners(
@@ -182,8 +180,7 @@ function attachThreadStreamFlowContainer(runtime: ThreadStreamFlowRuntime, conta
     listenDomEvent(container, THREAD_STREAM_CONTENT_RENDERED_EVENT, handleContentChange, true),
     listenDomEvent(container, "toggle", handleContentChange, true),
     () => {
-      runtime.resizeObserver?.disconnect();
-      runtime.resizeObserver = null;
+      resizeObserver?.disconnect();
     },
   );
 }
