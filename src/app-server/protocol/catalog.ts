@@ -33,8 +33,6 @@ export type CatalogHookMetadata = Pick<
     | Pick<Extract<HookMetadata, { handlerType: "prompt" | "agent" }>, "handlerType">
   );
 
-export type AppServerHookOperation = Pick<HookMetadata, "key" | "currentHash" | "trustStatus">;
-
 export function modelMetadataFromCatalogModels(models: readonly CatalogModel[]): ModelMetadata[] {
   return models.map((model) => ({
     id: model.id,
@@ -84,12 +82,4 @@ function hookHandlerSummary(hook: CatalogHookMetadata): string | null {
   if (hook.handlerType === "command") return hook.command;
   if (hook.handlerType !== "mcpTool") return null;
   return `${hook.server}/${hook.tool}`;
-}
-
-export function appServerHookOperationFromHookItem(hook: HookItem): AppServerHookOperation {
-  return {
-    key: hook.key,
-    currentHash: hook.currentHash,
-    trustStatus: hook.trustStatus,
-  };
 }

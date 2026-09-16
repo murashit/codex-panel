@@ -1,13 +1,7 @@
 import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
 import type { ClientRequestParams } from "../connection/rpc-messages";
-import {
-  type AppServerHookOperation,
-  appServerHookOperationFromHookItem,
-  hookItemsFromCatalogHooks,
-  modelMetadataFromCatalogModels,
-  skillMetadataFromCatalogSkills,
-} from "../protocol/catalog";
+import { hookItemsFromCatalogHooks, modelMetadataFromCatalogModels, skillMetadataFromCatalogSkills } from "../protocol/catalog";
 import { collectCursorPages } from "./cursor-pages";
 import type { AppServerRequestClient } from "./request-client";
 
@@ -59,23 +53,21 @@ export async function listHookCatalog(client: AppServerRequestClient, cwd: strin
 }
 
 export async function trustHookItem(client: AppServerRequestClient, hook: HookItem): Promise<void> {
-  const operation = appServerHookOperationFromHookItem(hook);
-  await writeHookState(client, operation.key, {
-    trusted_hash: operation.currentHash,
+  await writeHookState(client, hook.key, {
+    trusted_hash: hook.currentHash,
   });
 }
 
 export async function setHookItemEnabled(client: AppServerRequestClient, hook: HookItem, enabled: boolean): Promise<void> {
   if (hook.isManaged) throw new Error("Managed hooks cannot be enabled or disabled here.");
-  const operation = appServerHookOperationFromHookItem(hook);
-  if (operation.trustStatus !== "trusted") throw new Error("Trust the current hook definition before enabling it.");
-  await writeHookState(client, operation.key, { enabled });
+  if (hook.trustStatus !== "trusted") throw new Error("Trust the current hook definition before enabling it.");
+  await writeHookState(client, hook.key, { enabled });
 }
 
 type HookConfigState = Record<string, string | boolean | null>;
 type ConfigBatchWriteParams = ClientRequestParams<"config/batchWrite">;
 
-function writeHookState(client: AppServerRequestClient, key: AppServerHookOperation["key"], state: HookConfigState): Promise<unknown> {
+function writeHookState(client: AppServerRequestClient, key: HookItem["key"], state: HookConfigState): Promise<unknown> {
   const params: ConfigBatchWriteParams = {
     edits: [
       {
@@ -88,7 +80,5 @@ function writeHookState(client: AppServerRequestClient, key: AppServerHookOperat
     ],
     reloadUserConfig: true,
   };
-  return client.request("config/batchWrite", {
-    ...params,
-  });
+  return client.request("config/batchWrite", params);
 }

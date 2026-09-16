@@ -30,12 +30,8 @@ import {
   isApprovalServerRequest,
 } from "./approval-request-coordinator";
 import { type ChatInboundEffect, planChatInboundNotification } from "./notification-plan";
-import {
-  routeServerRequest,
-  serverRequestCurrentTimeResponse,
-  serverRequestMcpElicitationResponse,
-  serverRequestUserInputResponse,
-} from "./server-request-routing";
+import { appServerMcpElicitationResponse, appServerUserInputResponse } from "./server-request-adapter";
+import { routeServerRequest, serverRequestCurrentTimeResponse } from "./server-request-routing";
 
 export interface ChatInboundHandlerEffects {
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
@@ -286,7 +282,7 @@ function reconcileApprovalRequests(context: ChatInboundHandlerContext): void {
 function resolveUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId, answers: Record<string, string>): void {
   const input = pendingUserInput(context, requestId);
   if (!input) return;
-  if (!context.effects.respondToServerRequest(input.requestId, serverRequestUserInputResponse(input.params.questions, answers))) {
+  if (!context.effects.respondToServerRequest(input.requestId, appServerUserInputResponse(input.params.questions, answers))) {
     addSystemMessage(context, "Could not send user input because Codex app-server is not connected.");
     return;
   }
@@ -337,7 +333,7 @@ function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: Pe
   const elicitation = state(context).requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
   if (!elicitation) return;
   const content = action === "accept" ? contentForPendingMcpElicitation(elicitation, state(context).requests.mcpElicitationDrafts) : null;
-  if (!context.effects.respondToServerRequest(elicitation.requestId, serverRequestMcpElicitationResponse(action, content))) {
+  if (!context.effects.respondToServerRequest(elicitation.requestId, appServerMcpElicitationResponse(action, content))) {
     addSystemMessage(context, "Could not send MCP request response because Codex app-server is not connected.");
     return;
   }

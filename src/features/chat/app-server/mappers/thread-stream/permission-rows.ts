@@ -22,27 +22,54 @@ type AutoReviewFileSystemPath =
         | { kind: string };
     };
 
-export function autoReviewPermissionRows(permissions: AutoReviewPermissionProfile): ThreadStreamAuditFact[] {
+export function permissionRows(permissions: unknown): ThreadStreamAuditFact[] {
+  const profile = asRecordOrNull(permissions);
+  if (!profile) return [];
   const rows: ThreadStreamAuditFact[] = [];
-  const networkEnabled = permissions.network?.enabled;
+  const networkEnabled = asRecordOrNull(profile["network"])?.["enabled"];
   if (typeof networkEnabled === "boolean") {
     rows.push({ key: "network", value: networkEnabled ? "enabled" : "disabled" });
   }
 
-  const fileSystem = permissions.fileSystem;
+  const fileSystem = asRecordOrNull(profile["fileSystem"]);
   if (!fileSystem) return rows;
 
-  const entries = fileSystem.entries;
-  if (entries && entries.length > 0) {
+  const entries = fileSystem["entries"];
+  if (Array.isArray(entries) && entries.length > 0) {
     rows.push({
       key: "filesystem",
-      value: entries.map((entry) => `${fileSystemPathLabel(entry.path)} (${stringValue(entry.access, "unknown")})`).join("\n"),
+      value: entries
+        .map((entry) => {
+          const record = asRecordOrNull(entry);
+          return record ? `${fileSystemPathLabel(record["path"])} (${stringValue(record["access"], "unknown")})` : stringValue(entry);
+        })
+        .join("\n"),
     });
   }
-  addOptional(rows, "read", fileSystem.read);
-  addOptional(rows, "write", fileSystem.write);
-  addOptional(rows, "glob depth", fileSystem.globScanMaxDepth);
+  addOptional(rows, "read", fileSystem["read"]);
+  addOptional(rows, "write", fileSystem["write"]);
+  addOptional(rows, "glob depth", fileSystem["globScanMaxDepth"]);
   return rows;
+}
+
+function fileSystemPathLabel(path: unknown): string {
+  const record = asRecordOrNull(path);
+  if (!record) return stringValue(path, "unknown");
+  if (record["type"] === "path") return stringValue(record["path"], "unknown");
+  if (record["type"] === "glob_pattern") return stringValue(record["pattern"], "unknown");
+
+  const special = asRecordOrNull(record["value"]);
+  if (!special) return stringValue(path, "unknown");
+  if (special["kind"] === "project_roots") {
+    const subpath = nullableString(special["subpath"]);
+    return subpath ? `project_roots/${subpath}` : "project_roots";
+  }
+  if (special["kind"] === "unknown") {
+    const specialPath = nullableString(special["path"]) ?? "unknown";
+    const subpath = nullableString(special["subpath"]);
+    return subpath ? `${specialPath}/${subpath}` : specialPath;
+  }
+  return nonEmptyString(special["kind"]) ?? "unknown";
 }
 
 function addOptional(rows: ThreadStreamAuditFact[], key: string, value: unknown): void {
@@ -61,19 +88,14 @@ function stringValue(value: unknown, fallback = ""): string {
   return jsonPreview(value);
 }
 
-function fileSystemPathLabel(path: AutoReviewFileSystemPath): string {
-  if (path.type === "path") return path.path;
-  if (path.type === "glob_pattern") return path.pattern;
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
 
-  const special = path.value;
-  if (special.kind === "project_roots") {
-    const subpath = "subpath" in special ? special.subpath : null;
-    return subpath ? `project_roots/${subpath}` : "project_roots";
-  }
-  if (special.kind === "unknown") {
-    const specialPath = "path" in special ? special.path : "unknown";
-    const subpath = "subpath" in special ? special.subpath : null;
-    return subpath ? `${specialPath}/${subpath}` : specialPath;
-  }
-  return special.kind;
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function asRecordOrNull(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }

@@ -24,6 +24,7 @@ import {
   type TurnRecord,
   transcriptEntriesFromTurnRecords,
 } from "../protocol/turn";
+import { collectCursorPages } from "./cursor-pages";
 import type { AppServerRequestClient } from "./request-client";
 
 export type ThreadTurnSortDirection = "asc" | "desc";
@@ -161,29 +162,15 @@ export async function listThreads(
   cwd: string,
   options: { archived?: boolean; sectionId?: string | null; signal?: AbortSignal } = {},
 ): Promise<Thread[]> {
-  const archived = options.archived ?? false;
-  const threads: Thread[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-
-  for (;;) {
+  return collectCursorPages(async (cursor) => {
     options.signal?.throwIfAborted();
     const page = await readThreadPage(client, cwd, {
-      archived,
+      archived: options.archived ?? false,
       ...(options.sectionId === undefined ? {} : { sectionId: options.sectionId }),
       cursor,
     });
-    threads.push(...page.threads);
-
-    cursor = page.nextCursor;
-    if (!cursor) break;
-    if (seenCursors.has(cursor)) {
-      throw new Error("Codex app-server returned a repeated thread list cursor.");
-    }
-    seenCursors.add(cursor);
-  }
-
-  return threads;
+    return { data: page.threads, nextCursor: page.nextCursor };
+  }, "thread list");
 }
 
 export async function readThreadPage(
@@ -248,7 +235,7 @@ async function readCompletePaginatedThreadHistory(client: AppServerRequestClient
       if (!turn) throw new Error(`Codex app-server returned an archive item for unknown turn ${entry.turnId}.`);
       turn.items.push(entry.item);
     }
-    cursor = advancingArchiveCursor(cursor, page.nextCursor, seenCursors, "item");
+    cursor = advancingArchiveItemCursor(page.nextCursor, seenCursors);
     if (!cursor) break;
   }
   for (const turn of turns) turn.itemsView = "full";
@@ -256,10 +243,7 @@ async function readCompletePaginatedThreadHistory(client: AppServerRequestClient
 }
 
 async function readAllArchiveTurns(client: AppServerRequestClient, threadId: string): Promise<TurnRecord[]> {
-  const turns: TurnRecord[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-  for (;;) {
+  return collectCursorPages(async (cursor) => {
     const page = await client.request("thread/turns/list", {
       threadId,
       cursor,
@@ -267,15 +251,13 @@ async function readAllArchiveTurns(client: AppServerRequestClient, threadId: str
       sortDirection: "asc",
       itemsView: "notLoaded",
     });
-    turns.push(...page.data.map((turn) => ({ ...turn, items: [] })));
-    cursor = advancingArchiveCursor(cursor, page.nextCursor, seenCursors, "turn");
-    if (!cursor) return turns;
-  }
+    return { data: page.data.map((turn) => ({ ...turn, items: [] })), nextCursor: page.nextCursor };
+  }, "archive turn");
 }
 
-function advancingArchiveCursor(current: string | null, next: string | null, seen: Set<string>, kind: "item" | "turn"): string | null {
+function advancingArchiveItemCursor(next: string | null, seen: Set<string>): string | null {
   if (!next) return null;
-  if (next === current || seen.has(next)) throw new Error(`Codex app-server returned a repeated archive ${kind} cursor.`);
+  if (seen.has(next)) throw new Error("Codex app-server returned a repeated archive item cursor.");
   seen.add(next);
   return next;
 }

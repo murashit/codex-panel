@@ -1,6 +1,6 @@
 import type { RequestId, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { ApprovalAction } from "../../domain/pending-requests/model";
-import { serverRequestApprovalDecisionSignature, serverRequestApprovalResponse } from "./server-request-routing";
+import { appServerApprovalDecisionSignature, appServerApprovalResponse } from "./server-request-adapter";
 
 export type ApprovalServerRequest = Extract<
   ServerRequest,
@@ -178,7 +178,7 @@ function approvalCorrelation(request: ApprovalServerRequest): ApprovalCorrelatio
       request.method === "item/commandExecution/requestApproval" && typeof request.params.approvalId === "string"
         ? request.params.approvalId
         : null,
-    decisionSignature: serverRequestApprovalDecisionSignature(request),
+    decisionSignature: appServerApprovalDecisionSignature(request),
   };
 }
 
@@ -189,7 +189,7 @@ function unsettledDeliveries(group: ApprovalRequestGroup): ApprovalResponseDeliv
     .filter((endpoint) => !endpoint.settled)
     .map((endpoint) => ({
       requestId: endpoint.request.id,
-      response: serverRequestApprovalResponse(endpoint.request, decision),
+      response: appServerApprovalResponse(endpoint.request, decision),
     }));
 }
 

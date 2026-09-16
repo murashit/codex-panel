@@ -21,6 +21,7 @@ import type {
   PendingUserInput,
   PendingUserInputQuestion,
 } from "../../domain/pending-requests/model";
+import { permissionRows } from "../mappers/thread-stream/permission-rows";
 
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
 // Server-provided options are returned unchanged, including future strings and opaque amendments.
@@ -438,56 +439,6 @@ function networkApprovalContextLabel(value: unknown): string | null {
 function prefixedPermissionRows(prefix: string, permissions: unknown): ApprovalDetailRow[] {
   if (!permissions) return [];
   return permissionRows(permissions).map((row) => ({ ...row, key: `${prefix} ${row.key}` }));
-}
-
-function permissionRows(permissions: unknown): ApprovalDetailRow[] {
-  const profile = asRecordOrNull(permissions);
-  if (!profile) return [];
-  const rows: ApprovalDetailRow[] = [];
-  const networkEnabled = asRecordOrNull(profile["network"])?.["enabled"];
-  if (typeof networkEnabled === "boolean") {
-    rows.push({ key: "network", value: networkEnabled ? "enabled" : "disabled" });
-  }
-
-  const fileSystem = asRecordOrNull(profile["fileSystem"]);
-  if (!fileSystem) return rows;
-
-  const entries = fileSystem["entries"];
-  if (Array.isArray(entries) && entries.length > 0) {
-    rows.push({
-      key: "filesystem",
-      value: entries
-        .map((entry) => {
-          const record = asRecordOrNull(entry);
-          return record ? `${fileSystemPathLabel(record["path"])} (${stringValue(record["access"], "unknown")})` : stringValue(entry);
-        })
-        .join("\n"),
-    });
-  }
-  addOptional(rows, "read", fileSystem["read"]);
-  addOptional(rows, "write", fileSystem["write"]);
-  addOptional(rows, "glob depth", fileSystem["globScanMaxDepth"]);
-  return rows;
-}
-
-function fileSystemPathLabel(path: unknown): string {
-  const record = asRecordOrNull(path);
-  if (!record) return stringValue(path, "unknown");
-  if (record["type"] === "path") return stringValue(record["path"], "unknown");
-  if (record["type"] === "glob_pattern") return stringValue(record["pattern"], "unknown");
-
-  const special = asRecordOrNull(record["value"]);
-  if (!special) return stringValue(path, "unknown");
-  if (special["kind"] === "project_roots") {
-    const subpath = nullableString(special["subpath"]);
-    return subpath ? `project_roots/${subpath}` : "project_roots";
-  }
-  if (special["kind"] === "unknown") {
-    const specialPath = nullableString(special["path"]) ?? "unknown";
-    const subpath = nullableString(special["subpath"]);
-    return subpath ? `${specialPath}/${subpath}` : specialPath;
-  }
-  return nonEmptyString(special["kind"]) ?? "unknown";
 }
 
 function networkPolicyAmendmentsLabel(value: unknown): string | null {

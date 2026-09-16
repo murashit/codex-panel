@@ -1,7 +1,7 @@
 import { pathRelativeToRoot } from "../../../../../domain/vault/paths";
 import type { ExecutionState, ThreadStreamAuditFact, ThreadStreamItem } from "../../../domain/thread-stream/items";
 import { type ExecutionStateByStatus, executionStateFromStatus, RUNNING_EXECUTION_STATE } from "./execution-state";
-import { type AutoReviewPermissionProfile, autoReviewPermissionRows } from "./permission-rows";
+import { type AutoReviewPermissionProfile, permissionRows } from "./permission-rows";
 
 const AUTO_REVIEW_STATES: ExecutionStateByStatus = {
   inProgress: RUNNING_EXECUTION_STATE,
@@ -186,7 +186,7 @@ function autoReviewActionRows(action: AutoReviewAction): ThreadStreamAuditFact[]
   return [
     { key: "action", value: "request permissions" },
     ...(action.reason ? [{ key: "reason", value: action.reason }] : []),
-    ...autoReviewPermissionRows(action.permissions),
+    ...permissionRows(action.permissions),
   ];
 }
 

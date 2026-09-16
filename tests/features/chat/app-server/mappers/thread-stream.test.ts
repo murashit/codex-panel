@@ -3,7 +3,7 @@ import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protoco
 import { agentThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/agent-items";
 import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/thread-stream/execution-state";
 import { hookRunThreadStreamItem } from "../../../../../src/features/chat/app-server/mappers/thread-stream/hook-run-items";
-import { autoReviewPermissionRows } from "../../../../../src/features/chat/app-server/mappers/thread-stream/permission-rows";
+import { permissionRows } from "../../../../../src/features/chat/app-server/mappers/thread-stream/permission-rows";
 import {
   createAutoReviewResultItem,
   createReviewResultItem,
@@ -1165,7 +1165,7 @@ describe("turn item conversion preserves app-server semantics", () => {
 describe("auto-review permission detail rows", () => {
   it("formats app-server permission paths without exposing raw payloads", () => {
     expect(
-      autoReviewPermissionRows({
+      permissionRows({
         network: { enabled: true },
         fileSystem: {
           entries: [

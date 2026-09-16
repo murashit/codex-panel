@@ -1,13 +1,6 @@
 import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { CurrentTimeReadResponse } from "../../../../generated/app-server/v2/CurrentTimeReadResponse";
-import type {
-  ApprovalAction,
-  McpElicitationAction,
-  McpElicitationContentValue,
-  PendingApproval,
-  PendingMcpElicitation,
-  PendingUserInput,
-} from "../../domain/pending-requests/model";
+import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../domain/pending-requests/model";
 import {
   type ActiveRouteScope,
   type AppServerRouteScope,
@@ -15,20 +8,7 @@ import {
   isAppServerRouteScopeInActiveRouteScope,
   isTurnScopedAppServerRouteForIdlePanelTurn,
 } from "./route-scope";
-import {
-  appServerApprovalDecisionSignature,
-  appServerApprovalRequest,
-  appServerApprovalResponse,
-  appServerMcpElicitationRequest,
-  appServerMcpElicitationResponse,
-  appServerUserInputRequest,
-  appServerUserInputResponse,
-} from "./server-request-adapter";
-
-type ApprovalServerRequest = Extract<
-  ServerRequest,
-  { method: "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" | "item/permissions/requestApproval" }
->;
+import { appServerApprovalRequest, appServerMcpElicitationRequest, appServerUserInputRequest } from "./server-request-adapter";
 
 export type ServerRequestRoute =
   | { kind: "approval"; request: ServerRequest; approval: PendingApproval }
@@ -69,13 +49,9 @@ interface ServerRequestDescriptor {
 
 export function routeServerRequest(request: ServerRequest, scope: ActiveRouteScope): ServerRequestRoute {
   const routeScope = serverRequestScope(request);
-  if (!isServerRequest(request)) {
-    if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", request };
-    if (isTurnScopedAppServerRouteForIdlePanelTurn(routeScope, scope)) return { kind: "inactive", request };
-    return { kind: "unknown", request };
-  }
   if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", request };
   if (isTurnScopedAppServerRouteForIdlePanelTurn(routeScope, scope)) return { kind: "inactive", request };
+  if (!isServerRequest(request)) return { kind: "unknown", request };
 
   switch (serverRequestDescriptor(request).routeKind) {
     case "approval": {
@@ -100,25 +76,6 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
     case "unsupported":
       return { kind: "unsupported", request };
   }
-}
-
-export function serverRequestApprovalResponse(request: ApprovalServerRequest, action: ApprovalAction) {
-  return appServerApprovalResponse(request, action);
-}
-
-export function serverRequestApprovalDecisionSignature(request: ApprovalServerRequest): string {
-  return appServerApprovalDecisionSignature(request);
-}
-
-export function serverRequestUserInputResponse(questions: readonly { id: string }[], answers: Record<string, string>) {
-  return appServerUserInputResponse(questions, answers);
-}
-
-export function serverRequestMcpElicitationResponse(
-  action: McpElicitationAction,
-  content: Record<string, McpElicitationContentValue> | null,
-) {
-  return appServerMcpElicitationResponse(action, content);
 }
 
 export function serverRequestCurrentTimeResponse(currentTimeMs: number): CurrentTimeReadResponse {
