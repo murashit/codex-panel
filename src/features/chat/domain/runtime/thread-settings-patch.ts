@@ -11,16 +11,6 @@ import type { RuntimeSnapshot } from "./snapshot";
 
 type TurnCollaborationModeWarning = "missing-model";
 
-type TurnCollaborationModeSettings =
-  | {
-      collaborationMode: NonNullable<RuntimeSettingsPatch["collaborationMode"]>;
-      warning: null;
-    }
-  | {
-      collaborationMode: null;
-      warning: TurnCollaborationModeWarning;
-    };
-
 export interface PendingRuntimeSettingsPatch {
   update: RuntimeSettingsPatch;
   collaborationModeWarning: TurnCollaborationModeWarning | null;
@@ -47,23 +37,15 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
   applyRuntimeSettingsPatchValue(update, "permissions", pendingRuntimeRequestValue(pending.permissionProfile));
   applyRuntimeSettingsPatchValue(update, "approvalsReviewer", pendingRuntimeRequestValue(pending.approvalsReviewer));
   if (resolution.collaborationMode.dirty) {
-    const requestedMode = requestedTurnCollaborationModeSettings(resolution);
-    if (requestedMode.warning) {
-      return { update, collaborationModeWarning: requestedMode.warning };
-    }
-    applyRuntimeSettingsPatchValue(update, "collaborationMode", requestedMode.collaborationMode);
+    const model = resolution.model.effective;
+    if (!model) return { update, collaborationModeWarning: "missing-model" };
+    update.collaborationMode = runtimeCollaborationModeSettings(
+      resolution.collaborationMode.effective,
+      model,
+      resolution.reasoningEffort.effective,
+    );
   }
   return { update, collaborationModeWarning: null };
-}
-
-function requestedTurnCollaborationModeSettings(resolution: RuntimeControlsResolution): TurnCollaborationModeSettings {
-  const model = resolution.model.effective;
-  const effort = resolution.reasoningEffort.effective;
-  if (!model) return { collaborationMode: null, warning: "missing-model" };
-  return {
-    collaborationMode: runtimeCollaborationModeSettings(resolution.collaborationMode.effective, model, effort),
-    warning: null,
-  };
 }
 
 function pendingRuntimeRequestValue<T>(intent: PendingRuntimeIntent<T>): T | null | undefined {

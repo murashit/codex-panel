@@ -37,15 +37,6 @@ export interface GoalCommands {
   setObjectiveExpanded: (threadId: string, expanded: boolean) => void;
 }
 
-type GoalObjectiveSavePlan =
-  | { kind: "reject"; message: string }
-  | { kind: "save-existing"; threadId: string; objective: NormalizedGoalObjective; tokenBudget: number | null }
-  | { kind: "start-thread-and-save"; objective: NormalizedGoalObjective; tokenBudget: number | null };
-
-type NormalizedGoalObjective = string & { readonly __brand: "NormalizedGoalObjective" };
-
-const EMPTY_GOAL_OBJECTIVE_MESSAGE = "Goal objective cannot be empty.";
-
 export function createGoalCommands(host: GoalCommandsHost): GoalCommands {
   return {
     activeGoal: () => currentGoal(host),
@@ -70,8 +61,9 @@ export function createGoalCommands(host: GoalCommandsHost): GoalCommands {
       host.stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: expanded });
     },
     setObjective: (objective, tokenBudget, submission) => saveObjective(host, objective, tokenBudget, submission),
-    setStatus: (threadId, status) => runGoalMutation(host, threadId, () => setGoalStatus(host, threadId, status)),
-    clear: (threadId) => runGoalMutation(host, threadId, () => clearGoal(host, threadId)),
+    setStatus: (threadId, status) => runGoalMutation(host, threadId, () => setGoal(host, threadId, { status })),
+    clear: (threadId) =>
+      runGoalMutation(host, threadId, () => executeGoalEffect(host, threadId, () => host.effects.clearThreadGoal(threadId))),
     startEditingCurrent: () => {
       void startEditingCurrent(host);
     },
@@ -81,7 +73,7 @@ export function createGoalCommands(host: GoalCommandsHost): GoalCommands {
 async function setNormalizedObjective(
   host: GoalCommandsHost,
   threadId: string,
-  objective: NormalizedGoalObjective,
+  objective: string,
   tokenBudget: number | null,
 ): Promise<boolean> {
   const current = currentGoal(host);
@@ -101,25 +93,15 @@ async function saveObjective(
   const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   if (!(await prepareGoalMutation(host)) || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
   if (submission && !submission.isCurrent()) return false;
-  const plan = planGoalObjectiveSave(activeThreadId(host.stateStore.getState()), objective, tokenBudget);
-  switch (plan.kind) {
-    case "reject":
-      host.addSystemMessage(plan.message);
-      return false;
-    case "save-existing":
-      submission?.markAdopted();
-      return runGoalMutation(host, plan.threadId, () => setNormalizedObjective(host, plan.threadId, plan.objective, plan.tokenBudget));
-    case "start-thread-and-save":
-      return startThreadAndSaveObjective(host, plan, submission);
+  const normalized = objective.trim();
+  if (!normalized) {
+    host.addSystemMessage("Goal objective cannot be empty.");
+    return false;
   }
-}
-
-async function setGoalStatus(host: GoalCommandsHost, threadId: string, status: ThreadGoalStatus): Promise<boolean> {
-  return setGoal(host, threadId, { status });
-}
-
-function clearGoal(host: GoalCommandsHost, threadId: string): Promise<boolean> {
-  return executeGoalEffect(host, threadId, () => host.effects.clearThreadGoal(threadId));
+  const threadId = activeThreadId(host.stateStore.getState());
+  if (!threadId) return startThreadAndSaveObjective(host, normalized, tokenBudget, submission);
+  submission?.markAdopted();
+  return runGoalMutation(host, threadId, () => setNormalizedObjective(host, threadId, normalized, tokenBudget));
 }
 
 function setGoal(host: GoalCommandsHost, threadId: string, params: ThreadGoalUpdate): Promise<boolean> {
@@ -171,22 +153,10 @@ function goalMutationAllowedNow(host: GoalCommandsHost): boolean {
   return false;
 }
 
-function planGoalObjectiveSave(activeThreadId: string | null, objective: string, tokenBudget: number | null): GoalObjectiveSavePlan {
-  const normalized = normalizedGoalObjective(objective);
-  if (!normalized) return { kind: "reject", message: EMPTY_GOAL_OBJECTIVE_MESSAGE };
-  return activeThreadId
-    ? { kind: "save-existing", threadId: activeThreadId, objective: normalized, tokenBudget }
-    : { kind: "start-thread-and-save", objective: normalized, tokenBudget };
-}
-
-function normalizedGoalObjective(objective: string): NormalizedGoalObjective | null {
-  const trimmed = objective.trim();
-  return trimmed ? (trimmed as NormalizedGoalObjective) : null;
-}
-
 async function startThreadAndSaveObjective(
   host: GoalCommandsHost,
-  plan: Extract<GoalObjectiveSavePlan, { kind: "start-thread-and-save" }>,
+  objective: string,
+  tokenBudget: number | null,
   submission?: ComposerSubmissionAdoption,
 ): Promise<boolean> {
   const panelTarget = capturePanelTargetLease(host.stateStore.getState());
@@ -194,11 +164,9 @@ async function startThreadAndSaveObjective(
     if (!(await host.ensureConnected())) return false;
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) || !emptyPanelCanStartGoalThread(host)) return false;
     if (submission && !submission.isCurrent()) return false;
-    const outcome = await host.startThread(plan.objective, submission ? { adoptPanelTarget: submission.adoptPanelTarget } : undefined);
+    const outcome = await host.startThread(objective, submission ? { adoptPanelTarget: submission.adoptPanelTarget } : undefined);
     if (outcome.kind !== "created-activated") return false;
-    return await runGoalMutation(host, outcome.threadId, () =>
-      setNormalizedObjective(host, outcome.threadId, plan.objective, plan.tokenBudget),
-    );
+    return await runGoalMutation(host, outcome.threadId, () => setNormalizedObjective(host, outcome.threadId, objective, tokenBudget));
   } catch (error) {
     if (panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) host.addSystemMessage(errorMessage(error));
     return false;

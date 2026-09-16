@@ -197,6 +197,21 @@ describe("runtime thread settings patch", () => {
     });
   });
 
+  it("preserves other settings while warning that Plan mode has no effective model", () => {
+    const snapshot = runtimeSnapshot({
+      runtimeConfig: runtimeConfigFixture({}),
+      pending: {
+        collaborationMode: setCollaborationModeIntent("plan"),
+        approvalsReviewer: setRuntimeIntentValue("auto_review"),
+      },
+    });
+
+    expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toEqual({
+      update: { approvalsReviewer: "auto_review" },
+      collaborationModeWarning: "missing-model",
+    });
+  });
+
   it("uses the explicit config for collaboration mode thread settings", () => {
     const snapshot = runtimeSnapshot({
       pending: { collaborationMode: setCollaborationModeIntent("plan") },
