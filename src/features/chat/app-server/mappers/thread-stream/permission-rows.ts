@@ -1,4 +1,4 @@
-import { jsonPreview } from "../../../../../domain/display/json-preview";
+import { jsonPreview } from "../../../../../shared/ui/json-preview";
 import type { ThreadStreamAuditFact } from "../../../domain/thread-stream/items";
 
 export interface AutoReviewPermissionProfile {

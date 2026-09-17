@@ -1,4 +1,4 @@
-import { textareaCursorAtVisualBoundary } from "../../../../shared/dom/textarea-caret.measure";
+import { textareaCursorAtVisualBoundary } from "../../../../shared/ui/textarea-caret.measure";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
 import { syncComposerHeight } from "../../ui/composer/composer.dom";
 import type { ThreadStreamScrollCommand } from "../../ui/thread-stream/flow-scroll.measure";

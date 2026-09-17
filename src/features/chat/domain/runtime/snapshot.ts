@@ -1,6 +1,6 @@
-import type { ModelMetadata } from "../../../../domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import type { ModelMetadata } from "../../../../domain/runtime/catalog";
+import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
+import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { ActiveThreadRuntimeState, PendingRuntimeIntentState } from "./state";
 
 export interface RuntimeSnapshot {

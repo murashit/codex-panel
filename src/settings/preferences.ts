@@ -1,7 +1,7 @@
 import { DEFAULT_CODEX_PATH } from "../constants";
-import type { ReasoningEffort } from "../domain/catalog/metadata";
-import { normalizeReasoningEffort } from "../domain/catalog/metadata";
 import type { SendShortcut } from "../domain/input/send-shortcut";
+import type { ReasoningEffort } from "../domain/runtime/catalog";
+import { normalizeReasoningEffort } from "../domain/runtime/catalog";
 
 export interface CodexPanelSettings {
   codexPath: string;

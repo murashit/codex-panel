@@ -1,5 +1,4 @@
-import type { McpServerStatusSummary } from "../../domain/server/mcp-status";
-import type { ToolInventoryPlugin } from "../../domain/server/tool-inventory";
+import type { McpServerStatusSummary, ToolInventoryPlugin } from "../../domain/runtime/tool-inventory";
 import type { McpServerStatus } from "../../generated/app-server/v2/McpServerStatus";
 import type { PluginInstalledResponse } from "../../generated/app-server/v2/PluginInstalledResponse";
 import type { PluginMarketplaceEntry } from "../../generated/app-server/v2/PluginMarketplaceEntry";

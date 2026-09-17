@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
+import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/model";
 import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {

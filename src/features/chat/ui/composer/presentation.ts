@@ -1,6 +1,6 @@
-import type { ModelMetadata, ReasoningEffort } from "../../../../domain/catalog/metadata";
-import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
+import type { ModelMetadata, ReasoningEffort } from "../../../../domain/runtime/catalog";
+import { sortedModelMetadata } from "../../../../domain/runtime/catalog";
+import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
 import { type RuntimeControlsResolution, resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";

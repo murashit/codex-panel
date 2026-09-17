@@ -1,7 +1,7 @@
-import type { ModelMetadata } from "../../domain/catalog/metadata";
-import { cloneRuntimeConfigSnapshot } from "../../domain/runtime/config";
-import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
-import type { SharedServerMetadataResource } from "../../domain/server/metadata";
+import type { ModelMetadata } from "../../domain/runtime/catalog";
+import type { SharedServerMetadataResource } from "../../domain/runtime/metadata";
+import { cloneRuntimeConfigSnapshot } from "../../domain/runtime/settings";
+import type { RateLimitSnapshot } from "../../domain/runtime/usage";
 import type { Thread } from "../../domain/threads/model";
 
 export function cloneThreads(threads: readonly Thread[]): Thread[] {

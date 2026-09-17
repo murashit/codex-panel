@@ -1,7 +1,7 @@
 import { CLIENT_VERSION } from "../../../../constants";
-import type { DiagnosticProbeId, DiagnosticProbeResult, Diagnostics } from "../../../../domain/server/diagnostics";
-import { diagnosticProbeLabel, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
-import type { ServerInitialization } from "../../../../domain/server/initialization";
+import type { DiagnosticProbeId, DiagnosticProbeResult, Diagnostics } from "../../../../domain/runtime/diagnostics";
+import { diagnosticProbeLabel, serverIdentity, serverPlatform } from "../../../../domain/runtime/diagnostics";
+import type { ServerInitialization } from "../../../../domain/runtime/metadata";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../toolbar/model";
 
 const RUNTIME_CHECK_PROBE_IDS: readonly DiagnosticProbeId[] = ["models", "rateLimits"];

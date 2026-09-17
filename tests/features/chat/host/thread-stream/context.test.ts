@@ -19,7 +19,7 @@ import {
   projectThreadStream,
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread-stream/stream-blocks";
-import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { chatSharedResourcesFixture } from "../../support/shared-display-values";

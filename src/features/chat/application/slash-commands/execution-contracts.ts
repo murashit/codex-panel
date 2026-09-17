@@ -1,5 +1,5 @@
+import type { CodexInput } from "../../../../domain/input/input";
 import type { Thread } from "../../../../domain/threads/model";
-import type { CodexInput } from "../../../../domain/turns/input";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";

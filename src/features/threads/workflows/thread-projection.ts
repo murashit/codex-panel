@@ -1,4 +1,4 @@
-import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../../domain/threads/catalog-read-model";
+import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../../domain/threads/catalog";
 import { isThreadVisibleInCatalog, type Thread } from "../../../domain/threads/model";
 import type { ThreadFact } from "./thread-facts";
 

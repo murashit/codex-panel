@@ -1,5 +1,5 @@
 import type { Thread } from "../../../../domain/threads/model";
-import type { ThreadTitleContext } from "../../../../domain/threads/title-context";
+import type { ThreadTitleContext } from "../../../../domain/threads/title";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 
 export interface AutoTitleCoordinatorHost {

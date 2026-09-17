@@ -1,4 +1,4 @@
-import { truncate } from "../../../../../domain/display/text-preview";
+import { truncate } from "../../../../../domain/text/text";
 import type { ThreadGoal, ThreadGoalStatus } from "../../../../../domain/threads/goal";
 import type { GoalThreadStreamItem } from "../items";
 

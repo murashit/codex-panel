@@ -3,7 +3,7 @@
 import { type App, type EventRef, TFile } from "obsidian";
 import * as dailyNotesInterface from "obsidian-daily-notes-interface";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as selectionEmphasis from "../../../../../src/shared/obsidian/editor-selection-emphasis.obsidian";
+import * as selectionEmphasis from "../../../../../src/shared/ui/editor-selection-emphasis.obsidian";
 
 const selectionEmphasisMock = {
   release: vi.fn(),

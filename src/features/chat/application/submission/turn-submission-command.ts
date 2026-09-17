@@ -1,4 +1,4 @@
-import { type CodexInput, codexTextInput } from "../../../../domain/turns/input";
+import { type CodexInput, codexTextInput } from "../../../../domain/input/input";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
 import type { LocalIdSource } from "../local-id-source";

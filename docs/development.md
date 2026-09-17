@@ -71,6 +71,12 @@ Name modules by owned responsibility. Use lifecycle or boundary nouns only when 
 
 Prefer functions and factories. Reserve classes for mutable resource ownership, external class APIs, and `Error` types.
 
+## Shared Code Placement
+
+Keep feature-specific code with its feature. Use root `domain/` for shared values and rules, including the pure calculations they need, and `shared/` for reusable execution and UI support. Sharing a helper should not make either root depend on a feature's implementation.
+
+Within those roots, group modules into responsibility directories. Keep related types and helpers together; a category may contain one cohesive module. Choose the directory by the capability provided, and use `.obsidian`, `.dom`, or `.measure` suffixes for host and DOM boundaries so adapters can live beside the code they connect.
+
 ## Chat Source Layout
 
 Chat is organized by responsibility: `domain/` defines Panel-owned models and rules, `application/` owns state and workflows, `app-server/` adapts the protocol, `host/` connects application behavior to Obsidian and UI, and `ui/` renders supplied values and actions. UI must not import application, app-server, host, or Obsidian directly.

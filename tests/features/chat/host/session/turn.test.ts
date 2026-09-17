@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
+import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";

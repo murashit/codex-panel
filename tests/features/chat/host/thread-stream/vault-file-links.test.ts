@@ -1,7 +1,7 @@
 import { type App, TFile } from "obsidian";
 import { describe, expect, it } from "vitest";
 
-import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../../src/domain/vault/file-hrefs";
+import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../../src/domain/files/vault-links";
 import { vaultFileLinkTarget } from "../../../../../src/features/chat/host/thread-stream/vault-file-links.obsidian";
 
 describe("markdown file links", () => {

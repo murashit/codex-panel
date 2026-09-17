@@ -1,12 +1,13 @@
 import { QueryObserver } from "@tanstack/query-core";
-import { shortDiagnosticErrorMessage, upsertMcpServerDiagnostic } from "../../domain/server/diagnostics";
+import { shortDiagnosticErrorMessage, upsertMcpServerDiagnostic } from "../../domain/runtime/diagnostics";
 import {
+  cloneToolInventorySnapshot,
   type McpServerAuthenticationIssue,
   type McpServerDiagnostic,
   type McpServerStartupStatus,
   mcpConnectionStatusFromStartupStatus,
-} from "../../domain/server/mcp-status";
-import { cloneToolInventorySnapshot, type ToolInventorySnapshot } from "../../domain/server/tool-inventory";
+  type ToolInventorySnapshot,
+} from "../../domain/runtime/tool-inventory";
 import {
   type InstalledPluginInventory,
   type McpServerInventory,

@@ -1,4 +1,4 @@
-import { truncate } from "../../../../domain/display/text-preview";
+import { truncate } from "../../../../domain/text/text";
 
 export function agentMessagePreview(message: string | null, maxLength: number): string | null {
   if (!message) return null;

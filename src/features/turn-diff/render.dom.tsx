@@ -1,9 +1,9 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { shortThreadId } from "../../domain/threads/id";
-import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
+import { shortThreadId } from "../../domain/threads/model";
 import { UnifiedDiffView } from "../../shared/ui/diff-view";
 import { IconButton } from "../../shared/ui/icon.dom";
+import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import type { TurnDiffViewState } from "./model";
 
 export interface TurnDiffViewActions {

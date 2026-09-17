@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/metrics";
+import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/usage";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";

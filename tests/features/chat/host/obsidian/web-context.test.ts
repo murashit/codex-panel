@@ -2,7 +2,7 @@
 
 import * as obsidian from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
-import type { CodexInput } from "../../../../../src/domain/turns/input";
+import type { CodexInput } from "../../../../../src/domain/input/input";
 import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
 import { readWebUrl } from "../../../../../src/features/chat/host/obsidian/web-context.obsidian";
 import { deferred } from "../../../../support/async";

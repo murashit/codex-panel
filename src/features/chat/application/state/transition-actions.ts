@@ -1,16 +1,15 @@
-import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/runtime/catalog";
 import {
   type RuntimePermissionKnownState,
   type RuntimePermissionState,
   runtimePermissionStateOrDefault,
 } from "../../../../domain/runtime/permissions";
-import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
-import type { TurnOutcome } from "../../../../domain/runtime/turn-outcome";
-import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import type { Thread } from "../../../../domain/threads/model";
+import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/settings";
+import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
+import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import type { PendingTurnStart } from "../turns/turn-state";
 import type { ChatPendingSubmissionState } from "./pending-submission";

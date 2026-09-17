@@ -2,10 +2,10 @@ import type { Link, Nodes } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { toMarkdown } from "mdast-util-to-markdown";
 import { visit } from "unist-util-visit";
+import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "../../../domain/files/paths";
+import { parseFileHref } from "../../../domain/files/vault-links";
 import { threadDisplayTitle } from "../../../domain/threads/title";
 import type { ThreadTranscript, ThreadTranscriptEntry } from "../../../domain/threads/transcript";
-import { parseFileHref } from "../../../domain/vault/file-hrefs";
-import { isFilesystemAbsolutePath, isVaultConfigPath, vaultRelativePath } from "../../../domain/vault/paths";
 
 interface MarkdownSourceReplacement {
   start: number;

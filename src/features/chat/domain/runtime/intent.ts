@@ -1,4 +1,4 @@
-import type { ModeKind } from "../../../../domain/runtime/thread-settings";
+import type { ModeKind } from "../../../../domain/runtime/settings";
 
 export type CollaborationModeSelection = ModeKind;
 export type ActiveCollaborationMode = CollaborationModeSelection | null;

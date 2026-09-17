@@ -1,9 +1,9 @@
-import type { ModelMetadata, SkillMetadata } from "../../../../src/domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
-import type { RateLimitSnapshot } from "../../../../src/domain/runtime/metrics";
-import type { MetadataResourceDiagnostics } from "../../../../src/domain/server/diagnostics";
-import { createMetadataResourceDiagnostics } from "../../../../src/domain/server/diagnostics";
-import type { ToolInventorySnapshot } from "../../../../src/domain/server/tool-inventory";
+import type { ModelMetadata, SkillMetadata } from "../../../../src/domain/runtime/catalog";
+import type { MetadataResourceDiagnostics } from "../../../../src/domain/runtime/diagnostics";
+import { createMetadataResourceDiagnostics } from "../../../../src/domain/runtime/diagnostics";
+import type { RuntimeConfigSnapshot } from "../../../../src/domain/runtime/settings";
+import type { ToolInventorySnapshot } from "../../../../src/domain/runtime/tool-inventory";
+import type { RateLimitSnapshot } from "../../../../src/domain/runtime/usage";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ChatPanelComposerSharedValues } from "../../../../src/features/chat/host/composer/view-projection";
 import type { ChatPanelThreadStreamSharedValues } from "../../../../src/features/chat/host/thread-stream/view-projection";

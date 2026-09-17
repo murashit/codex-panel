@@ -1,5 +1,5 @@
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
+import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../toolbar/model";

@@ -1,14 +1,14 @@
 import { useLayoutEffect, useMemo, useReducer, useRef } from "preact/hooks";
-import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import type { RateLimitSnapshot } from "../../../../domain/runtime/metrics";
+import type { ModelMetadata, SkillMetadata } from "../../../../domain/runtime/catalog";
 import {
   createMetadataResourceDiagnostics,
   type DiagnosticProbeResult,
   type MetadataResourceDiagnostics,
-} from "../../../../domain/server/diagnostics";
-import type { SharedServerMetadataResourceFor, SharedServerMetadataResourceId } from "../../../../domain/server/metadata";
-import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+} from "../../../../domain/runtime/diagnostics";
+import type { SharedServerMetadataResourceFor, SharedServerMetadataResourceId } from "../../../../domain/runtime/metadata";
+import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
+import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
+import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ObservedPaginatedResult } from "../../../../shared/async/observed-result";

@@ -1,4 +1,4 @@
-import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
+import type { ModelMetadata, SkillMetadata } from "../../../../domain/runtime/catalog";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import type { Thread } from "../../../../domain/threads/model";
 import type { SlashCommandName } from "../slash-commands/catalog";

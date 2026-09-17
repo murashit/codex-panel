@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient, ClientResponseByMethod } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
-import type { CodexInput } from "../../../../src/domain/turns/input";
+import type { CodexInput } from "../../../../src/domain/input/input";
 import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
 import { deferred } from "../../../support/async";

@@ -6,14 +6,14 @@ import { modelMetadataFromCatalogModels } from "../../../../src/app-server/proto
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import { AppServerQueryScope } from "../../../../src/app-server/query/query-scope";
 import { AppServerThreadGoalQueries } from "../../../../src/app-server/query/thread-goal-queries";
-import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
-import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
+import type { ModelMetadata } from "../../../../src/domain/runtime/catalog";
+import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/runtime/diagnostics";
 import type {
   SharedServerMetadataResource,
   SharedServerMetadataResourceFor,
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
-} from "../../../../src/domain/server/metadata";
+} from "../../../../src/domain/runtime/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";

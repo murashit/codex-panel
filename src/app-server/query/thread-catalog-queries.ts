@@ -4,7 +4,7 @@ import {
   type InfiniteQueryObserverOptions,
   type InfiniteQueryObserverResult,
 } from "@tanstack/query-core";
-import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../domain/threads/catalog-read-model";
+import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../domain/threads/catalog";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResultListener } from "../../shared/async/observed-result";
 import { listPinnedThreads, listThreads, readThreadPage, type ThreadPage } from "../services/threads";

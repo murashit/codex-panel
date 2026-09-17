@@ -18,6 +18,7 @@ export default {
     "src/app-server/query/**/*.ts",
     "src/features/threads/workflows/**/*.ts",
     "src/shared/async/**/*.ts",
+    "src/shared/ui/json-preview.ts",
     // Shared write serialization and collision handling protect Vault contents.
     "src/shared/vault/**/*.ts",
     "src/settings/*.ts",

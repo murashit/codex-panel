@@ -1,7 +1,6 @@
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
-import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import type { Thread } from "../../../../domain/threads/model";
+import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
+import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
+import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import type { EffectOutcome } from "../effect-outcome";

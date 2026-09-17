@@ -7,7 +7,7 @@ import {
   type AppServerContextConnectionLeaseHandlers,
 } from "../../../src/app-server/connection/context-connection";
 import type { ServerNotification, ServerRequest } from "../../../src/app-server/connection/rpc-messages";
-import type { ServerInitialization } from "../../../src/domain/server/initialization";
+import type { ServerInitialization } from "../../../src/domain/runtime/metadata";
 import type { InitializeParams } from "../../../src/generated/app-server/InitializeParams";
 
 const INITIALIZE_PARAMS = {

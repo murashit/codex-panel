@@ -1,4 +1,4 @@
-import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
+import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/runtime/catalog";
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import { hookItemsFromCatalogHooks, modelMetadataFromCatalogModels, skillMetadataFromCatalogSkills } from "../protocol/catalog";

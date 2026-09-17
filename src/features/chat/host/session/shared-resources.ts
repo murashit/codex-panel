@@ -1,7 +1,7 @@
-import type { SkillMetadata } from "../../../../domain/catalog/metadata";
+import type { SkillMetadata } from "../../../../domain/runtime/catalog";
+import type { MetadataResourceDiagnostics } from "../../../../domain/runtime/diagnostics";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
-import type { MetadataResourceDiagnostics } from "../../../../domain/server/diagnostics";
-import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ChatRuntimeSharedResources } from "../../application/runtime/snapshot";
 import type { ChatPanelEnvironment } from "../contracts";

@@ -1,3 +1,7 @@
+import type { ReasoningEffort } from "../runtime/catalog";
+import type { RuntimePermissionKnownState, RuntimePermissionState } from "../runtime/permissions";
+import type { ApprovalsReviewer, ServiceTier } from "../runtime/settings";
+
 export interface Thread {
   readonly id: string;
   readonly preview: string;
@@ -42,4 +46,21 @@ export function threadRecencyAt(thread: Thread): number {
 
 export function compareThreadsPinnedFirst(left: Thread, right: Thread): number {
   return Number(right.isPinned === true) - Number(left.isPinned === true) || threadRecencyAt(right) - threadRecencyAt(left);
+}
+
+export function shortThreadId(threadId: string): string {
+  return threadId.slice(0, 8);
+}
+
+export interface ThreadActivationSnapshot extends RuntimePermissionState, RuntimePermissionKnownState {
+  thread: Thread;
+  /**
+   * Whether the activated app-server thread accepts direct turn input.
+   * `null` means the capability is unavailable, so panel mode policy decides.
+   */
+  canAcceptDirectInput: boolean | null;
+  model: string | null;
+  serviceTier: ServiceTier | null;
+  approvalsReviewer: ApprovalsReviewer | null;
+  reasoningEffort: ReasoningEffort | null;
 }

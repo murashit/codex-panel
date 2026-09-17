@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import type { CodexInput } from "../../../../../src/domain/input/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import type { CodexInput } from "../../../../../src/domain/turns/input";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import {
   executePanelSlashCommand,

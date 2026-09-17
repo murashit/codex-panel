@@ -1,8 +1,7 @@
 import { micromark } from "micromark";
 import { type App, type Component, MarkdownRenderer, Notice } from "obsidian";
-
-import { codexThreadIdFromHref } from "../../../../domain/threads/deep-link";
-import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../domain/vault/file-hrefs";
+import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../domain/files/vault-links";
+import { codexThreadIdFromHref } from "../../../../domain/threads/links";
 import { notifyThreadStreamContentRendered } from "../../ui/thread-stream/content-rendered-event.dom";
 import { vaultFileLinkTarget } from "./vault-file-links.obsidian";
 

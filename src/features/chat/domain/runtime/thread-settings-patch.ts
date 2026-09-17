@@ -1,10 +1,10 @@
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
+import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
 import {
   applyRuntimeSettingsPatchValue,
   type RuntimeServiceTierRequest,
   type RuntimeSettingsPatch,
   runtimeCollaborationModeSettings,
-} from "../../../../domain/runtime/thread-settings";
+} from "../../../../domain/runtime/settings";
 import type { PendingRuntimeIntent } from "./intent";
 import { type RuntimeControlsResolution, resolveRuntimeControls } from "./resolution";
 import type { RuntimeSnapshot } from "./snapshot";

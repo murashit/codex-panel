@@ -3,7 +3,7 @@
 import { h } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
+import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import { createThreadReferenceResolver } from "../../../../../src/features/chat/app-server/adapters/thread-reference-resolver";
 import type {
   ComposerAttachment,
@@ -27,7 +27,7 @@ import { createThreadStartCommand } from "../../../../../src/features/chat/appli
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
 import { createVaultComposerAttachmentHandler } from "../../../../../src/features/chat/host/obsidian/composer-attachments.obsidian";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer/composer";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { testFuzzyMatcher } from "../../application/composer/fuzzy-matcher.test-support";

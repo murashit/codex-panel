@@ -1,4 +1,4 @@
-import { markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../../../../domain/markdown/code-ranges";
+import { markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../markdown/code-ranges";
 
 interface UserMessageDisplayInputItem {
   type: string;

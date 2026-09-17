@@ -1,6 +1,6 @@
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
-import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
-import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../../src/domain/runtime/config";
+import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
+import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../../src/domain/runtime/settings";
 import { unchangedCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
 

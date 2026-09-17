@@ -1,6 +1,5 @@
-import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import type { Thread } from "../../../../domain/threads/model";
+import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
+import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
 import type { EffectOutcome } from "../effect-outcome";
 import { activeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";

@@ -1,13 +1,11 @@
-import { normalizeReasoningEffort } from "../../domain/catalog/metadata";
+import { normalizeReasoningEffort } from "../../domain/runtime/catalog";
 import { type RuntimePermissionState, runtimePermissionStateOrDefault } from "../../domain/runtime/permissions";
-import type { ApprovalsReviewer, ServiceTier } from "../../domain/runtime/policy";
-import { parseServiceTier } from "../../domain/runtime/policy";
-import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
-import type { ThreadActivationSnapshot } from "../../domain/threads/activation";
+import type { ApprovalsReviewer, RuntimeServiceTierRequest, RuntimeSettingsPatch, ServiceTier } from "../../domain/runtime/settings";
+import { parseServiceTier } from "../../domain/runtime/settings";
 import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
-import type { Thread } from "../../domain/threads/model";
-import { REFERENCED_THREAD_TURN_LIMIT, type ReferencedThreadTranscriptPage } from "../../domain/threads/reference";
+import type { Thread, ThreadActivationSnapshot } from "../../domain/threads/model";
 import type { ThreadTranscript, TurnTranscriptSummary } from "../../domain/threads/transcript";
+import { REFERENCED_THREAD_TURN_LIMIT, type ReferencedThreadTranscriptPage } from "../../domain/threads/transcript";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import {

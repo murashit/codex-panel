@@ -1,4 +1,4 @@
-import type { RateLimitSnapshot, RateLimitWindow, SpendControlLimitSnapshot } from "../../domain/runtime/metrics";
+import type { RateLimitSnapshot, RateLimitWindow, SpendControlLimitSnapshot } from "../../domain/runtime/usage";
 import type { GetAccountRateLimitsResponse } from "../../generated/app-server/v2/GetAccountRateLimitsResponse";
 import type { RateLimitSnapshot as AppServerRateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
 import type { RateLimitWindow as AppServerRateLimitWindow } from "../../generated/app-server/v2/RateLimitWindow";

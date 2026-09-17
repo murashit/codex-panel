@@ -3,8 +3,8 @@
 import { type ComponentChild, h } from "preact";
 import { describe, expect, it, vi } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
-import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
+import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
+import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/settings";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
@@ -33,7 +33,7 @@ import {
 } from "../../../../../src/features/chat/host/toolbar/view-projection";
 import { GoalPanel } from "../../../../../src/features/chat/ui/goal/goal";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 import {
   type ChatSharedDisplayValues,

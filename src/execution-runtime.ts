@@ -29,7 +29,7 @@ import type { ThreadsRuntimeView } from "./features/threads-view/view.obsidian";
 import type { SettingsResources } from "./settings/application/resources";
 import type { CodexPanelSettings } from "./settings/preferences";
 import { createKeyedOperationCoordinator } from "./shared/async/keyed-operation-coordinator";
-import { createObsidianVaultMarkdownDestination } from "./shared/obsidian/vault-write-destination.obsidian";
+import { createObsidianVaultMarkdownDestination } from "./shared/vault/write-destination.obsidian";
 
 export interface CodexExecutionRuntimeOptions {
   app: App;

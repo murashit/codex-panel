@@ -11,7 +11,7 @@ const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
 const cases = [
   policyCase(
     "preact named API versus local alias",
-    "src/shared/obsidian/root.obsidian.tsx",
+    "src/shared/ui/root.obsidian.tsx",
     'import { render as mount } from "preact";',
     'import { createContext as render, type ComponentChild } from "preact";',
   ),
@@ -34,7 +34,7 @@ const cases = [
     "src/features/chat/ui/escape.tsx",
     'const { render: mount } = await import("preact");',
     'import { render } from "preact";',
-    "src/shared/dom/preact-root.dom.tsx",
+    "src/shared/ui/preact-root.dom.tsx",
   ),
   policyCase(
     "no-preact-root-api-imports.grit",
@@ -56,7 +56,7 @@ const cases = [
   ),
   policyCase(
     "no-query-cache-imports.grit",
-    "src/shared/dom/preact-root.dom.tsx",
+    "src/shared/ui/preact-root.dom.tsx",
     'const query = await import("@tanstack/query-core");',
     'import type { ObservedResult } from "../async/observed-result";',
   ),
@@ -76,7 +76,7 @@ const cases = [
   policyCase(
     "no-chat-application-outer-layer-imports.grit",
     "src/features/chat/application/escape.ts",
-    'import { listenDomEvent } from "../../../shared/dom/events.dom";',
+    'import { listenDomEvent } from "../../../shared/ui/events.dom";',
     'import type { ObservedResult } from "../../../shared/async/observed-result";',
   ),
   policyCase(
@@ -84,6 +84,46 @@ const cases = [
     "src/domain/escape.ts",
     'import { useState } from "preact/hooks";',
     'import * as path from "node:path";',
+  ),
+  policyCase(
+    "domain rejects relative imports of shared implementations",
+    "src/domain/example/value.ts",
+    'import { OwnerLifetime } from "../../shared/async/owner-lifetime";',
+    'import * as path from "node:path";',
+  ),
+  policyCase(
+    "shared implementations remain independent of features",
+    "src/shared/example/adapter.obsidian.ts",
+    'import { featureOperation } from "../../features/example/operation";',
+    'import { normalizePath } from "obsidian";',
+  ),
+  policyCase(
+    "cross-directory DOM event imports require an explicit bridge",
+    "src/features/example/events.ts",
+    'import { listenDomEvent } from "../../shared/ui/events.dom";',
+    'import { listenDomEvent } from "../../shared/ui/events.dom";',
+    "src/features/example/events.dom.ts",
+  ),
+  policyCase(
+    "cross-directory Preact root imports require a root bridge",
+    "src/features/example/render.measure.ts",
+    'import { renderUiRoot } from "../../shared/ui/preact-root.dom";',
+    'import { renderUiRoot } from "../../shared/ui/preact-root.dom";',
+    "src/features/example/render.dom.ts",
+  ),
+  policyCase(
+    "same-directory DOM event imports require an explicit bridge",
+    "src/shared/ui/example.ts",
+    'import { listenDomEvent } from "./events.dom";',
+    'import { listenDomEvent } from "./events.dom";',
+    "src/shared/ui/example.dom.ts",
+  ),
+  policyCase(
+    "same-directory dynamic Preact root imports require a root bridge",
+    "src/shared/ui/example.measure.ts",
+    'const root = await import("./preact-root.dom");',
+    'const root = await import("./preact-root.dom");',
+    "src/shared/ui/example.obsidian.ts",
   ),
   policyCase(
     "no-external-app-server-query-imports.grit",

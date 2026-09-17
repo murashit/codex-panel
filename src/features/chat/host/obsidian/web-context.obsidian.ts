@@ -1,7 +1,7 @@
 import Defuddle from "defuddle";
 import { htmlToMarkdown, type RequestUrlResponse, requestUrl } from "obsidian";
 
-import { codexTextInputWithAttachments } from "../../../../domain/turns/input";
+import { codexTextInputWithAttachments } from "../../../../domain/input/input";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { PreparedInput } from "../../application/composer/prepared-input";
 import { normalizedHttpUrl } from "../../application/submission/web-submission";

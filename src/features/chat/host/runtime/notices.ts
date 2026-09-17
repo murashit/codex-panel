@@ -1,6 +1,6 @@
-import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/server/diagnostics";
-import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+import type { SkillMetadata } from "../../../../domain/runtime/catalog";
+import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/runtime/diagnostics";
+import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import { type ChatRuntimeSharedResources, runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";

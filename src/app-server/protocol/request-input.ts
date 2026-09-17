@@ -1,5 +1,5 @@
-import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../domain/turns/context-budget";
-import type { CodexInputItem } from "../../domain/turns/input";
+import type { CodexInputItem } from "../../domain/input/input";
+import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../domain/text/text";
 import type { AdditionalContextEntry as AppServerAdditionalContextEntry } from "../../generated/app-server/v2/AdditionalContextEntry";
 import type { TurnStartParams } from "../../generated/app-server/v2/TurnStartParams";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";

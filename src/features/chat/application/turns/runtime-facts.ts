@@ -1,6 +1,6 @@
-import type { TurnOutcome } from "../../../../domain/runtime/turn-outcome";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
+import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import type { AuthRecoveryProgress } from "./auth-recovery";
 

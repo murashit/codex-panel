@@ -1,7 +1,7 @@
 import { CLIENT_VERSION } from "../../../../constants";
-import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/server/diagnostics";
-import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
-import { copyTextWithNotice } from "../../../../shared/obsidian/clipboard.obsidian";
+import { type MetadataResourceDiagnostics, serverDiagnostics } from "../../../../domain/runtime/diagnostics";
+import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
+import { copyTextWithNotice } from "../../../../shared/ui/clipboard.obsidian";
 import type { ChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { activeThreadState, type ChatState } from "../../application/state/model";
 import type { ChatAction } from "../../application/state/reducer";

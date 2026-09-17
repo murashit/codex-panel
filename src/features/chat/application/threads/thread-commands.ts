@@ -1,6 +1,6 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
 import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
-import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
+import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/settings";
 import type { Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import type { EffectOutcome } from "../effect-outcome";

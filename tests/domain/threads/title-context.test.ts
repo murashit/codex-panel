@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { threadTitleContextFromTurnTranscriptSummary } from "../../../src/domain/threads/title-context";
+import { threadTitleContextFromTurnTranscriptSummary } from "../../../src/domain/threads/title";
 
 describe("thread title context", () => {
   it("builds title context from a turn transcript summary", () => {

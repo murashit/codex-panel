@@ -1,4 +1,4 @@
-import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { activeThreadRuntimeState, pendingRuntimeIntentState } from "../../domain/runtime/state";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";

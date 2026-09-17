@@ -1,21 +1,21 @@
 import { QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
-import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
-import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../domain/runtime/config";
-import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
-import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
+import type { HookCatalog, HookItem, ModelMetadata, SkillMetadata } from "../../domain/runtime/catalog";
 import {
   createMetadataResourceDiagnostics,
   type DiagnosticProbeResult,
   diagnosticProbeError,
   diagnosticProbeOk,
   type MetadataResourceDiagnostics,
-} from "../../domain/server/diagnostics";
+} from "../../domain/runtime/diagnostics";
 import type {
   SharedServerMetadataResource,
   SharedServerMetadataResourceFor,
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
-} from "../../domain/server/metadata";
+} from "../../domain/runtime/metadata";
+import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
+import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../domain/runtime/settings";
+import type { RateLimitSnapshot } from "../../domain/runtime/usage";
 import type { ObservedResultListener } from "../../shared/async/observed-result";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";

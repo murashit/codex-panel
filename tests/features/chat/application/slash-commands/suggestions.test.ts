@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ModelMetadata, ReasoningEffort } from "../../../../../src/domain/catalog/metadata";
+import type { ModelMetadata, ReasoningEffort } from "../../../../../src/domain/runtime/catalog";
 import type { RuntimePermissionProfileSummary } from "../../../../../src/domain/runtime/permissions";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { SlashCommandName } from "../../../../../src/features/chat/application/slash-commands/catalog";

@@ -1,13 +1,13 @@
-import type { ModelMetadata } from "../../../../domain/catalog/metadata";
+import type { ModelMetadata } from "../../../../domain/runtime/catalog";
 import {
   findModelMetadataByIdOrName,
   reasoningEffortDescriptionForModelMetadata,
   sortedModelMetadata,
   supportedEffortsForModelMetadata,
-} from "../../../../domain/catalog/metadata";
+} from "../../../../domain/runtime/catalog";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
-import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
+import { shortThreadId } from "../../../../domain/threads/model";
 import { compareThreadSearchMatches, threadSearchMatches } from "../../../../domain/threads/search";
 import { threadCommandDisplayTitle } from "../../../../domain/threads/title";
 import type { ComposerSuggestion } from "../composer/suggestion";

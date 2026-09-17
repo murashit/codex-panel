@@ -1,7 +1,7 @@
 import type { App } from "obsidian";
 import { Component, getAllTags, stripHeadingForLink, TFile } from "obsidian";
 
-import type { VaultFileReference } from "../../../../domain/turns/input";
+import type { VaultFileReference } from "../../../../domain/input/input";
 import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
 import { configuredDailyNoteReferences } from "./vault-daily-note-references.obsidian";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";

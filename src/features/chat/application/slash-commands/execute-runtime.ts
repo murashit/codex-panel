@@ -1,5 +1,5 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import { normalizeReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
+import { normalizeReasoningEffort } from "../../../../domain/runtime/catalog";
 import { modelOverrideMessage, permissionProfileOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import { slashCommandDefinition, slashCommandHelpSections } from "./catalog";
 import type { SlashCommandExecutionContext, SlashCommandExecutionResult } from "./execution-contracts";

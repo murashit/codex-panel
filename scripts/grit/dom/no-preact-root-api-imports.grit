@@ -21,5 +21,5 @@ or {
     JsImportCallExpression()
   } as $stmt where { $stmt <: contains `$source` where { $source <: r"^[\"']preact/compat/client[\"']$" } }
 } where {
-  register_diagnostic(span=$stmt, message="Mount and unmount Preact only through shared/dom/preact-root.dom so external Obsidian container cleanup disposes the root. Elsewhere, use named component and hook imports.", severity="error")
+  register_diagnostic(span=$stmt, message="Mount and unmount Preact only through shared/ui/preact-root.dom so external Obsidian container cleanup disposes the root. Elsewhere, use named component and hook imports.", severity="error")
 }

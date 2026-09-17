@@ -1,5 +1,5 @@
 import type { EditorPosition } from "obsidian";
-import type { ReasoningEffort } from "../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../domain/runtime/catalog";
 
 export type SelectionRewriteInstructionHistoryDirection = -1 | 1;
 

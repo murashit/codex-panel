@@ -1,9 +1,9 @@
-import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import type { RateLimitSnapshot } from "../../../../domain/runtime/metrics";
-import type { MetadataResourceDiagnostics } from "../../../../domain/server/diagnostics";
-import { serverDiagnostics } from "../../../../domain/server/diagnostics";
-import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+import type { ModelMetadata, SkillMetadata } from "../../../../domain/runtime/catalog";
+import type { MetadataResourceDiagnostics } from "../../../../domain/runtime/diagnostics";
+import { serverDiagnostics } from "../../../../domain/runtime/diagnostics";
+import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
+import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
+import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
 import type { Thread } from "../../../../domain/threads/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";

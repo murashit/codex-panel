@@ -1,5 +1,6 @@
-import { shortThreadId } from "./id";
-import { normalizeExplicitThreadName, type Thread } from "./model";
+import { truncate } from "../text/text";
+import { normalizeExplicitThreadName, shortThreadId, type Thread } from "./model";
+import type { TurnTranscriptSummary } from "./transcript";
 
 const MAX_THREAD_COMMAND_DISPLAY_TITLE_LENGTH = 96;
 const UNTITLED_THREAD_TITLE = "Untitled thread";
@@ -43,3 +44,30 @@ function truncateThreadDisplayTitle(title: string, maxLength: number): string {
     .join("")
     .trimEnd()}...`;
 }
+
+const THREAD_TITLE_CONTEXT_MAX_CHARS = 4_000;
+
+export interface ThreadTitleContext {
+  userRequest: string;
+  assistantResponse: string;
+}
+
+export function threadTitleContextFromTurnTranscriptSummary(summary: TurnTranscriptSummary): ThreadTitleContext | null {
+  if (!summary.userText || !summary.assistantText) return null;
+
+  return {
+    userRequest: threadTitleContextPromptText(summary.userText),
+    assistantResponse: threadTitleContextPromptText(summary.assistantText),
+  };
+}
+
+export function threadTitleContextPromptText(text: string): string {
+  return truncate(text.replace(/\s+/g, " ").trim(), THREAD_TITLE_CONTEXT_MAX_CHARS);
+}
+
+type ThreadRenameAutoNameState = { kind: "checking" } | { kind: "unavailable" } | { kind: "ready"; context: ThreadTitleContext };
+
+export type ThreadRenameActiveState =
+  | { kind: "editing"; draft: string; autoName: ThreadRenameAutoNameState }
+  | { kind: "saving"; draft: string; autoName: ThreadRenameAutoNameState }
+  | { kind: "generating"; draft: string; autoName: Extract<ThreadRenameAutoNameState, { kind: "ready" }> };

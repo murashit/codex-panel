@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-
-import { renderUiRoot } from "../../../src/shared/dom/preact-root.dom";
 import { IconButton, IconRendererProvider, ToolbarIconAction } from "../../../src/shared/ui/icon.dom";
+import { renderUiRoot } from "../../../src/shared/ui/preact-root.dom";
 
 describe("UI icons", () => {
   it("delegates host rendering while preserving button content", () => {

@@ -1,4 +1,4 @@
-import type { ServerInitialization } from "../../domain/server/initialization";
+import type { ServerInitialization } from "../../domain/runtime/metadata";
 import type { InitializeParams } from "../../generated/app-server/InitializeParams";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";

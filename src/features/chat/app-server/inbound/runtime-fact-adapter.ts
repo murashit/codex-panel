@@ -1,7 +1,7 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
-import type { TurnOutcome } from "../../../../domain/runtime/turn-outcome";
 import { authRecoveryProgress } from "../../application/turns/auth-recovery";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
+import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { STREAMED_COMMAND_RUNNING_TEXT, STREAMED_MCP_PROGRESS_LABEL } from "../../domain/thread-stream/streaming-items";
 import { type AppServerFileChange, normalizeFileChanges, streamingFileChangeThreadStreamItem } from "../mappers/thread-stream/file-changes";

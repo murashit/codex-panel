@@ -1,4 +1,4 @@
-import type { ThreadRenameActiveState } from "../../../../domain/threads/rename-lifecycle";
+import type { ThreadRenameActiveState } from "../../../../domain/threads/title";
 import { pendingRequestDerivedKeyPrefix } from "../../domain/pending-requests/drafts";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import { patchObject } from "./patch";

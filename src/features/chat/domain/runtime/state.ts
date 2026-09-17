@@ -1,4 +1,4 @@
-import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/runtime/catalog";
 import {
   initialRuntimePermissionKnownState,
   initialRuntimePermissionState,
@@ -6,8 +6,8 @@ import {
   type RuntimePermissionKnownState,
   type RuntimePermissionState,
 } from "../../../../domain/runtime/permissions";
-import { type ApprovalsReviewer, parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
-import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
+import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
+import { type ApprovalsReviewer, parseServiceTier, type ServiceTier } from "../../../../domain/runtime/settings";
 import {
   type ActiveCollaborationMode,
   type CollaborationModeIntent,

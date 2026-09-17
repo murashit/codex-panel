@@ -1,6 +1,6 @@
-import { turnOutcomeLabel } from "../../../../domain/runtime/turn-outcome";
 import { unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
 import { initialActiveChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
+import { turnOutcomeLabel } from "../../domain/runtime/turn-outcome";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
 import { STATUS_TURN_RUNNING, transitionChatTurnLifecycleState } from "../turns/turn-state";
 import { initialComposerState } from "./composer";

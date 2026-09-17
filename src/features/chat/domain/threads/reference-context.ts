@@ -1,6 +1,6 @@
+import { truncateUtf8, utf8ByteLength } from "../../../../domain/text/text";
 import type { Thread } from "../../../../domain/threads/model";
-import type { ReferencedThreadTranscriptPage, ReferencedThreadTurn } from "../../../../domain/threads/reference";
-import { truncateUtf8, utf8ByteLength } from "../../../../domain/turns/context-budget";
+import type { ReferencedThreadTranscriptPage, ReferencedThreadTurn } from "../../../../domain/threads/transcript";
 
 const REFERENCED_THREAD_CONTEXT_MAX_BYTES = 18_000;
 const REFERENCED_TURN_MESSAGE_LIMIT = 128;

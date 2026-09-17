@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
-import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../domain/catalog/metadata";
+import type { ModelMetadata, ReasoningEffort } from "../../domain/runtime/catalog";
+import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../domain/runtime/catalog";
 import { ObsidianDropdown } from "./controls.obsidian";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";

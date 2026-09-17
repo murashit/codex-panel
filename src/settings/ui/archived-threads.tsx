@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
-import { shortThreadId } from "../../domain/threads/id";
 import type { Thread } from "../../domain/threads/model";
+import { shortThreadId } from "../../domain/threads/model";
 import { threadCommandDisplayTitle } from "../../domain/threads/title";
 import { ObsidianExtraButton } from "./controls.obsidian";
 import { SettingRow, SettingsItems, SettingsStatusRow } from "./layout";

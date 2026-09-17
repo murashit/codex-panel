@@ -1,4 +1,4 @@
-import { pathRelativeToRoot } from "../../../../domain/vault/paths";
+import { pathRelativeToRoot } from "../../../../domain/files/paths";
 import { lastTurnOutcomeItemsByTurn, threadStreamUserRoles } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamIsAutoReviewDecision } from "../../domain/thread-stream/review-items";

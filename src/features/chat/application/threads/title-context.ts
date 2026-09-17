@@ -1,4 +1,4 @@
-import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title-context";
+import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title";
 import { lastTurnOutcomeItemsByTurn } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 

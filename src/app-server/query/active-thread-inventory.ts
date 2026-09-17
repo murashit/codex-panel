@@ -1,5 +1,5 @@
 import type { InfiniteData } from "@tanstack/query-core";
-import { type ThreadCatalogChange, threadCatalogEntryEqual, threadCatalogUpdateEqual } from "../../domain/threads/catalog-read-model";
+import { type ThreadCatalogChange, threadCatalogEntryEqual, threadCatalogUpdateEqual } from "../../domain/threads/catalog";
 import { compareThreadsPinnedFirst, isThreadVisibleInCatalog, type Thread } from "../../domain/threads/model";
 import type { ThreadPage } from "../services/threads";
 

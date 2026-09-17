@@ -1,4 +1,4 @@
-import type { ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { ReconnectPanelOptions } from "../../application/connection/reconnect-command";

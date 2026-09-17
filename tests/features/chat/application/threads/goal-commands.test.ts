@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
+import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/model";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { activeThreadId } from "../../../../../src/features/chat/application/state/model";

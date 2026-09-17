@@ -1,6 +1,6 @@
-import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import type { ServerInitialization } from "../../../../domain/server/initialization";
+import type { ServerInitialization } from "../../../../domain/runtime/metadata";
+import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
+import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import { type ChatRuntimeState, commitAppliedRuntimeSettingsPatchState, type PendingRuntimeIntentState } from "../../domain/runtime/state";
 import { isRequestAction, type RequestAction, reduceRequestSlice } from "../pending-requests/state";
 import { type ComposerAction, reduceComposerSlice } from "./composer";

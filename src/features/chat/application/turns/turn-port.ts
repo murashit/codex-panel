@@ -1,4 +1,4 @@
-import type { CodexInput } from "../../../../domain/turns/input";
+import type { CodexInput } from "../../../../domain/input/input";
 import type { EffectOutcome } from "../effect-outcome";
 
 interface ChatTurnStartRequest {

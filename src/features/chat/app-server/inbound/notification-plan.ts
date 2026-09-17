@@ -1,6 +1,6 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
-import type { ThreadTokenUsage, TokenUsageBreakdown } from "../../../../domain/runtime/metrics";
+import type { ThreadTokenUsage, TokenUsageBreakdown } from "../../../../domain/runtime/usage";
 import type { ThreadTokenUsage as AppServerThreadTokenUsage } from "../../../../generated/app-server/v2/ThreadTokenUsage";
 import { activeThreadId, activeThreadState, type ChatState } from "../../application/state/model";
 import type { ChatAction } from "../../application/state/reducer";

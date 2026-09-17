@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
+import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
 import { activeComposerSuggestions as activeComposerSuggestionsWithMatcher } from "../../../../../src/features/chat/application/composer/suggestions";
 import {

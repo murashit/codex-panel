@@ -1,5 +1,5 @@
-import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { ServerInitialization } from "../../../../domain/server/initialization";
+import type { ServerInitialization } from "../../../../domain/runtime/metadata";
+import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { initialChatRuntimeState } from "../../domain/runtime/state";

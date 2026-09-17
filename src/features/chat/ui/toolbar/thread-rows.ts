@@ -1,5 +1,5 @@
 import { compareThreadsPinnedFirst, type Thread } from "../../../../domain/threads/model";
-import type { ThreadRenameActiveState } from "../../../../domain/threads/rename-lifecycle";
+import type { ThreadRenameActiveState } from "../../../../domain/threads/title";
 import { threadRowCoreProjection } from "../../../threads/list/row-projection";
 import type { ToolbarThreadRow } from "./model";
 

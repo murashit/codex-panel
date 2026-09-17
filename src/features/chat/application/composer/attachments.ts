@@ -1,4 +1,4 @@
-import { type CodexInput, type CodexInputItem, codexTextInputWithAttachments } from "../../../../domain/turns/input";
+import { type CodexInput, type CodexInputItem, codexTextInputWithAttachments } from "../../../../domain/input/input";
 
 type ComposerAttachmentKind = "image" | "file";
 

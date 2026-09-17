@@ -1,9 +1,6 @@
 import type { App, EditorPosition } from "obsidian";
 import { Component, MarkdownView, TFile } from "obsidian";
-import {
-  type EditorSelectionEmphasis,
-  retainEditorSelectionEmphasis,
-} from "../../../../shared/obsidian/editor-selection-emphasis.obsidian";
+import { type EditorSelectionEmphasis, retainEditorSelectionEmphasis } from "../../../../shared/ui/editor-selection-emphasis.obsidian";
 import type {
   ComposerContextRange,
   ComposerContextReferenceProvider,

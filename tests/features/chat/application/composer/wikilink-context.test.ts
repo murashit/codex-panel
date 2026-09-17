@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-
-import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
-import type { CodexInput } from "../../../../../src/domain/turns/input";
+import type { CodexInput } from "../../../../../src/domain/input/input";
+import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
 import {
   preparedUserInputWithWikiLinkReferencesSkillsAndContext,

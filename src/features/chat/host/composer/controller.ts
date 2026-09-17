@@ -1,7 +1,7 @@
-import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import { isComposerSendKey, type SendShortcut } from "../../../../domain/input/send-shortcut";
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
+import type { SkillMetadata } from "../../../../domain/runtime/catalog";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
+import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import type { Thread } from "../../../../domain/threads/model";
 import {
   type ComposerAttachment,
@@ -36,7 +36,6 @@ import { type ComposerSubmissionClaim, SubmissionInput } from "../../application
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer/composer";
 import { syncComposerHeight } from "../../ui/composer/composer.dom";
-import type { ChatPanelComposerModel } from "../composer/view-projection";
 import { ComposerAttachmentTransfers } from "./attachment-transfers";
 import {
   applyComposerInsertionToElement,
@@ -53,6 +52,7 @@ import {
   focusComposer,
   nextComposerSuggestionIndex,
 } from "./element.dom";
+import type { ChatPanelComposerModel } from "./view-projection";
 import { type ChatPanelComposerRuntimeActions, projectChatPanelComposer } from "./view-projection";
 
 interface ChatComposerControllerOptions {

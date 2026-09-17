@@ -1,7 +1,11 @@
-import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import type { DiagnosticProbeResult } from "../../../../domain/server/diagnostics";
-import type { McpServerDiagnostic, McpServerStatusSummary } from "../../../../domain/server/mcp-status";
-import type { ToolInventoryPlugin, ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+import type { SkillMetadata } from "../../../../domain/runtime/catalog";
+import type { DiagnosticProbeResult } from "../../../../domain/runtime/diagnostics";
+import type {
+  McpServerDiagnostic,
+  McpServerStatusSummary,
+  ToolInventoryPlugin,
+  ToolInventorySnapshot,
+} from "../../../../domain/runtime/tool-inventory";
 import type { ToolbarStatusRow as DiagnosticRow, ToolbarStatusSection as DiagnosticSection } from "../toolbar/model";
 
 const PERSONAL_SKILLS_LABEL = "Personal";

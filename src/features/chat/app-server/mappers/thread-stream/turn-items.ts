@@ -4,8 +4,8 @@ import {
   type TurnRecord,
   turnUserItemProjection,
 } from "../../../../../app-server/protocol/turn";
-import { jsonPreview } from "../../../../../domain/display/json-preview";
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
+import { jsonPreview } from "../../../../../shared/ui/json-preview";
 import type { ThreadHistoryPage } from "../../../application/threads/history-controller";
 import { contextAttachmentsFromHistoryContexts } from "../../../domain/thread-stream/format/context-attachments";
 import { threadStreamFileReferences } from "../../../domain/thread-stream/format/file-references";

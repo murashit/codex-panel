@@ -1,6 +1,6 @@
 import type { AppServerRequestClient } from "../../../app-server/services/request-client";
 import { readCompletedTurnTranscriptSummariesPage } from "../../../app-server/services/threads";
-import { type ThreadTitleContext, threadTitleContextFromTurnTranscriptSummary } from "../../../domain/threads/title-context";
+import { type ThreadTitleContext, threadTitleContextFromTurnTranscriptSummary } from "../../../domain/threads/title";
 
 const DEFAULT_CONTEXT_PAGE_LIMIT = 20;
 const DEFAULT_CONTEXT_MAX_PAGES = 5;

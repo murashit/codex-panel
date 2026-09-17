@@ -1,6 +1,6 @@
 import { Component, h, type ComponentChild as UiNode } from "preact";
 
-import { disposeDomListeners, listenDomEvent } from "../../../../shared/dom/events.dom";
+import { disposeDomListeners, listenDomEvent } from "../../../../shared/ui/events.dom";
 import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 
 type ThreadStreamScrollDirection = -1 | 1;

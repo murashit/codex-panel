@@ -1,8 +1,7 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
+import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
+import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/runtime/catalog";
 import { cloneRuntimePermissionState, type RuntimeApprovalPolicy, type RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
-import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
+import type { ApprovalsReviewer, RuntimeConfigSnapshot, ServiceTier } from "../../../../domain/runtime/settings";
 import {
   effectiveCollaborationMode,
   type PendingRuntimeIntent,

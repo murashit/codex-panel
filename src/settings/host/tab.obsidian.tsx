@@ -11,10 +11,10 @@ import type { ComponentChild as UiNode } from "preact";
 
 import { DEFAULT_CODEX_PATH } from "../../constants";
 import type { SendShortcut } from "../../domain/input/send-shortcut";
-import { listenDomEvent } from "../../shared/dom/events.dom";
-import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
-import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
+import { listenDomEvent } from "../../shared/ui/events.dom";
 import { IconButton } from "../../shared/ui/icon.dom";
+import { unmountUiRoot } from "../../shared/ui/preact-root.dom";
+import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import { SettingsResourcesController } from "../application/resources-controller";
 import {
   type CodexPanelSettings,

@@ -1,4 +1,4 @@
-import type { HookCatalog, HookItem, ModelMetadata } from "../../domain/catalog/metadata";
+import type { HookCatalog, HookItem, ModelMetadata } from "../../domain/runtime/catalog";
 import type { ThreadCatalogArchivedReader } from "../../features/threads/catalog/thread-catalog";
 import type { ThreadMutationCommands } from "../../features/threads/workflows/thread-mutation-commands";
 import type { ObservedResultListener } from "../../shared/async/observed-result";

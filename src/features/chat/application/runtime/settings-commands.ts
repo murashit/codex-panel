@@ -1,12 +1,12 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
 import {
   type ReasoningEffortNormalization,
   reasoningEffortNormalizationForModel,
   unsupportedReasoningEffort,
   unsupportedReasoningEffortMessage,
-} from "../../../../domain/catalog/reasoning-effort-compatibility";
-import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
-import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
+} from "../../../../domain/runtime/catalog";
+import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
+import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/async/keyed-operation-coordinator";
 import {
   type CollaborationModeSelection,

@@ -1,5 +1,5 @@
 import type { Thread } from "../../../domain/threads/model";
-import type { ThreadRenameActiveState } from "../../../domain/threads/rename-lifecycle";
+import type { ThreadRenameActiveState } from "../../../domain/threads/title";
 import { threadDisplayTitle, threadRenameDraftTitle } from "../../../domain/threads/title";
 
 interface ThreadRowCoreRenameProjection {

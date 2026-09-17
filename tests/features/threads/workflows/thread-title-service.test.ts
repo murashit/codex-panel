@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ThreadTitleContext } from "../../../../src/domain/threads/title-context";
+import type { ThreadTitleContext } from "../../../../src/domain/threads/title";
 import {
   createThreadTitleService,
   type ThreadTitleService,

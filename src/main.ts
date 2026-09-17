@@ -9,8 +9,8 @@ import { CodexPanelRuntime } from "./plugin-runtime";
 import { getVaultPath } from "./plugin-vault.obsidian";
 import { CodexPanelSettingTab } from "./settings/host/tab.obsidian";
 import { type CodexPanelSettings, DEFAULT_SETTINGS, normalizeSettings, settingsMatchStoredSettings } from "./settings/preferences";
-import { disposeTextareaHeightMirrors } from "./shared/dom/textarea-autogrow.measure";
-import { editorSelectionEmphasisExtension } from "./shared/obsidian/editor-selection-emphasis.obsidian";
+import { editorSelectionEmphasisExtension } from "./shared/ui/editor-selection-emphasis.obsidian";
+import { disposeTextareaHeightMirrors } from "./shared/ui/textarea-autogrow.measure";
 
 export default class CodexPanelPlugin extends Plugin {
   override settings: CodexPanelSettings = DEFAULT_SETTINGS;

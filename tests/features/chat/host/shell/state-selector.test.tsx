@@ -9,7 +9,7 @@ import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/ru
 import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import { useChatSelector } from "../../../../../src/features/chat/host/shell/state-selector";
 import { selectChatPanelToolbar } from "../../../../../src/features/chat/host/toolbar/view-projection";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { chatSharedResourcesFixture, composerSharedValues, toolbarSharedValues } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 

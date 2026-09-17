@@ -1,5 +1,5 @@
-import type { HookItem, ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
-import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../domain/catalog/metadata";
+import type { HookItem, ModelMetadata, ReasoningEffort } from "../../domain/runtime/catalog";
+import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../domain/runtime/catalog";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedResult } from "../../shared/async/observed-result";
 import { OwnerLifetime } from "../../shared/async/owner-lifetime";

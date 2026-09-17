@@ -1,4 +1,4 @@
-import { shortThreadId } from "../../../../domain/threads/id";
+import { shortThreadId } from "../../../../domain/threads/model";
 import type { ReasoningThreadStreamItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamReasoningIsActive } from "./active-turn";
 import type { AgentRunSummary, AgentRunSummaryAgent } from "./agent-run-summary";

@@ -8,7 +8,7 @@ import {
   restoreArchivedThread,
   setThreadPinned,
 } from "../../../app-server/services/threads";
-import type { ReasoningEffort } from "../../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../../domain/runtime/catalog";
 import type { ThreadMutationPort, ThreadTitlePort } from "../workflows/ports";
 import { readPersistedTitleContext } from "./persisted-title-context";
 import { generateThreadTitleWithCodex } from "./thread-title-generation";

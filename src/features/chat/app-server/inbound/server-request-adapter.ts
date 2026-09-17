@@ -1,12 +1,12 @@
 import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import { jsonPreview } from "../../../../domain/display/json-preview";
-import { pathRelativeToRoot } from "../../../../domain/vault/paths";
+import { pathRelativeToRoot } from "../../../../domain/files/paths";
 import type { CommandExecutionRequestApprovalResponse } from "../../../../generated/app-server/v2/CommandExecutionRequestApprovalResponse";
 import type { FileChangeRequestApprovalResponse } from "../../../../generated/app-server/v2/FileChangeRequestApprovalResponse";
 import type { GrantedPermissionProfile } from "../../../../generated/app-server/v2/GrantedPermissionProfile";
 import type { McpServerElicitationRequestResponse } from "../../../../generated/app-server/v2/McpServerElicitationRequestResponse";
 import type { PermissionsRequestApprovalResponse } from "../../../../generated/app-server/v2/PermissionsRequestApprovalResponse";
 import type { ToolRequestUserInputResponse } from "../../../../generated/app-server/v2/ToolRequestUserInputResponse";
+import { jsonPreview } from "../../../../shared/ui/json-preview";
 import type {
   ApprovalAction,
   ApprovalActionIntent,

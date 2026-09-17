@@ -1,6 +1,6 @@
-import { jsonPreview } from "../../../../domain/display/json-preview";
-import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
-import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import { runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
+import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/usage";
+import { jsonPreview } from "../../../../shared/ui/json-preview";
 import { collaborationModeLabel, pendingRuntimeSettingLabel, serviceTierLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";

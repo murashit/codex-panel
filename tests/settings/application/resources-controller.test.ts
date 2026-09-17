@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
-import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
+import type { ModelMetadata } from "../../../src/domain/runtime/catalog";
 import type { Thread } from "../../../src/domain/threads/model";
 import { SettingsResourcesController } from "../../../src/settings/application/resources-controller";
 import type { SettingsTabHost } from "../../../src/settings/host/contracts";

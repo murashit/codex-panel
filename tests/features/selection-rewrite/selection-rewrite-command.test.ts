@@ -7,7 +7,7 @@ import { registerSelectionRewriteCommand } from "../../../src/features/selection
 import type { SelectionRewritePopoverOptions } from "../../../src/features/selection-rewrite/popover.dom";
 import * as popover from "../../../src/features/selection-rewrite/popover.dom";
 import type { SelectionRewritePort } from "../../../src/features/selection-rewrite/port";
-import * as selectionEmphasis from "../../../src/shared/obsidian/editor-selection-emphasis.obsidian";
+import * as selectionEmphasis from "../../../src/shared/ui/editor-selection-emphasis.obsidian";
 
 const popoverMock = {
   instances: [] as { options: SelectionRewritePopoverOptions; open: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }[],

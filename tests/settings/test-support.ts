@@ -5,7 +5,7 @@ import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/pro
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import { AppServerMetadataQueries } from "../../src/app-server/query/metadata-queries";
 import { AppServerQueryScope } from "../../src/app-server/query/query-scope";
-import type { HookItem, ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
+import type { HookItem, ModelMetadata, ReasoningEffort } from "../../src/domain/runtime/catalog";
 import type { Thread } from "../../src/domain/threads/model";
 import { createThreadMutationAdapter } from "../../src/features/threads/app-server/workflow-adapters";
 import { createThreadMutationCommands } from "../../src/features/threads/workflows/thread-mutation-commands";

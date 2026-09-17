@@ -2,15 +2,15 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerContextConnectionLease } from "../../../app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
-import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
-import type { MetadataResourceDiagnostics } from "../../../domain/server/diagnostics";
+import type { ModelMetadata } from "../../../domain/runtime/catalog";
+import type { MetadataResourceDiagnostics } from "../../../domain/runtime/diagnostics";
 import type {
   SharedServerMetadataResourceFor,
   SharedServerMetadataResourceId,
   SharedServerMetadataSnapshotValues,
-} from "../../../domain/server/metadata";
-import type { ToolInventorySnapshot } from "../../../domain/server/tool-inventory";
+} from "../../../domain/runtime/metadata";
+import type { ToolInventorySnapshot } from "../../../domain/runtime/tool-inventory";
 import type { ThreadGoal } from "../../../domain/threads/goal";
 import type { KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import type { ThreadCatalogPaginatedActiveReader } from "../../threads/catalog/thread-catalog";

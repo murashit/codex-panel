@@ -1,5 +1,5 @@
-import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
+import { shortThreadId } from "../../../../domain/threads/model";
 import { resolveThreadSearchQuery } from "../../../../domain/threads/search";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import { type SlashCommandName, slashCommandDefinition } from "./catalog";

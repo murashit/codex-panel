@@ -1,7 +1,7 @@
-import { shortThreadId } from "../../../domain/threads/id";
+import { sanitizeVaultPathSegment, vaultRelativeFolderPath } from "../../../domain/files/vault-write-paths";
+import { shortThreadId } from "../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../domain/threads/title";
 import type { ThreadTranscript } from "../../../domain/threads/transcript";
-import { sanitizeVaultPathSegment, vaultRelativeFolderPath } from "../../../domain/vault/write-paths";
 import {
   ensureVaultFolder,
   uniqueVaultPath,

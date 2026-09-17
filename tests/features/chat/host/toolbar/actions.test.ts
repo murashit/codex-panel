@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
+import { createServerDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
 
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";

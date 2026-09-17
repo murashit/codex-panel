@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { applyThreadCatalogChange } from "../../../../src/domain/threads/catalog-read-model";
+import { applyThreadCatalogChange } from "../../../../src/domain/threads/catalog";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";

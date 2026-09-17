@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
+import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
 import {
   type ChatRuntimeSettingsCommands,
   createChatRuntimeSettingsCommands,

@@ -1,10 +1,10 @@
 import type { AppServerRequestClient } from "../../../../app-server/services/request-client";
 import { readReferencedThreadTranscriptPage } from "../../../../app-server/services/threads";
-import { threadReferenceMarkdown } from "../../../../domain/threads/deep-link";
-import { shortThreadId } from "../../../../domain/threads/id";
+import { codexTextInputWithAttachments } from "../../../../domain/input/input";
+import { threadReferenceMarkdown } from "../../../../domain/threads/links";
 import type { Thread } from "../../../../domain/threads/model";
-import { REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
-import { codexTextInputWithAttachments } from "../../../../domain/turns/input";
+import { shortThreadId } from "../../../../domain/threads/model";
+import { REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/transcript";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
 import type { PreparedInput } from "../../application/composer/prepared-input";
 import { referencedThreadContext } from "../../domain/threads/reference-context";

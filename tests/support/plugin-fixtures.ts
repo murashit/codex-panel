@@ -4,7 +4,7 @@ import { FileSystemAdapter } from "obsidian";
 import { vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "../../src/constants";
-import { createServerDiagnostics } from "../../src/domain/server/diagnostics";
+import { createServerDiagnostics } from "../../src/domain/runtime/diagnostics";
 import type { Thread } from "../../src/domain/threads/model";
 import type { CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";

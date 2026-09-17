@@ -1,8 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useMemo } from "preact/hooks";
-import { listenDomEvent } from "../../../../shared/dom/events.dom";
-import { unmountUiRoot } from "../../../../shared/dom/preact-root.dom";
-import { renderObsidianUiRoot } from "../../../../shared/obsidian/preact-root.obsidian";
+import { listenDomEvent } from "../../../../shared/ui/events.dom";
+import { unmountUiRoot } from "../../../../shared/ui/preact-root.dom";
+import { renderObsidianUiRoot } from "../../../../shared/ui/preact-root.obsidian";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../threads/catalog/thread-catalog";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { activeThreadId, type ChatState } from "../../application/state/model";

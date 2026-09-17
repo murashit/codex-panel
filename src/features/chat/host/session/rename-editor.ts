@@ -1,6 +1,6 @@
 import type { Thread } from "../../../../domain/threads/model";
+import type { ThreadTitleContext } from "../../../../domain/threads/title";
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
-import type { ThreadTitleContext } from "../../../../domain/threads/title-context";
 import type { ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
 import { createThreadRenameEditor, type ThreadRenameEditor } from "../../../threads/workflows/thread-rename-editor";
 import { activeThreadId, type ChatState } from "../../application/state/model";

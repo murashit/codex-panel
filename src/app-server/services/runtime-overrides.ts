@@ -1,5 +1,5 @@
-import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
-import { unsupportedReasoningEffort, unsupportedReasoningEffortMessage } from "../../domain/catalog/reasoning-effort-compatibility";
+import type { ModelMetadata, ReasoningEffort } from "../../domain/runtime/catalog";
+import { unsupportedReasoningEffort, unsupportedReasoningEffortMessage } from "../../domain/runtime/catalog";
 import { listModelMetadata, type ModelMetadataClient } from "./catalog";
 
 export interface RuntimeOverrideSettings {

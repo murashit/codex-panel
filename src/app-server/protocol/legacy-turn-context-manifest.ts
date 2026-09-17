@@ -1,5 +1,5 @@
-import type { ReferencedThreadMetadata } from "../../domain/threads/reference";
-import type { VaultFileReference } from "../../domain/turns/input";
+import type { VaultFileReference } from "../../domain/input/input";
+import type { ReferencedThreadMetadata } from "../../domain/threads/transcript";
 import { contextIdPart } from "./context-id";
 
 /*

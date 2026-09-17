@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ThreadRenameActiveState } from "../../../../src/domain/threads/rename-lifecycle";
+import type { ThreadRenameActiveState } from "../../../../src/domain/threads/title";
 import { createThreadRenameEditor, type ThreadRenameEditorHost } from "../../../../src/features/threads/workflows/thread-rename-editor";
 import { deferred } from "../../../support/async";
 

@@ -1,4 +1,4 @@
-import { pathRelativeToRoot } from "../../../../../domain/vault/paths";
+import { pathRelativeToRoot } from "../../../../../domain/files/paths";
 import type { ExecutionState, ThreadStreamAuditFact, ThreadStreamItem } from "../../../domain/thread-stream/items";
 import { type ExecutionStateByStatus, executionStateFromStatus, RUNNING_EXECUTION_STATE } from "./execution-state";
 import { type AutoReviewPermissionProfile, permissionRows } from "./permission-rows";

@@ -7,7 +7,7 @@ import {
   ThreadRowControls,
   type ThreadRowControlsProps,
 } from "../../../../src/features/threads/list/row-controls.dom";
-import { renderUiRoot } from "../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot } from "../../../../src/shared/ui/preact-root.dom";
 import { changeInputValue } from "../../../support/dom";
 
 function expectPresent<T>(value: T | null | undefined): T {

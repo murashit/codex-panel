@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ComposerMetaViewModel } from "../../../../../src/features/chat/ui/composer/composer";
 import { type ComposerCallbacks, ComposerShell } from "../../../../../src/features/chat/ui/composer/composer";
 import { scrollComposerSuggestionIntoView, syncComposerHeight } from "../../../../../src/features/chat/ui/composer/composer.dom";
-import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
 

@@ -1,4 +1,4 @@
-import type { ServerInitialization } from "../../../../domain/server/initialization";
+import type { ServerInitialization } from "../../../../domain/runtime/metadata";
 import type { ChatConnectionPhase } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 

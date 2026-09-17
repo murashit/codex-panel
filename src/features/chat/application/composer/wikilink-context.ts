@@ -1,12 +1,12 @@
-import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../../../domain/markdown/code-ranges";
 import {
   ACTIVE_FILE_REFERENCE_NAME,
   codexTextInputWithReferences,
   type RequestAdditionalContext,
   type SkillReference,
   type VaultFileReference,
-} from "../../../../domain/turns/input";
+} from "../../../../domain/input/input";
+import type { SkillMetadata } from "../../../../domain/runtime/catalog";
+import { type MarkdownCodeRange, markdownCodeRangeContainsOffset, markdownCodeRanges } from "../../domain/markdown/code-ranges";
 import {
   type ActiveNoteContextReference,
   type ComposerContextReferences,

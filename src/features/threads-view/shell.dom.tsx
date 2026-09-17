@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
-import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
-import { renderObsidianUiRoot } from "../../shared/obsidian/preact-root.obsidian";
 import { ToolbarIconAction, type ToolbarIconActionProps } from "../../shared/ui/icon.dom";
+import { unmountUiRoot } from "../../shared/ui/preact-root.dom";
+import { renderObsidianUiRoot } from "../../shared/ui/preact-root.obsidian";
 import { pinnedThreadGroups } from "../threads/list/pinned-groups";
 import { ThreadAutoNameButton, ThreadRenameInput, ThreadRowControls } from "../threads/list/row-controls.dom";
 import type { ThreadsRowModel } from "./state";

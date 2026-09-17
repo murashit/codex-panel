@@ -1,4 +1,4 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
 import type { CollaborationModeSelection } from "./intent";
 
 export function compactReasoningEffortLabel(effort: ReasoningEffort): string {

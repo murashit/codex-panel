@@ -1,6 +1,6 @@
-import type { ModelMetadata, ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import type { RateLimitSnapshot } from "../../../../domain/runtime/metrics";
+import type { ModelMetadata, ReasoningEffort } from "../../../../domain/runtime/catalog";
+import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
+import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
 import type { Thread } from "../../../../domain/threads/model";
 import { explicitThreadName } from "../../../../domain/threads/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";

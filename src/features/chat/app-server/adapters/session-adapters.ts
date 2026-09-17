@@ -14,7 +14,7 @@ import {
   updateThreadSettings,
 } from "../../../../app-server/services/threads";
 import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/services/turns";
-import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
+import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
 import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsPort } from "../../application/runtime/settings-commands";
 import type { EphemeralThreadEffects, EphemeralThreadForkResult } from "../../application/threads/ephemeral-thread-lifecycle";

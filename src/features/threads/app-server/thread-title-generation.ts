@@ -3,8 +3,8 @@ import {
   runEphemeralStructuredTurnForAssistantTranscriptText,
   type StructuredTurnOutputSchema,
 } from "../../../app-server/services/ephemeral-structured-turn";
-import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { ThreadTitleContext } from "../../../domain/threads/title-context";
+import type { ReasoningEffort } from "../../../domain/runtime/catalog";
+import type { ThreadTitleContext } from "../../../domain/threads/title";
 
 const THREAD_TITLE_MAX_CHARS = 40;
 

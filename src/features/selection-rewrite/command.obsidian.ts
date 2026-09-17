@@ -1,6 +1,6 @@
 import { type Editor, MarkdownView, Notice, type Plugin } from "obsidian";
 import type { SendShortcut } from "../../domain/input/send-shortcut";
-import { retainEditorSelectionEmphasis } from "../../shared/obsidian/editor-selection-emphasis.obsidian";
+import { retainEditorSelectionEmphasis } from "../../shared/ui/editor-selection-emphasis.obsidian";
 import type { SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
 import { SelectionRewritePopover } from "./popover.dom";
 import type { SelectionRewritePort } from "./port";

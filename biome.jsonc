@@ -129,7 +129,7 @@
 
     {
       "path": "./scripts/grit/dom/no-preact-root-api-imports.grit",
-      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/shared/dom/preact-root.dom.tsx"]
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/shared/ui/preact-root.dom.tsx"]
     },
 
     // CSS source policy.

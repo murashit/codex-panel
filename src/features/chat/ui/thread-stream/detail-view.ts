@@ -1,6 +1,6 @@
-import { truncate } from "../../../../domain/display/text-preview";
-import { shortThreadId } from "../../../../domain/threads/id";
-import { pathRelativeToRoot } from "../../../../domain/vault/paths";
+import { pathRelativeToRoot } from "../../../../domain/files/paths";
+import { truncate } from "../../../../domain/text/text";
+import { shortThreadId } from "../../../../domain/threads/model";
 import type {
   AgentThreadStreamItem,
   ApprovalResultThreadStreamItem,

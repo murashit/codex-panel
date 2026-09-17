@@ -1,4 +1,4 @@
-import type { RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
+import type { RuntimeSettingsPatch } from "../../domain/runtime/settings";
 import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
 
 type AppServerRuntimeSettingsPatch = Pick<ThreadSettingsUpdateParams, keyof RuntimeSettingsPatch>;

@@ -1,4 +1,4 @@
-import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
+import type { ThreadActivationSnapshot } from "../../../../domain/threads/model";
 import { activeThreadState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { ephemeralThreadActivatedAction } from "../state/transition-actions";

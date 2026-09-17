@@ -1,5 +1,4 @@
-import type { McpServerStatusSummary } from "../../domain/server/mcp-status";
-import type { ToolInventoryPlugin } from "../../domain/server/tool-inventory";
+import type { McpServerStatusSummary, ToolInventoryPlugin } from "../../domain/runtime/tool-inventory";
 import { mcpServerStatusSummariesFromStatuses, toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
 import { collectCursorPages } from "./cursor-pages";
 import type { AppServerRequestClient } from "./request-client";

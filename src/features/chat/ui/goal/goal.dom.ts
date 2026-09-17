@@ -1,6 +1,6 @@
-import { disposeDomListeners, listenDomEscapeKey, listenOutsideDomEvent } from "../../../../shared/dom/events.dom";
-import { observeElementResize } from "../../../../shared/dom/resize-observer.measure";
-import { syncTextareaHeight } from "../../../../shared/dom/textarea-autogrow.measure";
+import { disposeDomListeners, listenDomEscapeKey, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
+import { observeElementResize } from "../../../../shared/ui/resize-observer.measure";
+import { syncTextareaHeight } from "../../../../shared/ui/textarea-autogrow.measure";
 
 export function syncGoalObjectiveHeight(textarea: HTMLTextAreaElement | null): void {
   syncTextareaHeight(textarea, {

@@ -1,4 +1,4 @@
-import type { VaultFileReference } from "../../../../domain/turns/input";
+import type { VaultFileReference } from "../../../../domain/input/input";
 
 export interface DailyNoteReferenceCandidate {
   keyword: "today" | "tomorrow" | "yesterday";

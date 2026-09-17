@@ -20,7 +20,7 @@ import type {
 import { pendingRequestBlockNode } from "../../../../../../src/features/chat/ui/thread-stream/pending-request-block.dom";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";
 import { ThreadStreamViewport } from "../../../../../../src/features/chat/ui/thread-stream/stream-blocks";
-import { renderUiRoot, unmountUiRoot } from "../../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../../src/shared/ui/preact-root.dom";
 
 export function projectedThreadStreamBlocks(context: TestThreadStreamContext): [ThreadStreamViewBlock, ...ThreadStreamViewBlock[]] {
   const normalized = normalizeThreadStreamContext(context);

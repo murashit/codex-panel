@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { HookItem } from "../../domain/catalog/metadata";
+import type { HookItem } from "../../domain/runtime/catalog";
 import { ObsidianButton } from "./controls.obsidian";
 import { SettingRow, SettingsItems, SettingsStatusRow } from "./layout";
 export interface CodexHooksViewModel {

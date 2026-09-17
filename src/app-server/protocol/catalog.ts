@@ -1,4 +1,4 @@
-import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
+import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/runtime/catalog";
 import type { HookMetadata } from "../../generated/app-server/v2/HookMetadata";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { SkillMetadata as GeneratedSkillMetadata } from "../../generated/app-server/v2/SkillMetadata";

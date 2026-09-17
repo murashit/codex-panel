@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mcpServerStatusSummariesFromStatuses } from "../../../../../src/app-server/protocol/tool-inventory";
-import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
+import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import {
   createServerDiagnostics,
   type DiagnosticProbeResult,
@@ -8,9 +8,8 @@ import {
   diagnosticProbeError,
   diagnosticProbeOk,
   upsertMcpServerDiagnostic,
-} from "../../../../../src/domain/server/diagnostics";
-import type { McpServerDiagnostic } from "../../../../../src/domain/server/mcp-status";
-import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
+} from "../../../../../src/domain/runtime/diagnostics";
+import type { McpServerDiagnostic, ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import { appServerDiagnosticSections } from "../../../../../src/features/chat/ui/runtime/diagnostics";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/ui/runtime/tool-inventory";
 

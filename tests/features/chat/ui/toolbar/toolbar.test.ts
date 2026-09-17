@@ -4,7 +4,7 @@ import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
 import type { ToolbarViewModel } from "../../../../../src/features/chat/ui/toolbar/model";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
-import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { changeInputValue, installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();

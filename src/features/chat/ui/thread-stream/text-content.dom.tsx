@@ -1,8 +1,8 @@
 import type { Ref, ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { disposeDomListeners, listenDomEvent, listenOutsideDomEvent } from "../../../../shared/dom/events.dom";
-import { observeElementResize } from "../../../../shared/dom/resize-observer.measure";
+import { disposeDomListeners, listenDomEvent, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
+import { observeElementResize } from "../../../../shared/ui/resize-observer.measure";
 import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 import type { TextItemContentContext } from "./context";
 import type { ThreadStreamTextView } from "./model";

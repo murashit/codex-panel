@@ -4,8 +4,8 @@ import type { ComponentChild } from "preact";
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
-import { diagnosticProbeError, diagnosticProbeOk } from "../../../../../src/domain/server/diagnostics";
-import type { SkillsMetadataResource } from "../../../../../src/domain/server/metadata";
+import { diagnosticProbeError, diagnosticProbeOk } from "../../../../../src/domain/runtime/diagnostics";
+import type { SkillsMetadataResource } from "../../../../../src/domain/runtime/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import {
   type ChatSharedDisplayQueries,
@@ -14,7 +14,7 @@ import {
 } from "../../../../../src/features/chat/host/shell/shared-resource-hooks";
 import type { ThreadCatalogPaginatedActiveReader } from "../../../../../src/features/threads/catalog/thread-catalog";
 import type { ObservedPaginatedResult } from "../../../../../src/shared/async/observed-result";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 
 describe("shared display resource hooks", () => {
   it("subscribes panels directly to requested resources while retaining last-known-good values", async () => {

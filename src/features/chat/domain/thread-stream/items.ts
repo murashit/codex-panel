@@ -1,4 +1,4 @@
-import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import type { ReferencedThreadMetadata } from "../../../../domain/threads/transcript";
 import type { AgentCoordinationUpdate } from "./agent-coordination";
 import type { ThreadStreamItemProvenance } from "./provenance";
 
