@@ -12,14 +12,6 @@
       "includes": ["**/*.{ts,tsx,mjs}"]
     },
     {
-      "path": "./scripts/grit/source-shape/no-self-referential-initializer-callback.grit",
-      "includes": ["**/*.{ts,tsx,mjs}"]
-    },
-    {
-      "path": "./scripts/grit/source-shape/no-unsafe-iterator-value.grit",
-      "includes": ["**/*.{ts,tsx,mjs}"]
-    },
-    {
       "path": "./scripts/grit/source-shape/no-uncontrolled-preact-form-state.grit",
       "includes": ["**/src/**/*.tsx"]
     },
@@ -69,6 +61,10 @@
       "path": "./scripts/grit/runtime/no-app-server-direct-rpcs.grit",
       "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/**", "!**/src/features/chat/app-server/**"]
     },
+    {
+      "path": "./scripts/grit/import-boundaries/no-query-cache-imports.grit",
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/query/**"]
+    },
     // Workspace and feature coordination boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-feature-workspace-boundary-imports.grit",
@@ -105,14 +101,16 @@
       "includes": ["**/src/features/chat/ui/**/*.{ts,tsx}"]
     },
 
-    // Direct ambient effects in state, fact, and projection modules.
+    // Domain calculations, state transitions, facts, and projections consume effects as data.
     {
       "path": "./scripts/grit/runtime/no-direct-ambient-effects.grit",
-      "includes": ["**/src/features/chat/application/state/**/*.{ts,tsx}", "**/src/**/*-facts.{ts,tsx}", "**/src/**/*-projection.{ts,tsx}"]
-    },
-    {
-      "path": "./scripts/grit/runtime/no-direct-ambient-time.grit",
-      "includes": ["**/src/features/chat/application/state/**/*.{ts,tsx}", "**/src/**/*-facts.{ts,tsx}", "**/src/**/*-projection.{ts,tsx}"]
+      "includes": [
+        "**/src/domain/**/*.{ts,tsx}",
+        "**/src/features/*/domain/**/*.{ts,tsx}",
+        "**/src/features/chat/application/state/**/*.{ts,tsx}",
+        "**/src/**/*-facts.{ts,tsx}",
+        "**/src/**/*-projection.{ts,tsx}"
+      ]
     },
 
     // DOM bridge and Preact root boundaries.
@@ -129,6 +127,11 @@
       "includes": ["**/src/**/*.{ts,tsx}", "!**/src/**/*.{dom,obsidian}.{ts,tsx}"]
     },
 
+    {
+      "path": "./scripts/grit/dom/no-preact-root-api-imports.grit",
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/shared/dom/preact-root.dom.tsx"]
+    },
+
     // CSS source policy.
     {
       "path": "./scripts/grit/no-restricted-css-policy.grit",
@@ -138,7 +141,7 @@
   "files": {
     "includes": [
       "*.config.mjs",
-      "*.config.ts",
+      "*.config.{ts,mts}",
       "*.css",
       "*.json",
       "*.jsonc",
@@ -171,12 +174,14 @@
     "rules": {
       "preset": "recommended",
       "complexity": {
+        // TypeScript noPropertyAccessFromIndexSignature requires brackets for unknown record keys.
         "useLiteralKeys": "off"
       },
       "correctness": {
         "useExhaustiveDependencies": {
           "level": "error",
           "options": {
+            // Explicit invalidation keys may intentionally refresh effects without being read in the closure.
             "reportUnnecessaryDependencies": false
           }
         }

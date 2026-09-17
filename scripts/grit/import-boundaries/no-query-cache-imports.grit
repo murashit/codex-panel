@@ -1,0 +1,9 @@
+language js
+
+or {
+  JsImport(),
+  JsImportCallExpression()
+} as $stmt where {
+  $stmt <: contains `$source` where { $source <: r"^[\"']@tanstack/query-core[\"']$" },
+  register_diagnostic(span=$stmt, message="Keep query cache ownership inside app-server/query; consumers use observed-result contracts.", severity="error")
+}

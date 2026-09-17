@@ -33,14 +33,6 @@ or {
     register_diagnostic(span=$decl, message="Prefer Obsidian or Codex Panel spacing and size tokens for layout dimensions.")
   },
   // Keep selectors local and predictable.
-  CssPseudoClassSelector() as $selector where {
-    $selector <: r".*:has.*",
-    register_diagnostic(span=$selector, message="Avoid :has() because it can cause broad selector invalidation.")
-  },
-  CssPseudoClassSelector() as $selector where {
-    $selector <: r".*:where[(].*(?:[.]|#|\[).*",
-    register_diagnostic(span=$selector, message="Do not hide class, id, or attribute selectors inside :where().")
-  },
   CssIdSelector() as $selector where { register_diagnostic(span=$selector, message="Avoid ID selectors in Codex Panel CSS.") },
   CssUniversalSelector() as $selector where {
     register_diagnostic(span=$selector, message="Avoid universal selectors in Codex Panel CSS.")

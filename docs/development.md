@@ -59,11 +59,11 @@ Do not hand-edit the bindings. Put necessary output normalization in `scripts/ge
 
 ## Executable Policies
 
-Executable source policies live in `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks. When intentionally changing one, update the implementation, matcher, and its representative policy case together.
+Executable source policies live in `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks.
 
 Fix the code rather than suppress diagnostics. Suppressions are exceptional: use one only when a concrete constraint prevents a reasonable implementation that satisfies the rule. Keep it local and explain that constraint in the directive, including the Obsidian-specific reason when a native Obsidian UI pattern diverges from a generic browser rule.
 
-Keep one representative rejection and acceptance per Grit policy. Add another case only when it protects a materially different matcher behavior; do not mirror every regex branch or diagnostic detail in tests.
+Run `npm run test:policies` when changing Biome configuration, Grit matchers, or the Biome version.
 
 ## Naming Conventions
 

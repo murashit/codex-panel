@@ -11,7 +11,8 @@ private pattern root_outer_layer_source() {
   or {
     r"^[\"'](?:\.\./)+(?:app-server|settings|workspace|shared|features)(?:/.*)?[\"']$",
     r"^[\"']src/(?:app-server|settings|workspace|shared|features)(?:/.*)?[\"']$",
-    r"^[\"']obsidian[\"']$"
+    r"^[\"'](?:obsidian|preact(?:/.*)?)[\"']$",
+    r"^[\"'](?:node:)?(?:fs(?:/promises)?|child_process|worker_threads|http|https|http2|net|tls|dns(?:/promises)?|timers(?:/promises)?)[\"']$"
   }
 }
 

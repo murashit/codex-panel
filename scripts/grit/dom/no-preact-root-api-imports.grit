@@ -1,0 +1,25 @@
+language js
+
+private pattern preact_root_source() { r"^[\"']preact(?:/compat)?[\"']$" }
+
+private pattern root_import_name() { r"^[\"']?(?:render|hydrate|unmountComponentAtNode|default)[\"']?$" }
+
+or {
+  JsImport() as $stmt where {
+    $stmt <: contains JsModuleSource() as $source where { $source <: preact_root_source() },
+    $stmt <: contains or {
+      JsNamedImportSpecifier(name=root_import_name()),
+      JsShorthandNamedImportSpecifier(local_name=root_import_name()),
+      // Namespace and default imports expose root APIs too; use named component imports.
+      JsNamespaceImportSpecifier(),
+      JsDefaultImportSpecifier()
+    }
+  },
+  JsImportCallExpression() as $stmt where { $stmt <: contains `$source` where { $source <: preact_root_source() } },
+  or {
+    JsImport(),
+    JsImportCallExpression()
+  } as $stmt where { $stmt <: contains `$source` where { $source <: r"^[\"']preact/compat/client[\"']$" } }
+} where {
+  register_diagnostic(span=$stmt, message="Mount and unmount Preact only through shared/dom/preact-root.dom so external Obsidian container cleanup disposes the root. Elsewhere, use named component and hook imports.", severity="error")
+}

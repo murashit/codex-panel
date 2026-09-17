@@ -87,5 +87,23 @@ jobs:
       - name: Check
         run: npm run check
 
+      - name: Check changed lint policies
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          FORCED_PUSH: ${{ github.event_name == 'push' && github.event.forced || false }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$FORCED_PUSH" != "true" ]] && git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+            .github/workflows/check.yml \
+            biome.jsonc \
+            package.json \
+            package-lock.json \
+            scripts/check-grit-policies.mjs \
+            scripts/grit; then
+            echo "Lint policies unchanged; skipping policy probes."
+          else
+            npm run test:policies
+          fi
+
       - name: Check test order independence
         run: npm run test:order
