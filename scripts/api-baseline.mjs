@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -38,16 +37,6 @@ function minorKey(version) {
   return version ? `${version.major}.${version.minor}` : null;
 }
 
-function readCodexVersion() {
-  const result = spawnSync("codex", ["--version"], {
-    encoding: "utf8",
-    stdio: "pipe",
-    shell: false,
-  });
-  if (result.error || result.status !== 0) return null;
-  return parseSemver(`${result.stdout}\n${result.stderr}`)?.version ?? null;
-}
-
 async function createApiBaselineReport() {
   const failures = [];
   const fail = (message) => {
@@ -58,10 +47,8 @@ async function createApiBaselineReport() {
 
   const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
   const codexRecordedVersion = inputs.appServerCompatibilityJson.codexAppServer?.testedCliVersion ?? null;
-  const codexLocalVersion = readCodexVersion();
   const codexReadmeSemver = parseSemver(codexReadmeVersion);
   const codexRecordedSemver = parseSemver(codexRecordedVersion);
-  const codexLocalSemver = parseSemver(codexLocalVersion);
 
   const obsidianMinVersion = inputs.manifestJson.minAppVersion;
   const obsidianReadmeMinVersion = readmeBaselines.obsidianMinAppVersion;
@@ -89,14 +76,8 @@ async function createApiBaselineReport() {
   if (!codexRecordedSemver || codexRecordedSemver.version !== codexRecordedVersion) {
     fail("src/app-server/connection/compatibility.json must declare codexAppServer.testedCliVersion as X.Y.Z.");
   }
-  if (!codexLocalSemver) {
-    fail("local codex --version could not be read.");
-  }
   if (codexReadmeVersion && codexRecordedVersion && codexReadmeVersion !== codexRecordedVersion) {
     fail(`README Codex CLI ${codexReadmeVersion} does not match recorded tested CLI ${codexRecordedVersion}.`);
-  }
-  if (codexLocalSemver && codexRecordedSemver && codexLocalSemver.version !== codexRecordedSemver.version) {
-    fail(`local Codex CLI ${codexLocalSemver.version} does not match recorded tested CLI ${codexRecordedSemver.version}.`);
   }
   if (!appServerGenerationArgumentsDeclared) {
     fail("src/app-server/connection/compatibility.json must declare codexAppServer.typeGeneration.arguments as a string array.");
@@ -137,11 +118,7 @@ async function createApiBaselineReport() {
       recordedTestedCliVersion: codexRecordedVersion,
       readmeTestedCliVersion: codexReadmeVersion,
       readmeTestedMinor: minorKey(codexReadmeSemver),
-      localCliVersion: codexLocalVersion,
-      localCliMinor: minorKey(codexLocalSemver),
       readmeMatchesRecordedVersion: codexReadmeVersion && codexRecordedVersion ? codexReadmeVersion === codexRecordedVersion : false,
-      localCliMatchesRecordedVersion:
-        codexLocalSemver && codexRecordedSemver ? codexLocalSemver.version === codexRecordedSemver.version : null,
       generationArguments,
       appServerGenerationArgumentsSupported,
       initializeExperimentalApi,
@@ -266,34 +243,10 @@ async function readJson(cwd, file) {
 }
 
 function printReport(report) {
-  console.log("API baseline");
-  console.log("");
-  console.log("Codex app-server");
-  console.log(`  policy: ${report.codex.policy}`);
-  console.log(`  compatibility table CLI: ${displayValue(report.codex.readmeTestedCliVersion)}`);
-  console.log(`  recorded tested CLI: ${displayValue(report.codex.recordedTestedCliVersion)}`);
-  console.log(`  compatibility table minor: ${displayValue(report.codex.readmeTestedMinor)}`);
-  console.log(`  local codex CLI: ${displayValue(report.codex.localCliVersion)}`);
-  console.log(`  local codex minor: ${displayValue(report.codex.localCliMinor)}`);
-  console.log(`  generation arguments: ${report.codex.generationArguments?.join(" ") ?? "(missing)"}`);
-  console.log(`  initialize experimentalApi: ${report.codex.initializeExperimentalApi ? "yes" : "no"}`);
-  console.log(`  initialize requestAttestation disabled: ${report.codex.initializeRequestAttestationDisabled ? "yes" : "no"}`);
-  console.log("");
-  console.log("Obsidian API");
-  console.log(`  policy: ${report.obsidian.policy}`);
-  console.log(`  manifest minAppVersion: ${displayValue(report.obsidian.minAppVersion)}`);
-  console.log(`  compatibility table minAppVersion: ${displayValue(report.obsidian.readmeMinAppVersion)}`);
-  console.log(`  package obsidian: ${displayValue(report.obsidian.packageDependency)}`);
-  console.log(`  package range: ${report.obsidian.packageDependencyRange}`);
-  console.log(`  package-lock obsidian: ${displayValue(report.obsidian.lockedPackageVersion)}`);
-  for (const [dependency, versions] of Object.entries(report.obsidian.codeMirrorPeers)) {
-    console.log(
-      `  ${dependency}: package ${displayValue(versions.packageDependency)}, obsidian peer ${displayValue(versions.obsidianPeerDependency)}`,
-    );
-  }
   if (report.failures.length > 0) {
-    console.log("");
-    console.log("Failures");
-    for (const message of report.failures) console.log(`  - ${message}`);
+    console.error("API baseline check failed:");
+    for (const message of report.failures) console.error(`  - ${message}`);
+  } else {
+    console.log(`API baselines match: Codex ${report.codex.recordedTestedCliVersion}; Obsidian >=${report.obsidian.minAppVersion}.`);
   }
 }

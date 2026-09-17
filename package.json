@@ -35,10 +35,10 @@
     "release:notes": "node scripts/release/notes.mjs",
     "release:preflight": "node scripts/release/preflight.mjs",
     "release:prepare": "node scripts/release/prepare.mjs",
-    "test": "vitest run --pool threads --maxWorkers 6",
+    "test": "vitest run",
     "test:policies": "node scripts/check-grit-policies.mjs",
-    "test:order": "vitest run --pool threads --maxWorkers 1 --sequence.shuffle",
-    "test:coverage": "vitest run --pool threads --maxWorkers 6 --coverage",
+    "test:order": "vitest run --maxWorkers 1 --sequence.shuffle",
+    "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
     "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo"
   },

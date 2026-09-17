@@ -18,7 +18,7 @@ Use focused scripts while iterating. Before handoff, run `npm run fix`, review i
 
 Vitest reuses workers with `isolate: false`. Keep boundary spies, timers, globals, and DOM overrides local to each test and restore them afterward. Avoid per-file `vi.mock` replacements of shared modules; use scoped spies or existing dependency injection instead. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
 
-Run `npm run test:order` after changing test fixtures or shared state. It runs the full suite in one worker with shuffled files and tests; CI also runs it with a fresh seed. Replay a failure with `npm run test:order -- --sequence.seed <reported-seed>`. This complements the normal six-worker run by forcing test files to share the same worker within each environment.
+Run `npm run test:order` after changing test fixtures or shared state. It runs the full suite in one worker with shuffled files and tests; CI uses this mode for its single test run. Local `npm test` uses six workers. Replay a failure with `npm run test:order -- --sequence.seed <reported-seed>`.
 
 Use `npm run test:coverage` to identify source modules and branches that lack exercised behavior. It reports every authored TypeScript source file, including files not imported by tests, while excluding generated app-server bindings. Open `coverage/index.html` to inspect line-level gaps. Coverage is diagnostic and has no pass/fail threshold; prioritize user-visible behavior and state-transition invariants rather than raising the aggregate percentage.
 
@@ -89,4 +89,4 @@ npm run api:baseline
 
 Codex app-server compatibility is managed by CLI minor version. `src/app-server/connection/compatibility.json` records the exact generation patch and capabilities.
 
-For compatibility changes, run `npm run api:baseline` and `npm run generate:app-server-types:check`. These validate recorded versions and generated artifacts, not runtime behavior; CI runs them against the recorded CLI.
+`npm run api:baseline` validates recorded API versions and compatibility metadata. For binding changes, also run `npm run generate:app-server-types:check` with the recorded CLI to regenerate and compare the artifacts.

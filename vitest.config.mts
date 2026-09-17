@@ -8,6 +8,9 @@ export default defineConfig({
     },
   },
   test: {
+    pool: "threads",
+    maxWorkers: process.env["CI"] ? 1 : 6,
+    sequence: { shuffle: Boolean(process.env["CI"]) },
     fsModuleCache: true,
     isolate: false,
     coverage: {
