@@ -1,98 +1,78 @@
 # Development
 
-Use this document for day-to-day implementation mechanics: commands, generated and loaded artifacts, executable policies, naming, validation, and compatibility. For product boundaries and design rationale, see `docs/design.md`.
+Use this guide to implement, validate, and maintain changes to Codex Panel. See [README](../README.md) for supported behavior and requirements, [Design](design.md) for product and ownership decisions, and [Release](release.md) for version selection and publication.
 
-## Commands
+## Set Up and Iterate
 
-```sh
-npm ci
-npm run fix
-npm run check
-npm run test:coverage
-npm run test:mutation
-```
+Use the Node.js version in `.node-version` and install dependencies with `npm ci`. Use focused scripts from `package.json` while iterating; the handoff checks below still apply.
 
-Use the Node.js version in `.node-version`.
+Obsidian loads the generated `main.js` and `styles.css`, not the TypeScript or authored CSS. Run `npm run build` before live validation unless `npm run check` has already built the current source. Edit CSS in `src/styles/`; `npm run build:styles` regenerates only the stylesheet and checks its source order. Keep generated load artifacts out of version control.
 
-Use focused scripts while iterating. Before handoff, run `npm run fix`, review its diff, and run the full `npm run check`; focused or ad hoc checks do not replace this standard sequence unless validation is explicitly scoped otherwise.
+## Choose the Owner of a Change
 
-Vitest reuses workers with `isolate: false`. Keep boundary spies, timers, globals, and DOM overrides local to each test and restore them afterward. Avoid per-file `vi.mock` replacements of shared modules; use scoped spies or existing dependency injection instead. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
+Keep feature-specific behavior with its feature. Extract shared values and rules, including the pure calculations they need, to root `domain/`, and reusable execution or UI support to `shared/`; neither should depend on a feature's implementation. Group those roots by responsibility and keep related types and helpers together, even when a directory contains only one cohesive module.
 
-Run `npm run test:order` after changing test fixtures or shared state. It runs the full suite in one worker with shuffled files and tests; CI uses this mode for its single test run. Local `npm test` uses six workers. Replay a failure with `npm run test:order -- --sequence.seed <reported-seed>`.
+Keep protocol translation in app-server adapters. Wire behavior spanning features through the plugin's runtime and workspace owners rather than making one feature coordinate another. Put host adapters beside the code they connect; `.obsidian`, `.dom`, and `.measure` suffixes identify integration boundaries without making the host library a directory category.
 
-Use `npm run test:coverage` to identify source modules and branches that lack exercised behavior. It reports every authored TypeScript source file, including files not imported by tests, while excluding generated app-server bindings. Open `coverage/index.html` to inspect line-level gaps. Coverage is diagnostic and has no pass/fail threshold; prioritize user-visible behavior and state-transition invariants rather than raising the aggregate percentage.
+In Chat, keep state and workflows in application code and connect them to the host through contracts. Supply UI with values and actions rather than letting it reach into application, app-server, host, or Obsidian. Within host, keep area-specific selectors and projections together, separate from screen composition and session lifetime. Put display-only transformations beside their UI consumers.
 
-Use `npm run test:mutation` for exploratory mutation testing of correctness-critical logic. Configure mutation targets by responsibility directory in `stryker.config.mjs`. Review surviving mutants individually instead of treating the aggregate score as a quality gate: add tests for meaningful behavior gaps, simplify equivalent or redundant code, and leave mutants alone when neither change improves the durable contract. The run skips static mutants to avoid costly module reinitialization, is intentionally manual, and writes its ignored HTML report to `reports/mutation/mutation.html`.
+Name modules by their owned responsibility. Use lifecycle or boundary nouns only for objects that own that lifecycle or boundary, and passive-data names for values. Prefer functions and factories; reserve classes for mutable resource ownership, external class APIs, and `Error` types.
 
-When reviewing tests, map each case to a reachable user action, external boundary, or distinct state transition. Keep representative coverage of normal workflows before adding variants; remove cases that only exercise test doubles, impossible configuration, duplicate ownership, or wording and internal shape without a durable contract.
+Source-policy diagnostics come from `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks. Fix the code rather than suppressing a diagnostic. When a concrete constraint prevents a conforming implementation, keep the suppression local and explain the constraint, including why an Obsidian UI pattern needs to differ from a generic browser rule.
 
-Extracting a module does not by itself justify a new test suite. Before adding tests, identify the behavior existing tests do not protect and exercise it at the appropriate layer. Consolidate or remove overlapping cases and fixtures while preserving meaningful behavior coverage.
+## Validate a Change
 
-## Commit Messages
+Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Focused checks do not replace this sequence unless validation is explicitly scoped otherwise.
 
-Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) for new commits:
+Run additional checks when the affected contract requires them:
 
-```text
-feat(composer): add daily note context suggestions
-fix: prevent manual titles from being overwritten
-```
+| Change | Additional validation |
+| --- | --- |
+| Test fixtures or shared state | `npm run test:order`; replay a failure with `npm run test:order -- --sequence.seed <reported-seed>` |
+| Biome configuration, Grit matchers, or Biome version | `npm run test:policies` |
+| API baselines or generated bindings | Follow the compatibility procedure below |
 
-Scopes are optional. Keep the description concise, and mark disruptive changes with the standard `!` or `BREAKING CHANGE:` form.
+`test:order` runs the suite in one worker with shuffled files and tests, matching the CI test mode. Use live Obsidian validation when material integration behavior is not covered by automation; a deterministic test that exercises the cause is sufficient for an otherwise reproducible defect.
 
-CI checks commits introduced by pull requests and direct pushes; GitHub-generated pull-request merge commits are exempt. To check a range locally, run `npm run commitlint -- --from <base> --to <head> --verbose`.
+### Write Tests That Survive Refactoring
 
-## Generated and Loaded Files
+Tie each case to a reachable user action, external boundary, or distinct state transition. Keep representative normal workflows and remove cases that only check test doubles, impossible configurations, or internal structure without a durable contract. Extracting or moving a module does not itself justify a new suite; first identify what existing tests fail to protect.
 
-`main.js`, `styles.css`, `data.json`, and `node_modules/` are ignored by Git. `main.js` and `styles.css` are still the files Obsidian loads, so run `npm run build` before live Obsidian validation if you have not already run `npm run check` after the source change.
+Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, globals, and DOM overrides after each test. Avoid per-file `vi.mock` replacements of shared modules; use scoped spies or existing dependency injection. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
 
-CSS is authored in `src/styles/` and generated into the ignored root `styles.css` release asset. Use `npm run build:styles` when only regenerating CSS; it also verifies the authored CSS order before writing `styles.css`.
+### Investigate Coverage Gaps
 
-The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI. Generation requires its exact version to match `codexAppServer.testedCliVersion` in `src/app-server/compatibility.json`. For an upgrade, set that generation target and use the matching CLI before regenerating; keep the README Compatibility table aligned with the target before baseline checks. Treat the update as verified only after the required validation succeeds:
+These are optional diagnostics, not additional handoff gates:
+
+- `npm run test:coverage` reports unexercised authored source, including modules not imported by tests, in `coverage/index.html`. Use it to find missing behavior coverage; there is no percentage threshold.
+- `npm run test:mutation` explores correctness-critical logic selected in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. Review surviving mutants individually: add tests for meaningful gaps, simplify equivalent or redundant code, and leave cases alone when neither improves the contract. Do not optimize for the aggregate score.
+
+## Update API Compatibility
+
+Run `npm run api:baseline` after changing compatibility metadata and keep the README Compatibility table aligned. This checks recorded metadata; it does not prove runtime compatibility or replace regenerating bindings.
+
+### Obsidian
+
+`manifest.minAppVersion` is the runtime floor; keep the `obsidian` type package current independently. `obsidianmd/no-unsupported-api` checks annotated APIs against that floor and permits guarded use through `requireApiVersion()`. Manually review type-only, dynamic, unannotated, and runtime-dependent behavior that lint cannot verify.
+
+`versions.json` records compatibility boundaries, not every release. When raising the floor, map the current released plugin version to its old `minAppVersion`.
+
+### Codex App-Server
+
+Compatibility is managed by CLI minor version, while bindings are generated and verified against an exact patch. Set the target in `src/app-server/compatibility.json`, update the README, and use that exact installed CLI version before regenerating:
 
 ```sh
 npm run generate:app-server-types
 npm run generate:app-server-types:check
-npm run check
-```
-
-Do not hand-edit the bindings. Put necessary output normalization in `scripts/generate-app-server-types.mjs` and regenerate. `src/app-server/compatibility.json` records their CLI patch and generation arguments; the check command regenerates and compares them without replacing tracked files.
-
-## Executable Policies
-
-Executable source policies live in `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks.
-
-Fix the code rather than suppress diagnostics. Suppressions are exceptional: use one only when a concrete constraint prevents a reasonable implementation that satisfies the rule. Keep it local and explain that constraint in the directive, including the Obsidian-specific reason when a native Obsidian UI pattern diverges from a generic browser rule.
-
-Run `npm run test:policies` when changing Biome configuration, Grit matchers, or the Biome version.
-
-## Naming Conventions
-
-Name modules by owned responsibility. Use lifecycle or boundary nouns only when the object owns that lifecycle or boundary, and passive-data names for values.
-
-Prefer functions and factories. Reserve classes for mutable resource ownership, external class APIs, and `Error` types.
-
-## Shared Code Placement
-
-Keep feature-specific code with its feature. Use root `domain/` for shared values and rules, including the pure calculations they need, and `shared/` for reusable execution and UI support. Sharing a helper should not make either root depend on a feature's implementation.
-
-Within those roots, group modules into responsibility directories. Keep related types and helpers together; a category may contain one cohesive module. Choose the directory by the capability provided, and use `.obsidian`, `.dom`, or `.measure` suffixes for host and DOM boundaries so adapters can live beside the code they connect.
-
-## Chat Source Layout
-
-Chat is organized by responsibility: `domain/` defines Panel-owned models and rules, `application/` owns state and workflows, `app-server/` adapts the protocol, `host/` connects application behavior to Obsidian and UI, and `ui/` renders supplied values and actions. UI must not import application, app-server, host, or Obsidian directly.
-
-Within host, group area-specific selectors, models, and view projections together. Keep screen composition and session lifecycle separate from those area-specific details. Display-only transformations belong beside their UI consumers.
-
-## API Baselines
-
-```sh
 npm run api:baseline
 ```
 
-`manifest.minAppVersion` is the Obsidian runtime floor; keep the `obsidian` type package current independently. `obsidianmd/no-unsupported-api` compares API `@since` annotations with that floor and allows guarded use through `requireApiVersion()`. Manually review type-only, dynamic, unannotated, and runtime-dependent behavior that lint cannot verify.
+The compatibility file also records generation arguments and capabilities. Do not hand-edit `src/generated/app-server/`; put necessary output normalization in `scripts/generate-app-server-types.mjs` and regenerate. The check command compares fresh output without replacing tracked bindings.
 
-`versions.json` records only compatibility boundaries. When raising the runtime floor, map the current released plugin version to its old `minAppVersion`; do not add every plugin release.
+Review protocol changes in their affected adapters and runtime paths, then complete the standard handoff validation before reporting the new baseline as verified.
 
-Codex app-server compatibility is managed by CLI minor version. `src/app-server/compatibility.json` records the exact generation patch and capabilities.
+## Record the Change
 
-`npm run api:baseline` validates recorded API versions and compatibility metadata. For binding changes, also run `npm run generate:app-server-types:check` with the recorded CLI to regenerate and compare the artifacts.
+Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), for example `feat(composer): add daily note context suggestions`. Scopes are optional; mark disruptive changes with `!` or a `BREAKING CHANGE:` footer.
+
+CI validates introduced commit messages on pull requests and pushes. Check a range locally with `npm run commitlint -- --from <base> --to <head> --verbose`. Follow [Release](release.md) when preparing a version for publication.
