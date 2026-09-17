@@ -1,7 +1,7 @@
 import { CLIENT_VERSION } from "../../constants";
 import type { InitializeCapabilities } from "../../generated/app-server/InitializeCapabilities";
 import type { InitializeParams } from "../../generated/app-server/InitializeParams";
-import compatibility from "./compatibility.json";
+import compatibility from "../compatibility.json";
 
 interface AppServerCompatibility {
   codexAppServer: {

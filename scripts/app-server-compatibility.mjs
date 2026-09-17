@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const compatibilityRelativePath = "src/app-server/connection/compatibility.json";
+const compatibilityRelativePath = "src/app-server/compatibility.json";
 const exactSemverPattern = /^\d+\.\d+\.\d+$/;
 
 if (isMain()) {

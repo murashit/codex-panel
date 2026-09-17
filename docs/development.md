@@ -47,7 +47,7 @@ CI checks commits introduced by pull requests and direct pushes; GitHub-generate
 
 CSS is authored in `src/styles/` and generated into the ignored root `styles.css` release asset. Use `npm run build:styles` when only regenerating CSS; it also verifies the authored CSS order before writing `styles.css`.
 
-The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI. Generation requires its exact version to match `codexAppServer.testedCliVersion` in `src/app-server/connection/compatibility.json`. For an upgrade, set that generation target and use the matching CLI before regenerating; keep the README Compatibility table aligned with the target before baseline checks. Treat the update as verified only after the required validation succeeds:
+The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI. Generation requires its exact version to match `codexAppServer.testedCliVersion` in `src/app-server/compatibility.json`. For an upgrade, set that generation target and use the matching CLI before regenerating; keep the README Compatibility table aligned with the target before baseline checks. Treat the update as verified only after the required validation succeeds:
 
 ```sh
 npm run generate:app-server-types
@@ -55,7 +55,7 @@ npm run generate:app-server-types:check
 npm run check
 ```
 
-Do not hand-edit the bindings. Put necessary output normalization in `scripts/generate-app-server-types.mjs` and regenerate. `src/app-server/connection/compatibility.json` records their CLI patch and generation arguments; the check command regenerates and compares them without replacing tracked files.
+Do not hand-edit the bindings. Put necessary output normalization in `scripts/generate-app-server-types.mjs` and regenerate. `src/app-server/compatibility.json` records their CLI patch and generation arguments; the check command regenerates and compares them without replacing tracked files.
 
 ## Executable Policies
 
@@ -87,6 +87,6 @@ npm run api:baseline
 
 `versions.json` records only compatibility boundaries. When raising the runtime floor, map the current released plugin version to its old `minAppVersion`; do not add every plugin release.
 
-Codex app-server compatibility is managed by CLI minor version. `src/app-server/connection/compatibility.json` records the exact generation patch and capabilities.
+Codex app-server compatibility is managed by CLI minor version. `src/app-server/compatibility.json` records the exact generation patch and capabilities.
 
 `npm run api:baseline` validates recorded API versions and compatibility metadata. For binding changes, also run `npm run generate:app-server-types:check` with the recorded CLI to regenerate and compare the artifacts.

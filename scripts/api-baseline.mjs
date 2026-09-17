@@ -74,21 +74,21 @@ async function createApiBaselineReport() {
     fail("README.md Compatibility table must define `codexAppServer.testedCliVersion` as X.Y.Z.");
   }
   if (!codexRecordedSemver || codexRecordedSemver.version !== codexRecordedVersion) {
-    fail("src/app-server/connection/compatibility.json must declare codexAppServer.testedCliVersion as X.Y.Z.");
+    fail("src/app-server/compatibility.json must declare codexAppServer.testedCliVersion as X.Y.Z.");
   }
   if (codexReadmeVersion && codexRecordedVersion && codexReadmeVersion !== codexRecordedVersion) {
     fail(`README Codex CLI ${codexReadmeVersion} does not match recorded tested CLI ${codexRecordedVersion}.`);
   }
   if (!appServerGenerationArgumentsDeclared) {
-    fail("src/app-server/connection/compatibility.json must declare codexAppServer.typeGeneration.arguments as a string array.");
+    fail("src/app-server/compatibility.json must declare codexAppServer.typeGeneration.arguments as a string array.");
   } else if (!appServerGenerationArgumentsSupported) {
     fail(`app-server type generation arguments must be ${expectedGenerationArguments.join(" ")}.`);
   }
   if (!initializeExperimentalApi) {
-    fail("src/app-server/connection/compatibility.json must declare codexAppServer.initialize.capabilities.experimentalApi: true.");
+    fail("src/app-server/compatibility.json must declare codexAppServer.initialize.capabilities.experimentalApi: true.");
   }
   if (!initializeRequestAttestationDisabled) {
-    fail("src/app-server/connection/compatibility.json must declare codexAppServer.initialize.capabilities.requestAttestation: false.");
+    fail("src/app-server/compatibility.json must declare codexAppServer.initialize.capabilities.requestAttestation: false.");
   }
 
   if (!obsidianMinSemver) fail("manifest.json minAppVersion must be X.Y.Z.");
@@ -226,7 +226,7 @@ async function readBaselineInputs(cwd) {
     readJson(cwd, "package-lock.json"),
     readJson(cwd, "manifest.json"),
     readFile(path.join(cwd, "README.md"), "utf8"),
-    readJson(cwd, "src/app-server/connection/compatibility.json"),
+    readJson(cwd, "src/app-server/compatibility.json"),
   ]);
 
   return {
