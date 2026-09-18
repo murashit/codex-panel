@@ -5,8 +5,6 @@ import {
   threadStreamItems,
   threadStreamRollbackCandidate,
   threadStreamStartActiveSegment,
-  threadStreamTurnsAfterTurnId,
-  threadStreamWithActiveTurnItems,
 } from "../../../../../src/features/chat/application/state/thread-stream";
 import { chatThreadStreamViewState, initialChatActiveTurnState } from "../../../../../src/features/chat/application/state/turn-scope";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
@@ -264,22 +262,6 @@ describe("thread stream state", () => {
 });
 
 describe("thread stream selectors", () => {
-  it("counts turns after a turn id from thread stream state", () => {
-    const state = initialChatThreadStreamState(items());
-    const view = chatThreadStreamViewState(state, initialChatActiveTurnState());
-
-    expect(threadStreamTurnsAfterTurnId(view, "turn-1")).toBe(2);
-    expect(threadStreamTurnsAfterTurnId(view, "turn-2")).toBe(1);
-    expect(threadStreamTurnsAfterTurnId(view, "turn-3")).toBe(0);
-    expect(threadStreamTurnsAfterTurnId(view, "missing")).toBeNull();
-  });
-
-  it("includes the active segment when counting turns", () => {
-    const state = threadStreamWithActiveTurnItems(initialView(items()), "turn-3", items());
-
-    expect(threadStreamTurnsAfterTurnId(state, "turn-2")).toBe(1);
-  });
-
   it("selects the latest turn user dialogue for rollback restoration", () => {
     const state = initialChatThreadStreamState(items());
 

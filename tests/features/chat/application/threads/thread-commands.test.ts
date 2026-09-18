@@ -284,6 +284,16 @@ describe("thread management commands", () => {
     expect(host.addSystemMessage).toHaveBeenCalledWith("disk full");
   });
 
+  it("rejects a selected turn that is absent from the thread stream", async () => {
+    const host = hostMock({ items: turnItems() });
+
+    await threadCommands(host).forkThreadFromTurn("source", "missing", false);
+
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Could not find the selected turn to fork.");
+    expect(host.effects.forkThread).not.toHaveBeenCalled();
+    expect(host.openThreadInNewView).not.toHaveBeenCalled();
+  });
+
   it("forks through a selected turn", async () => {
     const items = [...turnItems().slice(0, 2), taskProgress("turn-1"), ...turnItems().slice(2)];
     const host = hostMock({ items });

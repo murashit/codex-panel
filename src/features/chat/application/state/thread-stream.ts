@@ -136,12 +136,6 @@ export function threadStreamIsEmpty(state: ChatThreadStreamViewState): boolean {
   return state.stableItems.length === 0 && (!state.activeSegment || state.activeSegment.items.length === 0);
 }
 
-export function threadStreamTurnsAfterTurnId(state: ChatThreadStreamViewState, turnId: string): number | null {
-  const turnIds = orderedTurnIds(threadStreamItems(state));
-  const index = turnIds.indexOf(turnId);
-  return index === -1 ? null : turnIds.length - index - 1;
-}
-
 export function threadStreamRollbackCandidate(state: ChatThreadStreamViewState): ThreadStreamRollbackCandidate | null {
   return threadStreamRollbackCandidateFromItems(threadStreamItems(state));
 }
@@ -432,17 +426,6 @@ function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string
     next.delete(turnId);
   }
   return next;
-}
-
-function orderedTurnIds(items: readonly ThreadStreamItem[]): string[] {
-  const turnIds: string[] = [];
-  const seen = new Set<string>();
-  for (const item of items) {
-    if (!item.turnId || seen.has(item.turnId)) continue;
-    seen.add(item.turnId);
-    turnIds.push(item.turnId);
-  }
-  return turnIds;
 }
 
 function latestTurnId(items: readonly ThreadStreamItem[]): string | null {

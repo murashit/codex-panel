@@ -8,7 +8,7 @@ import { type ActivePanelOperation, activePanelOperationDecision } from "../pane
 import { activeThreadId, type ChatState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
-import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
+import { threadStreamItems, threadStreamRollbackCandidate } from "../state/thread-stream";
 import { chatThreadStreamViewState } from "../state/turn-scope";
 import type { ComposerSubmissionAdoption } from "../submission/input-claim";
 import { chatTurnBusy } from "../turns/turn-state";
@@ -169,21 +169,12 @@ async function forkThreadFromTurn(
     return;
   }
   const scope = captureThreadCommandPanelScope(host, threadId);
-  const displaySnapshot = captureForkDisplaySnapshot(
-    chatThreadStreamViewState(threadCommandState(host).threadStream, threadCommandState(host).activeTurn),
-    turnId ? { kind: "through-turn", turnId } : { kind: "latest" },
-  );
-
-  const selectedTurnDistanceFromEnd = turnId
-    ? threadStreamTurnsAfterTurnId(
-        chatThreadStreamViewState(threadCommandState(host).threadStream, threadCommandState(host).activeTurn),
-        turnId,
-      )
-    : 0;
-  if (selectedTurnDistanceFromEnd === null) {
+  const stream = chatThreadStreamViewState(threadCommandState(host).threadStream, threadCommandState(host).activeTurn);
+  if (turnId && !threadStreamItems(stream).some((item) => item.turnId === turnId)) {
     host.addSystemMessage("Could not find the selected turn to fork.");
     return;
   }
+  const displaySnapshot = captureForkDisplaySnapshot(stream, turnId ? { kind: "through-turn", turnId } : { kind: "latest" });
   let publication: ThreadReplacementPublication | null = null;
   try {
     if (!(await host.ensureConnected())) return;
