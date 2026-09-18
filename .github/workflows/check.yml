@@ -13,6 +13,7 @@ jobs:
   check:
     name: npm run check
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
       HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
