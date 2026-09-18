@@ -46,6 +46,9 @@ jobs:
       - name: Check API baseline metadata
         run: npm run api:baseline
 
+      - name: Check lint policies
+        run: npm run test:policies
+
       - name: Check release metadata
         run: npm run release:check
         env:

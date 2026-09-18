@@ -112,6 +112,7 @@ run("npm", ["run", "release:check"], {
   env: { ...process.env, PREVIOUS_RELEASE_TAG: previousTag, RELEASE_VERSION: packageVersion },
 });
 run("npm", ["run", "api:baseline"]);
+run("npm", ["run", "test:policies"]);
 run("npm", ["run", "generate:app-server-types:check"]);
 run("npm", ["run", "check"]);
 
