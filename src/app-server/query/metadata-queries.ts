@@ -14,7 +14,7 @@ import type {
   SharedServerMetadataSnapshotValues,
 } from "../../domain/runtime/metadata";
 import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
-import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../domain/runtime/settings";
+import type { RuntimeConfigSnapshot } from "../../domain/runtime/settings";
 import type { RateLimitSnapshot } from "../../domain/runtime/usage";
 import type { ObservedResultListener } from "../../shared/async/observed-result";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
@@ -30,7 +30,6 @@ import {
 import type { AppServerRequestClient } from "../services/request-client";
 import { readAccountRateLimits, readEffectiveConfig } from "../services/runtime-metadata";
 import type { AppServerQueryOptions, AppServerQueryScope } from "./query-scope";
-import { cloneModelMetadata, cloneRateLimitSnapshot, cloneSharedServerMetadataResource } from "./snapshots";
 
 const METADATA_QUERY_KEY = ["metadata"] as const;
 const MODELS_QUERY_KEY = [...METADATA_QUERY_KEY, "models"] as const;
@@ -110,17 +109,12 @@ export class AppServerMetadataQueries {
 
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options: { emitCurrent?: boolean } = {}): () => void {
     this.scope.assertUsable();
-    return this.scope.observeResult(
-      this.metadataDescriptors["models"].queryOptions,
-      (data) => cloneModelMetadata(data.value),
-      listener,
-      options,
-    );
+    return this.scope.observeResult(this.metadataDescriptors["models"].queryOptions, (data) => data.value, listener, options);
   }
 
   observeHooksResult(listener: ObservedResultListener<HookCatalog>, options: { emitCurrent?: boolean } = {}): () => void {
     this.scope.assertUsable();
-    return this.scope.observeResult(this.hooksQueryOptions, cloneHookCatalog, listener, options);
+    return this.scope.observeResult(this.hooksQueryOptions, (catalog) => catalog, listener, options);
   }
 
   ensureAppServerMetadata(): Promise<void> {
@@ -158,7 +152,7 @@ export class AppServerMetadataQueries {
     this.scope.assertUsable();
     const descriptor = this.metadataDescriptors["models"];
     const data = await this.scope.client.query(descriptor.queryOptions);
-    return cloneModelMetadata(data.value);
+    return data.value;
   }
 
   async refreshModels(): Promise<readonly ModelMetadata[]> {
@@ -196,14 +190,14 @@ export class AppServerMetadataQueries {
           id: "runtimeConfig",
           value: result.data,
         }),
-        snapshot: cloneRuntimeConfigSnapshot,
+        snapshot: (data) => data,
       },
       models: {
         queryOptions: {
           queryKey: MODELS_QUERY_KEY,
           queryFn: () =>
             this.scope.runWithClient(async (client) => {
-              const models = cloneModelMetadata(await listModelMetadata(client));
+              const models = await listModelMetadata(client);
               return { value: models, summary: `${String(models.length)} models` };
             }),
         },
@@ -212,7 +206,7 @@ export class AppServerMetadataQueries {
           value: result.data?.value,
           probe: this.metadataProbe("models"),
         }),
-        snapshot: (data) => cloneModelMetadata(data.value),
+        snapshot: (data) => data.value,
       },
       skills: {
         queryOptions: {
@@ -230,7 +224,7 @@ export class AppServerMetadataQueries {
           value: result.data?.value,
           probe: this.metadataProbe("skills"),
         }),
-        snapshot: (data) => data.value.map((skill) => ({ ...skill })),
+        snapshot: (data) => data.value,
       },
       permissionProfiles: {
         queryOptions: {
@@ -246,7 +240,7 @@ export class AppServerMetadataQueries {
           value: result.data?.value,
           probe: this.metadataProbe("permissionProfiles"),
         }),
-        snapshot: (data) => data.value.map((profile) => ({ ...profile })),
+        snapshot: (data) => data.value,
       },
       rateLimits: {
         queryOptions: {
@@ -265,7 +259,7 @@ export class AppServerMetadataQueries {
           value: result.data?.value,
           probe: this.metadataProbe("rateLimits"),
         }),
-        snapshot: (data) => (data.value ? cloneRateLimitSnapshot(data.value) : data.value),
+        snapshot: (data) => data.value,
       },
     };
   }
@@ -307,7 +301,7 @@ export class AppServerMetadataQueries {
     });
     const emit = (result: QueryObserverResult<TQuery>, includeFetching = false): void => {
       if (this.scope.isDisposed() || (result.isFetching && !includeFetching)) return;
-      listener(cloneSharedServerMetadataResource(project(result)) as Resource);
+      listener(project(result));
     };
     const unsubscribe = observer.subscribe(emit);
     if (options.emitCurrent ?? true) emit(observer.getCurrentResult(), true);
@@ -328,12 +322,4 @@ export class AppServerMetadataQueries {
       });
     });
   }
-}
-
-function cloneHookCatalog(catalog: HookCatalog): HookCatalog {
-  return {
-    hooks: catalog.hooks.map((hook: HookItem) => ({ ...hook })),
-    warnings: [...catalog.warnings],
-    errors: [...catalog.errors],
-  };
 }

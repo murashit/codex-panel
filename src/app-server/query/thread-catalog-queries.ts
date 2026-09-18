@@ -17,7 +17,6 @@ import {
   recentActiveThreadsFromData,
 } from "./active-thread-inventory";
 import type { AppServerQueryOptions, AppServerQueryScope } from "./query-scope";
-import { cloneThreads } from "./snapshots";
 
 const ACTIVE_THREADS_QUERY_KEY = ["threads", "active"] as const;
 const ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY = ["threads", "active-search-inventory"] as const;
@@ -56,20 +55,20 @@ export class AppServerThreadCatalog {
     if (this.scope.isDisposed()) return null;
     const data = this.scope.client.getQueryData<ActiveThreadData>(ACTIVE_THREADS_QUERY_KEY);
     const threads = activeThreadsFromData(data);
-    return threads ? cloneThreads(threads) : null;
+    return threads ?? null;
   }
 
   recentActiveThreadsSnapshot(): readonly Thread[] | null {
     if (this.scope.isDisposed()) return null;
     const data = this.scope.client.getQueryData<ActiveThreadData>(ACTIVE_THREADS_QUERY_KEY);
     const threads = recentActiveThreadsFromData(data);
-    return threads ? cloneThreads(threads) : null;
+    return threads ?? null;
   }
 
   archivedThreadsSnapshot(): readonly Thread[] | null {
     if (this.scope.isDisposed()) return null;
     const threads = this.scope.client.getQueryData<readonly Thread[]>(ARCHIVED_THREADS_QUERY_KEY);
-    return threads ? cloneThreads(threads) : null;
+    return threads ?? null;
   }
 
   observeActiveThreadsResult(
@@ -98,7 +97,7 @@ export class AppServerThreadCatalog {
 
   observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options: { emitCurrent?: boolean } = {}): () => void {
     this.scope.assertUsable();
-    return this.scope.observeResult(this.archivedThreadsQueryOptions(), cloneThreads, listener, options);
+    return this.scope.observeResult(this.archivedThreadsQueryOptions(), (threads) => threads, listener, options);
   }
 
   async fetchActiveThreads(): Promise<readonly Thread[]> {
@@ -107,7 +106,7 @@ export class AppServerThreadCatalog {
     if (frozenSnapshot) return frozenSnapshot;
     try {
       const data = await this.scope.client.infiniteQuery(this.activeThreadsQueryOptions());
-      return cloneThreads(activeThreadsFromData(data) ?? []);
+      return activeThreadsFromData(data) ?? [];
     } catch (error) {
       if (error instanceof CancelledError) {
         this.scope.assertUsable();
@@ -138,7 +137,7 @@ export class AppServerThreadCatalog {
         this.scope.runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { signal })),
       staleTime: 0,
     };
-    return this.scope.client.query(options).then(cloneThreads);
+    return this.scope.client.query(options);
   }
 
   hasMoreActiveThreads(): boolean {
@@ -176,7 +175,7 @@ export class AppServerThreadCatalog {
     await this.scope.client.invalidateQueries({ queryKey: key, exact: true, refetchType: "none" });
     this.scope.assertUsable();
     try {
-      return cloneThreads(await this.scope.client.query(this.archivedThreadsQueryOptions()));
+      return await this.scope.client.query(this.archivedThreadsQueryOptions());
     } catch (error) {
       if (error instanceof CancelledError) {
         this.scope.assertUsable();
@@ -205,7 +204,7 @@ export class AppServerThreadCatalog {
       const key = ARCHIVED_THREADS_QUERY_KEY;
       const before = this.scope.client.getQueryData<readonly Thread[]>(key);
       const after = archivedChanges.reduce<readonly Thread[] | null>(applyThreadCatalogChange, before ?? null) ?? undefined;
-      this.publishThreadProjection(key, archivedChanges, before, after === before ? before : after && cloneThreads(after), {
+      this.publishThreadProjection(key, archivedChanges, before, after, {
         invalidate: false,
         refresh: () => this.refreshArchivedThreads(),
       });
@@ -282,9 +281,7 @@ export class AppServerThreadCatalog {
     return {
       queryKey: ARCHIVED_THREADS_QUERY_KEY,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
-        this.scope
-          .runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { archived: true, signal }))
-          .then(cloneThreads),
+        this.scope.runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { archived: true, signal })),
     };
   }
 

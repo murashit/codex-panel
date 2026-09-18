@@ -34,14 +34,6 @@ export function mcpConnectionStatusFromStartupStatus(status: McpServerStartupSta
   return status === "ready" ? "connected" : status;
 }
 
-function cloneMcpServerStatusSummary(server: McpServerStatusSummary): McpServerStatusSummary {
-  return server.codexAppIds ? { ...server, codexAppIds: [...server.codexAppIds] } : { ...server };
-}
-
-function cloneMcpServerDiagnostic(server: McpServerDiagnostic): McpServerDiagnostic {
-  return { ...server };
-}
-
 export interface ToolInventoryPlugin {
   readonly id: string;
   readonly name: string;
@@ -61,13 +53,4 @@ export interface ToolInventorySnapshot {
   readonly mcpServers: readonly McpServerStatusSummary[] | null;
   readonly mcpDiagnostics: readonly McpServerDiagnostic[];
   readonly mcpError: string | null;
-}
-
-export function cloneToolInventorySnapshot(snapshot: ToolInventorySnapshot): ToolInventorySnapshot {
-  return {
-    ...snapshot,
-    plugins: snapshot.plugins ? snapshot.plugins.map((plugin) => ({ ...plugin })) : null,
-    mcpServers: snapshot.mcpServers ? snapshot.mcpServers.map(cloneMcpServerStatusSummary) : null,
-    mcpDiagnostics: snapshot.mcpDiagnostics.map(cloneMcpServerDiagnostic),
-  };
 }

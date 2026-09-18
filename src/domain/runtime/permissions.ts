@@ -3,12 +3,12 @@ export type RuntimeApprovalPolicy =
   | "on-request"
   | "never"
   | {
-      granular: {
-        sandbox_approval: boolean;
-        rules: boolean;
-        skill_approval: boolean;
-        request_permissions: boolean;
-        mcp_elicitations: boolean;
+      readonly granular: {
+        readonly sandbox_approval: boolean;
+        readonly rules: boolean;
+        readonly skill_approval: boolean;
+        readonly request_permissions: boolean;
+        readonly mcp_elicitations: boolean;
       };
     };
 

@@ -1,7 +1,6 @@
 import { QueryObserver } from "@tanstack/query-core";
 import { shortDiagnosticErrorMessage, upsertMcpServerDiagnostic } from "../../domain/runtime/diagnostics";
 import {
-  cloneToolInventorySnapshot,
   type McpServerAuthenticationIssue,
   type McpServerDiagnostic,
   type McpServerStartupStatus,
@@ -46,13 +45,13 @@ export class AppServerToolInventoryQueries {
     const scopedDiagnostics = threadId === null ? globalDiagnostics : this.mcpStartupDiagnostics(threadId);
     if (!plugins && !mcp && globalDiagnostics.servers.length === 0 && scopedDiagnostics.servers.length === 0) return null;
     const mcpDiagnostics = scopedDiagnostics.servers.reduce(upsertMcpServerDiagnostic, globalDiagnostics.servers);
-    return cloneToolInventorySnapshot({
+    return {
       plugins: plugins?.data?.plugins ?? null,
       pluginsError: queryErrorMessage(plugins?.error),
       mcpServers: mcp?.data?.servers ?? null,
       mcpDiagnostics,
       mcpError: queryErrorMessage(mcp?.error),
-    });
+    };
   }
 
   observe(threadId: string | null, listener: (snapshot: ToolInventorySnapshot | null) => void): () => void {

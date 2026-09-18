@@ -50,7 +50,7 @@ function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
   };
 }
 
-export function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): RuntimeConfigSnapshot {
+function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): RuntimeConfigSnapshot {
   return {
     ...config,
     startupPermissions: cloneRuntimePermissionState(config.startupPermissions),
