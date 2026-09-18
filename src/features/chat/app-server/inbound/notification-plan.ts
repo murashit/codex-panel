@@ -9,12 +9,7 @@ import { activeThreadSettingsAppliedAction } from "../../application/state/trans
 import { projectTurnRuntimeFact, type TurnRuntimeProjectionOutcome } from "../../application/turns/runtime-fact-projection";
 import type { TurnRuntimeFact } from "../../application/turns/runtime-facts";
 import { activeTurnId } from "../../application/turns/turn-state";
-import {
-  type DiagnosticStatusNotification,
-  isStreamOrTurnLifecycleNotification,
-  routeServerNotification,
-  type ThreadLifecycleNotification,
-} from "./notification-routing";
+import { isStreamOrTurnLifecycleNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
 import { type RuntimeFactSource, turnRuntimeFactFromNotification } from "./runtime-fact-adapter";
 
 export type ChatInboundEffect = {
@@ -48,7 +43,6 @@ export function planChatInboundNotification(
     case "inactive":
       return planTrackedSubagentNotification(state, route.scope.threadId, route.notification, localItemId);
     case "ignored":
-    case "unhandled":
       return EMPTY_PLAN;
     case "streamUpdate":
     case "turnLifecycle":
@@ -58,7 +52,10 @@ export function planChatInboundNotification(
     case "threadLifecycle":
       return planThreadLifecycle(state, route.notification);
     case "diagnosticStatus":
-      return planDiagnosticStatus(route.notification);
+      return actionPlan({
+        type: "active-thread/token-usage-set",
+        tokenUsage: threadTokenUsageFromRuntimeUsage(route.notification.params.tokenUsage),
+      });
   }
 }
 
@@ -123,20 +120,6 @@ function chatInboundEffectsFromTurnProjectionOutcome(
       completedTurnTranscriptSummary: outcome.completedTurnTranscriptSummary,
     },
   ];
-}
-
-function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatInboundPlan {
-  switch (notification.method) {
-    case "thread/tokenUsage/updated":
-      return actionPlan({
-        type: "active-thread/token-usage-set",
-        tokenUsage: threadTokenUsageFromRuntimeUsage(notification.params.tokenUsage),
-      });
-    case "app/list/updated":
-    case "mcpServer/oauthLogin/completed":
-    case "mcpServer/startupStatus/updated":
-      return EMPTY_PLAN;
-  }
 }
 
 function planThreadLifecycle(state: ChatState, notification: ThreadLifecycleNotification): ChatInboundPlan {

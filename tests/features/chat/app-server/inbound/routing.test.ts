@@ -244,80 +244,29 @@ describe("chat inbound routing", () => {
     { name: "agent delta", notification: agentDeltaNotification(), kind: "streamUpdate" },
     { name: "turn started", notification: turnStartedNotification(), kind: "turnLifecycle" },
     { name: "thread settings updated", notification: threadSettingsUpdatedNotification(), kind: "threadLifecycle" },
-    { name: "thread goal updated", notification: threadGoalUpdatedNotification(), kind: "ignored" },
     { name: "server request resolved", notification: serverRequestResolvedNotification(), kind: "requestResolved" },
-    { name: "MCP startup status", notification: mcpStartupStatusNotification(), kind: "diagnosticStatus" },
     { name: "warning", notification: warningNotification(), kind: "userVisibleNotice" },
   ] as const)("classifies $name notifications without mutating state", ({ notification, kind }) => {
     expectNotificationRouteKind(notification, kind);
   });
 
-  it("keeps ignored app-server notifications explicit", () => {
-    const route = routeServerNotification(
-      {
-        method: "account/updated",
-        params: { authMode: null, planType: null },
-      } satisfies Extract<ServerNotification, { method: "account/updated" }>,
-      activeScope,
-    );
-
-    expect(route.kind).toBe("ignored");
-  });
-
-  it("routes unknown runtime notifications to the unhandled fallback", () => {
-    const notification = {
+  it.each([
+    { method: "account/updated", params: { authMode: null, planType: null } } satisfies ServerNotification,
+    {
+      method: "thread/status/changed",
+      params: { threadId: "thread-child", status: { type: "idle" } },
+    } satisfies ServerNotification,
+    {
       method: "future/notification",
       params: { threadId: "thread-active", turnId: "turn-active" },
-    } as unknown as ServerNotification;
-
-    expectNotificationRouteKind(notification, "unhandled");
-    expectNotificationRouteKind(
-      {
-        ...notification,
-        params: { threadId: "thread-active", turnId: "turn-other" },
-      } as unknown as ServerNotification,
-      "inactive",
-    );
-  });
-
-  it("safely ignores unknown runtime notifications in the planner", () => {
+    } as unknown as ServerNotification,
+  ])("leaves chat state and follow-up effects unchanged for unused $method notifications", (notification) => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
     state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
-    const notification = {
-      method: "future/notification",
-      params: { threadId: "thread-active", turnId: "turn-active" },
-    } as unknown as ServerNotification;
+    state = chatReducer(state, { type: "subagent-activity/tracked", threadId: "thread-child", parentTurnId: "turn-active" });
 
     expect(planChatInboundNotification(state, notification, (prefix) => `${prefix}-1`)).toEqual({ actions: [], effects: [] });
-  });
-
-  it.each([
-    { name: "raw response item completed", notification: rawResponseItemCompletedNotification },
-    { name: "raw response completed", notification: rawResponseCompletedNotification },
-    { name: "turn moderation metadata", notification: turnModerationMetadataNotification },
-    { name: "terminal interaction", notification: terminalInteractionNotification },
-    { name: "model verification", notification: modelVerificationNotification },
-    { name: "strict review required", notification: strictReviewRequiredNotification },
-  ])("still scopes ignored turn notification $name", ({ notification }) => {
-    expectNotificationRouteKind(notification("thread-active", "turn-active"), "ignored");
-    expectNotificationRouteKind(notification("thread-other", "turn-active"), "inactive");
-    expectNotificationRouteKind(notification("thread-active", "turn-other"), "inactive");
-  });
-
-  it.each([
-    { name: "thread status changed", notification: threadStatusChangedNotification },
-    { name: "thread closed", notification: threadClosedNotification },
-    { name: "environment connected", notification: environmentConnectedNotification },
-    { name: "environment disconnected", notification: environmentDisconnectedNotification },
-  ])("still scopes ignored thread lifecycle notification $name", ({ notification }) => {
-    expectNotificationRouteKind(notification("thread-active"), "ignored");
-    expectNotificationRouteKind(notification("thread-other"), "inactive");
-  });
-
-  it("scopes MCP startup status notifications when app-server provides a thread id", () => {
-    expectNotificationRouteKind(mcpStartupStatusNotificationForThread("thread-active"), "diagnosticStatus");
-    expectNotificationRouteKind(mcpStartupStatusNotificationForThread("thread-other"), "inactive");
   });
 });
 
@@ -548,92 +497,10 @@ function threadSettingsUpdatedNotification(): Extract<ServerNotification, { meth
   };
 }
 
-function threadGoalUpdatedNotification(): ServerNotification {
-  return {
-    method: "thread/goal/updated",
-    params: {
-      threadId: "thread-active",
-      turnId: null,
-      goal: {
-        threadId: "thread-active",
-        objective: "Finish",
-        status: "active",
-        tokenBudget: null,
-        tokensUsed: 0,
-        timeUsedSeconds: 0,
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    },
-  };
-}
-
 function serverRequestResolvedNotification(): ServerNotification {
   return {
     method: "serverRequest/resolved",
     params: { threadId: "thread-active", requestId: 2 },
-  };
-}
-
-function mcpStartupStatusNotification(): ServerNotification {
-  return mcpStartupStatusNotificationForThread(null);
-}
-
-function mcpStartupStatusNotificationForThread(threadId: string | null): ServerNotification {
-  return {
-    method: "mcpServer/startupStatus/updated",
-    params: { threadId, name: "github", status: "failed", error: "missing token", failureReason: null },
-  };
-}
-
-function turnModerationMetadataNotification(
-  threadId: string,
-  turnId: string,
-): Extract<ServerNotification, { method: "turn/moderationMetadata" }> {
-  return {
-    method: "turn/moderationMetadata",
-    params: { threadId, turnId, metadata: { blocked: false } },
-  };
-}
-
-function terminalInteractionNotification(
-  threadId: string,
-  turnId: string,
-): Extract<ServerNotification, { method: "item/commandExecution/terminalInteraction" }> {
-  return {
-    method: "item/commandExecution/terminalInteraction",
-    params: { threadId, turnId, itemId: "command", processId: "process", stdin: "q" },
-  };
-}
-
-function modelVerificationNotification(threadId: string, turnId: string): Extract<ServerNotification, { method: "model/verification" }> {
-  return {
-    method: "model/verification",
-    params: { threadId, turnId, verifications: ["trustedAccessForCyber"] },
-  };
-}
-
-function strictReviewRequiredNotification(
-  threadId: string,
-  turnId: string,
-): Extract<ServerNotification, { method: "autoApprovalReview/strictReviewRequired" }> {
-  return {
-    method: "autoApprovalReview/strictReviewRequired",
-    params: { threadId, turnId, startedAtMs: 1 },
-  };
-}
-
-function threadStatusChangedNotification(threadId: string): Extract<ServerNotification, { method: "thread/status/changed" }> {
-  return {
-    method: "thread/status/changed",
-    params: { threadId, status: { type: "idle" } },
-  };
-}
-
-function threadClosedNotification(threadId: string): Extract<ServerNotification, { method: "thread/closed" }> {
-  return {
-    method: "thread/closed",
-    params: { threadId },
   };
 }
 
@@ -656,42 +523,6 @@ function authRecoveryNotification(
       message: "Refreshing AWS authentication.",
     },
   };
-}
-
-function rawResponseItemCompletedNotification(
-  threadId: string,
-  turnId: string,
-): Extract<ServerNotification, { method: "rawResponseItem/completed" }> {
-  return {
-    method: "rawResponseItem/completed",
-    params: {
-      threadId,
-      turnId,
-      item: {
-        type: "message",
-        role: "assistant",
-        content: [],
-      },
-    },
-  };
-}
-
-function rawResponseCompletedNotification(
-  threadId: string,
-  turnId: string,
-): Extract<ServerNotification, { method: "rawResponse/completed" }> {
-  return {
-    method: "rawResponse/completed",
-    params: { threadId, turnId, responseId: "response", usage: null, usageMetadata: null },
-  };
-}
-
-function environmentConnectedNotification(threadId: string): Extract<ServerNotification, { method: "thread/environment/connected" }> {
-  return { method: "thread/environment/connected", params: { threadId, environmentId: "environment" } };
-}
-
-function environmentDisconnectedNotification(threadId: string): Extract<ServerNotification, { method: "thread/environment/disconnected" }> {
-  return { method: "thread/environment/disconnected", params: { threadId, environmentId: "environment" } };
 }
 
 function threadSnapshot(id: string): Extract<ServerNotification, { method: "thread/started" }>["params"]["thread"] {

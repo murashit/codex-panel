@@ -2,7 +2,6 @@ import type { ServerNotification } from "../../../../app-server/connection/rpc-m
 import {
   type ActiveRouteScope,
   type AppServerRouteScope,
-  fallbackAppServerRouteScope,
   isAppServerRouteScopeInActiveRouteScope,
   isTurnScopedAppServerRouteForIdlePanelTurn,
 } from "./route-scope";
@@ -15,8 +14,7 @@ type NotificationRouteKind =
   | "threadLifecycle"
   | "requestResolved"
   | "diagnosticStatus"
-  | "userVisibleNotice"
-  | "ignored";
+  | "userVisibleNotice";
 type NotificationDescriptor<M extends ServerNotificationMethod> =
   | {
       readonly kind: NotificationRouteKind;
@@ -39,8 +37,7 @@ export type ServerNotificationRoute =
   | { kind: "requestResolved"; notification: RequestResolvedNotification }
   | { kind: "diagnosticStatus"; notification: DiagnosticStatusNotification }
   | { kind: "userVisibleNotice"; notification: UserVisibleNoticeNotification }
-  | { kind: "ignored"; notification: ServerNotification }
-  | { kind: "unhandled"; notification: ServerNotification }
+  | { kind: "ignored" }
   | { kind: "inactive"; notification: ServerNotification; scope: AppServerRouteScope };
 
 const ACTIVE_SCOPE_DELIVERY: { readonly delivery: "activeScope" } = { delivery: "activeScope" };
@@ -48,8 +45,6 @@ const THREAD_CATALOG_DELIVERY = { delivery: "threadCatalog", scope: null } as co
 
 const SERVER_NOTIFICATION_REGISTRY = {
   "thread/started": { ...THREAD_CATALOG_DELIVERY, kind: "threadLifecycle" },
-  "thread/goal/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
-  "thread/goal/cleared": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
   "thread/settings/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "threadLifecycle", scope: threadOnlyNotificationScope },
 
   "item/agentMessage/delta": { ...ACTIVE_SCOPE_DELIVERY, kind: "streamUpdate", scope: threadTurnNotificationScope },
@@ -78,9 +73,6 @@ const SERVER_NOTIFICATION_REGISTRY = {
   "serverRequest/resolved": { ...ACTIVE_SCOPE_DELIVERY, kind: "requestResolved", scope: threadOnlyNotificationScope },
 
   "thread/tokenUsage/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: threadTurnNotificationScope },
-  "app/list/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
-  "mcpServer/oauthLogin/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: unscopedNotificationScope },
-  "mcpServer/startupStatus/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "diagnosticStatus", scope: threadOnlyNotificationScope },
 
   "model/rerouted": { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: threadTurnNotificationScope },
   deprecationNotice: { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: unscopedNotificationScope },
@@ -89,37 +81,6 @@ const SERVER_NOTIFICATION_REGISTRY = {
   configWarning: { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: unscopedNotificationScope },
   "windows/worldWritableWarning": { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: unscopedNotificationScope },
   "windowsSandbox/setupCompleted": { ...ACTIVE_SCOPE_DELIVERY, kind: "userVisibleNotice", scope: unscopedNotificationScope },
-
-  "thread/status/changed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/closed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "rawResponseItem/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
-  "rawResponse/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
-  "thread/environment/connected": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/environment/disconnected": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "command/exec/outputDelta": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "process/outputDelta": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "process/exited": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "item/commandExecution/terminalInteraction": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
-  "account/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "remoteControl/status/changed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "externalAgentConfig/import/progress": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "externalAgentConfig/import/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "fs/changed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "model/verification": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
-  "turn/moderationMetadata": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
-  "model/safetyBuffering/updated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
-  "autoApprovalReview/strictReviewRequired": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadTurnNotificationScope },
-  "fuzzyFileSearch/sessionUpdated": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "fuzzyFileSearch/sessionCompleted": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
-  "thread/realtime/started": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/realtime/itemAdded": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/realtime/transcript/delta": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/realtime/transcript/done": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/realtime/outputAudio/delta": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/realtime/sdp": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/realtime/error": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "thread/realtime/closed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: threadOnlyNotificationScope },
-  "account/login/completed": { ...ACTIVE_SCOPE_DELIVERY, kind: "ignored", scope: unscopedNotificationScope },
 } satisfies NotificationRegistry;
 
 type RegisteredNotificationMethod = keyof typeof SERVER_NOTIFICATION_REGISTRY & ServerNotificationMethod;
@@ -142,7 +103,7 @@ export type StreamUpdateNotification = NotificationForKind<"streamUpdate">;
 export type TurnLifecycleNotification = NotificationForKind<"turnLifecycle">;
 export type ThreadLifecycleNotification = NotificationForKind<"threadLifecycle">;
 type RequestResolvedNotification = NotificationForKind<"requestResolved">;
-export type DiagnosticStatusNotification = NotificationForKind<"diagnosticStatus">;
+type DiagnosticStatusNotification = NotificationForKind<"diagnosticStatus">;
 export type UserVisibleNoticeNotification = NotificationForKind<"userVisibleNotice">;
 
 export function isStreamOrTurnLifecycleNotification(
@@ -155,11 +116,7 @@ export function isStreamOrTurnLifecycleNotification(
 
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {
   const registered = registeredNotification(notification);
-  if (registered === null) {
-    const routeScope = fallbackAppServerRouteScope(notification);
-    if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", notification, scope: routeScope };
-    return { kind: "unhandled", notification };
-  }
+  if (registered === null) return { kind: "ignored" };
 
   switch (registered.delivery) {
     case "threadCatalog":
