@@ -108,33 +108,22 @@ async function normalizeGeneratedTypes(generatedDir) {
 }
 
 async function listTypeScriptFiles(dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const files = await Promise.all(
-    entries.map((entry) => {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) return listTypeScriptFiles(fullPath);
-      return entry.isFile() && entry.name.endsWith(".ts") ? [fullPath] : [];
-    }),
-  );
-  return files.flat();
+  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  return entries.filter((entry) => entry.isFile() && entry.name.endsWith(".ts")).map((entry) => path.join(entry.parentPath, entry.name));
 }
 
-async function listFiles(dir, relativeDir = "") {
+async function listFiles(dir) {
   let entries;
   try {
-    entries = await readdir(path.join(dir, relativeDir), { withFileTypes: true });
+    entries = await readdir(dir, { recursive: true, withFileTypes: true });
   } catch (error) {
     if (isMissingPathError(error)) return [];
     throw error;
   }
-  const files = await Promise.all(
-    entries.map((entry) => {
-      const relativePath = path.join(relativeDir, entry.name);
-      if (entry.isDirectory()) return listFiles(dir, relativePath);
-      return entry.isFile() ? [relativePath.replaceAll(path.sep, "/")] : [];
-    }),
-  );
-  return files.flat().sort();
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.relative(dir, path.join(entry.parentPath, entry.name)).replaceAll(path.sep, "/"))
+    .sort();
 }
 
 function normalizeSource(source) {
