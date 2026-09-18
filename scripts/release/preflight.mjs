@@ -105,7 +105,7 @@ if (maybeRun("jj", ["root"])) {
 assertReleaseCommit(packageVersion);
 
 const previousTag = run("git", ["describe", "--tags", "--abbrev=0", "main^"], { capture: true });
-run("npm", ["ci", "--ignore-scripts"]);
+run("npm", ["ci"]);
 run("npm", ["audit", "--omit=dev", "--audit-level=low"]);
 run("npm", ["run", "commitlint", "--", "--from", previousTag, "--to", "main", "--verbose"]);
 run("npm", ["run", "release:check"], {

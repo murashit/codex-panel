@@ -6,6 +6,8 @@ Use this guide to implement, validate, and maintain changes to Codex Panel. See 
 
 Use the Node.js version in `.node-version` and install dependencies with `npm ci`. Use focused scripts from `package.json` while iterating; the handoff checks below still apply.
 
+The project `.npmrc` disables lifecycle scripts and automatic install-time audits. Explicit `npm run` commands still run, without pre/post hooks. Run `npm audit` separately when reviewing dependency vulnerabilities; release preflight audits runtime dependencies explicitly.
+
 Obsidian loads the generated `main.js` and `styles.css`, not the TypeScript or authored CSS. Run `npm run build` before live validation unless `npm run check` has already built the current source. Edit CSS in `src/styles/`; `npm run build:styles` regenerates only the stylesheet and checks its source order. Keep generated load artifacts out of version control.
 
 ## Choose the Owner of a Change
