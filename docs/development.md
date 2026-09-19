@@ -22,6 +22,14 @@ Name modules by their owned responsibility. Use lifecycle or boundary nouns only
 
 Source-policy diagnostics come from `biome.jsonc`, `eslint.config.mjs`, `scripts/grit/`, and the CSS checks. Fix the code rather than suppressing a diagnostic. When a concrete constraint prevents a conforming implementation, keep the suppression local and explain the constraint, including why an Obsidian UI pattern needs to differ from a generic browser rule.
 
+## Design a UI Change
+
+Before proposing or changing UI, inspect the affected flow in the current components, styles, settings, and related actions. Establish what the user needs to understand or do, how existing controls and feedback serve that need, and what remains missing. Reuse or reshape those surfaces when appropriate; a new message, banner, or button needs a distinct purpose in the flow.
+
+Consider the complete interaction: placement among existing actions, icon and accessible name, visibility settings, narrow widths, keyboard access, and the resulting selection, input, and recovery state. Apply the relevant dimensions to the change rather than treating this as a checklist requiring new mechanisms. For failures, distinguish the operation's result from the resource's state and check existing feedback before adding another display.
+
+Prefer correcting behavior or state structure when that resolves the confusion. Add explanatory copy only when it supports a concrete user decision or action; describing an implementation detail does not itself justify product copy or a README addition. Use source inspection and automated checks first; live Obsidian validation is needed only for material integration behavior those checks cannot establish.
+
 ## Validate a Change
 
 Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Focused checks do not replace this sequence unless validation is explicitly scoped otherwise.
@@ -76,5 +84,7 @@ Review protocol changes in their affected adapters and runtime paths, then compl
 ## Record the Change
 
 Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), for example `feat(composer): add daily note context suggestions`. Scopes are optional; mark disruptive changes with `!` or a `BREAKING CHANGE:` footer.
+
+Prefer a concise subject. Add a brief body only when future maintainers need rationale, constraints, or tradeoffs that are not evident from the diff. Keep routine check results, test counts, and work logs in the task or pull request report, not the commit message.
 
 CI validates introduced commit messages on pull requests and pushes. Check a range locally with `npm run commitlint -- --from <base> --to <head> --verbose`. Follow [Release](release.md) when preparing a version for publication.
