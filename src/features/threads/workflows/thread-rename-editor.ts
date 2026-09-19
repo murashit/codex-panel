@@ -19,6 +19,7 @@ export interface ThreadRenameEditorHost {
 
 export interface ThreadRenameEditor {
   invalidate(): void;
+  cancelGenerations(): void;
   start(threadId: string): void;
   updateDraft(threadId: string, value: string): void;
   cancel(threadId: string): void;
@@ -34,18 +35,29 @@ export function createThreadRenameEditor(host: ThreadRenameEditorHost): ThreadRe
 
   const editor: ThreadRenameEditor = {
     invalidate() {
-      for (const operation of generations.values()) operation.controller.abort();
-      preparations.clear();
-      generations.clear();
+      abortAllTitleWork();
       saves.clear();
       host.state.clear();
+    },
+
+    cancelGenerations() {
+      for (const threadId of generations.keys()) {
+        const state = host.state.get(threadId);
+        abortGeneration(threadId);
+        if (state?.kind === "generating") host.state.replace(threadId, editingState(state));
+      }
     },
 
     start(threadId) {
       if (host.exclusive ? saves.size > 0 : saves.has(threadId)) return;
       const draft = host.initialDraft(threadId);
       if (draft === null) return;
-      if (host.exclusive) abortAllTitleWork();
+      if (host.exclusive) {
+        abortAllTitleWork();
+        host.state.clear();
+      } else {
+        abortTitleWork(threadId);
+      }
       host.state.replace(threadId, { kind: "editing", draft, autoName: { kind: "checking" } });
       void prepareAutoName(threadId);
     },
@@ -149,14 +161,16 @@ export function createThreadRenameEditor(host: ThreadRenameEditorHost): ThreadRe
   }
 
   function abortGeneration(threadId: string): void {
-    generations.get(threadId)?.controller.abort();
+    const operation = generations.get(threadId);
     generations.delete(threadId);
+    operation?.controller.abort();
   }
 
   function abortAllTitleWork(): void {
     preparations.clear();
-    for (const operation of generations.values()) operation.controller.abort();
+    const operations = [...generations.values()];
     generations.clear();
+    for (const operation of operations) operation.controller.abort();
   }
 }
 

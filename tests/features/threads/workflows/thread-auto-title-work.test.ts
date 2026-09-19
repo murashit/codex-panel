@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-
 import { createThreadAutoTitleWork } from "../../../../src/features/threads/workflows/thread-auto-title-work";
 import type { ThreadMutationCommands } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { deferred } from "../../../support/async";

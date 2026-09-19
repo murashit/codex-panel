@@ -8,7 +8,6 @@ import type { ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thre
 import type { ThreadTitlePort } from "../threads/workflows/ports";
 import type { ThreadMutationCommands } from "../threads/workflows/thread-mutation-commands";
 import { createThreadRenameEditor, type ThreadRenameEditor } from "../threads/workflows/thread-rename-editor";
-import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
 import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows } from "./state";
 export interface ThreadsViewHost {
@@ -45,7 +44,6 @@ const EMPTY_THREADS_RESULT: ObservedPaginatedResult<readonly Thread[]> = {
 export class ThreadsViewSession {
   private readonly lifetime = new OwnerLifetime();
   private readonly mutations: ThreadMutationCommands;
-  private readonly titleService: ThreadTitleService;
   private readonly renameEditor: ThreadRenameEditor;
   private readonly renderTask: DeferredTask;
   private threadsResult = EMPTY_THREADS_RESULT;
@@ -57,9 +55,6 @@ export class ThreadsViewSession {
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
     this.renderTask = new DeferredTask(() => this.viewWindow(), 0);
     this.mutations = this.host.threadMutations;
-    this.titleService = createThreadTitleService({
-      port: this.host.threadTitlePort,
-    });
     this.renameEditor = createThreadRenameEditor({
       state: {
         get: (threadId) => this.renameStates.get(threadId),
@@ -77,8 +72,8 @@ export class ThreadsViewSession {
         return thread ? threadRenameDraftTitle(thread) : null;
       },
       renameThread: (threadId, value, shouldStart) => this.mutations.renameThread(threadId, value, { shouldStart }),
-      resolveTitleContext: (threadId) => this.titleService.resolveContext(threadId),
-      generateTitle: (context, signal) => this.titleService.generate(context, signal),
+      resolveTitleContext: (threadId) => this.host.threadTitlePort.persistedContext(threadId),
+      generateTitle: (context, signal) => this.host.threadTitlePort.generateTitle(context, signal),
       reportError: (error) => {
         this.noticeError(error);
       },
@@ -100,7 +95,6 @@ export class ThreadsViewSession {
   close(): void {
     this.lifetime.dispose();
     this.renameEditor.invalidate();
-    this.titleService.invalidate();
     this.renderTask.clear();
     this.unsubscribeThreads?.();
     this.unsubscribeThreads = null;

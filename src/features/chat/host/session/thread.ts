@@ -1,6 +1,5 @@
 import { Notice } from "obsidian";
 import type { ThreadMutationCommands } from "../../../threads/workflows/thread-mutation-commands";
-import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import { recoverRolloutTokenUsage } from "../../app-server/mappers/rollout-token-usage";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { ChatStateStore } from "../../application/state/store";
@@ -19,7 +18,7 @@ import type { ChatResumeWorkTracker } from "../../application/threads/resume-wor
 import { createThreadCommands, type ThreadCommands, type ThreadCommandsHost } from "../../application/threads/thread-commands";
 import { createThreadNavigationCommands, type ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
-import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
+import { completedTurnTitleContext } from "../../application/threads/title-context";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../toolbar/actions";
@@ -53,7 +52,6 @@ interface SessionThreadFoundationInput {
 }
 
 interface SessionThreadFoundation {
-  titleService: ThreadTitleService;
   autoTitleCoordinator: AutoTitleCoordinator;
   history: HistoryController;
   threadMutations: ThreadMutationCommands;
@@ -70,6 +68,7 @@ interface SessionThreadFeaturesInput {
 }
 
 interface SessionThreadFeatures extends SessionThreadLifecycle {
+  invalidateActiveThreadWork(): void;
   goals: GoalCommands;
   rename: ThreadRenameEditorActions;
 }
@@ -94,22 +93,13 @@ interface SessionThreadCommandsResult {
 export function createSessionThreadFoundation(host: SessionThreadHost, input: SessionThreadFoundationInput): SessionThreadFoundation {
   const { appServer, status } = input;
   const { environment, stateStore } = host;
-  const titleService = createThreadTitleService({
-    port: environment.plugin.threadTitlePort,
-    visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
-    visibleCompletedTurnContext: (turnId) => {
-      const state = stateStore.getState();
-      return threadTitleContextFromThreadStreamItems(
-        turnId,
-        threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)),
-      );
-    },
-  });
   const threadMutations = environment.plugin.threadMutations;
   const autoTitleCoordinator = createAutoTitleCoordinator({
     threadById: (threadId) => environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),
-    completedTurnTitleContext: (turnId, completedTurnTranscriptSummary) =>
-      titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
+    completedTurnTitleContext: (turnId, summary) => {
+      const state = stateStore.getState();
+      return completedTurnTitleContext(turnId, threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn)), summary);
+    },
     submitTitleWork: (threadId, context) => {
       environment.plugin.threadAutoTitleWork.submit(threadId, context);
     },
@@ -128,10 +118,8 @@ export function createSessionThreadFoundation(host: SessionThreadHost, input: Se
   const invalidateActiveThreadWork = () => {
     host.resumeWork.invalidate();
     history.invalidate();
-    titleService.invalidate();
   };
   return {
-    titleService,
     autoTitleCoordinator,
     history,
     threadMutations,
@@ -141,15 +129,28 @@ export function createSessionThreadFoundation(host: SessionThreadHost, input: Se
 
 export function createSessionThreadFeatures(host: SessionThreadHost, input: SessionThreadFeaturesInput): SessionThreadFeatures {
   const { appServer, ensureConnected, status, threadStart, foundation, notifyActiveThreadIdentityChanged } = input;
+  const rename = createThreadRenameEditorActions({
+    stateStore: host.stateStore,
+    threadById: (threadId) => host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),
+    ensureConnected,
+    addSystemMessage: status.addSystemMessage,
+    renameThread: foundation.threadMutations.renameThread,
+    resolveThreadTitleContext: async (threadId) =>
+      activeThreadRenameTitleContext(host.stateStore.getState(), threadId) ??
+      host.environment.plugin.threadTitlePort.persistedContext(threadId),
+    generateThreadTitle: (context, signal) => host.environment.plugin.threadTitlePort.generateTitle(context, signal),
+  });
+  const invalidateActiveThreadWork = (): void => {
+    foundation.invalidateActiveThreadWork();
+    rename.cancelGenerations();
+  };
   const lifecycle = createSessionThreadLifecycle(host, {
     appServer,
     ensureConnected,
     status,
     autoTitleCoordinator: foundation.autoTitleCoordinator,
     history: foundation.history,
-    invalidateThreadWork: () => {
-      foundation.invalidateActiveThreadWork();
-    },
+    invalidateThreadWork: invalidateActiveThreadWork,
     notifyActiveThreadIdentityChanged,
   });
   const goals = createGoalCommands({
@@ -166,20 +167,12 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
       status.addSystemMessage(text);
     },
   });
-  const rename = createThreadRenameEditorActions({
-    stateStore: host.stateStore,
-    threadById: (threadId) => host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId),
-    ensureConnected,
-    addSystemMessage: status.addSystemMessage,
-    renameThread: foundation.threadMutations.renameThread,
-    resolveThreadTitleContext: (threadId) => foundation.titleService.resolveContext(threadId),
-    generateThreadTitle: (context, signal) => foundation.titleService.generate(context, signal),
-  });
   const { identity, restoration, resume, ensureRestoredThreadLoaded } = lifecycle;
 
   return {
     goals,
     rename,
+    invalidateActiveThreadWork,
     identity,
     restoration,
     resume,

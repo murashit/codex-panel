@@ -4,6 +4,55 @@ import { createThreadRenameEditor, type ThreadRenameEditorHost } from "../../../
 import { deferred } from "../../../support/async";
 
 describe("thread rename editor", () => {
+  it("cancels only generation work while preserving drafts, context preparation, and saves", async () => {
+    const context = { userRequest: "Request", assistantResponse: "Answer" };
+    const preparing = deferred<typeof context>();
+    const generated = deferred<string>();
+    const saved = deferred<boolean>();
+    const generateTitle = vi
+      .fn<ThreadRenameEditorHost["generateTitle"]>()
+      .mockReturnValueOnce(generated.promise)
+      .mockResolvedValueOnce("Fresh title");
+    const reportError = vi.fn();
+    const { editor, states } = fixture({
+      resolveTitleContext: (threadId) => (threadId === "preparing" ? preparing.promise : Promise.resolve(context)),
+      generateTitle,
+      renameThread: () => saved.promise,
+      reportError,
+    });
+    editor.start("generating");
+    editor.start("saving");
+    editor.start("preparing");
+    await flushPromises();
+    editor.updateDraft("generating", "Keep my draft");
+    const generation = editor.autoNameDraft("generating");
+    const save = editor.save("saving", "Saved title");
+    editor.cancelGenerations();
+
+    expect(generateTitle.mock.calls[0]?.[1].aborted).toBe(true);
+    expect(states.get("generating")).toMatchObject({ kind: "editing", draft: "Keep my draft", autoName: { kind: "ready", context } });
+    expect(states.get("saving")?.kind).toBe("saving");
+    expect(states.get("preparing")?.autoName.kind).toBe("checking");
+    generated.reject(new Error("Cancelled generation"));
+    preparing.resolve(context);
+    saved.resolve(true);
+    await Promise.all([generation, save]);
+    await flushPromises();
+    expect(reportError).not.toHaveBeenCalled();
+    expect(states.has("saving")).toBe(false);
+    expect(states.get("preparing")?.autoName.kind).toBe("ready");
+    await editor.autoNameDraft("generating");
+    expect(generateTitle.mock.calls[1]?.[1].aborted).toBe(false);
+    expect(states.get("generating")?.draft).toBe("Fresh title");
+  });
+
+  it("keeps an exclusive edit when a new target is unavailable", () => {
+    const { editor, states } = fixture({ exclusive: true, initialDraft: (id) => (id === "missing" ? null : "Draft") });
+    editor.start("first");
+    editor.start("missing");
+    expect([...states.keys()]).toEqual(["first"]);
+  });
+
   it("keeps independent thread-list editors concurrent", async () => {
     const readyContext = { userRequest: "First request", assistantResponse: "First response" };
     const firstContext = deferred<typeof readyContext>();
@@ -129,7 +178,6 @@ function fixture(overrides: Partial<ThreadRenameEditorHost> = {}) {
     state: {
       get: (threadId) => states.get(threadId),
       replace: (threadId, state) => {
-        if (overrides.exclusive && state?.kind === "editing" && !states.has(threadId)) states.clear();
         if (state) states.set(threadId, state);
         else states.delete(threadId);
       },

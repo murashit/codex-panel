@@ -1,11 +1,41 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  completedTurnTitleContext,
   firstThreadTitleContextFromThreadStreamItems,
   threadTitleContextFromThreadStreamItems,
 } from "../../../../../src/features/chat/application/threads/title-context";
 
 describe("chat thread title context", () => {
+  it("prefers displayed completed-turn context to the notification summary", () => {
+    expect(
+      completedTurnTitleContext(
+        "turn",
+        [
+          { id: "user", kind: "dialogue", dialogueKind: "user", role: "user", text: "Visible request", turnId: "turn" },
+          {
+            id: "assistant",
+            kind: "dialogue",
+            dialogueKind: "assistantResponse",
+            dialogueState: "completed",
+            role: "assistant",
+            text: "Visible answer",
+            turnId: "turn",
+          },
+        ],
+        { userText: "Summary request", assistantText: "Summary answer" },
+      ),
+    ).toEqual({ userRequest: "Visible request", assistantResponse: "Visible answer" });
+  });
+
+  it("uses the completed summary when the visible turn is incomplete", () => {
+    expect(completedTurnTitleContext("turn", [], { userText: "Summary request", assistantText: "Summary answer" })).toEqual({
+      userRequest: "Summary request",
+      assistantResponse: "Summary answer",
+    });
+    expect(completedTurnTitleContext("turn", [], null)).toBeNull();
+  });
+
   it("extracts title context from streamed thread stream items when completed turn items are not loaded", () => {
     expect(
       threadTitleContextFromThreadStreamItems("turn", [

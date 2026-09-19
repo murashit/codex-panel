@@ -1,6 +1,19 @@
-import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title";
+import {
+  type ThreadTitleContext,
+  threadTitleContextFromTurnTranscriptSummary,
+  threadTitleContextPromptText,
+} from "../../../../domain/threads/title";
+import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import { lastTurnOutcomeItemsByTurn } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+
+export function completedTurnTitleContext(
+  turnId: string,
+  items: readonly ThreadStreamItem[],
+  summary: TurnTranscriptSummary | null,
+): ThreadTitleContext | null {
+  return threadTitleContextFromThreadStreamItems(turnId, items) ?? (summary ? threadTitleContextFromTurnTranscriptSummary(summary) : null);
+}
 
 export function threadTitleContextFromThreadStreamItems(turnId: string, items: readonly ThreadStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);

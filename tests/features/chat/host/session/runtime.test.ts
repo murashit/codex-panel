@@ -60,6 +60,60 @@ describe("chat panel session runtime", () => {
     await Promise.all([firstRestoration, secondRestoration]);
   });
 
+  it.each(["active-thread", "connection", "runtime"] as const)(
+    "cancels manual naming through %s invalidation and allows fresh work",
+    async (scope) => {
+      const context = { userRequest: "Request", assistantResponse: "Answer" };
+      const oldTitle = deferred<string>();
+      const generateTitle = vi
+        .fn<ChatPanelEnvironment["plugin"]["threadTitlePort"]["generateTitle"]>()
+        .mockReturnValueOnce(oldTitle.promise)
+        .mockResolvedValueOnce("Fresh title");
+      const { runtime, stateStore } = sessionRuntimeFixture({
+        environment: {
+          plugin: {
+            threadTitlePort: { persistedContext: vi.fn().mockResolvedValue(context), generateTitle },
+            threadCatalog: { activeThreadsSnapshot: () => [threadFixture()] },
+          },
+        },
+      });
+      const rename = runtime.shell.parts.toolbar.actions.threads.rename;
+      rename.start("thread");
+      await waitForAsyncWork(() => expect(stateStore.getState().ui.rename).toMatchObject({ autoName: { kind: "ready" } }));
+      rename.updateDraft("thread", "Keep my draft");
+      rename.autoName("thread");
+      await waitForAsyncWork(() => expect(generateTitle).toHaveBeenCalledOnce());
+
+      if (scope === "active-thread") runtime.thread.identity.clearActiveThreadIdentity();
+      else if (scope === "connection") runtime.connection.coordinator.handleExit();
+      else runtime.commands.invalidateThreadWork();
+
+      expect(generateTitle.mock.calls[0]?.[1].aborted).toBe(true);
+      if (scope === "active-thread") {
+        // Clearing the active identity also resets its UI; cancellation itself does not.
+        expect(stateStore.getState().ui.rename).toEqual({ kind: "idle" });
+        rename.start("thread");
+        await waitForAsyncWork(() => expect(stateStore.getState().ui.rename).toMatchObject({ autoName: { kind: "ready" } }));
+      } else {
+        expect(stateStore.getState().ui.rename).toMatchObject({
+          kind: "editing",
+          draft: "Keep my draft",
+          autoName: { kind: "ready", context },
+        });
+      }
+      rename.autoName("thread");
+      await waitForAsyncWork(() => expect(stateStore.getState().ui.rename).toMatchObject({ kind: "editing", draft: "Fresh title" }));
+      oldTitle.reject(new Error("Cancelled generation"));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(stateStore.getState().ui.rename).toMatchObject({ draft: "Fresh title" });
+      expect(
+        stateStore.getState().threadStream.stableItems.some((item) => "text" in item && item.text.includes("Cancelled generation")),
+      ).toBe(false);
+      await runtime.dispose(() => undefined);
+    },
+  );
+
   it("resets objective expansion only when a goal presentation changes", () => {
     let publishGoalChange: ((threadId: string, previous: ThreadGoal | null, next: ThreadGoal | null) => void) | undefined;
     const observeChanges = vi.fn((listener: NonNullable<typeof publishGoalChange>) => {
@@ -461,6 +515,7 @@ describe("chat panel session runtime", () => {
       toolInventoryQueries?: ChatPanelEnvironment["plugin"]["toolInventoryQueries"];
       threadGoalQueries?: ChatPanelEnvironment["plugin"]["threadGoalQueries"];
       threadMutations?: ChatPanelEnvironment["plugin"]["threadMutations"];
+      threadTitlePort?: ChatPanelEnvironment["plugin"]["threadTitlePort"];
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
     };
@@ -512,7 +567,7 @@ describe("chat panel session runtime", () => {
       plugin: {
         appServerConnection: overrides.plugin?.appServerConnection ?? contextConnectionFixture(),
         appServerContext: overrides.plugin?.appServerContext ?? { codexPath: "codex", vaultPath: "/vault" },
-        threadTitlePort: {
+        threadTitlePort: overrides.plugin?.threadTitlePort ?? {
           persistedContext: vi.fn().mockResolvedValue(null),
           generateTitle: vi.fn().mockResolvedValue(null),
         },

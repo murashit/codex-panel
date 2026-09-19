@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import type { AppServerClientAccess } from "../../../../src/app-server/connection/client-access";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadMutationAdapter } from "../../../../src/features/threads/app-server/workflow-adapters";
@@ -99,6 +100,54 @@ describe("ThreadMutationCommands", () => {
     expect(client.request).toHaveBeenNthCalledWith(1, "thread/name/set", { threadId: "thread", name: "Generated title" });
     expect(client.request).toHaveBeenNthCalledWith(2, "thread/name/set", { threadId: "thread", name: "First manual title" });
     expect(client.request).toHaveBeenNthCalledWith(3, "thread/name/set", { threadId: "thread", name: "Latest manual title" });
+  });
+
+  it("rechecks busy state after connection acquisition without exporting", async () => {
+    const connected = deferred<void>();
+    const client = clientMock();
+    let busy = false;
+    const clientAccess: AppServerClientAccess = {
+      withClient: async (operation) => {
+        await connected.promise;
+        return operation(client as unknown as AppServerClient);
+      },
+    };
+    const withClient = vi.spyOn(clientAccess, "withClient");
+    const { mutations } = operationsFixture({ client, clientAccess, threadIsBusy: () => busy });
+    const operation = mutations.archiveThread("thread", { saveMarkdown: false });
+    await vi.waitFor(() => expect(withClient).toHaveBeenCalledOnce());
+    busy = true;
+    connected.resolve();
+    await expect(operation).resolves.toEqual({ kind: "blocked", reason: "thread-busy", exportedPath: null });
+    expect(client.request).not.toHaveBeenCalled();
+  });
+
+  it("does not switch an archive to a replacement connection after exporting", async () => {
+    const firstClient = clientMock();
+    const replacementClient = clientMock();
+    let currentClient = firstClient;
+    const clientAccess: AppServerClientAccess = {
+      withClient: async (operation) => operation(currentClient as unknown as AppServerClient),
+    };
+    const withClient = vi.spyOn(clientAccess, "withClient");
+    const { mutations, archiveDestination } = operationsFixture({ client: firstClient, clientAccess });
+    const exported = deferred<void>();
+    archiveDestination.createMarkdownFile.mockReturnValue(exported.promise);
+    const afterArchive = vi.fn();
+    const operation = mutations.archiveThread("thread", { saveMarkdown: true, afterArchive });
+    await vi.waitFor(() => expect(archiveDestination.createMarkdownFile).toHaveBeenCalledOnce());
+    currentClient = replacementClient;
+    firstClient.request.mockRejectedValueOnce(new Error("Connection closed."));
+    exported.resolve();
+    await expect(operation).resolves.toEqual({
+      kind: "failed",
+      message: "Connection closed.",
+      exportedPath: "Archive/Archived Thread abcdef12.md",
+    });
+    expect(afterArchive).not.toHaveBeenCalled();
+    expect(firstClient.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
+    expect(replacementClient.request).not.toHaveBeenCalled();
+    expect(withClient).toHaveBeenCalledOnce();
   });
 
   it("archives a thread and reports exported markdown", async () => {
@@ -354,7 +403,12 @@ describe("ThreadMutationCommands", () => {
 });
 
 function operationsFixture(
-  options: { client?: MockClient | null; referenceThreads?: readonly Thread[]; threadIsBusy?: (threadId: string) => boolean } = {},
+  options: {
+    clientAccess?: AppServerClientAccess;
+    client?: MockClient | null;
+    referenceThreads?: readonly Thread[];
+    threadIsBusy?: (threadId: string) => boolean;
+  } = {},
 ) {
   const client = options.client === undefined ? clientMock() : options.client;
   const archiveDestination = archiveDestinationMock();
@@ -372,12 +426,14 @@ function operationsFixture(
     }),
   };
   const host: ThreadMutationCommandsHost = {
-    port: createThreadMutationAdapter({
-      withClient: async (operation) => {
-        if (!client) throw new Error("No current client.");
-        return operation(client as unknown as AppServerClient);
+    port: createThreadMutationAdapter(
+      options.clientAccess ?? {
+        withClient: async (operation) => {
+          if (!client) throw new Error("No current client.");
+          return operation(client as unknown as AppServerClient);
+        },
       },
-    }),
+    ),
     archiveExport: {
       settings: archiveExportSettings,
       enabled: () => false,

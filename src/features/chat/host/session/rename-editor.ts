@@ -15,7 +15,7 @@ export interface ThreadRenameEditorActionsHost {
   addSystemMessage: (text: string) => void;
   renameThread: ThreadMutationCommands["renameThread"];
   resolveThreadTitleContext(threadId: string): Promise<ThreadTitleContext | null>;
-  generateThreadTitle(context: ThreadTitleContext, signal?: AbortSignal): Promise<string | null>;
+  generateThreadTitle(context: ThreadTitleContext, signal: AbortSignal): Promise<string | null>;
   threadById(threadId: string): Thread | undefined;
 }
 
