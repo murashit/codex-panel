@@ -350,7 +350,15 @@ export async function archiveThread(client: AppServerRequestClient, threadId: st
 }
 
 export async function deleteThread(client: AppServerRequestClient, threadId: string, options: { timeoutMs?: number } = {}): Promise<void> {
-  await client.request("thread/delete", { threadId }, options);
+  try {
+    await client.request("thread/delete", { threadId }, options);
+  } catch (error) {
+    // thread/delete currently reports this constraint as text, without a structured error code.
+    if (error instanceof Error && error.message === `cannot delete thread ${threadId}: forked history still references it`) {
+      throw new Error("Another forked thread still references this thread's history.", { cause: error });
+    }
+    throw error;
+  }
 }
 
 export async function unsubscribeThread(

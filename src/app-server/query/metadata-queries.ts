@@ -316,10 +316,14 @@ export class AppServerMetadataQueries {
     return this.scope.runWithClient(async (client) => {
       await mutation(client, hook);
       await this.scope.client.invalidateQueries({ queryKey: HOOKS_QUERY_KEY, exact: true, refetchType: "none" });
-      await this.scope.client.query({
-        ...this.hooksQueryOptions,
-        queryFn: () => listHookCatalog(client, this.scope.context.vaultPath),
-      });
+      await this.scope.client
+        .query({
+          ...this.hooksQueryOptions,
+          queryFn: () => listHookCatalog(client, this.scope.context.vaultPath),
+        })
+        .catch(() => {
+          // The write succeeded. The observed catalog owns any subsequent read failure.
+        });
     });
   }
 }

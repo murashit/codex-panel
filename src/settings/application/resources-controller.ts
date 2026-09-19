@@ -11,7 +11,6 @@ interface SettingsResourcesControllerCallbacks {
 }
 
 type SettingsResourceLifecycleState = { kind: "idle" } | { kind: "loading" } | { kind: "failed"; error: string };
-type SettingsOperationState = Exclude<SettingsResourceLifecycleState, { kind: "idle" }>;
 
 interface SettingsResourcesSnapshot {
   archivedThreads: readonly Thread[] | null;
@@ -27,9 +26,9 @@ export class SettingsResourcesController {
   private autoLoadStarted = false;
 
   private archivedThreadsResult = emptyObservedResult<readonly Thread[]>();
-  private archivedThreadsOperation: SettingsOperationState | null = null;
+  private archivedThreadsOperation = false;
   private hooksResult = emptyObservedResult<SettingsHookCatalog>();
-  private hooksOperation: SettingsOperationState | null = null;
+  private hooksOperation = false;
   private modelsResult = emptyObservedResult<readonly ModelMetadata[]>();
   private unsubscribeModels: (() => void) | null = null;
   private unsubscribeHooks: (() => void) | null = null;
@@ -56,9 +55,9 @@ export class SettingsResourcesController {
     this.autoLoadStarted = false;
     this.modelsResult = emptyObservedResult();
     this.hooksResult = emptyObservedResult();
-    this.hooksOperation = null;
+    this.hooksOperation = false;
     this.archivedThreadsResult = emptyObservedResult();
-    this.archivedThreadsOperation = null;
+    this.archivedThreadsOperation = false;
     if (this.lifetime.isActive()) this.subscribe();
   }
 
@@ -71,13 +70,11 @@ export class SettingsResourcesController {
     });
     this.unsubscribeHooks = resources.queries.observeHooksResult((result) => {
       if (!this.resourcesAreCurrent(resources)) return;
-      if (result.isFetching && this.hooksOperation?.kind === "failed") this.hooksOperation = null;
       this.hooksResult = result;
       this.callbacks.display();
     });
     this.unsubscribeArchivedThreads = resources.threadCatalog.observeArchivedThreadsResult((result) => {
       if (!this.resourcesAreCurrent(resources)) return;
-      if (result.isFetching && this.archivedThreadsOperation?.kind === "failed") this.archivedThreadsOperation = null;
       this.archivedThreadsResult = result;
       this.callbacks.display();
     });
@@ -111,10 +108,10 @@ export class SettingsResourcesController {
         false,
         notifyFailure,
       ),
-      this.refreshObservedResource((resources) => resources.queries.refreshHooks(), this.hooksOperation?.kind === "loading", notifyFailure),
+      this.refreshObservedResource((resources) => resources.queries.refreshHooks(), this.hooksOperation, notifyFailure),
       this.refreshObservedResource(
         (resources) => resources.threadCatalog.refreshArchivedThreads(),
-        this.archivedThreadsOperation?.kind === "loading",
+        this.archivedThreadsOperation,
         notifyFailure,
       ),
     ]);
@@ -143,7 +140,6 @@ export class SettingsResourcesController {
     if (this.hooksLifecycle().kind === "loading") return;
     await this.runOperation("hooksOperation", {
       failureError: (error) => `Could not trust hook: ${errorMessage(error)}`,
-      failureNotice: "Could not trust Codex hook.",
       operation: (resources) => resources.queries.trustHook(hook),
     });
   }
@@ -152,7 +148,6 @@ export class SettingsResourcesController {
     if (this.hooksLifecycle().kind === "loading") return;
     await this.runOperation("hooksOperation", {
       failureError: (error) => `Could not update hook: ${errorMessage(error)}`,
-      failureNotice: "Could not update Codex hook.",
       operation: (resources) => resources.queries.setHookEnabled(hook, enabled),
     });
   }
@@ -161,7 +156,6 @@ export class SettingsResourcesController {
     if (!this.lifetime.isActive() || this.archivedThreadsLifecycle().kind === "loading") return;
     await this.runOperation("archivedThreadsOperation", {
       failureError: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
-      failureNotice: "Could not restore archived Codex thread.",
       operation: async (resources) => {
         await resources.threadMutations.restoreThread(threadId);
       },
@@ -172,7 +166,6 @@ export class SettingsResourcesController {
     if (!this.lifetime.isActive() || this.archivedThreadsLifecycle().kind === "loading") return;
     await this.runOperation("archivedThreadsOperation", {
       failureError: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
-      failureNotice: "Could not delete archived Codex thread.",
       operation: (resources) => resources.threadMutations.deleteThread(threadId),
     });
   }
@@ -194,23 +187,22 @@ export class SettingsResourcesController {
     stateKey: "hooksOperation" | "archivedThreadsOperation",
     options: {
       failureError: (error: unknown) => string;
-      failureNotice: string;
       operation: (resources: SettingsResources) => Promise<void>;
     },
   ): Promise<void> {
     const resources = this.resources;
-    this[stateKey] = { kind: "loading" };
+    this[stateKey] = true;
     this.callbacks.display();
     try {
       await options.operation(resources);
-      if (!this.resourcesAreCurrent(resources)) return;
-      this[stateKey] = null;
     } catch (error) {
       if (!this.resourcesAreCurrent(resources)) return;
-      this[stateKey] = { kind: "failed", error: options.failureError(error) };
-      if (this.lifetime.isActive()) this.callbacks.notify(options.failureNotice);
+      if (this.lifetime.isActive()) this.callbacks.notify(options.failureError(error));
     } finally {
-      if (this.resourcesAreCurrent(resources) && this.lifetime.isActive()) this.callbacks.display();
+      if (this.resourcesAreCurrent(resources)) {
+        this[stateKey] = false;
+        if (this.lifetime.isActive()) this.callbacks.display();
+      }
     }
   }
 
@@ -230,11 +222,13 @@ export class SettingsResourcesController {
   }
 
   private archivedThreadsLifecycle(): SettingsResourceLifecycleState {
-    return this.archivedThreadsOperation ?? lifecycleFromObservedResult(this.archivedThreadsResult, "Could not load archived threads");
+    return this.archivedThreadsOperation
+      ? { kind: "loading" }
+      : lifecycleFromObservedResult(this.archivedThreadsResult, "Could not load archived threads");
   }
 
   private hooksLifecycle(): SettingsResourceLifecycleState {
-    return this.hooksOperation ?? lifecycleFromObservedResult(this.hooksResult, "Could not load hooks");
+    return this.hooksOperation ? { kind: "loading" } : lifecycleFromObservedResult(this.hooksResult, "Could not load hooks");
   }
 
   private modelsLifecycle(): SettingsResourceLifecycleState {

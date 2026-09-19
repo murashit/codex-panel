@@ -638,6 +638,53 @@ describe("settings tab", () => {
     tab.containerEl.remove();
   });
 
+  it("shows a hook refresh failure without reporting a successful trust operation as failed", async () => {
+    const client = settingsClient({ hooks: [hook({ trustStatus: "untrusted" })] });
+    useContextClients(client);
+    const tab = newSettingsTab();
+    tab.display();
+    await flushPromises();
+    client.requestHandlers["hooks/list"]?.mockRejectedValue(new Error("catalog unavailable"));
+    const trust = Array.from(tab.containerEl.querySelectorAll("button")).find((button) => button.textContent === "Trust");
+    if (!trust) throw new Error("Missing trust button");
+
+    trust.click();
+    await flushPromises();
+
+    expect(requestMethods(client)).toContain("config/batchWrite");
+    expect(tab.containerEl.textContent).toContain("Could not load hooks: catalog unavailable");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-row")).not.toBeNull();
+    expect(notices).toEqual([]);
+  });
+
+  it("notifies a rejected deletion once with its reason, preserves the list, and permits retry", async () => {
+    const client = settingsClient();
+    useContextClients(client);
+    const deletion = client.requestHandlers["thread/delete"];
+    deletion?.mockRejectedValueOnce(new Error("cannot delete thread thread-archived: forked history still references it"));
+    const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
+    tab.display();
+    await flushPromises();
+    const list = tab.containerEl.querySelector(".codex-panel-settings__archived-list");
+    const originalText = list?.textContent;
+
+    clickButtonByLabel(tab, "Delete thread");
+    clickButtonByLabel(tab, "Delete thread");
+    await flushPromises();
+
+    expect(notices).toEqual(["Could not delete archived thread: Another forked thread still references this thread's history."]);
+    expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")).toBe(list);
+    expect(list?.textContent).toBe(originalText);
+    expect(tab.containerEl.textContent).not.toContain("Could not delete");
+    expect(buttonByLabel(tab, "Delete thread").ariaDisabled).not.toBe("true");
+
+    clickButtonByLabel(tab, "Delete thread");
+    clickButtonByLabel(tab, "Delete thread");
+    await flushPromises();
+    expect(deletion).toHaveBeenCalledTimes(2);
+    expect(notices).toHaveLength(1);
+  });
+
   it("permanently deletes an archived thread from the confirmed settings row", async () => {
     const client = settingsClient();
     useContextClients(client);

@@ -169,16 +169,18 @@ describe("SettingsResourcesController", () => {
     expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
   });
 
-  it("retires a failed hook operation when the catalog refreshes successfully", async () => {
+  it("keeps hook operation failures out of catalog state", async () => {
     const failedClient = settingsClient();
     failedClient.requestHandlers["config/batchWrite"] = vi.fn().mockRejectedValue(new Error("write failed"));
     const refreshedClient = settingsClient({ hooks: [hook({ key: "hook-refreshed" })] });
     useContextClients(failedClient, refreshedClient);
-    const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify: noop });
+    const notify = vi.fn();
+    const controller = settingsResourcesController(settingsTabHost(), { display: noop, notify });
     controller.activate();
 
     await controller.trustHook(hook({ trustStatus: "untrusted" }));
-    expect(controller.snapshot().hooksLifecycle.kind).toBe("failed");
+    expect(controller.snapshot().hooksLifecycle.kind).toBe("idle");
+    expect(notify).toHaveBeenCalledExactlyOnceWith("Could not trust hook: write failed");
 
     controller.dispose();
     controller.activate();
@@ -287,21 +289,23 @@ describe("SettingsResourcesController", () => {
     expect(settingsContextClientMock).toHaveBeenCalledOnce();
   });
 
-  it("retires a failed archived operation when the catalog refreshes successfully", async () => {
+  it("keeps archived operation failures out of catalog state", async () => {
     const failedRestoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn().mockRejectedValue(new Error("restore failed")),
     });
     useContextClients(failedRestoreClient, settingsClient());
+    const notify = vi.fn();
     const controller = settingsResourcesController(
       settingsTabHost({
         refreshArchived: vi.fn().mockResolvedValue([panelThread({ id: "thread-refreshed", archived: true })]),
       }),
-      { display: noop, notify: noop },
+      { display: noop, notify },
     );
     controller.activate();
 
     await controller.restoreArchivedThread("thread-old");
-    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("failed");
+    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("idle");
+    expect(notify).toHaveBeenCalledExactlyOnceWith("Could not restore archived thread: restore failed");
 
     controller.dispose();
     controller.activate();

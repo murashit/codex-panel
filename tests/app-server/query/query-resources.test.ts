@@ -886,6 +886,33 @@ describe("app-server query resources", () => {
     unsubscribe();
   });
 
+  it("keeps a successful hook write successful when catalog refresh fails", async () => {
+    const failure = new Error("catalog unavailable");
+    const hooksList = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [{ cwd: "/vault", hooks: [catalogHook({ trustStatus: "untrusted" })], warnings: [], errors: [] }],
+      })
+      .mockRejectedValue(failure);
+    const write = vi.fn().mockResolvedValue({});
+    const cache = cacheWithRequestHandlers({ "config/batchWrite": write, "hooks/list": hooksList });
+    await cache.metadataQueries.refreshHooks();
+    const listener = vi.fn();
+    const unsubscribe = cache.metadataQueries.observeHooksResult(listener);
+    const [untrustedHook] = hookItemsFromCatalogHooks([catalogHook({ trustStatus: "untrusted" })]);
+    if (!untrustedHook) throw new Error("Expected hook fixture.");
+
+    await expect(cache.metadataQueries.trustHook(untrustedHook)).resolves.toBeUndefined();
+
+    expect(write).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenLastCalledWith({
+      value: { hooks: [expect.objectContaining({ trustStatus: "untrusted" })], warnings: [], errors: [] },
+      error: failure,
+      isFetching: false,
+    });
+    unsubscribe();
+  });
+
   it("publishes each metadata resource without waiting for unrelated refreshes", async () => {
     const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const cache = cacheWithRequestHandlers({
