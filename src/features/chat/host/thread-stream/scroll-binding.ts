@@ -1,9 +1,5 @@
-import type {
-  ThreadStreamScrollCommand,
-  ThreadStreamScrollPort,
-  ThreadStreamScrollPortBinding,
-} from "../../ui/thread-stream/flow-scroll.measure";
-import type { ComposerBoundaryScrollAction } from "../composer/element.dom";
+import type { ThreadStreamScrollCommand, ThreadStreamScrollPort, ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll";
+import type { ComposerBoundaryScrollAction } from "./composer-scroll";
 
 export interface ChatThreadStreamScrollBinding extends ThreadStreamScrollPortBinding {
   showLatest(): void;

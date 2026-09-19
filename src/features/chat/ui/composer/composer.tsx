@@ -1,18 +1,8 @@
 import type { Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
-
+import { disposeDomListeners, listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
 import { Icon, IconButton } from "../../../../shared/ui/icon.dom";
-import {
-  type ComposerMetaPickerState,
-  type ComposerTextSelection,
-  closeComposerMetaPickerOnOutsidePointer,
-  composerMetaPickerState,
-  observeComposerMetaStatusOverflow,
-  preserveComposerSelection,
-  restoreComposerSelection,
-  scrollComposerSuggestionIntoView,
-  syncComposerHeight,
-} from "./composer.dom";
+import { syncComposerHeight } from "./height";
 
 interface ComposerSuggestion {
   display: string;
@@ -599,4 +589,107 @@ function composerSuggestionsListId(viewId: string): string {
 
 function composerSuggestionOptionId(viewId: string, index: number): string {
   return `${viewId}-composer-suggestion-${String(index)}`;
+}
+const COMPOSER_META_EFFORT_HIDDEN_CLASS = "is-effort-hidden";
+
+const COMPOSER_META_MODEL_HIDDEN_CLASS = "is-model-hidden";
+
+interface ComposerTextSelection {
+  start: number;
+  end: number;
+  direction: "forward" | "backward" | "none";
+}
+
+interface ComposerMetaPickerState {
+  kind: "model" | "effort";
+  left: number;
+}
+
+function preserveComposerSelection(
+  composer: HTMLTextAreaElement | null,
+  previousDraft: string,
+  nextDraft: string,
+): ComposerTextSelection | null {
+  if (!composer || previousDraft !== nextDraft) return null;
+  return {
+    start: composer.selectionStart,
+    end: composer.selectionEnd,
+    direction: composer.selectionDirection,
+  };
+}
+
+function restoreComposerSelection(composer: HTMLTextAreaElement | null, selection: ComposerTextSelection | null): void {
+  if (!composer || !selection) return;
+  composer.setSelectionRange(selection.start, selection.end, selection.direction);
+}
+
+function observeComposerMetaStatusOverflow(status: HTMLElement): () => void {
+  const win = status.win;
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    updateComposerMetaStatusOverflow(status);
+  };
+  const scheduleUpdate = () => {
+    if (frame) win.cancelAnimationFrame(frame);
+    frame = win.requestAnimationFrame(update);
+  };
+  update();
+  const ResizeObserverCtor = (win as Window & { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+  const observer = ResizeObserverCtor ? new ResizeObserverCtor(scheduleUpdate) : null;
+  observer?.observe(status);
+  const disposeResize = listenDomEvent(win, "resize", scheduleUpdate);
+  return () => {
+    if (frame) win.cancelAnimationFrame(frame);
+    observer?.disconnect();
+    disposeResize();
+  };
+}
+
+function closeComposerMetaPickerOnOutsidePointer(metaRoot: HTMLElement, onClose: () => void): () => void {
+  return disposeDomListeners(listenOutsideDomEvent(metaRoot, "mousedown", onClose), listenDomEscapeKey(metaRoot.ownerDocument, onClose));
+}
+
+function composerMetaPickerState(
+  kind: ComposerMetaPickerState["kind"],
+  trigger: HTMLElement | null,
+  metaRoot: HTMLElement | null,
+): ComposerMetaPickerState {
+  if (!trigger || !metaRoot) return { kind, left: 0 };
+  const triggerRect = trigger.getBoundingClientRect();
+  const metaRect = metaRoot.getBoundingClientRect();
+  return {
+    kind,
+    left: Math.max(0, triggerRect.left - metaRect.left),
+  };
+}
+
+function updateComposerMetaStatusOverflow(status: HTMLElement): void {
+  status.classList.remove(COMPOSER_META_EFFORT_HIDDEN_CLASS, COMPOSER_META_MODEL_HIDDEN_CLASS, "is-status-hidden");
+  if (!composerMetaStatusOverflowing(status)) return;
+  if (status.querySelector(".codex-panel__composer-meta-field--effort")) {
+    status.classList.add(COMPOSER_META_EFFORT_HIDDEN_CLASS);
+  }
+  if (!composerMetaStatusOverflowing(status)) return;
+  if (status.querySelector(".codex-panel__composer-meta-field--model")) {
+    status.classList.add(COMPOSER_META_MODEL_HIDDEN_CLASS);
+  }
+  if (composerMetaStatusOverflowing(status)) status.classList.add("is-status-hidden");
+}
+
+function composerMetaStatusOverflowing(status: HTMLElement): boolean {
+  return status.scrollWidth > status.clientWidth;
+}
+
+export function scrollComposerSuggestionIntoView(container: HTMLElement, option: HTMLElement): void {
+  const optionTop = option.offsetTop;
+  const optionBottom = optionTop + option.offsetHeight;
+  const viewportTop = container.scrollTop;
+  const viewportBottom = viewportTop + container.clientHeight;
+
+  if (optionTop < viewportTop) {
+    container.scrollTop = Math.max(0, optionTop);
+  } else if (optionBottom > viewportBottom) {
+    container.scrollTop = Math.max(0, optionBottom - container.clientHeight);
+  }
 }

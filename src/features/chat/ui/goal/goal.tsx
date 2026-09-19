@@ -2,14 +2,10 @@ import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { isComposerSendKey, type SendShortcut } from "../../../../domain/input/send-shortcut";
 import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
+import { disposeDomListeners, listenDomEscapeKey, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
 import { IconButton } from "../../../../shared/ui/icon.dom";
-import {
-  closeGoalEditorOnOutsidePointer,
-  collapseGoalObjectiveOnOutsidePointer,
-  focusGoalObjectiveEditor,
-  observeGoalObjectiveOverflow,
-  syncGoalObjectiveHeight,
-} from "./goal.dom";
+import { observeElementResize } from "../../../../shared/ui/resize-observer.measure";
+import { syncTextareaHeight } from "../../../../shared/ui/textarea-autogrow.measure";
 
 export interface GoalPanelActions {
   onSave: (objective: string, tokenBudget: number | null) => void;
@@ -63,7 +59,7 @@ export function GoalPanel({ goal, actions, sendShortcut, editor, readOnly, objec
 
   useLayoutEffect(() => {
     if (!editing) return;
-    focusGoalObjectiveEditor(objectiveRef.current);
+    objectiveRef.current?.focus();
   }, [editing]);
 
   useLayoutEffect(() => {
@@ -84,9 +80,14 @@ export function GoalPanel({ goal, actions, sendShortcut, editor, readOnly, objec
     if (!objectiveExpanded) return;
     const root = goalRef.current;
     if (!root) return;
-    return collapseGoalObjectiveOnOutsidePointer(root, () => {
-      actions.onObjectiveExpandedChange(false);
-    });
+    return listenOutsideDomEvent(
+      root,
+      "pointerdown",
+      () => {
+        actions.onObjectiveExpandedChange(false);
+      },
+      true,
+    );
   }, [actions, objectiveExpanded]);
 
   if (!goal && !editing) return null;
@@ -242,4 +243,51 @@ function formatElapsed(seconds: number): string {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return remainingMinutes === 0 ? `${String(hours)}h` : `${String(hours)}h ${String(remainingMinutes)}m`;
+}
+
+function syncGoalObjectiveHeight(textarea: HTMLTextAreaElement | null): void {
+  syncTextareaHeight(textarea, {
+    minHeightFallback: 56,
+    maxHeightFallback: textarea ? Math.min(180, textarea.win.innerHeight * 0.3) : 180,
+  });
+}
+
+function observeGoalObjectiveOverflow(content: HTMLElement, onOverflowChange: (overflows: boolean) => void): () => void {
+  const win = content.win;
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    onOverflowChange(content.scrollHeight > goalObjectiveCollapseHeight(content) + 1);
+  };
+  update();
+  frame = win.requestAnimationFrame(update);
+  const disposeResizeObserver = observeElementResize(content, update);
+  return () => {
+    if (frame) win.cancelAnimationFrame(frame);
+    disposeResizeObserver();
+  };
+}
+
+function closeGoalEditorOnOutsidePointer(root: HTMLElement, onCancel: () => void): () => void {
+  const closeOnEscape = (event: KeyboardEvent): void => {
+    event.preventDefault();
+    onCancel();
+  };
+  return disposeDomListeners(
+    listenOutsideDomEvent(root, "pointerdown", onCancel, true),
+    listenDomEscapeKey(root.ownerDocument, closeOnEscape),
+  );
+}
+
+function goalObjectiveCollapseHeight(element: HTMLElement): number {
+  const lineHeight = computedLineHeight(element);
+  return lineHeight * 3;
+}
+
+function computedLineHeight(element: HTMLElement): number {
+  const style = element.win.getComputedStyle(element);
+  const lineHeight = Number.parseFloat(style.lineHeight);
+  if (Number.isFinite(lineHeight) && lineHeight > 0) return lineHeight;
+  const fontSize = Number.parseFloat(style.fontSize);
+  return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.5 : 24;
 }

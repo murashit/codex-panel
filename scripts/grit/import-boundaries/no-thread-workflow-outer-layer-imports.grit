@@ -12,8 +12,9 @@ js_module_reference() as $stmt where {
     $source <: or {
       r"^[\"'](?:(?:\.\./)+(?:[^/\"']+/)*(?:app-server|host|ui)|src/(?:app-server|[^\"']*/(?:host|ui)))(?:/.*)?[\"']$",
       r"^[\"'](?:obsidian|preact(?:/.*)?)[\"']$",
-      r"^[\"'].*\.(?:dom|measure|obsidian)(?:/.*)?[\"']$"
+      // These names identify integration modules; they do not grant DOM permissions to the importing file.
+      r"^[\"'].*\.(?:dom|measure|obsidian)(?:\.[cm]?[jt]sx?)?[\"']$"
     }
   },
-  register_diagnostic(span=$stmt, message="Thread workflows must depend on domain models and feature-owned ports instead of app-server, host, UI, Obsidian, or DOM bridge modules.", severity="error")
+  register_diagnostic(span=$stmt, message="Thread workflows must depend on domain models and feature-owned ports instead of app-server, host, UI, Obsidian, or integration adapters.", severity="error")
 }

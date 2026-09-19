@@ -11,7 +11,7 @@ import type {
   ThreadStreamContext,
   ThreadStreamDisclosureState,
 } from "../../../../../../src/features/chat/ui/thread-stream/context";
-import type { ThreadStreamScrollPortBinding } from "../../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
+import type { ThreadStreamScrollPortBinding } from "../../../../../../src/features/chat/ui/thread-stream/flow-scroll";
 import type {
   PendingRequestBlockSnapshot,
   ThreadStreamTextActionTargets,

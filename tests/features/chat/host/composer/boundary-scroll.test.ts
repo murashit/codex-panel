@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   type ComposerBoundaryScrollAction,
   composerBoundaryScrollActionFromElement,
-} from "../../../../../src/features/chat/host/composer/element.dom";
+} from "../../../../../src/features/chat/host/thread-stream/composer-scroll";
 
 import { installObsidianDomShims } from "../../../../support/dom";
 

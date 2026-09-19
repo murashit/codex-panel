@@ -1,7 +1,7 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 import type { ThreadStreamContext } from "./context";
 import { detailNode } from "./detail";
-import { ThreadStreamFlowFrame, type ThreadStreamScrollPortBinding } from "./flow-scroll.measure";
+import { ThreadStreamFlowFrame, type ThreadStreamScrollPortBinding } from "./flow-scroll";
 import type { ThreadStreamActivityItemView, ThreadStreamRenderedItemView, ThreadStreamViewBlock } from "./model";
 import { pendingRequestBlockNode } from "./pending-request-block.dom";
 import { agentRunSummaryNode, statusNode } from "./status";

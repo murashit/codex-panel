@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatThreadStreamScrollBinding } from "../../../../../src/features/chat/host/thread-stream/scroll-binding";
-import type { ThreadStreamScrollPort } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
+import type { ThreadStreamScrollPort } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
 
 describe("chat thread stream scroll binding", () => {
   it("forwards panel and composer commands to the mounted scroll port", () => {

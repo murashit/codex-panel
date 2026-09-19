@@ -9,7 +9,7 @@ import {
   type ThreadStreamScrollCommand,
   type ThreadStreamScrollPort,
   type ThreadStreamScrollPortBinding,
-} from "../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
+} from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 

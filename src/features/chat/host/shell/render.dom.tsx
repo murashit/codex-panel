@@ -9,7 +9,7 @@ import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { ComposerShell } from "../../ui/composer/composer";
 import { GoalPanel } from "../../ui/goal/goal";
-import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll.measure";
+import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll";
 import { ThreadStreamViewport } from "../../ui/thread-stream/stream-blocks";
 import { Toolbar, type ToolbarActions } from "../../ui/toolbar/toolbar";
 import type { ChatPanelComposerActions, ChatPanelComposerPresenter } from "../composer/view-projection";

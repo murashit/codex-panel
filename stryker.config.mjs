@@ -20,11 +20,9 @@ export default {
     "src/shared/async/**/*.ts",
     "src/shared/ui/json-preview.ts",
     // Shared write serialization and collision handling protect Vault contents.
-    "src/shared/vault/**/*.ts",
+    "src/shared/vault/write-operations.ts",
     "src/settings/*.ts",
-    "src/features/selection-rewrite/**/*.ts",
-    "!src/**/*.dom.ts",
-    "!src/**/*.obsidian.ts",
+    "src/features/selection-rewrite/{session,model,diff,prompt,port,app-server-adapter}.ts",
   ],
   ignoreStatic: true,
   incremental: true,

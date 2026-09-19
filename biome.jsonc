@@ -113,20 +113,18 @@
       ]
     },
 
-    // DOM bridge and Preact root boundaries.
+    // Workflows exchange values and actions, not browser elements.
     {
-      "path": "./scripts/grit/dom/no-implicit-dom-bridges.grit",
-      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/**/*.{dom,obsidian,measure}.{ts,tsx}"]
-    },
-    {
-      "path": "./scripts/grit/dom/no-dom-events-imports.grit",
-      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/**/*.{dom,obsidian,measure}.{ts,tsx}"]
-    },
-    {
-      "path": "./scripts/grit/dom/no-preact-root-imports.grit",
-      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/**/*.{dom,obsidian}.{ts,tsx}"]
+      "path": "./scripts/grit/dom/no-workflow-dom-handles.grit",
+      "includes": [
+        "**/src/domain/**/*.{ts,tsx}",
+        "**/src/features/*/domain/**/*.{ts,tsx}",
+        "**/src/features/chat/application/**/*.{ts,tsx}",
+        "**/src/features/threads/workflows/**/*.{ts,tsx}"
+      ]
     },
 
+    // Preact root cleanup has one owner.
     {
       "path": "./scripts/grit/dom/no-preact-root-api-imports.grit",
       "includes": ["**/src/**/*.{ts,tsx}", "!**/src/shared/ui/preact-root.dom.tsx"]

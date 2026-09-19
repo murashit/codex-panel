@@ -22,6 +22,12 @@ import type { NoteCandidateProvider } from "../../application/composer/note-cont
 import type { PreparedInput } from "../../application/composer/prepared-input";
 import type { ComposerRuntimeSnapshot } from "../../application/composer/runtime-snapshot";
 import type { ComposerSuggestion } from "../../application/composer/suggestion";
+import {
+  applyComposerSuggestionInsertion,
+  composerSuggestionNavigationDirection,
+  composerSuggestionSignature,
+  nextComposerSuggestionIndex,
+} from "../../application/composer/suggestion";
 import { activeComposerSuggestions } from "../../application/composer/suggestions";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../application/composer/wikilink-context";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
@@ -35,23 +41,10 @@ import type { ChatStateStore } from "../../application/state/store";
 import { type ComposerSubmissionClaim, SubmissionInput } from "../../application/submission/input-claim";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer/composer";
-import { syncComposerHeight } from "../../ui/composer/composer.dom";
-import { ComposerAttachmentTransfers } from "./attachment-transfers";
-import {
-  applyComposerInsertionToElement,
-  applyComposerSuggestionInsertion,
-  type ComposerBoundaryScrollAction,
-  composerBoundaryScrollActionFromElement,
-  composerFilesFromTransfer,
-  composerHasFocus,
-  composerInsertionSource,
-  composerSuggestionNavigationDirection,
-  composerSuggestionSignatureFromElement,
-  composerTextBeforeCursor,
-  composerTransferHasFiles,
-  focusComposer,
-  nextComposerSuggestionIndex,
-} from "./element.dom";
+import { syncComposerHeight } from "../../ui/composer/height";
+import { type ComposerBoundaryScrollAction, composerBoundaryScrollActionFromElement } from "../thread-stream/composer-scroll";
+import { ComposerAttachmentTransfers, composerFilesFromTransfer, composerTransferHasFiles } from "./attachment-transfers";
+import { applyComposerInsertionToElement } from "./selection";
 import type { ChatPanelComposerActions, ChatPanelComposerModel } from "./view-projection";
 import { type ChatPanelComposerRuntimeActions, projectChatPanelComposer } from "./view-projection";
 
@@ -215,16 +208,16 @@ export class ChatComposerController {
       draft: text,
       ...(options.clearSuggestions === undefined ? {} : { clearSuggestions: options.clearSuggestions }),
     });
-    if (options.focus && this.options.canFocus()) focusComposer(this.composer);
+    if (options.focus && this.options.canFocus()) this.composer?.focus();
   }
 
   focusComposer(options: { force?: boolean } = {}): void {
     if (options.force !== true && !this.options.canFocus()) return;
-    focusComposer(this.composer, { preventScroll: true });
+    this.composer?.focus({ preventScroll: true });
   }
 
   hasFocus(): boolean {
-    return composerHasFocus(this.composer);
+    return this.composer !== null && this.composer.ownerDocument.activeElement === this.composer;
   }
 
   dispose(): void {
@@ -724,4 +717,26 @@ function collapsedComposerSelection(value: string, cursor: number): ComposerPend
 
 function prependClaimedDraft(claimed: string, current: string): string {
   return current.trim().length > 0 ? `${claimed}\n\n${current}` : claimed;
+}
+interface ComposerElementInsertion {
+  value: string;
+  cursor: number;
+}
+
+function composerTextBeforeCursor(composer: HTMLTextAreaElement | null): string | null {
+  if (!composer) return null;
+  return composer.value.slice(0, composer.selectionStart);
+}
+
+function composerSuggestionSignatureFromElement(composer: HTMLTextAreaElement | null): string | null {
+  if (!composer) return null;
+  return composerSuggestionSignature(composer.value, composer.selectionStart);
+}
+
+function composerInsertionSource(composer: HTMLTextAreaElement | null): ComposerElementInsertion | null {
+  if (!composer) return null;
+  return {
+    value: composer.value,
+    cursor: composer.selectionStart,
+  };
 }

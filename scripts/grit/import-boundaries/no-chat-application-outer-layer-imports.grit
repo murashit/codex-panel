@@ -10,10 +10,11 @@ private pattern js_module_reference() {
 js_module_reference() as $stmt where {
   $stmt <: contains `$source` where {
     $source <: or {
-      r"^[\"'](?:(?:\.\./)+(?:app-server|host|ui)|(?:\.\./){2,}(?:selection-rewrite|thread-picker|threads|threads-view|turn-diff)|src/(?:app-server|features/(?:chat/(?:app-server|host|ui)|selection-rewrite|thread-picker|threads|threads-view|turn-diff)))(?:/.*)?[\"']$",
+      r"^[\"'](?:(?:\.\./)+(?:app-server|host|ui|shared/ui)|(?:\.\./){2,}(?:selection-rewrite|thread-picker|threads|threads-view|turn-diff)|src/(?:app-server|shared/ui|features/(?:chat/(?:app-server|host|ui)|selection-rewrite|thread-picker|threads|threads-view|turn-diff)))(?:/.*)?[\"']$",
       r"^[\"'](?:obsidian|preact(?:/.*)?)[\"']$",
+      // These names identify integration modules; they do not grant DOM permissions to the importing file.
       r"^[\"'].*\.(?:dom|measure|obsidian)(?:\.[cm]?[jt]sx?)?[\"']$"
     }
   },
-  register_diagnostic(span=$stmt, message="Chat application modules must not import app-server, sibling feature, host, UI, Preact, Obsidian, or DOM bridges directly; expose state, workflow, and platform contracts instead.", severity="error")
+  register_diagnostic(span=$stmt, message="Chat application modules must not import app-server, sibling feature, host, UI, Preact, Obsidian, or integration adapters directly; expose state, workflow, and platform contracts instead.", severity="error")
 }

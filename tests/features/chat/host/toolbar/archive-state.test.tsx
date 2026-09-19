@@ -15,7 +15,7 @@ import {
 import type { ChatThreadStreamDependencies } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../../src/features/chat/host/toolbar/actions";
 import type { ChatPanelToolbarDependencies } from "../../../../../src/features/chat/host/toolbar/view-projection";
-import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
+import type { ThreadStreamScrollPortBinding } from "../../../../../src/features/chat/ui/thread-stream/flow-scroll";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { chatSharedSourcesFixture } from "../../support/shared-sources";
 

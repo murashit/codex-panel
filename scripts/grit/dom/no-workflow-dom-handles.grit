@@ -1,0 +1,29 @@
+language js
+
+private pattern dom_handle_name() {
+  r"^(?:(?:HTML|SVG).*Element|Node|Element|Document|Window|WindowProxy|Selection|Range|NodeList(?:Of)?|HTMLCollection(?:Of)?|CSSStyleDeclaration|(?:Resize|Mutation|Intersection)Observer)$"
+}
+
+// Match recognizable DOM contracts and entry points; this is not type or alias analysis.
+or {
+  TsReferenceType(name=dom_handle_name()) as $stmt,
+  `new $constructor($...)` as $stmt where { $constructor <: dom_handle_name() },
+  `document.$property` as $stmt where {
+    $property <: r"^(?:create(?:Element(?:NS)?|TextNode|DocumentFragment|Range)|querySelector(?:All)?|getElementById|getElementsBy(?:ClassName|TagName)|getSelection|body|head|documentElement|activeElement)$"
+  },
+  `$global.$property` as $stmt where {
+    $global <: or {
+      `globalThis`,
+      `window`,
+      `self`
+    },
+    $property <: or {
+      dom_handle_name(),
+      `document`,
+      `window`,
+      `self`
+    }
+  }
+} where {
+  register_diagnostic(span=$stmt, message="Keep DOM handles in UI or host owners; pass values and actions to workflows.", severity="error")
+}
