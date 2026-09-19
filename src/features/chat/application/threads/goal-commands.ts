@@ -165,8 +165,10 @@ async function startThreadAndSaveObjective(
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) || !emptyPanelCanStartGoalThread(host)) return false;
     if (submission && !submission.isCurrent()) return false;
     const outcome = await host.startThread(objective, submission ? { adoptPanelTarget: submission.adoptPanelTarget } : undefined);
-    if (outcome.kind !== "created-activated") return false;
-    return await runGoalMutation(host, outcome.threadId, () => setNormalizedObjective(host, outcome.threadId, objective, tokenBudget));
+    if (outcome.kind !== "created-activated" || !panelTargetLeaseIsCurrent(host.stateStore.getState(), outcome.target)) return false;
+    return await runGoalMutation(host, outcome.target.threadId, () =>
+      setNormalizedObjective(host, outcome.target.threadId, objective, tokenBudget),
+    );
   } catch (error) {
     if (panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) host.addSystemMessage(errorMessage(error));
     return false;

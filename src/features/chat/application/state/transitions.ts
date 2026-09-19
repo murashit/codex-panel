@@ -2,6 +2,7 @@ import { unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
 import { initialActiveChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
 import { turnOutcomeLabel } from "../../domain/runtime/turn-outcome";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
+import type { ForkReplacement } from "../threads/fork-draft";
 import { STATUS_TURN_RUNNING, transitionChatTurnLifecycleState } from "../turns/turn-state";
 import { initialComposerState } from "./composer";
 import {
@@ -13,10 +14,12 @@ import {
   initialPanelThreadState,
   panelThreadId,
   panelThreadIdForState,
+  pendingForkReplacement,
 } from "./model";
 import { patchObject } from "./patch";
 import { initialChatThreadStreamState, threadStreamItems, threadStreamWithItems } from "./thread-stream";
 import type {
+  ActiveThreadCreatedAction,
   ActiveThreadResumedAction,
   ActiveThreadSettingsAppliedAction,
   ChatTransitionAction,
@@ -41,6 +44,30 @@ import { clearAllRequestDisclosures, clearResolvedRequestDisclosures, initialUiS
 
 export function reduceChatTransition(state: ChatState, action: ChatTransitionAction): ChatState {
   switch (action.type) {
+    case "panel/fork-draft-applied": {
+      const { draft, display, composerText } = action.preparation;
+      return {
+        ...clearThreadScopedState(state),
+        panelThread: { kind: "fork-draft", draft },
+        panelTargetRevision: state.panelTargetRevision + 1,
+        runtime: action.preparation.runtime,
+        threadStream: {
+          ...initialChatThreadStreamState(display.items),
+          turnDiffs: display.turnDiffs,
+          historyCursor: display.historyCursor ?? null,
+        },
+        composer: { ...initialComposerState(), draft: composerText ?? "" },
+        connection: { ...state.connection, statusText: "Fork draft. Send a message to create the thread." },
+      };
+    }
+    case "active-thread/fork-replacement-settled": {
+      const panelThread = state.panelThread;
+      if ((panelThread.kind !== "active" && panelThread.kind !== "awaiting-resume") || panelThreadId(state) !== action.threadId)
+        return state;
+      const settled = { ...panelThread };
+      delete settled.forkReplacement;
+      return { ...state, panelThread: settled };
+    }
     case "connection/scoped-cleared":
       return clearConnectionScopedState(state);
     case "active-thread/cleared":
@@ -48,12 +75,13 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
         return state;
       }
       return clearThreadScopedState(state);
+    case "active-thread/created":
     case "active-thread/resumed":
-      return reduceActiveThreadResumedTransition(state, action);
+      return reduceActiveThreadActivatedTransition(state, action);
     case "active-thread/settings-applied":
       return reduceActiveThreadSettingsAppliedTransition(state, action);
     case "panel/restored-thread-applied":
-      return reduceRestoredThreadAppliedTransition(state, action.threadId, action.fallbackTitle);
+      return reduceRestoredThreadAppliedTransition(state, action.threadId, action.fallbackTitle, action.forkReplacement);
     case "panel/restored-thread-renamed":
       return reduceRestoredThreadRenamedTransition(state, action.threadId, action.name);
     case "panel/view-state-cleared":
@@ -103,10 +131,12 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
   }
 }
 
-function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThreadResumedAction): ChatState {
+function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveThreadResumedAction | ActiveThreadCreatedAction): ChatState {
   if (action.expectedPanelTargetRevision !== undefined && action.expectedPanelTargetRevision !== state.panelTargetRevision) {
     return state;
   }
+  const creatingFork = action.type === "active-thread/created" && state.panelThread.kind === "fork-draft";
+  const replacement = creatingFork || panelThreadId(state) === action.thread.id ? pendingForkReplacement(state) : undefined;
   const runtimeBase = action.preserveRequestedRuntimeSettings ? state.runtime : initialChatRuntimeState();
   const turnScopedState = clearTurnScopedState(state);
   const nextPanelTargetRevision = panelThreadId(state) === action.thread.id ? state.panelTargetRevision : state.panelTargetRevision + 1;
@@ -117,6 +147,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
     },
     panelThread: {
       kind: "active",
+      ...(replacement ? { forkReplacement: replacement } : {}),
       thread: {
         id: action.thread.id,
         title: (action.thread.name ?? action.thread.preview) || null,
@@ -144,13 +175,16 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
         activePermissionProfile: action.activePermissionProfile,
       },
     },
-    threadStream: initialChatThreadStreamState(action.items ?? []),
+    threadStream: {
+      ...initialChatThreadStreamState(creatingFork ? state.threadStream.stableItems : (action.items ?? [])),
+      ...(creatingFork ? { turnDiffs: state.threadStream.turnDiffs } : {}),
+    },
     pendingSubmission:
       action.preservePendingSubmissionId && state.pendingSubmission?.id === action.preservePendingSubmissionId
         ? { ...state.pendingSubmission, targetThreadId: action.thread.id }
         : null,
     requests: initialChatRequestState(),
-    composer: panelThreadId(state) === action.thread.id ? state.composer : initialComposerState(),
+    composer: creatingFork || panelThreadId(state) === action.thread.id ? state.composer : initialComposerState(),
     ui: action.preserveGoalEditor ? { ...initialUiState(), goalEditor: state.ui.goalEditor } : initialUiState(),
   });
 }
@@ -182,11 +216,16 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
   });
 }
 
-function reduceRestoredThreadAppliedTransition(state: ChatState, threadId: string, fallbackTitle: string | null): ChatState {
+function reduceRestoredThreadAppliedTransition(
+  state: ChatState,
+  threadId: string,
+  fallbackTitle: string | null,
+  forkReplacement?: ForkReplacement,
+): ChatState {
   const cleared = clearThreadScopedState(state);
   return patchObject(cleared, {
     connection: { ...cleared.connection, statusText: "Thread ready to resume." },
-    panelThread: createAwaitingResumeThreadState(threadId, fallbackTitle),
+    panelThread: { ...createAwaitingResumeThreadState(threadId, fallbackTitle), ...(forkReplacement ? { forkReplacement } : {}) },
   });
 }
 
@@ -326,7 +365,7 @@ function clearConnectionScopedState(state: ChatState): ChatState {
     panelThread: nextPanelThread,
     panelTargetRevision:
       panelThreadIdForState(nextPanelThread) === panelThreadId(state) ? state.panelTargetRevision : state.panelTargetRevision + 1,
-    runtime: initialChatRuntimeState(),
+    runtime: state.panelThread.kind === "fork-draft" ? state.runtime : initialChatRuntimeState(),
     threadStream: ephemeralExpired ? initialChatThreadStreamState() : cleared.threadStream,
     pendingSubmission: null,
     composer: state.composer,
@@ -334,7 +373,10 @@ function clearConnectionScopedState(state: ChatState): ChatState {
 }
 
 function panelThreadAfterConnectionExit(panelThread: ChatPanelThreadState): ChatPanelThreadState {
-  if (panelThread.kind === "awaiting-resume") return panelThread;
+  if (panelThread.kind === "awaiting-resume" || panelThread.kind === "fork-draft") return panelThread;
   if (panelThread.kind !== "active" || panelThread.thread.lifetime?.kind === "ephemeral") return initialPanelThreadState();
-  return createAwaitingResumeThreadState(panelThread.thread.id, panelThread.thread.title ?? null, panelThread.thread.provenance);
+  return {
+    ...createAwaitingResumeThreadState(panelThread.thread.id, panelThread.thread.title ?? null, panelThread.thread.provenance),
+    ...(panelThread.forkReplacement ? { forkReplacement: panelThread.forkReplacement } : {}),
+  };
 }

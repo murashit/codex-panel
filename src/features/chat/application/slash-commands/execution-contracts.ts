@@ -51,6 +51,7 @@ export interface SlashCommandExecutionPorts {
 
 export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts {
   activeThreadId: string | null;
+  forkSourceThreadId?: string;
   listedThreads: readonly Thread[];
   threadCommandTarget?: ThreadCommandTarget;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput>;

@@ -9,6 +9,7 @@ export type ForkDisplayBoundary =
   | { readonly kind: "before-turn"; readonly turnId: string };
 
 export interface ForkDisplaySnapshot {
+  readonly historyCursor?: string | null;
   readonly items: readonly ThreadStreamItem[];
   readonly turnDiffs: ReadonlyMap<string, string>;
 }
@@ -18,6 +19,7 @@ export function captureForkDisplaySnapshot(state: ChatThreadStreamViewState, bou
   const retainedTurnIds = forkDisplayRetainedTurnIds(items, boundary);
   return {
     items: items.filter((item) => item.turnId && retainedTurnIds.has(item.turnId)),
+    historyCursor: boundary.kind === "latest" || items.some((item) => item.turnId === boundary.turnId) ? state.historyCursor : null,
     turnDiffs: new Map([...state.turnDiffs].filter(([turnId]) => retainedTurnIds.has(turnId))),
   };
 }

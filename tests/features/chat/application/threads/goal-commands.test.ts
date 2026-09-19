@@ -49,7 +49,7 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } }),
       addSystemMessage,
     });
 
@@ -74,7 +74,7 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } }),
       addSystemMessage: vi.fn(),
     });
 
@@ -96,7 +96,7 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "side" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "side", revision: 0 } }),
       addSystemMessage,
     });
 
@@ -118,7 +118,7 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } }),
       addSystemMessage,
     });
 
@@ -141,7 +141,7 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } }),
       addSystemMessage,
     });
 
@@ -162,7 +162,7 @@ describe("createGoalCommands", () => {
     const commands = createGoalCommands({
       stateStore,
       effects,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } }),
       addSystemMessage: vi.fn(),
     });
 
@@ -185,7 +185,7 @@ describe("createGoalCommands", () => {
       stateStore,
       effects,
       ensureConnected,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } }),
       addSystemMessage,
     });
 
@@ -224,8 +224,10 @@ describe("createGoalCommands", () => {
     const creation = deferred<EffectOutcome<ThreadActivationSnapshot>>();
     const startEffect = vi.fn(() => creation.promise);
     const starter = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: { startThread: startEffect },
+      effects: { forkThread: vi.fn(), startThread: startEffect },
       runtimeSnapshotForState: (state) =>
         runtimeSnapshotForChatState(state, {
           runtimeConfigSnapshot: () => null,
@@ -297,7 +299,7 @@ describe("createGoalCommands", () => {
     const connection = deferred<boolean>();
     const effects = effectsFixture();
     const ensureConnected = vi.fn(() => connection.promise);
-    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread-new" });
+    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread-new", revision: 0 } });
     const commands = createGoalCommands({
       stateStore,
       effects,
@@ -322,7 +324,7 @@ describe("createGoalCommands", () => {
     const effects = effectsFixture({
       setThreadGoal: vi.fn().mockResolvedValue(completed(undefined)),
     });
-    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "new-thread" });
+    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "new-thread", revision: 0 } });
     const ensureRestoredThreadLoaded = vi.fn(async () => {
       stateStore.dispatch({
         type: "active-thread/resumed",
@@ -372,7 +374,7 @@ describe("createGoalCommands", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const effects = effectsFixture();
     const ensureConnected = vi.fn().mockResolvedValue(true);
-    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" });
+    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } });
     const addSystemMessage = vi.fn();
     const commands = createGoalCommands({
       stateStore,

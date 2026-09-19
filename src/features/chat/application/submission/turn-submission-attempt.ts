@@ -34,8 +34,8 @@ export class TurnSubmissionAttempt {
     return this.optimisticItemId;
   }
 
-  refreshPanelTarget(): void {
-    this.panelTarget = capturePanelTargetLease(this.stateStore.getState());
+  retarget(panelTarget: PanelTargetLease): void {
+    this.panelTarget = panelTarget;
   }
 
   isPendingCurrent(): boolean {

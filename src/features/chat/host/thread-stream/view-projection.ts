@@ -59,6 +59,7 @@ export function projectThreadStream(model: ChatPanelThreadStreamModel, dependenc
 }
 
 function threadStreamContext(model: ChatPanelThreadStreamModel, dependencies: ChatThreadStreamDependencies): ThreadStreamContext {
+  const forkSourceThreadId = model.forkSourceThreadId ?? model.activeThreadId;
   return {
     activeThreadId: model.activeThreadId,
     disclosures: {
@@ -78,11 +79,11 @@ function threadStreamContext(model: ChatPanelThreadStreamModel, dependencies: Ch
       dependencies.actions.implementPlan(target.itemId);
     },
     onRollback: () => {
-      if (model.activeThreadId) dependencies.actions.rollbackThread(model.activeThreadId);
+      if (forkSourceThreadId) dependencies.actions.rollbackThread(forkSourceThreadId);
     },
     onFork: (target, archiveSource) => {
-      if (model.activeThreadId) {
-        dependencies.actions.forkThreadFromTurn(model.activeThreadId, target.turnId, archiveSource);
+      if (forkSourceThreadId) {
+        dependencies.actions.forkThreadFromTurn(forkSourceThreadId, target.turnId, archiveSource);
       }
     },
     openThreadInNewView: dependencies.actions.openThreadInNewView,
@@ -125,7 +126,7 @@ function projectThreadStreamBlocks(
   const rollbackCandidate = !turnBusy && model.rollbackAllowed ? threadStreamRollbackCandidateFromItems(canonicalItems) : null;
   const forkCandidates = !turnBusy && model.forkAllowed ? forkCandidatesFromItems(canonicalItems) : [];
   const planTarget = implementPlanTarget({
-    activeThread: model.activeThreadId ? { id: model.activeThreadId } : null,
+    hasConversation: model.activeThreadId !== null || model.forkSourceThreadId !== null,
     modeAllowed: model.planImplementationAllowed,
     activeTurn: model.activeTurn,
     runtime: { pending: { collaborationMode: model.runtimeCollaborationMode } },
@@ -197,6 +198,7 @@ export interface ChatPanelThreadStreamSharedValues {
 export interface ChatPanelThreadStreamModel {
   readonly threads: readonly Thread[];
   readonly activeThreadId: string | null;
+  readonly forkSourceThreadId: string | null;
   readonly forkAllowed: boolean;
   readonly rollbackAllowed: boolean;
   readonly planImplementationAllowed: boolean;
@@ -218,6 +220,7 @@ export function selectChatPanelThreadStream(state: ChatState, shared: ChatPanelT
   return {
     threads: shared.threads,
     activeThreadId: activeThread?.id ?? null,
+    forkSourceThreadId: state.panelThread.kind === "fork-draft" ? state.panelThread.draft.sourceThreadId : null,
     forkAllowed: activePanelOperationDecision(state, "fork").kind === "allowed",
     rollbackAllowed: activePanelOperationDecision(state, "rollback").kind === "allowed",
     planImplementationAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",

@@ -37,6 +37,19 @@ type ActivePanelThreadFacts =
 const ALLOWED: ActivePanelOperationDecision = { kind: "allowed" };
 
 export function activePanelOperationDecision(state: ChatState, operation: ActivePanelOperation): ActivePanelOperationDecision {
+  if (state.panelThread.kind === "fork-draft") {
+    switch (operation) {
+      case "submit":
+      case "fork":
+      case "rollback":
+      case "thread-settings":
+      case "permission-settings":
+      case "implement-plan":
+        return ALLOWED;
+      default:
+        return { kind: "blocked", message: "Send a message to create this fork before using this action." };
+    }
+  }
   return activePanelOperationDecisionForFacts(activePanelThreadFacts(state), operation);
 }
 
@@ -69,7 +82,7 @@ function activePanelOperationDecisionForFacts(
 
 function activePanelThreadFacts(state: ChatState): ActivePanelThreadFacts {
   const panelThread = state.panelThread;
-  if (panelThread.kind === "empty") return { phase: "empty" };
+  if (panelThread.kind === "empty" || panelThread.kind === "fork-draft") return { phase: "empty" };
   if (panelThread.kind === "awaiting-resume") {
     return { phase: "awaiting-resume", provenance: panelThread.provenance?.kind ?? null };
   }

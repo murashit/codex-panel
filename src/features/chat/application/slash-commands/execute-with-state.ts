@@ -43,6 +43,7 @@ export async function executePanelSlashCommand(
       if (submission.isCurrent()) host.addStructuredSystemMessage(text, details);
     },
     activeThreadId: activeThreadId(chatState),
+    ...(chatState.panelThread.kind === "fork-draft" ? { forkSourceThreadId: chatState.panelThread.draft.sourceThreadId } : {}),
     listedThreads,
     ...(inputSnapshot?.threadCommandTarget ? { threadCommandTarget: inputSnapshot.threadCommandTarget } : {}),
     referThread: host.referThread,

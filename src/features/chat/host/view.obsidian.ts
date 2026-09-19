@@ -106,6 +106,7 @@ export class CodexChatView extends ItemView {
 
   override getDisplayText(): string {
     if (this.session) return this.session.displayTitle();
+    if (this.runtimeSnapshot?.forkDraft) return "Fork draft";
     const title = this.detachedViewState()["threadTitle"];
     return typeof title === "string" ? title : "Codex";
   }
@@ -127,6 +128,7 @@ export class CodexChatView extends ItemView {
     this.runtimeSnapshot = {
       viewState: typeof state === "object" && state !== null ? { ...(state as Record<string, unknown>) } : { version: 1 },
       composer: this.runtimeSnapshot?.composer ?? emptyComposerRuntimeSnapshot(),
+      forkDraft: null,
       ephemeralSource: this.runtimeSnapshot?.ephemeralSource ?? null,
     };
   }

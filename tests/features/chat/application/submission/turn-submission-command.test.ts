@@ -3,6 +3,7 @@ import type { CodexInput } from "../../../../../src/domain/input/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
+import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { optimisticTurnStart } from "../../../../../src/features/chat/application/submission/optimistic-turn-start";
@@ -12,6 +13,7 @@ import {
 } from "../../../../../src/features/chat/application/submission/turn-submission-command";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
+import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { deferred } from "../../../../support/async";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -38,6 +40,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const startTurn = vi.fn().mockResolvedValue(completed({ turnId: "turn" }));
   const steerTurn = vi.fn().mockResolvedValue(completed(undefined));
   const host: TurnSubmissionCommandHost = {
+    forkReplacement: { beginPublication: vi.fn(), latestTurnId: vi.fn(), archiveSource: vi.fn(), notify: vi.fn() },
     stateStore,
     ensureConnected: vi.fn().mockResolvedValue(true),
     turnPort: {
@@ -49,10 +52,8 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     startThread: vi.fn().mockImplementation(async (_preview, options) => {
       options?.adoptPanelTarget?.("thread");
       resumeThread(stateStore, options?.preservePendingSubmissionId);
-      return { kind: "created-activated", threadId: "thread" };
+      return { kind: "created-activated", target: { threadId: "thread", revision: stateStore.getState().panelTargetRevision } };
     }),
-    notifyActiveThreadIdentityChanged: vi.fn(),
-    resetThreadTurnPresence: vi.fn(),
     applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
     prepareInput: vi.fn((text: string) => ({ text, input: textInput(text) })),
     setStatus: vi.fn(),
@@ -244,9 +245,7 @@ describe("TurnSubmissionCommand", () => {
     const submitted = await commands.sendTurnText({ text: "hello" });
 
     expect(submitted).toBe(true);
-    expect(host.startThread).toHaveBeenCalledWith("hello");
-    expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
-    expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
+    expect(host.startThread).toHaveBeenCalledWith("hello", {});
     expect(startTurn).toHaveBeenCalledWith({
       threadId: "thread",
       input: textInput("hello"),
@@ -353,7 +352,7 @@ describe("TurnSubmissionCommand", () => {
     host.startThread = vi.fn().mockImplementation(async (_preview, options) => {
       await threadStarting.promise;
       resumeThread(stateStore, options?.preservePendingSubmissionId);
-      return { kind: "created-activated", threadId: "thread" };
+      return { kind: "created-activated", target: { threadId: "thread", revision: stateStore.getState().panelTargetRevision } };
     });
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
     if (!pending) throw new Error("Expected pending web submission");
@@ -575,13 +574,13 @@ describe("TurnSubmissionCommand", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("does not create a second thread after the first creation loses its panel target", async () => {
+  it("does not report a sent turn after thread creation loses its panel target", async () => {
     const { host, startTurn } = createHost({
       startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated" }),
     });
     const commands = createTurnSubmissionCommand(host);
 
-    await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(true);
+    await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(false);
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.addSystemMessage).not.toHaveBeenCalled();
@@ -922,5 +921,224 @@ describe("TurnSubmissionCommand", () => {
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
     expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+  });
+});
+
+describe("deferred fork submission", () => {
+  function setup(archiveSourceOnSend = true) {
+    const { host, stateStore, startTurn } = createHost();
+    const publication = { attach: vi.fn(), finish: vi.fn() };
+    const archiveSource = vi.fn().mockResolvedValue(true);
+    const latestTurnId = vi.fn().mockResolvedValue("source-last");
+    const notify = vi.fn();
+    const forkThread = vi.fn().mockResolvedValue(
+      completed({
+        thread: thread("forked"),
+        canAcceptDirectInput: true,
+        model: null,
+        reasoningEffort: null,
+        serviceTier: null,
+        approvalsReviewer: null,
+        approvalPolicy: null,
+        sandboxPolicy: null,
+        activePermissionProfile: null,
+        approvalPolicyKnown: false,
+        sandboxPolicyKnown: false,
+        permissionProfileKnown: false,
+      }),
+    );
+    const startThread = vi.fn();
+    const hydrateCreatedFork = vi.fn().mockResolvedValue(undefined);
+    const onThreadActivated = vi.fn();
+    const starter = createThreadStartCommand({
+      stateStore,
+      effects: { startThread, forkThread },
+      recordStartedThread: vi.fn(),
+      hydrateCreatedFork,
+      onThreadActivated,
+      runtimeSnapshotForState: (state) =>
+        runtimeSnapshotForChatState(state, {
+          runtimeConfigSnapshot: () => null,
+          rateLimitsSnapshot: () => null,
+          modelsSnapshot: () => [],
+        }),
+    });
+    host.startThread = starter.startThread;
+    host.forkReplacement = { beginPublication: () => publication, latestTurnId, archiveSource, notify };
+    stateStore.dispatch({
+      type: "panel/fork-draft-applied",
+      preparation: {
+        draft: {
+          sourceThreadId: "source",
+          boundary: { kind: "before-turn", turnId: "source-last" },
+          ...(archiveSourceOnSend
+            ? { replacement: { sourceThreadId: "source", sourceLatestTurnId: "source-last", saveMarkdown: false } }
+            : {}),
+        },
+        runtime: stateStore.getState().runtime,
+        display: { items: [], turnDiffs: new Map() },
+        composerText: "edited prompt",
+      },
+    });
+    const command = createTurnSubmissionCommand(host);
+    return {
+      hydrateCreatedFork,
+      onThreadActivated,
+      command,
+      host,
+      stateStore,
+      startTurn,
+      forkThread,
+      startThread,
+      archiveSource,
+      latestTurnId,
+      publication,
+      notify,
+    };
+  }
+
+  it("creates only on send and archives the source only after the first turn is accepted", async () => {
+    const test = setup();
+    const pending = deferred<EffectOutcome<{ turnId: string }>>();
+    test.startTurn.mockReturnValue(pending.promise);
+    expect(test.forkThread).not.toHaveBeenCalled();
+    const sending = test.command.sendTurnText({ text: "edited prompt" });
+    await vi.waitFor(() => expect(test.startTurn).toHaveBeenCalledOnce());
+    expect(test.forkThread).toHaveBeenCalledExactlyOnceWith(
+      "source",
+      expect.objectContaining({
+        position: { kind: "before-turn", turnId: "source-last" },
+        deferGoalContinuation: true,
+      }),
+    );
+    expect(test.startThread).not.toHaveBeenCalled();
+    expect(test.archiveSource).not.toHaveBeenCalled();
+    expect(activeThreadId(test.stateStore.getState())).toBe("forked");
+    pending.resolve(completed({ turnId: "first" }));
+    await expect(sending).resolves.toBe(true);
+    expect(test.archiveSource).toHaveBeenCalledExactlyOnceWith("source", false);
+    expect(test.publication.finish).toHaveBeenLastCalledWith(true);
+  });
+
+  it("allows steering an accepted fork while source archival is still pending", async () => {
+    const test = setup();
+    const archive = deferred<boolean>();
+    test.archiveSource.mockReturnValue(archive.promise);
+    await expect(test.command.sendTurnText({ text: "edited prompt" })).resolves.toBe(true);
+    expect(test.publication.finish).not.toHaveBeenCalled();
+    await expect(test.command.sendTurnText({ text: "one more detail" })).resolves.toBe(true);
+    expect(test.host.turnPort.steerTurn).toHaveBeenCalledOnce();
+    archive.resolve(true);
+    await vi.waitFor(() => expect(test.publication.finish).toHaveBeenCalledExactlyOnceWith(true));
+  });
+
+  it.each(["unrelated", "forked"])("does not acquire a newly selected %s target during creation handoff", async (selected) => {
+    const test = setup();
+    test.onThreadActivated.mockImplementation(() => {
+      resumeThread(test.stateStore, undefined, "unrelated");
+      if (selected === "forked") resumeThread(test.stateStore, undefined, "forked");
+    });
+    await expect(test.command.sendTurnText({ text: "edited prompt" })).resolves.toBe(false);
+    expect(test.host.applyPendingThreadSettings).not.toHaveBeenCalled();
+    expect(test.startTurn).not.toHaveBeenCalled();
+    expect(test.archiveSource).not.toHaveBeenCalled();
+    expect(test.publication.finish).toHaveBeenLastCalledWith(false);
+  });
+
+  it("does not send into a panel selected while the created fork history loads", async () => {
+    const test = setup();
+    const history = deferred<void>();
+    test.hydrateCreatedFork.mockReturnValue(history.promise);
+    const sending = test.command.sendTurnText({ text: "edited prompt" });
+    await vi.waitFor(() => expect(test.hydrateCreatedFork).toHaveBeenCalledOnce());
+    resumeThread(test.stateStore, undefined, "unrelated");
+    history.resolve();
+    await expect(sending).resolves.toBe(false);
+    expect(activeThreadId(test.stateStore.getState())).toBe("unrelated");
+    expect(test.startTurn).not.toHaveBeenCalled();
+    expect(test.archiveSource).not.toHaveBeenCalled();
+    expect(test.publication.finish).toHaveBeenLastCalledWith(false);
+  });
+
+  it("retries the same created fork after a rejected turn instead of forking again", async () => {
+    const test = setup();
+    test.startTurn.mockRejectedValueOnce(new Error("turn rejected"));
+    await expect(test.command.sendTurnText({ text: "edited prompt" })).resolves.toBe(false);
+    expect(activeThreadId(test.stateStore.getState())).toBe("forked");
+    expect(test.archiveSource).not.toHaveBeenCalled();
+    expect(test.publication.finish).toHaveBeenLastCalledWith(false);
+    await expect(test.command.sendTurnText({ text: "edited prompt" })).resolves.toBe(true);
+    expect(test.forkThread).toHaveBeenCalledOnce();
+    expect(test.startTurn).toHaveBeenNthCalledWith(2, expect.objectContaining({ threadId: "forked" }));
+    expect(test.archiveSource).toHaveBeenCalledOnce();
+  });
+
+  it("retains the draft when fork creation is rejected", async () => {
+    const test = setup();
+    test.forkThread.mockRejectedValueOnce(new Error("source boundary unavailable"));
+    await expect(test.command.sendTurnText({ text: "edited prompt" })).resolves.toBe(false);
+    expect(test.stateStore.getState().panelThread.kind).toBe("fork-draft");
+    expect(test.stateStore.getState().composer.draft).toBe("edited prompt");
+    expect(test.startTurn).not.toHaveBeenCalled();
+    expect(test.archiveSource).not.toHaveBeenCalled();
+    expect(test.publication.finish).toHaveBeenLastCalledWith(false);
+  });
+
+  it("settles replacement intent when acceptance arrives after disconnection", async () => {
+    const test = setup();
+    const pending = deferred<EffectOutcome<{ turnId: string }>>();
+    test.startTurn.mockReturnValue(pending.promise);
+    const sending = test.command.sendTurnText({ text: "edited prompt" });
+    await vi.waitFor(() => expect(test.startTurn).toHaveBeenCalledOnce());
+    test.stateStore.dispatch({ type: "connection/scoped-cleared" });
+    expect(test.stateStore.getState().panelThread).toMatchObject({
+      kind: "awaiting-resume",
+      forkReplacement: { sourceThreadId: "source" },
+    });
+    pending.resolve(completed({ turnId: "first" }));
+    await expect(sending).resolves.toBe(true);
+    expect(test.stateStore.getState().panelThread).not.toHaveProperty("forkReplacement");
+    expect(test.archiveSource).toHaveBeenCalledOnce();
+    resumeThread(test.stateStore, undefined, "forked");
+    test.startTurn.mockResolvedValue(completed({ turnId: "second" }));
+    await expect(test.command.sendTurnText({ text: "next message" })).resolves.toBe(true);
+    expect(test.archiveSource).toHaveBeenCalledOnce();
+  });
+
+  it("keeps ordinary forks outside replacement publication", async () => {
+    const test = setup(false);
+    const beginPublication = vi.spyOn(test.host.forkReplacement, "beginPublication");
+    await expect(test.command.sendTurnText({ text: "new branch" })).resolves.toBe(true);
+    expect(test.forkThread).toHaveBeenCalledOnce();
+    expect(beginPublication).not.toHaveBeenCalled();
+    expect(test.archiveSource).not.toHaveBeenCalled();
+    expect(test.onThreadActivated).toHaveBeenCalledWith(true);
+  });
+
+  it("discards replacement intent when returning to the source without creating the fork", async () => {
+    const test = setup();
+    resumeThread(test.stateStore, undefined, "source");
+    await expect(test.command.sendTurnText({ text: "continue source" })).resolves.toBe(true);
+    expect(test.forkThread).not.toHaveBeenCalled();
+    expect(test.archiveSource).not.toHaveBeenCalled();
+    expect(test.stateStore.getState().panelThread).not.toHaveProperty("forkReplacement");
+    expect(test.startTurn).toHaveBeenCalledWith(expect.objectContaining({ threadId: "source" }));
+  });
+
+  it("does not archive a source that has advanced while the draft was open", async () => {
+    const test = setup();
+    test.latestTurnId.mockResolvedValue("newer-turn");
+    await expect(test.command.sendTurnText({ text: "edited prompt" })).resolves.toBe(true);
+    expect(test.archiveSource).not.toHaveBeenCalled();
+    expect(test.notify).toHaveBeenCalledWith(expect.stringContaining("source changed"));
+    expect(test.publication.finish).toHaveBeenLastCalledWith(false);
+  });
+
+  it("keeps a successful first turn successful when archiving fails", async () => {
+    const test = setup();
+    test.archiveSource.mockRejectedValue(new Error("archive unavailable"));
+    await expect(test.command.sendTurnText({ text: "edited prompt" })).resolves.toBe(true);
+    expect(test.notify).toHaveBeenCalledWith(expect.stringContaining("archive unavailable"));
+    expect(test.publication.finish).toHaveBeenLastCalledWith(false);
   });
 });

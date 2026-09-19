@@ -591,6 +591,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
     workspace: {
+      openForkDraft: vi.fn(),
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
       openThreadInAvailableView: overrides.openThreadInAvailableView ?? vi.fn(),
       openThreadFromPanel: overrides.openThreadFromPanel ?? vi.fn(),

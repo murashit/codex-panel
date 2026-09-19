@@ -1,14 +1,19 @@
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
 import { DeferredTask } from "../../../../shared/async/deferred-task";
 import {
+  activeThreadId,
   activeThreadState,
   awaitingResumeThreadState,
   type ChatState,
   panelThreadId,
   panelThreadProvenance,
+  pendingForkReplacement,
 } from "../../application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
+import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
+import { captureForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
+import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { chatTurnBusy } from "../../application/turns/turn-state";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
@@ -46,6 +51,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   displayTitle(): string {
+    if (this.state.panelThread.kind === "fork-draft" || this.pendingRuntimeRestore?.forkDraft) return "Fork draft";
     if (this.pendingEphemeralSource || activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
       return "Side chat";
     }
@@ -89,6 +95,7 @@ export class ChatPanelSession implements ChatPanelHandle {
         type: "panel/restored-thread-applied",
         threadId: restoredState.threadId,
         fallbackTitle: restoredState.fallbackTitle,
+        ...(this.pendingRuntimeRestore?.forkReplacement ? { forkReplacement: this.pendingRuntimeRestore.forkReplacement } : {}),
       });
       this.environment.view.refreshTabHeader();
       return;
@@ -106,9 +113,23 @@ export class ChatPanelSession implements ChatPanelHandle {
   runtimeSnapshot(): ChatPanelRuntimeSnapshot {
     const lifetime = activeThreadState(this.state)?.lifetime;
     const composer = this.pendingRuntimeRestore?.composer ?? this.runtime.composer.controller.runtimeSnapshot();
+    const forkReplacement =
+      this.pendingRuntimeRestore?.forkReplacement ?? (panelThreadId(this.state) ? pendingForkReplacement(this.state) : undefined);
     return {
+      ...(forkReplacement ? { forkReplacement } : {}),
       viewState: this.persistedState(),
       composer,
+      forkDraft:
+        this.pendingRuntimeRestore?.forkDraft ??
+        (this.state.panelThread.kind === "fork-draft"
+          ? {
+              draft: this.state.panelThread.draft,
+              runtime: this.state.runtime,
+              display: captureForkDisplaySnapshot(chatThreadStreamViewState(this.state.threadStream, this.state.activeTurn), {
+                kind: "latest",
+              }),
+            }
+          : null),
       ephemeralSource:
         this.pendingEphemeralSource ??
         (lifetime?.kind === "ephemeral" ? { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle } : null),
@@ -128,8 +149,22 @@ export class ChatPanelSession implements ChatPanelHandle {
       pending: activity.pending || preparingEphemeralThread,
       threadId: this.closing ? null : activity.threadId,
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
+      hasForkDraft: this.state.panelThread.kind === "fork-draft" || this.pendingRuntimeRestore?.forkDraft != null,
       connected: this.runtime.connection.manager.isConnected(),
     };
+  }
+
+  async applyForkDraft(preparation: ForkDraftPreparation): Promise<void> {
+    const previousThreadId = activeThreadId(this.state);
+    this.pendingRuntimeRestore = null;
+    this.runtime.commands.invalidateThreadWork();
+    this.pendingPersistentActivation = null;
+    this.clearPendingEphemeralIntent();
+    this.stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
+    if (preparation.composerText !== undefined) this.runtime.composer.controller.setDraft(preparation.composerText, { focus: false });
+    this.environment.view.refreshTabHeader();
+    this.environment.obsidian.requestWorkspaceLayoutSave();
+    if (previousThreadId) await this.runtime.thread.unsubscribe(previousThreadId);
   }
 
   async activateThread(threadId?: string, options: { focus?: boolean; displaySnapshot?: ForkDisplaySnapshot } = {}): Promise<void> {
@@ -314,6 +349,9 @@ export class ChatPanelSession implements ChatPanelHandle {
     const snapshot = this.pendingRuntimeRestore;
     if (!snapshot) return;
     this.pendingRuntimeRestore = null;
+    if (snapshot.forkDraft) {
+      void this.applyForkDraft(snapshot.forkDraft);
+    }
     if (snapshot.ephemeralSource) {
       void this.openSideChat(
         {
@@ -401,8 +439,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
-      activatePersistentThread: (threadId, displaySnapshot) =>
-        this.activateThread(threadId, { focus: false, ...(displaySnapshot ? { displaySnapshot } : {}) }),
+      applyForkDraft: (preparation) => this.applyForkDraft(preparation),
     });
   }
 }
@@ -411,16 +448,24 @@ interface PanelActivity {
   readonly threadId: string | null;
   readonly turnBusy: boolean;
   readonly pending: boolean;
+  readonly hasForkDraft: boolean;
 }
 
 function panelActivity(state: ChatState): PanelActivity {
   return {
     threadId: panelThreadId(state),
+    hasForkDraft: state.panelThread.kind === "fork-draft",
     turnBusy: chatTurnBusy(state.activeTurn),
     pending: hasPendingRequests(pendingRequestCountsFromQueues(state.requests)),
   };
 }
 
 function panelActivityEquals(left: PanelActivity | null, right: PanelActivity): boolean {
-  return left !== null && left.threadId === right.threadId && left.turnBusy === right.turnBusy && left.pending === right.pending;
+  return (
+    left !== null &&
+    left.threadId === right.threadId &&
+    left.turnBusy === right.turnBusy &&
+    left.pending === right.pending &&
+    left.hasForkDraft === right.hasForkDraft
+  );
 }

@@ -22,6 +22,7 @@ import type { ThreadReplacementPublicationOwner } from "../../threads/workflows/
 import type { TurnDiffViewState } from "../../turn-diff/model";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ForkDisplaySnapshot } from "../application/threads/fork-display-snapshot";
+import type { ForkDraftPreparation, ForkReplacement } from "../application/threads/fork-draft";
 
 export interface CodexChatHost {
   readonly appServerConnection: { createLease(): AppServerContextConnectionLease };
@@ -50,6 +51,7 @@ export interface ChatPanelSettingsAccess {
 }
 
 export interface WorkspacePanels {
+  openForkDraft(preparation: ForkDraftPreparation): Promise<void>;
   openThreadInNewView(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
@@ -117,6 +119,8 @@ export interface ChatViewLifecycleSurface {
 export interface ChatPanelRuntimeSnapshot {
   readonly viewState: Record<string, unknown>;
   readonly composer: ComposerRuntimeSnapshot;
+  readonly forkDraft: ForkDraftPreparation | null;
+  readonly forkReplacement?: ForkReplacement;
   readonly ephemeralSource: { readonly threadId: string; readonly title: string | null } | null;
 }
 
@@ -135,6 +139,7 @@ export interface ChatWorkspacePanelSnapshot {
   turnBusy: boolean;
   pending: boolean;
   hasComposerDraft: boolean;
+  hasForkDraft: boolean;
   connected: boolean;
 }
 
@@ -144,6 +149,7 @@ interface ChatWorkspacePanelOperationOptions {
 }
 
 export interface ChatWorkspacePanelSurface {
+  applyForkDraft(preparation: ForkDraftPreparation): Promise<void>;
   openPanelSnapshot(): ChatWorkspacePanelSnapshot;
   activateThread(threadId?: string, options?: ChatWorkspacePanelOperationOptions): Promise<void>;
   focusComposer(options?: { force?: boolean }): void;

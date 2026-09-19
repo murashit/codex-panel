@@ -132,7 +132,7 @@ function serviceTierValue(
     configured: config.serviceTier,
     active: snapshot.active.serviceTier,
     pending: { kind: "unchanged" },
-    activeKnown: snapshot.activeThreadId !== null && snapshot.active.serviceTierKnown,
+    activeKnown: snapshot.active.serviceTierKnown,
     effective,
     source,
   });
@@ -195,14 +195,14 @@ function resolveRuntimePermissions(snapshot: RuntimeSnapshot, config: RuntimeCon
       configured: config.startupPermissions.activePermissionProfile?.id ?? null,
       active: snapshot.active.activePermissionProfile?.id ?? null,
       pending: snapshot.pending.permissionProfile,
-      activeKnown: snapshot.activeThreadId !== null && snapshot.active.permissionProfileKnown,
+      activeKnown: snapshot.active.permissionProfileKnown,
     }),
     sandboxPolicy: resolveRuntimeSandboxPolicy(snapshot, config),
     approvalPolicy: resolveRuntimeValue({
       configured: config.startupPermissions.approvalPolicy,
       active: snapshot.active.approvalPolicy,
       pending: snapshot.pending.approvalPolicy,
-      activeKnown: snapshot.activeThreadId !== null && snapshot.active.approvalPolicyKnown,
+      activeKnown: snapshot.active.approvalPolicyKnown,
     }),
   };
 }
@@ -215,7 +215,7 @@ function resolveRuntimeSandboxPolicy(
     configured: cloneRuntimeSandboxPolicy(config.startupPermissions.sandboxPolicy),
     active: cloneRuntimeSandboxPolicy(snapshot.active.sandboxPolicy),
     pending: sandboxPolicyIntentFromPermissionProfile(snapshot.pending.permissionProfile, config),
-    activeKnown: snapshot.activeThreadId !== null && snapshot.active.sandboxPolicyKnown,
+    activeKnown: snapshot.active.sandboxPolicyKnown,
   });
 }
 

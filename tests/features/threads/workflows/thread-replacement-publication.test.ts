@@ -100,6 +100,21 @@ describe("thread replacement visibility", () => {
     ]);
   });
 
+  it("publishes an archive accepted on retry before its notification arrives", () => {
+    const catalog = visibleCatalogPublication();
+    const first = catalog.publication.begin("source");
+    first.attach(thread("replacement"));
+    first.finish(false);
+    expect(catalog.active()?.map((item) => item.id)).toEqual(["replacement", "source", "other"]);
+
+    const retry = catalog.publication.begin("source");
+    retry.finish(true);
+    expect(catalog.active()?.map((item) => item.id)).toEqual(["replacement", "other"]);
+    expect(catalog.archived()).toEqual([thread("source", { archived: true })]);
+    catalog.publication.facts.apply({ type: "thread-archived", threadId: "source" });
+    expect(catalog.active()?.map((item) => item.id)).toEqual(["replacement", "other"]);
+  });
+
   it("rejects overlapping publications without disturbing the active publication", () => {
     const committed: unknown[] = [];
     const publication = createThreadReplacementPublication((facts) => committed.push(facts));

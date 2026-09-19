@@ -54,6 +54,8 @@ export type ChatSessionAdapters = ReturnType<typeof createChatSessionAdapters>;
 
 function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadStartEffects {
   return {
+    forkThread: (threadId, options) =>
+      runCurrentChatAppServerEffect(host, (client) => forkThread(client, threadId, host.vaultPath, options)),
     startThread: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
         const response = await startThread(client, {
@@ -132,8 +134,6 @@ function createChatThreadResumeAdapter(host: ChatAppServerAdapterHost): ThreadRe
 function createChatThreadCommandAdapter(host: ChatAppServerAdapterHost): ThreadCommandEffects {
   return {
     compactThread: (threadId) => runCurrentChatAppServerEffect(host, async (client) => compactThread(client, threadId)),
-    forkThread: (threadId, options) =>
-      runCurrentChatAppServerEffect(host, (client) => forkThread(client, threadId, host.vaultPath, options)),
   };
 }
 

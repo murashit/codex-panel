@@ -6,6 +6,7 @@ export type ThreadSlashCommandName = "clear" | "resume" | "reconnect" | "fork" |
 type ThreadSlashCommandContext = Pick<
   SlashCommandExecutionContext,
   | "activeThreadId"
+  | "forkSourceThreadId"
   | "listedThreads"
   | "threadCommandTarget"
   | "submission"
@@ -22,6 +23,7 @@ export async function executeThreadSlashCommand(
   args: string,
   context: ThreadSlashCommandContext,
 ): Promise<SlashCommandExecutionResult | undefined> {
+  const forkSourceThreadId = context.forkSourceThreadId ?? context.activeThreadId;
   switch (command) {
     case "clear":
       context.submission.adoptPanelTarget(null);
@@ -51,12 +53,12 @@ export async function executeThreadSlashCommand(
       });
       return;
     case "fork":
-      if (!context.activeThreadId) {
+      if (!forkSourceThreadId) {
         noActiveThread(context, "to fork");
         return;
       }
       context.submission.markAdopted();
-      await context.threadCommands.forkThread(context.activeThreadId);
+      await context.threadCommands.forkThread(forkSourceThreadId);
       return;
     case "btw":
       if (!context.activeThreadId) {
@@ -72,12 +74,12 @@ export async function executeThreadSlashCommand(
       else await context.openSideChat(context.activeThreadId);
       return;
     case "rollback":
-      if (!context.activeThreadId) {
+      if (!forkSourceThreadId) {
         noActiveThread(context, "to roll back");
         return;
       }
       context.submission.markAdopted();
-      await context.threadCommands.rollbackThread(context.activeThreadId, { adoptPanelTarget: context.submission.adoptPanelTarget });
+      await context.threadCommands.rollbackThread(forkSourceThreadId, { adoptPanelTarget: context.submission.adoptPanelTarget });
       return;
     case "compact":
       if (!context.activeThreadId) {

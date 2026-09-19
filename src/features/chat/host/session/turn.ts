@@ -1,3 +1,4 @@
+import { Notice } from "obsidian";
 import type { ToolInventorySnapshot } from "../../../../domain/runtime/tool-inventory";
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
@@ -11,7 +12,6 @@ import type { ChatStateStore } from "../../application/state/store";
 import { type ComposerSubmitCommandHost, submitComposer } from "../../application/submission/composer-submit-command";
 import { implementPlan, type PlanImplementationHost } from "../../application/submission/plan-implementation";
 import { createTurnSubmissionCommand, type TurnSubmissionRequest } from "../../application/submission/turn-submission-command";
-import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { GoalCommands } from "../../application/threads/goal-commands";
 import type { ThreadCommands } from "../../application/threads/thread-commands";
 import type { ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
@@ -60,14 +60,12 @@ interface SessionTurnInput {
   runtimeSettings: ChatRuntimeSettingsCommands;
   threadStart: ThreadStartCommand;
   goals: GoalCommands;
-  autoTitleCoordinator: AutoTitleCoordinator;
   reconnect: (options?: ReconnectPanelOptions) => Promise<void>;
   runtimeProjection: ChatPanelRuntimeNotices;
   sharedResources: ChatRuntimeSharedResources & {
     toolInventorySnapshot(threadId: string | null): ToolInventorySnapshot | null;
     ensureToolInventory(threadId: string | null): Promise<ToolInventorySnapshot>;
   };
-  notifyActiveThreadIdentityChanged: () => void;
 }
 
 export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput): SessionTurn {
@@ -84,11 +82,9 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     runtimeSettings,
     threadStart,
     goals,
-    autoTitleCoordinator,
     reconnect,
     runtimeProjection,
     sharedResources,
-    notifyActiveThreadIdentityChanged,
   } = input;
   const pendingRequests = createPendingRequestActions({
     stateStore: host.stateStore,
@@ -103,16 +99,27 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     setStatus: status.set,
   });
   const turnSubmissionCommand = createTurnSubmissionCommand({
+    forkReplacement: {
+      beginPublication: (sourceThreadId) => host.environment.plugin.threadReplacementPublication.begin(sourceThreadId),
+      latestTurnId: async (sourceThreadId) => {
+        const page = await appServer.threadHistory.readHistoryPage(sourceThreadId, null, 1);
+        return page?.items.filter((item) => item.turnId).at(-1)?.turnId ?? null;
+      },
+      archiveSource: async (sourceThreadId, saveMarkdown) => {
+        const result = await host.environment.plugin.threadMutations.archiveThread(sourceThreadId, { saveMarkdown });
+        if (result.exportedPath) new Notice(`Saved thread to ${result.exportedPath}.`);
+        return result.kind === "archived";
+      },
+      notify: (message) => {
+        new Notice(message);
+      },
+    },
     stateStore: host.stateStore,
     localItemIds,
     turnPort: appServer.turn,
     ensureConnected,
     ensureRestoredThreadLoaded: threadLifecycle.ensureRestoredThreadLoaded,
     startThread: threadStart.startThread,
-    notifyActiveThreadIdentityChanged,
-    resetThreadTurnPresence: (hadTurns) => {
-      autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
-    },
     applyPendingThreadSettings: () => runtimeSettings.applyPendingThreadSettings(),
     prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
     setStatus: status.set,

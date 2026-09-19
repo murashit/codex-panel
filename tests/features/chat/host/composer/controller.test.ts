@@ -167,6 +167,8 @@ describe("ChatComposerController", () => {
     const { controller, stateStore } = composerControllerFixture();
     if (panel === "existing") resumeComposerThread(stateStore, "thread");
     const starter = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
       runtimeSnapshotForState: (state) =>
         runtimeSnapshotForChatState(state, {
@@ -176,6 +178,7 @@ describe("ChatComposerController", () => {
         }),
       recordStartedThread: vi.fn(),
       effects: {
+        forkThread: vi.fn(),
         startThread: vi.fn().mockResolvedValue({
           kind: "completed",
           value: {

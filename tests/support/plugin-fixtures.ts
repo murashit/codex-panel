@@ -149,6 +149,7 @@ function chatHostFixture(): CodexChatHost {
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
     workspace: {
+      openForkDraft: vi.fn(),
       openThreadInNewView: vi.fn(),
       openThreadInAvailableView: vi.fn(),
       openThreadFromPanel: vi.fn(),
@@ -250,6 +251,7 @@ export function panelSnapshot(overrides: PanelSnapshotFixtureOverrides = {}): Re
     turnBusy: false,
     pending,
     hasComposerDraft: false,
+    hasForkDraft: false,
     connected: true,
     ...snapshotOverrides,
   };

@@ -21,8 +21,11 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
 
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
       effects: {
+        forkThread: vi.fn(),
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started, { canAcceptDirectInput: false }))),
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
@@ -42,8 +45,11 @@ describe("thread start commands", () => {
       expect(activeThreadId(stateStore.getState())).toBeNull();
     });
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
       effects: {
+        forkThread: vi.fn(),
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
@@ -79,8 +85,10 @@ describe("thread start commands", () => {
     );
 
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: { startThread },
+      effects: { forkThread: vi.fn(), startThread },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
     });
@@ -114,8 +122,11 @@ describe("thread start commands", () => {
       },
     });
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
       effects: {
+        forkThread: vi.fn(),
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
       },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
@@ -143,8 +154,10 @@ describe("thread start commands", () => {
     const started = deferred<EffectOutcome<ThreadActivationSnapshot>>();
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: { startThread: vi.fn(() => started.promise) },
+      effects: { forkThread: vi.fn(), startThread: vi.fn(() => started.promise) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
     });
@@ -165,8 +178,10 @@ describe("thread start commands", () => {
       .fn()
       .mockResolvedValue(completedActivation(activationFixture(threadFixture("started"), { serviceTier: "flex" })));
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: { startThread },
+      effects: { forkThread: vi.fn(), startThread },
       runtimeSnapshotForState: runtimeSnapshotForShared(shared),
       recordStartedThread: vi.fn(),
     });
@@ -189,8 +204,10 @@ describe("thread start commands", () => {
     });
     const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started"))));
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: { startThread },
+      effects: { forkThread: vi.fn(), startThread },
       runtimeSnapshotForState: runtimeSnapshotForShared(shared),
       recordStartedThread: vi.fn(),
     });
@@ -205,8 +222,10 @@ describe("thread start commands", () => {
     const started = threadFixture("started", { preview: "server preview" });
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
+      effects: { forkThread: vi.fn(), startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
     });
@@ -220,8 +239,10 @@ describe("thread start commands", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: { startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
+      effects: { forkThread: vi.fn(), startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
     });

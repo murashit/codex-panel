@@ -2,6 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VIEW_TYPE_CODEX_PANEL } from "../../src/constants";
+import { createChatState } from "../../src/features/chat/application/state/model";
+import type { ForkDraftPreparation } from "../../src/features/chat/application/threads/fork-draft";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../../src/main";
 import { WorkspacePanelCoordinator } from "../../src/workspace/panel-coordinator";
@@ -197,12 +199,12 @@ describe("WorkspacePanelCoordinator", () => {
     expect(plugin.app.workspace.getRightLeaf).not.toHaveBeenCalled();
   });
 
-  it("reuses only a genuinely idle empty panel", async () => {
+  it.each([{ pendingMcpElicitations: 1 }, { hasForkDraft: true }])("does not reuse an occupied panel with %j", async (occupation) => {
     const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const pendingLeaf = leaf();
     pendingLeaf.view = chatView(CodexChatView, pendingLeaf);
     vi.spyOn((pendingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
-      panelSnapshot({ viewId: "pending", threadId: null, pendingMcpElicitations: 1 }),
+      panelSnapshot({ viewId: "pending", threadId: null, ...occupation }),
     );
     const pendingOpen = vi.spyOn((pendingLeaf.view as CodexChatView).surface, "activateThread").mockResolvedValue(undefined);
     const emptyLeaf = leaf();
@@ -356,6 +358,43 @@ describe("WorkspacePanelCoordinator", () => {
     expect(secondOpen).toHaveBeenCalledWith("second", { focus: false });
     expect(firstFocus).toHaveBeenCalledOnce();
     expect(secondFocus).toHaveBeenCalledOnce();
+  });
+
+  it("opens separate unsaved fork drafts from the same source without claiming its thread", async () => {
+    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
+    const leaves: ReturnType<typeof leaf>[] = [];
+    const plugin = await pluginWithLeaves(leaves);
+    const firstLeaf = leaf();
+    const secondLeaf = leaf();
+    const firstView = chatView(CodexChatView, firstLeaf);
+    const secondView = chatView(CodexChatView, secondLeaf);
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(firstLeaf).mockReturnValueOnce(secondLeaf);
+    firstLeaf.setViewState.mockImplementation(async () => {
+      firstLeaf.view = firstView;
+      leaves.push(firstLeaf);
+    });
+    secondLeaf.setViewState.mockImplementation(async () => {
+      secondLeaf.view = secondView;
+      leaves.push(secondLeaf);
+    });
+    const preparation: ForkDraftPreparation = {
+      draft: {
+        sourceThreadId: "source",
+        boundary: { kind: "through-turn", turnId: "turn" },
+      },
+      runtime: createChatState().runtime,
+      display: { items: [], turnDiffs: new Map() },
+    };
+    const coordinator = panels(plugin);
+    await coordinator.openForkDraft(preparation);
+    await coordinator.openForkDraft(preparation);
+    expect(coordinator.getOpenPanelSnapshots()).toHaveLength(2);
+    for (const view of [firstView, secondView]) {
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true, hasComposerDraft: false });
+      expect(view.getState()).toEqual({ version: 1 });
+    }
+    expect(firstLeaf.detach).not.toHaveBeenCalled();
+    expect(secondLeaf.detach).not.toHaveBeenCalled();
   });
 
   it("settles same-thread new-panel requests on one owner", async () => {

@@ -11,6 +11,8 @@ import {
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
+import { deferred } from "../../../../support/async";
+
 const planItem = (id: string): ThreadStreamItem => ({
   id,
   kind: "dialogue",
@@ -87,7 +89,7 @@ function createPlanImplementationHost() {
 
 function implementPlanTargetFromState(state: ReturnType<ChatStateStore["getState"]>) {
   return implementPlanTarget({
-    activeThread: activeThreadState(state),
+    hasConversation: activeThreadState(state) !== null || state.panelThread.kind === "fork-draft",
     modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
     activeTurn: state.activeTurn,
     runtime: state.runtime,
@@ -157,6 +159,28 @@ describe("implementPlan", () => {
     expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("default"));
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(sendTurnText).toHaveBeenCalledWith("Please implement this plan.");
+  });
+
+  it.each(["source", "another fork"])("does not implement a shared plan after switching to %s while connecting", async (destination) => {
+    const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createPlanImplementationHost();
+    const plan = planItem("shared-plan");
+    resumeThread(stateStore, [plan]);
+    const preparation = {
+      draft: { sourceThreadId: "thread", boundary: { kind: "through-turn" as const, turnId: "turn" } },
+      runtime: stateStore.getState().runtime,
+      display: { items: [plan], turnDiffs: new Map() },
+    };
+    stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
+    const connecting = deferred<boolean>();
+    ensureConnected.mockReturnValue(connecting.promise);
+    const implementing = implementPlan(host, plan.id);
+    if (destination === "source") resumeThread(stateStore, [plan]);
+    else stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
+    connecting.resolve(true);
+    await implementing;
+    expect(requestDefaultCollaborationModeForNextTurn).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
+    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
   });
 
   it("ignores stale plan items", async () => {

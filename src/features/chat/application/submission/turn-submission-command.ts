@@ -1,10 +1,12 @@
 import { type CodexInput, codexTextInput } from "../../../../domain/input/input";
+import type { Thread } from "../../../../domain/threads/model";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import { activeThreadState, type ChatState } from "../state/model";
+import { activeThreadState, type ChatState, pendingForkReplacement } from "../state/model";
 import type { ChatStateStore } from "../state/store";
+import { archiveForkSource, type ForkReplacementEffects, type ForkReplacementPublication } from "../threads/fork-replacement";
 import type { ThreadStartOutcome } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
 import { activeTurnId, chatTurnBusy, STATUS_TURN_RUNNING } from "../turns/turn-state";
@@ -23,6 +25,7 @@ const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 
 export interface TurnSubmissionCommandHost {
   stateStore: ChatStateStore;
+  forkReplacement: ForkReplacementEffects;
   localItemIds: LocalIdSource;
   turnPort: ChatTurnPort;
   ensureConnected: () => Promise<boolean>;
@@ -30,12 +33,11 @@ export interface TurnSubmissionCommandHost {
   startThread: (
     preview?: string,
     options?: {
+      onCreated?: (thread: Thread) => void;
       preservePendingSubmissionId?: string;
       adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
     },
   ) => Promise<ThreadStartOutcome>;
-  notifyActiveThreadIdentityChanged: () => void;
-  resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
   prepareInput: (text: string, snapshot: ComposerInputSnapshot) => PreparedInput;
   setStatus: (status: string) => void;
@@ -106,9 +108,16 @@ async function sendTurnText(
     return false;
   }
 
-  const plan = planTurnSubmission(host.stateStore.getState());
+  const submissionState = host.stateStore.getState();
+  const plan = planTurnSubmission(submissionState);
+  const replacement = pendingForkReplacement(submissionState);
+  let publication: ForkReplacementPublication | undefined;
+  let targetThreadId: string | null = plan.kind === "start-turn" ? plan.threadId : null;
 
   try {
+    if (replacement && plan.kind !== "blocked" && plan.kind !== "steer") {
+      publication = host.forkReplacement.beginPublication(replacement.sourceThreadId);
+    }
     switch (plan.kind) {
       case "blocked":
         if (attempt.isPendingCurrent()) host.addSystemMessage(plan.message);
@@ -118,23 +127,24 @@ async function sendTurnText(
       case "start-thread-then-turn":
         if (!attempt.commitPending()) return false;
         {
-          const started = await startThreadForTurn(host, prepared.text, attempt);
-          if (started.kind === "not-started") {
+          const started = await host.startThread(prepared.text, {
+            ...(publication ? { onCreated: publication.attach } : {}),
+            ...(attempt.pendingSubmissionId ? { preservePendingSubmissionId: attempt.pendingSubmissionId } : {}),
+            ...(attempt.adoptPanelTarget ? { adoptPanelTarget: attempt.adoptPanelTarget } : {}),
+          });
+          if (started.kind !== "created-activated") {
             attempt.failPending();
             return false;
           }
-          if (started.kind === "created-not-activated") {
-            attempt.failPending();
-            return true;
-          }
+          targetThreadId = started.target.threadId;
+          attempt.retarget(started.target);
         }
-        attempt.refreshPanelTarget();
         if (!attempt.isCurrent()) return false;
         break;
       case "start-turn":
         break;
     }
-    const activeThreadId = plan.kind === "start-turn" ? plan.threadId : (activeThreadState(host.stateStore.getState())?.id ?? null);
+    const activeThreadId = targetThreadId;
     if (!activeThreadId) {
       attempt.failPending();
       return false;
@@ -204,6 +214,12 @@ async function sendTurnText(
       host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turnId, items });
       host.setStatus(STATUS_TURN_RUNNING);
     }
+    if (replacement) {
+      host.stateStore.dispatch({ type: "active-thread/fork-replacement-settled", threadId: activeThreadId });
+      const acceptedPublication = publication;
+      publication = undefined;
+      void archiveForkSource(host.forkReplacement, replacement).then((archived) => acceptedPublication?.finish(archived));
+    }
     return true;
   } catch (error) {
     const failedState = submissionStateSnapshot(host.stateStore.getState());
@@ -218,23 +234,9 @@ async function sendTurnText(
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     return false;
+  } finally {
+    publication?.finish(false);
   }
-}
-
-async function startThreadForTurn(
-  host: TurnSubmissionCommandHost,
-  text: string,
-  attempt: TurnSubmissionAttempt,
-): Promise<ThreadStartOutcome> {
-  const options = {
-    ...(attempt.pendingSubmissionId ? { preservePendingSubmissionId: attempt.pendingSubmissionId } : {}),
-    ...(attempt.adoptPanelTarget ? { adoptPanelTarget: attempt.adoptPanelTarget } : {}),
-  };
-  const started = Object.keys(options).length > 0 ? await host.startThread(text, options) : await host.startThread(text);
-  if (started.kind !== "created-activated") return started;
-  host.notifyActiveThreadIdentityChanged();
-  host.resetThreadTurnPresence(false);
-  return started;
 }
 
 function planTurnSubmission(state: ChatState): TurnSubmissionPlan {

@@ -10,6 +10,7 @@ import type {
 import { CodexChatView } from "../features/chat/host/view.obsidian";
 import { parseChatPanelViewState } from "../features/chat/host/view-state";
 
+type ForkDraftPreparation = Parameters<WorkspacePanels["openForkDraft"]>[0];
 type ForkDisplaySnapshot = Parameters<WorkspacePanels["openThreadInNewView"]>[1];
 
 import { createKeyedOperationCoordinator } from "../shared/async/keyed-operation-coordinator";
@@ -113,6 +114,14 @@ export class WorkspacePanelCoordinator {
       const target = this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId);
       return this.openThreadAtLeaf(target, threadId, displaySnapshot);
     });
+  }
+
+  async openForkDraft(preparation: ForkDraftPreparation): Promise<void> {
+    const view = await this.createNewViewNow();
+    if (!view) return;
+    const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
+    if (!leaf) return;
+    await this.completePanelOperation(leaf, view, workspacePanelSurface(view).applyForkDraft(preparation));
   }
 
   async openSideChat(sourceThreadId: string, sourceThreadTitle: string | null, initialMessage?: string): Promise<void> {
@@ -504,7 +513,7 @@ export class WorkspacePanelCoordinator {
 }
 
 function isIdleEmptyPanelSnapshot(snapshot: ChatWorkspacePanelSnapshot): boolean {
-  return snapshot.threadId === null && !snapshot.turnBusy && !snapshot.pending && !snapshot.hasComposerDraft;
+  return snapshot.threadId === null && !snapshot.turnBusy && !snapshot.pending && !snapshot.hasComposerDraft && !snapshot.hasForkDraft;
 }
 
 function focusedPanelViewId(leaf: WorkspaceLeaf | null): string | null {
@@ -533,6 +542,7 @@ function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): WorkspacePan
     turnBusy: false,
     pending: false,
     hasComposerDraft: false,
+    hasForkDraft: false,
     connected: false,
     lastFocused: false,
   };

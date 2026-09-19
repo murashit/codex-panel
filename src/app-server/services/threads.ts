@@ -309,7 +309,7 @@ export async function forkThread(
   threadId: string,
   cwd: string,
   options: AppServerForkThreadOptions = {},
-): Promise<Thread> {
+): Promise<ThreadActivationSnapshot> {
   const position = options.position;
   const runtime = options.runtime;
   const permissions = runtime?.permissions;
@@ -329,7 +329,7 @@ export async function forkThread(
     ...(sandbox !== undefined ? { sandbox } : {}),
     ...(runtime?.reasoningEffort !== undefined ? { config: { model_reasoning_effort: runtime.reasoningEffort } } : {}),
   });
-  return threadFromThreadRecord(response.thread);
+  return threadActivationSnapshotFromAppServerResponse(response);
 }
 
 function appServerSandboxMode(

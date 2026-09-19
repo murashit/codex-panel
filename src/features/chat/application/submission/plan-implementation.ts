@@ -1,7 +1,8 @@
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/conversation";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/model";
+import { activeThreadId, type ChatState } from "../state/model";
+import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { type ChatThreadStreamViewState, threadStreamItems } from "../state/thread-stream";
 import { chatThreadStreamViewState } from "../state/turn-scope";
@@ -17,7 +18,7 @@ export interface PlanImplementationHost {
 }
 
 interface PlanImplementationState {
-  activeThread: Pick<ChatActiveThreadState, "id"> | null;
+  hasConversation: boolean;
   modeAllowed: boolean;
   activeTurn: { lifecycle: ChatTurnLifecycleState };
   runtime: { pending: Pick<ChatRuntimeState["pending"], "collaborationMode"> };
@@ -26,7 +27,7 @@ interface PlanImplementationState {
 
 function implementPlanTargetFromState(state: ChatState): PlanImplementationTarget | null {
   return implementPlanTarget({
-    activeThread: activeThreadState(state),
+    hasConversation: activeThreadId(state) !== null || state.panelThread.kind === "fork-draft",
     modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
     activeTurn: state.activeTurn,
     runtime: state.runtime,
@@ -35,9 +36,8 @@ function implementPlanTargetFromState(state: ChatState): PlanImplementationTarge
 }
 
 export function implementPlanTarget(state: PlanImplementationState): PlanImplementationTarget | null {
-  const { activeThread } = state;
   if (
-    !activeThread ||
+    !state.hasConversation ||
     !state.modeAllowed ||
     chatTurnBusy(state.activeTurn) ||
     state.runtime.pending.collaborationMode.kind !== "set" ||
@@ -49,9 +49,12 @@ export function implementPlanTarget(state: PlanImplementationState): PlanImpleme
 }
 
 export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
-  if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId) return;
+  const initial = host.stateStore.getState();
+  if (itemId !== implementPlanTargetFromState(initial)?.itemId) return;
+  const target = capturePanelTargetLease(initial);
   if (!(await host.ensureConnected())) return;
-  if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId || !activeThreadId(host.stateStore.getState())) {
+  const current = host.stateStore.getState();
+  if (!panelTargetLeaseIsCurrent(current, target) || itemId !== implementPlanTargetFromState(current)?.itemId) {
     return;
   }
 

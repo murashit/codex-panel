@@ -85,11 +85,7 @@ export function createThreadReplacementPublication(
           const completedFacts: ThreadFact[] = pending.initialReplacement
             ? [{ type: "thread-upserted", thread: pending.initialReplacement }, ...pending.facts]
             : [...pending.facts];
-          if (
-            pending.initialReplacement &&
-            sourceArchived &&
-            !pending.facts.some((fact) => factRemovesThread(fact, pending.sourceThreadId))
-          ) {
+          if (sourceArchived && !pending.facts.some((fact) => factRemovesThread(fact, pending.sourceThreadId))) {
             completedFacts.push({ type: "thread-archived", threadId: pending.sourceThreadId });
           }
           try {

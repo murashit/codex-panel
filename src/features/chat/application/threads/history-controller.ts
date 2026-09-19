@@ -1,5 +1,6 @@
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { activeThreadId, type ChatState } from "../state/model";
+import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
@@ -30,6 +31,7 @@ interface LatestHistoryDisplayOptions {
 
 interface ActiveThreadHistoryLoad {
   readonly threadId: string;
+  readonly panelTarget: PanelTargetLease;
   readonly stableItems: readonly ThreadStreamItem[];
 }
 
@@ -52,7 +54,7 @@ export class HistoryController {
   }
 
   async loadLatest(threadId = activeThreadId(this.state), options: LatestHistoryDisplayOptions = {}): Promise<void> {
-    if (!threadId) return;
+    if (!threadId || this.state.panelThread.kind === "fork-draft") return;
     const load = this.startLoading(threadId);
     try {
       const response = await this.host.source.readHistoryPage(threadId, null, 20);
@@ -90,7 +92,7 @@ export class HistoryController {
 
   async loadOlder(): Promise<void> {
     const state = this.state;
-    const threadId = activeThreadId(state);
+    const threadId = historySourceThreadId(state);
     if (!threadId || !state.threadStream.historyCursor || state.threadStream.loadingHistory) return;
     const cursor = state.threadStream.historyCursor;
     const load = this.startLoading(threadId);
@@ -134,7 +136,7 @@ export class HistoryController {
   }
 
   private startLoading(threadId: string): ActiveThreadHistoryLoad {
-    const load = { threadId, stableItems: this.state.threadStream.stableItems };
+    const load = { threadId, panelTarget: capturePanelTargetLease(this.state), stableItems: this.state.threadStream.stableItems };
     this.activeLoad = load;
     this.dispatch({ type: "thread-stream/history-loading-set", loading: true });
     return load;
@@ -147,6 +149,14 @@ export class HistoryController {
   }
 
   private isCurrent(load: ActiveThreadHistoryLoad): boolean {
-    return this.activeLoad === load && activeThreadId(this.state) === load.threadId;
+    return (
+      this.activeLoad === load &&
+      panelTargetLeaseIsCurrent(this.state, load.panelTarget) &&
+      historySourceThreadId(this.state) === load.threadId
+    );
   }
+}
+
+function historySourceThreadId(state: ChatState): string | null {
+  return state.panelThread.kind === "fork-draft" ? state.panelThread.draft.sourceThreadId : activeThreadId(state);
 }

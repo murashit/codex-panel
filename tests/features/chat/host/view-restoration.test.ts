@@ -3,12 +3,16 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
 import { createServerDiagnostics } from "../../../../src/domain/runtime/diagnostics";
+import { createChatState } from "../../../../src/features/chat/application/state/model";
+import type { ForkDraftPreparation } from "../../../../src/features/chat/application/threads/fork-draft";
 import type { ChatPanelSession } from "../../../../src/features/chat/host/session/session";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { runtimeConfigFixture } from "../../../support/runtime-config";
 import {
   chatHost,
   chatView,
+  chatViewRuntimeOwner,
+  completedTurn,
   composerElement,
   connectedClient,
   connectionMockState,
@@ -24,6 +28,97 @@ import {
 
 describe("CodexChatView workspace restoration", () => {
   setupViewConnectionHarness();
+
+  it("keeps an empty fork draft occupied and restores its input and history across context replacement", async () => {
+    const host = chatHost();
+    const owner = chatViewRuntimeOwner(host);
+    connectionMockState().client = connectedClient();
+    const view = await chatView({ runtimeOwner: owner });
+    await view.onOpen();
+    const preparation: ForkDraftPreparation = {
+      draft: {
+        sourceThreadId: "source",
+        boundary: { kind: "through-turn", turnId: "turn-1" },
+        replacement: { sourceThreadId: "source", sourceLatestTurnId: "turn-1", saveMarkdown: false },
+      },
+      runtime: createChatState().runtime,
+      display: {
+        items: [
+          {
+            id: "retained-message",
+            kind: "dialogue",
+            dialogueKind: "assistantResponse",
+            role: "assistant",
+            text: "Retained history",
+            dialogueState: "completed",
+            turnId: "turn-1",
+          },
+        ],
+        turnDiffs: new Map([["turn-1", "retained diff"]]),
+        historyCursor: "older-page",
+      },
+    };
+    await view.surface.applyForkDraft(preparation);
+    expect(view.getDisplayText()).toBe("Fork draft");
+    expect(view.getState()).toEqual({ version: 1 });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasComposerDraft: false, hasForkDraft: true });
+    view.surface.setComposerText("Continue this branch");
+    const replacementHost = chatHost();
+    owner.replace(replacementHost);
+    await waitForAsyncWork(() => {
+      expect(composerElement(view).value).toBe("Continue this branch");
+    });
+    expect(view.getDisplayText()).toBe("Fork draft");
+    expect((view.surface as ChatPanelSession).runtimeSnapshot().forkDraft).toEqual(preparation);
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true });
+    expect(view.getState()).toEqual({ version: 1 });
+    expect(requestMethods(connectionMockState().client as ReturnType<typeof connectedClient>)).not.toContain("thread/fork");
+  });
+
+  it("retains replacement intent after the first fork turn fails and the runtime is replaced", async () => {
+    const owner = chatViewRuntimeOwner(chatHost());
+    const client = connectedClient({
+      "turn/start": vi.fn().mockRejectedValue(new Error("turn rejected")),
+    });
+    connectionMockState().client = client;
+    const view = await chatView({ runtimeOwner: owner });
+    await view.onOpen();
+    const draft: ForkDraftPreparation["draft"] = {
+      sourceThreadId: "source",
+      boundary: { kind: "before-turn", turnId: "source-last" },
+      replacement: { sourceThreadId: "source", sourceLatestTurnId: "source-last", saveMarkdown: false },
+    };
+    await view.surface.applyForkDraft({ draft, runtime: createChatState().runtime, display: { items: [], turnDiffs: new Map() } });
+    view.surface.setComposerText("Retry this prompt");
+    await submitComposerByEnter(view);
+    await waitForAsyncWork(() => {
+      expectRequestTimes(client, "turn/start", 1);
+      expect(composerElement(view).value).toBe("Retry this prompt");
+    });
+    expect((view.surface as ChatPanelSession).runtimeSnapshot().forkReplacement).toEqual({
+      sourceThreadId: "source",
+      sourceLatestTurnId: "source-last",
+      saveMarkdown: false,
+    });
+    const archiveThread = vi.fn().mockResolvedValue({ kind: "archived", exportedPath: null });
+    const nextClient = connectedClient({
+      "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-forked")),
+      "thread/turns/list": vi.fn().mockResolvedValue({ data: [completedTurn("source-last")], nextCursor: null }),
+    });
+    owner.replace(chatHost({ threadMutations: { archiveThread } }), () => {
+      connectionMockState().client = nextClient;
+    });
+    await waitForAsyncWork(() => expect(composerElement(view).value).toBe("Retry this prompt"));
+    expect((view.surface as ChatPanelSession).runtimeSnapshot().forkReplacement).toEqual({
+      sourceThreadId: "source",
+      sourceLatestTurnId: "source-last",
+      saveMarkdown: false,
+    });
+    await submitComposerByEnter(view);
+    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith("source", { saveMarkdown: false }));
+    expect(requestMethods(nextClient)).not.toContain("thread/fork");
+    expect((view.surface as ChatPanelSession).runtimeSnapshot().forkReplacement).toBeUndefined();
+  });
 
   it("restores workspace thread state without hydrating it automatically", async () => {
     vi.useFakeTimers();

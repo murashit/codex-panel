@@ -205,6 +205,53 @@ describe("HistoryController", () => {
     expect(showLatestPageAtBottom).not.toHaveBeenCalled();
   });
 
+  it("loads only older source pages for a draft and never reloads the source latest page", async () => {
+    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older", "older-turn")], null));
+    const { loader, stateStore } = historyFixture({ readHistoryPage });
+    applyForkDraft(stateStore, "boundary");
+
+    await loader.loadLatest();
+    await loader.loadLatest("source");
+    expect(readHistoryPage).not.toHaveBeenCalled();
+    await loader.loadOlder();
+
+    expect(readHistoryPage).toHaveBeenCalledExactlyOnceWith("source", "source-older", 20);
+    expect(chatStateThreadStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "boundary"]);
+    expect(stateStore.getState().threadStream.historyCursor).toBeNull();
+  });
+
+  it("does not query latest history for a draft with no older cursor", async () => {
+    const readHistoryPage = vi.fn<HistoryPageReader>();
+    const { loader, stateStore } = historyFixture({ readHistoryPage });
+    applyForkDraft(stateStore, "first", null);
+
+    await loader.loadOlder();
+    await loader.loadLatest();
+
+    expect(readHistoryPage).not.toHaveBeenCalled();
+  });
+
+  it.each(["resolve", "reject"] as const)(
+    "ignores an older page that %s after switching draft boundaries on the same source",
+    async (outcome) => {
+      const pending = deferred<ThreadHistoryPage>();
+      const readHistoryPage = vi.fn<HistoryPageReader>().mockReturnValue(pending.promise);
+      const { loader, stateStore, addSystemMessage } = historyFixture({ readHistoryPage });
+      applyForkDraft(stateStore, "boundary");
+      const loading = loader.loadOlder();
+      applyForkDraft(stateStore, "other-boundary");
+
+      if (outcome === "resolve") pending.resolve(historyPage([message("stale", "Stale")], "stale-cursor"));
+      else pending.reject(new Error("Stale error"));
+      await loading;
+
+      expect(chatStateThreadStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["other-boundary"]);
+      expect(stateStore.getState().threadStream.historyCursor).toBe("source-older");
+      expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
+      expect(addSystemMessage).not.toHaveBeenCalled();
+    },
+  );
+
   it("hydrates snapshot-retained older turns instead of dropping the server page", async () => {
     const inheritedUser = userMessage("local-older", "Inherited older", "older-turn", "older-submission", true);
     const canonicalUser = userMessage("server-older", "Canonical older", "older-turn", "older-submission");
@@ -402,4 +449,22 @@ function taskProgress(turnId: string): ThreadStreamItem {
     steps: [{ step: "Keep this", status: "completed" }],
     executionState: "completed",
   };
+}
+
+function applyForkDraft(
+  stateStore: ReturnType<typeof createChatStateStore>,
+  turnId: string,
+  historyCursor: string | null = "source-older",
+): void {
+  stateStore.dispatch({
+    type: "panel/fork-draft-applied",
+    preparation: {
+      draft: {
+        sourceThreadId: "source",
+        boundary: { kind: "through-turn", turnId },
+      },
+      runtime: stateStore.getState().runtime,
+      display: { items: [message(turnId, turnId, turnId)], turnDiffs: new Map(), historyCursor },
+    },
+  });
 }

@@ -163,14 +163,14 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-    }).threadCommands;
+    }).threadStart;
 
-    const outcome = await adapter.forkThread("source");
+    const outcome = await adapter.forkThread("source", {});
 
     expect(request).toHaveBeenCalledWith("thread/fork", { threadId: "source", cwd: "/vault", excludeTurns: true });
     expect(outcome).toMatchObject({
       kind: "completed",
-      value: { id: "forked", preview: "Preview", archived: false },
+      value: { thread: { id: "forked", preview: "Preview", archived: false } },
     });
   });
 
@@ -179,7 +179,7 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-    }).threadCommands;
+    }).threadStart;
 
     await adapter.forkThread("source", { position: { kind: "through-turn", turnId: "turn-2" } });
 
@@ -196,7 +196,7 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-    }).threadCommands;
+    }).threadStart;
 
     const outcome = await adapter.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
@@ -212,7 +212,7 @@ describe("chat app-server adapters", () => {
     });
     expect(outcome).toMatchObject({
       kind: "completed",
-      value: { id: "forked" },
+      value: { thread: { id: "forked" } },
     });
   });
 
@@ -221,7 +221,7 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-    }).threadCommands;
+    }).threadStart;
 
     await adapter.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },
@@ -256,7 +256,7 @@ describe("chat app-server adapters", () => {
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
-    }).threadCommands;
+    }).threadStart;
 
     await adapter.forkThread("source", {
       position: { kind: "before-turn", turnId: "turn-3" },

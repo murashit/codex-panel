@@ -194,6 +194,46 @@ describe("chat panel projection integration", () => {
     unmountUiRoot(parent);
   });
 
+  it("routes draft fork and rollback actions to the source without claiming an active thread", () => {
+    const initial = chatStateFixture();
+    const state = chatReducer(initial, {
+      type: "panel/fork-draft-applied",
+      preparation: {
+        draft: {
+          sourceThreadId: "source",
+          boundary: { kind: "through-turn", turnId: "turn" },
+        },
+        runtime: initial.runtime,
+        display: {
+          items: [
+            { id: "user", kind: "dialogue", dialogueKind: "user", role: "user", text: "Question", turnId: "turn" },
+            {
+              id: "assistant",
+              kind: "dialogue",
+              dialogueKind: "assistantResponse",
+              role: "assistant",
+              text: "Answer",
+              dialogueState: "completed",
+              turnId: "turn",
+            },
+          ],
+          turnDiffs: new Map(),
+        },
+      },
+    });
+    const dependencies = threadStreamSurfaceContext();
+    const projection = projectThreadStream(selectChatPanelThreadStream(state, emptySharedResources), dependencies);
+    expect(projection.context.activeThreadId).toBeNull();
+    const targets = projection.blocks.flatMap((block) => (block.kind === "text" ? [block.view.actionTargets] : []));
+    expect(targets.some((target) => target.rollback)).toBe(true);
+    const fork = targets.find((target) => target.fork)?.fork;
+    expect(fork).toBeDefined();
+    projection.context.onRollback();
+    if (fork) projection.context.onFork(fork, true);
+    expect(dependencies.actions.rollbackThread).toHaveBeenCalledWith("source");
+    expect(dependencies.actions.forkThreadFromTurn).toHaveBeenCalledWith("source", "turn", true);
+  });
+
   it("does not project rollback actions for side chats", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {

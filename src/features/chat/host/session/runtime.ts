@@ -10,7 +10,7 @@ import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot"
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { createEphemeralThreadLifecycle } from "../../application/threads/ephemeral-thread-lifecycle";
-import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
+import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { createPersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
@@ -48,7 +48,7 @@ interface ChatPanelSessionRuntimeHost {
   resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
-  activatePersistentThread: (threadId: string, displaySnapshot?: ForkDisplaySnapshot) => Promise<void>;
+  applyForkDraft: (preparation: ForkDraftPreparation) => Promise<void>;
 }
 
 export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
@@ -129,6 +129,12 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const threadStart = createThreadStartCommand({
     stateStore,
     effects: appServer.threadStart,
+    onThreadActivated: (hadTurns) => {
+      threadFoundation.autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
+      notifyActiveThreadIdentityChanged();
+    },
+    hydrateCreatedFork: (threadId) =>
+      threadFoundation.history.loadLatest(threadId, { displayItems: stateStore.getState().threadStream.stableItems }),
     runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, sharedResources),
     recordStartedThread: (thread) => {
       environment.plugin.threadFacts.apply({ type: "thread-upserted", thread });
@@ -197,7 +203,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     foundation: threadFoundation,
     features: threadFeatures,
     navigation,
-    activatePersistentThread: host.activatePersistentThread,
+    applyForkDraft: host.applyForkDraft,
   });
   const reconnectHost = {
     stateStore,
@@ -235,11 +241,9 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     runtimeSettings,
     threadStart,
     goals: threadFeatures.goals,
-    autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
     reconnect,
     runtimeProjection,
     sharedResources,
-    notifyActiveThreadIdentityChanged,
   });
   const toolbarActions = createToolbarUiActions({
     connectionCoordinator,
@@ -366,6 +370,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       ensureRestoredThreadLoaded: threadFeatures.ensureRestoredThreadLoaded,
       ephemeral,
       navigation,
+      unsubscribe: (threadId: string) => appServer.threadSubscription.unsubscribeThread(threadId),
     },
     composer: {
       controller: composerController,

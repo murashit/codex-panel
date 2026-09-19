@@ -11,6 +11,7 @@ import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ForkDraftPreparation, ForkReplacement } from "../threads/fork-draft";
 import type { PendingTurnStart } from "../turns/turn-state";
 import type { ChatPendingSubmissionState } from "./pending-submission";
 
@@ -43,6 +44,8 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState, Runti
     | { readonly kind: "persistent" }
     | { readonly kind: "ephemeral"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
 }
+
+export type ActiveThreadCreatedAction = Omit<ActiveThreadResumedAction, "type"> & { type: "active-thread/created" };
 
 export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionState, RuntimePermissionKnownState {
   type: "active-thread/settings-applied";
@@ -126,11 +129,14 @@ type PendingSubmissionAction =
   | { type: "web-submission/steer-pending"; submissionId: string; item: ThreadStreamDialogueItem };
 
 export type ChatTransitionAction =
+  | { type: "panel/fork-draft-applied"; preparation: ForkDraftPreparation }
+  | { type: "active-thread/fork-replacement-settled"; threadId: string }
   | ClearDisconnectedConnectionStateAction
   | ClearActiveThreadAction
   | ActiveThreadResumedAction
+  | ActiveThreadCreatedAction
   | ActiveThreadSettingsAppliedAction
-  | { type: "panel/restored-thread-applied"; threadId: string; fallbackTitle: string | null }
+  | { type: "panel/restored-thread-applied"; threadId: string; fallbackTitle: string | null; forkReplacement?: ForkReplacement }
   | { type: "panel/restored-thread-renamed"; threadId: string; name: string | null }
   | { type: "panel/view-state-cleared" }
   | TurnStartedAction

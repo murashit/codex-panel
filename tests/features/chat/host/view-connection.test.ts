@@ -242,13 +242,10 @@ describe("CodexChatView connection lifecycle", () => {
     });
   });
 
-  it("keeps a reselected source thread when fork replacement resume finishes later", async () => {
-    const applyThreadFact = vi.fn();
-    const replacementResume = deferred<ReturnType<typeof resumedThread>>();
+  it("returns from a replacement draft without creating or archiving a thread", async () => {
     const client = connectedClient({
       "thread/resume": vi.fn((params) => {
         const { threadId } = params as { threadId: string };
-        if (threadId === "thread-forked") return replacementResume.promise;
         return Promise.resolve({
           ...resumedThread(threadId),
           initialTurnsPage: {
@@ -260,7 +257,7 @@ describe("CodexChatView connection lifecycle", () => {
       }),
     });
     connectionMockState().client = client;
-    const view = await chatView({ host: chatHost({ applyThreadFact }) });
+    const view = await chatView();
     await view.onOpen();
     await view.surface.activateThread("thread-1", { focus: false });
 
@@ -272,17 +269,9 @@ describe("CodexChatView connection lifecycle", () => {
       expect(view.containerEl.querySelector(".codex-panel__fork-and-archive-dialogue")).not.toBeNull();
     });
     requiredButton(view.containerEl, ".codex-panel__fork-and-archive-dialogue").click();
-    await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-forked", cwd: "/vault" }));
-    });
-
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true });
+    expect(requestMethods(client)).not.toContain("thread/fork");
     await view.surface.activateThread("thread-1", { focus: false });
-    replacementResume.resolve(resumedThread("thread-forked"));
-    await vi.waitFor(() => {
-      expect(applyThreadFact).toHaveBeenCalledWith(
-        expect.objectContaining({ type: "thread-upserted", thread: expect.objectContaining({ id: "thread-forked" }) }),
-      );
-    });
 
     expect(view.surface.openPanelSnapshot().threadId).toBe("thread-1");
     expect(requestMethods(client)).not.toContain("thread/archive");

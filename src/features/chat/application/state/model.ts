@@ -5,6 +5,7 @@ import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { initialChatRuntimeState } from "../../domain/runtime/state";
 import type { ChatRequestState } from "../pending-requests/state";
 import { initialChatRequestState } from "../pending-requests/state";
+import type { ForkDraft, ForkReplacement } from "../threads/fork-draft";
 import type { ChatComposerState } from "./composer";
 import { initialComposerState } from "./composer";
 import type { ChatPendingSubmissionState } from "./pending-submission";
@@ -38,14 +39,16 @@ export interface ChatActiveThreadState {
 }
 
 export type ChatPanelThreadState =
+  | { readonly kind: "fork-draft"; readonly draft: ForkDraft }
   | { readonly kind: "empty" }
   | {
       readonly kind: "awaiting-resume";
+      readonly forkReplacement?: ForkReplacement;
       readonly threadId: string;
       readonly fallbackTitle: string | null;
       readonly provenance: Thread["provenance"] | null;
     }
-  | { readonly kind: "active"; readonly thread: ChatActiveThreadState };
+  | { readonly kind: "active"; readonly thread: ChatActiveThreadState; readonly forkReplacement?: ForkReplacement };
 
 type ActiveThreadLifetime =
   | { readonly kind: "persistent" }
@@ -136,6 +139,12 @@ export function activeThreadState(state: ChatState): DeepReadonly<ChatActiveThre
 
 export function awaitingResumeThreadState(state: ChatState): Extract<ChatState["panelThread"], { kind: "awaiting-resume" }> | null {
   return state.panelThread.kind === "awaiting-resume" ? state.panelThread : null;
+}
+
+export function pendingForkReplacement(state: ChatState): ForkReplacement | undefined {
+  const panel = state.panelThread;
+  if (panel.kind === "fork-draft") return panel.draft.replacement;
+  return panel.kind === "empty" ? undefined : panel.forkReplacement;
 }
 
 export function panelThreadProvenance(state: ChatState): ChatActiveThreadState["provenance"] {

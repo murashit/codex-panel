@@ -40,6 +40,35 @@ describe("fork display snapshots", () => {
     expect([...snapshot.turnDiffs]).toEqual([["turn-1", "diff one"]]);
   });
 
+  it.each([
+    { kind: "through-turn", turnId: "turn-1" },
+    { kind: "before-turn", turnId: "turn-1" },
+  ] as const)("retains the older source cursor for a loaded $kind boundary", (boundary) => {
+    const state = {
+      ...initialChatThreadStreamState([message("u1", "turn-1"), message("u2", "turn-2")]),
+      ...initialChatActiveTurnState(),
+      historyCursor: "older-than-turn-1",
+    };
+
+    const snapshot = captureForkDisplaySnapshot(state, boundary);
+
+    expect(snapshot.historyCursor).toBe("older-than-turn-1");
+    expect(snapshot.items.map((item) => item.id)).toEqual(boundary.kind === "before-turn" ? [] : ["u1"]);
+  });
+
+  it("does not allow paging an unknown fork boundary", () => {
+    const state = {
+      ...initialChatThreadStreamState([message("u1", "turn-1")]),
+      ...initialChatActiveTurnState(),
+      historyCursor: "older",
+    };
+
+    const snapshot = captureForkDisplaySnapshot(state, { kind: "before-turn", turnId: "unloaded" });
+
+    expect(snapshot.items).toEqual([]);
+    expect(snapshot.historyCursor).toBeNull();
+  });
+
   it("keeps display-only items while preferring hydrated app-server items", () => {
     const displayItems = [message("u1", "turn-1", "local"), taskProgress("turn-1"), message("u2", "turn-2", "local")];
     const historyItems = [message("u1", "turn-1", "server"), message("a1", "turn-1", "answer"), message("u2", "turn-2", "server")];

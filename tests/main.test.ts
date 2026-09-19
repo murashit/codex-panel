@@ -132,6 +132,7 @@ describe("CodexPanelPlugin lifecycle", () => {
       turnBusy: false,
       pending: false,
       hasComposerDraft: false,
+      hasForkDraft: false,
       connected: false,
     });
     vi.spyOn(duplicateView.surface, "openPanelSnapshot").mockReturnValue({
@@ -140,6 +141,7 @@ describe("CodexPanelPlugin lifecycle", () => {
       turnBusy: false,
       pending: false,
       hasComposerDraft: false,
+      hasForkDraft: false,
       connected: false,
     });
     const firstHydrate = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(undefined);
