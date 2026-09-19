@@ -134,6 +134,11 @@ describe("CodexPanelPlugin runtime integration", () => {
   });
 
   it("applies archive mutations to open chat surfaces and restored identities", async () => {
+    const fetchArchivedThreads = vi.fn().mockResolvedValue([]);
+    contextConnectionClientMock.mockImplementation(
+      (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
+        operation(threadListClient(fetchArchivedThreads)),
+    );
     const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
@@ -150,7 +155,9 @@ describe("CodexPanelPlugin runtime integration", () => {
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, firstLeaf, secondLeaf]);
 
     threadFacts(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+    await flushMicrotasks();
 
+    expect(fetchArchivedThreads).toHaveBeenCalledOnce();
     expect(firstUnavailable).toHaveBeenCalledWith("thread-1");
     expect(secondUnavailable).toHaveBeenCalledWith("thread-1");
     expect(firstRefresh).not.toHaveBeenCalled();
