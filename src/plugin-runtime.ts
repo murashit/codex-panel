@@ -256,6 +256,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       context: { codexPath, vaultPath: this.options.settingsRef.vaultPath },
       settings: () => this.options.settingsRef.settings,
       workspace: {
+        returnFromForkDraft: (threadId, originViewId, isCurrent) => this.panels.returnFromForkDraft(threadId, originViewId, isCurrent),
         openForkDraft: (preparation) => this.panels.openForkDraft(preparation),
         openThreadInNewView: (threadId, displaySnapshot) => this.panels.openThreadInNewView(threadId, displaySnapshot),
         openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),

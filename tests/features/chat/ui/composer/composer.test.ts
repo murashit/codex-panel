@@ -295,6 +295,30 @@ describe("ComposerShell decisions", () => {
     expect(callbacks.onToggleFast).not.toHaveBeenCalled();
   });
 
+  it("shows a read-only composer without suggestions while input is locked", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const { composer } = mountComposerShell(
+      parent,
+      "view",
+      "/mo",
+      false,
+      false,
+      "Ask Codex...",
+      [{ display: "model", detail: "", replacement: "/model", start: 0 }],
+      0,
+      callbacks,
+      undefined,
+      false,
+      false,
+      false,
+      false,
+      true,
+    );
+    expect(composer.readOnly).toBe(true);
+    expect(parent.querySelector('[role="option"]')).toBeNull();
+  });
+
   it("hides only the needed composer meta fields for measured overflow and restores them when space returns", async () => {
     const parent = document.createElement("div");
 
@@ -330,11 +354,12 @@ describe("ComposerShell decisions", () => {
     });
 
     // Supply measurement outcomes to exercise the hiding policy; jsdom does not lay out text.
-    for (const [width, effortHidden, modelHidden] of [
-      [160, false, false],
-      [130, true, false],
-      [100, true, true],
-      [160, false, false],
+    for (const [width, effortHidden, modelHidden, statusHidden] of [
+      [160, false, false, false],
+      [130, true, false, false],
+      [100, true, true, false],
+      [50, true, true, true],
+      [160, false, false, false],
     ] as const) {
       availableWidth = width;
       window.dispatchEvent(new Event("resize"));
@@ -343,6 +368,7 @@ describe("ComposerShell decisions", () => {
       });
       expect(status.classList.contains("is-effort-hidden")).toBe(effortHidden);
       expect(status.classList.contains("is-model-hidden")).toBe(modelHidden);
+      expect(status.classList.contains("is-status-hidden")).toBe(statusHidden);
     }
   });
 

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
+import type { Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { Icon, IconButton } from "../../../../shared/ui/icon.dom";
@@ -77,11 +77,8 @@ export interface ComposerCallbacks {
   onSuggestionInsert: (suggestion: ComposerSuggestion) => void;
 }
 
-type ButtonProps = ButtonHTMLAttributes & {
-  disabled?: boolean | undefined;
-};
-
 export interface ComposerShellProps {
+  cancelFork?: { onCancel: () => void; disabled: boolean } | undefined;
   viewId: string;
   draft: string;
   busy: boolean;
@@ -102,6 +99,7 @@ export interface ComposerShellProps {
 }
 
 export function ComposerShell({
+  cancelFork,
   viewId,
   draft,
   busy,
@@ -163,8 +161,10 @@ export function ComposerShell({
     webSubmissionCancellable,
   );
   const composerLocked = submissionDisabled || directInputDisabled;
-  const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
-  const selectedSuggestionId = suggestions.length > 0 ? composerSuggestionOptionId(viewId, normalizedSelectedSuggestionIndex) : undefined;
+  const visibleSuggestions = composerLocked ? [] : suggestions;
+  const normalizedSelectedSuggestionIndex = visibleSuggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
+  const selectedSuggestionId =
+    visibleSuggestions.length > 0 ? composerSuggestionOptionId(viewId, normalizedSelectedSuggestionIndex) : undefined;
 
   return (
     <div className="codex-panel__composer">
@@ -175,7 +175,7 @@ export function ComposerShell({
           placeholder={sendMode.canInterrupt && !composerLocked ? "Steer the current turn..." : normalPlaceholder}
           role="combobox"
           aria-autocomplete="list"
-          aria-expanded={suggestions.length > 0 ? "true" : "false"}
+          aria-expanded={visibleSuggestions.length > 0 ? "true" : "false"}
           aria-controls={composerSuggestionsListId(viewId)}
           aria-activedescendant={selectedSuggestionId}
           value={draft}
@@ -187,26 +187,26 @@ export function ComposerShell({
           onKeyUp={callbacks.onUpdateSuggestions}
           onClick={callbacks.onUpdateSuggestions}
           onSelect={callbacks.onUpdateSuggestions}
-          onKeyDown={(event) => {
-            callbacks.onKeydown(event);
-          }}
-          onPaste={(event) => {
-            callbacks.onPaste(event);
-          }}
-          onDrop={(event) => {
-            callbacks.onDrop(event);
-          }}
+          onKeyDown={callbacks.onKeydown}
+          onPaste={callbacks.onPaste}
+          onDrop={callbacks.onDrop}
           onDragOver={(event) => {
             callbacks.onDragOver(event);
           }}
         />
-        <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} disabled={composerLocked || runtimeControlsDisabled} />
+        <ComposerMeta
+          cancelFork={cancelFork}
+          meta={meta}
+          sendMode={sendMode}
+          callbacks={callbacks}
+          disabled={composerLocked || runtimeControlsDisabled}
+        />
       </div>
       <ComposerSuggestions
         containerRef={suggestionsRef}
         selectedRef={selectedSuggestionRef}
         viewId={viewId}
-        suggestions={suggestions}
+        suggestions={visibleSuggestions}
         selectedIndex={normalizedSelectedSuggestionIndex}
         callbacks={callbacks}
       />
@@ -215,11 +215,13 @@ export function ComposerShell({
 }
 
 function ComposerMeta({
+  cancelFork,
   meta,
   sendMode,
   callbacks,
   disabled,
 }: {
+  cancelFork: ComposerShellProps["cancelFork"];
   meta: ComposerMetaViewModel;
   sendMode: ComposerSendMode;
   callbacks: ComposerCallbacks;
@@ -259,7 +261,7 @@ function ComposerMeta({
     return (
       <div className="codex-panel__composer-meta codex-panel__composer-meta--fatal">
         <span className="codex-panel__composer-meta-fatal">{meta.fatal}</span>
-        <ComposerSendButton sendMode={sendMode} onSendOrInterrupt={callbacks.onSendOrInterrupt} />
+        <ComposerActions cancelFork={cancelFork} sendMode={sendMode} onSendOrInterrupt={callbacks.onSendOrInterrupt} />
       </div>
     );
   }
@@ -332,7 +334,7 @@ function ComposerMeta({
           onClose={closePicker}
         />
       ) : null}
-      <ComposerSendButton sendMode={sendMode} onSendOrInterrupt={callbacks.onSendOrInterrupt} />
+      <ComposerActions cancelFork={cancelFork} sendMode={sendMode} onSendOrInterrupt={callbacks.onSendOrInterrupt} />
     </div>
   );
 }
@@ -508,35 +510,34 @@ function composerSendMode(
   };
 }
 
-function ComposerSendButton({ sendMode, onSendOrInterrupt }: { sendMode: ComposerSendMode; onSendOrInterrupt: () => void }): UiNode {
-  return (
-    <ComposerIconButton
-      icon={sendMode.icon}
-      label={sendMode.label}
-      className={`codex-panel__send ${sendMode.className}`}
-      disabled={sendMode.disabled}
-      onClick={onSendOrInterrupt}
-    />
-  );
-}
-
-function ComposerIconButton({
-  icon,
-  label,
-  className,
-  ...props
+function ComposerActions({
+  cancelFork,
+  sendMode,
+  onSendOrInterrupt,
 }: {
-  icon: string;
-  label: string;
-  className: string;
-} & Omit<ButtonProps, "className" | "type">): UiNode {
+  cancelFork: ComposerShellProps["cancelFork"];
+  sendMode: ComposerSendMode;
+  onSendOrInterrupt: () => void;
+}): UiNode {
   return (
-    <IconButton
-      {...props}
-      icon={icon}
-      label={label}
-      className={`clickable-icon codex-panel-ui__icon-button codex-panel__composer-action ${className}`}
-    />
+    <div className="codex-panel__composer-actions">
+      {cancelFork ? (
+        <IconButton
+          icon="arrow-left"
+          label="Return to source thread"
+          className="clickable-icon codex-panel-ui__icon-button codex-panel__composer-action codex-panel__cancel-fork"
+          disabled={cancelFork.disabled}
+          onClick={cancelFork.onCancel}
+        />
+      ) : null}
+      <IconButton
+        icon={sendMode.icon}
+        label={sendMode.label}
+        className={`clickable-icon codex-panel-ui__icon-button codex-panel__composer-action codex-panel__send ${sendMode.className}`}
+        disabled={sendMode.disabled}
+        onClick={onSendOrInterrupt}
+      />
+    </div>
   );
 }
 

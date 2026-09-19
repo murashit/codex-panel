@@ -27,6 +27,7 @@ export type ChatAction = ChatTransitionAction | ChatSliceAction;
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
+    case "panel/fork-operation-set":
     case "panel/fork-draft-applied":
     case "active-thread/fork-replacement-settled":
     case "connection/scoped-cleared":

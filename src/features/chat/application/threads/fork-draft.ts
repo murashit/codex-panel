@@ -8,6 +8,7 @@ export interface ForkDraft {
   readonly sourceThreadId: string;
   readonly boundary: { readonly kind: "through-turn" | "before-turn"; readonly turnId: string };
   readonly replacement?: ForkReplacement;
+  readonly initialPrompt?: string;
 }
 
 export interface ForkReplacement {
@@ -20,7 +21,6 @@ export interface ForkDraftPreparation {
   readonly runtime: ChatRuntimeState;
   readonly draft: ForkDraft;
   readonly display: ForkDisplaySnapshot;
-  readonly composerText?: string;
 }
 
 type ThreadForkPosition =

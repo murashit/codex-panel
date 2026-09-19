@@ -38,6 +38,7 @@ const ALLOWED: ActivePanelOperationDecision = { kind: "allowed" };
 
 export function activePanelOperationDecision(state: ChatState, operation: ActivePanelOperation): ActivePanelOperationDecision {
   if (state.panelThread.kind === "fork-draft") {
+    if (state.panelThread.operation) return { kind: "blocked", message: "Wait for the current fork operation to finish." };
     switch (operation) {
       case "submit":
       case "fork":

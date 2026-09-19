@@ -24,6 +24,7 @@ export interface ChatPanelComposerPresenter {
 
 export interface ChatPanelComposerActions {
   submit: () => void;
+  cancelFork?: () => void;
 }
 
 export function projectChatPanelComposer(model: ChatPanelComposerModel, actions: ChatPanelComposerRuntimeActions) {
@@ -57,6 +58,7 @@ export interface ChatPanelComposerModel extends RuntimeSnapshot {
   readonly activeListedThreadName: string | null;
   readonly sideChatActive: boolean;
   readonly sideChatSourceTitle: string | null;
+  readonly forkDraft: boolean;
   readonly draft: ChatState["composer"]["draft"];
   readonly attachmentSavePending: boolean;
   readonly suggestions: ChatState["composer"]["suggestions"];
@@ -88,6 +90,7 @@ export function selectChatPanelComposer(state: ChatState, shared: ChatPanelCompo
     activeListedThreadName: activeThreadId ? projectedThreadName(shared, activeThreadId) : null,
     sideChatActive: lifetime?.kind === "ephemeral",
     sideChatSourceTitle: lifetime?.kind === "ephemeral" ? lifetime.sourceThreadTitle : null,
+    forkDraft: state.panelThread.kind === "fork-draft",
     draft: state.composer.draft,
     attachmentSavePending: state.composer.pendingAttachmentSaveIds.length > 0,
     suggestions: state.composer.suggestions,

@@ -49,6 +49,7 @@ interface ChatPanelSessionRuntimeHost {
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
   applyForkDraft: (preparation: ForkDraftPreparation) => Promise<void>;
+  cancelForkDraft: () => void;
 }
 
 export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost) {
@@ -323,6 +324,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
         presenter: composerController,
         actions: {
           submit: () => void turn.submissionCommands.composerSubmit.submit(),
+          cancelFork: host.cancelForkDraft,
         },
       },
     },

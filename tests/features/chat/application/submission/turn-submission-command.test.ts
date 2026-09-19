@@ -970,6 +970,7 @@ describe("deferred fork submission", () => {
       preparation: {
         draft: {
           sourceThreadId: "source",
+          initialPrompt: "edited prompt",
           boundary: { kind: "before-turn", turnId: "source-last" },
           ...(archiveSourceOnSend
             ? { replacement: { sourceThreadId: "source", sourceLatestTurnId: "source-last", saveMarkdown: false } }
@@ -977,7 +978,6 @@ describe("deferred fork submission", () => {
         },
         runtime: stateStore.getState().runtime,
         display: { items: [], turnDiffs: new Map() },
-        composerText: "edited prompt",
       },
     });
     const command = createTurnSubmissionCommand(host);

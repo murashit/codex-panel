@@ -129,6 +129,7 @@ type PendingSubmissionAction =
   | { type: "web-submission/steer-pending"; submissionId: string; item: ThreadStreamDialogueItem };
 
 export type ChatTransitionAction =
+  | { type: "panel/fork-operation-set"; revision: number; operation?: "creating" | "cancelling" }
   | { type: "panel/fork-draft-applied"; preparation: ForkDraftPreparation }
   | { type: "active-thread/fork-replacement-settled"; threadId: string }
   | ClearDisconnectedConnectionStateAction

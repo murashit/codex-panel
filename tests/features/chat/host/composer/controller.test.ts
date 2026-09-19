@@ -159,6 +159,51 @@ function composerControllerFixture(
 }
 
 describe("ChatComposerController", () => {
+  it("rejects stale input callbacks during fork return and accepts input again afterwards", () => {
+    const saveFiles = vi.fn(async () => attachmentSaveResult([]));
+    const { controller, stateStore, renderShell } = composerControllerFixture({ controller: { attachmentHandler: { saveFiles } } });
+    stateStore.dispatch({
+      type: "panel/fork-draft-applied",
+      preparation: {
+        draft: { sourceThreadId: "source", boundary: { kind: "through-turn", turnId: "turn" } },
+        runtime: stateStore.getState().runtime,
+        display: { items: [], turnDiffs: new Map() },
+      },
+    });
+    controller.setDraft("/mo");
+    renderShell();
+    const submit = vi.fn();
+    const { callbacks } = controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit });
+    const revision = stateStore.getState().panelTargetRevision;
+    stateStore.dispatch({ type: "panel/fork-operation-set", revision, operation: "cancelling" });
+    const before = stateStore.getState().composer;
+    callbacks.onInput("changed");
+    callbacks.onUpdateSuggestions();
+    callbacks.onSuggestionInsert({ display: "model", detail: "", replacement: "/model", start: 0 });
+    callbacks.onKeydown(new KeyboardEvent("keydown", { key: "Enter" }));
+    const transfer = { files: [new File(["image"], "image.png", { type: "image/png" })], items: [] } as unknown as DataTransfer;
+    callbacks.onPaste({ clipboardData: transfer, preventDefault: vi.fn() } as unknown as ClipboardEvent);
+    callbacks.onDrop({ dataTransfer: transfer, preventDefault: vi.fn() } as unknown as DragEvent);
+    expect(stateStore.getState().composer).toEqual(before);
+    expect(saveFiles).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+    stateStore.dispatch({ type: "panel/fork-operation-set", revision });
+    callbacks.onInput("changed");
+    expect(stateStore.getState().composer.draft).toBe("changed");
+    controller.dispose();
+  });
+
+  it("keeps keyboard interruption available on a read-only thread", () => {
+    const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread", canAcceptDirectInput: false } }));
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    const submit = vi.fn();
+    const { controller, parent, renderShell } = composerControllerFixture({ stateStore, renderActions: { submit } });
+    renderShell();
+    parent.querySelector("textarea")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(submit).toHaveBeenCalledOnce();
+    controller.dispose();
+  });
+
   it.each([
     ["empty", "failed"],
     ["existing", "failed"],
@@ -536,8 +581,9 @@ describe("ChatComposerController", () => {
     expect(document.activeElement).toBe(composer);
   });
 
-  it("locks composer input while exposing a pending web import to the send control", () => {
-    const { controller, stateStore } = composerControllerFixture();
+  it("locks composer input while keeping keyboard cancellation of a web import available", () => {
+    const submit = vi.fn();
+    const { controller, stateStore, parent, renderShell } = composerControllerFixture({ renderActions: { submit } });
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
     if (!pending) throw new Error("Expected pending web submission");
     stateStore.dispatch({
@@ -554,6 +600,10 @@ describe("ChatComposerController", () => {
 
     expect(props.submissionDisabled).toBe(true);
     expect(props.webSubmissionCancellable).toBe(true);
+    renderShell();
+    parent.querySelector("textarea")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(submit).toHaveBeenCalledOnce();
+    controller.dispose();
   });
 
   it("locks composer input without offering cancel after a web submission commits", () => {

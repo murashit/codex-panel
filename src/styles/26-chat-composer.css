@@ -13,6 +13,13 @@
   max-height: min(var(--codex-panel-size-composer-input-max-height), 40vh);
 }
 
+.codex-panel__composer-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--codex-panel-control-gap);
+}
+
 .codex-panel__composer-action {
   flex: 0 0 auto;
 }
@@ -196,6 +203,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.codex-panel__composer-meta-status.is-status-hidden .codex-panel__composer-meta-status-visual {
+  visibility: hidden;
 }
 
 .codex-panel__composer-meta-status.is-effort-hidden .codex-panel__composer-meta-field--effort {

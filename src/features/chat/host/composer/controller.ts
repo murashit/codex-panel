@@ -52,7 +52,7 @@ import {
   focusComposer,
   nextComposerSuggestionIndex,
 } from "./element.dom";
-import type { ChatPanelComposerModel } from "./view-projection";
+import type { ChatPanelComposerActions, ChatPanelComposerModel } from "./view-projection";
 import { type ChatPanelComposerRuntimeActions, projectChatPanelComposer } from "./view-projection";
 
 interface ChatComposerControllerOptions {
@@ -79,10 +79,6 @@ interface ChatComposerControllerOptions {
     activeThreadsSnapshot(): readonly Thread[] | null;
     subscribe(listener: () => void): () => void;
   };
-}
-
-interface ChatComposerRenderActions {
-  submit: () => void;
 }
 
 interface RetainedComposerSelection {
@@ -139,6 +135,10 @@ export class ChatComposerController {
     return this.options.stateStore.getState();
   }
 
+  private get inputEditable(): boolean {
+    return !this.state.pendingSubmission && activePanelOperationDecision(this.state, "submit").kind !== "blocked";
+  }
+
   private dispatch(action: ChatAction): void {
     this.options.stateStore.dispatch(action);
   }
@@ -151,9 +151,20 @@ export class ChatComposerController {
     return this.draft.trim();
   }
 
-  renderState(model: ChatPanelComposerModel, actions: ChatComposerRenderActions): ComposerShellProps {
+  renderState(model: ChatPanelComposerModel, actions: ChatPanelComposerActions): ComposerShellProps {
     const projection = projectChatPanelComposer(model, this.options.runtimeActions);
     return {
+      cancelFork:
+        model.forkDraft && actions.cancelFork
+          ? {
+              onCancel: actions.cancelFork,
+              disabled:
+                model.submissionBlockedByPanelPolicy ||
+                model.webSubmissionPending ||
+                model.attachmentSavePending ||
+                this.isSubmissionPreparing(),
+            }
+          : undefined,
       viewId: this.options.viewId,
       draft: model.draft,
       busy: model.turnBusy,
@@ -410,6 +421,7 @@ export class ChatComposerController {
   }
 
   private updateSuggestions(): void {
+    if (!this.inputEditable) return;
     const { suggestions, selected, dismissedSignature } = this.inputSuggestionState();
     this.dispatch({
       type: "composer/suggestions-set",
@@ -419,6 +431,7 @@ export class ChatComposerController {
   }
 
   private handleInput(value: string): void {
+    if (!this.inputEditable) return;
     this.pruneThreadCommandTarget(value);
     this.pruneActiveNoteContextSnapshots(value);
     this.pruneSelectionContextSnapshots(value);
@@ -483,11 +496,13 @@ export class ChatComposerController {
   }
 
   private selectSuggestion(index: number): void {
+    if (!this.inputEditable) return;
     if (this.state.composer.suggestSelected === index) return;
     this.dispatch({ type: "composer/suggestions-set", suggestions: this.state.composer.suggestions, selected: index });
   }
 
   private insertSuggestion(suggestion: ComposerSuggestion | undefined, activation: "enter" | "tab" = "enter"): void {
+    if (!this.inputEditable) return;
     if (!suggestion) return;
     const source = composerInsertionSource(this.composer);
     if (!source) return;
@@ -625,7 +640,22 @@ export class ChatComposerController {
     return this.attachmentTransfers.blocksSubmission(composerCanInterrupt(model));
   }
 
-  private composerCallbacks(actions: ChatComposerRenderActions, model: ChatPanelComposerModel): ComposerCallbacks {
+  private composerCallbacks(actions: ChatPanelComposerActions, model: ChatPanelComposerModel): ComposerCallbacks {
+    const sendOrInterrupt = () => {
+      if (this.state.pendingSubmission?.phase === "cancellable") {
+        actions.submit();
+        return;
+      }
+      if (this.state.pendingSubmission || this.attachmentSaveBlocksSubmit(model)) return;
+      if (this.inputEditable || composerCanInterrupt(model)) actions.submit();
+    };
+    const transferAttachments = (event: Event, transfer: DataTransfer | null) => {
+      if (!this.inputEditable) return;
+      const files = composerFilesFromTransfer(transfer);
+      if (files.length === 0) return;
+      event.preventDefault();
+      this.attachmentTransfers.transfer(files);
+    };
     return {
       onInput: (value) => {
         this.handleInput(value);
@@ -634,7 +664,7 @@ export class ChatComposerController {
         this.updateSuggestions();
       },
       onKeydown: (event) => {
-        if (this.handleSuggestionKeydown(event)) {
+        if (this.inputEditable && this.handleSuggestionKeydown(event)) {
           return;
         }
         if (this.handleBoundaryScrollKeydown(event)) {
@@ -642,34 +672,21 @@ export class ChatComposerController {
         }
         if (isComposerSendKey(event, this.options.sendShortcut())) {
           event.preventDefault();
-          if (!this.attachmentSaveBlocksSubmit(model)) actions.submit();
+          sendOrInterrupt();
         }
       },
       onPaste: (event) => {
-        const files = composerFilesFromTransfer(event.clipboardData);
-        if (files.length === 0) return;
-        event.preventDefault();
-        this.attachmentTransfers.transfer(files);
+        transferAttachments(event, event.clipboardData);
       },
       onDrop: (event) => {
-        const files = composerFilesFromTransfer(event.dataTransfer);
-        if (files.length === 0) return;
-        event.preventDefault();
-        this.attachmentTransfers.transfer(files);
+        transferAttachments(event, event.dataTransfer);
       },
       onDragOver: (event) => {
         if (!composerTransferHasFiles(event.dataTransfer)) return;
         event.preventDefault();
         if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
       },
-      onSendOrInterrupt: () => {
-        if (this.state.pendingSubmission?.phase === "cancellable") {
-          actions.submit();
-          return;
-        }
-        if (this.state.pendingSubmission || this.attachmentSaveBlocksSubmit(model)) return;
-        actions.submit();
-      },
+      onSendOrInterrupt: sendOrInterrupt,
       onTogglePlan: () => {
         this.options.togglePlan();
       },

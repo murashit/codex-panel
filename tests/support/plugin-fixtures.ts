@@ -149,6 +149,7 @@ function chatHostFixture(): CodexChatHost {
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
     settings: chatPanelSettingsAccess(settings),
     workspace: {
+      returnFromForkDraft: vi.fn().mockResolvedValue(true),
       openForkDraft: vi.fn(),
       openThreadInNewView: vi.fn(),
       openThreadInAvailableView: vi.fn(),

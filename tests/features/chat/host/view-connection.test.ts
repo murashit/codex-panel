@@ -186,7 +186,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     connectionMockState().client = client;
     let view: Awaited<ReturnType<typeof chatView>>;
-    let newerActivation: Promise<void> | null = null;
+    let newerActivation: Promise<boolean> | null = null;
     const notifyPanelActivityChanged = vi.fn(() => {
       if (newerActivation || view?.surface.openPanelSnapshot().threadId !== "thread-b") return;
       newerActivation = view.surface.activateThread("thread-c", { focus: false });

@@ -85,7 +85,7 @@ export function composerMetaPickerState(
 }
 
 function updateComposerMetaStatusOverflow(status: HTMLElement): void {
-  status.classList.remove(COMPOSER_META_EFFORT_HIDDEN_CLASS, COMPOSER_META_MODEL_HIDDEN_CLASS);
+  status.classList.remove(COMPOSER_META_EFFORT_HIDDEN_CLASS, COMPOSER_META_MODEL_HIDDEN_CLASS, "is-status-hidden");
   if (!composerMetaStatusOverflowing(status)) return;
   if (status.querySelector(".codex-panel__composer-meta-field--effort")) {
     status.classList.add(COMPOSER_META_EFFORT_HIDDEN_CLASS);
@@ -94,6 +94,7 @@ function updateComposerMetaStatusOverflow(status: HTMLElement): void {
   if (status.querySelector(".codex-panel__composer-meta-field--model")) {
     status.classList.add(COMPOSER_META_MODEL_HIDDEN_CLASS);
   }
+  if (composerMetaStatusOverflowing(status)) status.classList.add("is-status-hidden");
 }
 
 export function scrollComposerSuggestionIntoView(container: HTMLElement, option: HTMLElement): void {

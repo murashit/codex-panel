@@ -151,11 +151,11 @@ async function prepareFork(
     draft: {
       sourceThreadId,
       boundary: selected,
+      ...(composerText === undefined ? {} : { initialPrompt: composerText }),
       ...(replacement ? { replacement } : {}),
     },
     runtime: forkDraftRuntime(state.runtime),
     display: captureForkDisplaySnapshot(stream, !boundary && previous ? { kind: "latest" } : selected),
-    ...(composerText === undefined ? {} : { composerText }),
   };
   try {
     if (archiveSource) adoption?.(null, composerText);

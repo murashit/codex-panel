@@ -51,6 +51,7 @@ export interface ChatPanelSettingsAccess {
 }
 
 export interface WorkspacePanels {
+  returnFromForkDraft(threadId: string, originViewId: string, isCurrent: () => boolean): Promise<boolean>;
   openForkDraft(preparation: ForkDraftPreparation): Promise<void>;
   openThreadInNewView(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
@@ -151,7 +152,7 @@ interface ChatWorkspacePanelOperationOptions {
 export interface ChatWorkspacePanelSurface {
   applyForkDraft(preparation: ForkDraftPreparation): Promise<void>;
   openPanelSnapshot(): ChatWorkspacePanelSnapshot;
-  activateThread(threadId?: string, options?: ChatWorkspacePanelOperationOptions): Promise<void>;
+  activateThread(threadId?: string, options?: ChatWorkspacePanelOperationOptions): Promise<boolean>;
   focusComposer(options?: { force?: boolean }): void;
   connect(): Promise<void>;
   startNewThread(options?: ChatWorkspacePanelOperationOptions): Promise<void>;

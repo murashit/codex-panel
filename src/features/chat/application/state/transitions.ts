@@ -44,8 +44,14 @@ import { clearAllRequestDisclosures, clearResolvedRequestDisclosures, initialUiS
 
 export function reduceChatTransition(state: ChatState, action: ChatTransitionAction): ChatState {
   switch (action.type) {
+    case "panel/fork-operation-set": {
+      if (state.panelThread.kind !== "fork-draft" || state.panelTargetRevision !== action.revision) return state;
+      const panel = { ...state.panelThread };
+      delete panel.operation;
+      return { ...state, panelThread: { ...panel, ...(action.operation ? { operation: action.operation } : {}) } };
+    }
     case "panel/fork-draft-applied": {
-      const { draft, display, composerText } = action.preparation;
+      const { draft, display } = action.preparation;
       return {
         ...clearThreadScopedState(state),
         panelThread: { kind: "fork-draft", draft },
@@ -56,7 +62,7 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
           turnDiffs: display.turnDiffs,
           historyCursor: display.historyCursor ?? null,
         },
-        composer: { ...initialComposerState(), draft: composerText ?? "" },
+        composer: { ...initialComposerState(), draft: draft.initialPrompt ?? "" },
         connection: { ...state.connection, statusText: "Fork draft. Send a message to create the thread." },
       };
     }

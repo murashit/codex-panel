@@ -1,3 +1,4 @@
+import { Notice } from "obsidian";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
 import { DeferredTask } from "../../../../shared/async/deferred-task";
 import {
@@ -9,6 +10,7 @@ import {
   panelThreadProvenance,
   pendingForkReplacement,
 } from "../../application/state/model";
+import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../application/state/panel-target";
 import { type ChatStateStore, createChatStateStore } from "../../application/state/store";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
@@ -17,6 +19,7 @@ import type { ForkDraftPreparation } from "../../application/threads/fork-draft"
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { chatTurnBusy } from "../../application/turns/turn-state";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
+import { confirmForkDiscard } from "../composer/confirm-fork-discard.obsidian";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatPanelRuntimeSnapshot, ChatWorkspacePanelSnapshot } from "../contracts";
 import { renderChatPanelShell, unmountChatPanelShell } from "../shell/render.dom";
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../thread-stream/scroll-binding";
@@ -161,19 +164,51 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.pendingPersistentActivation = null;
     this.clearPendingEphemeralIntent();
     this.stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
-    if (preparation.composerText !== undefined) this.runtime.composer.controller.setDraft(preparation.composerText, { focus: false });
     this.environment.view.refreshTabHeader();
     this.environment.obsidian.requestWorkspaceLayoutSave();
     if (previousThreadId) await this.runtime.thread.unsubscribe(previousThreadId);
   }
 
-  async activateThread(threadId?: string, options: { focus?: boolean; displaySnapshot?: ForkDisplaySnapshot } = {}): Promise<void> {
+  private async cancelForkDraft(): Promise<void> {
+    const state = this.state;
+    const panel = state.panelThread;
+    if (
+      panel.kind !== "fork-draft" ||
+      panel.operation ||
+      state.pendingSubmission ||
+      state.composer.pendingAttachmentSaveIds.length ||
+      this.runtime.composer.controller.isSubmissionPreparing()
+    )
+      return;
+    const target = capturePanelTargetLease(state);
+    const isCurrent = () => !this.closing && panelTargetLeaseIsCurrent(this.state, target);
+    this.stateStore.dispatch({ type: "panel/fork-operation-set", revision: target.revision, operation: "cancelling" });
+    try {
+      if (state.composer.draft !== (panel.draft.initialPrompt ?? "") && !(await confirmForkDiscard(this.environment.obsidian.app))) return;
+      if (!isCurrent() || this.state.composer.draft !== state.composer.draft || this.state.composer.pendingAttachmentSaveIds.length) return;
+      const returned = await this.environment.plugin.workspace.returnFromForkDraft(
+        panel.draft.sourceThreadId,
+        this.environment.obsidian.viewId,
+        isCurrent,
+      );
+      if (!returned && isCurrent()) new Notice("Could not return to the source thread. Your fork draft was kept.");
+    } catch (error) {
+      if (isCurrent()) new Notice(`Could not return to the source thread: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      if (isCurrent()) {
+        this.stateStore.dispatch({ type: "panel/fork-operation-set", revision: target.revision });
+        this.focusComposer();
+      }
+    }
+  }
+
+  async activateThread(threadId?: string, options: { focus?: boolean; displaySnapshot?: ForkDisplaySnapshot } = {}): Promise<boolean> {
     const restoredThread = awaitingResumeThreadState(this.state);
     const restoredThreadId = restoredThread?.threadId ?? null;
     const targetThreadId = threadId ?? restoredThreadId;
     if (!targetThreadId) {
       if (options.focus !== false) this.focusComposer();
-      return;
+      return false;
     }
 
     this.clearPendingEphemeralIntent();
@@ -181,11 +216,11 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (pending?.threadId === targetThreadId) {
       const activated = await pending.promise;
       if (activated && options.focus !== false) this.focusComposer();
-      return;
+      return activated;
     }
     if (threadId === undefined && pending) {
       if (options.focus !== false) this.focusComposer();
-      return;
+      return true;
     }
     if (activeThreadState(this.state)?.id === targetThreadId) {
       if (pending) {
@@ -193,7 +228,7 @@ export class ChatPanelSession implements ChatPanelHandle {
         this.pendingPersistentActivation = null;
       }
       if (options.focus !== false) this.focusComposer();
-      return;
+      return true;
     }
 
     const activation = {
@@ -208,6 +243,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       if (this.pendingPersistentActivation === activation) this.pendingPersistentActivation = null;
     }
     if (activated && options.focus !== false) this.focusComposer();
+    return activated;
   }
 
   private async activatePersistentThread(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<boolean> {
@@ -440,6 +476,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
       applyForkDraft: (preparation) => this.applyForkDraft(preparation),
+      cancelForkDraft: () => void this.cancelForkDraft(),
     });
   }
 }

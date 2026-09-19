@@ -299,9 +299,9 @@ describe("thread management commands", () => {
         draft: expect.objectContaining({
           boundary: { kind: "before-turn", turnId: "turn-3" },
           replacement: { sourceThreadId: "source", sourceLatestTurnId: "turn-3", saveMarkdown: false },
+          initialPrompt: "three",
         }),
         display: { items: turnItems().slice(0, 4), turnDiffs: new Map(), historyCursor: null },
-        composerText: "three",
       }),
       false,
     );
@@ -320,9 +320,9 @@ describe("thread management commands", () => {
           sourceThreadId: "source",
           replacement: { sourceThreadId: "source", sourceLatestTurnId: "turn-3", saveMarkdown: false },
           boundary: { kind: "before-turn", turnId: "turn-2" },
+          initialPrompt: "two",
         }),
         display: { items: turnItems().slice(0, 2), turnDiffs: new Map(), historyCursor: null },
-        composerText: "two",
       }),
       false,
     );
@@ -338,7 +338,9 @@ describe("thread management commands", () => {
     host.stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
     await commands.rollbackThread("source");
     expect(host.openForkDraft).toHaveBeenLastCalledWith(
-      expect.objectContaining({ draft: { sourceThreadId: "source", boundary: { kind: "before-turn", turnId: "turn-3" } } }),
+      expect.objectContaining({
+        draft: { sourceThreadId: "source", boundary: { kind: "before-turn", turnId: "turn-3" }, initialPrompt: "three" },
+      }),
       false,
     );
   });
@@ -365,9 +367,8 @@ describe("thread management commands", () => {
     await threadCommands(host).rollbackThread("source");
     expect(host.openForkDraft).toHaveBeenCalledWith(
       expect.objectContaining({
-        draft: expect.objectContaining({ boundary: { kind: "before-turn", turnId: "turn-1" } }),
+        draft: expect.objectContaining({ boundary: { kind: "before-turn", turnId: "turn-1" }, initialPrompt: "one" }),
         display: { items: [], turnDiffs: new Map(), historyCursor: null },
-        composerText: "one",
       }),
       false,
     );

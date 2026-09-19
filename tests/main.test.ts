@@ -84,7 +84,7 @@ describe("CodexPanelPlugin lifecycle", () => {
     });
 
     await plugin.onload();
-    const hydrate = vi.spyOn((panelLeaf.view as CodexChatView).surface, "activateThread").mockResolvedValue(undefined);
+    const hydrate = vi.spyOn((panelLeaf.view as CodexChatView).surface, "activateThread").mockResolvedValue(true);
     const handler = activeLeafHandlers.at(0);
     if (!handler) throw new Error("Expected active leaf handler to be registered.");
     handler(panelLeaf);
@@ -105,7 +105,7 @@ describe("CodexPanelPlugin lifecycle", () => {
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(activeLeaf);
 
     await plugin.onload();
-    const hydrate = vi.spyOn(view.surface, "activateThread").mockResolvedValue(undefined);
+    const hydrate = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
     await vi.advanceTimersByTimeAsync(0);
 
     await waitForAsyncWork(() => {
@@ -144,8 +144,8 @@ describe("CodexPanelPlugin lifecycle", () => {
       hasForkDraft: false,
       connected: false,
     });
-    const firstHydrate = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(undefined);
-    const duplicateHydrate = vi.spyOn(duplicateView.surface, "activateThread").mockResolvedValue(undefined);
+    const firstHydrate = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(true);
+    const duplicateHydrate = vi.spyOn(duplicateView.surface, "activateThread").mockResolvedValue(true);
     await vi.advanceTimersByTimeAsync(0);
 
     await waitForAsyncWork(() => {

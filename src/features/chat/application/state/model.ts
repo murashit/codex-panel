@@ -39,7 +39,7 @@ export interface ChatActiveThreadState {
 }
 
 export type ChatPanelThreadState =
-  | { readonly kind: "fork-draft"; readonly draft: ForkDraft }
+  | { readonly kind: "fork-draft"; readonly draft: ForkDraft; readonly operation?: "creating" | "cancelling" }
   | { readonly kind: "empty" }
   | {
       readonly kind: "awaiting-resume";

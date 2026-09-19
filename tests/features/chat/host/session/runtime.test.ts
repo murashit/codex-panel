@@ -445,6 +445,7 @@ describe("chat panel session runtime", () => {
       threadStreamScrollBinding,
       getClosing: options.getClosing ?? (() => false),
       applyForkDraft: vi.fn().mockResolvedValue(undefined),
+      cancelForkDraft: vi.fn(),
     });
     return { runtime, stateStore, resumeWork, appServerWarmup, threadStreamScrollBinding };
   }
@@ -518,6 +519,7 @@ describe("chat panel session runtime", () => {
         threadAutoTitleWork: { submit: vi.fn() },
         settings: overrides.plugin?.settings ?? chatPanelSettingsAccess(settingsSource),
         workspace: {
+          returnFromForkDraft: vi.fn().mockResolvedValue(true),
           openForkDraft: vi.fn(),
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),
           openThreadInAvailableView: overrides.plugin?.workspace?.openThreadInAvailableView ?? vi.fn().mockResolvedValue(undefined),

@@ -148,6 +148,21 @@ export class WorkspacePanelCoordinator {
     await this.runThreadPanelOperation(threadId, () => this.openThreadAtLeaf(this.findThreadPanelLeaf(threadId), threadId));
   }
 
+  async returnFromForkDraft(threadId: string, originViewId: string, isCurrent: () => boolean): Promise<boolean> {
+    return this.runThreadPanelOperation(threadId, async () => {
+      const origin = this.findPanelLeafByViewId(originViewId);
+      if (!origin || !isCurrent()) return false;
+      const target = this.findOpenThreadPanelLeaf(threadId) ?? this.findRestoredThreadPanelLeaf(threadId) ?? origin;
+      if (!(await this.openThreadAtLeaf(target, threadId))) return false;
+      if (!isAttachedChatView(target.view) || workspacePanelSurface(target.view).openPanelSnapshot().threadId !== threadId) return false;
+      if (target !== origin) {
+        if (!isCurrent() || this.findPanelLeafByViewId(originViewId) !== origin) return false;
+        origin.detach();
+      }
+      return true;
+    });
+  }
+
   async openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void> {
     await this.runThreadPanelOperation(threadId, () => {
       const origin = this.findPanelLeafByViewId(originViewId);

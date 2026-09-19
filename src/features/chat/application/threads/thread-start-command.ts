@@ -49,7 +49,17 @@ export interface ThreadStartCommand {
 
 export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadStartCommand {
   return {
-    startThread: (preview, options) => startThread(host, preview, options),
+    startThread: async (preview, options) => {
+      const state = host.stateStore.getState();
+      const draft = state.panelThread.kind === "fork-draft";
+      if (draft && state.panelThread.operation) return { kind: "not-started" };
+      if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision, operation: "creating" });
+      try {
+        return await startThread(host, preview, options);
+      } finally {
+        if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision });
+      }
+    },
   };
 }
 
