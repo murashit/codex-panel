@@ -26,11 +26,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Fetch commit range base
+        run: |
+          # A force push can leave the previous head outside every fetched ref.
+          if [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]] &&
+            ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            if ! git fetch --no-tags origin "$BASE_SHA"; then
+              echo "::error::Cannot fetch commit range base $BASE_SHA; refusing to lint unrelated history."
+              exit 1
+            fi
+          fi
+
       - name: Detect specialized check inputs
         id: changes
         run: |
           changed() {
-            [[ "$FORCED_PUSH" == "true" ]] || ! git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- "$@"
+            [[ "$FORCED_PUSH" == "true" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]] ||
+              ! git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- "$@"
           }
           if changed \
             .github/workflows/check.yml \
@@ -63,11 +75,16 @@ jobs:
 
       - name: Check introduced commit messages
         run: |
-          if git merge-base "$BASE_SHA" "$HEAD_SHA" >/dev/null 2>&1; then
-            npm run commitlint -- --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
-          else
-            # Initial or rewritten history may have no usable base; validate all reachable commits.
+          if [[ "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            # Only a newly created branch introduces its entire reachable history.
             npm run commitlint -- --to "$HEAD_SHA" --verbose
+          else
+            count=$(git rev-list --count "$BASE_SHA..$HEAD_SHA")
+            if [[ "$count" == "0" ]]; then
+              echo "No introduced commits to lint."
+            else
+              npm run commitlint -- --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+            fi
           fi
 
       - name: Check
