@@ -767,12 +767,17 @@ export async function chatView(
   const onOpen = view.onOpen.bind(view);
   const onClose = view.onClose.bind(view);
   view.onOpen = async () => {
+    view.load();
     tracked.opened = true;
     await onOpen();
   };
   view.onClose = async () => {
     tracked.opened = false;
-    await onClose();
+    try {
+      await onClose();
+    } finally {
+      view.unload();
+    }
   };
   createdViews.push(tracked);
   return view;

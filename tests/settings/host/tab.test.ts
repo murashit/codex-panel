@@ -143,45 +143,6 @@ describe("settings tab", () => {
     expect(client.request).toHaveBeenCalledWith("thread/unarchive", { threadId: "thread-archived" });
   });
 
-  it("preserves an active declarative text island while dynamic sections refresh", async () => {
-    const client = settingsClient();
-    useContextClients(client);
-    const tab = newSettingsTab();
-    const executable = declarativeDefinitionByName(tab.getSettingDefinitions(), "Codex executable");
-    if (!executable?.render) throw new Error("Missing declarative Codex executable renderer");
-    const container = document.createElement("div");
-
-    executable.render(new Setting(container), {} as never);
-    const input = container.querySelector("input");
-    if (!input) throw new Error("Missing declarative Codex executable input");
-    input.focus();
-    input.value = "/draft/codex";
-
-    await flushPromises();
-
-    expect(container.querySelector<HTMLInputElement>("input")?.value).toBe("/draft/codex");
-  });
-
-  it("rolls back a declarative text island after publication fails", async () => {
-    const client = settingsClient();
-    useContextClients(client);
-    const tab = newSettingsTab({ saveSettings: vi.fn().mockRejectedValue(new Error("disk full")) });
-    const executable = declarativeDefinitionByName(tab.getSettingDefinitions(), "Codex executable");
-    if (!executable?.render) throw new Error("Missing declarative Codex executable renderer");
-    const container = document.createElement("div");
-
-    executable.render(new Setting(container), {} as never);
-    const input = container.querySelector("input");
-    if (!input) throw new Error("Missing declarative Codex executable input");
-    input.value = "/failed/codex";
-    input.dispatchEvent(new Event("blur"));
-
-    await flushPromises();
-
-    expect(container.querySelector("input")?.value).toBe(DEFAULT_SETTINGS.codexPath);
-    expect(notices).toContain("Could not apply Codex Panel settings: disk full");
-  });
-
   it("auto-loads dynamic sections once and keeps one global refresh button", async () => {
     const client = settingsClient();
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
@@ -342,6 +303,99 @@ describe("settings tab", () => {
     expect(selectForSetting(tab, "Send shortcut")?.value).toBe("mod-enter");
     expect(inputForSetting(tab, "Reference active file on send")?.checked).toBe(false);
     expect(notices).toContain("Could not apply Codex Panel settings: disk full");
+  });
+
+  it.each([
+    { name: "Show chat toolbar", index: 0, original: true, edited: false },
+    { name: "Send shortcut", index: 0, original: "enter", edited: "mod-enter" },
+    { name: "Automatic thread naming", index: 0, original: "gpt-5.4", edited: "gpt-5.5" },
+    { name: "Automatic thread naming", index: 1, original: "medium", edited: "high" },
+    { name: "Selection rewrite", index: 0, original: "gpt-5.4", edited: "gpt-5.5" },
+    { name: "Selection rewrite", index: 1, original: "medium", edited: "high" },
+    { name: "Codex executable", index: 0, original: DEFAULT_SETTINGS.codexPath, edited: "/retry/codex" },
+  ])("restores $name control $index after a failed save and allows retry", async ({ name, index, original, edited }) => {
+    useContextClients(settingsClient());
+    const saveSettings = vi.fn().mockRejectedValueOnce(new Error("disk full")).mockResolvedValueOnce(undefined);
+    const tab = newSettingsTab({
+      saveSettings,
+      modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-5.4", false, false, ["medium", "high"]), model("gpt-5.5")]),
+      settings: {
+        threadNamingModel: "gpt-5.4",
+        threadNamingEffort: "medium",
+        rewriteSelectionModel: "gpt-5.4",
+        rewriteSelectionEffort: "medium",
+      },
+    });
+    const control = () => {
+      const element = settingElement(tab, name)?.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")[index];
+      if (!element) throw new Error(`Missing ${name} control`);
+      return element;
+    };
+    const selectValue = () => {
+      const element = control();
+      if (typeof edited === "boolean" && element instanceof HTMLInputElement) element.checked = edited;
+      else element.value = String(edited);
+      element.dispatchEvent(new Event(name === "Codex executable" ? "blur" : "change"));
+    };
+    const displayedValue = () => {
+      const element = control();
+      return typeof original === "boolean" && element instanceof HTMLInputElement ? element.checked : element.value;
+    };
+    tab.display();
+    try {
+      await flushPromises();
+      expect(displayedValue()).toBe(original);
+      selectValue();
+      await flushPromises();
+
+      expect(displayedValue()).toBe(original);
+      expect(notices).toContain("Could not apply Codex Panel settings: disk full");
+
+      selectValue();
+      await flushPromises();
+
+      expect(displayedValue()).toBe(edited);
+      expect(saveSettings).toHaveBeenCalledTimes(2);
+    } finally {
+      tab.hide();
+    }
+  });
+
+  it("keeps a pending preference edit while model metadata finishes loading", async () => {
+    useContextClients(settingsClient());
+    const models = deferred<ReturnType<typeof modelMetadataFromCatalogModels>>();
+    const save = deferred<void>();
+    const fetchModels = vi.fn(() => models.promise);
+    const saveSettings = vi.fn(() => save.promise);
+    const tab = newSettingsTab({ fetchModels, saveSettings });
+    tab.display();
+    try {
+      await flushPromises();
+      expect(fetchModels).toHaveBeenCalledOnce();
+      const toggle = inputForSetting(tab, "Show chat toolbar");
+      if (!toggle) throw new Error("Missing toolbar toggle");
+      toggle.checked = false;
+      toggle.dispatchEvent(new Event("change"));
+      await flushPromises();
+      expect(saveSettings).toHaveBeenCalledOnce();
+
+      models.resolve(modelMetadataFromCatalogModels([model("gpt-5.5")]));
+      await flushPromises();
+
+      expect(toggle.checked).toBe(false);
+      expect(tab.getControlValue("showToolbar")).toBe(true);
+
+      save.resolve(undefined);
+      await flushPromises();
+
+      expect(toggle.checked).toBe(false);
+      expect(tab.getControlValue("showToolbar")).toBe(false);
+    } finally {
+      save.resolve(undefined);
+      models.resolve([]);
+      await flushPromises();
+      tab.hide();
+    }
   });
 
   it("restores default archive export templates when cleared", async () => {

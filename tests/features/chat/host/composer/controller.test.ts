@@ -30,7 +30,7 @@ import { ComposerShell } from "../../../../../src/features/chat/ui/composer/comp
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
-import { testFuzzyMatcher } from "../../application/composer/fuzzy-matcher.test-support";
+import { substringMatcher } from "../../application/composer/fuzzy-matcher.test-support";
 import { chatSharedResourcesFixture } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -105,7 +105,7 @@ function defaultComposerAttachmentOptions(): Pick<
 > {
   return {
     attachmentHandler: { saveFiles: async () => attachmentSaveResult([]) },
-    fuzzyMatcher: testFuzzyMatcher,
+    fuzzyMatcher: substringMatcher,
     onAttachmentError: vi.fn(),
     sharedResources: sharedResourcesFixture(),
   };

@@ -12,7 +12,7 @@ import {
   composerSuggestionSignature,
   nextComposerSuggestionIndex,
 } from "../../../../../src/features/chat/host/composer/element.dom";
-import { testFuzzyMatcher } from "./fuzzy-matcher.test-support";
+import { substringMatcher } from "./fuzzy-matcher.test-support";
 
 type ActiveComposerSuggestionsArguments = Parameters<typeof activeComposerSuggestionsWithMatcher>;
 
@@ -27,7 +27,7 @@ function activeComposerSuggestions(
 ): ReturnType<typeof activeComposerSuggestionsWithMatcher> {
   return activeComposerSuggestionsWithMatcher(beforeCursor, () => notes, skills, threads, models, currentModel, {
     ...options,
-    fuzzyMatcher: testFuzzyMatcher,
+    fuzzyMatcher: substringMatcher,
   });
 }
 
@@ -115,14 +115,14 @@ describe("composer suggestions", () => {
     },
   ];
 
-  it("ranks wikilinks with Obsidian fuzzy search and uses Obsidian linktext", () => {
+  it("uses matching candidates and preserves host-provided linktext", () => {
     const suggestions = wikiLinkSuggestions("alp", notes);
     expect(suggestions[0]).toMatchObject({
       display: "Alpha",
       detail: "projects/Alpha.md",
       replacement: "[[projects/Alpha]]",
     });
-    expect(wikiLinkSuggestions("btnt", notes)[0]).toMatchObject({
+    expect(wikiLinkSuggestions("beta", notes)[0]).toMatchObject({
       display: "Beta Note",
       replacement: "[[Beta Note]]",
     });
@@ -131,7 +131,7 @@ describe("composer suggestions", () => {
   it("loads notes only for open wikilinks and preserves empty wikilink precedence", () => {
     const loadNotes = vi.fn(() => notes);
     const suggest = (text: string) =>
-      activeComposerSuggestionsWithMatcher(text, loadNotes, [], [], [], null, { fuzzyMatcher: testFuzzyMatcher });
+      activeComposerSuggestionsWithMatcher(text, loadNotes, [], [], [], null, { fuzzyMatcher: substringMatcher });
     for (const text of ["plain text", "/pla", "@active", "#tag", "[[Alpha]]", "[[line\nbreak"]) suggest(text);
     expect(loadNotes).not.toHaveBeenCalled();
     expect(suggest("[[alp")[0]?.replacement).toBe("[[projects/Alpha]]");

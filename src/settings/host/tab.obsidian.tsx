@@ -36,7 +36,7 @@ import type { SettingsTabHost } from "./contracts";
 export class CodexPanelSettingTab extends PluginSettingTab {
   private readonly resources: SettingsResourcesController;
   private displayed = false;
-  private renderRevision = 0;
+  private settingsRefreshNeeded = false;
   private settingsMutationQueue: Promise<void> = Promise.resolve();
   private archivedDeleteConfirmThreadId: string | null = null;
   private disposeOutsidePointer: (() => void) | null = null;
@@ -322,7 +322,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       render: (setting) =>
         this.renderDeclarativeControl(setting, () => (
           <ObsidianCommitTextInput
-            key={this.renderRevision}
             value={options.value()}
             placeholder={options.placeholder}
             normalizeValue={options.normalizeValue}
@@ -411,7 +410,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           if (this.displayed) this.resources.maybeAutoLoad();
         }
       } catch (error) {
-        this.renderRevision += 1;
+        this.settingsRefreshNeeded = true;
         new Notice(`Could not apply Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);
         return;
       }
@@ -419,7 +418,15 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     const settledOperation = operation.catch(() => undefined);
     this.settingsMutationQueue = settledOperation;
     void settledOperation.then(() => {
-      if (this.settingsMutationQueue === settledOperation) this.requestRender();
+      if (this.settingsMutationQueue !== settledOperation) return;
+      if (this.settingsRefreshNeeded) {
+        this.settingsRefreshNeeded = false;
+        // Native controls keep their edited value after a failed save. Rebuild
+        // from committed preferences only after later queued edits have settled.
+        if (this.displayed) this.update();
+      } else {
+        this.requestRender();
+      }
     });
     return operation;
   }

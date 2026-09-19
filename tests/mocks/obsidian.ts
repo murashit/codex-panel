@@ -54,43 +54,16 @@ export class Notice {
   }
 }
 
-export function htmlToMarkdown(html: string | HTMLElement | Document | DocumentFragment): string {
-  return typeof html === "string" ? html : "";
+export function htmlToMarkdown(_html: string | HTMLElement | Document | DocumentFragment): string {
+  throw new Error("Stub obsidian.htmlToMarkdown explicitly for this test.");
 }
 
 export async function requestUrl(_request: unknown): Promise<{ status: number; text: string }> {
-  return { status: 200, text: "" };
+  throw new Error("Stub obsidian.requestUrl explicitly for this test.");
 }
 
-export function prepareFuzzySearch(query: string): (text: string) => { score: number; matches: unknown[] } | null {
-  const normalizedQuery = query.toLowerCase();
-  return (text: string) => {
-    const normalizedText = text.toLowerCase();
-    if (normalizedQuery.length === 0) return { score: 0, matches: [] };
-
-    const startsAt = normalizedText.indexOf(normalizedQuery);
-    if (startsAt !== -1) {
-      return { score: 10_000 - startsAt * 10 - normalizedText.length, matches: [[startsAt, startsAt + normalizedQuery.length]] };
-    }
-
-    let textIndex = 0;
-    let firstMatch = -1;
-    let lastMatch = -1;
-    for (const char of normalizedQuery) {
-      const foundAt = normalizedText.indexOf(char, textIndex);
-      if (foundAt === -1) return null;
-      if (firstMatch === -1) firstMatch = foundAt;
-      lastMatch = foundAt;
-      textIndex = foundAt + 1;
-    }
-
-    const spread = lastMatch - firstMatch;
-    return { score: 5_000 - firstMatch * 10 - spread - normalizedText.length, matches: [] };
-  };
-}
-
-export function sortSearchResults(results: { match: { score: number } }[]): void {
-  results.sort((a, b) => b.match.score - a.match.score);
+export function prepareFuzzySearch(_query: string): (text: string) => { score: number; matches: unknown[] } | null {
+  throw new Error("Stub obsidian.prepareFuzzySearch explicitly or inject a FuzzyMatcher.");
 }
 
 export function stripHeadingForLink(heading: string): string {
@@ -327,6 +300,10 @@ export class PluginSettingTab {
     renderSettingDefinitions(this, this.containerEl, definitions, this.settingCleanups);
   }
 
+  update(): void {
+    this.display();
+  }
+
   hide(): void {
     this.clearSettings();
   }
@@ -380,10 +357,9 @@ function renderSettingDefinitions(
     };
     if (definition.control.type === "toggle") {
       setting.addToggle((toggle) => {
-        toggle.setValue(host.getControlValue(definition.control?.key ?? "") === true).onChange(async (value) => {
+        toggle.setValue(host.getControlValue(definition.control?.key ?? "") === true).onChange((value) => {
           const key = definition.control?.key ?? "";
-          await host.setControlValue(key, value);
-          toggle.setValue(host.getControlValue(key) === true);
+          return host.setControlValue(key, value);
         });
       });
       continue;
@@ -392,10 +368,9 @@ function renderSettingDefinitions(
       const control = definition.control;
       if (control?.type !== "dropdown") return;
       for (const [value, label] of Object.entries(control.options)) dropdown.addOption(value, label);
-      dropdown.setValue(String(host.getControlValue(control.key) ?? control.defaultValue ?? "")).onChange(async (value) => {
-        await host.setControlValue(control.key, value);
-        dropdown.setValue(String(host.getControlValue(control.key) ?? control.defaultValue ?? ""));
-      });
+      dropdown
+        .setValue(String(host.getControlValue(control.key) ?? control.defaultValue ?? ""))
+        .onChange((value) => host.setControlValue(control.key, value));
     });
   }
 }
