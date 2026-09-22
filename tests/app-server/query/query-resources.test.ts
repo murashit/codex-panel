@@ -211,33 +211,6 @@ describe("app-server query resources", () => {
     unsubscribe();
   });
 
-  it("settles an initial tool inventory read only after notification revalidation finishes", async () => {
-    const stale = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
-    const fresh = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
-    const mcpServers = vi.fn().mockReturnValueOnce(stale.promise).mockReturnValueOnce(fresh.promise);
-    const cache = cacheWithRequestHandlers({
-      "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
-      "mcpServerStatus/list": mcpServers,
-    });
-    const ensuring = cache.toolInventoryQueries.ensure("thread");
-    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledOnce());
-
-    cache.toolInventoryQueries.handleMcpOauthLoginCompleted("thread");
-    let settled = false;
-    void ensuring.then(() => {
-      settled = true;
-    });
-    await Promise.resolve();
-    expect(settled).toBe(false);
-
-    stale.resolve({ data: [mcpStatus("old")], nextCursor: null });
-    await vi.waitFor(() => expect(mcpServers).toHaveBeenCalledTimes(2));
-    fresh.resolve({ data: [mcpStatus("new")], nextCursor: null });
-    await expect(ensuring).resolves.toMatchObject({ mcpServers: [{ name: "new" }] });
-    expect(settled).toBe(true);
-    expect(cache.toolInventoryQueries.snapshot("thread")?.mcpServers?.map((server) => server.name)).toEqual(["new"]);
-  });
-
   it("settles consecutive notification revalidations before publishing tool inventory", async () => {
     const stale = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
     const intermediate = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
@@ -269,6 +242,7 @@ describe("app-server query resources", () => {
 
     finalRefresh.resolve({ data: [mcpStatus("final")], nextCursor: null });
     await expect(ensuring).resolves.toMatchObject({ mcpServers: [{ name: "final" }] });
+    expect(cache.toolInventoryQueries.snapshot("thread")?.mcpServers?.map((server) => server.name)).toEqual(["final"]);
   });
 
   it("keeps MCP startup diagnostics in the thread-scoped query until a successful refresh", async () => {
@@ -773,19 +747,6 @@ describe("app-server query resources", () => {
     expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(true);
   });
 
-  it("refreshes the complete thread-picker inventory for each operation", async () => {
-    const listThreads = vi
-      .fn()
-      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: null })
-      .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
-    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
-
-    await expect(cache.threadCatalog.fetchActiveThreadSearchInventory()).resolves.toEqual([thread("first")]);
-    await expect(cache.threadCatalog.fetchActiveThreadSearchInventory()).resolves.toEqual([thread("second")]);
-
-    expect(listThreads).toHaveBeenCalledTimes(2);
-  });
-
   it("treats a thread-picker inventory as an operation-local snapshot", async () => {
     const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
     const listThreads = vi
@@ -793,7 +754,7 @@ describe("app-server query resources", () => {
       .mockResolvedValueOnce({ data: [thread("cached")], nextCursor: null })
       .mockImplementationOnce(() => staleRead.promise);
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
-    await cache.threadCatalog.fetchActiveThreadSearchInventory();
+    await expect(cache.threadCatalog.fetchActiveThreadSearchInventory()).resolves.toEqual([thread("cached")]);
 
     const inventory = cache.threadCatalog.fetchActiveThreadSearchInventory();
     await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
@@ -1029,7 +990,7 @@ describe("app-server query resources", () => {
     unsubscribe();
   });
 
-  it("deduplicates metadata resource RPCs across concurrent full refreshes", async () => {
+  it("deduplicates metadata resource RPCs across concurrent full refreshes and model reads", async () => {
     const config = deferred<Record<string, never>>();
     const models = deferred<{ data: CatalogModel[] }>();
     const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
@@ -1047,14 +1008,19 @@ describe("app-server query resources", () => {
     const first = cache.metadataQueries.refreshAppServerMetadata();
     const second = cache.metadataQueries.refreshAppServerMetadata();
     await flushMicrotasks();
+    const modelsRead = cache.metadataQueries.fetchModels();
+    await flushMicrotasks();
 
     for (const handler of Object.values(handlers)) expect(handler).toHaveBeenCalledOnce();
     config.resolve({});
-    models.resolve({ data: [] });
+    models.resolve({ data: [catalogModel("gpt-shared")] });
     skills.resolve({ data: [{ skills: [] }] });
     profiles.resolve({ data: [], nextCursor: null });
     limits.resolve({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null });
     await Promise.all([first, second]);
+    await expect(modelsRead).resolves.toMatchObject([{ model: "gpt-shared" }]);
+    expect(handlers["model/list"]).toHaveBeenCalledOnce();
+    expect(cache.metadataQueries.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-shared"]);
   });
 
   it("revalidates an in-flight skills read after a context notification", async () => {
@@ -1124,32 +1090,6 @@ describe("app-server query resources", () => {
 
     expect(cache.metadataQueries.metadataSnapshot("runtimeConfig")).not.toBeNull();
     expect(cache.metadataQueries.metadataSnapshot("skills")?.map((skill) => skill.name)).toEqual(["new"]);
-  });
-
-  it("shares in-flight model fetches between metadata and models queries", async () => {
-    const modelRefresh = deferred<{ data: CatalogModel[] }>();
-    const listModels = vi.fn(() => modelRefresh.promise);
-    const cache = cacheWithRequestHandlers({
-      "config/read": vi.fn().mockResolvedValue({}),
-      "model/list": listModels,
-      "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
-      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
-    });
-
-    const metadataPromise = cache.metadataQueries.refreshAppServerMetadata();
-    await flushMicrotasks();
-    const modelsPromise = cache.metadataQueries.fetchModels();
-    await flushMicrotasks();
-
-    expect(listModels).toHaveBeenCalledOnce();
-
-    modelRefresh.resolve({ data: [catalogModel("gpt-shared")] });
-
-    await expect(modelsPromise).resolves.toMatchObject([{ model: "gpt-shared" }]);
-    await expect(metadataPromise).resolves.toBeUndefined();
-    expect(listModels).toHaveBeenCalledOnce();
-    expect(cache.metadataQueries.metadataSnapshot("models")?.map((model) => model.model)).toEqual(["gpt-shared"]);
   });
 
   it("keeps every last-known-good resource through the full metadata refresh path", async () => {

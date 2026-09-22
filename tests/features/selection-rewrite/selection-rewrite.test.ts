@@ -310,25 +310,6 @@ describe("selection rewrite app-server port", () => {
 });
 
 describe("selection rewrite popover", () => {
-  it("enables Generate only after the instruction has content", () => {
-    const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
-
-    openPopover(popover);
-
-    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
-    const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
-    expect(generate.disabled).toBe(true);
-
-    void act(() => {
-      setTextareaValue(instruction, "Make it concise.");
-      instruction.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-
-    expect(generate.disabled).toBe(false);
-
-    closePopover(popover);
-  });
-
   it("renders header-like selection content as edits and applies the original replacement", () => {
     const editor = editorFixture({ currentText: "---" });
     const popover = new SelectionRewritePopover(
@@ -361,10 +342,14 @@ describe("selection rewrite popover", () => {
 
     openPopover(popover);
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
+    expect(generate.disabled).toBe(true);
     void act(() => {
       setTextareaValue(instruction, "Make it concise.");
       instruction.dispatchEvent(new Event("input", { bubbles: true }));
     });
+
+    expect(generate.disabled).toBe(false);
 
     await act(async () => {
       instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));

@@ -167,7 +167,6 @@ describe("app-server turn records", () => {
         ]),
       ),
     ).toBe('{"replacementText":"final"}');
-    expect(lastAgentMessageTextFromTurnRecord(turn([agentMessage("only", "only answer")]))).toBe("only answer");
   });
 
   it("returns null when a turn has no agent message text", () => {

@@ -51,22 +51,6 @@ describe("ThreadRenameEditorActions", () => {
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("applies generated rename drafts and clears the generating state", async () => {
-    const context = { userRequest: "Please name this.", assistantResponse: "Done." };
-    const resolveThreadTitleContext = vi.fn().mockResolvedValue(context);
-    const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
-    const { actions, stateStore } = actionsFixture({ resolveThreadTitleContext, generateThreadTitle });
-
-    actions.start("thread");
-    await flushPromises();
-    await actions.autoNameDraft("thread");
-
-    expect(generateThreadTitle).toHaveBeenCalledOnce();
-    expect(generateThreadTitle).toHaveBeenCalledWith(context, expect.any(AbortSignal));
-    expect(resolveThreadTitleContext).toHaveBeenCalledOnce();
-    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Generated title", kind: "editing" });
-  });
-
   it("returns to editing and ignores a generated title after auto-name cancellation", async () => {
     const generatedTitle = deferred<string>();
     let generationSignal: AbortSignal | undefined;
@@ -267,9 +251,8 @@ describe("ThreadRenameEditorActions", () => {
 
   it("ignores draft updates while auto-name generation is active", async () => {
     const generatedTitle = deferred<string>();
-    const { actions, stateStore } = actionsFixture({
-      generateThreadTitle: vi.fn(() => generatedTitle.promise),
-    });
+    const generateThreadTitle = vi.fn(() => generatedTitle.promise);
+    const { actions, stateStore } = actionsFixture({ generateThreadTitle });
 
     actions.start("thread");
     await flushPromises();
@@ -278,6 +261,10 @@ describe("ThreadRenameEditorActions", () => {
 
     expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "generating" });
 
+    expect(generateThreadTitle).toHaveBeenCalledWith(
+      { userRequest: "Please name this.", assistantResponse: "Done." },
+      expect.any(AbortSignal),
+    );
     actions.updateDraft("thread", "Manual draft");
     expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "generating" });
     generatedTitle.resolve("Generated title");

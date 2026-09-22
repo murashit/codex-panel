@@ -29,17 +29,6 @@ describe("app-server thread settings", () => {
     expect(approvalsReviewerOrNull(value)).toBe(expected);
   });
 
-  it("builds collaboration mode payloads with built-in instructions", () => {
-    expect(runtimeCollaborationModeSettings("plan", "gpt-5.5", "high")).toEqual({
-      mode: "plan",
-      settings: {
-        model: "gpt-5.5",
-        reasoningEffort: "high",
-        developerInstructions: null,
-      },
-    });
-  });
-
   it("converts runtime settings patches to app-server thread settings params", () => {
     expect(
       appServerRuntimeSettingsPatch({

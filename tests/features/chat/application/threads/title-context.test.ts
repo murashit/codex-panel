@@ -34,26 +34,7 @@ describe("chat thread title context", () => {
       assistantResponse: "Summary answer",
     });
     expect(completedTurnTitleContext("turn", [], null)).toBeNull();
-  });
-
-  it("extracts title context from streamed thread stream items when completed turn items are not loaded", () => {
-    expect(
-      threadTitleContextFromThreadStreamItems("turn", [
-        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "自動命名を直したい", turnId: "turn" },
-        {
-          id: "a1",
-          kind: "dialogue",
-          role: "assistant",
-          text: "原因を直しました。",
-          turnId: "turn",
-          dialogueKind: "assistantResponse",
-          dialogueState: "completed",
-        },
-      ]),
-    ).toEqual({
-      userRequest: "自動命名を直したい",
-      assistantResponse: "原因を直しました。",
-    });
+    expect(completedTurnTitleContext("turn", [], { userText: "Request", assistantText: null })).toBeNull();
   });
 
   it("uses the first usable displayed turn as a resumed-history fallback", () => {

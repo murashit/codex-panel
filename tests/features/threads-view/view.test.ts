@@ -31,18 +31,6 @@ describe("CodexThreadsView", () => {
     titleRunner.mockRejectedValue(new Error("Unexpected structured turn."));
   });
 
-  it("renders thread list from app-server history", async () => {
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-    });
-    const host = threadsHost();
-    const view = await threadsView(host);
-
-    await view.refresh();
-
-    expect(view.containerEl.textContent).toContain("Thread preview");
-  });
-
   it("ignores stale refresh results after close", async () => {
     let resolveThreads!: (value: unknown) => void;
     const listThreads = vi.fn(
@@ -615,56 +603,6 @@ describe("CodexThreadsView", () => {
     });
   });
 
-  it("replaces the auto-name action with cancellation while generating", async () => {
-    const threadTurnsList = vi.fn().mockResolvedValue({
-      data: [
-        turnFixture([
-          {
-            type: "userMessage",
-            id: "u1",
-            clientId: null,
-            content: [{ type: "text", text: "rename stale handling", text_elements: [] }],
-          },
-          {
-            type: "agentMessage",
-            id: "a1",
-            text: "Handled.",
-            phase: "final_answer",
-            memoryCitation: null,
-            delivery: null,
-            questions: null,
-          },
-        ]),
-      ],
-      nextCursor: null,
-    });
-    const generatedTitle = deferred<string | null>();
-    titleRunner.mockReturnValue(generatedTitle.promise.then(titleTurn));
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/turns/list": threadTurnsList,
-    });
-    const view = await threadsView();
-
-    await view.refresh();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
-    });
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
-
-    await waitForAsyncWork(() => {
-      expect(titleRunner).toHaveBeenCalledOnce();
-      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')).toBeNull();
-      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')).not.toBeNull();
-    });
-
-    generatedTitle.resolve("Generated title");
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Generated title");
-    });
-  });
-
   it("does not remount the threads view when auto-name finishes after close", async () => {
     const generatedTitle = deferred<string | null>();
     titleRunner.mockReturnValue(generatedTitle.promise.then(titleTurn));
@@ -741,6 +679,8 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     await waitForAsyncWork(() => {
       expect(titleRunner).toHaveBeenCalledOnce();
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')).toBeNull();
+      expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')).not.toBeNull();
     });
 
     const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");

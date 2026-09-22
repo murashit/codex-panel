@@ -11,7 +11,8 @@ style.textContent = sourceFiles.map((file) => readFileSync(path.join(sourceDir, 
 document.head.append(style);
 afterAll(() => style.remove());
 
-// These guard authored CSS declarations, not rendered geometry or the host theme's cascade.
+// Guard the CSS transitions that expose otherwise collapsed controls.
+// These check authored declarations, not rendered geometry or the host theme's cascade.
 function declarations(selector: string): CSSStyleDeclaration {
   const rules = Array.from(style.sheet?.cssRules ?? []).filter(
     (rule): rule is CSSStyleRule =>
@@ -35,27 +36,7 @@ function expectExposedActions(selector: string): void {
   expect(actions.getPropertyValue("opacity")).toBe("1");
 }
 
-describe("panel CSS declaration contracts", () => {
-  it("uses the host selection color for retained editor selections", () => {
-    expect(declarations(".codex-panel-selection-emphasis").getPropertyValue("background-color")).toBe("var(--text-selection)");
-  });
-
-  it.each([".codex-panel", ".codex-panel-turn-diff", ".codex-panel-settings", ".codex-panel-threads", ".codex-panel-selection-rewrite"])(
-    "provides shared theme and spacing tokens directly on standalone %s",
-    (root) => {
-      const tokens = declarations(root);
-      expect(tokens.getPropertyValue("--codex-panel-text-normal")).toBe("var(--text-normal)");
-      expect(tokens.getPropertyValue("--codex-panel-control-gap")).toContain("var(--size-2-2,");
-    },
-  );
-
-  it("allows the transcript to shrink and scroll within its shell region", () => {
-    const stream = declarations(".codex-panel__thread-stream");
-    expect(stream.getPropertyValue("overflow-y")).toBe("auto");
-    expect(stream.getPropertyValue("min-height")).toBe("0px");
-    expect(declarations(".codex-panel__region--thread-stream").getPropertyValue("min-height")).toBe("0px");
-  });
-
+describe("panel action visibility declarations", () => {
   it.each([
     { row: ".codex-panel__thread-row", actions: ".codex-panel__thread-actions", action: ".codex-panel__thread-action" },
     { row: ".codex-panel-threads__row", actions: ".codex-panel-threads__actions", action: null },

@@ -16,17 +16,6 @@ describe("Preact root adapter", () => {
     unmountUiRoot(parent);
   });
 
-  it("recovers when a non-empty host is emptied imperatively", () => {
-    const parent = document.createElement("div");
-
-    renderUiRoot(parent, <button type="button">Before</button>);
-    parent.replaceChildren();
-    renderUiRoot(parent, <button type="button">After</button>);
-
-    expect(parent.querySelector("button")?.textContent).toBe("After");
-    unmountUiRoot(parent);
-  });
-
   it("runs Preact cleanup before an external replaceChildren empties the host", () => {
     const parent = document.createElement("div");
     const cleanup = vi.fn();

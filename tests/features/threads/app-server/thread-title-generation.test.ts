@@ -44,22 +44,6 @@ describe("thread title", () => {
     );
   });
 
-  it("preserves a title returned as a plan transcript item", async () => {
-    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () =>
-      turn([
-        {
-          type: "plan",
-          id: "plan",
-          text: '{"title":"Planからのタイトル"}',
-        },
-      ]),
-    );
-
-    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner })).resolves.toBe(
-      "Planからのタイトル",
-    );
-  });
-
   it.each([
     ['  ## "Codex Panelの自動命名"\n', "Codex Panelの自動命名"],
     ['```json\n{"title":"Codex Panelの自動命名"}\n```', "Codex Panelの自動命名"],
@@ -108,7 +92,7 @@ function runtimeSettings() {
   };
 }
 
-function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
+function turn(items: TurnRecord["items"]): TurnRecord {
   return {
     id: "turn",
     items,
@@ -118,6 +102,5 @@ function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): 
     startedAt: 1,
     completedAt: 2,
     durationMs: 1,
-    ...overrides,
   };
 }

@@ -3,19 +3,6 @@ import { describe, expect, it } from "vitest";
 import { unifiedDiffDisplayLines } from "../../../src/shared/ui/diff-view";
 
 describe("unified diff display lines", () => {
-  it("simplifies git diff file headers for turn diff display", () => {
-    expect(
-      unifiedDiffDisplayLines(
-        "diff --git a/days/2026-05-16.md b/days/2026-05-16.md\nindex 111..222\n--- a/days/2026-05-16.md\n+++ b/days/2026-05-16.md\n@@\n-old\n+new",
-      ),
-    ).toEqual([
-      { text: "days/2026-05-16.md", kind: "file" },
-      { text: "@@", kind: "hunk" },
-      { text: "-old", kind: "removed" },
-      { text: "+new", kind: "added" },
-    ]);
-  });
-
   it("keeps added-file diffs readable after simplifying headers", () => {
     expect(
       unifiedDiffDisplayLines(

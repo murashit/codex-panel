@@ -190,18 +190,6 @@ describe("runtime control resolution", () => {
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
   });
 
-  it("uses active service tier before configured service tier", () => {
-    const snapshot = runtimeSnapshot({
-      activeThreadId: "thread",
-      active: { serviceTier: "flex" },
-      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
-    });
-    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
-
-    expect(resolution.serviceTier).toMatchObject({ effective: "flex", source: "active-thread" });
-    expect(resolution.fastMode).toMatchObject({ active: false, source: "active-thread", effectiveServiceTier: "flex" });
-  });
-
   it("treats the catalog Fast service tier id as fast mode while preserving the id", () => {
     const model = {
       ...modelFixture("gpt-5.5"),
@@ -330,6 +318,7 @@ describe("runtime control resolution", () => {
       approvalPolicy: { effective: "never", source: "active-thread" },
       approvalsReviewer: { effective: "user", source: "active-thread" },
       serviceTier: { effective: "flex", source: "active-thread" },
+      fastMode: { active: false, source: "active-thread", effectiveServiceTier: "flex" },
     });
     expect(resolveRuntimeControls(pending, snapshotConfig(pending))).toMatchObject({
       model: { confirmed: "gpt-active", confirmedSource: "active-thread", effective: "gpt-pending", source: "pending" },

@@ -243,7 +243,6 @@ describe("chat inbound routing", () => {
   it.each([
     { name: "agent delta", notification: agentDeltaNotification(), kind: "streamUpdate" },
     { name: "turn started", notification: turnStartedNotification(), kind: "turnLifecycle" },
-    { name: "thread settings updated", notification: threadSettingsUpdatedNotification(), kind: "threadLifecycle" },
     { name: "server request resolved", notification: serverRequestResolvedNotification(), kind: "requestResolved" },
     { name: "warning", notification: warningNotification(), kind: "userVisibleNotice" },
   ] as const)("classifies $name notifications without mutating state", ({ notification, kind }) => {

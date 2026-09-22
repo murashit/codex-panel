@@ -58,20 +58,6 @@ function legacyProjection(text: string) {
 }
 
 describe("legacy Codex Panel user-message compatibility", () => {
-  it("extracts display text and metadata from a v1 /refer envelope", () => {
-    const prompt = referencedThreadV1Fixture(thread(), [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
-
-    expect(legacyProjection(prompt)).toMatchObject({
-      text: "この続きです",
-      referencedThread: {
-        threadId: "019abcde-0000-7000-8000-000000000001",
-        title: "参照元",
-        includedTurns: 1,
-        turnLimit: 20,
-      },
-    });
-  });
-
   it("rejects malformed, unsupported, and pre-v1 /refer envelopes", () => {
     const envelope = (header: string, metadata: string) =>
       [

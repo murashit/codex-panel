@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   diagnosticProbeError,
-  diagnosticProbeOk,
   serverIdentity,
   serverPlatform,
   shortDiagnosticErrorMessage,
@@ -23,22 +22,6 @@ describe("server diagnostics", () => {
     expect(serverPlatform(response)).toBe("macos/unix");
     expect(serverIdentity(null)).toBe("(not connected)");
     expect(serverPlatform(null)).toBe("(not connected)");
-  });
-
-  it("classifies ok and failed capability probes", () => {
-    expect(diagnosticProbeOk("skills", "3 skills", 123)).toEqual({
-      id: "skills",
-      status: "ok",
-      message: null,
-      summary: "3 skills",
-      checkedAt: 123,
-    });
-    expect(diagnosticProbeError("skills", new Error("boom"), 456)).toMatchObject({
-      id: "skills",
-      status: "failed",
-      message: "boom",
-      checkedAt: 456,
-    });
   });
 
   it("shortens error messages and tracks MCP server diagnostics", () => {

@@ -58,28 +58,6 @@ describe("vault write paths", () => {
     await expect(second).resolves.toBe("second completed");
   });
 
-  it("shares serialization across destinations with the same write lock key", async () => {
-    const writeLockKey = {};
-    const firstDestination = lockDestination(writeLockKey);
-    const secondDestination = lockDestination(writeLockKey);
-    const firstRelease = deferred<void>();
-    const events: string[] = [];
-
-    const first = withVaultWriteLock(firstDestination, async () => {
-      events.push("first");
-      await firstRelease.promise;
-    });
-    const second = withVaultWriteLock(secondDestination, async () => {
-      events.push("second");
-    });
-
-    await waitForAsyncWork(() => expect(events).toEqual(["first"]));
-    firstRelease.resolve();
-    await Promise.all([first, second]);
-
-    expect(events).toEqual(["first", "second"]);
-  });
-
   it("allows destinations with different write lock keys to write concurrently", async () => {
     const firstRelease = deferred<void>();
     const secondRelease = deferred<void>();

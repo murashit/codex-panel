@@ -34,7 +34,7 @@ describe("CodexChatView thread state", () => {
     expect(requestSaveLayout).toHaveBeenCalledTimes(1);
   });
 
-  it("does not persist a temporary subagent panel target", async () => {
+  it("does not persist a subagent target before or after disconnection", async () => {
     const client = connectedClient({
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("child", { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" })),
     });
@@ -42,18 +42,7 @@ describe("CodexChatView thread state", () => {
     const view = await chatView();
 
     await view.surface.activateThread("child");
-
     expect(view.getState()).toEqual({ version: 1 });
-  });
-
-  it("does not persist a disconnected subagent awaiting resume", async () => {
-    const client = connectedClient({
-      "thread/resume": vi.fn().mockResolvedValue(resumedThread("child", { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" })),
-    });
-    connectionMockState().client = client;
-    const view = await chatView();
-
-    await view.surface.activateThread("child");
     connectionMockState().onExit?.();
 
     expect(view.getState()).toEqual({ version: 1 });

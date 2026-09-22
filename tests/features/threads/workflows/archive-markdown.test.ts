@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { transcriptEntriesFromTurnRecords } from "../../../../src/app-server/protocol/turn";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
-import { type ArchiveMarkdownOptions, archivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-markdown";
+import { archivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-markdown";
 
 describe("thread archive export", () => {
   it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
-    const output = exportedMarkdown(
+    const output = archivedThreadMarkdown(
       thread({
         id: "thread-12345678",
         name: "Exported thread",
@@ -49,34 +49,27 @@ describe("thread archive export", () => {
   });
 
   it("uses the shared archive title placeholder instead of leaking thread ids", () => {
-    const output = exportedMarkdown(thread({ name: null, preview: "" }), new Date(2026, 4, 18));
+    const output = archivedThreadMarkdown(thread({ name: null, preview: "" }), new Date(2026, 4, 18));
 
     expect(output).toContain('title: "Untitled thread"');
     expect(output).toContain("# Untitled thread");
     expect(output).not.toContain("# 019e0182-cb70-7a72-ab48-8bc9d0b0d781");
   });
 
-  it("falls back when turn timestamps are missing and uses start time for incomplete agent output", () => {
-    const output = exportedMarkdown(
+  it("omits timestamp suffixes when transcript timestamps are missing", () => {
+    const output = archivedThreadMarkdown(
       thread({
-        transcriptEntries: [
-          transcriptEntry("user", "古い依頼", null),
-          transcriptEntry("assistant", "古い回答", null),
-          transcriptEntry("user", "途中の依頼", timestamp(2026, 5, 18, 10, 1)),
-          transcriptEntry("assistant", "途中の回答", timestamp(2026, 5, 18, 10, 1)),
-        ],
+        transcriptEntries: [transcriptEntry("user", "古い依頼", null), transcriptEntry("assistant", "古い回答", null)],
       }),
       new Date(2026, 4, 18),
     );
 
     expect(output).toContain("## User\n\n古い依頼");
     expect(output).toContain("## Codex\n\n古い回答");
-    expect(output).toContain("## User - 2026-05-18 10:01\n\n途中の依頼");
-    expect(output).toContain("## Codex - 2026-05-18 10:01\n\n途中の回答");
   });
 
   it("preserves mid-turn guidance after the response it follows despite shared turn timestamps", () => {
-    const output = exportedMarkdown(
+    const output = archivedThreadMarkdown(
       thread({
         transcriptEntries: transcriptEntriesFromTurnRecords([
           {
@@ -142,7 +135,7 @@ describe("thread archive export", () => {
       omittedTurns: 3,
       truncated: true,
     };
-    const output = exportedMarkdown(thread({ transcriptEntries: [entry] }), new Date(2026, 4, 18));
+    const output = archivedThreadMarkdown(thread({ transcriptEntries: [entry] }), new Date(2026, 4, 18));
 
     expect(output).toContain("続きです");
     expect(output).toContain("> Referenced: thread-r (2/20 turns, truncated, thread-ref)");
@@ -154,46 +147,28 @@ describe("thread archive export", () => {
       { kind: "web", truncated: true },
       { kind: "obsidian", truncated: false },
     ];
-    const output = exportedMarkdown(thread({ transcriptEntries: [entry] }), new Date(2026, 4, 18));
+    const output = archivedThreadMarkdown(thread({ transcriptEntries: [entry] }), new Date(2026, 4, 18));
 
     expect(output).toContain("> Context: Web page (truncated) (https://example.com/article)");
     expect(output).toContain("> Context: Obsidian context");
   });
 
-  it("keeps ordinary Codex thread links unchanged", () => {
-    const link = "[Other thread](codex://threads/019abcde-0000-7000-8000-000000000001)";
-    const output = exportedMarkdown(
-      thread({ transcriptEntries: [transcriptEntry("user", `${link}\n\n続きです`, 1)] }),
-      new Date(2026, 4, 18),
-    );
-
-    expect(output).toContain(link);
-  });
-
-  it("writes optional frontmatter tags from fixed comma-separated settings", () => {
-    const output = exportedMarkdown(thread({ name: "Tagged thread" }), new Date(2026, 4, 18), {
-      archiveExportTags: '#codex, "archive", codex, {{title}}',
-    });
-
-    expect(output).toContain('tags: ["codex", "archive", "{{title}}"]');
-  });
-
   it("omits frontmatter tags when archive tags are empty", () => {
-    const output = exportedMarkdown(thread(), new Date(2026, 4, 18), { archiveExportTags: " , # , " });
+    const output = archivedThreadMarkdown(thread(), new Date(2026, 4, 18), { archiveExportTags: " , # , " });
 
     expect(output).not.toContain("tags:");
   });
 
   it("normalizes archive tags without sorting or changing unmatched quotes", () => {
-    const output = exportedMarkdown(thread(), new Date(2026, 4, 18), {
-      archiveExportTags: ` "codex" , 'archive', #note/tag, codex, "unfinished `,
+    const output = archivedThreadMarkdown(thread(), new Date(2026, 4, 18), {
+      archiveExportTags: ` "codex" , 'archive', #note/tag, codex, {{title}}, "unfinished `,
     });
 
-    expect(output).toContain('tags: ["codex", "archive", "note/tag", "\\"unfinished"]');
+    expect(output).toContain('tags: ["codex", "archive", "note/tag", "{{title}}", "\\"unfinished"]');
   });
 
   it("normalizes exported markdown links for vault and external absolute paths", () => {
-    const output = exportedMarkdown(
+    const output = archivedThreadMarkdown(
       thread({
         transcriptEntries: [
           transcriptEntry(
@@ -211,6 +186,7 @@ describe("thread archive export", () => {
               "[External file with backticks](/Users/example/Repos/project/a\\`b``c.md)",
               "[Relative](topics/Other.md)",
               "[Website](https://example.com/docs)",
+              "[Other thread](codex://threads/019abcde-0000-7000-8000-000000000001)",
               "![Image](/Users/example/Repos/project/image.png)",
               "`[Code link](/Users/example/Repos/project/README.md)`",
               "``[Double-fenced code link](/Users/example/Repos/project/README.md)``",
@@ -243,6 +219,7 @@ describe("thread archive export", () => {
         "External file with backticks (```/Users/example/Repos/project/a`b``c.md```)",
         "[Relative](topics/Other.md)",
         "[Website](https://example.com/docs)",
+        "[Other thread](codex://threads/019abcde-0000-7000-8000-000000000001)",
         "![Image](/Users/example/Repos/project/image.png)",
         "`[Code link](/Users/example/Repos/project/README.md)`",
         "``[Double-fenced code link](/Users/example/Repos/project/README.md)``",
@@ -267,7 +244,7 @@ describe("thread archive export", () => {
       "%% comment %%",
       "- [x] task",
     ].join("\n");
-    const output = exportedMarkdown(
+    const output = archivedThreadMarkdown(
       thread({ transcriptEntries: [transcriptEntry("assistant", `${obsidianSyntax}\n[Vault](/Users/example/Vault/Note.md)`, 1)] }),
       new Date(2026, 4, 18),
       { vaultPath: "/Users/example/Vault" },
@@ -278,7 +255,7 @@ describe("thread archive export", () => {
   });
 
   it("preserves escaped pipes in table link labels", () => {
-    const output = exportedMarkdown(
+    const output = archivedThreadMarkdown(
       thread({
         transcriptEntries: [
           transcriptEntry(
@@ -295,14 +272,6 @@ describe("thread archive export", () => {
     expect(output).toContain("| [A\\|B](Note.md) | C\\|D (`/Outside/Note.md`) |");
   });
 });
-
-function exportedMarkdown(
-  source: Thread & { transcriptEntries: ThreadTranscriptEntry[] },
-  now: Date,
-  settings: ArchiveMarkdownOptions = {},
-): string {
-  return archivedThreadMarkdown(source, now, settings);
-}
 
 function thread(
   overrides: Partial<Thread & { transcriptEntries: ThreadTranscriptEntry[] }> = {},

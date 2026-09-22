@@ -21,7 +21,7 @@ describe("ThreadMutationCommands", () => {
 
     await expect(mutations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
 
-    expect(client?.request).toHaveBeenCalledWith("thread/name/set", { threadId: "thread", name: "Saved title" });
+    expect(client.request).toHaveBeenCalledWith("thread/name/set", { threadId: "thread", name: "Saved title" });
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
@@ -53,8 +53,8 @@ describe("ThreadMutationCommands", () => {
 
     await mutations.setThreadPinned("thread", true);
 
-    expect(client?.request).toHaveBeenCalledWith("threadSection/list", { cursor: null, limit: 100 });
-    expect(client?.request).toHaveBeenCalledWith("thread/section/move", { threadId: "thread", sectionId: "pinned" });
+    expect(client.request).toHaveBeenCalledWith("threadSection/list", { cursor: null, limit: 100 });
+    expect(client.request).toHaveBeenCalledWith("thread/section/move", { threadId: "thread", sectionId: "pinned" });
     expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: true });
   });
 
@@ -63,8 +63,8 @@ describe("ThreadMutationCommands", () => {
 
     await mutations.setThreadPinned("thread", false);
 
-    expect(client?.request).toHaveBeenCalledOnce();
-    expect(client?.request).toHaveBeenCalledWith("thread/section/move", { threadId: "thread", sectionId: null });
+    expect(client.request).toHaveBeenCalledOnce();
+    expect(client.request).toHaveBeenCalledWith("thread/section/move", { threadId: "thread", sectionId: null });
     expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: false });
   });
 
@@ -158,13 +158,13 @@ describe("ThreadMutationCommands", () => {
       exportedPath: "Archive/Archived Thread abcdef12.md",
     });
 
-    expect(client?.request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
-    expect(client?.request).toHaveBeenNthCalledWith(2, "thread/read", { threadId: "thread", includeTurns: true });
+    expect(client.request).toHaveBeenNthCalledWith(1, "thread/read", { threadId: "thread", includeTurns: false });
+    expect(client.request).toHaveBeenNthCalledWith(2, "thread/read", { threadId: "thread", includeTurns: true });
     expect(archiveDestination.createMarkdownFile).toHaveBeenCalledWith(
       "Archive/Archived Thread abcdef12.md",
       expect.stringContaining('thread_id: "abcdef12-9999"'),
     );
-    expect(client?.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
+    expect(client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(callOrder(archiveDestination.createMarkdownFile)).toBeLessThan(requestCallOrder(client, "thread/archive"));
     expect(catalog.apply).not.toHaveBeenCalled();
   });
@@ -260,7 +260,7 @@ describe("ThreadMutationCommands", () => {
 
     await expect(mutations.archiveThread("thread")).resolves.toEqual({ kind: "blocked", reason: "thread-busy", exportedPath: null });
 
-    expect(client?.request).not.toHaveBeenCalled();
+    expect(client.request).not.toHaveBeenCalled();
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
@@ -272,7 +272,7 @@ describe("ThreadMutationCommands", () => {
     busy = true;
 
     await expect(archive).resolves.toEqual({ kind: "blocked", reason: "thread-busy", exportedPath: null });
-    expect(client?.request).not.toHaveBeenCalled();
+    expect(client.request).not.toHaveBeenCalled();
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
@@ -378,16 +378,7 @@ describe("ThreadMutationCommands", () => {
     expect(requestMethods(client)).not.toContain("thread/read");
     expect(archiveExportSettings).not.toHaveBeenCalled();
     expect(archiveDestinationFactory).not.toHaveBeenCalled();
-    expect(client?.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
-  });
-
-  it("does not notify surfaces when an operation has no current client", async () => {
-    const { mutations, catalog } = operationsFixture({ client: null });
-
-    await expect(mutations.renameThread("thread", "Title")).rejects.toThrow("No current client.");
-    await expect(mutations.archiveThread("thread")).rejects.toThrow("No current client.");
-
-    expect(catalog.apply).not.toHaveBeenCalled();
+    expect(client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
   });
 
   it("restores and deletes archived threads through the shared lifecycle owner", async () => {
@@ -396,8 +387,8 @@ describe("ThreadMutationCommands", () => {
     await expect(mutations.restoreThread("thread")).resolves.toMatchObject({ id: "abcdef12-9999", archived: false });
     await expect(mutations.deleteThread("thread")).resolves.toBeUndefined();
 
-    expect(client?.request).toHaveBeenCalledWith("thread/unarchive", { threadId: "thread" });
-    expect(client?.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread" }, {});
+    expect(client.request).toHaveBeenCalledWith("thread/unarchive", { threadId: "thread" });
+    expect(client.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread" }, {});
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 });
@@ -405,12 +396,12 @@ describe("ThreadMutationCommands", () => {
 function operationsFixture(
   options: {
     clientAccess?: AppServerClientAccess;
-    client?: MockClient | null;
+    client?: MockClient;
     referenceThreads?: readonly Thread[];
     threadIsBusy?: (threadId: string) => boolean;
   } = {},
 ) {
-  const client = options.client === undefined ? clientMock() : options.client;
+  const client = options.client ?? clientMock();
   const archiveDestination = archiveDestinationMock();
   const archiveDestinationFactory = vi.fn(() => archiveDestination);
   const archiveExportSettings = vi.fn(() => ({
@@ -429,7 +420,6 @@ function operationsFixture(
     port: createThreadMutationAdapter(
       options.clientAccess ?? {
         withClient: async (operation) => {
-          if (!client) throw new Error("No current client.");
           return operation(client as unknown as AppServerClient);
         },
       },
@@ -503,11 +493,11 @@ function callOrder(fn: ReturnType<typeof vi.fn>): number {
   return fn.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY;
 }
 
-function requestMethods(client: { request: ReturnType<typeof vi.fn> } | null): string[] {
-  return client?.request.mock.calls.map(([method]) => method) ?? [];
+function requestMethods(client: { request: ReturnType<typeof vi.fn> }): string[] {
+  return client.request.mock.calls.map(([method]) => method);
 }
 
-function requestCallOrder(client: { request: ReturnType<typeof vi.fn> } | null, method: string): number {
-  const index = client?.request.mock.calls.findIndex(([calledMethod]) => calledMethod === method) ?? -1;
-  return index === -1 ? Number.POSITIVE_INFINITY : (client?.request.mock.invocationCallOrder[index] ?? Number.POSITIVE_INFINITY);
+function requestCallOrder(client: { request: ReturnType<typeof vi.fn> }, method: string): number {
+  const index = client.request.mock.calls.findIndex(([calledMethod]) => calledMethod === method);
+  return index === -1 ? Number.POSITIVE_INFINITY : (client.request.mock.invocationCallOrder[index] ?? Number.POSITIVE_INFINITY);
 }

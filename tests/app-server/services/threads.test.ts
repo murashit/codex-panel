@@ -244,73 +244,33 @@ describe("app-server thread response adapters", () => {
     await expect(readThreadForArchiveExport(client, "thread")).rejects.toThrow("archive item for unknown turn missing-turn");
   });
 
-  it("maps listed threads to domain threads with archive state", async () => {
-    const clientListThreads = vi.fn().mockResolvedValue({
-      data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20 }],
+  it.each([
+    { archived: true, recency: {} },
+    { archived: false, recency: { recencyAt: 30 } },
+    { archived: true, recency: { recencyAt: null } },
+  ])("maps listed threads with archive and recency state: %j", async ({ archived, recency }) => {
+    const request = vi.fn().mockResolvedValue({
+      data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20, ...recency }],
     });
-    const client = {
-      request: clientListThreads,
-    } as unknown as AppServerRequestClient;
 
-    await expect(listThreads(client, "/vault", { archived: true })).resolves.toEqual([
+    await expect(listThreads({ request }, "/vault", { archived })).resolves.toEqual([
       {
         id: "thread-1",
         preview: "Preview",
         name: null,
-        archived: true,
+        archived,
         createdAt: 10,
         updatedAt: 20,
+        ...recency,
         provenance: { kind: "interactive" },
       },
     ]);
-    expect(clientListThreads).toHaveBeenCalledWith("thread/list", {
+    expect(request).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault",
-      archived: true,
+      archived,
       sortKey: "recency_at",
       sortDirection: "desc",
     });
-  });
-
-  it("preserves app-server recency timestamps when available", async () => {
-    const client = {
-      request: vi.fn().mockResolvedValue({
-        data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20, recencyAt: 30 }],
-      }),
-    } as unknown as AppServerRequestClient;
-
-    await expect(listThreads(client, "/vault")).resolves.toEqual([
-      {
-        id: "thread-1",
-        preview: "Preview",
-        name: null,
-        archived: false,
-        createdAt: 10,
-        updatedAt: 20,
-        recencyAt: 30,
-        provenance: { kind: "interactive" },
-      },
-    ]);
-  });
-
-  it("preserves nullable app-server recency timestamps", async () => {
-    const client = {
-      request: vi.fn().mockResolvedValue({
-        data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20, recencyAt: null }],
-      }),
-    } as unknown as AppServerRequestClient;
-
-    await expect(listThreads(client, "/vault")).resolves.toEqual([
-      {
-        id: "thread-1",
-        preview: "Preview",
-        name: null,
-        archived: false,
-        createdAt: 10,
-        updatedAt: 20,
-        recencyAt: null,
-        provenance: { kind: "interactive" },
-      },
-    ]);
   });
 
   it("follows thread list pagination until the final page", async () => {

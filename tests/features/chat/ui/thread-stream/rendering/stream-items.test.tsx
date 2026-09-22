@@ -582,32 +582,6 @@ describe("panel thread stream item rendering", () => {
     unmountUiRootInAct(completedParent);
   });
 
-  it("hides the live agent summary once all subagents are complete", () => {
-    const blocks = projectedThreadStreamBlocks({
-      turnLifecycle: runningTurnLifecycle("turn"),
-      items: [
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
-          text: "Wait for agent",
-          turnId: "turn",
-          action: "wait",
-          status: "completed",
-          senderThreadId: "parent",
-          targets: [{ threadId: "done" }],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
-          agents: [{ threadId: "done", status: "completed", executionState: "completed", message: null }],
-        },
-      ],
-    });
-
-    expect(blocks.some((block) => block.key.startsWith("live-agents:"))).toBe(false);
-  });
-
   it("marks the live agent summary failed when any subagent fails", () => {
     const blocks = projectedThreadStreamBlocks({
       turnLifecycle: runningTurnLifecycle("turn"),

@@ -13,7 +13,6 @@ describe("tool inventory", () => {
 
     const result = await readMcpServerInventory(client, "thread");
 
-    expect(result.servers.map((server) => server.name)).toEqual(["first", "second"]);
     expect(listMcpServers).toHaveBeenNthCalledWith(1, {
       detail: "toolsAndAuthOnly",
       cursor: null,

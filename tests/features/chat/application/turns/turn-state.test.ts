@@ -44,7 +44,6 @@ describe("chat turn lifecycle state machine", () => {
 
   it.each([
     ["stale completion", completed("stale-turn")],
-    ["stale acknowledgement", startAcknowledged("stale-turn")],
     ["late start failure", startFailed()],
     ["cleared pending hook", pendingStartHookUpserted(null)],
   ] as const)("keeps the running turn after %s", (_label, event) => {

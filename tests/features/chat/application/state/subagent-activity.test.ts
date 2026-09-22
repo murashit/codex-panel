@@ -32,6 +32,7 @@ describe("subagent activity state", () => {
       agentLabel: "/root/scout",
       coordinationUpdate: "started",
     });
+    expect(state.byThreadId.get("child")).toMatchObject({ liveness: "running", outcome: null });
     state = reduceSubagentActivitySlice(state, {
       type: "subagent-activity/coordination-observed",
       threadId: "child",

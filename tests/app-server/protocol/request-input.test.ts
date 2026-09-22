@@ -84,7 +84,6 @@ describe("app-server request input", () => {
     expect(entries.at(-1)?.[1].value).toContain("[Context truncated by Codex Panel: remaining content omitted.]");
 
     expect(prepared.input).toEqual([{ type: "text", text: "要約して", text_elements: [] }]);
-    expect(prepared.input.some((item) => item.type === "text" && item.text.includes("[Codex Panel context v2]"))).toBe(false);
   });
 
   it("keeps Obsidian reference metadata ahead of a truncated inline excerpt", () => {

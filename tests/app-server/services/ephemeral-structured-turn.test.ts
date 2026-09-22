@@ -5,7 +5,6 @@ import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientReques
 import type { ClientRequestParams } from "../../../src/app-server/connection/rpc-messages";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import { type EphemeralStructuredTurnClient, runEphemeralStructuredTurn } from "../../../src/app-server/services/ephemeral-structured-turn";
-import type { AppServerStartEphemeralThreadOptions } from "../../../src/app-server/services/threads";
 import type { AppServerStartStructuredTurnOptions } from "../../../src/app-server/services/turns";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
 import type { RequestId } from "../../../src/generated/app-server/RequestId";
@@ -153,20 +152,6 @@ describe("runEphemeralStructuredTurn", () => {
     });
   });
 
-  it("starts the ephemeral thread with named service options", async () => {
-    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
-      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
-    });
-
-    await runEphemeralStructuredTurn(runOptions(), { clientFactory });
-
-    expect(expectPresent(client.current).startEphemeralThreadOptions).toEqual({
-      cwd: "/vault",
-      serviceName: "structured-test",
-      developerInstructions: "Return JSON.",
-    });
-  });
-
   it("isolates the ephemeral thread from configured tools and capabilities", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.effectiveConfig = {
@@ -184,6 +169,9 @@ describe("runEphemeralStructuredTurn", () => {
     expect(fake.configReadRequests).toEqual([{ cwd: "/vault", includeLayers: false }]);
     expect(fake.startEphemeralThreadParams).toEqual(
       expect.objectContaining({
+        cwd: "/vault",
+        serviceName: "structured-test",
+        developerInstructions: "Return JSON.",
         ephemeral: true,
         sandbox: "read-only",
         approvalPolicy: "never",
@@ -232,7 +220,7 @@ describe("runEphemeralStructuredTurn", () => {
       runEphemeralStructuredTurn({ ...runOptions(), runtimeSettings: { model: "gpt-5.4-mini", effort: "ultra" } }, { clientFactory }),
     ).rejects.toThrow("Reasoning effort ultra is unavailable for gpt-5.4-mini. Supported: low, medium.");
 
-    expect(expectPresent(client.current).startEphemeralThreadOptions).toBeNull();
+    expect(expectPresent(client.current).startEphemeralThreadParams).toBeNull();
   });
 
   it("defers explicit runtime intent to app-server when model metadata is unavailable", async () => {
@@ -389,7 +377,6 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   startEphemeralThreadImpl: (() => Promise<ThreadStartResponse>) | null = null;
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
   effectiveConfig: Record<string, unknown> = {};
-  startEphemeralThreadOptions: AppServerStartEphemeralThreadOptions | null = null;
   startEphemeralThreadParams: ClientRequestParams<"thread/start"> | null = null;
   startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
   readonly configReadRequests: ClientRequestParams<"config/read">[] = [];
@@ -421,7 +408,6 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
         return (this.modelListImpl ? await this.modelListImpl() : { data: [], nextCursor: null }) as ClientResponseByMethod[M];
       case "thread/start":
         this.startEphemeralThreadParams = params as ClientRequestParams<"thread/start">;
-        this.startEphemeralThreadOptions = ephemeralThreadOptionsFromParams(params as ClientRequestParams<"thread/start">);
         return (this.startEphemeralThreadImpl
           ? await this.startEphemeralThreadImpl()
           : threadStartResponse("thread")) as unknown as ClientResponseByMethod[M];
@@ -448,15 +434,6 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
       },
     });
   }
-}
-
-function ephemeralThreadOptionsFromParams(params: ClientRequestParams<"thread/start">): AppServerStartEphemeralThreadOptions {
-  if (!params.cwd || !params.serviceName || !params.developerInstructions) throw new Error("Expected ephemeral thread params.");
-  return {
-    cwd: params.cwd,
-    serviceName: params.serviceName,
-    developerInstructions: params.developerInstructions,
-  };
 }
 
 function structuredTurnOptionsFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions {

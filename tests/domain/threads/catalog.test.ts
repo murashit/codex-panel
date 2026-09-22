@@ -57,11 +57,10 @@ describe("thread catalog read model", () => {
     expect(applyThreadCatalogChange(snapshot, { kind: "revalidate", list: "active" })).toBe(snapshot);
   });
 
-  const changedFields = [
-    ["name", { name: "changed" }],
-    [
-      "provenance",
-      {
+  it("treats changed provenance as a non-equivalent catalog entry", () => {
+    expect(
+      threadCatalogEntryEqual(thread("thread"), {
+        ...thread("thread"),
         provenance: {
           kind: "subagent",
           subagentKind: "review",
@@ -71,12 +70,8 @@ describe("thread catalog read model", () => {
           agentNickname: null,
           agentRole: null,
         },
-      },
-    ],
-  ] satisfies ReadonlyArray<readonly [string, Partial<Thread>]>;
-
-  it.each(changedFields)("treats a changed %s field as a non-equivalent catalog entry", (_field, change) => {
-    expect(threadCatalogEntryEqual(thread("thread"), { ...thread("thread"), ...change })).toBe(false);
+      }),
+    ).toBe(false);
   });
 });
 

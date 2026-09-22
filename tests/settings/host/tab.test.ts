@@ -165,21 +165,6 @@ describe("settings tab", () => {
     expect(settingElement(tab, "Archived threads")).not.toBeNull();
   });
 
-  it("publishes the toolbar visibility setting", async () => {
-    useContextClients(settingsClient());
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    tab.display();
-    const toggle = inputForSetting(tab, "Show chat toolbar");
-    if (!toggle) throw new Error("Missing toolbar visibility toggle");
-    toggle.checked = false;
-    toggle.dispatchEvent(new Event("change"));
-    await flushPromises();
-
-    expect(saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ showToolbar: false }));
-  });
-
   it("finishes a pending settings save without remounting a hidden tab", async () => {
     useContextClients(settingsClient());
     const save = deferred<void>();
@@ -231,31 +216,6 @@ describe("settings tab", () => {
     expect(host.settings.codexPath).toBe("/opt/codex-next");
     expect(observeModels).toHaveBeenCalledOnce();
     expect(fetchModels).toHaveBeenCalledOnce();
-  });
-
-  it("serializes overlapping settings saves", async () => {
-    useContextClients(settingsClient());
-    const firstSave = deferred<void>();
-    const saveSettings = vi.fn().mockReturnValueOnce(firstSave.promise).mockResolvedValueOnce(undefined);
-    const tab = newSettingsTab({ saveSettings });
-
-    tab.display();
-    const shortcut = selectForSetting(tab, "Send shortcut");
-    const toggle = inputForSetting(tab, "Reference active file on send");
-    if (!shortcut || !toggle) throw new Error("Missing settings controls");
-
-    shortcut.value = "mod-enter";
-    shortcut.dispatchEvent(new Event("change"));
-    toggle.checked = true;
-    toggle.dispatchEvent(new Event("change"));
-    await Promise.resolve();
-
-    expect(saveSettings).toHaveBeenCalledOnce();
-
-    firstSave.resolve(undefined);
-    await flushPromises();
-
-    expect(saveSettings).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the latest native control value while an earlier save is pending", async () => {

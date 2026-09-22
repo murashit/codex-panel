@@ -251,7 +251,7 @@ describe("panel pending request rendering", () => {
     expect(radios.map((radio) => radio.checked)).toEqual([false, true]);
   });
 
-  it("keeps the other Plan mode radio selected when the custom answer is empty", () => {
+  it("keeps an empty other Plan mode answer selected and updates its tab order", () => {
     const parent = document.createElement("div");
     const drafts = new Map<string, string>();
     const input = pendingOtherUserInput();
@@ -269,6 +269,7 @@ describe("panel pending request rendering", () => {
     render();
     const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
     expect(radios.map((radio) => radio.checked)).toEqual([true, false]);
+    expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(-1);
 
     actEvent(() => {
       expectPresent(radios.at(1)).click();
@@ -279,32 +280,6 @@ describe("panel pending request rendering", () => {
     render();
     const rerenderedRadios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
     expect(rerenderedRadios.map((radio) => radio.checked)).toEqual([false, true]);
-  });
-
-  it("keeps unselected other Plan mode text out of tab order", () => {
-    const parent = document.createElement("div");
-    const drafts = new Map<string, string>();
-    const input = pendingOtherUserInput();
-    const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
-    const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
-    const actions = pendingRequestActions({
-      setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
-        drafts.set(key, value);
-      }),
-    });
-    const render = () => {
-      renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
-    };
-
-    render();
-
-    expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(-1);
-
-    actEvent(() => {
-      expectPresent(parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio").item(1)).click();
-    });
-    render();
-
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(0);
   });
 

@@ -627,44 +627,6 @@ describe("ChatComposerController", () => {
     expect(props.webSubmissionCancellable).toBe(false);
   });
 
-  it("updates slash suggestions when the input changes", () => {
-    const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
-    const controllerRef: { current: ChatComposerController | null } = { current: null };
-    const renderShell = vi.fn(() => {
-      if (!controllerRef.current) throw new Error("Expected controller.");
-      renderComposerController(parent, controllerRef.current, stateStore);
-    });
-    const controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
-    });
-    controllerRef.current = controller;
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
-
-    renderShell();
-    setTextAreaValue(composer(parent), "/");
-    composer(parent).setSelectionRange(1, 1);
-    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
-
-    expect(stateStore.getState().composer.draft).toBe("/");
-    expect(stateStore.getState().composer.suggestions.length).toBeGreaterThan(0);
-    expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("/");
-  });
-
   it("captures completed thread identity across message edits and drops it when the title token changes", () => {
     const stateStore = createChatStateStore();
     const preview = `Long preview ${"x".repeat(120)}`;
@@ -870,59 +832,6 @@ describe("ChatComposerController", () => {
 
     expect(composer(parent).value).toBe("[[Beta Note]]");
     expect(composer(parent).selectionStart).toBe("[[Beta Note]]".length);
-  });
-
-  it("saves pasted images, inserts an Obsidian embed, and sends a local image attachment", async () => {
-    const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
-    const attachmentHandler: ComposerAttachmentHandler = {
-      saveFiles: vi.fn().mockResolvedValue(
-        attachmentSaveResult([
-          {
-            kind: "image",
-            name: "diagram",
-            path: "Codex Attachments/diagram.png",
-            marker: "![[Codex Attachments/diagram.png]]",
-          },
-        ]),
-      ),
-    };
-    let controller: ChatComposerController | null = null;
-    const renderShell = vi.fn(() => {
-      if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller, stateStore);
-    });
-    controller = new ChatComposerController({
-      ...defaultComposerAttachmentOptions(),
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      attachmentHandler,
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      runtimeActions: composerRuntimeActions(),
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      canFocus: () => true,
-    });
-    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
-
-    renderShell();
-    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
-    await flushComposerAttachment();
-
-    expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
-    expect(composer(parent).value).toBe("![[Codex Attachments/diagram.png]]");
-    expect(controller.preparedInput(composer(parent).value).input).toEqual([
-      { type: "text", text: "![[Codex Attachments/diagram.png]]" },
-      { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
-      { type: "localImage", path: "Codex Attachments/diagram.png" },
-    ]);
   });
 
   it("does not insert a saved attachment into a later thread or draft", async () => {
@@ -1161,6 +1070,13 @@ describe("ChatComposerController", () => {
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
     await flushComposerAttachment();
     const marker = composer(parent).value;
+    expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
+    expect(marker).toBe("![[Codex Attachments/diagram.png]]");
+    expect(controller.preparedInput(marker).input).toEqual([
+      { type: "text", text: marker },
+      { type: "fileReference", name: "diagram", path: "Codex Attachments/diagram.png" },
+      { type: "localImage", path: "Codex Attachments/diagram.png" },
+    ]);
     const snapshot = controller.captureInputSnapshot();
     const originalDraft = `  /web https://example.com Inspect ${marker}  `;
     const fetched = deferred<{ sendText: string }>();
@@ -1890,6 +1806,7 @@ describe("ChatComposerController", () => {
     composer(parent).setSelectionRange(1, 1);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
 
+    expect(stateStore.getState().composer.draft).toBe("/");
     const firstSelected = selectedSuggestion(parent);
     expect(firstSelected.textContent).toContain("/clear");
 
