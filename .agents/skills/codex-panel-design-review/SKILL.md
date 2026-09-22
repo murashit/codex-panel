@@ -9,7 +9,7 @@ Assess the whole implementation for material behavioral and structural improveme
 
 ## Coverage and evidence
 
-Inventory authored product surfaces separately from generated code and artifacts. Trace principal flows through lifecycle, app-server adaptation, UI, persistence, build/generation, and policy tests. Keep a concise coverage ledger with material failure/refresh paths and gaps. Investigate candidates as evidence emerges while completing repository-wide coverage; a local observation does not establish a repository-wide conclusion.
+Inventory authored product and test surfaces separately from generated code and artifacts. Trace principal flows through lifecycle, app-server adaptation, UI, persistence, build/generation, and policy tests. Assess tests and fixtures as design subjects under the repository's simplification criteria, not only as evidence for product behavior. Keep a concise coverage ledger with material failure/refresh paths and gaps. Investigate candidates as evidence emerges while completing repository-wide coverage; a local observation does not establish a repository-wide conclusion.
 
 Trace behavioral claims to real producers, user actions, or lifecycle paths, and structural claims to actual dependencies or maintenance activities. Check consequential external assumptions against their producing contracts, including authority, completeness, ordering, and failure semantics. Synthetic fixtures, unusual ordering, and reviewer agreement do not by themselves establish harm.
 
