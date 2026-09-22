@@ -143,7 +143,7 @@ export function awaitingResumeThreadState(state: ChatState): Extract<ChatState["
 
 export function pendingForkReplacement(state: ChatState): ForkReplacement | undefined {
   const panel = state.panelThread;
-  if (panel.kind === "fork-draft") return panel.draft.replacement;
+  if (panel.kind === "fork-draft") return panel.draft.kind === "persistent" ? panel.draft.replacement : undefined;
   return panel.kind === "empty" ? undefined : panel.forkReplacement;
 }
 

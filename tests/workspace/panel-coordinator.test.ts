@@ -1,3 +1,4 @@
+import { sideChatDraft } from "../../src/features/chat/application/threads/fork-draft";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -444,6 +445,7 @@ describe("WorkspacePanelCoordinator", () => {
     });
     const preparation: ForkDraftPreparation = {
       draft: {
+        kind: "persistent",
         sourceThreadId: "source",
         boundary: { kind: "through-turn", turnId: "turn" },
       },
@@ -608,7 +610,7 @@ describe("WorkspacePanelCoordinator", () => {
     const sideView = chatView(CodexChatView, sideLeaf);
     const focus = vi.spyOn(sideView.surface, "focusComposer");
     let resolveOpening!: (opened: boolean) => void;
-    vi.spyOn(sideView.surface, "openSideChat").mockReturnValue(
+    vi.spyOn(sideView.surface, "applyForkDraft").mockReturnValue(
       new Promise<boolean>((resolve) => {
         resolveOpening = resolve;
       }),
@@ -618,7 +620,7 @@ describe("WorkspacePanelCoordinator", () => {
       leaves.push(sideLeaf);
     });
 
-    const opening = panels(plugin).openSideChat("source", "Source");
+    const opening = panels(plugin).openForkDraft(sideChatDraft("source", "Source"));
     await vi.waitFor(() => expect(plugin.app.workspace.revealLeaf).toHaveBeenCalledWith(sideLeaf));
     expect(focus).not.toHaveBeenCalled();
     resolveOpening(false);
@@ -646,7 +648,7 @@ describe("WorkspacePanelCoordinator", () => {
     );
   });
 
-  it("keeps regular panels and side chats on distinct startup paths", async () => {
+  it("opens side chats through the shared draft path", async () => {
     const regularLeaf = leaf();
     const sideLeaf = leaf();
     const leaves = [] as ReturnType<typeof leaf>[];
@@ -656,7 +658,7 @@ describe("WorkspacePanelCoordinator", () => {
     const regularView = chatView(CodexChatView, regularLeaf);
     const sideView = chatView(CodexChatView, sideLeaf);
     const connect = vi.spyOn(regularView.surface, "connect").mockResolvedValue(undefined);
-    const openSideChat = vi.spyOn(sideView.surface, "openSideChat").mockResolvedValue(true);
+    const applyDraft = vi.spyOn(sideView.surface, "applyForkDraft").mockResolvedValue(true);
     regularLeaf.setViewState.mockImplementation(async () => {
       regularLeaf.view = regularView;
       leaves.push(regularLeaf);
@@ -668,17 +670,16 @@ describe("WorkspacePanelCoordinator", () => {
     const coordinator = panels(plugin);
 
     await coordinator.openNewPanel();
-    await coordinator.openSideChat("source", "Source thread", "Explain this briefly");
+    await coordinator.openForkDraft(sideChatDraft("source", "Source thread"), "Explain this briefly");
 
     expect(connect).toHaveBeenCalledOnce();
     expect(sideLeaf.setViewState).toHaveBeenCalledWith({
       type: VIEW_TYPE_CODEX_PANEL,
       active: false,
-      state: { version: 2, ephemeralSource: { threadId: "source", title: "Source thread" } },
     });
-    expect(openSideChat).toHaveBeenCalledWith(
-      { sourceThreadId: "source", sourceThreadTitle: "Source thread", initialMessage: "Explain this briefly" },
-      { focus: false },
+    expect(applyDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ draft: { kind: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source thread" } }),
+      "Explain this briefly",
     );
   });
 });

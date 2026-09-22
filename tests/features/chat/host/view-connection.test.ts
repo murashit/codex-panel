@@ -5,6 +5,7 @@ import type { ServerNotification } from "../../../../src/app-server/connection/r
 import { AppServerQueryScope } from "../../../../src/app-server/query/query-scope";
 import { AppServerToolInventoryQueries } from "../../../../src/app-server/query/tool-inventory-queries";
 import type { ThreadGoal } from "../../../../src/domain/threads/goal";
+import { sideChatDraft } from "../../../../src/features/chat/application/threads/fork-draft";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
@@ -20,6 +21,7 @@ import {
   requiredTextArea,
   resumedThread,
   setupViewConnectionHarness,
+  submitComposerByEnter,
   threadFixture,
 } from "./view-connection-harness";
 
@@ -298,7 +300,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("");
   });
 
-  it("recreates a side chat from its source intent instead of reusing the old ephemeral thread", async () => {
+  it("restores a side chat as a local draft until the next send", async () => {
     const owner = chatViewRuntimeOwner(chatHost());
     const firstClient = connectedClient({
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
@@ -309,7 +311,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView({ runtimeOwner: owner });
     await view.onOpen();
     await view.surface.connect();
-    await view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" });
+    await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     view.surface.setComposerText("Side draft");
 
     const nextHost = chatHost();
@@ -322,18 +324,24 @@ describe("CodexChatView connection lifecycle", () => {
       connectionMockState().client = nextClient;
     });
 
-    expect(firstClient.request).toHaveBeenCalledWith(
-      "thread/unsubscribe",
-      { threadId: "ephemeral-a" },
-      expect.objectContaining({ timeoutMs: 5_000 }),
+    await waitForAsyncWork(() =>
+      expect(firstClient.request).toHaveBeenCalledWith(
+        "thread/unsubscribe",
+        { threadId: "ephemeral-a" },
+        expect.objectContaining({ timeoutMs: 5_000 }),
+      ),
     );
 
     await waitForAsyncWork(() => {
-      expect(nextClient.request).toHaveBeenCalledWith("thread/fork", expect.objectContaining({ threadId: "source", cwd: "/vault" }));
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "ephemeral-b" });
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true });
       expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Side draft");
     });
-    expect(view.surface.openPanelSnapshot().threadId).not.toBe("ephemeral-a");
+    expectRequestTimes(nextClient, "thread/fork", 0);
+    await submitComposerByEnter(view);
+    await waitForAsyncWork(() => {
+      expect(nextClient.request).toHaveBeenCalledWith("thread/fork", expect.objectContaining({ threadId: "source", cwd: "/vault" }));
+      expect(view.surface.openPanelSnapshot().threadId).toBe("ephemeral-b");
+    });
   });
 
   it("does not read unsupported goals for side chats", async () => {
@@ -346,7 +354,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
     await view.onOpen();
 
-    await view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" });
+    await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     await waitForAsyncWork(() => {
       expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "ephemeral-a" });
     });
@@ -393,34 +401,6 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.containerEl.textContent).not.toContain("thread-a-server");
   });
 
-  it("settles a restored side chat request that rejects in the background", async () => {
-    const owner = chatViewRuntimeOwner(chatHost());
-    const firstClient = connectedClient({
-      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
-      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-a") }),
-      "thread/unsubscribe": vi.fn().mockResolvedValue({}),
-    });
-    connectionMockState().client = firstClient;
-    const view = await chatView({ runtimeOwner: owner });
-    await view.onOpen();
-    await view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" });
-
-    const restoredFork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
-    const nextClient = connectedClient({
-      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
-      "thread/fork": vi.fn(() => restoredFork.promise),
-    });
-    owner.replace(chatHost(), () => {
-      connectionMockState().client = nextClient;
-    });
-    await waitForAsyncWork(() => expectRequestTimes(nextClient, "thread/fork", 1));
-
-    restoredFork.reject(new Error("Codex app-server disconnected."));
-    await Promise.resolve();
-
-    expect(view.isRuntimeAttached()).toBe(true);
-  });
-
   it("settles a pending side chat request when its view closes", async () => {
     const fork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
     const client = connectedClient({
@@ -431,7 +411,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
     await view.onOpen();
 
-    const opening = view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" }, { focus: false });
+    const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     await waitForAsyncWork(() => expectRequestTimes(client, "thread/fork", 1));
     await view.onClose();
     fork.reject(new Error("Codex app-server disconnected."));
@@ -448,11 +428,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
     await view.onOpen();
 
-    await view.surface.openSideChat({
-      sourceThreadId: "source",
-      sourceThreadTitle: "Source",
-      initialMessage,
-    });
+    await view.surface.applyForkDraft(sideChatDraft("source", "Source"), initialMessage);
 
     expect(client.request).toHaveBeenCalledWith(
       "turn/start",
@@ -473,7 +449,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMockState().client = client;
     const view = await chatView();
     await view.onOpen();
-    const opening = view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source", initialMessage: "First message" });
+    const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     await waitForAsyncWork(() => expectRequestTimes(client, "turn/start", 1));
     const input = requiredTextArea(view.containerEl, ".codex-panel__composer-input");
     expect(input.disabled).toBe(false);
@@ -486,72 +462,71 @@ describe("CodexChatView connection lifecycle", () => {
     );
   });
 
-  it("publishes side-chat preparation as pending before the fork completes", async () => {
+  it("opens a local side-chat draft and creates the latest source fork on first send", async () => {
     const fork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
     const client = connectedClient({
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
       "thread/fork": vi.fn(() => fork.promise),
+      "thread/resume": vi.fn().mockResolvedValue(resumedThread("source")),
     });
     connectionMockState().client = client;
+    const host = chatHost();
+    const source = await chatView({ host });
+    await source.onOpen();
+    await source.surface.activateThread("source");
+    connectionMockState().onNotification?.({
+      method: "turn/started",
+      params: {
+        threadId: "source",
+        turn: {
+          id: "parent-turn",
+          status: "inProgress",
+          startedAt: 1,
+          completedAt: null,
+          durationMs: null,
+          error: null,
+          itemsView: "full",
+          items: [],
+        },
+      },
+    });
+    expect(source.surface.openPanelSnapshot().turnBusy).toBe(true);
+
     const view = await chatView();
     await view.onOpen();
-    const refreshHeader = vi.fn();
-    Object.assign(view.leaf, { updateHeader: refreshHeader });
-
-    const opening = view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" }, { focus: false });
-    await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/fork", expect.objectContaining({ threadId: "source", cwd: "/vault" }));
+    vi.mocked(host.workspace.openForkDraft).mockImplementation(async (preparation) => {
+      await view.surface.applyForkDraft(preparation);
     });
-
-    expect(view.getDisplayText()).toBe("Side chat");
-    expect(view.getState()).toEqual({
-      version: 2,
-      ephemeralSource: { threadId: "source", title: "Source" },
-    });
-    expect(view.surface.openPanelSnapshot()).toMatchObject({
-      threadId: null,
-      pending: true,
-    });
-    expect(refreshHeader).toHaveBeenCalled();
-
-    fork.resolve({ thread: threadFixture("side") });
-    await expect(opening).resolves.toBe(true);
-
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", pending: false });
-  });
-
-  it("lets a newer thread navigation supersede a pending side chat regardless of completion order", async () => {
-    const fork = deferred<{ thread: ReturnType<typeof threadFixture> }>();
-    const resume = deferred<ReturnType<typeof resumedThread>>();
-    const client = connectedClient({
-      "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
-      "thread/fork": vi.fn(() => fork.promise),
-      "thread/resume": vi.fn(() => resume.promise),
-      "thread/unsubscribe": vi.fn().mockResolvedValue({}),
-    });
-    connectionMockState().client = client;
-    const view = await chatView();
-    await view.onOpen();
-
-    const openingSide = view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source" }, { focus: false });
-    await waitForAsyncWork(() => expectRequestTimes(client, "thread/fork", 1));
-    const openingThread = view.surface.activateThread("thread-1", { focus: false });
-    await waitForAsyncWork(() => expectRequestTimes(client, "thread/resume", 1));
-
-    fork.resolve({ thread: threadFixture("stale-side") });
-    await expect(openingSide).resolves.toBe(false);
-    expect(view.getState()).not.toHaveProperty("ephemeralSource");
-
-    resume.resolve(resumedThread("thread-1"));
-    await openingThread;
-
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1", pending: false });
-    expect(view.getState()).toMatchObject({ version: 1, threadId: "thread-1" });
-    expect(client.request).toHaveBeenCalledWith(
-      "thread/unsubscribe",
-      { threadId: "stale-side" },
-      expect.objectContaining({ timeoutMs: 5_000 }),
+    requiredButton(source.containerEl, '[aria-label="Show chat actions"]').click();
+    await waitForAsyncWork(() => expect(source.containerEl.textContent).toContain("Start side chat"));
+    const start = [...source.containerEl.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")].find(
+      (button) => button.textContent === "Start side chat",
     );
+    expect(start?.classList.contains("is-disabled")).toBe(false);
+    start?.click();
+    await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot().hasForkDraft).toBe(true));
+    expectRequestTimes(client, "thread/fork", 0);
+    expect(view.getDisplayText()).toBe("Side chat");
+    expect(view.getState()).toEqual({ version: 1 });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true });
+
+    view.surface.setComposerText("First message");
+    await submitComposerByEnter(view);
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/fork", 1));
+    expect(client.request).toHaveBeenCalledWith(
+      "thread/fork",
+      expect.objectContaining({
+        threadId: "source",
+        ephemeral: true,
+        excludeTurns: true,
+      }),
+    );
+    const forkParams = client.request.mock.calls.find(([method]) => method === "thread/fork")?.[1];
+    expect(forkParams).not.toHaveProperty("lastTurnId");
+    expect(forkParams).not.toHaveProperty("beforeTurnId");
+    expect(forkParams).not.toHaveProperty("deferGoalContinuation");
+    fork.resolve({ thread: threadFixture("side") });
+    await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", hasForkDraft: false }));
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {

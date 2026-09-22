@@ -27,6 +27,7 @@ type ThreadStartOutcome =
 
 export interface ThreadStartCommandHost {
   stateStore: ChatStateStore;
+  createSideChat: (sourceThreadId: string, isCurrent: () => boolean) => Promise<EffectOutcome<ThreadActivationSnapshot>>;
   effects: ThreadStartEffects;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   recordStartedThread: (thread: Thread) => void;
@@ -80,27 +81,30 @@ async function startThread(
   const runtimeConfig = runtimeConfigOrDefault(runtimeSnapshot.runtimeConfig);
   const draft = requestState.panelThread.kind === "fork-draft" ? requestState.panelThread.draft : null;
   const active = requestState.runtime.active;
-  const effect = draft
-    ? await host.effects.forkThread(draft.sourceThreadId, {
-        position: draft.boundary,
-        deferGoalContinuation: true,
-        runtime: {
-          ...(active.model ? { model: active.model } : {}),
-          reasoningEffort: active.reasoningEffort,
-          ...(active.serviceTierKnown ? { serviceTier: active.serviceTier } : {}),
-          ...(active.approvalPolicyKnown && active.approvalPolicy ? { approvalPolicy: active.approvalPolicy } : {}),
-          ...(active.approvalsReviewer ? { approvalsReviewer: active.approvalsReviewer } : {}),
-          ...(active.permissionProfileKnown && active.activePermissionProfile
-            ? { permissions: active.activePermissionProfile.id }
-            : active.sandboxPolicyKnown && active.sandboxPolicy
-              ? { sandboxPolicy: active.sandboxPolicy }
-              : {}),
-        },
-      })
-    : await host.effects.startThread({
-        serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),
-        permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
-      });
+  const sideChat = draft?.kind === "side-chat" ? draft : null;
+  const effect = sideChat
+    ? await host.createSideChat(sideChat.sourceThreadId, () => panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget))
+    : draft?.kind === "persistent"
+      ? await host.effects.forkThread(draft.sourceThreadId, {
+          position: draft.boundary,
+          deferGoalContinuation: true,
+          runtime: {
+            ...(active.model ? { model: active.model } : {}),
+            reasoningEffort: active.reasoningEffort,
+            ...(active.serviceTierKnown ? { serviceTier: active.serviceTier } : {}),
+            ...(active.approvalPolicyKnown && active.approvalPolicy ? { approvalPolicy: active.approvalPolicy } : {}),
+            ...(active.approvalsReviewer ? { approvalsReviewer: active.approvalsReviewer } : {}),
+            ...(active.permissionProfileKnown && active.activePermissionProfile
+              ? { permissions: active.activePermissionProfile.id }
+              : active.sandboxPolicyKnown && active.sandboxPolicy
+                ? { sandboxPolicy: active.sandboxPolicy }
+                : {}),
+          },
+        })
+      : await host.effects.startThread({
+          serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),
+          permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
+        });
   if (effect.kind === "not-started") return { kind: "not-started" };
   const activation = effect.value;
   const fallbackPreview = preview?.trim();
@@ -110,7 +114,7 @@ async function startThread(
       : { ...activation.thread, preview: fallbackPreview };
   const patchedActivation = thread === activation.thread ? activation : { ...activation, thread };
   options.onCreated?.(thread);
-  host.recordStartedThread(thread);
+  if (!sideChat) host.recordStartedThread(thread);
   const current = host.stateStore.getState();
   if (!panelTargetLeaseIsCurrent(current, panelTarget)) {
     return { kind: "created-not-activated" };
@@ -124,18 +128,21 @@ async function startThread(
       expectedPanelTargetRevision: panelTarget.revision,
     }),
     type: "active-thread/created" as const,
+    ...(sideChat
+      ? { lifetime: { kind: "ephemeral" as const, sourceThreadId: sideChat.sourceThreadId, sourceThreadTitle: sideChat.sourceThreadTitle } }
+      : {}),
   };
   const applied = host.stateStore.dispatch(action);
   if (activeThreadId(applied) !== action.thread.id) {
     return { kind: "created-not-activated" };
   }
   const activatedTarget = { revision: applied.panelTargetRevision, threadId: action.thread.id };
-  if (draft) {
+  if (draft?.kind === "persistent") {
     await host.hydrateCreatedFork(action.thread.id);
     if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), activatedTarget)) {
       return { kind: "created-not-activated" };
     }
   }
-  host.onThreadActivated(draft !== null);
+  host.onThreadActivated(draft?.kind === "persistent");
   return { kind: "created-activated", target: activatedTarget };
 }

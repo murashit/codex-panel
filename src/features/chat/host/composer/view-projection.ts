@@ -77,6 +77,8 @@ export function selectChatPanelComposer(state: ChatState, shared: ChatPanelCompo
   const activeThread = activeThreadState(state);
   const activeThreadId = activeThread?.id ?? null;
   const lifetime = activeThread?.lifetime;
+  const draft = state.panelThread.kind === "fork-draft" ? state.panelThread.draft : null;
+  const sideChat = draft?.kind === "side-chat" ? draft : lifetime?.kind === "ephemeral" ? lifetime : null;
   return {
     ...runtimeSnapshotForChatSlices({
       runtimeConfig: shared.runtimeConfig,
@@ -88,8 +90,8 @@ export function selectChatPanelComposer(state: ChatState, shared: ChatPanelCompo
     }),
     connectionPhase: state.connection.phase,
     activeListedThreadName: activeThreadId ? projectedThreadName(shared, activeThreadId) : null,
-    sideChatActive: lifetime?.kind === "ephemeral",
-    sideChatSourceTitle: lifetime?.kind === "ephemeral" ? lifetime.sourceThreadTitle : null,
+    sideChatActive: sideChat !== null,
+    sideChatSourceTitle: sideChat?.sourceThreadTitle ?? null,
     forkDraft: state.panelThread.kind === "fork-draft",
     draft: state.composer.draft,
     attachmentSavePending: state.composer.pendingAttachmentSaveIds.length > 0,

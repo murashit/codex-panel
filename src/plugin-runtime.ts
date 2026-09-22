@@ -257,14 +257,12 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       settings: () => this.options.settingsRef.settings,
       workspace: {
         returnFromForkDraft: (threadId, originViewId, isCurrent) => this.panels.returnFromForkDraft(threadId, originViewId, isCurrent),
-        openForkDraft: (preparation) => this.panels.openForkDraft(preparation),
+        openForkDraft: (preparation, initialMessage) => this.panels.openForkDraft(preparation, initialMessage),
         openThreadInNewView: (threadId, displaySnapshot) => this.panels.openThreadInNewView(threadId, displaySnapshot),
         openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
         openThreadFromPanel: (threadId, originViewId, originSwitchable) =>
           this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
         openTurnDiff: (state) => this.openTurnDiff(state),
-        openSideChat: (sourceThreadId, sourceThreadTitle, initialMessage) =>
-          this.panels.openSideChat(sourceThreadId, sourceThreadTitle, initialMessage),
         notifyPanelActivityChanged: () => {
           this.refreshThreadsViewLiveState();
         },

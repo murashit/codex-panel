@@ -129,7 +129,6 @@ export class CodexChatView extends ItemView {
       viewState: typeof state === "object" && state !== null ? { ...(state as Record<string, unknown>) } : { version: 1 },
       composer: this.runtimeSnapshot?.composer ?? emptyComposerRuntimeSnapshot(),
       forkDraft: null,
-      ephemeralSource: this.runtimeSnapshot?.ephemeralSource ?? null,
     };
   }
 

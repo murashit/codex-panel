@@ -12,6 +12,7 @@ import type { ChatStateStore } from "../../application/state/store";
 import { type ComposerSubmitCommandHost, submitComposer } from "../../application/submission/composer-submit-command";
 import { implementPlan, type PlanImplementationHost } from "../../application/submission/plan-implementation";
 import { createTurnSubmissionCommand, type TurnSubmissionRequest } from "../../application/submission/turn-submission-command";
+import { sideChatDraft } from "../../application/threads/fork-draft";
 import type { GoalCommands } from "../../application/threads/goal-commands";
 import type { ThreadCommands } from "../../application/threads/thread-commands";
 import type { ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
@@ -148,7 +149,7 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     reconnect,
     openSideChat: async (threadId, message) => {
       const source = host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((thread) => thread.id === threadId);
-      await host.environment.plugin.workspace.openSideChat(threadId, source?.name ?? source?.preview ?? null, message);
+      await host.environment.plugin.workspace.openForkDraft(sideChatDraft(threadId, source?.name ?? source?.preview ?? null), message);
     },
     runtimeSettings,
     goals,

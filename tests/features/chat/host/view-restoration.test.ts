@@ -37,6 +37,7 @@ describe("CodexChatView workspace restoration", () => {
     await view.onOpen();
     const preparation: ForkDraftPreparation = {
       draft: {
+        kind: "persistent",
         sourceThreadId: "source",
         boundary: { kind: "through-turn", turnId: "turn-1" },
         replacement: { sourceThreadId: "source", sourceLatestTurnId: "turn-1", saveMarkdown: false },
@@ -84,6 +85,7 @@ describe("CodexChatView workspace restoration", () => {
     const view = await chatView({ runtimeOwner: owner });
     await view.onOpen();
     const draft: ForkDraftPreparation["draft"] = {
+      kind: "persistent",
       sourceThreadId: "source",
       boundary: { kind: "before-turn", turnId: "source-last" },
       replacement: { sourceThreadId: "source", sourceLatestTurnId: "source-last", saveMarkdown: false },

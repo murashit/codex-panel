@@ -165,7 +165,7 @@ describe("ChatComposerController", () => {
     stateStore.dispatch({
       type: "panel/fork-draft-applied",
       preparation: {
-        draft: { sourceThreadId: "source", boundary: { kind: "through-turn", turnId: "turn" } },
+        draft: { kind: "persistent", sourceThreadId: "source", boundary: { kind: "through-turn", turnId: "turn" } },
         runtime: stateStore.getState().runtime,
         display: { items: [], turnDiffs: new Map() },
       },
@@ -212,6 +212,7 @@ describe("ChatComposerController", () => {
     const { controller, stateStore } = composerControllerFixture();
     if (panel === "existing") resumeComposerThread(stateStore, "thread");
     const starter = createThreadStartCommand({
+      createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,

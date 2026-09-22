@@ -52,13 +52,12 @@ export interface ChatPanelSettingsAccess {
 
 export interface WorkspacePanels {
   returnFromForkDraft(threadId: string, originViewId: string, isCurrent: () => boolean): Promise<boolean>;
-  openForkDraft(preparation: ForkDraftPreparation): Promise<void>;
+  openForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<void>;
   openThreadInNewView(threadId: string, displaySnapshot?: ForkDisplaySnapshot): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openThreadFromPanel(threadId: string, originViewId: string, originSwitchable: boolean): Promise<void>;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
   notifyPanelActivityChanged(): void;
-  openSideChat(sourceThreadId: string, sourceThreadTitle: string | null, initialMessage?: string): Promise<void>;
 }
 
 type ChatThreadCatalog = ThreadCatalogPaginatedActiveReader;
@@ -122,7 +121,6 @@ export interface ChatPanelRuntimeSnapshot {
   readonly composer: ComposerRuntimeSnapshot;
   readonly forkDraft: ForkDraftPreparation | null;
   readonly forkReplacement?: ForkReplacement;
-  readonly ephemeralSource: { readonly threadId: string; readonly title: string | null } | null;
 }
 
 export interface ChatViewRuntimeOwner {
@@ -150,16 +148,12 @@ interface ChatWorkspacePanelOperationOptions {
 }
 
 export interface ChatWorkspacePanelSurface {
-  applyForkDraft(preparation: ForkDraftPreparation): Promise<void>;
+  applyForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<boolean>;
   openPanelSnapshot(): ChatWorkspacePanelSnapshot;
   activateThread(threadId?: string, options?: ChatWorkspacePanelOperationOptions): Promise<boolean>;
   focusComposer(options?: { force?: boolean }): void;
   connect(): Promise<void>;
   startNewThread(options?: ChatWorkspacePanelOperationOptions): Promise<void>;
-  openSideChat(
-    input: { sourceThreadId: string; sourceThreadTitle: string | null; initialMessage?: string },
-    options?: ChatWorkspacePanelOperationOptions,
-  ): Promise<boolean>;
 }
 
 export interface ChatSharedThreadSurface {

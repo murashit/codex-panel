@@ -63,7 +63,11 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
           historyCursor: display.historyCursor ?? null,
         },
         composer: { ...initialComposerState(), draft: draft.initialPrompt ?? "" },
-        connection: { ...state.connection, statusText: "Fork draft. Send a message to create the thread." },
+        connection: {
+          ...state.connection,
+          statusText:
+            draft.kind === "side-chat" ? "Side chat draft. Send a message to begin." : "Fork draft. Send a message to create the thread.",
+        },
       };
     }
     case "active-thread/fork-replacement-settled": {

@@ -35,7 +35,7 @@ function resumeThread(
   stateStore: ChatStateStore,
   items: readonly ThreadStreamItem[],
   lifetime: { kind: "persistent" } | { kind: "ephemeral"; sourceThreadId: string; sourceThreadTitle: string | null } = {
-    kind: "persistent",
+    kind: "persistent" as const,
   },
   threadId = "thread",
 ): void {
@@ -166,7 +166,7 @@ describe("implementPlan", () => {
     const plan = planItem("shared-plan");
     resumeThread(stateStore, [plan]);
     const preparation = {
-      draft: { sourceThreadId: "thread", boundary: { kind: "through-turn" as const, turnId: "turn" } },
+      draft: { kind: "persistent" as const, sourceThreadId: "thread", boundary: { kind: "through-turn" as const, turnId: "turn" } },
       runtime: stateStore.getState().runtime,
       display: { items: [plan], turnDiffs: new Map() },
     };

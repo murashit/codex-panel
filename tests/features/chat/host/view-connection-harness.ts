@@ -384,7 +384,6 @@ export interface ChatHostFixtureOverrides {
   openThreadFromPanel?: CodexChatHost["workspace"]["openThreadFromPanel"];
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   notifyPanelActivityChanged?: CodexChatHost["workspace"]["notifyPanelActivityChanged"];
-  openSideChat?: CodexChatHost["workspace"]["openSideChat"];
   applyThreadFact?: CodexChatHost["threadFacts"]["apply"];
   refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
   activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
@@ -598,7 +597,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       openThreadFromPanel: overrides.openThreadFromPanel ?? vi.fn(),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
       notifyPanelActivityChanged: overrides.notifyPanelActivityChanged ?? vi.fn(),
-      openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
     },
     appServerQueries: {
       metadataSnapshot,

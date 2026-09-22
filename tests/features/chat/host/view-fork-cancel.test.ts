@@ -3,6 +3,7 @@
 import { type App, Modal } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createChatState } from "../../../../src/features/chat/application/state/model";
+import { sideChatDraft } from "../../../../src/features/chat/application/threads/fork-draft";
 import * as confirmation from "../../../../src/features/chat/host/composer/confirm-fork-discard.obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
@@ -38,24 +39,34 @@ describe("fork cancellation", () => {
     opened.contentEl.remove();
   });
 
-  async function setup(text = "original prompt", client = connectedClient()) {
+  async function setup(text = "original prompt", client = connectedClient(), sideChat = false) {
     const host = chatHost({ settings: { showToolbar: false } });
     connectionMockState().client = client;
     const view = await chatView({ host });
     await view.onOpen();
-    await view.surface.applyForkDraft({
-      draft: { sourceThreadId: "source", boundary: { kind: "before-turn", turnId: "last" }, initialPrompt: "original prompt" },
-      runtime: createChatState().runtime,
-      display: { items: [], turnDiffs: new Map() },
-    });
+    await view.surface.applyForkDraft(
+      sideChat
+        ? sideChatDraft("source", "Source")
+        : {
+            draft: {
+              kind: "persistent",
+              sourceThreadId: "source",
+              boundary: { kind: "before-turn", turnId: "last" },
+              initialPrompt: "original prompt",
+            },
+            runtime: createChatState().runtime,
+            display: { items: [], turnDiffs: new Map() },
+          },
+    );
     view.surface.setComposerText(text);
     await waitForAsyncWork(() => expect(view.containerEl.querySelector(".codex-panel__cancel-fork")).not.toBeNull());
     return { host, view, button: requiredButton(view.containerEl, ".codex-panel__cancel-fork") };
   }
 
-  it("offers an accessible cancel action without confirming the unedited rollback prompt", async () => {
+  it.each([false, true])("returns an unedited draft without creating a child (side chat=%s)", async (sideChat) => {
     const confirm = vi.spyOn(confirmation, "confirmForkDiscard");
-    const { host, view, button } = await setup();
+    const client = connectedClient();
+    const { host, view, button } = await setup(sideChat ? "" : "original prompt", client, sideChat);
     expect(button.dataset["icon"]).toBe("arrow-left");
     expect(button.getAttribute("aria-label")).toBe("Return to source thread");
     expect(button.type).toBe("button");
@@ -64,6 +75,7 @@ describe("fork cancellation", () => {
       expect(host.workspace.returnFromForkDraft).toHaveBeenCalledWith("source", expect.any(String), expect.any(Function)),
     );
     expect(confirm).not.toHaveBeenCalled();
+    expect(client.request.mock.calls.some(([method]) => method === "thread/fork")).toBe(false);
     await view.onClose();
   });
 

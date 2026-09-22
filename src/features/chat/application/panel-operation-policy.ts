@@ -39,6 +39,10 @@ const ALLOWED: ActivePanelOperationDecision = { kind: "allowed" };
 export function activePanelOperationDecision(state: ChatState, operation: ActivePanelOperation): ActivePanelOperationDecision {
   if (state.panelThread.kind === "fork-draft") {
     if (state.panelThread.operation) return { kind: "blocked", message: "Wait for the current fork operation to finish." };
+    if (state.panelThread.draft.kind === "side-chat") {
+      if (operation !== "compact") return sideChatDecision(operation);
+      return { kind: "blocked", message: "Send a message to create this side chat before using this action." };
+    }
     switch (operation) {
       case "submit":
       case "fork":

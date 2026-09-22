@@ -1,14 +1,23 @@
 import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
 import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
 import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/settings";
-import type { ChatRuntimeState } from "../../domain/runtime/state";
+import { type ChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
 import type { ForkDisplaySnapshot } from "./fork-display-snapshot";
 
-export interface ForkDraft {
+export type ForkDraft = {
   readonly sourceThreadId: string;
-  readonly boundary: { readonly kind: "through-turn" | "before-turn"; readonly turnId: string };
-  readonly replacement?: ForkReplacement;
   readonly initialPrompt?: string;
+} & (
+  | { readonly kind: "persistent"; readonly boundary: ThreadForkPosition; readonly replacement?: ForkReplacement }
+  | { readonly kind: "side-chat"; readonly sourceThreadTitle: string | null }
+);
+
+export function sideChatDraft(sourceThreadId: string, sourceThreadTitle: string | null): ForkDraftPreparation {
+  return {
+    draft: { kind: "side-chat", sourceThreadId, sourceThreadTitle },
+    runtime: initialChatRuntimeState(),
+    display: { items: [], turnDiffs: new Map() },
+  };
 }
 
 export interface ForkReplacement {

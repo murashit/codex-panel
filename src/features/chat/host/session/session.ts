@@ -15,7 +15,7 @@ import { type ChatStateStore, createChatStateStore } from "../../application/sta
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import { captureForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
-import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
+import { type ForkDraftPreparation, sideChatDraft } from "../../application/threads/fork-draft";
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { chatTurnBusy } from "../../application/turns/turn-state";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
@@ -39,7 +39,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   private unsubscribePanelActivity: (() => void) | null = null;
   private pendingRuntimeRestore: ChatPanelRuntimeSnapshot | null;
   private pendingPersistentActivation: { threadId: string; promise: Promise<boolean> } | null = null;
-  private pendingEphemeralSource: { threadId: string; title: string | null } | null = null;
 
   constructor(
     private readonly environment: ChatPanelEnvironment,
@@ -54,27 +53,15 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   displayTitle(): string {
-    if (this.state.panelThread.kind === "fork-draft" || this.pendingRuntimeRestore?.forkDraft) return "Fork draft";
-    if (this.pendingEphemeralSource || activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
-      return "Side chat";
-    }
+    const draft =
+      this.state.panelThread.kind === "fork-draft" ? this.state.panelThread.draft : this.pendingRuntimeRestore?.forkDraft?.draft;
+    if (draft) return draft.kind === "side-chat" ? "Side chat" : "Fork draft";
+    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") return "Side chat";
     return threadWindowTitle(panelThreadId(this.state), this.sharedThreads(), this.restoredThreadTitle());
   }
 
   persistedState(): Record<string, unknown> {
-    if (this.pendingEphemeralSource) {
-      return {
-        version: 2,
-        ephemeralSource: this.pendingEphemeralSource,
-      };
-    }
-    const lifetime = activeThreadState(this.state)?.lifetime;
-    if (lifetime?.kind === "ephemeral") {
-      return {
-        version: 2,
-        ephemeralSource: { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle },
-      };
-    }
+    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") return { version: 1 };
     if (panelThreadProvenance(this.state)?.kind === "subagent") return { version: 1 };
     const threadId = panelThreadId(this.state);
     if (!threadId) return { version: 1 };
@@ -92,7 +79,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.reconcilePendingPersistentRuntimeTarget(restoredState.kind === "thread" ? restoredState.threadId : null);
     this.runtime.commands.invalidateThreadWork();
     this.pendingPersistentActivation = null;
-    this.clearPendingEphemeralIntent();
     if (restoredState.kind === "thread") {
       this.stateStore.dispatch({
         type: "panel/restored-thread-applied",
@@ -132,10 +118,9 @@ export class ChatPanelSession implements ChatPanelHandle {
                 kind: "latest",
               }),
             }
-          : null),
-      ephemeralSource:
-        this.pendingEphemeralSource ??
-        (lifetime?.kind === "ephemeral" ? { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle } : null),
+          : lifetime?.kind === "ephemeral"
+            ? sideChatDraft(lifetime.sourceThreadId, lifetime.sourceThreadTitle)
+            : null),
     };
   }
 
@@ -145,11 +130,9 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   openPanelSnapshot(): ChatWorkspacePanelSnapshot {
     const activity = panelActivity(this.state);
-    const preparingEphemeralThread = this.pendingEphemeralSource !== null;
     return {
       viewId: this.environment.obsidian.viewId,
       ...activity,
-      pending: activity.pending || preparingEphemeralThread,
       threadId: this.closing ? null : activity.threadId,
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
       hasForkDraft: this.state.panelThread.kind === "fork-draft" || this.pendingRuntimeRestore?.forkDraft != null,
@@ -157,16 +140,22 @@ export class ChatPanelSession implements ChatPanelHandle {
     };
   }
 
-  async applyForkDraft(preparation: ForkDraftPreparation): Promise<void> {
+  async applyForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<boolean> {
     const previousThreadId = activeThreadId(this.state);
     this.pendingRuntimeRestore = null;
     this.runtime.commands.invalidateThreadWork();
     this.pendingPersistentActivation = null;
-    this.clearPendingEphemeralIntent();
     this.stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
     this.environment.view.refreshTabHeader();
     this.environment.obsidian.requestWorkspaceLayoutSave();
+    const target = capturePanelTargetLease(this.state);
     if (previousThreadId) await this.runtime.thread.unsubscribe(previousThreadId);
+    if (this.closing || !panelTargetLeaseIsCurrent(this.state, target)) return false;
+    const text = initialMessage?.trim();
+    if (!text) return true;
+    const submissionClaim = this.runtime.composer.controller.claimTextSubmission(text);
+    if (!submissionClaim) return false;
+    return this.runtime.turn.submissionCommands.sendTurnText({ text, submissionClaim });
   }
 
   private async cancelForkDraft(): Promise<void> {
@@ -191,7 +180,7 @@ export class ChatPanelSession implements ChatPanelHandle {
         this.environment.obsidian.viewId,
         isCurrent,
       );
-      if (!returned && isCurrent()) new Notice("Could not return to the source thread. Your fork draft was kept.");
+      if (!returned && isCurrent()) new Notice("Could not return to the source thread. Your draft was kept.");
     } catch (error) {
       if (isCurrent()) new Notice(`Could not return to the source thread: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -211,7 +200,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       return false;
     }
 
-    this.clearPendingEphemeralIntent();
     const pending = this.pendingPersistentActivation;
     if (pending?.threadId === targetThreadId) {
       const activated = await pending.promise;
@@ -311,44 +299,10 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
-    this.clearPendingEphemeralIntent();
     await this.runtime.commands.startNewThread(options);
     if (panelThreadId(this.state) === null) {
       this.pendingPersistentActivation = null;
       this.reconcilePendingPersistentRuntimeTarget(null);
-    }
-  }
-
-  async openSideChat(
-    input: { sourceThreadId: string; sourceThreadTitle: string | null; initialMessage?: string },
-    options: { focus?: boolean } = {},
-  ): Promise<boolean> {
-    const intent = this.resumeWork.begin(null);
-    this.pendingPersistentActivation = null;
-    const pendingSource = { threadId: input.sourceThreadId, title: input.sourceThreadTitle };
-    this.setPendingEphemeralSource(pendingSource);
-    try {
-      const opened = await this.runtime.thread.ephemeral.open(input, {
-        isCurrent: () => this.resumeWork.isCurrent(intent),
-      });
-      if (!opened) return false;
-      this.reconcilePendingPersistentRuntimeTarget(null);
-      if (options.focus !== false) this.focusComposer();
-      const initialMessage = input.initialMessage?.trim();
-      if (initialMessage) {
-        const submissionClaim = this.runtime.composer.controller.claimTextSubmission(initialMessage);
-        if (!submissionClaim) return false;
-        const sent = await this.runtime.turn.submissionCommands.sendTurnText({ text: initialMessage, submissionClaim });
-        if (!sent) return false;
-      }
-      return true;
-    } catch (error) {
-      if (this.closing) return false;
-      throw error;
-    } finally {
-      if (this.pendingEphemeralSource === pendingSource) {
-        this.setPendingEphemeralSource(null);
-      }
     }
   }
 
@@ -387,21 +341,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (snapshot.forkDraft) {
       void this.applyForkDraft(snapshot.forkDraft);
     }
-    if (snapshot.ephemeralSource) {
-      void this.openSideChat(
-        {
-          sourceThreadId: snapshot.ephemeralSource.threadId,
-          sourceThreadTitle: snapshot.ephemeralSource.title,
-        },
-        { focus: false },
-      ).then(
-        (opened) => {
-          if (opened && !this.closing) this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
-        },
-        () => undefined,
-      );
-      return;
-    }
     this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
   }
 
@@ -429,16 +368,6 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.environment.plugin.workspace.notifyPanelActivityChanged();
   }
 
-  private clearPendingEphemeralIntent(): void {
-    if (this.pendingEphemeralSource) this.setPendingEphemeralSource(null);
-  }
-
-  private setPendingEphemeralSource(source: { threadId: string; title: string | null } | null): void {
-    this.pendingEphemeralSource = source;
-    this.environment.view.refreshTabHeader();
-    this.notifyPanelActivityChanged();
-  }
-
   private activeThreadTitle(): string | null {
     const activeThread = activeThreadState(this.state);
     if (!activeThread) return null;
@@ -460,7 +389,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   private reconcilePendingPersistentRuntimeTarget(threadId: string | null): void {
     const snapshot = this.pendingRuntimeRestore;
-    if (!snapshot || snapshot.ephemeralSource) return;
+    if (!snapshot || snapshot.forkDraft?.draft.kind === "side-chat") return;
     const restoredViewState = parseChatPanelViewState(snapshot.viewState);
     const restoredThreadId = restoredViewState.kind === "thread" ? restoredViewState.threadId : null;
     if (restoredThreadId !== threadId) this.pendingRuntimeRestore = null;
@@ -474,7 +403,9 @@ export class ChatPanelSession implements ChatPanelHandle {
       resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
-      applyForkDraft: (preparation) => this.applyForkDraft(preparation),
+      applyForkDraft: async (preparation) => {
+        await this.applyForkDraft(preparation);
+      },
       cancelForkDraft: () => void this.cancelForkDraft(),
     });
   }

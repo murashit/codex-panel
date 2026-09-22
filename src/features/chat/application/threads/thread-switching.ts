@@ -2,5 +2,7 @@ import { activeThreadId, activeThreadState, type ChatState } from "../state/mode
 import { chatTurnBusy } from "../turns/turn-state";
 
 export function canSwitchToThread(state: ChatState, threadId: string | null): boolean {
-  return !chatTurnBusy(state.activeTurn) || threadId === activeThreadId(state) || activeThreadState(state)?.provenance?.kind === "subagent";
+  if (threadId !== null && threadId === activeThreadId(state)) return true;
+  if (state.pendingSubmission || (state.panelThread.kind === "fork-draft" && state.panelThread.operation === "creating")) return false;
+  return !chatTurnBusy(state.activeTurn) || activeThreadState(state)?.provenance?.kind === "subagent";
 }

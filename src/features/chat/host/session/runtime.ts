@@ -11,6 +11,7 @@ import { activeThreadId, type ChatConnectionPhase } from "../../application/stat
 import type { ChatStateStore } from "../../application/state/store";
 import { createEphemeralThreadLifecycle } from "../../application/threads/ephemeral-thread-lifecycle";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
+import { sideChatDraft } from "../../application/threads/fork-draft";
 import { createPersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
@@ -127,9 +128,21 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     vaultPath: () => environment.plugin.appServerContext.vaultPath,
     sharedResources,
   });
+  const ephemeral = createEphemeralThreadLifecycle({
+    stateStore,
+    effects: appServer.threadEphemeral,
+    ensureConnected: async () => {
+      await ensureConnected();
+      return connection.isConnected();
+    },
+    addSystemMessage: status.addSystemMessage,
+    notifyActiveThreadIdentityChanged,
+    interruptTurn: (threadId, turnId) => appServer.turn.interruptTurn(threadId, turnId),
+  });
   const threadStart = createThreadStartCommand({
     stateStore,
     effects: appServer.threadStart,
+    createSideChat: (sourceThreadId, isCurrent) => ephemeral.create(sourceThreadId, isCurrent),
     onThreadActivated: (hadTurns) => {
       threadFoundation.autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
       notifyActiveThreadIdentityChanged();
@@ -178,17 +191,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       new Notice(message);
     },
     sharedResources,
-  });
-  const ephemeral = createEphemeralThreadLifecycle({
-    stateStore,
-    effects: appServer.threadEphemeral,
-    ensureConnected: async () => {
-      await ensureConnected();
-      return connection.isConnected();
-    },
-    addSystemMessage: status.addSystemMessage,
-    notifyActiveThreadIdentityChanged,
-    interruptTurn: (threadId, turnId) => appServer.turn.interruptTurn(threadId, turnId),
   });
   const navigation = createPersistentNavigationLifecycle({
     stateStore,
@@ -261,7 +263,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       const threadId = activeThreadId(state);
       if (!threadId) return;
       const thread = environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId);
-      void environment.plugin.workspace.openSideChat(threadId, thread?.name ?? thread?.preview ?? null);
+      void environment.plugin.workspace.openForkDraft(sideChatDraft(threadId, thread?.name ?? thread?.preview ?? null));
     },
     debugDetails: {
       stateStore,

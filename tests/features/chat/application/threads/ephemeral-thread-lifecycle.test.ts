@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/model";
-import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/model";
+import { activeThreadId } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import {
   createEphemeralThreadLifecycle,
   type EphemeralThreadEffects,
@@ -9,7 +10,7 @@ import {
 import { deferred } from "../../../../support/async";
 
 describe("ephemeral thread lifecycle", () => {
-  it("activates an ephemeral fork without adding it to the thread list", async () => {
+  it("returns the prepared fork without activating it", async () => {
     const store = createChatStateStore();
     const port = transportMock();
     port.forkEphemeralThread = vi.fn().mockResolvedValue({
@@ -26,14 +27,13 @@ describe("ephemeral thread lifecycle", () => {
       interruptTurn: vi.fn().mockResolvedValue(true),
     });
 
-    await expect(lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: "Source" })).resolves.toBe(true);
+    await expect(lifecycle.create("source", () => true)).resolves.toEqual({
+      kind: "completed",
+      value: activationFixture({ canAcceptDirectInput: false }),
+    });
 
     expect(port.forkEphemeralThread).toHaveBeenCalledWith("source");
-    expect(activeThreadState(store.getState())).toMatchObject({
-      id: "side",
-      lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
-      canAcceptDirectInput: false,
-    });
+    expect(activeThreadId(store.getState())).toBeNull();
   });
 
   it("unsubscribes an idle ephemeral thread before persistent navigation", async () => {
@@ -47,7 +47,7 @@ describe("ephemeral thread lifecycle", () => {
       notifyActiveThreadIdentityChanged: vi.fn(),
       interruptTurn: vi.fn().mockResolvedValue(true),
     });
-    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+    activateSideThread(store);
 
     await expect(lifecycle.prepareForPersistentNavigation()).resolves.toBe(true);
 
@@ -67,7 +67,7 @@ describe("ephemeral thread lifecycle", () => {
       notifyActiveThreadIdentityChanged: vi.fn(),
       interruptTurn,
     });
-    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+    activateSideThread(store);
     store.dispatch({ type: "turn/started", threadId: "side", turnId: "turn" });
 
     await lifecycle.dispose();
@@ -88,7 +88,7 @@ describe("ephemeral thread lifecycle", () => {
       notifyActiveThreadIdentityChanged: vi.fn(),
       interruptTurn,
     });
-    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+    activateSideThread(store);
     store.dispatch({ type: "turn/started", threadId: "side", turnId: "turn" });
 
     await lifecycle.cleanupForConnectionReset();
@@ -101,7 +101,7 @@ describe("ephemeral thread lifecycle", () => {
     expect(activeThreadId(store.getState())).toBe("side");
 
     store.dispatch({ type: "active-thread/cleared" });
-    await expect(lifecycle.open({ sourceThreadId: "source-2", sourceThreadTitle: null })).resolves.toBe(true);
+    await expect(lifecycle.create("source-2", () => true)).resolves.toEqual({ kind: "completed", value: activationFixture() });
   });
 
   it("unsubscribes a fork that resolves after the lifecycle is disposed without activating it", async () => {
@@ -123,12 +123,12 @@ describe("ephemeral thread lifecycle", () => {
       interruptTurn: vi.fn().mockResolvedValue(true),
     });
 
-    const opening = lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: "Source" });
+    const opening = lifecycle.create("source", () => true);
     await Promise.resolve();
     await lifecycle.dispose();
     resolveFork({ kind: "ready", sourceThreadId: "source", activation: activationFixture() });
 
-    await expect(opening).resolves.toBe(false);
+    await expect(opening).resolves.toEqual({ kind: "not-started" });
     expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
     expect(activeThreadId(store.getState())).toBeNull();
   });
@@ -147,12 +147,12 @@ describe("ephemeral thread lifecycle", () => {
       interruptTurn: vi.fn().mockResolvedValue(true),
     });
 
-    const opening = lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+    const opening = lifecycle.create("source", () => true);
     await Promise.resolve();
     await lifecycle.dispose();
     fork.resolve({ kind: "cleanup-required", threadId: "side" });
 
-    await expect(opening).resolves.toBe(false);
+    await expect(opening).resolves.toEqual({ kind: "not-started" });
     expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
   });
 
@@ -177,13 +177,13 @@ describe("ephemeral thread lifecycle", () => {
         interruptTurn: vi.fn().mockResolvedValue(true),
       });
 
-      const opening = lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null }, { isCurrent: () => current });
+      const opening = lifecycle.create("source", () => current);
       await vi.waitFor(() => expect(port.forkEphemeralThread).toHaveBeenCalledOnce());
       current = false;
       store.dispatch({ type: "panel/view-state-cleared" });
       fork.resolve({ kind: "ready", sourceThreadId: "source", activation: activationFixture() });
 
-      await expect(opening).resolves.toBe(false);
+      await expect(opening).resolves.toEqual({ kind: "not-started" });
       expect(port.unsubscribeEphemeralThread).toHaveBeenCalledTimes(1);
       expect(activeThreadId(store.getState())).toBeNull();
 
@@ -204,7 +204,7 @@ describe("ephemeral thread lifecycle", () => {
       notifyActiveThreadIdentityChanged: vi.fn(),
       interruptTurn: vi.fn().mockRejectedValue(new Error("interrupt failed")),
     });
-    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+    activateSideThread(store);
     store.dispatch({ type: "turn/started", threadId: "side", turnId: "turn" });
 
     await lifecycle.dispose();
@@ -225,7 +225,7 @@ describe("ephemeral thread lifecycle", () => {
         notifyActiveThreadIdentityChanged: vi.fn(),
         interruptTurn: vi.fn(() => new Promise<boolean>(() => undefined)),
       });
-      await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+      activateSideThread(store);
       store.dispatch({ type: "turn/started", threadId: "side", turnId: "turn" });
 
       const disposal = lifecycle.dispose();
@@ -251,7 +251,7 @@ describe("ephemeral thread lifecycle", () => {
       notifyActiveThreadIdentityChanged: vi.fn(),
       interruptTurn: vi.fn().mockResolvedValue(true),
     });
-    await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+    activateSideThread(store);
 
     await expect(lifecycle.prepareForPersistentNavigation()).resolves.toBe(false);
 
@@ -274,7 +274,7 @@ describe("ephemeral thread lifecycle", () => {
       interruptTurn: vi.fn().mockResolvedValue(true),
     });
 
-    await expect(lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null })).resolves.toBe(false);
+    await expect(lifecycle.create("source", () => true)).resolves.toEqual({ kind: "not-started" });
     await lifecycle.dispose();
 
     expect(addSystemMessage).toHaveBeenCalledWith("Could not open the side chat. Please try again.");
@@ -318,4 +318,11 @@ function activationFixture(overrides: Partial<ThreadActivationSnapshot> = {}): T
     activePermissionProfile: null,
     ...overrides,
   };
+}
+
+function activateSideThread(store: ReturnType<typeof createChatStateStore>): void {
+  store.dispatch({
+    ...resumedThreadAction({ response: activationFixture() }),
+    lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: null },
+  });
 }

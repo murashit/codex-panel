@@ -1,7 +1,7 @@
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/model";
+import type { EffectOutcome } from "../effect-outcome";
 import { activeThreadState } from "../state/model";
 import type { ChatStateStore } from "../state/store";
-import { ephemeralThreadActivatedAction } from "../state/transition-actions";
 import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
 
 export type EphemeralThreadForkResult =
@@ -15,13 +15,8 @@ export interface EphemeralThreadEffects {
 
 const EPHEMERAL_INTERRUPT_RELEASE_TIMEOUT_MS = 1_000;
 
-interface OpenEphemeralThreadInput {
-  sourceThreadId: string;
-  sourceThreadTitle: string | null;
-}
-
 export interface EphemeralThreadLifecycle {
-  open(input: OpenEphemeralThreadInput, options?: { isCurrent?: () => boolean }): Promise<boolean>;
+  create(sourceThreadId: string, isCurrent: () => boolean): Promise<EffectOutcome<ThreadActivationSnapshot>>;
   prepareForPersistentNavigation(): Promise<boolean>;
   cleanupForConnectionReset(): Promise<void>;
   dispose(): Promise<void>;
@@ -52,7 +47,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       await tryCleanupEphemeralThread(threadId);
     }
   };
-  const openIsStale = (isCurrent: () => boolean): boolean => disposed || !isCurrent();
+  const creationIsStale = (isCurrent: () => boolean): boolean => disposed || !isCurrent();
   const prepareActiveEphemeralThreadForRelease = async (): Promise<void> => {
     const state = host.stateStore.getState();
     const activeThread = activeThreadState(state);
@@ -66,38 +61,26 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
   };
 
   return {
-    async open(input, options = {}): Promise<boolean> {
-      const isCurrent = options.isCurrent ?? (() => true);
-      if (!(await host.ensureConnected())) return false;
-      if (openIsStale(isCurrent)) return false;
+    async create(sourceThreadId, isCurrent): Promise<EffectOutcome<ThreadActivationSnapshot>> {
+      if (creationIsStale(isCurrent)) return { kind: "not-started" };
       if (cleanupRequiredThreadIds.size > 0) {
         await retryRequiredCleanup();
-        if (openIsStale(isCurrent)) return false;
+        if (creationIsStale(isCurrent)) return { kind: "not-started" };
       }
-      const result = await host.effects.forkEphemeralThread(input.sourceThreadId);
-      if (!result) return false;
+      const result = await host.effects.forkEphemeralThread(sourceThreadId);
+      if (!result) return { kind: "not-started" };
       if (result.kind === "cleanup-required") {
         await tryCleanupEphemeralThread(result.threadId);
-        if (!openIsStale(isCurrent)) {
+        if (!creationIsStale(isCurrent)) {
           host.addSystemMessage("Could not open the side chat. Please try again.");
         }
-        return false;
+        return { kind: "not-started" };
       }
-      const snapshot = result;
-      if (openIsStale(isCurrent)) {
-        await tryCleanupEphemeralThread(snapshot.activation.thread.id);
-        return false;
+      if (creationIsStale(isCurrent)) {
+        await tryCleanupEphemeralThread(result.activation.thread.id);
+        return { kind: "not-started" };
       }
-      host.stateStore.dispatch(
-        ephemeralThreadActivatedAction({
-          response: snapshot.activation,
-          sourceThreadId: input.sourceThreadId,
-          sourceThreadTitle: input.sourceThreadTitle,
-        }),
-      );
-      if (activeThreadState(host.stateStore.getState())?.id !== snapshot.activation.thread.id) return false;
-      host.notifyActiveThreadIdentityChanged();
-      return true;
+      return { kind: "completed", value: result.activation };
     },
 
     async prepareForPersistentNavigation(): Promise<boolean> {

@@ -200,6 +200,7 @@ describe("chat panel projection integration", () => {
       type: "panel/fork-draft-applied",
       preparation: {
         draft: {
+          kind: "persistent",
           sourceThreadId: "source",
           boundary: { kind: "through-turn", turnId: "turn" },
         },

@@ -186,6 +186,7 @@ describe("thread management commands", () => {
     expect(host.openForkDraft).toHaveBeenCalledExactlyOnceWith(
       {
         draft: {
+          kind: "persistent",
           sourceThreadId: "source",
           boundary: { kind: "through-turn", turnId: "turn-3" },
         },
@@ -339,7 +340,12 @@ describe("thread management commands", () => {
     await commands.rollbackThread("source");
     expect(host.openForkDraft).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        draft: { sourceThreadId: "source", boundary: { kind: "before-turn", turnId: "turn-3" }, initialPrompt: "three" },
+        draft: {
+          kind: "persistent",
+          sourceThreadId: "source",
+          boundary: { kind: "before-turn", turnId: "turn-3" },
+          initialPrompt: "three",
+        },
       }),
       false,
     );
@@ -442,6 +448,7 @@ describe("thread management commands", () => {
     }
     const forkThread = vi.fn(async () => completed({ ...activation, thread: panelThread("child") }));
     const starter = createThreadStartCommand({
+      createSideChat: vi.fn(),
       stateStore: host.stateStore,
       effects: { forkThread, startThread: vi.fn() },
       runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, shared),

@@ -1,5 +1,4 @@
 import type { App, WorkspaceLeaf } from "obsidian";
-
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import type {
   ChatSharedThreadSurface,
@@ -116,28 +115,12 @@ export class WorkspacePanelCoordinator {
     });
   }
 
-  async openForkDraft(preparation: ForkDraftPreparation): Promise<void> {
+  async openForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<void> {
     const view = await this.createNewViewNow();
     if (!view) return;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return;
-    await this.completePanelOperation(leaf, view, workspacePanelSurface(view).applyForkDraft(preparation));
-  }
-
-  async openSideChat(sourceThreadId: string, sourceThreadTitle: string | null, initialMessage?: string): Promise<void> {
-    const view = await this.createNewViewNow({
-      version: 2,
-      ephemeralSource: { threadId: sourceThreadId, title: sourceThreadTitle },
-    });
-    if (!view) return;
-    const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
-    if (!leaf) return;
-    const surface = workspacePanelSurface(view);
-    const opening = surface.openSideChat(
-      { sourceThreadId, sourceThreadTitle, ...(initialMessage ? { initialMessage } : {}) },
-      { focus: false },
-    );
-    await this.completePanelOperation(leaf, view, opening);
+    await this.completePanelOperation(leaf, view, workspacePanelSurface(view).applyForkDraft(preparation, initialMessage));
   }
 
   async openNewPanel(): Promise<void> {

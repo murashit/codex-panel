@@ -172,25 +172,6 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
   };
 }
 
-export function ephemeralThreadActivatedAction(
-  params: ResumedThreadActionParams & { sourceThreadId: string; sourceThreadTitle: string | null },
-): ActiveThreadResumedAction {
-  const action = resumedThreadAction({
-    response: params.response,
-    ...(params.items ? { items: params.items } : {}),
-    ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
-    ...(params.serviceTierKnown === undefined ? {} : { serviceTierKnown: params.serviceTierKnown }),
-  });
-  return {
-    ...action,
-    lifetime: {
-      kind: "ephemeral",
-      sourceThreadId: params.sourceThreadId,
-      sourceThreadTitle: params.sourceThreadTitle,
-    },
-  };
-}
-
 export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettingsAppliedActionSettings): ActiveThreadSettingsAppliedAction {
   const permissions = runtimePermissionStateOrDefault(settings);
   return {

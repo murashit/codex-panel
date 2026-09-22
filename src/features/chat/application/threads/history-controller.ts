@@ -158,5 +158,9 @@ export class HistoryController {
 }
 
 function historySourceThreadId(state: ChatState): string | null {
-  return state.panelThread.kind === "fork-draft" ? state.panelThread.draft.sourceThreadId : activeThreadId(state);
+  return state.panelThread.kind === "fork-draft"
+    ? state.panelThread.draft.kind === "persistent"
+      ? state.panelThread.draft.sourceThreadId
+      : null
+    : activeThreadId(state);
 }

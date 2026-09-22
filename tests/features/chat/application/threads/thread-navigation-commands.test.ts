@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ActiveThreadIdentitySync } from "../../../../../src/features/chat/application/threads/active-thread-identity-sync";
+import { sideChatDraft } from "../../../../../src/features/chat/application/threads/fork-draft";
 import type {
   PersistentNavigationLifecycle,
   PersistentNavigationPreparation,
@@ -183,11 +183,26 @@ describe("ThreadNavigationCommands", () => {
     expect(host.openThreadFromPanel).toHaveBeenCalledWith("thread", true);
   });
 
-  it("routes toolbar selection away from a busy origin panel", async () => {
+  it.each(["turn", "persistent", "side-chat"] as const)("routes toolbar selection away from a busy origin (%s)", async (busy) => {
     const { commands, host, stateStore } = createActionsHarness();
-    resumeThreadState(stateStore, "active");
+    if (busy === "turn") {
+      resumeThreadState(stateStore, "active");
+      stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
+    } else {
+      const preparation = sideChatDraft("source", "Source");
+      stateStore.dispatch({
+        type: "panel/fork-draft-applied",
+        preparation:
+          busy === "side-chat"
+            ? preparation
+            : {
+                ...preparation,
+                draft: { kind: "persistent", sourceThreadId: "source", boundary: { kind: "through-turn", turnId: "turn" } },
+              },
+      });
+      stateStore.dispatch({ type: "panel/fork-operation-set", revision: stateStore.getState().panelTargetRevision, operation: "creating" });
+    }
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
-    stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
     await commands.selectThreadFromToolbar("other");
 

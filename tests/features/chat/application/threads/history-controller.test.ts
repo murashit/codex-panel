@@ -460,6 +460,7 @@ function applyForkDraft(
     type: "panel/fork-draft-applied",
     preparation: {
       draft: {
+        kind: "persistent",
         sourceThreadId: "source",
         boundary: { kind: "through-turn", turnId },
       },

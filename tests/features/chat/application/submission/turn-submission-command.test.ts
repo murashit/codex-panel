@@ -930,6 +930,7 @@ describe("deferred fork submission", () => {
     const hydrateCreatedFork = vi.fn().mockResolvedValue(undefined);
     const onThreadActivated = vi.fn();
     const starter = createThreadStartCommand({
+      createSideChat: vi.fn(),
       stateStore,
       effects: { startThread, forkThread },
       recordStartedThread: vi.fn(),
@@ -948,6 +949,7 @@ describe("deferred fork submission", () => {
       type: "panel/fork-draft-applied",
       preparation: {
         draft: {
+          kind: "persistent",
           sourceThreadId: "source",
           initialPrompt: "edited prompt",
           boundary: { kind: "before-turn", turnId: "source-last" },

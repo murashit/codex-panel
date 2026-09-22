@@ -17,7 +17,7 @@ class ForkDiscardModal extends Modal {
   }
 
   override onOpen(): void {
-    this.contentEl.createEl("h2", { text: "Discard changes to this fork?" });
+    this.contentEl.createEl("h2", { text: "Discard this draft?" });
     this.contentEl.createEl("p", { text: "Your unsent edits and attachments will be discarded. The source thread will not be changed." });
     new Setting(this.contentEl)
       .addButton((button) =>

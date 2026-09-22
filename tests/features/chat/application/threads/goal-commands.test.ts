@@ -224,6 +224,7 @@ describe("createGoalCommands", () => {
     const creation = deferred<EffectOutcome<ThreadActivationSnapshot>>();
     const startEffect = vi.fn(() => creation.promise);
     const starter = createThreadStartCommand({
+      createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,

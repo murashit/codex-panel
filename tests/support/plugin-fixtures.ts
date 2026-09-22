@@ -156,7 +156,6 @@ function chatHostFixture(): CodexChatHost {
       openThreadFromPanel: vi.fn(),
       openTurnDiff: vi.fn(),
       notifyPanelActivityChanged: vi.fn(),
-      openSideChat: vi.fn(),
     },
     appServerQueries: {
       metadataSnapshot: vi.fn(() => null),

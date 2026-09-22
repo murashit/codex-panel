@@ -582,7 +582,6 @@ describe("chat panel session runtime", () => {
           notifyPanelActivityChanged: vi.fn(),
           ...overrides.plugin?.workspace,
           openThreadFromPanel: overrides.plugin?.workspace?.openThreadFromPanel ?? vi.fn().mockResolvedValue(undefined),
-          openSideChat: overrides.plugin?.workspace?.openSideChat ?? vi.fn().mockResolvedValue(undefined),
         },
         appServerQueries,
         toolInventoryQueries: overrides.plugin?.toolInventoryQueries ?? toolInventoryQueriesFixture(),

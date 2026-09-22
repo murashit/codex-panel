@@ -116,14 +116,15 @@ async function forkThreadFromTurn(
 async function prepareFork(
   host: ThreadCommandsHost,
   threadId: string,
-  boundary: ForkDraftPreparation["draft"]["boundary"] | null,
+  boundary: Extract<ForkDraftPreparation["draft"], { kind: "persistent" }>["boundary"] | null,
   archiveSource: boolean,
   saveMarkdown: boolean,
   composerText?: string,
   adoption?: ComposerSubmissionAdoption["adoptPanelTarget"],
 ): Promise<void> {
   const state = threadCommandState(host);
-  const previous = state.panelThread.kind === "fork-draft" ? state.panelThread.draft : null;
+  const previous =
+    state.panelThread.kind === "fork-draft" && state.panelThread.draft.kind === "persistent" ? state.panelThread.draft : null;
   const sourceThreadId = previous?.sourceThreadId ?? activeThreadId(state);
   if (sourceThreadId !== threadId) {
     host.addSystemMessage("Open the source thread before forking it.");
@@ -149,6 +150,7 @@ async function prepareFork(
     : undefined;
   const preparation: ForkDraftPreparation = {
     draft: {
+      kind: "persistent",
       sourceThreadId,
       boundary: selected,
       ...(composerText === undefined ? {} : { initialPrompt: composerText }),
