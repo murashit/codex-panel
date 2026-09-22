@@ -22,15 +22,14 @@ import {
 } from "../../domain/pending-requests/result-items";
 import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import { classifyAppServerLog } from "./app-server-logs";
-import {
-  type ApprovalRequestCoordinator,
-  type ApprovalRequestOwner,
-  type ApprovalResponseDelivery,
-  createApprovalRequestCoordinator,
-  isApprovalServerRequest,
-} from "./approval-request-coordinator";
 import { type ChatInboundEffect, planChatInboundNotification } from "./notification-plan";
-import { appServerMcpElicitationResponse, appServerUserInputResponse } from "./server-request-adapter";
+import {
+  type ApprovalRequest,
+  appServerApprovalResponse,
+  appServerMcpElicitationResponse,
+  appServerUserInputResponse,
+  isApprovalServerRequest,
+} from "./server-request-adapter";
 import { routeServerRequest, serverRequestCurrentTimeResponse } from "./server-request-routing";
 
 export interface ChatInboundHandlerEffects {
@@ -57,7 +56,8 @@ interface ChatInboundHandlerContext {
   store: ChatStateStore;
   effects: ChatInboundHandlerEffects;
   localItemIds: LocalIdSource;
-  approvalRequests: ApprovalRequestCoordinator;
+  // App-server replays the original request ID; keep its opaque decision payload until resolution.
+  approvalRequests: Map<RequestId, ApprovalRequest>;
   userInputAutoResolutionTimers: Map<PendingRequestId, number>;
 }
 
@@ -70,7 +70,7 @@ export function createChatInboundHandler(
     store,
     effects,
     localItemIds,
-    approvalRequests: createApprovalRequestCoordinator(),
+    approvalRequests: new Map(),
     userInputAutoResolutionTimers: new Map(),
   };
   return {
@@ -116,15 +116,11 @@ function dispatch(context: ChatInboundHandlerContext, action: ChatAction): void 
 
 function handleNotification(context: ChatInboundHandlerContext, notification: ServerNotification): void {
   reconcileApprovalRequests(context);
-  flushAutomaticApprovalResponses(context);
   if (notification.method === "serverRequest/resolved") {
     clearUserInputAutoResolutionTimer(context, notification.params.requestId);
-    const settlement = context.approvalRequests.markSettled(notification.params.requestId);
-    if (settlement) {
-      if (!settlement.uiResolved && settlement.allKnownEndpointsSettled) {
-        dispatch(context, { type: "request/resolved", requestId: settlement.logicalRequestId });
-      }
-      reconcileApprovalRequests(context);
+    // Child requests are displayed in the parent panel, so resolve known IDs before thread routing.
+    if (context.approvalRequests.delete(notification.params.requestId)) {
+      dispatch(context, { type: "request/resolved", requestId: notification.params.requestId });
       return;
     }
   }
@@ -136,16 +132,15 @@ function handleNotification(context: ChatInboundHandlerContext, notification: Se
 
 function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): boolean {
   reconcileApprovalRequests(context);
-  flushAutomaticApprovalResponses(context);
   const current = state(context);
   const activeScope = { activeThreadId: activeThreadId(current), activeTurnId: activeTurnId(current.activeTurn) };
   let route = routeServerRequest(request, activeScope);
-  let approvalOwner: ApprovalRequestOwner = "active";
+  let trackedSubagent = false;
   if (route.kind === "inactive") {
     const trackedScope = trackedSubagentApprovalScope(current, request);
     if (trackedScope) {
       route = routeServerRequest(request, trackedScope);
-      approvalOwner = "tracked-subagent";
+      trackedSubagent = true;
     }
   }
   switch (route.kind) {
@@ -159,13 +154,9 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
         rejectServerRequest(context, request, `Rejected approval without a turn: ${request.method}`);
         return true;
       }
-      const registration = context.approvalRequests.register(request, approvalOwner, parentTurnId);
-      if (registration.kind === "new") {
-        const approval = approvalOwner === "tracked-subagent" ? { ...route.approval, turnId: parentTurnId } : route.approval;
-        dispatch(context, { type: "request/approval-queued", approval });
-      } else if (registration.kind === "answered") {
-        deliverApprovalResponses(context, registration.deliveries);
-      }
+      context.approvalRequests.set(request.id, request);
+      const approval = trackedSubagent ? { ...route.approval, turnId: parentTurnId } : route.approval;
+      dispatch(context, { type: "request/approval-queued", approval });
       return true;
     }
     case "userInput": {
@@ -225,23 +216,23 @@ function handleAppServerLog(context: ChatInboundHandlerContext, message: string)
 }
 
 function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: ApprovalAction): void {
+  reconcileApprovalRequests(context);
   const approval = state(context).requests.approvals.find((item) => item.requestId === requestId) ?? null;
   if (!approval) return;
-  const plan = context.approvalRequests.decide(approval.requestId, action);
-  if (!plan) {
+  const request = context.approvalRequests.get(approval.requestId);
+  if (!request) {
     addSystemMessage(context, "Could not find the approval request to answer.");
     return;
   }
-  const delivered = deliverApprovalResponses(context, plan.deliveries);
-  if (!delivered) {
+  if (!context.effects.respondToServerRequest(request.id, appServerApprovalResponse(request, action))) {
     addSystemMessage(context, "Could not send approval response because Codex app-server is not connected.");
     return;
   }
-  context.approvalRequests.markUiResolved(approval.requestId);
+  context.approvalRequests.delete(request.id);
   dispatch(context, {
     type: "request/resolved",
     requestId: approval.requestId,
-    resultItem: createApprovalResultItem(approval, plan.action),
+    resultItem: createApprovalResultItem(approval, action),
   });
 }
 
@@ -255,27 +246,15 @@ function trackedSubagentApprovalScope(current: ChatState, request: ServerRequest
   return { activeThreadId: tracked.threadId, activeTurnId: tracked.childTurnId };
 }
 
-function deliverApprovalResponses(context: ChatInboundHandlerContext, deliveries: readonly ApprovalResponseDelivery[]): boolean {
-  let delivered = false;
-  for (const delivery of deliveries) {
-    if (!context.effects.respondToServerRequest(delivery.requestId, delivery.response)) continue;
-    delivered = true;
-    context.approvalRequests.markSettled(delivery.requestId);
-  }
-  return delivered;
-}
-
-function flushAutomaticApprovalResponses(context: ChatInboundHandlerContext): void {
-  const deliveries = context.approvalRequests.automaticDeliveries();
-  if (deliveries.length > 0) deliverApprovalResponses(context, deliveries);
-}
-
 function reconcileApprovalRequests(context: ChatInboundHandlerContext): void {
   const current = state(context);
-  const pendingApprovalIds = new Set(current.requests.approvals.map((approval) => approval.requestId));
-  const abandonedApprovalIds = context.approvalRequests.reconcile(activeTurnId(current.activeTurn), pendingApprovalIds);
-  for (const requestId of abandonedApprovalIds) {
-    if (pendingApprovalIds.has(requestId)) dispatch(context, { type: "request/resolved", requestId });
+  const turnId = activeTurnId(current.activeTurn);
+  const approvals = new Map(current.requests.approvals.map((approval) => [approval.requestId, approval]));
+  for (const requestId of context.approvalRequests.keys()) {
+    const approval = approvals.get(requestId);
+    if (approval && approval.turnId === turnId) continue;
+    context.approvalRequests.delete(requestId);
+    if (approval) dispatch(context, { type: "request/resolved", requestId });
   }
 }
 

@@ -34,7 +34,7 @@ type AppServerRequest = ServerRequest;
 type CommandApprovalRequest = Extract<AppServerRequest, { method: "item/commandExecution/requestApproval" }>;
 type FileChangeApprovalRequest = Extract<AppServerRequest, { method: "item/fileChange/requestApproval" }>;
 type PermissionsApprovalRequest = Extract<AppServerRequest, { method: "item/permissions/requestApproval" }>;
-type ApprovalRequest = CommandApprovalRequest | FileChangeApprovalRequest | PermissionsApprovalRequest;
+export type ApprovalRequest = CommandApprovalRequest | FileChangeApprovalRequest | PermissionsApprovalRequest;
 type UserInputRequest = Extract<AppServerRequest, { method: "item/tool/requestUserInput" }>;
 type McpElicitationRequest = Extract<AppServerRequest, { method: "mcpServer/elicitation/request" }>;
 
@@ -120,15 +120,12 @@ export function appServerApprovalResponse(request: ApprovalRequest, action: Appr
   }
 }
 
-export function appServerApprovalDecisionSignature(request: ApprovalRequest): string {
-  switch (request.method) {
-    case "item/commandExecution/requestApproval":
-      return JSON.stringify(request.params.availableDecisions ?? null);
-    case "item/permissions/requestApproval":
-      return JSON.stringify(request.params.permissions);
-    case "item/fileChange/requestApproval":
-      return "file-change";
-  }
+export function isApprovalServerRequest(request: ServerRequest): request is ApprovalRequest {
+  return (
+    request.method === "item/commandExecution/requestApproval" ||
+    request.method === "item/fileChange/requestApproval" ||
+    request.method === "item/permissions/requestApproval"
+  );
 }
 
 export function appServerUserInputRequest(request: AppServerRequest): PendingUserInput | null {

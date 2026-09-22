@@ -1061,22 +1061,17 @@ describe("ChatInboundHandler", () => {
       expect(rejectServerRequest).not.toHaveBeenCalled();
     });
 
-    it("presents one parent-owned approval and answers both parent and tracked-child requests", () => {
+    it("presents tracked-child approvals in the parent turn and answers their original request ID", () => {
       const respondToServerRequest = vi.fn(() => true);
-      const rejectServerRequest = vi.fn(() => true);
-      const handler = handlerForState(activeRunningState(), { respondToServerRequest, rejectServerRequest });
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       trackDirectSubagent(handler, "child", "child-turn");
 
-      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
-      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command"));
+      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "command"));
 
-      expect(rejectServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().requests.approvals).toEqual([expect.objectContaining({ requestId: 51, turnId: "turn-active" })]);
-
       handler.resolveApproval(51, "accept");
 
-      expect(respondToServerRequest).toHaveBeenNthCalledWith(1, 51, { decision: "accept" });
-      expect(respondToServerRequest).toHaveBeenNthCalledWith(2, 52, { decision: "accept" });
+      expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(51, { decision: "accept" });
       expect(handler.currentState().requests.approvals).toEqual([]);
       expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "approvalResult",
@@ -1084,91 +1079,68 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("applies a locked decision when the parent copy arrives after the child approval was answered", () => {
+    it("keeps one pending approval when app-server replays the same request", () => {
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-      trackDirectSubagent(handler, "child", "child-turn");
+      const request = commandApprovalRequest(51, "thread-active", "turn-active", "command");
+      handler.handleServerRequest(request);
+      handler.handleServerRequest(request);
 
-      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
-      handler.resolveApproval(51, "decline");
-      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command"));
-
-      expect(respondToServerRequest).toHaveBeenNthCalledWith(1, 51, { decision: "decline" });
-      expect(respondToServerRequest).toHaveBeenNthCalledWith(2, 52, { decision: "decline" });
-      expect(handler.currentState().requests.approvals).toEqual([]);
-      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toHaveLength(1);
-    });
-
-    it("settles the UI once and retries only an undelivered approval copy", () => {
-      const respondToServerRequest = vi
-        .fn<(requestId: string | number, response: unknown) => boolean>()
-        .mockReturnValueOnce(true)
-        .mockReturnValueOnce(false)
-        .mockReturnValueOnce(true);
-      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
-      trackDirectSubagent(handler, "child", "child-turn");
-      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
-      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command"));
-
+      expect(handler.currentState().requests.approvals).toHaveLength(1);
+      handler.resolveApproval(51, "accept");
       handler.resolveApproval(51, "accept");
 
+      expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(51, { decision: "accept" });
       expect(handler.currentState().requests.approvals).toEqual([]);
-      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toHaveLength(1);
+    });
 
-      handler.handleNotification({
-        method: "thread/tokenUsage/updated",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          tokenUsage: {
-            total: {
-              inputTokens: 1,
-              cachedInputTokens: 0,
-              cacheWriteInputTokens: 0,
-              outputTokens: 1,
-              reasoningOutputTokens: 0,
-              totalTokens: 2,
-            },
-            last: {
-              inputTokens: 1,
-              cachedInputTokens: 0,
-              cacheWriteInputTokens: 0,
-              outputTokens: 1,
-              reasoningOutputTokens: 0,
-              totalTokens: 2,
-            },
-            modelContextWindow: 100,
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "thread/tokenUsage/updated" }>);
+    it("retains a failed approval for an explicit retry using the user's current choice", () => {
+      const respondToServerRequest = vi.fn(() => true).mockReturnValueOnce(false);
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
+      const request = commandApprovalRequest(51, "thread-active", "turn-active", "command");
+      handler.handleServerRequest(request);
+      handler.resolveApproval(51, "accept");
 
-      expect(respondToServerRequest.mock.calls.map(([requestId]) => requestId)).toEqual([51, 52, 52]);
+      expect(handler.currentState().requests.approvals).toHaveLength(1);
+      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
+      handler.handleServerRequest(request);
+      expect(respondToServerRequest).toHaveBeenCalledTimes(1);
+      handler.resolveApproval(51, "decline");
+
+      expect(respondToServerRequest).toHaveBeenNthCalledWith(2, 51, { decision: "decline" });
+      expect(handler.currentState().requests.approvals).toEqual([]);
       expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toHaveLength(1);
     });
 
-    it("waits for both parent and child request-resolved notifications before clearing the approval", () => {
+    it("clears a tracked-child approval when its request resolves outside the active thread", () => {
       const handler = handlerForState(activeRunningState());
       trackDirectSubagent(handler, "child", "child-turn");
-      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
-      handler.handleServerRequest(commandApprovalRequest(52, "thread-active", "turn-active", "shared-command"));
+      handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "command"));
 
       handler.handleNotification({
         method: "serverRequest/resolved",
         params: { threadId: "child", requestId: 51 },
-      } satisfies Extract<ServerNotification, { method: "serverRequest/resolved" }>);
-      expect(handler.currentState().requests.approvals).toHaveLength(1);
-
-      handler.handleNotification({
-        method: "serverRequest/resolved",
-        params: { threadId: "thread-active", requestId: 52 },
       } satisfies Extract<ServerNotification, { method: "serverRequest/resolved" }>);
 
       expect(handler.currentState().requests.approvals).toEqual([]);
       expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
     });
 
+    it("does not send an approval after connection scope cleanup", () => {
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
+      handler.handleServerRequest(commandApprovalRequest(51, "thread-active", "turn-active", "command"));
+
+      handler.clearServerRequests();
+      handler.resolveApproval(51, "accept");
+
+      expect(respondToServerRequest).not.toHaveBeenCalled();
+      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
+    });
+
     it("does not carry delayed child activity into the parent turn that follows", () => {
-      const handler = handlerForState(activeRunningState());
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       trackDirectSubagent(handler, "child", "child-turn");
       handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "shared-command"));
 
@@ -1216,6 +1188,8 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/reasoning/summaryTextDelta" }>);
 
+      handler.resolveApproval(51, "accept");
+      expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "next-turn" });
       expect(handler.currentState().activeTurn.subagents.byThreadId).toEqual(new Map());
     });
