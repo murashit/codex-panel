@@ -1,6 +1,6 @@
 import { OwnerLifetime } from "../../../../shared/async/owner-lifetime";
 import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
-import { type ChatState, panelThreadId } from "../../application/state/model";
+import type { ChatState } from "../../application/state/model";
 import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { ComposerPendingSelection } from "../../ui/composer/composer";
@@ -62,7 +62,7 @@ export class ComposerAttachmentTransfers {
       const result = await this.options.attachmentHandler.saveFiles(files);
       if (!this.lifetime.isCurrent(lifetime)) return;
       const state = this.state;
-      const targetIsCurrent = state.panelTargetRevision === pending.panelTargetRevision && panelThreadId(state) === pending.threadId;
+      const targetIsCurrent = state.panelTargetRevision === pending.panelTargetRevision;
       this.completePendingSave(pending, result.attachments);
       if (targetIsCurrent && result.failures.length > 0) {
         this.options.onError(
@@ -94,7 +94,6 @@ export class ComposerAttachmentTransfers {
       syntheticPrefix: insertion.insertedText.slice(0, placeholderOffset),
       syntheticSuffix: insertion.insertedText.slice(placeholderOffset + placeholder.length),
       panelTargetRevision: this.state.panelTargetRevision,
-      threadId: panelThreadId(this.state),
     };
     this.options.setPendingSelection(collapsedComposerSelection(insertion.value, insertion.cursor));
     this.dispatch({ type: "composer/attachment-save-started", saveId: id, draft: insertion.value });
@@ -105,11 +104,7 @@ export class ComposerAttachmentTransfers {
   private completePendingSave(pending: PendingAttachmentSave, attachments: readonly ComposerAttachment[]): void {
     const markers = attachments.map((attachment) => attachment.marker);
     const state = this.state;
-    if (
-      state.panelTargetRevision !== pending.panelTargetRevision ||
-      panelThreadId(state) !== pending.threadId ||
-      !state.composer.pendingAttachmentSaveIds.includes(pending.id)
-    ) {
+    if (state.panelTargetRevision !== pending.panelTargetRevision || !state.composer.pendingAttachmentSaveIds.includes(pending.id)) {
       this.settlePendingSave(pending);
       return;
     }
@@ -147,7 +142,6 @@ interface PendingAttachmentSave {
   readonly syntheticPrefix: string;
   readonly syntheticSuffix: string;
   readonly panelTargetRevision: number;
-  readonly threadId: string | null;
 }
 
 interface DraftReplacement {

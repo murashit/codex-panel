@@ -49,9 +49,8 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
       interruptTurn: vi.fn().mockResolvedValue(true),
     },
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
-    startThread: vi.fn().mockImplementation(async (_preview, options) => {
-      options?.adoptPanelTarget?.("thread");
-      resumeThread(stateStore, options?.preservePendingSubmissionId);
+    startThread: vi.fn().mockImplementation(async () => {
+      resumeThread(stateStore, true);
       return { kind: "created-activated", target: { threadId: "thread", revision: stateStore.getState().panelTargetRevision } };
     }),
     applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
@@ -64,9 +63,9 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   return { host, startTurn, stateStore, steerTurn };
 }
 
-function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, preservePendingSubmissionId?: string, threadId = "thread") {
+function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, created = false, threadId = "thread") {
   stateStore.dispatch({
-    type: "active-thread/resumed",
+    type: created ? "active-thread/created" : "active-thread/resumed",
     canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
@@ -79,7 +78,6 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, prese
     reasoningEffort: null,
     serviceTier: null,
     approvalsReviewer: null,
-    ...(preservePendingSubmissionId ? { preservePendingSubmissionId } : {}),
   });
 }
 
@@ -256,25 +254,6 @@ describe("TurnSubmissionCommand", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
   });
 
-  it("hands an owned first-turn claim across the thread activation boundary", async () => {
-    const { host } = createHost();
-    const adoptPanelTarget = vi.fn();
-
-    await createTurnSubmissionCommand(host).sendTurnText({
-      text: "first message",
-      submissionClaim: {
-        text: "first message",
-        inputSnapshot: {} as never,
-        isCurrent: vi.fn(() => true),
-        markAdopted: vi.fn(),
-        adoptPanelTarget,
-        settle: vi.fn(),
-      },
-    });
-
-    expect(adoptPanelTarget).toHaveBeenCalledWith("thread");
-  });
-
   it("replaces a pending web submission when starting a turn", async () => {
     const { host, stateStore } = createHost();
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
@@ -349,9 +328,9 @@ describe("TurnSubmissionCommand", () => {
   it("commits a pending web import before thread creation and ignores cancellation during the RPC", async () => {
     const threadStarting = deferred<void>();
     const { host, startTurn, stateStore } = createHost();
-    host.startThread = vi.fn().mockImplementation(async (_preview, options) => {
+    host.startThread = vi.fn().mockImplementation(async () => {
       await threadStarting.promise;
-      resumeThread(stateStore, options?.preservePendingSubmissionId);
+      resumeThread(stateStore, true);
       return { kind: "created-activated", target: { threadId: "thread", revision: stateStore.getState().panelTargetRevision } };
     });
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");

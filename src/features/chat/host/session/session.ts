@@ -336,11 +336,10 @@ export class ChatPanelSession implements ChatPanelHandle {
       if (options.focus !== false) this.focusComposer();
       const initialMessage = input.initialMessage?.trim();
       if (initialMessage) {
-        const sent = await this.runtime.turn.submissionCommands.sendTurnText({ text: initialMessage });
-        if (!sent) {
-          this.runtime.composer.controller.setDraft(initialMessage, { focus: true });
-          return false;
-        }
+        const submissionClaim = this.runtime.composer.controller.claimTextSubmission(initialMessage);
+        if (!submissionClaim) return false;
+        const sent = await this.runtime.turn.submissionCommands.sendTurnText({ text: initialMessage, submissionClaim });
+        if (!sent) return false;
       }
       return true;
     } catch (error) {

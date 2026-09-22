@@ -252,7 +252,36 @@ export class ChatComposerController {
     const text = this.draft;
     if (!text.trim()) return null;
     const inputSnapshot = this.captureInputSnapshot();
-    const claimedSelectionContexts = this.takeSelectionContexts();
+    const claim = this.claimInput(text, inputSnapshot, this.takeSelectionContexts());
+    this.attachments = [];
+    this.activeNoteContextSnapshots = [];
+    this.threadCommandTarget = null;
+    this.setDraft("", { clearSuggestions: true, preserveContext: true, threadCommandTarget: null });
+    return claim;
+  }
+
+  claimTextSubmission(text: string): ComposerSubmissionClaim | null {
+    if (this.submissionInput || !text.trim()) return null;
+    return this.claimInput(
+      text,
+      {
+        sourcePath: "",
+        availableSkills: [],
+        referenceActiveNoteOnSend: false,
+        contextReferences: { activeNote: null, selection: null },
+        activeNoteSnapshots: [],
+        selectionSnapshots: [],
+        attachments: [],
+      },
+      new Map(),
+    );
+  }
+
+  private claimInput(
+    text: string,
+    inputSnapshot: ComposerInputSnapshot,
+    claimedSelectionContexts: Map<string, RetainedComposerSelection>,
+  ): ComposerSubmissionClaim {
     const claim = new SubmissionInput(
       text,
       inputSnapshot,
@@ -288,10 +317,6 @@ export class ChatComposerController {
       },
     );
     this.submissionInput = claim;
-    this.attachments = [];
-    this.activeNoteContextSnapshots = [];
-    this.threadCommandTarget = null;
-    this.setDraft("", { clearSuggestions: true, preserveContext: true, threadCommandTarget: null });
     return claim;
   }
 

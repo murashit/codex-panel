@@ -141,11 +141,14 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
   if (action.expectedPanelTargetRevision !== undefined && action.expectedPanelTargetRevision !== state.panelTargetRevision) {
     return state;
   }
-  const creatingFork = action.type === "active-thread/created" && state.panelThread.kind === "fork-draft";
+  const creating =
+    action.type === "active-thread/created" && (state.panelThread.kind === "empty" || state.panelThread.kind === "fork-draft");
+  const creatingFork = creating && state.panelThread.kind === "fork-draft";
+  const sameConversation = creating || panelThreadId(state) === action.thread.id;
   const replacement = creatingFork || panelThreadId(state) === action.thread.id ? pendingForkReplacement(state) : undefined;
   const runtimeBase = action.preserveRequestedRuntimeSettings ? state.runtime : initialChatRuntimeState();
   const turnScopedState = clearTurnScopedState(state);
-  const nextPanelTargetRevision = panelThreadId(state) === action.thread.id ? state.panelTargetRevision : state.panelTargetRevision + 1;
+  const nextPanelTargetRevision = sameConversation ? state.panelTargetRevision : state.panelTargetRevision + 1;
   return patchObject(turnScopedState, {
     connection: {
       ...state.connection,
@@ -185,12 +188,9 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
       ...initialChatThreadStreamState(creatingFork ? state.threadStream.stableItems : (action.items ?? [])),
       ...(creatingFork ? { turnDiffs: state.threadStream.turnDiffs } : {}),
     },
-    pendingSubmission:
-      action.preservePendingSubmissionId && state.pendingSubmission?.id === action.preservePendingSubmissionId
-        ? { ...state.pendingSubmission, targetThreadId: action.thread.id }
-        : null,
+    pendingSubmission: creating && state.pendingSubmission ? { ...state.pendingSubmission, targetThreadId: action.thread.id } : null,
     requests: initialChatRequestState(),
-    composer: creatingFork || panelThreadId(state) === action.thread.id ? state.composer : initialComposerState(),
+    composer: sameConversation ? state.composer : initialComposerState(),
     ui: action.preserveGoalEditor ? { ...initialUiState(), goalEditor: state.ui.goalEditor } : initialUiState(),
   });
 }

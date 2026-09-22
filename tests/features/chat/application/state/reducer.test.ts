@@ -44,21 +44,13 @@ describe("chatReducer", () => {
     expect(resumed.composer.draft).toBe("Continue here");
   });
 
-  it("retargets only the explicitly preserved pending web submission when a thread resumes", () => {
+  it("keeps pending web input on creation and discards it on navigation", () => {
     const pending = pendingWebSubmission("current-web", "committed");
     const state = chatReducer(chatStateFixture(), { type: "web-submission/pending", submission: pending });
-
-    const preserved = chatReducer(state, {
-      ...resumedThreadAction("resumed-thread"),
-      preservePendingSubmissionId: "current-web",
-    });
-    const stale = chatReducer(state, {
-      ...resumedThreadAction("resumed-thread"),
-      preservePendingSubmissionId: "older-web",
-    });
-
-    expect(preserved.pendingSubmission).toEqual({ ...pending, targetThreadId: "resumed-thread" });
-    expect(stale.pendingSubmission).toBeNull();
+    const created = chatReducer(state, { ...resumedThreadAction("created-thread"), type: "active-thread/created" });
+    const navigated = chatReducer(state, resumedThreadAction("resumed-thread"));
+    expect(created.pendingSubmission).toEqual({ ...pending, targetThreadId: "created-thread" });
+    expect(navigated.pendingSubmission).toBeNull();
   });
 
   it.each([

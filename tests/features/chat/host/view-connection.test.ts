@@ -439,7 +439,7 @@ describe("CodexChatView connection lifecycle", () => {
     await expect(opening).resolves.toBe(false);
   });
 
-  it("sends an initial message after opening a side chat", async () => {
+  it.each(["Explain this briefly", "/clear [[Note]] @active"])("sends literal side-chat input: %s", async (initialMessage) => {
     const client = connectedClient({
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
@@ -451,37 +451,39 @@ describe("CodexChatView connection lifecycle", () => {
     await view.surface.openSideChat({
       sourceThreadId: "source",
       sourceThreadTitle: "Source",
-      initialMessage: "Explain this briefly",
+      initialMessage,
     });
 
     expect(client.request).toHaveBeenCalledWith(
       "turn/start",
       expect.objectContaining({
         threadId: "side",
-        input: [expect.objectContaining({ type: "text", text: "Explain this briefly" })],
+        input: [expect.objectContaining({ type: "text", text: initialMessage })],
       }),
     );
   });
 
-  it("restores an initial message to the composer when its first send fails", async () => {
+  it.each(["", "Next draft"])("restores failed side-chat input alongside the next draft %j", async (nextDraft) => {
+    const turn = deferred<unknown>();
     const client = connectedClient({
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
-      "turn/start": vi.fn().mockRejectedValue(new Error("offline")),
+      "turn/start": vi.fn(() => turn.promise),
     });
     connectionMockState().client = client;
     const view = await chatView();
     await view.onOpen();
-
-    await expect(
-      view.surface.openSideChat({
-        sourceThreadId: "source",
-        sourceThreadTitle: "Source",
-        initialMessage: "Explain this briefly",
-      }),
-    ).resolves.toBe(false);
-
-    expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Explain this briefly");
+    const opening = view.surface.openSideChat({ sourceThreadId: "source", sourceThreadTitle: "Source", initialMessage: "First message" });
+    await waitForAsyncWork(() => expectRequestTimes(client, "turn/start", 1));
+    const input = requiredTextArea(view.containerEl, ".codex-panel__composer-input");
+    expect(input.disabled).toBe(false);
+    input.value = nextDraft;
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    turn.reject(new Error("offline"));
+    await expect(opening).resolves.toBe(false);
+    expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe(
+      nextDraft ? `First message\n\n${nextDraft}` : "First message",
+    );
   });
 
   it("publishes side-chat preparation as pending before the fork completes", async () => {
@@ -564,12 +566,15 @@ describe("CodexChatView connection lifecycle", () => {
       createdAt: 1,
       updatedAt: 1,
     };
+    const start = deferred<{ thread: ReturnType<typeof threadFixture> }>();
     const client = connectedClient({
+      "thread/start": vi.fn(() => start.promise),
       "thread/goal/set": vi.fn().mockResolvedValue({ goal }),
     });
     connectionMockState().client = client;
     const view = await chatView();
     await view.onOpen();
+    view.surface.setComposerText("Keep my unsent prompt");
 
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Show chat actions"]')?.click();
     await waitForAsyncWork(() => {
@@ -590,6 +595,11 @@ describe("CodexChatView connection lifecycle", () => {
     });
     const save = requiredButton(view.containerEl, '[aria-label="Save goal"]');
     save.click();
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/start", 1));
+    save.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expectRequestTimes(client, "thread/start", 1);
+    start.resolve({ thread: threadFixture("thread-new") });
 
     await waitForAsyncWork(() => {
       expect(client.request).toHaveBeenCalledWith("thread/start", {
@@ -605,6 +615,8 @@ describe("CodexChatView connection lifecycle", () => {
         tokenBudget: null,
       });
     });
+    expectRequestTimes(client, "thread/start", 1);
+    expect(requiredTextArea(view.containerEl, ".codex-panel__composer-input").value).toBe("Keep my unsent prompt");
     expect(client.request).not.toHaveBeenCalledWith("thread/inject_items", expect.anything());
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-new" });
     connectionMockState().onNotification?.({

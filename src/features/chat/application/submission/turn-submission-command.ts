@@ -1,5 +1,4 @@
 import { type CodexInput, codexTextInput } from "../../../../domain/input/input";
-import type { Thread } from "../../../../domain/threads/model";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
 import type { LocalIdSource } from "../local-id-source";
@@ -7,10 +6,10 @@ import { activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadState, type ChatState, pendingForkReplacement } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import { archiveForkSource, type ForkReplacementEffects, type ForkReplacementPublication } from "../threads/fork-replacement";
-import type { ThreadStartOutcome } from "../threads/thread-start-command";
+import type { ThreadStartCommand } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
 import { activeTurnId, chatTurnBusy, STATUS_TURN_RUNNING } from "../turns/turn-state";
-import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
+import type { ComposerSubmissionClaim } from "./input-claim";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
@@ -30,14 +29,7 @@ export interface TurnSubmissionCommandHost {
   turnPort: ChatTurnPort;
   ensureConnected: () => Promise<boolean>;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
-  startThread: (
-    preview?: string,
-    options?: {
-      onCreated?: (thread: Thread) => void;
-      preservePendingSubmissionId?: string;
-      adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
-    },
-  ) => Promise<ThreadStartOutcome>;
+  startThread: ThreadStartCommand["startThread"];
   applyPendingThreadSettings: () => Promise<boolean>;
   prepareInput: (text: string, snapshot: ComposerInputSnapshot) => PreparedInput;
   setStatus: (status: string) => void;
@@ -129,15 +121,12 @@ async function sendTurnText(
         {
           const started = await host.startThread(prepared.text, {
             ...(publication ? { onCreated: publication.attach } : {}),
-            ...(attempt.pendingSubmissionId ? { preservePendingSubmissionId: attempt.pendingSubmissionId } : {}),
-            ...(attempt.adoptPanelTarget ? { adoptPanelTarget: attempt.adoptPanelTarget } : {}),
           });
           if (started.kind !== "created-activated") {
             attempt.failPending();
             return false;
           }
           targetThreadId = started.target.threadId;
-          attempt.retarget(started.target);
         }
         if (!attempt.isCurrent()) return false;
         break;

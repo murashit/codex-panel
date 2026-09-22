@@ -67,9 +67,9 @@ function trackComposerControllerTestCleanup(cleanup: () => void): void {
   composerControllerTestCleanups.push(cleanup);
 }
 
-function resumeComposerThread(stateStore: ChatStateStore, threadId: string): void {
+function resumeComposerThread(stateStore: ChatStateStore, threadId: string, created = false): void {
   stateStore.dispatch({
-    type: "active-thread/resumed",
+    type: created ? "active-thread/created" : "active-thread/resumed",
     canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
@@ -427,12 +427,12 @@ describe("ChatComposerController", () => {
     expect(stateStore.getState().composer.draft).toBe("/goal set Current objective\n\nnext message");
   });
 
-  it("does not revive a stale claim after returning to its original thread", () => {
+  it.each(["composer", "literal"])("does not revive stale %s input after returning to its original thread", (source) => {
     const stateStore = createChatStateStore();
     resumeComposerThread(stateStore, "first");
     const { controller } = composerControllerFixture({ stateStore });
     controller.setDraft("/web https://example.com");
-    const staleClaim = controller.claimSubmission();
+    const staleClaim = source === "composer" ? controller.claimSubmission() : controller.claimTextSubmission("Side message");
 
     resumeComposerThread(stateStore, "second");
     resumeComposerThread(stateStore, "first");
@@ -946,6 +946,25 @@ describe("ChatComposerController", () => {
 
     expect(composer(parent).value).toBe("later draft");
     expect(controller.captureInputSnapshot().attachments).toEqual([]);
+  });
+
+  it("keeps next-draft attachments across initial thread creation", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
+      controller: { attachmentHandler: { saveFiles: () => saved.promise.then(attachmentSaveResult) } },
+    });
+    renderShell();
+    controller.setDraft("First prompt");
+    const claim = controller.claimSubmission();
+    controller.setDraft("Next draft");
+    composer(parent).setSelectionRange(10, 10);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
+    resumeComposerThread(stateStore, "created", true);
+    saved.resolve([attachmentFixture("first")]);
+    await flushComposerAttachment();
+    claim?.settle("failed");
+    expect(composer(parent).value).toBe("First prompt\n\nNext draft\n![[Codex Attachments/first.png]]");
+    expect(controller.captureInputSnapshot().attachments).toEqual([attachmentFixture("first")]);
   });
 
   it("does not insert a saved attachment after leaving and returning to the same thread state", async () => {

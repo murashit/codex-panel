@@ -3,7 +3,7 @@ import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurre
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import { pendingTurnStart } from "../turns/turn-state";
-import type { ComposerSubmissionAdoption, ComposerSubmissionClaim } from "./input-claim";
+import type { ComposerSubmissionClaim } from "./input-claim";
 
 export interface TurnSubmissionAttemptInput {
   pendingSubmissionId?: string;
@@ -11,7 +11,7 @@ export interface TurnSubmissionAttemptInput {
 }
 
 export class TurnSubmissionAttempt {
-  private panelTarget: PanelTargetLease;
+  private readonly panelTarget: PanelTargetLease;
   private optimisticItemId: string | null = null;
   private expectedThreadId: string | null = null;
 
@@ -26,16 +26,8 @@ export class TurnSubmissionAttempt {
     return this.input.pendingSubmissionId;
   }
 
-  get adoptPanelTarget(): ComposerSubmissionAdoption["adoptPanelTarget"] | undefined {
-    return this.input.submissionClaim?.adoptPanelTarget;
-  }
-
   get optimisticId(): string | null {
     return this.optimisticItemId;
-  }
-
-  retarget(panelTarget: PanelTargetLease): void {
-    this.panelTarget = panelTarget;
   }
 
   isPendingCurrent(): boolean {

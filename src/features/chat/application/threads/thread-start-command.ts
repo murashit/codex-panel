@@ -6,10 +6,8 @@ import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStar
 import type { EffectOutcome } from "../effect-outcome";
 import { activeThreadId, type ChatState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
-import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import { resumedThreadAction } from "../state/transition-actions";
-import type { ComposerSubmissionAdoption } from "../submission/input-claim";
 import type { ThreadForkOptions } from "./fork-draft";
 
 interface ThreadStartRequest {
@@ -22,7 +20,7 @@ export interface ThreadStartEffects {
   startThread(request: ThreadStartRequest): Promise<EffectOutcome<ThreadActivationSnapshot>>;
 }
 
-export type ThreadStartOutcome =
+type ThreadStartOutcome =
   | { readonly kind: "not-started" }
   | { readonly kind: "created-activated"; readonly target: PanelTargetLease & { readonly threadId: string } }
   | { readonly kind: "created-not-activated" };
@@ -41,24 +39,30 @@ export interface ThreadStartCommand {
     preview?: string,
     options?: {
       onCreated?: (thread: Thread) => void;
-      preservePendingSubmissionId?: string;
-      adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
     },
   ) => Promise<ThreadStartOutcome>;
 }
 
 export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadStartCommand {
+  let creation: { revision: number; promise: Promise<ThreadStartOutcome> } | null = null;
   return {
-    startThread: async (preview, options) => {
+    startThread: (preview, options) => {
       const state = host.stateStore.getState();
-      const draft = state.panelThread.kind === "fork-draft";
-      if (draft && state.panelThread.operation) return { kind: "not-started" };
-      if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision, operation: "creating" });
-      try {
-        return await startThread(host, preview, options);
-      } finally {
-        if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision });
+      if (creation?.revision === state.panelTargetRevision) {
+        return creation.promise;
       }
+      const threadId = activeThreadId(state);
+      if (threadId) return Promise.resolve({ kind: "created-activated", target: { revision: state.panelTargetRevision, threadId } });
+      const draft = state.panelThread.kind === "fork-draft";
+      if (state.panelThread.kind !== "empty" && !draft) return Promise.resolve({ kind: "not-started" });
+      if (draft && state.panelThread.operation) return Promise.resolve({ kind: "not-started" });
+      if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision, operation: "creating" });
+      const promise = startThread(host, preview, options).finally(() => {
+        if (creation?.promise === promise) creation = null;
+        if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision });
+      });
+      creation = { revision: state.panelTargetRevision, promise };
+      return promise;
     },
   };
 }
@@ -68,8 +72,6 @@ async function startThread(
   preview?: string,
   options: {
     onCreated?: (thread: Thread) => void;
-    preservePendingSubmissionId?: string;
-    adoptPanelTarget?: ComposerSubmissionAdoption["adoptPanelTarget"];
   } = {},
 ): Promise<ThreadStartOutcome> {
   const requestState = host.stateStore.getState();
@@ -110,15 +112,6 @@ async function startThread(
   options.onCreated?.(thread);
   host.recordStartedThread(thread);
   const current = host.stateStore.getState();
-  if (
-    options.preservePendingSubmissionId &&
-    !pendingSubmissionMatches(
-      { pendingSubmission: current.pendingSubmission, activeThreadId: activeThreadId(current) },
-      options.preservePendingSubmissionId,
-    )
-  ) {
-    return { kind: "created-not-activated" };
-  }
   if (!panelTargetLeaseIsCurrent(current, panelTarget)) {
     return { kind: "created-not-activated" };
   }
@@ -129,11 +122,9 @@ async function startThread(
       preserveRequestedRuntimeSettings: activeThreadId(requestState) === null,
       preserveGoalEditor: requestState.panelThread.kind === "empty",
       expectedPanelTargetRevision: panelTarget.revision,
-      ...(options.preservePendingSubmissionId ? { preservePendingSubmissionId: options.preservePendingSubmissionId } : {}),
     }),
     type: "active-thread/created" as const,
   };
-  options.adoptPanelTarget?.(action.thread.id);
   const applied = host.stateStore.dispatch(action);
   if (activeThreadId(applied) !== action.thread.id) {
     return { kind: "created-not-activated" };

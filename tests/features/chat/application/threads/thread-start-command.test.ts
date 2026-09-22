@@ -14,7 +14,7 @@ import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "../../
 import { chatStateFixture } from "../../support/state";
 
 describe("thread start commands", () => {
-  it("publishes newly started threads before the first turn completes", async () => {
+  it("publishes initial creation once and reuses it on later requests", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const started = threadFixture("started");
     const optimistic = { ...started, preview: "first prompt" };
@@ -33,33 +33,32 @@ describe("thread start commands", () => {
     });
 
     await commands.startThread("first prompt");
+    await expect(commands.startThread("later prompt")).resolves.toMatchObject({
+      kind: "created-activated",
+      target: { threadId: "started" },
+    });
 
+    expect(recordStartedThread).toHaveBeenCalledOnce();
     expect(recordStartedThread).toHaveBeenCalledWith(optimistic);
     expect(activeThreadState(stateStore.getState())?.canAcceptDirectInput).toBe(false);
   });
 
-  it("identifies the created target before activating it", async () => {
+  it("allows a fresh creation after a failed request", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const adoptPanelTarget = vi.fn((threadId: string | null) => {
-      expect(threadId).toBe("started");
-      expect(activeThreadId(stateStore.getState())).toBeNull();
-    });
+    const startThread = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue(completedActivation(activationFixture(threadFixture("retried"))));
     const commands = createThreadStartCommand({
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: {
-        forkThread: vi.fn(),
-        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
-      },
+      effects: { forkThread: vi.fn(), startThread },
+      onThreadActivated: vi.fn(),
+      hydrateCreatedFork: vi.fn(),
       runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread: vi.fn(),
     });
-
-    await commands.startThread("first prompt", { adoptPanelTarget });
-
-    expect(adoptPanelTarget).toHaveBeenCalledOnce();
-    expect(activeThreadId(stateStore.getState())).toBe("started");
+    await expect(commands.startThread()).rejects.toThrow("offline");
+    await expect(commands.startThread()).resolves.toMatchObject({ kind: "created-activated", target: { threadId: "retried" } });
   });
 
   it("keeps empty-panel runtime reservations when starting the first thread", async () => {
@@ -108,36 +107,6 @@ describe("thread start commands", () => {
     expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
   });
 
-  it("retargets an explicitly preserved pending submission to the newly started thread", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-    if (!pending) throw new Error("Expected pending web submission");
-    stateStore.dispatch({
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: null,
-        phase: "cancellable",
-      },
-    });
-    const commands = createThreadStartCommand({
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
-      stateStore,
-      effects: {
-        forkThread: vi.fn(),
-        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
-      },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
-      recordStartedThread: vi.fn(),
-    });
-
-    await commands.startThread(pending.text, { preservePendingSubmissionId: pending.id });
-
-    expect(stateStore.getState().pendingSubmission).toMatchObject({ id: pending.id, targetThreadId: "started" });
-  });
-
   it("does not activate a delayed new thread after its pending submission is superseded", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
@@ -162,7 +131,7 @@ describe("thread start commands", () => {
       recordStartedThread,
     });
 
-    const starting = commands.startThread(pending.text, { preservePendingSubmissionId: pending.id });
+    const starting = commands.startThread(pending.text);
     stateStore.dispatch(resumedThreadAction({ response: activationFixture(threadFixture("selected")) }));
     started.resolve(completedActivation(activationFixture(threadFixture("delayed"))));
 

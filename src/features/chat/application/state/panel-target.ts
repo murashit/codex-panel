@@ -13,9 +13,11 @@ export function capturePanelTargetLease(state: ChatState): PanelTargetLease {
 }
 
 export function panelTargetLeaseIsCurrent(state: ChatState, lease: PanelTargetLease): boolean {
-  return state.panelTargetRevision === lease.revision && panelThreadId(state) === lease.threadId;
+  // Server ID assignment materializes the same local conversation. Explicit
+  // navigation increments the revision, including a round trip to the same ID.
+  return state.panelTargetRevision === lease.revision;
 }
 
 export function panelTargetLeasesMatch(left: PanelTargetLease, right: PanelTargetLease): boolean {
-  return left.revision === right.revision && left.threadId === right.threadId;
+  return left.revision === right.revision;
 }
