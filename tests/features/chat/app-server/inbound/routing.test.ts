@@ -130,6 +130,7 @@ describe("chat inbound routing", () => {
         turnId: "turn-active",
         serverName: "verification-server",
         mode: "openai/userVerification",
+        _meta: null,
         title: "Verify your identity",
         description: "Confirm access",
         challenge: "Y2hhbGxlbmdl",
@@ -478,6 +479,7 @@ function threadSettingsUpdatedNotification(): Extract<ServerNotification, { meth
     params: {
       threadId: "thread-active",
       threadSettings: {
+        disabledPluginIds: [],
         cwd: "/vault",
         approvalsReviewer: "user",
         sandboxPolicy: { type: "readOnly", networkAccess: false },

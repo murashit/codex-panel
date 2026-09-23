@@ -152,7 +152,10 @@ function nonTextUserInputText(
   return content
     .map((item, index) => {
       if (item.type === "localImage") return hasText && textIncludes(item.path) ? "" : `[local image] ${item.path}`;
-      if (item.type === "image") return hasText && textIncludes(item.url) ? "" : `[image] ${item.url}`;
+      if (item.type === "image") {
+        if ("fileId" in item) return "[image]";
+        return hasText && textIncludes(item.url) ? "" : `[image] ${item.url}`;
+      }
       if (item.type === "mention") return mentionTextByContentIndex?.get(index) ?? "";
       if (item.type === "skill") return hasText ? "" : `[$${item.name}] ${item.path}`;
       return "";

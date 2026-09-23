@@ -349,6 +349,7 @@ function appServerModel(model: string, efforts: readonly string[]): ClientRespon
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
+    availableAccessPrograms: null,
     isDefault: false,
   };
 }
@@ -485,6 +486,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
     model: "gpt-5.1",
     modelProvider: "openai",
     serviceTier: null,
+    disabledPluginIds: [],
     approvalPolicy: "never",
     cwd: "/vault",
     runtimeWorkspaceRoots: [],

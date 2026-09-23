@@ -489,6 +489,7 @@ function threadStartResponse(threadId: string, overrides: Partial<AppServerThrea
     model: "gpt-test",
     modelProvider: "openai",
     serviceTier: null,
+    disabledPluginIds: [],
     runtimeWorkspaceRoots: [],
     instructionSources: [],
     approvalPolicy: "never",

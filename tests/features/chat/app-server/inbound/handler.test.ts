@@ -1833,6 +1833,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           threadSettings: {
+            disabledPluginIds: [],
             cwd: "/workspace/active",
             approvalsReviewer: "auto_review",
             sandboxPolicy: { type: "readOnly", networkAccess: false },
@@ -1879,6 +1880,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-other",
           threadSettings: {
+            disabledPluginIds: [],
             cwd: "/workspace/other",
             approvalsReviewer: "auto_review",
             sandboxPolicy: { type: "readOnly", networkAccess: false },
@@ -1918,6 +1920,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           threadSettings: {
+            disabledPluginIds: [],
             cwd: "/workspace/active",
             approvalsReviewer: "user",
             sandboxPolicy: { type: "readOnly", networkAccess: false },

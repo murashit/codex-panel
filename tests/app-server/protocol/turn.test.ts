@@ -137,6 +137,14 @@ describe("app-server turn records", () => {
     ).toEqual([{ kind: "user", text: "https://example.com/diagram.png", timestamp: null }]);
   });
 
+  it("shows an image attachment without exposing its app-server file ID", () => {
+    expect(
+      transcriptEntriesFromTurnRecords([
+        turn([{ type: "userMessage", id: "u1", clientId: null, content: [{ type: "image", fileId: "file-123" }] }]),
+      ]),
+    ).toEqual([{ kind: "user", text: "[image]", timestamp: null }]);
+  });
+
   it("keeps skill references when a user message has no visible text", () => {
     expect(
       transcriptEntriesFromTurnRecords([

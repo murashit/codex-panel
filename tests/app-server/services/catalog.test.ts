@@ -257,6 +257,7 @@ function modelFixture(overrides: Partial<Model> = {}): Model {
     additionalSpeedTiers: [],
     serviceTiers: [{ id: "priority", name: "Fast", description: "Fast tier" }],
     defaultServiceTier: "priority",
+    availableAccessPrograms: null,
     isDefault: true,
     ...overrides,
   };
