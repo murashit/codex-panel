@@ -30,15 +30,14 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("shares post-initialize metadata loading across concurrent connect calls", async () => {
     const client = connectedClient();
-    const fetchModels = vi.fn().mockResolvedValue([]);
     connectionMockState().client = client;
-    const view = await chatView({ host: chatHost({ fetchModels }) });
+    const view = await chatView();
 
     await Promise.all([view.surface.connect(), view.surface.connect()]);
 
     expect(connectionMockState().connectCalls).toBe(1);
     expectRequestTimes(client, "config/read", 1);
-    expect(fetchModels).toHaveBeenCalledTimes(1);
+    expectRequestTimes(client, "model/list", 1);
     expectRequestTimes(client, "skills/list", 1);
     expectRequestTimes(client, "permissionProfile/list", 1);
     expectRequestTimes(client, "account/rateLimits/read", 1);
@@ -69,7 +68,6 @@ describe("CodexChatView connection lifecycle", () => {
     expect(connectionMockState().connectCalls).toBe(1);
     expect(connected).toBe(false);
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
-    expectRequestTimes(client, "thread/list", 0);
 
     config.resolve({});
     await fullyConnected;

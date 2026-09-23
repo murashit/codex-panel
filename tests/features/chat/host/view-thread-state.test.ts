@@ -225,6 +225,7 @@ describe("CodexChatView thread state", () => {
     });
     composer.setSelectionRange(5, 9);
 
+    await host.threadCatalog.fetchActiveThreads();
     host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Renamed thread" })]);
     view.surface.applyThreadRenamed("thread-1", "Renamed thread");
 

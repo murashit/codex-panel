@@ -2,28 +2,20 @@
 
 import { afterEach, beforeEach, expect, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
-import { modelMetadataFromCatalogModels } from "../../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import type { ActiveThreadData } from "../../../../src/app-server/query/active-thread-inventory";
+import { AppServerMetadataQueries } from "../../../../src/app-server/query/metadata-queries";
 import { AppServerQueryScope } from "../../../../src/app-server/query/query-scope";
+import { AppServerThreadCatalog } from "../../../../src/app-server/query/thread-catalog-queries";
 import { AppServerThreadGoalQueries } from "../../../../src/app-server/query/thread-goal-queries";
-import type { ModelMetadata } from "../../../../src/domain/runtime/catalog";
-import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/runtime/diagnostics";
-import type {
-  SharedServerMetadataResource,
-  SharedServerMetadataResourceFor,
-  SharedServerMetadataResourceId,
-  SharedServerMetadataSnapshotValues,
-} from "../../../../src/domain/runtime/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ChatRuntimeView, ChatViewRuntimeOwner, CodexChatHost } from "../../../../src/features/chat/host/contracts";
-import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
+import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../../../src/shared/async/keyed-operation-coordinator";
-import type { ObservedPaginatedResult, ObservedResult } from "../../../../src/shared/async/observed-result";
 import { notices } from "../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../support/dom";
-import { runtimeConfigFixture } from "../../../support/runtime-config";
 import { threadMutationCommandsMock } from "../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../support/settings";
 
@@ -31,18 +23,12 @@ export interface TestCodexChatHost extends CodexChatHost {
   readonly settingsSource: CodexPanelSettings;
   receiveActiveThreads(threads: readonly Thread[]): void;
 }
-interface SharedServerMetadataFixture {
-  runtimeConfig: ReturnType<typeof runtimeConfigFixture> | null;
-  availableSkills: NonNullable<SharedServerMetadataSnapshotValues["skills"]>;
-  availablePermissionProfiles: NonNullable<SharedServerMetadataSnapshotValues["permissionProfiles"]>;
-  rateLimit: SharedServerMetadataSnapshotValues["rateLimits"];
-  serverDiagnostics: ReturnType<CodexChatHost["appServerQueries"]["metadataDiagnosticsSnapshot"]>;
-}
 interface TrackedView {
   view: { onClose(): Promise<void> | void };
   opened: boolean;
 }
 let createdViews: TrackedView[] = [];
+let createdQueryScopes: AppServerQueryScope[] = [];
 
 const connectionState = {
   client: null as Record<string, unknown> | null,
@@ -73,6 +59,7 @@ export function connectionMockState(): typeof connectionMock.state {
 
 function contextConnectionMock(
   handleContextNotification?: (notification: ServerNotification) => boolean,
+  onContextExit?: () => void,
 ): CodexChatHost["appServerConnection"] {
   return {
     createLease: () => {
@@ -92,6 +79,7 @@ function contextConnectionMock(
           };
           connectionMock.state.onExit = () => {
             connected = false;
+            onContextExit?.();
             handlers.onExit();
           };
           return {
@@ -129,6 +117,8 @@ export function setupViewConnectionHarness(): void {
       if (entry.opened) await entry.view.onClose();
     }
     createdViews = [];
+    for (const scope of createdQueryScopes) scope.dispose();
+    createdQueryScopes = [];
     vi.useRealTimers();
     restoreDefaultThreadStreamViewportMetrics?.();
     restoreDefaultThreadStreamViewportMetrics = null;
@@ -150,12 +140,13 @@ export function connectedClient(overrides: RequestHandlers = {}): TestAppServerC
 
 function baseClientHandlers(): RequestHandlers {
   return {
-    "config/read": vi.fn().mockResolvedValue({}),
+    "config/read": vi.fn().mockResolvedValue({ config: {}, layers: null }),
     "model/list": vi.fn().mockResolvedValue({ data: [] }),
     "skills/list": vi.fn().mockResolvedValue({ data: [] }),
     "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: null }),
     "thread/list": vi.fn().mockResolvedValue({ data: [] }),
+    "threadSection/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     "thread/start": vi.fn().mockResolvedValue(startedThread("thread-new")),
     "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-1")),
     "thread/turns/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
@@ -234,18 +225,6 @@ export function resumedThread(threadId: string, threadOverrides: Record<string, 
     reasoningEffort: null,
     serviceTier: null,
     approvalsReviewer: null,
-  };
-}
-
-function threadFromRecord(record: ThreadRecord): Thread {
-  return {
-    id: record.id,
-    preview: record.preview,
-    name: record.name,
-    archived: false,
-    provenance: { kind: "interactive" },
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
   };
 }
 
@@ -384,24 +363,11 @@ export interface ChatHostFixtureOverrides {
   openThreadFromPanel?: CodexChatHost["workspace"]["openThreadFromPanel"];
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   notifyPanelActivityChanged?: CodexChatHost["workspace"]["notifyPanelActivityChanged"];
-  applyThreadFact?: CodexChatHost["threadFacts"]["apply"];
-  refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
-  activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
-  sharedMetadataSnapshot?: () => SharedServerMetadataFixture | null;
-  modelsSnapshot?: () => SharedServerMetadataSnapshotValues["models"];
-  fetchModels?: CodexChatHost["appServerQueries"]["fetchModels"];
-  refreshModels?: CodexChatHost["appServerQueries"]["refreshModels"];
-  refreshAppServerMetadata?: CodexChatHost["appServerQueries"]["refreshAppServerMetadata"];
   toolInventoryQueries?: CodexChatHost["toolInventoryQueries"];
   threadMutations?: Partial<CodexChatHost["threadMutations"]>;
 }
 
 export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
-  let activeThreads = overrides.activeThreadsSnapshot?.() ?? null;
-  let metadata = overrides.sharedMetadataSnapshot?.() ?? null;
-  let models = overrides.modelsSnapshot?.() ?? null;
-  const activeThreadResultListeners = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
-  const metadataResourceListeners = new Set<(resource: SharedServerMetadataResource) => void>();
   const settings = {
     ...DEFAULT_SETTINGS,
     codexPath: "codex",
@@ -409,177 +375,45 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     ...overrides.settings,
   };
   const vaultPath = overrides.vaultPath ?? "/vault";
-  const applyMetadataToCache = (nextMetadata: SharedServerMetadataFixture): SharedServerMetadataFixture => {
-    metadata = nextMetadata;
-    const resources: SharedServerMetadataResource[] = [
-      { id: "runtimeConfig", value: nextMetadata.runtimeConfig ?? undefined },
-      {
-        id: "skills",
-        value: nextMetadata.availableSkills,
-        probe: nextMetadata.serverDiagnostics.probes.skills,
+  const queryScope = new AppServerQueryScope(
+    { codexPath: settings.codexPath, vaultPath },
+    {
+      withClient: async (operation) => {
+        const client = connectionMock.state.client;
+        if (!client) throw new Error("App-server client is unavailable.");
+        return operation(client as never);
       },
-      {
-        id: "permissionProfiles",
-        value: nextMetadata.availablePermissionProfiles,
-        probe: nextMetadata.serverDiagnostics.probes.permissionProfiles,
-      },
-      {
-        id: "rateLimits",
-        value: nextMetadata.rateLimit,
-        probe: nextMetadata.serverDiagnostics.probes.rateLimits,
-      },
-    ];
-    for (const listener of metadataResourceListeners) {
-      for (const resource of resources) listener(resource);
-    }
-    return nextMetadata;
-  };
-  const currentMetadataResource = (id: SharedServerMetadataResourceId): SharedServerMetadataResource | undefined => {
-    if (id === "runtimeConfig") return metadata ? { id, value: metadata.runtimeConfig ?? undefined } : undefined;
-    if (id === "models") {
-      return models ? { id, value: models, probe: diagnosticProbeOk("models", `${String(models.length)} models`, Date.now()) } : undefined;
-    }
-    if (!metadata) return undefined;
-    if (id === "skills") return { id, value: metadata.availableSkills, probe: metadata.serverDiagnostics.probes.skills };
-    if (id === "permissionProfiles") {
-      return { id, value: metadata.availablePermissionProfiles, probe: metadata.serverDiagnostics.probes.permissionProfiles };
-    }
-    return { id, value: metadata.rateLimit, probe: metadata.serverDiagnostics.probes.rateLimits };
-  };
-  const observeMetadataResource = <Id extends SharedServerMetadataResourceId>(
-    id: Id,
-    listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
-    options: { emitCurrent?: boolean } = {},
-  ): (() => void) => {
-    const aggregateListener = (resource: SharedServerMetadataResource): void => {
-      if (resource.id === id) listener(resource as SharedServerMetadataResourceFor<Id>);
-    };
-    metadataResourceListeners.add(aggregateListener);
-    if (options.emitCurrent ?? true) {
-      const resource = currentMetadataResource(id);
-      if (resource) listener(resource as SharedServerMetadataResourceFor<Id>);
-    }
-    return () => {
-      metadataResourceListeners.delete(aggregateListener);
-    };
-  };
-  const metadataSnapshot = <Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id] => {
-    const value =
-      id === "runtimeConfig"
-        ? (metadata?.runtimeConfig ?? null)
-        : id === "models"
-          ? models
-          : id === "skills"
-            ? (metadata?.availableSkills ?? null)
-            : id === "permissionProfiles"
-              ? (metadata?.availablePermissionProfiles ?? null)
-              : metadata?.rateLimit;
-    return value as SharedServerMetadataSnapshotValues[Id];
-  };
-  const loadAppServerMetadata = async (): Promise<SharedServerMetadataFixture | null> => {
-    const client = connectionMock.state.client as TestAppServerClient | null;
-    if (!client || !connectionMock.state.connected) return null;
-    const connectionStillCurrent = () => connectionMock.state.client === client && connectionMock.state.connected;
-    await client.request("config/read", { cwd: vaultPath, includeLayers: true });
-    if (!connectionStillCurrent()) return null;
-    let fetchedModels: readonly ModelMetadata[];
-    if (overrides.fetchModels) {
-      fetchedModels = await overrides.fetchModels();
-    } else {
-      const modelsResponse = (await client.request("model/list", { includeHidden: false, limit: 100 })) as {
-        data: Parameters<typeof modelMetadataFromCatalogModels>[0];
-      };
-      fetchedModels = modelMetadataFromCatalogModels(modelsResponse.data);
-    }
-    if (!connectionStillCurrent()) return null;
-    models = fetchedModels;
-    const modelsResource: SharedServerMetadataResource = {
-      id: "models",
-      value: fetchedModels,
-      probe: diagnosticProbeOk("models", `${String(fetchedModels.length)} models`, Date.now()),
-    };
-    for (const listener of metadataResourceListeners) listener(modelsResource);
-    const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: false })) as {
-      data: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }[];
-    };
-    if (!connectionStillCurrent()) return null;
-    const permissionProfilesResponse = (await client.request("permissionProfile/list", { cwd: vaultPath, cursor: null, limit: 100 })) as {
-      data: { id: string; description: string | null; allowed: boolean }[];
-      nextCursor: string | null;
-    };
-    if (!connectionStillCurrent()) return null;
-    await client.request("account/rateLimits/read", undefined);
-    if (!connectionStillCurrent()) return null;
-    return {
-      runtimeConfig: runtimeConfigFixture(),
-      availableSkills: skillsResponse.data.flatMap(
-        (entry: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }) =>
-          entry.skills.map((skill) => ({
-            name: skill.name,
-            description: skill.description ?? "",
-            path: skill.path ?? "",
-            enabled: skill.enabled ?? true,
-          })),
-      ),
-      availablePermissionProfiles: permissionProfilesResponse.data.map((profile) => ({ ...profile })),
-      rateLimit: null,
-      serverDiagnostics: createServerDiagnostics(),
-    };
-  };
-  const emitActiveThreads = (): void => {
-    if (!activeThreads) return;
-    for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
-  };
-  const upsertActiveThread = (thread: Thread): void => {
-    activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
-    emitActiveThreads();
-  };
-  const applyThreadFact = (event: ThreadFact): void => {
-    switch (event.type) {
-      case "thread-archived":
-      case "thread-deleted":
-        activeThreads = activeThreads?.filter((thread) => thread.id !== event.threadId) ?? null;
-        emitActiveThreads();
-        return;
-      case "thread-renamed":
-        activeThreads = activeThreads?.map((thread) => (thread.id === event.threadId ? { ...thread, name: event.name } : thread)) ?? null;
-        emitActiveThreads();
-        return;
-      case "thread-upserted":
-        upsertActiveThread(event.thread);
-        return;
-      case "thread-unarchived":
-        return;
-    }
-  };
-  const replacementPublication = createThreadReplacementPublication((facts) => {
-    for (const fact of facts) (overrides.applyThreadFact ?? applyThreadFact)(fact);
-  });
-  const threadGoalQueries = new AppServerThreadGoalQueries(
-    new AppServerQueryScope(
-      { codexPath: settings.codexPath, vaultPath },
-      {
-        withClient: async (operation) => {
-          const client = connectionMock.state.client;
-          if (!client) throw new Error("App-server client is unavailable.");
-          return operation(client as never);
-        },
-      },
-    ),
+    },
   );
-  const appServerConnection = contextConnectionMock((notification) => {
-    if (notification.method !== "thread/goal/updated" && notification.method !== "thread/goal/cleared") return false;
-    threadGoalQueries.applyNotification(notification);
-    return true;
-  });
+  createdQueryScopes.push(queryScope);
+  const appServerQueries = new AppServerMetadataQueries(queryScope);
+  const threadCatalog = new AppServerThreadCatalog(queryScope);
+  const threadGoalQueries = new AppServerThreadGoalQueries(queryScope);
+  const replacementPublication = createThreadReplacementPublication(
+    (facts) => threadCatalog.applyThreadCatalogChanges(projectThreadFacts(threadCatalog, facts)),
+    () => threadCatalog.freezeActiveThreads(),
+  );
+  const appServerConnection = contextConnectionMock(
+    (notification) => {
+      if (notification.method === "thread/goal/updated" || notification.method === "thread/goal/cleared") {
+        threadGoalQueries.applyNotification(notification);
+        return true;
+      }
+      return false;
+    },
+    () => queryScope.invalidate(),
+  );
+
   return {
     appServerConnection,
     threadGoalQueries,
     appServerContext: { codexPath: settings.codexPath, vaultPath },
     settingsSource: settings,
     receiveActiveThreads: (threads) => {
-      activeThreads = threads;
-      emitActiveThreads();
+      queryScope.client.setQueryData<ActiveThreadData>(["threads", "active"], {
+        pages: [{ threads, nextCursor: null, fetchedSize: threads.length }],
+        pageParams: [null],
+      });
     },
     threadMutations: threadMutationCommandsMock(overrides.threadMutations),
     threadTitlePort: {
@@ -598,23 +432,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
       notifyPanelActivityChanged: overrides.notifyPanelActivityChanged ?? vi.fn(),
     },
-    appServerQueries: {
-      metadataSnapshot,
-      metadataDiagnosticsSnapshot: vi.fn(() => metadata?.serverDiagnostics ?? createServerDiagnostics()),
-      ensureAppServerMetadata: vi.fn(async () => {
-        const nextMetadata = await loadAppServerMetadata();
-        if (nextMetadata) applyMetadataToCache(nextMetadata);
-      }),
-      refreshAppServerMetadata:
-        overrides.refreshAppServerMetadata ??
-        vi.fn(async () => {
-          const nextMetadata = await loadAppServerMetadata();
-          if (nextMetadata) applyMetadataToCache(nextMetadata);
-        }),
-      fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
-      refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
-      observeMetadataResource,
-    },
+    appServerQueries,
     toolInventoryQueries: overrides.toolInventoryQueries ?? {
       snapshot: vi.fn(() => null),
       observe: vi.fn((_threadId, listener) => {
@@ -636,67 +454,9 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
         mcpError: null,
       }),
     },
-    threadCatalog: {
-      hasMoreActiveThreads: vi.fn(() => false),
-      loadMoreActiveThreads: vi.fn().mockResolvedValue(undefined),
-      refreshActiveThreads:
-        overrides.refreshActiveThreads ??
-        (vi.fn(async () => {
-          const client = connectionMock.state.client;
-          if (!client) return;
-          const request = client["request"] as (method: string, params: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
-          const response = await request("thread/list", {
-            cwd: "/vault",
-            archived: false,
-            sortKey: "recency_at",
-            sortDirection: "desc",
-          });
-          activeThreads = response.data.map(threadFromRecord);
-          for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
-        }) as CodexChatHost["threadCatalog"]["refreshActiveThreads"]),
-      fetchActiveThreads: vi.fn(async () => {
-        const client = connectionMock.state.client;
-        if (!client) return activeThreads ?? [];
-        const request = client["request"] as (method: string, params: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
-        const response = await request("thread/list", {
-          cwd: "/vault",
-          archived: false,
-          sortKey: "recency_at",
-          sortDirection: "desc",
-        });
-        activeThreads = response.data.map(threadFromRecord);
-        for (const listener of activeThreadResultListeners) listener(paginatedQueryResult(activeThreads));
-        return activeThreads;
-      }),
-      activeThreadsSnapshot: overrides.activeThreadsSnapshot ?? vi.fn(() => activeThreads),
-      recentActiveThreadsSnapshot: vi.fn(() => activeThreads),
-      observeActiveThreadsResult: (listener, options = {}) => {
-        activeThreadResultListeners.add(listener);
-        if ((options.emitCurrent ?? true) && activeThreads) listener(paginatedQueryResult(activeThreads));
-        return () => activeThreadResultListeners.delete(listener);
-      },
-    },
-    threadFacts: {
-      apply: replacementPublication.facts.apply,
-      applyBatch: replacementPublication.facts.applyBatch,
-    },
+    threadCatalog,
+    threadFacts: replacementPublication.facts,
     threadReplacementPublication: replacementPublication,
-  };
-}
-
-function paginatedQueryResult<T>(value: T | null): ObservedPaginatedResult<T> {
-  return {
-    ...queryResult(value),
-    hasMore: false,
-    isFetchingNextPage: false,
-  };
-}
-
-function queryResult<T>(value: T | null): ObservedResult<T> {
-  return {
-    value,
-    error: null,
-    isFetching: false,
   };
 }
 

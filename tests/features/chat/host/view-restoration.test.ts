@@ -2,12 +2,10 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
-import { createServerDiagnostics } from "../../../../src/domain/runtime/diagnostics";
 import { createChatState } from "../../../../src/features/chat/application/state/model";
 import type { ForkDraftPreparation } from "../../../../src/features/chat/application/threads/fork-draft";
 import type { ChatPanelSession } from "../../../../src/features/chat/host/session/session";
 import { deferred, waitForAsyncWork } from "../../../support/async";
-import { runtimeConfigFixture } from "../../../support/runtime-config";
 import {
   chatHost,
   chatView,
@@ -265,9 +263,8 @@ describe("CodexChatView workspace restoration", () => {
     const client = connectedClient({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")], nextCursor: null }),
     });
-    const fetchModels = vi.fn().mockResolvedValue([]);
     connectionMockState().client = client;
-    const view = await chatView({ host: chatHost({ fetchModels }) });
+    const view = await chatView();
 
     await view.onOpen();
 
@@ -276,7 +273,7 @@ describe("CodexChatView workspace restoration", () => {
 
     expect(connectionMockState().connectCalls).toBe(1);
     expectRequestTimes(client, "config/read", 1);
-    expect(fetchModels).toHaveBeenCalledOnce();
+    expectRequestTimes(client, "model/list", 1);
     expectRequestTimes(client, "skills/list", 1);
     expectRequestTimes(client, "permissionProfile/list", 1);
     expectRequestTimes(client, "account/rateLimits/read", 1);
@@ -294,21 +291,14 @@ describe("CodexChatView workspace restoration", () => {
 
   it("applies cached shared thread list and metadata when opened", async () => {
     const cachedThread = threadFixture("thread-cached");
-    const view = await chatView({
-      host: chatHost({
-        activeThreadsSnapshot: vi.fn(() => [cachedThread] as never[]),
-        sharedMetadataSnapshot: vi.fn(
-          () =>
-            ({
-              runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-cached" },
-              availableSkills: [{ name: "writer", enabled: true }],
-              availablePermissionProfiles: [],
-              rateLimit: null,
-              serverDiagnostics: createServerDiagnostics(),
-            }) as never,
-        ),
-      }),
+    const client = connectedClient({
+      "config/read": vi.fn().mockResolvedValue({ config: { model: "gpt-cached" }, layers: null }),
+      "thread/list": vi.fn().mockResolvedValue({ data: [cachedThread], nextCursor: null }),
     });
+    connectionMockState().client = client;
+    const host = chatHost();
+    await Promise.all([host.appServerQueries.ensureAppServerMetadata(), host.threadCatalog.fetchActiveThreads()]);
+    const view = await chatView({ host });
 
     await view.onOpen();
 
