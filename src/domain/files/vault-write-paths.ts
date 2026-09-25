@@ -29,15 +29,21 @@ export function vaultRelativeFolderPath(value: string, options: VaultRelativeFol
 }
 
 export function sanitizeVaultPathSegment(value: string): string {
-  return value
-    .split("")
+  const normalized = Array.from(value)
     .map((char) => (isUnsafeVaultPathChar(char) ? "-" : char))
     .join("")
     .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^\.+$/, "")
-    .slice(0, 120)
     .trim();
+  return truncateVaultPathSegment(normalized).trim().replace(/^\.+$/, "");
+}
+
+function truncateVaultPathSegment(value: string): string {
+  let result = "";
+  for (const character of value) {
+    if (result.length + character.length > 120) break;
+    result += character;
+  }
+  return result;
 }
 
 function vaultFolderFallback(options: VaultRelativeFolderPathOptions): string {
@@ -46,5 +52,6 @@ function vaultFolderFallback(options: VaultRelativeFolderPathOptions): string {
 }
 
 function isUnsafeVaultPathChar(char: string): boolean {
-  return char.charCodeAt(0) < 32 || UNSAFE_VAULT_PATH_CHARS.includes(char);
+  const code = char.charCodeAt(0);
+  return code < 32 || (char.length === 1 && code >= 0xd800 && code <= 0xdfff) || UNSAFE_VAULT_PATH_CHARS.includes(char);
 }
