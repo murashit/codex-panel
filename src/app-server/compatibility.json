@@ -1,6 +1,6 @@
 {
   "codexAppServer": {
-    "testedCliVersion": "0.156.0",
+    "testedCliVersion": "0.157.0",
     "typeGeneration": {
       "arguments": ["app-server", "generate-ts", "--experimental"]
     },
