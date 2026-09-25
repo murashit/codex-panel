@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,6 +9,18 @@ import {
 } from "../../../../../src/features/chat/application/slash-commands/thread-arguments";
 
 describe("slash command thread arguments", () => {
+  it("round-trips arbitrary quoted titles with a following argument", () => {
+    const title = fc.oneof(
+      fc.string({ unit: "binary", maxLength: 40 }),
+      fc.string({ unit: fc.constantFrom("a", " ", "\\", '"', "\n", "あ", "😀"), maxLength: 40 }),
+    );
+    fc.assert(
+      fc.property(title, (value) => {
+        expect(parseThreadTitleArgument(`${quotedThreadTitleArgument(value)} message`)).toEqual({ title: value, rest: "message" });
+      }),
+    );
+  });
+
   it("round-trips quoted titles containing escaped characters", () => {
     const title = 'A "quoted" \\ title';
 

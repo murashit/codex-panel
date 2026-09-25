@@ -1,6 +1,12 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { splitUtf8Context, truncateUtf8, utf8ByteLength } from "../../../src/domain/text/text";
+
+const contextText = fc.oneof(
+  fc.string({ unit: "binary", maxLength: 80 }),
+  fc.string({ unit: fc.constantFrom("a", " ", "\n", "あ", "😀"), maxLength: 80 }),
+);
 
 describe("UTF-8 context budgets", () => {
   it.each([
@@ -47,5 +53,43 @@ describe("UTF-8 context budgets", () => {
       includedBytes: 8,
     });
     expect(splitUtf8Context("text", 4, 0)).toEqual({ parts: [], includedBytes: 0 });
+  });
+
+  it("keeps the longest complete Unicode prefix within the byte budget", () => {
+    fc.assert(
+      fc.property(contextText, fc.integer({ min: 0, max: 120 }), (value, maxBytes) => {
+        let expected = "";
+        for (const character of value) {
+          if (Buffer.byteLength(expected + character, "utf8") > maxBytes) break;
+          expected += character;
+        }
+
+        expect(truncateUtf8(value, maxBytes)).toBe(expected);
+      }),
+    );
+  });
+
+  it("splits a contiguous prefix into byte-bounded parts and reports their actual size", () => {
+    fc.assert(
+      fc.property(contextText, fc.integer({ min: 0, max: 40 }), fc.integer({ min: 0, max: 8 }), (value, maxBytes, maxParts) => {
+        const { parts, includedBytes } = splitUtf8Context(value, maxBytes, maxParts);
+
+        expect(parts.length).toBeLessThanOrEqual(maxParts);
+        expect(parts.every((part) => part.length > 0 && Buffer.byteLength(part, "utf8") <= maxBytes)).toBe(true);
+        expect(value.startsWith(parts.join(""))).toBe(true);
+        expect(includedBytes).toBe(Buffer.byteLength(parts.join(""), "utf8"));
+      }),
+    );
+  });
+
+  it("retains all text when the budget can fit every Unicode character", () => {
+    fc.assert(
+      fc.property(contextText, fc.integer({ min: 4, max: 40 }), (value, maxBytes) => {
+        const { parts, includedBytes } = splitUtf8Context(value, maxBytes, Array.from(value).length);
+
+        expect(parts.join("")).toBe(value);
+        expect(includedBytes).toBe(Buffer.byteLength(value, "utf8"));
+      }),
+    );
   });
 });

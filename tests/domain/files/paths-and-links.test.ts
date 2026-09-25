@@ -1,8 +1,27 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { isVaultConfigPath, normalizeFilePath, pathRelativeToRoot, vaultRelativePath } from "../../../src/domain/files/paths";
 import { parseFileHref, vaultRelativeFileHref } from "../../../src/domain/files/vault-links";
 
 describe("file path helpers", () => {
+  it("keeps nested paths inside POSIX and Windows vaults and rejects traversal beyond them", () => {
+    const segment = fc.string({ unit: fc.constantFrom("a", "B", "0", "-", "_"), minLength: 1, maxLength: 8 });
+    fc.assert(
+      fc.property(fc.array(segment, { minLength: 1, maxLength: 6 }), fc.boolean(), (segments, windows) => {
+        const separator = windows ? "\\" : "/";
+        const root = windows ? "C:\\Vault" : "/Vault";
+        const nested = [root, ...segments].join(separator);
+        const file = `${nested}${separator}note.md`;
+        const escapingFile = `${nested}${separator}${(`..${separator}`).repeat(segments.length + 1)}outside.md`;
+        const siblingFile = `${root}-other${separator}note.md`;
+
+        expect(vaultRelativePath(root, file)).toBe(`${segments.join("/")}/note.md`);
+        expect(vaultRelativePath(root, escapingFile)).toBeNull();
+        expect(vaultRelativePath(root, siblingFile)).toBeNull();
+      }),
+    );
+  });
+
   it("normalizes separators, duplicate slashes, and leading dot segments", () => {
     expect(normalizeFilePath("./docs//Guide.md")).toBe("docs/Guide.md");
     expect(normalizeFilePath("C:\\Vault\\Project\\src\\main.ts")).toBe("C:/Vault/Project/src/main.ts");
