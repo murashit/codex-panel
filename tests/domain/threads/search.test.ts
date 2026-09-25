@@ -68,6 +68,28 @@ describe("thread search", () => {
       ).map((match) => match.thread.id),
     ).toEqual(["recent", "updated-newer"]);
   });
+
+  it("normalizes padded queries and returns a normalized query when nothing matches", () => {
+    const threads = [thread({ id: "alpha", name: "Alpha" })];
+
+    expect(threadSearchMatches(threads, "  ALPHA  ").map((match) => match.thread.id)).toEqual(["alpha"]);
+    expect(resolveThreadSearchQuery(threads, "  missing  ")).toEqual({ kind: "none", query: "missing" });
+  });
+
+  it("ranks a substring above a newer fuzzy match", () => {
+    const threads = [
+      thread({ id: "substring", name: "Pre alpha notes", updatedAt: 1 }),
+      thread({ id: "fuzzy", name: "a-l-p-h-a", updatedAt: 100 }),
+    ];
+
+    expect(threadSearchMatches(threads, "alpha").map((match) => match.thread.id)).toEqual(["substring", "fuzzy"]);
+  });
+
+  it("keeps input order when search score and recency tie", () => {
+    const threads = [thread({ id: "first", name: "Alpha" }), thread({ id: "second", name: "Alpha" })];
+
+    expect(threadSearchMatches(threads, "alpha").map((match) => match.thread.id)).toEqual(["first", "second"]);
+  });
 });
 
 function thread(options: Partial<Thread> & { id: string }): Thread {

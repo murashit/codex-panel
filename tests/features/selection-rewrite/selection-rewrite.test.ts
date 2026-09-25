@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import * as fc from "fast-check";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
@@ -66,9 +67,60 @@ describe("selection rewrite prompt", () => {
     expect(prompt).toContain("Near after");
     expect(prompt).not.toContain("START ONLY");
   });
+
+  it("keeps the selected text in bounded note context regardless of its position", () => {
+    const lengths = fc.oneof(
+      fc.tuple(fc.integer({ min: 0, max: 20_000 }), fc.integer({ min: 20_000, max: 30_000 })),
+      fc.tuple(fc.integer({ min: 20_000, max: 30_000 }), fc.integer({ min: 0, max: 20_000 })),
+    );
+    fc.assert(
+      fc.property(lengths, ([before, after]) => {
+        const selectedText = "SELECTED TEXT";
+        const prompt = buildSelectionRewritePrompt(
+          rewriteState({
+            noteText: `${"a".repeat(before)}${selectedText}${"z".repeat(after)}`,
+            originalText: selectedText,
+            targetRange: { from: { line: 0, ch: before }, to: { line: 0, ch: before + selectedText.length } },
+          }),
+        );
+        const context = prompt.match(/Current note context:\n```text\n([\s\S]*?)\n```\n\nReminder:/u)?.[1];
+
+        expect(context).toBeDefined();
+        expect(context).toContain(selectedText);
+        expect(context?.length).toBeLessThanOrEqual(20_000);
+      }),
+    );
+  });
 });
 
 describe("selection rewrite diff", () => {
+  it("preserves both sides of a line diff across varied selections", () => {
+    const line = fc.constantFrom("", "alpha", "β", "日本語", "a b", "↵", "+", "-");
+    const nonEmptyLine = fc.constantFrom("alpha", "β", "日本語", "a b", "↵", "+", "-");
+    const text = fc.oneof(
+      fc.constant(""),
+      fc.tuple(fc.array(line, { maxLength: 11 }), nonEmptyLine).map(([head, last]) => [...head, last].join("\n")),
+    );
+
+    fc.assert(
+      fc.property(text, text, (original, replacement) => {
+        const lines = buildSelectionDiffLines(original, replacement);
+        expect(
+          lines
+            .filter((line) => line.kind !== "added")
+            .map((line) => line.text.slice(1))
+            .join("\n"),
+        ).toBe(original);
+        expect(
+          lines
+            .filter((line) => line.kind !== "removed")
+            .map((line) => line.text.slice(1))
+            .join("\n"),
+        ).toBe(replacement);
+      }),
+    );
+  });
+
   it("builds selection-scoped display lines", () => {
     expect(buildSelectionDiffLines("alpha\nbeta", "alpha\ngamma")).toEqual([
       { text: " alpha", kind: "context" },
