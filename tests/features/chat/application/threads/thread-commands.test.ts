@@ -231,7 +231,10 @@ describe("thread management commands", () => {
     expect(host.mutations.archiveThread).not.toHaveBeenCalled();
   });
 
-  it.each([{ items: [] }, { items: turnItems() }])("does not create a draft without a valid loaded boundary", async ({ items }) => {
+  it.each([
+    { case: "an empty stream", items: [] },
+    { case: "a missing turn in the loaded stream", items: turnItems() },
+  ])("does not create a draft without a valid loaded boundary in $case", async ({ items }) => {
     const host = hostMock({ items, activeThread: { id: "source" } });
     await threadCommands(host).forkThreadFromTurn("source", "missing", false);
     expect(host.openForkDraft).not.toHaveBeenCalled();

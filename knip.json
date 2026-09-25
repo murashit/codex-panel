@@ -2,5 +2,6 @@
   "entry": ["scripts/**/*.mjs", "*.config.{ts,mjs}", "tests/**/*.test.{ts,tsx}"],
   "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}", "scripts/**/*.mjs", "*.config.{ts,mjs}"],
   "ignore": ["src/generated/**"],
+  "ignoreDependencies": ["@stryker-mutator/vitest5-runner"],
   "ignoreBinaries": ["codex"]
 }

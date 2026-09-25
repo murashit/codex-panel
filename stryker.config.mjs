@@ -1,28 +1,22 @@
 export default {
-  testRunner: "vitest",
+  // This local plugin needs no extra package. Knip ignores its inferred package name.
+  // Remove it when Stryker's Vitest 5 fix is released; see the script for links.
+  testRunner: "vitest5",
+  appendPlugins: ["./scripts/stryker-vitest5-runner.mjs"],
   coverageAnalysis: "perTest",
   // Local history and generated reports are not test inputs.
   ignorePatterns: ["/.jj", "/coverage"],
   mutate: [
     "src/domain/**/*.ts",
-    "src/app-server/protocol/**/*.ts",
+    "src/app-server/**/*.ts",
     "src/features/chat/domain/**/*.ts",
     "src/features/chat/app-server/**/*.ts",
-    "src/features/chat/application/*.ts",
-    "src/features/chat/application/state/**/*.ts",
-    "src/features/chat/application/turns/**/*.ts",
-    "src/features/chat/application/pending-requests/**/*.ts",
-    "src/features/chat/application/composer/**/*.ts",
-    "src/features/chat/application/submission/**/*.ts",
-    "src/features/chat/application/threads/**/*.ts",
-    "src/app-server/query/**/*.ts",
-    "src/features/threads/workflows/**/*.ts",
+    "src/features/chat/application/**/*.ts",
+    "src/features/threads/**/*.ts",
+    "src/features/selection-rewrite/**/*.ts",
     "src/shared/async/**/*.ts",
-    "src/shared/ui/json-preview.ts",
-    // Shared write serialization and collision handling protect Vault contents.
-    "src/shared/vault/write-operations.ts",
-    "src/settings/*.ts",
-    "src/features/selection-rewrite/{session,model,diff,prompt,port,app-server-adapter}.ts",
+    "src/shared/vault/**/*.ts",
+    "src/settings/**/*.ts",
   ],
   ignoreStatic: true,
   incremental: true,

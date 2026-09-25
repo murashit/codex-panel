@@ -37,10 +37,10 @@ describe("Codex Panel dynamic tools", () => {
   });
 
   it.each([
-    { namespace: null, tool: "resolve_wikilinks" },
-    { namespace: "other", tool: "resolve_wikilinks" },
-    { namespace: "codex_panel", tool: "other" },
-  ])("returns a tool failure for unknown $namespace.$tool calls", ({ namespace, tool }) => {
+    { case: "a missing namespace", namespace: null, tool: "resolve_wikilinks" },
+    { case: "another namespace", namespace: "other", tool: "resolve_wikilinks" },
+    { case: "an unknown tool", namespace: "codex_panel", tool: "other" },
+  ])("returns a tool failure for $case", ({ namespace, tool }) => {
     const resolveWikilinks = vi.fn();
 
     const response = executePanelDynamicTool({ ...toolCall(), namespace, tool }, { resolveWikilinks });
