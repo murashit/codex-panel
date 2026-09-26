@@ -205,6 +205,34 @@ describe("ChatComposerController", () => {
   });
 
   it.each([
+    { name: "plain Enter", shortcut: "enter", key: "Enter", sends: true },
+    { name: "Shift+Enter", shortcut: "enter", key: "Enter", shiftKey: true, sends: false },
+    { name: "Meta+Enter in Enter mode", shortcut: "enter", key: "Enter", metaKey: true, sends: false },
+    { name: "composing Enter", shortcut: "enter", key: "Enter", isComposing: true, sends: false },
+    { name: "another key", shortcut: "enter", key: "a", sends: false },
+    { name: "Alt+Enter", shortcut: "enter", key: "Enter", altKey: true, sends: false },
+    { name: "Meta+Enter", shortcut: "mod-enter", key: "Enter", metaKey: true, sends: true },
+    { name: "Ctrl+Enter", shortcut: "mod-enter", key: "Enter", ctrlKey: true, sends: true },
+    { name: "plain Enter in modifier mode", shortcut: "mod-enter", key: "Enter", sends: false },
+    { name: "Shift+Meta+Enter", shortcut: "mod-enter", key: "Enter", shiftKey: true, metaKey: true, sends: false },
+  ] as const)("submits from the textarea for $name only when configured", ({ name: _name, shortcut, sends, ...event }) => {
+    const submit = vi.fn();
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: { sendShortcut: () => shortcut },
+      renderActions: { submit },
+    });
+    controller.setDraft("Message");
+    renderShell();
+
+    const keydown = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...event });
+    parent.querySelector("textarea")?.dispatchEvent(keydown);
+
+    expect(submit).toHaveBeenCalledTimes(sends ? 1 : 0);
+    expect(keydown.defaultPrevented).toBe(sends);
+    controller.dispose();
+  });
+
+  it.each([
     ["empty", "failed"],
     ["existing", "failed"],
     ["existing", "saved"],

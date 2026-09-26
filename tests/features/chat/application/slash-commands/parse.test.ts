@@ -1,8 +1,8 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { parseSlashCommand, parseWebCommandArgs } from "../../../../../src/features/chat/application/slash-commands/parse";
+import { parseWebCommandArgs } from "../../../../../src/features/chat/application/slash-commands/parse";
 
-describe("parseSlashCommand", () => {
+describe("parseWebCommandArgs", () => {
   it("preserves web URL and message content across separating whitespace", () => {
     const url = fc.string({ unit: fc.constantFrom("a", "0", "/", ":", ".", "?", "=", "&", "あ"), minLength: 1, maxLength: 40 });
     const word = fc.string({ unit: fc.constantFrom("a", "0", "あ", "😀"), minLength: 1, maxLength: 12 });
@@ -14,13 +14,5 @@ describe("parseSlashCommand", () => {
         expect(parseWebCommandArgs(`${target}${separator}`)).toEqual({ url: target, message: "" });
       }),
     );
-  });
-
-  it.each([
-    { input: "/status", expected: { command: "status", args: "" } },
-    { input: "/refer thread-1 続きです", expected: { command: "refer", args: "thread-1 続きです" } },
-    { input: "/unknown", expected: null },
-  ])("parses $input", ({ input, expected }) => {
-    expect(parseSlashCommand(input)).toEqual(expected);
   });
 });

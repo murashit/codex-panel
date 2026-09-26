@@ -266,6 +266,24 @@ describe("submitComposer", () => {
     expect(showLatestOrder).toBeLessThan(sendTurnTextOrder);
   });
 
+  it.each(["before /status", "/status!", "/unknown"])("sends %s as text instead of executing a slash command", async (draft) => {
+    const { host, execute, sendTurnText } = createHost(draft);
+
+    await submitComposer(host);
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: draft }));
+  });
+
+  it("accepts a slash command with surrounding composer whitespace", async () => {
+    const { host, execute, sendTurnText } = createHost("  /status  ");
+
+    await submitComposer(host);
+
+    expect(execute).toHaveBeenCalledWith("status", "", expect.anything(), expect.anything());
+    expect(sendTurnText).not.toHaveBeenCalled();
+  });
+
   it("executes slash commands and forwards command send results", async () => {
     const { host, ensureConnected, execute, inputSnapshot, sendTurnText, showLatest } = createHost("/plan hello");
     execute.mockResolvedValue({ sendText: "hello" });

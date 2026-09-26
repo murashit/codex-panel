@@ -126,6 +126,27 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("shows threads in activity order even when the catalog returns them in another order", async () => {
+    const threads = [
+      { ...threadFromRecord(threadFixture({ id: "updated-newer", preview: "Updated newer", updatedAt: 20 })), recencyAt: 10 },
+      { ...threadFromRecord(threadFixture({ id: "recent", preview: "Recent activity", updatedAt: 10 })), recencyAt: 30 },
+    ];
+    const view = await threadsView(
+      threadsHost({
+        threadCatalog: {
+          fetchActiveThreads: vi.fn().mockResolvedValue(threads),
+          refreshActiveThreads: vi.fn().mockResolvedValue(threads),
+        },
+      }),
+    );
+
+    await view.refresh();
+
+    expect(
+      [...view.containerEl.querySelectorAll<HTMLElement>(".codex-panel-threads__row-title")].map((title) => title.textContent),
+    ).toEqual(["Recent activity", "Updated newer"]);
+  });
+
   it("keeps archive confirmation through title pointerdown, then clears it before navigation", async () => {
     const opened = deferred<void>();
     const archiveThread = vi.fn().mockResolvedValue({});

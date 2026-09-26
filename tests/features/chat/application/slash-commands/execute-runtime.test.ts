@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { slashCommandHelpSections } from "../../../../../src/features/chat/application/slash-commands/catalog";
 import { executeRuntimeSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-runtime";
 
 type RuntimeContext = Parameters<typeof executeRuntimeSlashCommand>[2];
@@ -56,7 +55,18 @@ describe("runtime slash commands", () => {
     await executeRuntimeSlashCommand("help", "", ctx);
 
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Available slash commands", slashCommandHelpSections());
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Available slash commands", [
+      expect.objectContaining({ title: "Panel actions", auditFacts: expect.arrayContaining([expect.objectContaining({ key: "/clear" })]) }),
+      expect.objectContaining({
+        title: "Thread settings",
+        auditFacts: expect.arrayContaining([expect.objectContaining({ key: "/goal set <objective>" })]),
+      }),
+      expect.objectContaining({ title: "Diagnostics", auditFacts: expect.arrayContaining([expect.objectContaining({ key: "/status" })]) }),
+      expect.objectContaining({
+        title: "Composition",
+        auditFacts: expect.arrayContaining([expect.objectContaining({ key: "/web <url> [message]" })]),
+      }),
+    ]);
   });
 
   it("shows status as a structured system result", async () => {
