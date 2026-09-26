@@ -299,6 +299,7 @@ function commandApprovalRequest(): ServerRequest {
       commandActions: [],
       proposedExecpolicyAmendment: null,
       proposedNetworkPolicyAmendments: [],
+      availableDecisions: ["accept", "decline"],
     },
   };
 }

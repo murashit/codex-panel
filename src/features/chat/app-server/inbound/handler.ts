@@ -182,7 +182,13 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
       return false;
     }
     case "unsupported":
-      rejectServerRequest(context, request, `Rejected unsupported app-server request: ${request.method}`);
+      rejectServerRequest(
+        context,
+        request,
+        request.method === "item/commandExecution/requestApproval"
+          ? "Rejected command approval: availableDecisions must be a nonempty list of supported decisions."
+          : `Rejected unsupported app-server request: ${request.method}`,
+      );
       return true;
     case "unknown": {
       const message = `Rejected unknown app-server request: ${request.method}`;

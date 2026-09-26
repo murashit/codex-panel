@@ -82,6 +82,12 @@ function pendingUserInputFromRequest(request: ServerRequest) {
   return expectPresent(appServerUserInputRequest(request));
 }
 
+function commandApprovalAction(handler: TestChatInboundHandler, requestId: number, intent: "accept" | "decline") {
+  const approval = expectPresent(handler.currentState().requests.approvals.find((item) => item.requestId === requestId));
+  return expectPresent(approval.actionOptions?.find((option) => typeof option.action === "object" && option.action.intent === intent))
+    .action;
+}
+
 describe("ChatInboundHandler", () => {
   describe("active turn routing", () => {
     it("applies matching streaming deltas as assistant markdown", () => {
@@ -1025,6 +1031,25 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
+    it("rejects unsupported command approval decisions with a specific diagnostic", () => {
+      const rejectServerRequest = vi.fn(() => true);
+      const handler = handlerForState(activeRunningState(), { rejectServerRequest });
+      const request = commandApprovalRequest(51, "thread-active", "turn-active", "command");
+      if (request.method !== "item/commandExecution/requestApproval") throw new Error("Expected a command approval request");
+
+      handler.handleServerRequest({
+        ...request,
+        params: { ...request.params, availableDecisions: ["accept", "restartWithNetwork"] },
+      } as ServerRequest);
+
+      expect(handler.currentState().requests.approvals).toEqual([]);
+      expect(rejectServerRequest).toHaveBeenCalledWith(
+        51,
+        -32601,
+        "Rejected command approval: availableDecisions must be a nonempty list of supported decisions.",
+      );
+    });
+
     it("leaves server requests for a different active thread or turn unclaimed", () => {
       const state = activeRunningState();
       const rejectServerRequest = vi.fn(() => true);
@@ -1069,7 +1094,7 @@ describe("ChatInboundHandler", () => {
       handler.handleServerRequest(commandApprovalRequest(51, "child", "child-turn", "command"));
 
       expect(handler.currentState().requests.approvals).toEqual([expect.objectContaining({ requestId: 51, turnId: "turn-active" })]);
-      handler.resolveApproval(51, "accept");
+      handler.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
 
       expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(51, { decision: "accept" });
       expect(handler.currentState().requests.approvals).toEqual([]);
@@ -1087,8 +1112,9 @@ describe("ChatInboundHandler", () => {
       handler.handleServerRequest(request);
 
       expect(handler.currentState().requests.approvals).toHaveLength(1);
-      handler.resolveApproval(51, "accept");
-      handler.resolveApproval(51, "accept");
+      const action = commandApprovalAction(handler, 51, "accept");
+      handler.resolveApproval(51, action);
+      handler.resolveApproval(51, action);
 
       expect(respondToServerRequest).toHaveBeenCalledExactlyOnceWith(51, { decision: "accept" });
       expect(handler.currentState().requests.approvals).toEqual([]);
@@ -1099,13 +1125,13 @@ describe("ChatInboundHandler", () => {
       const handler = handlerForState(activeRunningState(), { respondToServerRequest });
       const request = commandApprovalRequest(51, "thread-active", "turn-active", "command");
       handler.handleServerRequest(request);
-      handler.resolveApproval(51, "accept");
+      handler.resolveApproval(51, commandApprovalAction(handler, 51, "accept"));
 
       expect(handler.currentState().requests.approvals).toHaveLength(1);
       expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "approvalResult")).toEqual([]);
       handler.handleServerRequest(request);
       expect(respondToServerRequest).toHaveBeenCalledTimes(1);
-      handler.resolveApproval(51, "decline");
+      handler.resolveApproval(51, commandApprovalAction(handler, 51, "decline"));
 
       expect(respondToServerRequest).toHaveBeenNthCalledWith(2, 51, { decision: "decline" });
       expect(handler.currentState().requests.approvals).toEqual([]);

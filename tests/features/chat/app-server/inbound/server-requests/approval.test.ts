@@ -56,6 +56,7 @@ describe("approval model", () => {
     expect(approval.summary).toBe("npm run build");
     expect(approvalActionLabels(approval)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
     expect(approvalResponseAt(request, approval, 1)).toEqual({ decision: "acceptForSession" });
+    expect(() => approvalResponse(request, "accept")).toThrow("Command approval requires an offered option.");
   });
 
   it("distinguishes terminal input approvals from new command execution", () => {
@@ -70,6 +71,7 @@ describe("approval model", () => {
         approvalId: "approval-1",
         environmentId: null,
         startedAtMs: 1,
+        availableDecisions: ["accept", "decline"],
       },
     };
 
@@ -226,64 +228,21 @@ describe("approval model", () => {
     ]);
   });
 
-  it("keeps future simple command decisions renderable", () => {
-    const futureDecision = "restartWithNetwork";
+  it.each([
+    { name: "missing", decisions: undefined },
+    { name: "empty", decisions: [] },
+    { name: "unknown", decisions: ["accept", "restartWithNetwork"] },
+    { name: "malformed rule", decisions: [{ acceptWithExecpolicyAmendment: { futureRule: ["npm"] } }] },
+    {
+      name: "ambiguous rule",
+      decisions: [{ acceptWithExecpolicyAmendment: { execpolicy_amendment: ["npm"] }, applyNetworkPolicyAmendment: {} }],
+    },
+    {
+      name: "malformed network rule",
+      decisions: [{ applyNetworkPolicyAmendment: { network_policy_amendment: { host: "example.com", action: "later" } } }],
+    },
+  ])("rejects $name command decisions instead of offering a different approval", ({ decisions }) => {
     const request = {
-      id: 32,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        kind: "command",
-        command: null,
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "command",
-        environmentId: null,
-        startedAtMs: 1,
-        reason: null,
-        commandActions: [],
-        proposedExecpolicyAmendment: null,
-        proposedNetworkPolicyAmendments: [],
-        availableDecisions: [futureDecision],
-      },
-    } as unknown as ApprovalRequest;
-    const approval = expectPresent(toPendingApproval(request));
-    const options = approvalActionOptions(approval);
-
-    expect(options).toEqual([
-      {
-        id: "approval-option:0:restartWithNetwork",
-        label: "Choose",
-        action: { kind: "approval-option", optionId: "approval-option:0:restartWithNetwork", intent: "decline" },
-      },
-    ]);
-    expect(approvalResponseAt(request, approval, 0)).toEqual({ decision: futureDecision });
-  });
-
-  it("returns server-offered amendments unchanged without interpreting their opaque payload", () => {
-    const decision = { acceptWithExecpolicyAmendment: { futureRule: { tokens: ["npm", "test"] } } };
-    const request = {
-      id: 35,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        kind: "writeStdin",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "command",
-        environmentId: null,
-        startedAtMs: 1,
-        availableDecisions: [decision],
-      },
-    } as unknown as ApprovalRequest;
-    const approval = expectPresent(toPendingApproval(request));
-    const option = expectPresent(approvalActionOptions(approval)[0]);
-
-    expect(option).toMatchObject({ label: "Allow rule", action: { intent: "accept-session" } });
-    expect(approvalResponse(request, option.action)).toEqual({ decision });
-  });
-
-  it("adapts a generic command approval decision when app-server omits decisions", () => {
-    const request: ApprovalRequest = {
       id: 31,
       method: "item/commandExecution/requestApproval",
       params: {
@@ -299,12 +258,11 @@ describe("approval model", () => {
         commandActions: [],
         proposedExecpolicyAmendment: null,
         proposedNetworkPolicyAmendments: [],
+        availableDecisions: decisions,
       },
-    } as ApprovalRequest;
-    const approval = expectPresent(toPendingApproval(request));
+    } as unknown as ApprovalRequest;
 
-    expect(approval.actionOptions).toBeNull();
-    expect(approvalResponse(request, "accept-session")).toEqual({ decision: "acceptForSession" });
+    expect(toPendingApproval(request)).toBeNull();
   });
 
   it("shows approval reasons first in pending request summaries", () => {
@@ -325,6 +283,7 @@ describe("approval model", () => {
           commandActions: [],
           proposedExecpolicyAmendment: null,
           proposedNetworkPolicyAmendments: [],
+          availableDecisions: ["accept", "decline"],
         },
       }),
     );
@@ -462,6 +421,7 @@ describe("approval model", () => {
             { host: "registry.npmjs.org", action: "allow" },
             { host: "example.com", action: "deny" },
           ],
+          availableDecisions: ["accept", "decline"],
         },
       }),
     );
@@ -497,6 +457,7 @@ describe("approval model", () => {
           commandActions: [{ path: "/tmp/project/src/main.ts" }, "legacy action"],
           proposedExecpolicyAmendment: null,
           proposedNetworkPolicyAmendments: [{ host: "api.github.com" }, { action: "allow" }, "legacy rule"],
+          availableDecisions: ["accept", "decline"],
         },
       } as unknown as ServerRequest),
     );
@@ -526,6 +487,7 @@ describe("approval model", () => {
           commandActions: [],
           proposedExecpolicyAmendment: null,
           proposedNetworkPolicyAmendments: [],
+          availableDecisions: ["accept", "decline"],
         },
       }),
     );

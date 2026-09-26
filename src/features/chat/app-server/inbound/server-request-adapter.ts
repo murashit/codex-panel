@@ -24,11 +24,7 @@ import type {
 import { permissionRows } from "../mappers/thread-stream/permission-rows";
 
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
-// Server-provided options are returned unchanged, including future strings and opaque amendments.
-type OfferedCommandApprovalDecision =
-  | string
-  | { acceptWithExecpolicyAmendment: unknown }
-  | { applyNetworkPolicyAmendment: { network_policy_amendment: { action?: unknown; host?: unknown } } };
+type CommandApprovalDecision = CommandExecutionRequestApprovalResponse["decision"];
 
 type AppServerRequest = ServerRequest;
 type CommandApprovalRequest = Extract<AppServerRequest, { method: "item/commandExecution/requestApproval" }>;
@@ -84,7 +80,10 @@ type NormalizedMcpElicitationParams =
   | (NormalizedMcpElicitationParamsBase & { mode: "form"; requestedSchema: unknown })
   | (NormalizedMcpElicitationParamsBase & { mode: "url"; url: string });
 
-export type AppServerApprovalResponse = { decision: OfferedCommandApprovalDecision } | PermissionsRequestApprovalResponse;
+export type AppServerApprovalResponse =
+  | CommandExecutionRequestApprovalResponse
+  | FileChangeRequestApprovalResponse
+  | PermissionsRequestApprovalResponse;
 
 export function appServerApprovalRequest(request: AppServerRequest): PendingApproval | null {
   switch (request.method) {
@@ -103,12 +102,10 @@ export function appServerApprovalResponse(request: ApprovalRequest, action: Appr
   const intent = typeof action === "object" ? action.intent : action;
   switch (request.method) {
     case "item/commandExecution/requestApproval": {
-      if (typeof action === "object") {
-        const selected = commandApprovalDecisionForOption(request.params.availableDecisions, action.optionId);
-        if (selected === undefined) throw new Error(`Unknown command approval option: ${action.optionId}`);
-        return { decision: selected };
-      }
-      return { decision: simpleApprovalDecision(intent) } satisfies CommandExecutionRequestApprovalResponse;
+      if (typeof action !== "object") throw new Error("Command approval requires an offered option.");
+      const selected = commandApprovalDecisionForOption(request.params.availableDecisions, action.optionId);
+      if (selected === undefined) throw new Error(`Unknown command approval option: ${action.optionId}`);
+      return { decision: selected } satisfies CommandExecutionRequestApprovalResponse;
     }
     case "item/fileChange/requestApproval":
       return { decision: simpleApprovalDecision(intent) } satisfies FileChangeRequestApprovalResponse;
@@ -196,7 +193,9 @@ export function appServerMcpElicitationResponse(
   };
 }
 
-function commandApprovalRequest(requestId: PendingApproval["requestId"], params: CommandApprovalParams): PendingApproval {
+function commandApprovalRequest(requestId: PendingApproval["requestId"], params: CommandApprovalParams): PendingApproval | null {
+  const decisions = commandApprovalDecisions(params.availableDecisions);
+  if (!decisions) return null;
   const details = commandApprovalDetails(params);
   const isWriteStdin = params.kind === "writeStdin";
   const fallback = isWriteStdin ? "Terminal input requested." : "Command execution requested.";
@@ -208,7 +207,7 @@ function commandApprovalRequest(requestId: PendingApproval["requestId"], params:
     summary: approvalSummary(params.reason, params.command, fallback),
     resultSummary: approvalResultSummary(params.reason, params.command, fallback),
     details,
-    actionOptions: commandApprovalActionOptions(params.availableDecisions),
+    actionOptions: commandApprovalActionOptions(decisions),
   };
 }
 
@@ -288,10 +287,8 @@ function commandApprovalDetails(params: CommandApprovalParams): ApprovalDetailRo
   return rows;
 }
 
-function commandApprovalActionOptions(decisions: CommandApprovalParams["availableDecisions"]): PendingApprovalOption[] | null {
-  const availableDecisions = commandApprovalDecisions(decisions);
-  if (availableDecisions.length === 0) return null;
-  return availableDecisions.map((decision, index) => {
+function commandApprovalActionOptions(decisions: readonly CommandApprovalDecision[]): PendingApprovalOption[] {
+  return decisions.map((decision, index) => {
     const intent = commandDecisionIntent(decision);
     const id = commandApprovalOptionId(decision, index);
     return {
@@ -309,70 +306,67 @@ function commandApprovalActionOptions(decisions: CommandApprovalParams["availabl
 function commandApprovalDecisionForOption(
   decisions: CommandApprovalParams["availableDecisions"],
   optionId: string,
-): OfferedCommandApprovalDecision | undefined {
-  return commandApprovalDecisions(decisions).find((decision, index) => commandApprovalOptionId(decision, index) === optionId);
+): CommandApprovalDecision | undefined {
+  return commandApprovalDecisions(decisions)?.find((decision, index) => commandApprovalOptionId(decision, index) === optionId);
 }
 
-function commandApprovalOptionId(decision: OfferedCommandApprovalDecision, index: number): string {
+function commandApprovalOptionId(decision: CommandApprovalDecision, index: number): string {
   return `approval-option:${String(index)}:${commandDecisionKey(decision)}`;
 }
 
-function commandApprovalDecisions(value: unknown): OfferedCommandApprovalDecision[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isOfferedCommandApprovalDecision);
+function commandApprovalDecisions(value: unknown): CommandApprovalDecision[] | null {
+  // The supported app-server supplies a nonempty list; a fallback would offer decisions it did not send.
+  if (!Array.isArray(value) || value.length === 0 || !value.every(isCommandApprovalDecision)) return null;
+  return value;
 }
 
-function isOfferedCommandApprovalDecision(value: unknown): value is OfferedCommandApprovalDecision {
-  if (typeof value === "string") return true;
+function isCommandApprovalDecision(value: unknown): value is CommandApprovalDecision {
+  if (typeof value === "string") {
+    return value === "accept" || value === "acceptForSession" || value === "decline" || value === "cancel";
+  }
   const decision = asRecordOrNull(value);
-  if (!decision) return false;
-  if ("acceptWithExecpolicyAmendment" in decision) return true;
+  if (!decision || Object.keys(decision).length !== 1) return false;
+  const execpolicyDecision = asRecordOrNull(decision["acceptWithExecpolicyAmendment"]);
+  if (execpolicyDecision) {
+    const amendment = execpolicyDecision["execpolicy_amendment"];
+    return Array.isArray(amendment) && amendment.every((part) => typeof part === "string");
+  }
   const networkDecision = asRecordOrNull(decision["applyNetworkPolicyAmendment"]);
-  return Boolean(asRecordOrNull(networkDecision?.["network_policy_amendment"]));
+  const amendment = asRecordOrNull(networkDecision?.["network_policy_amendment"]);
+  return typeof amendment?.["host"] === "string" && (amendment["action"] === "allow" || amendment["action"] === "deny");
 }
 
-function commandDecisionIntent(decision: OfferedCommandApprovalDecision): ApprovalActionIntent {
+function commandDecisionIntent(decision: CommandApprovalDecision): ApprovalActionIntent {
   if (typeof decision === "string") return simpleCommandDecisionIntent(decision);
   if ("acceptWithExecpolicyAmendment" in decision) return "accept-session";
-  if ("applyNetworkPolicyAmendment" in decision) {
-    return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "accept-session" : "decline";
-  }
-  return "decline";
+  return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "accept-session" : "decline";
 }
 
-function simpleCommandDecisionIntent(decision: string): ApprovalActionIntent {
+function simpleCommandDecisionIntent(decision: SimpleApprovalDecision): ApprovalActionIntent {
   if (decision === "accept") return "accept";
   if (decision === "acceptForSession") return "accept-session";
   if (decision === "cancel") return "cancel";
   return "decline";
 }
 
-function commandDecisionLabel(decision: OfferedCommandApprovalDecision): string {
+function commandDecisionLabel(decision: CommandApprovalDecision): string {
   if (typeof decision === "string") return simpleCommandDecisionLabel(decision);
   if ("acceptWithExecpolicyAmendment" in decision) return "Allow rule";
-  if ("applyNetworkPolicyAmendment" in decision) {
-    return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "Allow network rule" : "Deny network rule";
-  }
-  return "Choose";
+  return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "Allow network rule" : "Deny network rule";
 }
 
-function simpleCommandDecisionLabel(decision: string): string {
+function simpleCommandDecisionLabel(decision: SimpleApprovalDecision): string {
   if (decision === "accept") return "Allow";
   if (decision === "acceptForSession") return "Allow session";
   if (decision === "decline") return "Deny";
-  if (decision === "cancel") return "Cancel";
-  return "Choose";
+  return "Cancel";
 }
 
-function commandDecisionKey(decision: OfferedCommandApprovalDecision): string {
+function commandDecisionKey(decision: CommandApprovalDecision): string {
   if (typeof decision === "string") return decision;
   if ("acceptWithExecpolicyAmendment" in decision) return "acceptWithExecpolicyAmendment";
-  if ("applyNetworkPolicyAmendment" in decision) {
-    const amendment = decision.applyNetworkPolicyAmendment.network_policy_amendment;
-    const host = amendment.host;
-    return `applyNetworkPolicyAmendment:${stringValue(amendment.action)}:${typeof host === "string" ? host : ""}`;
-  }
-  return "unknown";
+  const amendment = decision.applyNetworkPolicyAmendment.network_policy_amendment;
+  return `applyNetworkPolicyAmendment:${amendment.action}:${amendment.host}`;
 }
 
 function approvalSummary(reason: unknown, target: unknown, fallback: string): string {

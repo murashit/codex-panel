@@ -72,7 +72,9 @@ describe("session connection", () => {
     await fixture.connect();
     const parentResponder = { respond: vi.fn(), reject: vi.fn() };
     fixture.deliver(commandApprovalRequest(1, "thread-active", "turn-active"), parentResponder);
-    fixture.resolveApproval(1, "accept");
+    const action = fixture.stateStore.getState().requests.approvals[0]?.actionOptions?.[0]?.action;
+    if (!action) throw new Error("Expected an offered approval action");
+    fixture.resolveApproval(1, action);
 
     fixture.invalidate();
     fixture.stateStore.dispatch({ type: "subagent-activity/tracked", threadId: "child", parentTurnId: "turn-active" });
