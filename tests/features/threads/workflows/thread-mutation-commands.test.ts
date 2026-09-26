@@ -53,8 +53,11 @@ describe("ThreadMutationCommands", () => {
 
     await mutations.setThreadPinned("thread", true);
 
-    expect(client.request).toHaveBeenCalledWith("threadSection/list", { cursor: null, limit: 100 });
-    expect(client.request).toHaveBeenCalledWith("thread/section/move", { threadId: "thread", sectionId: "pinned" });
+    expect(client.request).toHaveBeenCalledOnce();
+    expect(client.request).toHaveBeenCalledWith("thread/section/move", {
+      threadId: "thread",
+      sectionId: "01984de2-8f74-7c91-a3b2-5c5e937cf318",
+    });
     expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: true });
   });
 
@@ -68,12 +71,12 @@ describe("ThreadMutationCommands", () => {
     expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-pinned", threadId: "thread", isPinned: false });
   });
 
-  it("does not publish a pin when the built-in section is unavailable", async () => {
+  it("does not publish a pin when the move fails", async () => {
     const client = clientMock();
-    client.request.mockResolvedValueOnce({ data: [], nextCursor: null });
+    client.request.mockRejectedValueOnce(new Error("section unavailable"));
     const { mutations, catalog } = operationsFixture({ client });
 
-    await expect(mutations.setThreadPinned("thread", true)).rejects.toThrow("built-in Pinned thread section");
+    await expect(mutations.setThreadPinned("thread", true)).rejects.toThrow("section unavailable");
 
     expect(catalog.apply).not.toHaveBeenCalled();
   });
@@ -451,7 +454,6 @@ function clientMock() {
   return {
     request: vi.fn((method: string, params: { threadId?: string; name?: string }) => {
       if (method === "thread/name/set") return Promise.resolve({ threadId: params.threadId, name: params.name });
-      if (method === "threadSection/list") return Promise.resolve({ data: [{ id: "pinned", name: "Pinned" }], nextCursor: null });
       if (method === "thread/section/move") return Promise.resolve({});
       if (method === "thread/read") return Promise.resolve({ thread: archivedThread() });
       if (method === "thread/archive") return Promise.resolve({});

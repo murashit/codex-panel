@@ -41,7 +41,7 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(client, "skills/list", 1);
     expectRequestTimes(client, "permissionProfile/list", 1);
     expectRequestTimes(client, "account/rateLimits/read", 1);
-    expectRequestTimes(client, "thread/list", 1);
+    expectRequestTimes(client, "thread/list", 2);
   });
 
   it("resumes while metadata is still loading without reconnecting", async () => {
@@ -72,7 +72,7 @@ describe("CodexChatView connection lifecycle", () => {
     config.resolve({});
     await fullyConnected;
     await waitForAsyncWork(() => {
-      expectRequestTimes(client, "thread/list", 1);
+      expectRequestTimes(client, "thread/list", 2);
     });
 
     expectRequestTimes(client, "config/read", 1);

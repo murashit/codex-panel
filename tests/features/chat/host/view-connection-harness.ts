@@ -146,7 +146,6 @@ function baseClientHandlers(): RequestHandlers {
     "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: null }),
     "thread/list": vi.fn().mockResolvedValue({ data: [] }),
-    "threadSection/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     "thread/start": vi.fn().mockResolvedValue(startedThread("thread-new")),
     "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-1")),
     "thread/turns/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),

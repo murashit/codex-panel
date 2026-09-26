@@ -2,7 +2,7 @@
 
 import { FileSystemAdapter } from "obsidian";
 import { vi } from "vitest";
-
+import { BUILT_IN_PINNED_THREAD_SECTION_ID } from "../../src/app-server/protocol/thread";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "../../src/constants";
 import { createServerDiagnostics } from "../../src/domain/runtime/diagnostics";
 import type { Thread } from "../../src/domain/threads/model";
@@ -218,9 +218,8 @@ function chatHostFixture(): CodexChatHost {
 export function threadListClient(fetchThreads: () => Promise<readonly Thread[]>): never {
   return {
     request: async (method: string, params: { sectionId?: string }) => {
-      if (method === "threadSection/list") return { data: [{ id: "pinned", name: "Pinned" }], nextCursor: null };
       if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
-      if (params.sectionId === "pinned") return { data: [], nextCursor: null };
+      if (params.sectionId === BUILT_IN_PINNED_THREAD_SECTION_ID) return { data: [], nextCursor: null };
       return { data: await fetchThreads(), nextCursor: null };
     },
   } as never;

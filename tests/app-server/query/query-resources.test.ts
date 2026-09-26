@@ -8,6 +8,7 @@ import {
   type CatalogSkillMetadata,
   hookItemsFromCatalogHooks,
 } from "../../../src/app-server/protocol/catalog";
+import { BUILT_IN_PINNED_THREAD_SECTION_ID } from "../../../src/app-server/protocol/thread";
 import { AppServerMetadataQueries } from "../../../src/app-server/query/metadata-queries";
 import { AppServerQueryScope } from "../../../src/app-server/query/query-scope";
 import { AppServerThreadCatalog } from "../../../src/app-server/query/thread-catalog-queries";
@@ -481,17 +482,20 @@ describe("app-server query resources", () => {
   it("loads every pinned thread before paginating unpinned history", async () => {
     const listThreads = vi.fn((params: unknown) => {
       const request = params as { sectionId?: string; cursor?: string };
-      if (request.sectionId === "pinned") {
+      if (request.sectionId === BUILT_IN_PINNED_THREAD_SECTION_ID) {
         return request.cursor === "pinned-page-2"
-          ? Promise.resolve({ data: [{ ...thread("older-pinned"), section: { id: "pinned", name: "Pinned" } }], nextCursor: null })
+          ? Promise.resolve({
+              data: [{ ...thread("older-pinned"), section: { id: BUILT_IN_PINNED_THREAD_SECTION_ID, name: "Pinned" } }],
+              nextCursor: null,
+            })
           : Promise.resolve({
-              data: [{ ...thread("pinned"), section: { id: "pinned", name: "Pinned" } }],
+              data: [{ ...thread("pinned"), section: { id: BUILT_IN_PINNED_THREAD_SECTION_ID, name: "Pinned" } }],
               nextCursor: "pinned-page-2",
             });
       }
       if (request.cursor === "page-2") return Promise.resolve({ data: [thread("older")], nextCursor: null });
       return Promise.resolve({
-        data: [{ ...thread("pinned"), section: { id: "pinned", name: "Pinned" } }, thread("recent")],
+        data: [{ ...thread("pinned"), section: { id: BUILT_IN_PINNED_THREAD_SECTION_ID, name: "Pinned" } }, thread("recent")],
         nextCursor: "page-2",
       });
     });
@@ -511,8 +515,10 @@ describe("app-server query resources", () => {
       { id: "older" },
     ]);
     expect(cache.threadCatalog.recentActiveThreadsSnapshot()?.map((thread) => thread.id)).toEqual(["pinned", "older-pinned", "recent"]);
-    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ sectionId: "pinned" }));
-    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ sectionId: "pinned", cursor: "pinned-page-2" }));
+    expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ sectionId: BUILT_IN_PINNED_THREAD_SECTION_ID }));
+    expect(listThreads).toHaveBeenCalledWith(
+      expect.objectContaining({ sectionId: BUILT_IN_PINNED_THREAD_SECTION_ID, cursor: "pinned-page-2" }),
+    );
     expect(listThreads).toHaveBeenCalledWith(expect.not.objectContaining({ sectionId: expect.anything() }));
     expect(listThreads).toHaveBeenCalledWith(expect.objectContaining({ cursor: "page-2" }));
   });
@@ -1150,9 +1156,8 @@ function cacheWithThreads(
       withClient: async (operation) => {
         return operation({
           request: async (method: string, params: { archived?: boolean; sectionId?: string }) => {
-            if (method === "threadSection/list") return { data: [{ id: "pinned", name: "Pinned" }], nextCursor: null };
             if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
-            if (params.sectionId === "pinned") return { data: [], nextCursor: null };
+            if (params.sectionId === BUILT_IN_PINNED_THREAD_SECTION_ID) return { data: [], nextCursor: null };
             return {
               data: await fetchThreads(runtimeContext, params.archived ?? false),
               nextCursor: null,
@@ -1172,12 +1177,11 @@ function cacheWithRequestHandlers(
 ): TestQueryResources {
   const requestClient = {
     request: async (method: string, params: unknown) => {
-      if (method === "threadSection/list") return { data: [{ id: "pinned", name: "Pinned" }], nextCursor: null };
       const handler = handlers[method];
       if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
       if (method === "thread/list" && !options.exposePinnedFilters && params && typeof params === "object") {
         const threadListParams = params as Record<string, unknown>;
-        if (threadListParams["sectionId"] === "pinned") return { data: [], nextCursor: null };
+        if (threadListParams["sectionId"] === BUILT_IN_PINNED_THREAD_SECTION_ID) return { data: [], nextCursor: null };
       }
       return handler(params);
     },

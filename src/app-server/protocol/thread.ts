@@ -2,7 +2,8 @@ import type { Thread, ThreadProvenance } from "../../domain/threads/model";
 import type { Thread as GeneratedThread } from "../../generated/app-server/v2/Thread";
 
 type RequiredThreadRecordFields = "id" | "preview" | "name" | "createdAt" | "updatedAt";
-export const BUILT_IN_PINNED_THREAD_SECTION_NAME = "Pinned";
+// Codex 0.157: codex_state::PINNED_THREAD_SECTION_ID. The section name is presentation data.
+export const BUILT_IN_PINNED_THREAD_SECTION_ID = "01984de2-8f74-7c91-a3b2-5c5e937cf318";
 
 export type ThreadRecord = Pick<GeneratedThread, RequiredThreadRecordFields> &
   Partial<Omit<GeneratedThread, RequiredThreadRecordFields | "historyMode" | "source" | "status" | "turns">> & {
@@ -22,7 +23,7 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
     preview: normalizeString(thread.preview),
     name: thread.name === null ? null : normalizeString(thread.name),
     archived: options.archived ?? false,
-    ...(thread.section?.name === BUILT_IN_PINNED_THREAD_SECTION_NAME ? { isPinned: true } : {}),
+    ...(thread.section?.id === BUILT_IN_PINNED_THREAD_SECTION_ID ? { isPinned: true } : {}),
     createdAt: finiteTimestamp(thread.createdAt),
     updatedAt: finiteTimestamp(thread.updatedAt),
     provenance: threadProvenance(thread),

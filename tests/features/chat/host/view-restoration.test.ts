@@ -141,7 +141,7 @@ describe("CodexChatView workspace restoration", () => {
 
     expect(connectionMockState().connectCalls).toBe(1);
     expectRequestTimes(client, "config/read", 1);
-    expectRequestTimes(client, "thread/list", 1);
+    expectRequestTimes(client, "thread/list", 2);
     expect(requestMethods(client)).not.toContain("thread/resume");
     expect(requestMethods(client)).not.toContain("thread/turns/list");
   });
@@ -217,7 +217,7 @@ describe("CodexChatView workspace restoration", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(connectionMockState().connectCalls).toBe(1);
     expectRequestTimes(client, "config/read", 1);
-    expectRequestTimes(client, "thread/list", 1);
+    expectRequestTimes(client, "thread/list", 2);
     expect(requestMethods(client)).not.toContain("thread/resume");
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);

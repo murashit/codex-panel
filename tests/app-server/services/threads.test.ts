@@ -48,6 +48,18 @@ describe("app-server thread response adapters", () => {
     });
   });
 
+  it("identifies only the built-in pinned section when a custom section shares its name", () => {
+    const base = { id: "thread", preview: "Work", name: null, createdAt: 1, updatedAt: 2 };
+
+    expect(
+      threadFromAppServerRecord({
+        ...base,
+        section: { id: "01984de2-8f74-7c91-a3b2-5c5e937cf318", name: "Pinned", appearance: null },
+      }).isPinned,
+    ).toBe(true);
+    expect(threadFromAppServerRecord({ ...base, section: { id: "custom", name: "Pinned", appearance: null } }).isPinned).toBeUndefined();
+  });
+
   it("excludes subagent and ephemeral records from thread lists", async () => {
     const client = {
       request: vi.fn().mockResolvedValue({
