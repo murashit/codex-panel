@@ -21,4 +21,23 @@ describe("collectCursorPages", () => {
       }),
     );
   });
+
+  it("rejects a cursor cycle after reading each distinct cursor once", async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.integer({ min: 1, max: 8 }), fc.nat(), async (length, repeatedIndex) => {
+        const repeat = repeatedIndex % length;
+        let reads = 0;
+        const readPage = vi.fn(async (cursor: string | null) => {
+          expect(cursor).toBe(reads === 0 ? null : `page-${reads - 1}`);
+          if (reads > length) throw new Error("Unexpected page read");
+          const nextCursor = reads < length ? `page-${reads}` : `page-${repeat}`;
+          reads += 1;
+          return { data: [reads], nextCursor };
+        });
+
+        await expect(collectCursorPages(readPage, "model list")).rejects.toThrow("repeated model list cursor");
+        expect(readPage).toHaveBeenCalledTimes(length + 1);
+      }),
+    );
+  });
 });

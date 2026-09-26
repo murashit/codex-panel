@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -61,7 +62,7 @@ describe("pending MCP elicitation drafts", () => {
     expect(mcpElicitationFieldDefaultDraft(choices)).toBe('["a"]');
   });
 
-  it("keeps only allowed string values from a multi-select draft", () => {
+  it("keeps only allowed string values from arbitrary multi-select drafts", () => {
     const choices = field({
       id: "choices",
       type: "multi-select",
@@ -71,9 +72,15 @@ describe("pending MCP elicitation drafts", () => {
       ],
       defaultValue: [],
     });
-    const drafts = new Map([[mcpElicitationDraftKey(7, "choices"), JSON.stringify(["b", "unknown", 1, null])]]);
-
-    expect(contentForPendingMcpElicitation(elicitation([choices]), drafts)).toEqual({ choices: ["b"] });
+    const value = fc.oneof(fc.constantFrom("a", "b", "unknown"), fc.integer(), fc.boolean(), fc.constant(null));
+    fc.assert(
+      fc.property(fc.array(value, { maxLength: 20 }), (values) => {
+        const drafts = new Map([[mcpElicitationDraftKey(7, "choices"), JSON.stringify(values)]]);
+        expect(contentForPendingMcpElicitation(elicitation([choices]), drafts)).toEqual({
+          choices: values.filter((item) => item === "a" || item === "b"),
+        });
+      }),
+    );
   });
 
   it("does not create form content for URL elicitations", () => {

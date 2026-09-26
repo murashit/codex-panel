@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import type { ComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
@@ -55,6 +56,21 @@ function userInputWithWikiLinkReferencesAndSkills(
 }
 
 describe("composer suggestions", () => {
+  it("replaces only the selected span and leaves surrounding text intact", () => {
+    const text = fc.string({ unit: fc.constantFrom("a", " ", "\n", "あ", "😀", "[", "]"), maxLength: 30 });
+    fc.assert(
+      fc.property(text, text, text, text, (prefix, query, suffix, replacement) => {
+        const result = applyComposerSuggestionInsertion(`${prefix}${query}${suffix}`, prefix.length + query.length, {
+          display: replacement,
+          detail: "",
+          replacement,
+          start: prefix.length,
+        });
+        expect(result).toEqual({ value: `${prefix}${replacement}${suffix}`, cursor: prefix.length + replacement.length });
+      }),
+    );
+  });
+
   const notes = [
     {
       basename: "Alpha",

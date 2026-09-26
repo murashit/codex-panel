@@ -1,13 +1,23 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { codexThreadIdFromHref, threadReferenceMarkdown } from "../../../src/domain/threads/links";
 import type { Thread } from "../../../src/domain/threads/model";
 
 describe("Codex thread deep links", () => {
-  it("parses an opaque thread id", () => {
-    const threadId = "019abcde-0000-7000-8000-000000000001";
-
-    expect(codexThreadIdFromHref(`codex://threads/${threadId}`)).toBe(threadId);
+  it("round-trips encoded thread ids written to Markdown links", () => {
+    const threadId = fc.string({
+      unit: fc.constantFrom("a", "0", " ", "/", "?", "#", "%", "[", "]", "(", ")", "あ", "😀"),
+      minLength: 1,
+      maxLength: 80,
+    });
+    fc.assert(
+      fc.property(threadId, (id) => {
+        const markdown = threadReferenceMarkdown(thread({ id, name: "Thread" }));
+        const href = markdown.slice(markdown.lastIndexOf("](") + 2, -1);
+        expect(codexThreadIdFromHref(href)).toBe(id);
+      }),
+    );
   });
 
   it.each(["https://example.com", "codex://threads/", "codex://threads/a/b", "codex://threads/a?view=1"])(
@@ -19,7 +29,8 @@ describe("Codex thread deep links", () => {
 
   it("rejects malformed encoding and excessively long thread ids", () => {
     expect(codexThreadIdFromHref("codex://threads/%E0%A4%A")).toBeNull();
-    expect(codexThreadIdFromHref(`codex://threads/${"x".repeat(1_000)}`)).toBeNull();
+    expect(codexThreadIdFromHref(`codex://threads/${"x".repeat(160)}`)).toBe("x".repeat(160));
+    expect(codexThreadIdFromHref(`codex://threads/${"x".repeat(161)}`)).toBeNull();
   });
 
   it("writes a bounded, escaped title as an ordinary Markdown link", () => {

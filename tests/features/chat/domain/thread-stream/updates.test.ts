@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import {
@@ -7,6 +8,31 @@ import {
 } from "../../../../../src/features/chat/domain/thread-stream/updates";
 
 describe("thread stream item updates", () => {
+  it("keeps item order and unrelated identities across arbitrary upserts", () => {
+    fc.assert(
+      fc.property(
+        fc.uniqueArray(fc.integer({ min: 0, max: 20 }), { maxLength: 12 }),
+        fc.integer({ min: 0, max: 20 }),
+        fc.string({ maxLength: 20 }),
+        fc.string({ maxLength: 20 }),
+        (ids, targetId, previousOutput, nextOutput) => {
+          const items = ids.map((id) => ({ ...commandItem(String(id), "Running"), output: id === targetId ? previousOutput : "" }));
+          const next = { ...commandItem(String(targetId), "Completed"), output: nextOutput };
+          const result = upsertThreadStreamItemById(items, next);
+          const target = result.find((item) => item.id === String(targetId));
+          expect(result.map((item) => item.id)).toEqual(ids.includes(targetId) ? ids.map(String) : [...ids.map(String), String(targetId)]);
+          expect(target).toMatchObject({
+            statusLabel: "Completed",
+            output: ids.includes(targetId) ? nextOutput || previousOutput : nextOutput,
+          });
+          for (const original of items) {
+            if (original.id !== String(targetId)) expect(result.find((item) => item.id === original.id)).toBe(original);
+          }
+        },
+      ),
+    );
+  });
+
   it("appends new items and replaces matching items in place", () => {
     const first = reasoningItem("r1", "turn");
     const previous = commandItem("c1", "Running");

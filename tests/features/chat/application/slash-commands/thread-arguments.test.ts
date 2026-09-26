@@ -13,18 +13,13 @@ describe("slash command thread arguments", () => {
     const title = fc.oneof(
       fc.string({ unit: "binary", maxLength: 40 }),
       fc.string({ unit: fc.constantFrom("a", " ", "\\", '"', "\n", "あ", "😀"), maxLength: 40 }),
+      fc.tuple(fc.string({ maxLength: 20 }), fc.string({ maxLength: 20 })).map(([before, after]) => `${before}"\\${after}`),
     );
     fc.assert(
       fc.property(title, (value) => {
         expect(parseThreadTitleArgument(`${quotedThreadTitleArgument(value)} message`)).toEqual({ title: value, rest: "message" });
       }),
     );
-  });
-
-  it("round-trips quoted titles containing escaped characters", () => {
-    const title = 'A "quoted" \\ title';
-
-    expect(parseThreadTitleArgument(`${quotedThreadTitleArgument(title)} message`)).toEqual({ title, rest: "message" });
   });
 
   it("rejects incomplete or attached quoted arguments", () => {

@@ -1,9 +1,50 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { applyThreadCatalogChange, threadCatalogEntryEqual } from "../../../src/domain/threads/catalog";
 import type { Thread } from "../../../src/domain/threads/model";
 
 describe("thread catalog read model", () => {
+  it("upserts one thread without reordering or replacing unrelated entries", () => {
+    fc.assert(
+      fc.property(
+        fc.uniqueArray(fc.integer({ min: 0, max: 20 }), { maxLength: 12 }),
+        fc.integer({ min: 0, max: 20 }),
+        fc.string({ maxLength: 20 }),
+        (ids, targetId, name) => {
+          const snapshot = ids.map((id) => thread(String(id)));
+          const next = { ...thread(String(targetId)), name };
+          const result = applyThreadCatalogChange(snapshot, { kind: "upsert", list: "active", thread: next });
+          expect(result).not.toBeNull();
+          if (!result) return;
+
+          const index = ids.indexOf(targetId);
+          expect(result.map((item) => item.id)).toEqual(index < 0 ? [String(targetId), ...ids.map(String)] : ids.map(String));
+          expect(result.filter((item) => item.id === String(targetId))).toHaveLength(1);
+          for (const original of snapshot) {
+            if (original.id !== String(targetId)) expect(result.find((item) => item.id === original.id)).toBe(original);
+          }
+          if (index >= 0 && name === snapshot[index]?.name) expect(result).toBe(snapshot);
+          else expect(result.find((item) => item.id === String(targetId))).toEqual(next);
+        },
+      ),
+    );
+  });
+
+  it("removes only the requested thread and preserves no-op snapshots", () => {
+    fc.assert(
+      fc.property(fc.uniqueArray(fc.integer({ min: 0, max: 20 }), { maxLength: 12 }), fc.integer({ min: 0, max: 20 }), (ids, targetId) => {
+        const snapshot = ids.map((id) => thread(String(id)));
+        const result = applyThreadCatalogChange(snapshot, { kind: "remove", list: "active", threadId: String(targetId) });
+        expect(result?.map((item) => item.id)).toEqual(ids.filter((id) => id !== targetId).map(String));
+        if (!ids.includes(targetId)) expect(result).toBe(snapshot);
+        for (const original of snapshot) {
+          if (original.id !== String(targetId)) expect(result?.find((item) => item.id === original.id)).toBe(original);
+        }
+      }),
+    );
+  });
+
   it("applies upsert changes without replacing equivalent snapshots", () => {
     const first = thread("first");
     const second = thread("second");
@@ -23,13 +64,6 @@ describe("thread catalog read model", () => {
         thread: { ...first, name: "renamed" },
       }),
     ).toEqual([{ ...first, name: "renamed" }, second]);
-  });
-
-  it("removes only matching threads and preserves no-op snapshots", () => {
-    const snapshot = [thread("first"), thread("second")];
-
-    expect(applyThreadCatalogChange(snapshot, { kind: "remove", list: "active", threadId: "missing" })).toBe(snapshot);
-    expect(applyThreadCatalogChange(snapshot, { kind: "remove", list: "active", threadId: "first" })).toEqual([thread("second")]);
   });
 
   it("updates named fields only when the thread actually changes", () => {
