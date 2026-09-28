@@ -1,4 +1,3 @@
-import type { CodexErrorInfo } from "../../../../generated/app-server/v2/CodexErrorInfo";
 import { createStructuredSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamItem, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { UserVisibleNoticeNotification } from "./notification-routing";
@@ -19,8 +18,6 @@ export function userVisibleNoticeItem(notification: UserVisibleNoticeNotificatio
       if (error.misalignment?.detailedExplanation) sections.push({ body: error.misalignment.detailedExplanation });
       if (error.misalignment?.steer?.message)
         sections.push({ title: "Suggested continuation input", body: error.misalignment.steer.message });
-      const httpStatus = errorHttpStatus(error.codexErrorInfo);
-      if (httpStatus !== null) sections.push({ auditFacts: [{ key: "HTTP status", value: String(httpStatus) }] });
       sections.push({ body: willRetry ? "Codex will retry automatically." : "Codex will not retry automatically." });
       return createStructuredSystemItem(id, error.message, sections);
     }
@@ -55,13 +52,4 @@ export function userVisibleNoticeItem(notification: UserVisibleNoticeNotificatio
 
 function detailSections(details: string | null): ThreadStreamNoticeSection[] {
   return details ? [{ body: details }] : [];
-}
-
-function errorHttpStatus(info: CodexErrorInfo | null): number | null {
-  if (!info || typeof info === "string") return null;
-  if ("httpConnectionFailed" in info) return info.httpConnectionFailed.httpStatusCode;
-  if ("responseStreamConnectionFailed" in info) return info.responseStreamConnectionFailed.httpStatusCode;
-  if ("responseStreamDisconnected" in info) return info.responseStreamDisconnected.httpStatusCode;
-  if ("responseTooManyFailedAttempts" in info) return info.responseTooManyFailedAttempts.httpStatusCode;
-  return null;
 }

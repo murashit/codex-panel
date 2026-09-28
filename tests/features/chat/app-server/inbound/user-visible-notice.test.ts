@@ -67,7 +67,7 @@ describe("user-visible server notices", () => {
     expect(text).toContain("The request failed.");
     expect(text).toContain("The provider is temporarily unavailable.");
     expect(text).toContain("The request needs clarification.");
-    expect(text).toContain("HTTP status: 503");
+    expect(text).not.toContain("HTTP status");
     expect(text).toContain("Suggested continuation input\nPlease proceed with the clarified request.");
     expect(text).toContain(willRetry ? "will retry automatically" : "will not retry automatically");
     expect(text).not.toMatch(/routing-|opaque-classification|httpConnectionFailed/);
