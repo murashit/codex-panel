@@ -1,4 +1,4 @@
-import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../../domain/threads/catalog";
+import { applyThreadCatalogChange, type ThreadCatalogChange, threadCatalogChangeList } from "../../../domain/threads/catalog";
 import { isThreadVisibleInCatalog, type Thread } from "../../../domain/threads/model";
 import type { ThreadFact } from "./thread-facts";
 
@@ -15,7 +15,7 @@ export function projectThreadFacts(snapshots: ThreadReadModelSnapshots, facts: r
     const factChanges = threadListChangesForFact({ active, archived }, fact);
     changes.push(...factChanges);
     for (const change of factChanges) {
-      if (change.list === "active") active = applyThreadCatalogChange(active, change);
+      if (threadCatalogChangeList(change) === "active") active = applyThreadCatalogChange(active, change);
       else archived = applyThreadCatalogChange(archived, change);
     }
   }
@@ -28,7 +28,7 @@ function threadListChangesForFact(
 ): ThreadCatalogChange[] {
   switch (fact.type) {
     case "thread-upserted":
-      return isThreadVisibleInCatalog(fact.thread) ? [{ kind: "upsert", list: "active", thread: { ...fact.thread, archived: false } }] : [];
+      return isThreadVisibleInCatalog(fact.thread) ? [{ kind: "upsert", thread: { ...fact.thread, archived: false } }] : [];
     case "thread-renamed":
       return [
         { kind: "update", list: "active", threadId: fact.threadId, changes: { name: fact.name } },
@@ -43,7 +43,7 @@ function threadListChangesForFact(
       const thread = threadById(snapshots.active, fact.threadId);
       return [
         { kind: "remove", list: "active", threadId: fact.threadId },
-        thread ? { kind: "upsert", list: "archived", thread: { ...thread, archived: true } } : { kind: "revalidate", list: "archived" },
+        thread ? { kind: "upsert", thread: { ...thread, archived: true } } : { kind: "revalidate", list: "archived" },
       ];
     }
     case "thread-deleted":
@@ -55,7 +55,7 @@ function threadListChangesForFact(
       const thread = threadById(snapshots.archived, fact.threadId);
       return [
         { kind: "remove", list: "archived", threadId: fact.threadId },
-        thread ? { kind: "upsert", list: "active", thread: { ...thread, archived: false } } : { kind: "revalidate", list: "active" },
+        thread ? { kind: "upsert", thread: { ...thread, archived: false } } : { kind: "revalidate", list: "active" },
       ];
     }
   }

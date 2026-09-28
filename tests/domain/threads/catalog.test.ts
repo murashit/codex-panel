@@ -14,7 +14,7 @@ describe("thread catalog read model", () => {
         (ids, targetId, name) => {
           const snapshot = ids.map((id) => thread(String(id)));
           const next = { ...thread(String(targetId)), name };
-          const result = applyThreadCatalogChange(snapshot, { kind: "upsert", list: "active", thread: next });
+          const result = applyThreadCatalogChange(snapshot, { kind: "upsert", thread: next });
           expect(result).not.toBeNull();
           if (!result) return;
 
@@ -50,17 +50,12 @@ describe("thread catalog read model", () => {
     const second = thread("second");
     const snapshot = [first, second] as const;
 
-    expect(applyThreadCatalogChange(null, { kind: "upsert", list: "active", thread: first })).toBeNull();
-    expect(applyThreadCatalogChange(snapshot, { kind: "upsert", list: "active", thread: thread("new") })).toEqual([
-      thread("new"),
-      first,
-      second,
-    ]);
-    expect(applyThreadCatalogChange(snapshot, { kind: "upsert", list: "active", thread: first })).toBe(snapshot);
+    expect(applyThreadCatalogChange(null, { kind: "upsert", thread: first })).toBeNull();
+    expect(applyThreadCatalogChange(snapshot, { kind: "upsert", thread: thread("new") })).toEqual([thread("new"), first, second]);
+    expect(applyThreadCatalogChange(snapshot, { kind: "upsert", thread: first })).toBe(snapshot);
     expect(
       applyThreadCatalogChange(snapshot, {
         kind: "upsert",
-        list: "active",
         thread: { ...first, name: "renamed" },
       }),
     ).toEqual([{ ...first, name: "renamed" }, second]);

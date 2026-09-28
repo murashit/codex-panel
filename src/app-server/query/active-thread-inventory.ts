@@ -1,5 +1,10 @@
 import type { InfiniteData } from "@tanstack/query-core";
-import { type ThreadCatalogChange, threadCatalogEntryEqual, threadCatalogUpdateEqual } from "../../domain/threads/catalog";
+import {
+  type ThreadCatalogChange,
+  threadCatalogChangeList,
+  threadCatalogEntryEqual,
+  threadCatalogUpdateEqual,
+} from "../../domain/threads/catalog";
 import { compareThreadsPinnedFirst, isThreadVisibleInCatalog, type Thread } from "../../domain/threads/model";
 import type { ThreadPage } from "../services/threads";
 
@@ -23,7 +28,7 @@ export function activeThreadDataHasMore(data: ActiveThreadData | undefined): boo
 }
 
 export function applyActiveThreadMutation(data: ActiveThreadData | undefined, change: ThreadCatalogChange): ActiveThreadData | undefined {
-  if (!data || change.list !== "active" || change.kind === "revalidate") return data;
+  if (!data || threadCatalogChangeList(change) !== "active" || change.kind === "revalidate") return data;
   const pages = data.pages.map((page) => ({ ...page, threads: [...page.threads] }));
 
   switch (change.kind) {

@@ -4,7 +4,7 @@ import {
   type InfiniteQueryObserverOptions,
   type InfiniteQueryObserverResult,
 } from "@tanstack/query-core";
-import { applyThreadCatalogChange, type ThreadCatalogChange } from "../../domain/threads/catalog";
+import { applyThreadCatalogChange, type ThreadCatalogChange, threadCatalogChangeList } from "../../domain/threads/catalog";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedPaginatedResult, ObservedPaginatedResultListener, ObservedResultListener } from "../../shared/async/observed-result";
 import { listPinnedThreads, listThreads, readThreadPage, type ThreadPage } from "../services/threads";
@@ -188,7 +188,7 @@ export class AppServerThreadCatalog {
   applyThreadCatalogChanges(changes: readonly ThreadCatalogChange[]): void {
     this.scope.assertUsable();
     if (changes.length === 0) return;
-    const activeChanges = changes.filter((change) => change.list === "active");
+    const activeChanges = changes.filter((change) => threadCatalogChangeList(change) === "active");
     if (activeChanges.length > 0) {
       const key = ACTIVE_THREADS_QUERY_KEY;
       const before = this.scope.client.getQueryData<ActiveThreadData>(key);
@@ -199,7 +199,7 @@ export class AppServerThreadCatalog {
       });
     }
 
-    const archivedChanges = changes.filter((change) => change.list === "archived");
+    const archivedChanges = changes.filter((change) => threadCatalogChangeList(change) === "archived");
     if (archivedChanges.length > 0) {
       const key = ARCHIVED_THREADS_QUERY_KEY;
       const before = this.scope.client.getQueryData<readonly Thread[]>(key);

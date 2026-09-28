@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { applyThreadCatalogChange } from "../../../../src/domain/threads/catalog";
+import { applyThreadCatalogChange, threadCatalogChangeList } from "../../../../src/domain/threads/catalog";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
@@ -24,7 +24,7 @@ describe("thread replacement visibility", () => {
           facts,
         );
         for (const change of changes) {
-          if (change.list === "active") active = applyThreadCatalogChange(active, change);
+          if (threadCatalogChangeList(change) === "active") active = applyThreadCatalogChange(active, change);
           else archived = applyThreadCatalogChange(archived, change);
         }
         capture("commit");
@@ -177,7 +177,7 @@ function visibleCatalogPublication(): {
       facts,
     );
     for (const change of changes) {
-      if (change.list === "active") active = applyThreadCatalogChange(active, change);
+      if (threadCatalogChangeList(change) === "active") active = applyThreadCatalogChange(active, change);
       else archived = applyThreadCatalogChange(archived, change);
     }
     visibleActiveSnapshots.push(active?.map((item) => item.id) ?? []);

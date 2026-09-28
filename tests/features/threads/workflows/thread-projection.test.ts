@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import type { ThreadCatalogChange } from "../../../../src/domain/threads/catalog";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
 
@@ -22,12 +21,12 @@ describe("thread projection", () => {
     );
 
     expect(changes).toEqual([
-      { kind: "upsert", list: "active", thread: thread("child") },
+      { kind: "upsert", thread: thread("child") },
       { kind: "remove", list: "active", threadId: "child" },
-      { kind: "upsert", list: "archived", thread: thread("child", true) },
+      { kind: "upsert", thread: thread("child", true) },
       { kind: "remove", list: "active", threadId: "source" },
-      { kind: "upsert", list: "archived", thread: thread("source", true) },
-    ] satisfies ThreadCatalogChange[]);
+      { kind: "upsert", thread: thread("source", true) },
+    ]);
     expect(active).toEqual([thread("source"), thread("other")]);
     expect(archived).toEqual([]);
   });
@@ -59,7 +58,7 @@ describe("thread projection", () => {
     ).toEqual([
       { kind: "remove", list: "archived", threadId: "unknown" },
       { kind: "revalidate", list: "active" },
-    ] satisfies ThreadCatalogChange[]);
+    ]);
   });
 
   it("projects pinned state into active and archived snapshots", () => {
@@ -70,7 +69,7 @@ describe("thread projection", () => {
     ).toEqual([
       { kind: "update", list: "active", threadId: "thread", changes: { isPinned: true } },
       { kind: "update", list: "archived", threadId: "thread", changes: { isPinned: true } },
-    ] satisfies ThreadCatalogChange[]);
+    ]);
   });
 
   it("moves an existing archived thread into the active list when unarchived", () => {
@@ -80,8 +79,8 @@ describe("thread projection", () => {
       ]),
     ).toEqual([
       { kind: "remove", list: "archived", threadId: "archived" },
-      { kind: "upsert", list: "active", thread: thread("archived") },
-    ] satisfies ThreadCatalogChange[]);
+      { kind: "upsert", thread: thread("archived") },
+    ]);
   });
 });
 

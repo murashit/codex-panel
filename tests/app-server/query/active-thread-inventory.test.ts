@@ -53,13 +53,12 @@ describe("active thread inventory", () => {
 
   it("applies active upserts across pages", () => {
     const original = inventory([page([thread("existing", 1)], "next", 1), page([thread("other", 2)], null, 1)]);
-    const unchanged = applyActiveThreadMutation(original, { kind: "upsert", list: "active", thread: thread("existing", 1) });
+    const unchanged = applyActiveThreadMutation(original, { kind: "upsert", thread: thread("existing", 1) });
     // Identity is consumed by thread-catalog-queries to avoid publishing unchanged data.
     expect(unchanged).toBe(original);
 
     const updated = applyActiveThreadMutation(original, {
       kind: "upsert",
-      list: "active",
       thread: { ...thread("existing", 3), name: "Renamed" },
     });
     expect(activeThreadsFromData(updated)?.map((item) => [item.id, item.name, item.recencyAt])).toEqual([
@@ -67,9 +66,9 @@ describe("active thread inventory", () => {
       ["other", null, 2],
     ]);
 
-    const inserted = applyActiveThreadMutation(original, { kind: "upsert", list: "active", thread: thread("new", 4) });
+    const inserted = applyActiveThreadMutation(original, { kind: "upsert", thread: thread("new", 4) });
     expect(activeThreadsFromData(inserted)?.map((item) => item.id)).toEqual(["new", "other", "existing"]);
-    expect(applyActiveThreadMutation(inventory([]), { kind: "upsert", list: "active", thread: thread("new", 4) })).toEqual(inventory([]));
+    expect(applyActiveThreadMutation(inventory([]), { kind: "upsert", thread: thread("new", 4) })).toEqual(inventory([]));
   });
 
   it("applies meaningful updates and removals, while ignoring unrelated changes", () => {

@@ -3,7 +3,7 @@ import { isThreadVisibleInCatalog, type Thread } from "./model";
 type ThreadCatalogList = "active" | "archived";
 
 export type ThreadCatalogChange =
-  | { readonly kind: "upsert"; readonly list: ThreadCatalogList; readonly thread: Thread }
+  | { readonly kind: "upsert"; readonly thread: Thread }
   | { readonly kind: "remove"; readonly list: ThreadCatalogList; readonly threadId: string }
   | {
       readonly kind: "update";
@@ -12,6 +12,10 @@ export type ThreadCatalogChange =
       readonly changes: Partial<Pick<Thread, "name" | "isPinned" | "recencyAt">>;
     }
   | { readonly kind: "revalidate"; readonly list: ThreadCatalogList };
+
+export function threadCatalogChangeList(change: ThreadCatalogChange): ThreadCatalogList {
+  return change.kind === "upsert" ? (change.thread.archived ? "archived" : "active") : change.list;
+}
 
 export function applyThreadCatalogChange(snapshot: readonly Thread[] | null, change: ThreadCatalogChange): readonly Thread[] | null {
   switch (change.kind) {

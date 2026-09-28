@@ -550,7 +550,7 @@ describe("app-server query resources", () => {
     await cache.threadCatalog.refreshActiveThreads();
     await cache.threadCatalog.loadMoreActiveThreads();
 
-    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: { ...thread("new"), recencyAt: 30 } }]);
+    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", thread: { ...thread("new"), recencyAt: 30 } }]);
     expect(cache.threadCatalog.recentActiveThreadsSnapshot()?.map((item) => item.id)).toEqual(["new"]);
 
     cache.threadCatalog.applyThreadCatalogChanges([
@@ -627,7 +627,7 @@ describe("app-server query resources", () => {
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
     await cache.threadCatalog.refreshActiveThreads();
 
-    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: thread("new-first") }]);
+    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", thread: thread("new-first") }]);
     expect(cache.threadCatalog.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["new-first", "old-first", "old-second"]);
     expect(listThreads).toHaveBeenCalledOnce();
 
@@ -645,7 +645,7 @@ describe("app-server query resources", () => {
       .mockResolvedValueOnce({ data: [thread("new-second")], nextCursor: null });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
     await cache.threadCatalog.refreshActiveThreads();
-    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: thread("event-thread") }]);
+    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", thread: thread("event-thread") }]);
 
     await cache.threadCatalog.loadMoreActiveThreads();
     expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("event-thread"), thread("new-second")]);
@@ -668,7 +668,7 @@ describe("app-server query resources", () => {
     await cache.threadCatalog.loadMoreActiveThreads();
 
     cache.threadCatalog.applyThreadCatalogChanges([
-      { kind: "upsert", list: "active", thread: { ...thread("second"), name: "Updated without re-ranking" } },
+      { kind: "upsert", thread: { ...thread("second"), name: "Updated without re-ranking" } },
     ]);
 
     expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([
@@ -729,7 +729,7 @@ describe("app-server query resources", () => {
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
 
     await expect(cache.threadCatalog.refreshActiveThreads()).rejects.toThrow("threads offline");
-    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", list: "active", thread: thread("created") }]);
+    cache.threadCatalog.applyThreadCatalogChanges([{ kind: "upsert", thread: thread("created") }]);
 
     await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("created")]));
