@@ -37,6 +37,7 @@ function pluginSourceLabel(source: PluginSource): string {
     return `${source.url}${path}${ref}`;
   }
   if (source.type === "npm") return source.version ? `${source.package}@${source.version}` : source.package;
+  source satisfies { type: "remote" };
   return "remote";
 }
 
