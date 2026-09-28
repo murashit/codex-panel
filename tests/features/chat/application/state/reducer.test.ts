@@ -817,16 +817,12 @@ function suggestion(display: string): ChatState["composer"]["suggestions"][numbe
 function approval(requestId: number): ChatState["requests"]["approvals"][number] {
   return {
     requestId,
-    kind: "command",
+    kind: "fileChange",
     turnId: "turn",
-    title: "Command approval",
-    summary: "Need access\npwd",
+    title: "File change approval",
+    summary: "Need access",
     resultSummary: "Need access",
-    details: [
-      { key: "reason", value: "Need access" },
-      { key: "command", value: "pwd" },
-      { key: "cwd", value: "/tmp" },
-    ],
+    details: [],
     actionOptions: null,
   };
 }

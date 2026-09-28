@@ -64,8 +64,8 @@ function pendingApprovalViewModel(approval: PendingApproval): PendingApprovalVie
 }
 
 function approvalActionOptions(approval: PendingApproval): ApprovalActionOption[] {
-  const options = approval.actionOptions;
-  return (options && options.length > 0 ? options : defaultPendingApprovalOptions()).map(approvalActionOptionViewModel);
+  const options = approval.kind === "command" ? approval.actionOptions : defaultPendingApprovalOptions();
+  return options.map(approvalActionOptionViewModel);
 }
 
 function approvalActionOptionViewModel(option: { id: string; label: string; action: ApprovalAction }): ApprovalActionOption {

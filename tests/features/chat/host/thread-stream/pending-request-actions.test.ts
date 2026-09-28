@@ -173,9 +173,9 @@ function actionsHarness(composerHasFocus = vi.fn(() => false)) {
 function approvalRequest(): PendingApproval {
   return {
     requestId: 1,
-    kind: "command",
+    kind: "fileChange",
     turnId: "turn",
-    title: "Command approval",
+    title: "File change approval",
     summary: "Run tests",
     resultSummary: "Run tests",
     details: [],

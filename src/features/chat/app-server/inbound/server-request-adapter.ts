@@ -14,7 +14,7 @@ import type {
   McpElicitationAction,
   McpElicitationContentValue,
   PendingApproval,
-  PendingApprovalOption,
+  PendingCommandApprovalOption,
   PendingMcpElicitation,
   PendingMcpElicitationField,
   PendingMcpElicitationOption,
@@ -287,20 +287,20 @@ function commandApprovalDetails(params: CommandApprovalParams): ApprovalDetailRo
   return rows;
 }
 
-function commandApprovalActionOptions(decisions: readonly CommandApprovalDecision[]): PendingApprovalOption[] {
-  return decisions.map((decision, index) => {
-    const intent = commandDecisionIntent(decision);
-    const id = commandApprovalOptionId(decision, index);
-    return {
-      id,
-      label: commandDecisionLabel(decision),
-      action: {
-        kind: "approval-option",
-        optionId: id,
-        intent,
-      },
-    };
-  });
+function commandApprovalActionOptions(
+  decisions: readonly [CommandApprovalDecision, ...CommandApprovalDecision[]],
+): readonly [PendingCommandApprovalOption, ...PendingCommandApprovalOption[]] {
+  const [first, ...rest] = decisions;
+  return [commandApprovalActionOption(first, 0), ...rest.map((decision, index) => commandApprovalActionOption(decision, index + 1))];
+}
+
+function commandApprovalActionOption(decision: CommandApprovalDecision, index: number): PendingCommandApprovalOption {
+  const id = commandApprovalOptionId(decision, index);
+  return {
+    id,
+    label: commandDecisionLabel(decision),
+    action: { kind: "approval-option", optionId: id, intent: commandDecisionIntent(decision) },
+  };
 }
 
 function commandApprovalDecisionForOption(
@@ -314,10 +314,14 @@ function commandApprovalOptionId(decision: CommandApprovalDecision, index: numbe
   return `approval-option:${String(index)}:${commandDecisionKey(decision)}`;
 }
 
-function commandApprovalDecisions(value: unknown): CommandApprovalDecision[] | null {
+function commandApprovalDecisions(value: unknown): readonly [CommandApprovalDecision, ...CommandApprovalDecision[]] | null {
   // The supported app-server supplies a nonempty list; a fallback would offer decisions it did not send.
-  if (!Array.isArray(value) || value.length === 0 || !value.every(isCommandApprovalDecision)) return null;
-  return value;
+  if (!Array.isArray(value)) return null;
+  const candidates: unknown[] = value;
+  const first = candidates[0];
+  const rest = candidates.slice(1);
+  if (!isCommandApprovalDecision(first) || !rest.every(isCommandApprovalDecision)) return null;
+  return [first, ...rest];
 }
 
 function isCommandApprovalDecision(value: unknown): value is CommandApprovalDecision {

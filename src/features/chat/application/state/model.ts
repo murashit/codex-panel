@@ -158,8 +158,8 @@ type DeepReadonly<T> = T extends (...args: never[]) => unknown
     ? ReadonlyMap<DeepReadonly<Key>, DeepReadonly<Value>>
     : T extends ReadonlySet<infer Value>
       ? ReadonlySet<DeepReadonly<Value>>
-      : T extends readonly (infer Value)[]
-        ? readonly DeepReadonly<Value>[]
+      : T extends readonly unknown[]
+        ? { readonly [Index in keyof T]: DeepReadonly<T[Index]> }
         : T extends object
           ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
           : T;

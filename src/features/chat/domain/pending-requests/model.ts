@@ -4,8 +4,6 @@ export const NON_BLOCKING_USER_INPUT_AUTO_RESOLUTION_MS = 120_000;
 
 export type ApprovalActionIntent = "accept" | "accept-session" | "decline" | "cancel";
 
-type ApprovalKind = "command" | "fileChange" | "permission";
-
 export interface ApprovalDetailRow {
   key: string;
   value: string;
@@ -19,22 +17,28 @@ interface ApprovalOptionAction {
 
 export type ApprovalAction = ApprovalActionIntent | ApprovalOptionAction;
 
-export interface PendingApprovalOption {
+export interface PendingApprovalOption<Action extends ApprovalAction = ApprovalAction> {
   id: string;
   label: string;
-  action: ApprovalAction;
+  action: Action;
 }
 
-export interface PendingApproval {
+export type PendingCommandApprovalOption = PendingApprovalOption<ApprovalOptionAction>;
+
+interface PendingApprovalBase {
   requestId: PendingRequestId;
-  kind: ApprovalKind;
   turnId: string | null;
   title: string;
   summary: string;
   resultSummary: string;
   details: readonly ApprovalDetailRow[];
-  actionOptions: readonly PendingApprovalOption[] | null;
 }
+
+export type PendingApproval = PendingApprovalBase &
+  (
+    | { kind: "command"; actionOptions: readonly [PendingCommandApprovalOption, ...PendingCommandApprovalOption[]] }
+    | { kind: "fileChange" | "permission"; actionOptions: null }
+  );
 
 interface PendingUserInputOption {
   label: string;
