@@ -145,16 +145,12 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
   }
   switch (route.kind) {
     case "approval": {
-      if (!isApprovalServerRequest(request)) {
-        rejectServerRequest(context, request, `Rejected unsupported app-server request: ${request.method}`);
-        return true;
-      }
       const parentTurnId = activeTurnId(current.activeTurn) ?? route.approval.turnId;
       if (!parentTurnId) {
         rejectServerRequest(context, request, `Rejected approval without a turn: ${request.method}`);
         return true;
       }
-      context.approvalRequests.set(request.id, request);
+      context.approvalRequests.set(route.request.id, route.request);
       const approval = trackedSubagent ? { ...route.approval, turnId: parentTurnId } : route.approval;
       dispatch(context, { type: "request/approval-queued", approval });
       return true;
