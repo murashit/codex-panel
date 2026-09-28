@@ -3,6 +3,7 @@ import { mcpServerStatusSummariesFromStatuses } from "../../../../../src/app-ser
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import {
   createServerDiagnostics,
+  type DiagnosticProbeId,
   type DiagnosticProbeResult,
   type Diagnostics,
   diagnosticProbeError,
@@ -15,8 +16,8 @@ import { toolInventoryDiagnosticSections } from "../../../../../src/features/cha
 
 type InventoryFixture = ToolInventorySnapshot;
 
-function withProbe(diagnostics: Diagnostics, probe: DiagnosticProbeResult): Diagnostics {
-  return { ...diagnostics, probes: { ...diagnostics.probes, [probe.id]: probe } };
+function withProbe(diagnostics: Diagnostics, id: DiagnosticProbeId, probe: DiagnosticProbeResult): Diagnostics {
+  return { ...diagnostics, probes: { ...diagnostics.probes, [id]: probe } };
 }
 
 function withMcpDiagnostic(diagnostics: Diagnostics, server: McpServerDiagnostic): Diagnostics {
@@ -42,9 +43,9 @@ describe("connection diagnostics", () => {
 
   it("formats connection rows and runtime checks for /doctor", () => {
     let diagnostics = createServerDiagnostics();
-    diagnostics = withProbe(diagnostics, diagnosticProbeOk("models", "12 models", 1));
-    diagnostics = withProbe(diagnostics, diagnosticProbeError("rateLimits", new Error("rate limit request failed"), 2));
-    diagnostics = withProbe(diagnostics, diagnosticProbeError("skills", new Error("unknown method skills/list"), 3));
+    diagnostics = withProbe(diagnostics, "models", diagnosticProbeOk("12 models", 1));
+    diagnostics = withProbe(diagnostics, "rateLimits", diagnosticProbeError(new Error("rate limit request failed"), 2));
+    diagnostics = withProbe(diagnostics, "skills", diagnosticProbeError(new Error("unknown method skills/list"), 3));
     diagnostics = withMcpDiagnostic(diagnostics, {
       name: "github",
       connectionStatus: "failed",
@@ -96,7 +97,7 @@ describe("connection diagnostics", () => {
     const sections = (value: ToolInventorySnapshot) =>
       toolInventoryDiagnosticSections(value, {
         value: [],
-        probe: diagnosticProbeOk("skills", "0 skills", 1),
+        probe: diagnosticProbeOk("0 skills", 1),
       }).find((section) => section.title === "Plugins")?.rows;
     expect(sections(inventory)).toEqual([
       { label: "Refresh", value: "marketplace unavailable", level: "error" },
@@ -240,7 +241,7 @@ describe("connection diagnostics", () => {
 
     const sections = toolInventoryDiagnosticSections(inventory, {
       value: skills,
-      probe: diagnosticProbeOk("skills", "6 skills", 1),
+      probe: diagnosticProbeOk("6 skills", 1),
     });
     const pluginRows = sections.find((section) => section.title === "Plugins")?.rows ?? [];
     const toolProviderRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
@@ -311,7 +312,7 @@ describe("connection diagnostics", () => {
     const mcpRows =
       toolInventoryDiagnosticSections(inventory, {
         value: [],
-        probe: diagnosticProbeOk("skills", "0 skills", 1),
+        probe: diagnosticProbeOk("0 skills", 1),
       }).find((section) => section.title === "Tool providers")?.rows ?? [];
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, connected, auth OAuth, 1 tool"]);
@@ -329,7 +330,7 @@ describe("connection diagnostics", () => {
           mcpDiagnostics: [],
           mcpError: null,
         },
-        { value: [], probe: diagnosticProbeOk("skills", "0 skills", 1) },
+        { value: [], probe: diagnosticProbeOk("0 skills", 1) },
       ).find((section) => section.title === "Tool providers")?.rows;
 
     expect(rowsFor("Tool listing failed")).toEqual([
@@ -358,7 +359,7 @@ describe("connection diagnostics", () => {
         ],
         mcpError: null,
       },
-      { value: [], probe: diagnosticProbeOk("skills", "0 skills", 1) },
+      { value: [], probe: diagnosticProbeOk("0 skills", 1) },
     );
 
     expect(sections.find((section) => section.title === "Tool providers")?.rows).toEqual([
@@ -387,7 +388,7 @@ describe("connection diagnostics", () => {
     const mcpRows =
       toolInventoryDiagnosticSections(inventory, {
         value: [],
-        probe: diagnosticProbeOk("skills", "0 skills", 1),
+        probe: diagnosticProbeOk("0 skills", 1),
       }).find((section) => section.title === "Tool providers")?.rows ?? [];
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
@@ -426,7 +427,7 @@ describe("connection diagnostics", () => {
     const rows =
       toolInventoryDiagnosticSections(inventory, {
         value: [],
-        probe: diagnosticProbeOk("skills", "0 skills", 1),
+        probe: diagnosticProbeOk("0 skills", 1),
       }).find((section) => section.title === "Tool providers")?.rows ?? [];
 
     expect(rows).toEqual([

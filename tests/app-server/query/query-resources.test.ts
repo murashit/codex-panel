@@ -934,7 +934,7 @@ describe("app-server query resources", () => {
     expect(listener).toHaveBeenLastCalledWith({
       id: "skills",
       value: [expect.objectContaining({ name: "writer" })],
-      probe: expect.objectContaining({ id: "skills", status: "ok" }),
+      probe: expect.objectContaining({ status: "ok" }),
     });
 
     cache.metadataQueries.handleSkillsChanged();
@@ -943,7 +943,7 @@ describe("app-server query resources", () => {
     expect(listener).toHaveBeenLastCalledWith({
       id: "skills",
       value: [expect.objectContaining({ name: "writer" })],
-      probe: expect.objectContaining({ id: "skills", status: "failed" }),
+      probe: expect.objectContaining({ status: "failed" }),
     });
     unsubscribe();
   });
@@ -978,7 +978,7 @@ describe("app-server query resources", () => {
     expect(listener).toHaveBeenCalledWith({
       id: "skills",
       value: [expect.objectContaining({ name: "writer" })],
-      probe: expect.objectContaining({ id: "skills", status: "ok" }),
+      probe: expect.objectContaining({ status: "ok" }),
     });
 
     cache.metadataQueries.handleSkillsChanged();
@@ -991,7 +991,7 @@ describe("app-server query resources", () => {
     expect(listener).toHaveBeenLastCalledWith({
       id: "skills",
       value: [expect.objectContaining({ name: "editor" })],
-      probe: expect.objectContaining({ id: "skills", status: "ok" }),
+      probe: expect.objectContaining({ status: "ok" }),
     });
     unsubscribe();
   });

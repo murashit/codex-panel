@@ -28,15 +28,15 @@ export function appServerDiagnosticSections(input: AppServerDiagnosticSectionsIn
     },
     {
       title: "Runtime Checks",
-      rows: RUNTIME_CHECK_PROBE_IDS.map((id) => diagnosticProbeRow(input.diagnostics.probes[id])),
+      rows: RUNTIME_CHECK_PROBE_IDS.map((id) => diagnosticProbeRow(id, input.diagnostics.probes[id])),
     },
   ];
 }
 
-function diagnosticProbeRow(probe: DiagnosticProbeResult): DiagnosticRow {
+function diagnosticProbeRow(id: DiagnosticProbeId, probe: DiagnosticProbeResult): DiagnosticRow {
   const detail = probe.message ? ` - ${probe.message}` : probe.summary ? ` (${probe.summary})` : "";
   return {
-    label: diagnosticProbeLabel(probe.id),
+    label: diagnosticProbeLabel(id),
     value: `${probe.status}${detail}`,
     level: probe.status === "failed" ? "error" : probe.status === "unknown" ? "warning" : "normal",
   };

@@ -147,7 +147,7 @@ function mcpAuthStatusLabel(status: NonNullable<McpServerDiagnostic["authStatus"
 }
 
 function skillRows(skills: readonly SkillMetadata[], probe: DiagnosticProbeResult): DiagnosticRow[] {
-  if (probe.status === "failed") return [{ label: "Skills", value: probe.message ?? "unavailable", level: "error" }];
+  if (probe.status === "failed") return [{ label: "Skills", value: probe.message, level: "error" }];
   if (probe.status === "unknown") return [{ label: "Skills", value: "not loaded", level: "warning" }];
 
   const groups = new Map<string, SkillProvenance & { names: string[] }>();

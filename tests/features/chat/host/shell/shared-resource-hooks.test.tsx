@@ -39,7 +39,7 @@ describe("shared display resource hooks", () => {
         listener({
           id: "skills",
           value: [{ name: "writer", description: "", path: "/skills/writer", enabled: true }],
-          probe: diagnosticProbeOk("skills", "1 skill", 1),
+          probe: diagnosticProbeOk("1 skill", 1),
         });
       }
     });
@@ -53,7 +53,7 @@ describe("shared display resource hooks", () => {
         listener({
           id: "skills",
           value: undefined,
-          probe: diagnosticProbeError("skills", new Error("skills offline"), 2),
+          probe: diagnosticProbeError(new Error("skills offline"), 2),
         });
       }
     });
@@ -84,7 +84,7 @@ describe("shared display resource hooks", () => {
         listener({
           id: "skills",
           value: [{ name: "old-context", description: "", path: "/old", enabled: true }],
-          probe: diagnosticProbeOk("skills", "1 skill", 1),
+          probe: diagnosticProbeOk("1 skill", 1),
         });
       }
     });

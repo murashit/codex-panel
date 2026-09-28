@@ -284,8 +284,8 @@ export class AppServerMetadataQueries {
   private metadataProbe(resource: MetadataResourceKind): DiagnosticProbeResult {
     const key = this.metadataDescriptors[resource].queryOptions.queryKey;
     const state = this.scope.client.getQueryState<MetadataResourceData<unknown>>(key);
-    if (state?.status === "error") return diagnosticProbeError(resource, state.error, state.errorUpdatedAt);
-    if (state?.data) return diagnosticProbeOk(resource, state.data.summary, state.dataUpdatedAt);
+    if (state?.status === "error") return diagnosticProbeError(state.error, state.errorUpdatedAt);
+    if (state?.data) return diagnosticProbeOk(state.data.summary, state.dataUpdatedAt);
     return createMetadataResourceDiagnostics().probes[resource];
   }
 

@@ -8,27 +8,18 @@ const DIAGNOSTIC_PROBE_DEFINITIONS = {
   rateLimits: { label: "Rate limits" },
 } as const;
 
-const METADATA_RESOURCE_PROBE_IDS = ["models", "skills", "permissionProfiles", "rateLimits"] as const;
-
 export type DiagnosticProbeId = keyof typeof DIAGNOSTIC_PROBE_DEFINITIONS;
-type MetadataResourceProbeId = (typeof METADATA_RESOURCE_PROBE_IDS)[number];
-type DiagnosticProbeStatus = "unknown" | "ok" | "failed";
-
-export interface DiagnosticProbeResult {
-  readonly id: DiagnosticProbeId;
-  readonly status: DiagnosticProbeStatus;
-  readonly message: string | null;
-  readonly summary: string | null;
-  readonly checkedAt: number | null;
-}
-
-export interface Diagnostics {
-  readonly probes: Readonly<Record<DiagnosticProbeId, DiagnosticProbeResult>>;
-  readonly mcpServers: readonly McpServerDiagnostic[];
-}
+export type DiagnosticProbeResult =
+  | { readonly status: "unknown"; readonly message: null; readonly summary: null; readonly checkedAt: null }
+  | { readonly status: "ok"; readonly message: null; readonly summary: string; readonly checkedAt: number }
+  | { readonly status: "failed"; readonly message: string; readonly summary: null; readonly checkedAt: number };
 
 export interface MetadataResourceDiagnostics {
-  readonly probes: Readonly<Record<MetadataResourceProbeId, DiagnosticProbeResult>>;
+  readonly probes: Readonly<Record<DiagnosticProbeId, DiagnosticProbeResult>>;
+}
+
+export interface Diagnostics extends MetadataResourceDiagnostics {
+  readonly mcpServers: readonly McpServerDiagnostic[];
 }
 
 export function createServerDiagnostics(): Diagnostics {
@@ -40,10 +31,12 @@ export function createServerDiagnostics(): Diagnostics {
 
 export function createMetadataResourceDiagnostics(): MetadataResourceDiagnostics {
   return {
-    probes: Object.fromEntries(METADATA_RESOURCE_PROBE_IDS.map((id) => [id, createDiagnosticProbeResult(id)])) as Record<
-      MetadataResourceProbeId,
-      DiagnosticProbeResult
-    >,
+    probes: {
+      models: createDiagnosticProbeResult(),
+      skills: createDiagnosticProbeResult(),
+      permissionProfiles: createDiagnosticProbeResult(),
+      rateLimits: createDiagnosticProbeResult(),
+    },
   };
 }
 
@@ -54,9 +47,8 @@ export function serverDiagnostics(metadata: MetadataResourceDiagnostics, mcpServ
   };
 }
 
-function createDiagnosticProbeResult(id: DiagnosticProbeId): DiagnosticProbeResult {
+function createDiagnosticProbeResult(): DiagnosticProbeResult {
   return {
-    id,
     status: "unknown",
     message: null,
     summary: null,
@@ -64,9 +56,8 @@ function createDiagnosticProbeResult(id: DiagnosticProbeId): DiagnosticProbeResu
   };
 }
 
-export function diagnosticProbeOk(id: DiagnosticProbeId, summary: string | null, checkedAt: number): DiagnosticProbeResult {
+export function diagnosticProbeOk(summary: string, checkedAt: number): DiagnosticProbeResult {
   return {
-    id,
     status: "ok",
     message: null,
     summary,
@@ -74,9 +65,8 @@ export function diagnosticProbeOk(id: DiagnosticProbeId, summary: string | null,
   };
 }
 
-export function diagnosticProbeError(id: DiagnosticProbeId, error: unknown, checkedAt: number): DiagnosticProbeResult {
+export function diagnosticProbeError(error: unknown, checkedAt: number): DiagnosticProbeResult {
   return {
-    id,
     status: "failed",
     message: shortDiagnosticErrorMessage(error),
     summary: null,
