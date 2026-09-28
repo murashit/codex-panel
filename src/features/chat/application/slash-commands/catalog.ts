@@ -38,6 +38,16 @@ export interface SlashCommandDefinitionShape {
   subcommands?: readonly SlashCommandSubcommandDefinition[];
 }
 
+const GOAL_SUBCOMMANDS = [
+  { subcommand: "set", usage: "/goal set <objective>", argsKind: "requiredMessage", detail: "Create or update the thread goal." },
+  { subcommand: "edit", usage: "/goal edit", argsKind: "none", detail: "Load the current thread goal into the composer." },
+  { subcommand: "pause", usage: "/goal pause", argsKind: "none", detail: "Pause the current thread goal." },
+  { subcommand: "resume", usage: "/goal resume", argsKind: "none", detail: "Resume the current thread goal." },
+  { subcommand: "clear", usage: "/goal clear", argsKind: "none", detail: "Clear the current thread goal." },
+] as const satisfies readonly SlashCommandSubcommandDefinition[];
+
+export type GoalSubcommandDefinition = (typeof GOAL_SUBCOMMANDS)[number];
+
 export const SLASH_COMMANDS = [
   {
     command: "/clear",
@@ -137,13 +147,7 @@ export const SLASH_COMMANDS = [
     argsKind: "goal",
     surface: "threadSetting",
     detail: "Show or manage the current thread goal.",
-    subcommands: [
-      { subcommand: "set", usage: "/goal set <objective>", argsKind: "requiredMessage", detail: "Create or update the thread goal." },
-      { subcommand: "edit", usage: "/goal edit", argsKind: "none", detail: "Load the current thread goal into the composer." },
-      { subcommand: "pause", usage: "/goal pause", argsKind: "none", detail: "Pause the current thread goal." },
-      { subcommand: "resume", usage: "/goal resume", argsKind: "none", detail: "Resume the current thread goal." },
-      { subcommand: "clear", usage: "/goal clear", argsKind: "none", detail: "Clear the current thread goal." },
-    ],
+    subcommands: GOAL_SUBCOMMANDS,
   },
   {
     command: "/status",
@@ -250,8 +254,16 @@ export function activePanelOperationForSlashCommand(command: SlashCommandName, a
     case "tools":
     case "help":
       return null;
-    default:
+    case "clear":
+    case "resume":
+    case "reconnect":
+    case "refer":
+    case "web":
+    case "archive":
+    case "rename":
       return "submit";
+    default:
+      return command satisfies never;
   }
 }
 
@@ -283,8 +295,8 @@ export function slashCommandSubcommands(command: SlashCommandName): readonly Sla
   return "subcommands" in definition ? definition.subcommands : [];
 }
 
-export function slashCommandSubcommandDefinition(command: SlashCommandName, subcommand: string): SlashCommandSubcommandDefinition | null {
-  return slashCommandSubcommands(command).find((item) => item.subcommand === subcommand) ?? null;
+export function goalSubcommandDefinition(subcommand: string): GoalSubcommandDefinition | null {
+  return GOAL_SUBCOMMANDS.find((item) => item.subcommand === subcommand) ?? null;
 }
 
 export function slashCommandHelpSections(): SlashCommandHelpSection[] {

@@ -1,6 +1,6 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { ThreadStreamAuditFact, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
-import { type SlashCommandSubcommandDefinition, slashCommandSubcommandDefinition, slashCommandSubcommands } from "./catalog";
+import { type GoalSubcommandDefinition, goalSubcommandDefinition } from "./catalog";
 import { parseThreadAndTextArgs, resolveThreadArgument, usageError } from "./execution-arguments";
 import type { SlashCommandExecutionContext, SlashCommandExecutionResult } from "./execution-contracts";
 import { parseWebCommandArgs } from "./parse";
@@ -100,10 +100,19 @@ async function executeGoalCommand(args: string, context: ContextSlashCommandCont
   }
   if (parsed.kind === "edit") return { composerDraft: `/goal set ${goal.objective}` };
   context.submission.markAdopted();
-  if (parsed.kind === "pause") await context.goals.setStatus(threadId, "paused");
-  else if (parsed.kind === "resume") await context.goals.setStatus(threadId, "active");
-  else await context.goals.clear(threadId);
-  return;
+  switch (parsed.kind) {
+    case "pause":
+      await context.goals.setStatus(threadId, "paused");
+      return;
+    case "resume":
+      await context.goals.setStatus(threadId, "active");
+      return;
+    case "clear":
+      await context.goals.clear(threadId);
+      return;
+    default:
+      return parsed satisfies never;
+  }
 }
 
 type GoalArgs =
@@ -120,33 +129,30 @@ function parseGoalArgs(args: string): GoalArgs {
   if (!trimmed) return { kind: "show" };
   const subcommandMatch = /^([^\s]+)(?:\s+([\s\S]*))?$/.exec(trimmed);
   const subcommandName = subcommandMatch?.[1] ?? "";
-  const subcommand = slashCommandSubcommandDefinition("goal", subcommandName);
-  if (!subcommand) return { kind: "invalid", message: goalUsageError("requires set <objective>, edit, pause, resume, or clear") };
+  const subcommand = goalSubcommandDefinition(subcommandName);
+  if (!subcommand) return { kind: "invalid", message: usageError("goal", "requires a valid subcommand") };
   const subcommandArgs = (subcommandMatch?.[2] ?? "").trim();
   const argumentError = validateSubcommandArguments(subcommand, subcommandArgs);
   if (argumentError) return { kind: "invalid", message: argumentError };
-  if (subcommand.subcommand === "set") return { kind: "set", objective: subcommandArgs };
-  if (subcommand.subcommand === "edit") return { kind: "edit" };
-  if (subcommand.subcommand === "pause") return { kind: "pause" };
-  if (subcommand.subcommand === "resume") return { kind: "resume" };
-  return { kind: "clear" };
+  switch (subcommand.subcommand) {
+    case "set":
+      return { kind: "set", objective: subcommandArgs };
+    case "edit":
+    case "pause":
+    case "resume":
+    case "clear":
+      return { kind: subcommand.subcommand };
+    default:
+      return subcommand satisfies never;
+  }
 }
 
-function validateSubcommandArguments(subcommand: SlashCommandSubcommandDefinition, args: string): string | null {
+function validateSubcommandArguments(subcommand: GoalSubcommandDefinition, args: string): string | null {
   if (subcommand.argsKind === "none" && args) return `${subcommand.usage} does not take arguments. Usage: ${subcommand.usage}`;
   if (subcommand.argsKind === "requiredMessage" && !args) {
     return `${subcommand.usage} requires an objective. Usage: ${subcommand.usage}`;
   }
   return null;
-}
-
-function goalUsageError(message: string): string {
-  return usageError(
-    "goal",
-    `${message}. Subcommands: ${slashCommandSubcommands("goal")
-      .map((item) => item.usage)
-      .join(", ")}`,
-  );
 }
 
 function goalDetails(goal: ThreadGoal): ThreadStreamNoticeSection[] {

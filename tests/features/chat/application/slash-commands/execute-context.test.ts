@@ -234,7 +234,7 @@ describe("context slash commands", () => {
     await executeContextSlashCommand("goal", "stop", ctx);
 
     expect(ctx.addSystemMessage).toHaveBeenCalledWith(
-      "/goal requires set <objective>, edit, pause, resume, or clear. Subcommands: /goal set <objective>, /goal edit, /goal pause, /goal resume, /goal clear. Usage: /goal [set <objective>|edit|pause|resume|clear]",
+      "/goal requires a valid subcommand. Usage: /goal [set <objective>|edit|pause|resume|clear]",
     );
   });
 
