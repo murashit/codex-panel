@@ -70,22 +70,6 @@ export function initialUiState(): ChatUiState {
   };
 }
 
-export function isUiAction(action: { type: string }): action is UiAction {
-  switch (action.type) {
-    case "ui/panel-set":
-    case "ui/archive-confirm-set":
-    case "ui/rename-set":
-    case "ui/goal-editor-started":
-    case "ui/goal-editor-draft-updated":
-    case "ui/goal-editor-closed":
-    case "ui/thread-stream-fork-menu-set":
-    case "ui/disclosure-set":
-      return true;
-    default:
-      return false;
-  }
-}
-
 export function reduceUiSlice(state: ChatUiState, action: UiAction): ChatUiState {
   switch (action.type) {
     case "ui/panel-set":

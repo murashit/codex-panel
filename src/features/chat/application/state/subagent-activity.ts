@@ -41,10 +41,6 @@ export function initialSubagentActivityState(): ChatSubagentActivityState {
   return { byThreadId: new Map() };
 }
 
-export function isSubagentActivityAction(action: { type: string }): action is SubagentActivityAction {
-  return action.type.startsWith("subagent-activity/");
-}
-
 export function reduceSubagentActivitySlice(state: ChatSubagentActivityState, action: SubagentActivityAction): ChatSubagentActivityState {
   switch (action.type) {
     case "subagent-activity/tracked":

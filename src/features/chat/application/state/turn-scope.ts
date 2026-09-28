@@ -4,7 +4,6 @@ import type { ChatTurnLifecycleState } from "../turns/turn-state";
 import {
   type ChatSubagentActivityState,
   initialSubagentActivityState,
-  isSubagentActivityAction,
   reduceSubagentActivitySlice,
   type SubagentActivityAction,
 } from "./subagent-activity";
@@ -12,7 +11,6 @@ import {
   type ChatThreadStreamActiveState,
   type ChatThreadStreamState,
   type ChatThreadStreamViewState,
-  isThreadStreamAction,
   reduceThreadStreamSlice,
   type ThreadStreamAction,
   threadStreamStartActiveSegment,
@@ -119,10 +117,6 @@ export function activeTurnOptimisticallyStarted(
   return splitViewState(state, threadStreamStartActiveSegment(view, null, [item]));
 }
 
-export function isTurnScopeAction(action: { type: string }): action is TurnScopeAction {
-  return isThreadStreamAction(action) || isSubagentActivityAction(action) || action.type.startsWith("auth-recovery/");
-}
-
 export function reduceTurnScope(
   activeTurn: ChatActiveTurnState,
   threadStream: ChatThreadStreamState,
@@ -137,7 +131,12 @@ export function reduceTurnScope(
   if (action.type === "auth-recovery/cleared") {
     return activeTurn.authRecovery ? { activeTurn: { ...activeTurn, authRecovery: null }, threadStream } : { activeTurn, threadStream };
   }
-  if (isSubagentActivityAction(action)) return reduceSubagentAction(activeTurn, threadStream, action);
+  switch (action.type) {
+    case "subagent-activity/tracked":
+    case "subagent-activity/coordination-observed":
+    case "subagent-activity/runtime-fact":
+      return reduceSubagentAction(activeTurn, threadStream, action);
+  }
   if (staleThreadStreamAction(activeTurn, action)) {
     return { activeTurn, threadStream };
   }

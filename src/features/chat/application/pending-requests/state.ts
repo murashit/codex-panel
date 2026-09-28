@@ -18,20 +18,6 @@ export type RequestAction =
   | { type: "request/user-input-draft-set"; key: string; value: string }
   | { type: "request/mcp-elicitation-draft-set"; key: string; value: string };
 
-export function isRequestAction(action: { type: string }): action is RequestAction {
-  switch (action.type) {
-    case "request/approval-queued":
-    case "request/user-input-queued":
-    case "request/user-input-auto-resolution-extended":
-    case "request/mcp-elicitation-queued":
-    case "request/user-input-draft-set":
-    case "request/mcp-elicitation-draft-set":
-      return true;
-    default:
-      return false;
-  }
-}
-
 export function initialChatRequestState(): ChatRequestState {
   return {
     approvals: [],

@@ -81,30 +81,6 @@ export type ThreadStreamAction =
     }
   | { type: "thread-stream/turn-diff-updated"; turnId: string; diff: string };
 
-export function isThreadStreamAction(action: { type: string }): action is ThreadStreamAction {
-  switch (action.type) {
-    case "thread-stream/item-added":
-    case "thread-stream/system-item-added":
-    case "thread-stream/deduped-log-added":
-    case "thread-stream/history-loading-set":
-    case "thread-stream/content-replaced":
-    case "thread-stream/item-upserted":
-    case "thread-stream/pending-steer-added":
-    case "thread-stream/pending-steer-removed":
-    case "thread-stream/pending-steer-committed":
-    case "thread-stream/reasoning-completed":
-    case "thread-stream/assistant-delta-appended":
-    case "thread-stream/plan-delta-appended":
-    case "thread-stream/item-text-appended":
-    case "thread-stream/tool-output-appended":
-    case "thread-stream/item-output-appended":
-    case "thread-stream/turn-diff-updated":
-      return true;
-    default:
-      return false;
-  }
-}
-
 export function initialChatThreadStreamState(items: readonly ThreadStreamItem[] = []): ChatThreadStreamState {
   return {
     stableItems: items,
