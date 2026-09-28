@@ -39,6 +39,14 @@ const PERMISSION_PROFILES_QUERY_KEY = [...METADATA_QUERY_KEY, "permission-profil
 const RATE_LIMITS_QUERY_KEY = [...METADATA_QUERY_KEY, "rate-limits"] as const;
 const HOOKS_QUERY_KEY = [...METADATA_QUERY_KEY, "hooks"] as const;
 
+const EMPTY_METADATA_SNAPSHOT_VALUES: SharedServerMetadataSnapshotValues = {
+  runtimeConfig: null,
+  models: null,
+  skills: null,
+  permissionProfiles: null,
+  rateLimits: undefined,
+};
+
 interface MetadataResourceData<T> {
   readonly value: T;
   readonly summary: string;
@@ -89,12 +97,10 @@ export class AppServerMetadataQueries {
   }
 
   metadataSnapshot<Id extends SharedServerMetadataResourceId>(id: Id): SharedServerMetadataSnapshotValues[Id] {
-    if (this.scope.isDisposed()) return (id === "rateLimits" ? undefined : null) as SharedServerMetadataSnapshotValues[Id];
+    if (this.scope.isDisposed()) return EMPTY_METADATA_SNAPSHOT_VALUES[id];
     const descriptor = this.metadataDescriptors[id];
     const data = this.scope.client.getQueryData<MetadataQueryData[Id]>(descriptor.queryOptions.queryKey);
-    return data === undefined
-      ? ((id === "rateLimits" ? undefined : null) as SharedServerMetadataSnapshotValues[Id])
-      : descriptor.snapshot(data);
+    return data === undefined ? EMPTY_METADATA_SNAPSHOT_VALUES[id] : descriptor.snapshot(data);
   }
 
   observeMetadataResource<Id extends SharedServerMetadataResourceId>(
