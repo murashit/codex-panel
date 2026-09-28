@@ -129,7 +129,7 @@ interface ThreadStreamDialogueBase extends ThreadStreamBase {
   readonly contextAttachments?: readonly ThreadStreamContextAttachment[];
 }
 
-interface UserThreadStreamDialogueItem extends ThreadStreamDialogueBase {
+export interface UserThreadStreamDialogueItem extends ThreadStreamDialogueBase {
   readonly dialogueKind: "user";
   readonly role: "user";
   readonly dialogueState?: never;

@@ -3,7 +3,7 @@ import { chatReducer } from "../../../../../src/features/chat/application/state/
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
-import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture } from "../../support/state";
 
 describe("active turn aggregate", () => {
@@ -183,7 +183,7 @@ describe("active turn aggregate", () => {
   });
 });
 
-function userItem(id: string, turnId?: string): ThreadStreamItem {
+function userItem(id: string, turnId?: string): UserThreadStreamDialogueItem {
   return {
     id,
     kind: "dialogue",

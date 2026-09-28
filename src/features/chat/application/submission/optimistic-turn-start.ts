@@ -2,7 +2,7 @@ import type { CodexInput } from "../../../../domain/input/input";
 import { contextAttachmentsFromInput } from "../../domain/thread-stream/format/context-attachments";
 import { fileReferencesFromInput } from "../../domain/thread-stream/format/file-references";
 import { userMessageDisplayText } from "../../domain/thread-stream/format/user-message-text";
-import type { ThreadStreamDialogueItem, ThreadStreamFileReference, ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamFileReference, ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import { isLocalSteerDialogueClientId } from "../../domain/thread-stream/local-dialogue-ids";
 import type { ThreadStreamItemProvenance } from "../../domain/thread-stream/provenance";
 import { attachHookRunsToTurn } from "../../domain/thread-stream/updates";
@@ -16,7 +16,7 @@ interface LocalUserDialogueParams {
   copyText?: string;
   turnId?: string;
   referencedFiles?: readonly ThreadStreamFileReference[];
-  contextAttachments?: ThreadStreamDialogueItem["contextAttachments"];
+  contextAttachments?: UserThreadStreamDialogueItem["contextAttachments"];
 }
 
 export interface OptimisticTurnStartAckParams {
@@ -31,7 +31,7 @@ export interface LocalUserDialogueFromInputParams extends Omit<LocalUserDialogue
 }
 
 export interface OptimisticTurnStart {
-  item: ThreadStreamDialogueItem;
+  item: UserThreadStreamDialogueItem;
   pendingTurnStart: PendingTurnStart;
 }
 
@@ -50,7 +50,7 @@ export interface FailedTurnStartCleanupParams {
   pendingTurnStart: PendingTurnStart | null;
 }
 
-function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDialogueItem {
+function localUserDialogueItem(params: LocalUserDialogueParams): UserThreadStreamDialogueItem {
   const referencedFiles = params.referencedFiles ?? [];
   const contextAttachments = params.contextAttachments ?? [];
   return {
@@ -77,7 +77,7 @@ function localUserDialogueProvenance(id: string, interaction?: "prompt" | "steer
   };
 }
 
-export function localUserDialogueItemFromInput(params: LocalUserDialogueFromInputParams): ThreadStreamDialogueItem {
+export function localUserDialogueItemFromInput(params: LocalUserDialogueFromInputParams): UserThreadStreamDialogueItem {
   return localUserDialogueItem({
     id: params.id,
     ...(params.clientId ? { clientId: params.clientId } : {}),

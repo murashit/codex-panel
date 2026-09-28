@@ -10,7 +10,7 @@ import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
-import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import type { ForkDraftPreparation, ForkReplacement } from "../threads/fork-draft";
 import type { PendingTurnStart } from "../turns/turn-state";
 import type { ChatPendingSubmissionState } from "./pending-submission";
@@ -77,7 +77,7 @@ interface ClearActiveThreadAction {
 
 export interface TurnOptimisticStartedAction {
   type: "turn/optimistic-started";
-  item: ThreadStreamItem;
+  item: UserThreadStreamDialogueItem;
   pendingTurnStart: PendingTurnStart;
   pendingSubmissionId?: string;
 }
@@ -124,7 +124,7 @@ type PendingSubmissionAction =
   | { type: "web-submission/committed"; submissionId: string }
   | { type: "web-submission/cancelled"; submissionId: string }
   | { type: "web-submission/failed"; submissionId: string }
-  | { type: "web-submission/steer-pending"; submissionId: string; item: ThreadStreamDialogueItem };
+  | { type: "web-submission/steer-pending"; submissionId: string; item: UserThreadStreamDialogueItem };
 
 export type ChatTransitionAction =
   | { type: "panel/fork-operation-set"; revision: number; operation?: "creating" | "cancelling" }

@@ -151,7 +151,7 @@ export function turnRuntimeFactFromNotification(
 function startedItemFact(item: AppServerTurnItem, turnId: string): TurnRuntimeFact | null {
   if (item.type === "userMessage") {
     const streamItem = threadStreamItemFromTurnItem(item, turnId);
-    return streamItem?.kind === "dialogue" ? { type: "userMessageObserved", item: streamItem } : null;
+    return streamItem?.kind === "dialogue" && streamItem.dialogueKind === "user" ? { type: "userMessageObserved", item: streamItem } : null;
   }
   if (shouldSuppressLifecycleItem(item)) return null;
   const streamItem = threadStreamItemFromTurnItem(item, turnId);

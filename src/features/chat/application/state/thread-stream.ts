@@ -1,5 +1,5 @@
 import { threadStreamUserRoles } from "../../domain/thread-stream/conversation";
-import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamDialogueItem, ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import {
   appendAssistantStreamingDelta,
   appendPlanStreamingDelta,
@@ -27,7 +27,7 @@ export interface ChatThreadStreamState {
 
 export interface ChatThreadStreamActiveState {
   readonly activeSegment: ChatThreadStreamActiveSegment | null;
-  readonly pendingSteers: readonly ThreadStreamDialogueItem[];
+  readonly pendingSteers: readonly UserThreadStreamDialogueItem[];
 }
 
 export type ChatThreadStreamViewState = ChatThreadStreamState & ChatThreadStreamActiveState;
@@ -50,9 +50,9 @@ export type ThreadStreamAction =
       loadingHistory?: boolean;
     }
   | { type: "thread-stream/item-upserted"; item: ThreadStreamItem }
-  | { type: "thread-stream/pending-steer-added"; item: ThreadStreamDialogueItem }
+  | { type: "thread-stream/pending-steer-added"; item: UserThreadStreamDialogueItem }
   | { type: "thread-stream/pending-steer-removed"; clientId: string }
-  | { type: "thread-stream/pending-steer-committed"; item: ThreadStreamDialogueItem }
+  | { type: "thread-stream/pending-steer-committed"; item: UserThreadStreamDialogueItem }
   | { type: "thread-stream/reasoning-completed"; turnId: string }
   | { type: "thread-stream/assistant-delta-appended"; itemId: string; turnId: string; delta: string; completeReasoning?: boolean }
   | { type: "thread-stream/plan-delta-appended"; itemId: string; turnId: string; delta: string }
@@ -104,7 +104,9 @@ export function threadStreamActiveItems(state: Pick<ChatThreadStreamActiveState,
   return state.activeSegment?.items ?? [];
 }
 
-export function threadStreamPendingSteers(state: Pick<ChatThreadStreamActiveState, "pendingSteers">): readonly ThreadStreamDialogueItem[] {
+export function threadStreamPendingSteers(
+  state: Pick<ChatThreadStreamActiveState, "pendingSteers">,
+): readonly UserThreadStreamDialogueItem[] {
   return state.pendingSteers;
 }
 
@@ -254,7 +256,7 @@ function removePendingSteer(state: ChatThreadStreamViewState, clientId: string):
   return pendingSteers.length === state.pendingSteers.length ? state : patchObject(state, { pendingSteers });
 }
 
-function commitPendingSteer(state: ChatThreadStreamViewState, item: ThreadStreamDialogueItem): ChatThreadStreamViewState {
+function commitPendingSteer(state: ChatThreadStreamViewState, item: UserThreadStreamDialogueItem): ChatThreadStreamViewState {
   if (!item.clientId) return state;
   const pending = state.pendingSteers.find(
     (candidate) => candidate.clientId === item.clientId && (!candidate.turnId || !item.turnId || candidate.turnId === item.turnId),

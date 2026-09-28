@@ -1,4 +1,4 @@
-import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import type { AuthRecoveryProgress } from "../turns/auth-recovery";
 import type { ChatTurnLifecycleState } from "../turns/turn-state";
 import {
@@ -111,7 +111,7 @@ export function activeTurnStartedWithoutItems(
 export function activeTurnOptimisticallyStarted(
   state: ChatActiveTurnState,
   threadStream: ChatThreadStreamState,
-  item: ThreadStreamItem,
+  item: UserThreadStreamDialogueItem,
 ): TurnScopeResult {
   const view = chatThreadStreamViewState(threadStream, state);
   return splitViewState(state, threadStreamStartActiveSegment(view, null, [item]));

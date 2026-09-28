@@ -1,6 +1,6 @@
-import type { ThreadStreamDialogueItem } from "../../domain/thread-stream/items";
+import type { UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 
-export function pendingWebSubmissionItem(id: string, url: string, message: string): ThreadStreamDialogueItem | null {
+export function pendingWebSubmissionItem(id: string, url: string, message: string): UserThreadStreamDialogueItem | null {
   const normalizedUrl = normalizedHttpUrl(url);
   if (!normalizedUrl) return null;
   const text = [normalizedUrl, message.trim()].filter(Boolean).join(" ");

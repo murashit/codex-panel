@@ -1,8 +1,8 @@
-import type { ThreadStreamDialogueItem } from "../../domain/thread-stream/items";
+import type { UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 
 export interface ChatPendingSubmissionState {
   readonly id: string;
-  readonly item: ThreadStreamDialogueItem;
+  readonly item: UserThreadStreamDialogueItem;
   readonly targetThreadId: string | null;
   readonly phase: "cancellable" | "committed";
 }
