@@ -18,16 +18,7 @@ interface ChatThreadStreamActionMenuUiState {
   readonly forkMenuItemId: string | null;
 }
 
-const CHAT_DISCLOSURE_BUCKETS = [
-  "details",
-  "activityGroups",
-  "textDetails",
-  "userDialogueExpanded",
-  "goalObjectiveExpanded",
-  "approvalDetails",
-] as const;
-
-type ChatDisclosureBucket = (typeof CHAT_DISCLOSURE_BUCKETS)[number];
+type ChatDisclosureBucket = keyof ReturnType<typeof initialDisclosureUiState>;
 
 type ChatDisclosureUiState = Readonly<Record<ChatDisclosureBucket, ReadonlySet<string>>>;
 
@@ -154,12 +145,15 @@ function initialThreadStreamActionMenuUiState(): ChatThreadStreamActionMenuUiSta
   return { forkMenuItemId: null };
 }
 
-function initialDisclosureUiState(): ChatDisclosureUiState {
-  const disclosures = {} as Record<ChatDisclosureBucket, ReadonlySet<string>>;
-  for (const bucket of CHAT_DISCLOSURE_BUCKETS) {
-    disclosures[bucket] = new Set();
-  }
-  return disclosures;
+function initialDisclosureUiState() {
+  return {
+    details: new Set<string>(),
+    activityGroups: new Set<string>(),
+    textDetails: new Set<string>(),
+    userDialogueExpanded: new Set<string>(),
+    goalObjectiveExpanded: new Set<string>(),
+    approvalDetails: new Set<string>(),
+  };
 }
 
 function goalEditorDraftUpdated(state: ChatGoalEditorUiState, objective: string): ChatGoalEditorUiState {

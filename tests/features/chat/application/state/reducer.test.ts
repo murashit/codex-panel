@@ -840,15 +840,7 @@ function userInput(requestId: number): ChatState["requests"]["pendingUserInputs"
 }
 
 function uiDisclosureCount(state: ChatState): number {
-  const disclosures = state.ui.disclosures;
-  return (
-    disclosures.details.size +
-    disclosures.activityGroups.size +
-    disclosures.textDetails.size +
-    disclosures.userDialogueExpanded.size +
-    disclosures.goalObjectiveExpanded.size +
-    disclosures.approvalDetails.size
-  );
+  return Object.values(state.ui.disclosures).reduce((count, bucket) => count + bucket.size, 0);
 }
 
 function thread(id: string): Thread {
