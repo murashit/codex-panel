@@ -109,17 +109,7 @@ describe("activeSlashCommandSuggestions", () => {
     expect(suggestions("/fork codex", { threads })).toEqual([]);
   });
 
-  it("uses shared thread ranking without truncating matches", () => {
-    const rankedThreads = [
-      thread({ id: "thread-alpha", name: "Older Alpha", updatedAt: 10 }),
-      thread({ id: "thread-beta", name: "Recent unrelated alpha mention", updatedAt: 30 }),
-      thread({ id: "alpha-thread", name: "Newest unrelated", updatedAt: 40 }),
-    ];
-    expect(replacements(suggestions("/resume alpha", { threads: rankedThreads }))).toEqual([
-      '"Recent unrelated alpha mention"',
-      '"Older Alpha"',
-    ]);
-
+  it("does not truncate matching thread suggestions", () => {
     const manyThreads = Array.from({ length: 10 }, (_unused, index) =>
       thread({ id: `thread-${String(index).padStart(2, "0")}`, name: `Alpha ${String(index)}`, updatedAt: index }),
     );

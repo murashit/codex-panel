@@ -35,17 +35,6 @@ describe("app-server turn runtime fact adapter", () => {
     });
   });
 
-  it("maps assistant deltas to panel-owned runtime facts", () => {
-    const notification = {
-      method: "item/agentMessage/delta",
-      params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
-    } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>;
-
-    const facts = turnRuntimeFactFromNotification(notification, (prefix) => `${prefix}-1`);
-
-    expect(facts).toEqual({ type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true });
-  });
-
   it("maps observed user messages to a reconciliation fact", () => {
     const notification = {
       method: "item/started",

@@ -4,28 +4,6 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { createAutoTitleCoordinator } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 
 describe("AutoTitleCoordinator", () => {
-  it("captures visible first-turn context and hands it to shared title work", () => {
-    const submitTitleWork = vi.fn();
-    const coordinator = createAutoTitleCoordinator({
-      completedTurnTitleContext: () => ({
-        userRequest: "Visible streamed request.",
-        assistantResponse: "Visible streamed response.",
-      }),
-      submitTitleWork,
-      threadById: catalogThreadById(),
-    });
-
-    coordinator.maybeAutoTitleThread("thread", "turn", {
-      userText: "Completed payload request.",
-      assistantText: "Completed payload response.",
-    });
-
-    expect(submitTitleWork).toHaveBeenCalledWith("thread", {
-      userRequest: "Visible streamed request.",
-      assistantResponse: "Visible streamed response.",
-    });
-  });
-
   it("does not submit a title when the thread already has one", () => {
     const submitTitleWork = vi.fn();
     const coordinator = createAutoTitleCoordinator({

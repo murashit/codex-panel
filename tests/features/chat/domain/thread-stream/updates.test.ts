@@ -17,12 +17,13 @@ describe("thread stream item updates", () => {
         fc.string({ maxLength: 20 }),
         (ids, targetId, previousOutput, nextOutput) => {
           const items = ids.map((id) => ({ ...commandItem(String(id), "Running"), output: id === targetId ? previousOutput : "" }));
-          const next = { ...commandItem(String(targetId), "Completed"), output: nextOutput };
+          const next = { ...commandItem(String(targetId), "Completed"), output: nextOutput, executionState: "completed" as const };
           const result = upsertThreadStreamItemById(items, next);
           const target = result.find((item) => item.id === String(targetId));
           expect(result.map((item) => item.id)).toEqual(ids.includes(targetId) ? ids.map(String) : [...ids.map(String), String(targetId)]);
           expect(target).toMatchObject({
             statusLabel: "Completed",
+            executionState: "completed",
             output: ids.includes(targetId) ? nextOutput || previousOutput : nextOutput,
           });
           for (const original of items) {
@@ -31,19 +32,6 @@ describe("thread stream item updates", () => {
         },
       ),
     );
-  });
-
-  it("appends new items and replaces matching items in place", () => {
-    const first = reasoningItem("r1", "turn");
-    const previous = commandItem("c1", "Running");
-    const completed = { ...previous, statusLabel: "Completed", executionState: "completed" } satisfies ThreadStreamItem;
-
-    expect(upsertThreadStreamItemById([first], previous)).toEqual([first, previous]);
-
-    const replaced = upsertThreadStreamItemById([first, previous], completed);
-    expect(replaced.map((item) => item.id)).toEqual(["r1", "c1"]);
-    expect(replaced[0]).toBe(first);
-    expect(replaced[1]).toMatchObject({ statusLabel: "Completed", executionState: "completed" });
   });
 
   it("does not overwrite streamed output with an empty completed item", () => {

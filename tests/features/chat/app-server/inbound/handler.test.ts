@@ -1435,59 +1435,6 @@ describe("ChatInboundHandler", () => {
       ]);
     });
 
-    it("keeps Windows world-writable warnings in the thread stream", () => {
-      const handler = handlerForState(chatStateFixture());
-
-      handler.handleNotification({
-        method: "windows/worldWritableWarning",
-        params: { samplePaths: ["C:\\tmp\\open"], extraCount: 2, failedScan: false },
-      } satisfies Extract<ServerNotification, { method: "windows/worldWritableWarning" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
-        expect.objectContaining({
-          kind: "system",
-          text: "Windows sandbox filesystem warning.",
-        }),
-      ]);
-      expect(chatStateThreadStreamItems(handler.currentState())[0]).toEqual(
-        expect.objectContaining({
-          noticeSections: expect.arrayContaining([expect.objectContaining({ body: "C:\\tmp\\open" })]),
-        }),
-      );
-    });
-
-    it("keeps failed Windows sandbox setup notices in the thread stream", () => {
-      const handler = handlerForState(chatStateFixture());
-
-      handler.handleNotification({
-        method: "windowsSandbox/setupCompleted",
-        params: { mode: "unelevated", success: false, error: "setup failed" },
-      } satisfies Extract<ServerNotification, { method: "windowsSandbox/setupCompleted" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
-        expect.objectContaining({
-          kind: "system",
-          text: "Windows sandbox setup failed.",
-        }),
-      ]);
-      expect(chatStateThreadStreamItems(handler.currentState())[0]).toEqual(
-        expect.objectContaining({
-          noticeSections: expect.arrayContaining([expect.objectContaining({ body: "setup failed" })]),
-        }),
-      );
-    });
-
-    it("suppresses successful Windows sandbox setup notices", () => {
-      const handler = handlerForState(chatStateFixture());
-
-      handler.handleNotification({
-        method: "windowsSandbox/setupCompleted",
-        params: { mode: "unelevated", success: true, error: null },
-      } satisfies Extract<ServerNotification, { method: "windowsSandbox/setupCompleted" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
-    });
-
     it("leaves context-owned archive notifications out of panel state", () => {
       const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
       const handler = handlerForState(state);

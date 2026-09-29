@@ -246,6 +246,22 @@ describe("chat inbound routing", () => {
     { name: "turn started", notification: turnStartedNotification(), kind: "turnLifecycle" },
     { name: "server request resolved", notification: serverRequestResolvedNotification(), kind: "requestResolved" },
     { name: "warning", notification: warningNotification(), kind: "userVisibleNotice" },
+    {
+      name: "Windows writable warning",
+      notification: {
+        method: "windows/worldWritableWarning",
+        params: { samplePaths: ["C:\\shared"], extraCount: 0, failedScan: false },
+      } satisfies ServerNotification,
+      kind: "userVisibleNotice",
+    },
+    {
+      name: "Windows sandbox setup",
+      notification: {
+        method: "windowsSandbox/setupCompleted",
+        params: { success: false, mode: "unelevated", error: "setup failed" },
+      } satisfies ServerNotification,
+      kind: "userVisibleNotice",
+    },
   ] as const)("classifies $name notifications without mutating state", ({ notification, kind }) => {
     expectNotificationRouteKind(notification, kind);
   });

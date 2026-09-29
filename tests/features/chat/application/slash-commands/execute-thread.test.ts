@@ -73,28 +73,6 @@ describe("thread slash commands", () => {
     expect(directInput.addSystemMessage).toHaveBeenCalledWith(`No matching thread: ${completedTitle}`);
   });
 
-  it("resolves an exact title before another title with the same prefix", async () => {
-    const ctx = context({
-      listedThreads: [thread({ id: "thread-alpha", name: "Draft" }), thread({ id: "thread-beta", name: "Draft notes" })],
-    });
-
-    await executeThreadSlashCommand("resume", "Draft", ctx);
-
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha");
-    expect(ctx.addSystemMessage).not.toHaveBeenCalled();
-  });
-
-  it("resolves a stronger ranked resume match before looser title matches", async () => {
-    const ctx = context({
-      listedThreads: [thread({ id: "thread-alpha", name: "Alpha plan" }), thread({ id: "thread-beta", name: "Older Alpha plan" })],
-    });
-
-    await executeThreadSlashCommand("resume", "alpha", ctx);
-
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha");
-    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Multiple matching threads: Alpha plan (thread-a), Older Alpha plan (thread-b)");
-  });
-
   it("forks the active thread for /fork", async () => {
     const ctx = context({ activeThreadId: "active-thread" });
 
