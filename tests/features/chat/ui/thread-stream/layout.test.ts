@@ -68,7 +68,23 @@ describe("display block grouping keeps thread stream details subordinate to conv
       commandItem("c1", "npm test", "t1"),
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1", statusLabel: "Completed" },
       autoReviewResultItem("review-1", "t1"),
+      {
+        id: "review-warning",
+        kind: "reviewResult",
+        reviewKind: "automaticWarning",
+        role: "tool",
+        text: "Auto-review approved: npm test",
+        turnId: "t1",
+      },
       autoReviewResultItem("review-2", "t1"),
+      {
+        id: "manual-approval",
+        kind: "approvalResult",
+        role: "tool",
+        text: "Auto-review approved: npm test",
+        turnId: "t1",
+        approval: { status: "allowed", scope: "turn", request: "Approval", auditFacts: [] },
+      },
       {
         id: "a1",
         kind: "dialogue",
@@ -90,7 +106,9 @@ describe("display block grouping keeps thread stream details subordinate to conv
         { item: { id: "c1" } },
         { item: { id: "r1" } },
         { item: { id: "review-1" } },
+        { item: { id: "review-warning" } },
         { item: { id: "review-2" } },
+        { item: { id: "manual-approval" } },
       ],
     });
     expect(blocks[2]).toMatchObject({

@@ -95,6 +95,35 @@ describe("ChatPanelShell", () => {
     });
   });
 
+  it("refreshes the archive default in a mounted shell when the save preference changes", async () => {
+    const store = createChatStateStore();
+    store.dispatch({ type: "ui/panel-set", panel: "history" });
+    store.dispatch({ type: "ui/archive-confirm-set", threadId: "thread" });
+    const container = document.body.appendChild(document.createElement("div"));
+    let saveMarkdown = true;
+    const props = {
+      ...shellProps(store),
+      ...chatSharedSourcesFixture([
+        { id: "thread", name: "Thread", preview: "", archived: false, provenance: { kind: "interactive" }, createdAt: 1, updatedAt: 1 },
+      ]),
+      parts: shellParts({ archiveExportEnabled: () => saveMarkdown }),
+    };
+
+    await act(async () => {
+      renderChatPanelShell(container, props);
+      await settleShellEffects();
+    });
+    expect(container.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Save and archive thread");
+
+    saveMarkdown = false;
+    await act(async () => {
+      renderChatPanelShell(container, props);
+      await settleShellEffects();
+    });
+    expect(container.querySelector(".codex-panel__archive-default")?.getAttribute("aria-label")).toBe("Archive thread without saving");
+    await act(async () => unmountChatPanelShell(container));
+  });
+
   it("sets composer bottom clearance only for fixed visible Obsidian status bars", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
@@ -140,7 +169,7 @@ function shellProps(store: ReturnType<typeof createChatStateStore>) {
 }
 
 function shellParts(
-  options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter" } = {},
+  options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter"; archiveExportEnabled?: () => boolean } = {},
 ): ChatPanelShellParts {
   const surface = surfaceFixture(options);
   return {
@@ -255,7 +284,9 @@ const testThreadStreamContext: ChatThreadStreamDependencies = {
   },
 };
 
-function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter" } = {}): {
+function surfaceFixture(
+  options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter"; archiveExportEnabled?: () => boolean } = {},
+): {
   toolbar: ChatPanelToolbarDependencies;
   goal: ChatPanelGoalDependencies;
 } {
@@ -268,7 +299,7 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendSho
       settings: {
         vaultPath: () => "/vault",
         configuredCommand: () => "codex",
-        archiveExportEnabled: () => true,
+        archiveExportEnabled: options.archiveExportEnabled ?? (() => true),
       },
     },
     goal: {

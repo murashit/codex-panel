@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import manifest from "../manifest.json";
+import compatibility from "../src/app-server/compatibility.json";
 import { AppServerClient } from "../src/app-server/connection/client";
 import * as contextConnection from "../src/app-server/connection/context-connection";
 import type { ThreadGoal } from "../src/domain/threads/goal";
@@ -16,6 +18,7 @@ const contextConnectionMock = {
   client: { disconnect: vi.fn(), request: vi.fn() },
   instances: [] as Array<{
     dispose: ReturnType<typeof vi.fn>;
+    initializeParams: unknown;
     handlers: { onNotification(notification: unknown): void; onExit(): void };
   }>,
 };
@@ -35,7 +38,7 @@ describe("CodexExecutionRuntime", () => {
         constructor(
           _codexPath: string,
           _cwd: string,
-          _initializeParams: unknown,
+          readonly initializeParams: unknown,
           readonly handlers: { onNotification(notification: unknown): void; onExit(): void },
         ) {
           contextConnectionMock.instances.push(this);
@@ -128,6 +131,10 @@ describe("CodexExecutionRuntime", () => {
     expect(first).toBe(contextConnectionMock.client);
     expect(chat.appServerConnection).toBe(runtime.appServerConnection);
     expect(contextConnectionMock.instances).toHaveLength(1);
+    expect(contextConnectionMock.instances[0]?.initializeParams).toEqual({
+      clientInfo: { name: "obsidian_codex_panel", title: "Codex Panel", version: manifest.version },
+      capabilities: compatibility.codexAppServer.initialize.capabilities,
+    });
   });
 
   it("routes read-only queries and archive through the panel context client", async () => {

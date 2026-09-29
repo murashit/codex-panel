@@ -59,7 +59,3 @@ export function turnTranscriptSummaryFromTranscriptEntries(entries: readonly Thr
   }
   return { userText, assistantText: null };
 }
-
-export function nonEmptyTurnTranscriptSummaries(summaries: readonly TurnTranscriptSummary[]): TurnTranscriptSummary[] {
-  return summaries.filter((summary) => summary.userText !== null || summary.assistantText !== null);
-}

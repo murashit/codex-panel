@@ -34,9 +34,10 @@ describe("app-server turn records", () => {
           userMessage("u1", "最初の依頼"),
           userMessage("u2", "補足"),
           agentMessage("a1", "最終回答"),
+          planItem("p1", "最終計画"),
         ]),
       ),
-    ).toEqual({ userText: "最初の依頼", assistantText: "最終回答" });
+    ).toEqual({ userText: "最初の依頼", assistantText: "最終計画" });
   });
 
   it("does not build completed turn transcript summaries for failed turns", () => {

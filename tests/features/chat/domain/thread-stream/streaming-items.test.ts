@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import {
@@ -40,12 +41,29 @@ describe("streaming item deltas", () => {
     });
   });
 
-  it("preserves plan text regardless of chunk boundaries", () => {
-    const text = "<proposed_plan>\n# Plan\n\n- First step\n- Second step\n</proposed_plan>";
-    for (let split = 1; split < text.length; split++) {
-      const first = appendPlanStreamingDelta(null, "plan", "turn", text.slice(0, split));
-      expect(appendPlanStreamingDelta(first, "plan", "turn", text.slice(split))).toMatchObject({ text, copyText: text });
-    }
+  it("preserves assistant, plan, and tool output across arbitrary chunk boundaries", () => {
+    const chunk = fc.string({ unit: fc.constantFrom("<", ">", "/", "\n", "a", " ", "あ", "😀"), maxLength: 20 });
+    fc.assert(
+      fc.property(fc.array(chunk, { minLength: 1, maxLength: 10 }), (chunks) => {
+        const expected = chunks.join("");
+        const assistant = chunks.reduce<ThreadStreamItem | null>(
+          (current, delta) => appendAssistantStreamingDelta(current, "assistant", "turn", delta),
+          null,
+        );
+        const plan = chunks.reduce<ThreadStreamItem | null>(
+          (current, delta) => appendPlanStreamingDelta(current, "plan", "turn", delta),
+          null,
+        );
+        const tool = chunks.reduce<ThreadStreamItem | null>(
+          (current, delta) => appendToolOutputStreamingDelta(current, "tool", "turn", delta, "tool"),
+          null,
+        );
+
+        expect(assistant).toMatchObject({ text: expected, copyText: expected, turnId: "turn" });
+        expect(plan).toMatchObject({ text: expected, copyText: expected, turnId: "turn" });
+        expect(tool).toMatchObject({ output: expected, turnId: "turn" });
+      }),
+    );
   });
 
   it("does not reinterpret an existing source item with an incompatible kind", () => {
