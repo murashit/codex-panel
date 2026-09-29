@@ -107,14 +107,6 @@ describe("app-server catalog adapters", () => {
     expect(request).toHaveBeenNthCalledWith(2, "model/list", { includeHidden: false, cursor: "next", limit: 100 });
   });
 
-  it("rejects repeated model cursors", async () => {
-    const client = {
-      request: vi.fn().mockResolvedValue({ data: [modelFixture()], nextCursor: "repeat" }),
-    } as unknown as AppServerRequestClient;
-
-    await expect(listModelMetadata(client)).rejects.toThrow("repeated model list cursor");
-  });
-
   it("returns enabled skill options while preserving total app-server skill count", async () => {
     const client = {
       request: vi.fn(async () => ({

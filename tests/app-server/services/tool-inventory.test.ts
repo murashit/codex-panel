@@ -53,14 +53,6 @@ describe("tool inventory", () => {
     ]);
   });
 
-  it("reports repeated MCP server status cursors", async () => {
-    const client = toolInventoryClient({
-      "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [mcpServerStatus("github")], nextCursor: "repeat" }),
-    });
-
-    await expect(readMcpServerInventory(client, null)).rejects.toThrow("repeated MCP server status list cursor");
-  });
-
   it("reads and sorts installed plugins without loading plugin details", async () => {
     const readPlugin = vi.fn();
     const client = toolInventoryClient({

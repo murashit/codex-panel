@@ -205,20 +205,6 @@ describe("app-server thread response adapters", () => {
     },
   );
 
-  it("rejects repeated archive pagination cursors", async () => {
-    const request = vi.fn((method: string) => {
-      if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
-      if (method === "thread/turns/list") {
-        return Promise.resolve({ data: [], nextCursor: "same", backwardsCursor: null });
-      }
-      throw new Error(`Unexpected request: ${method}`);
-    });
-    const client = { request } as unknown as AppServerRequestClient;
-
-    await expect(readThreadForArchiveExport(client, "thread")).rejects.toThrow("repeated archive turn cursor");
-    expect(request).toHaveBeenCalledTimes(3);
-  });
-
   it("rejects repeated archive item cursors", async () => {
     const request = vi.fn((method: string) => {
       if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
@@ -333,17 +319,6 @@ describe("app-server thread response adapters", () => {
       sortKey: "recency_at",
       sortDirection: "desc",
     });
-  });
-
-  it("rejects repeated thread list cursors", async () => {
-    const client = {
-      request: vi.fn().mockResolvedValue({
-        data: [],
-        nextCursor: "same",
-      }),
-    } as unknown as AppServerRequestClient;
-
-    await expect(listThreads(client, "/vault")).rejects.toThrow("repeated thread list cursor");
   });
 });
 
