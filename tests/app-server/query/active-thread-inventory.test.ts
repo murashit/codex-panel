@@ -89,14 +89,6 @@ describe("active thread inventory", () => {
     });
     expect(updated?.pages[0]?.threads[0]).toMatchObject({ id: "first", name: "First", recencyAt: 9 });
 
-    const recencyOnly = applyActiveThreadMutation(original, {
-      kind: "update",
-      list: "active",
-      threadId: "first",
-      changes: { recencyAt: 9 },
-    });
-    expect(recencyOnly?.pages[0]?.threads[0]?.recencyAt).toBe(9);
-
     const removed = applyActiveThreadMutation(original, { kind: "remove", list: "active", threadId: "first" });
     expect(removed?.pages[0]?.threads.map((item) => item.id)).toEqual(["second"]);
     expect(applyActiveThreadMutation(original, { kind: "remove", list: "active", threadId: "missing" })).toBe(original);

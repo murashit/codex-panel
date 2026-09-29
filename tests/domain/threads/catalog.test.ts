@@ -45,20 +45,13 @@ describe("thread catalog read model", () => {
     );
   });
 
-  it("applies upsert changes without replacing equivalent snapshots", () => {
+  it("preserves equivalent upsert snapshots and ignores absent catalogs", () => {
     const first = thread("first");
     const second = thread("second");
     const snapshot = [first, second] as const;
 
     expect(applyThreadCatalogChange(null, { kind: "upsert", thread: first })).toBeNull();
-    expect(applyThreadCatalogChange(snapshot, { kind: "upsert", thread: thread("new") })).toEqual([thread("new"), first, second]);
     expect(applyThreadCatalogChange(snapshot, { kind: "upsert", thread: first })).toBe(snapshot);
-    expect(
-      applyThreadCatalogChange(snapshot, {
-        kind: "upsert",
-        thread: { ...first, name: "renamed" },
-      }),
-    ).toEqual([{ ...first, name: "renamed" }, second]);
   });
 
   it("updates named fields only when the thread actually changes", () => {

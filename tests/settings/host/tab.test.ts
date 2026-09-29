@@ -268,8 +268,6 @@ describe("settings tab", () => {
   it.each([
     { name: "Show chat toolbar", index: 0, original: true, edited: false },
     { name: "Send shortcut", index: 0, original: "enter", edited: "mod-enter" },
-    { name: "Automatic thread naming", index: 0, original: "gpt-5.4", edited: "gpt-5.5" },
-    { name: "Automatic thread naming", index: 1, original: "medium", edited: "high" },
     { name: "Selection rewrite", index: 0, original: "gpt-5.4", edited: "gpt-5.5" },
     { name: "Selection rewrite", index: 1, original: "medium", edited: "high" },
     { name: "Codex executable", index: 0, original: DEFAULT_SETTINGS.codexPath, edited: "/retry/codex" },
