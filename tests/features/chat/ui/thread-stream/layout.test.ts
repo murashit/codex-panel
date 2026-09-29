@@ -53,6 +53,34 @@ function autoReviewResultItem(id: string, turnId: string, text = "Auto-review ap
 }
 
 describe("display block grouping keeps thread stream details subordinate to conversation messages", () => {
+  it("keeps a terminal turn error visible outside collapsed work details", () => {
+    const items: ThreadStreamItem[] = [
+      { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
+      commandItem("c1", "npm test", "t1"),
+      {
+        id: "a1",
+        kind: "dialogue",
+        dialogueKind: "assistantResponse",
+        dialogueState: "completed",
+        role: "assistant",
+        text: "The check stopped.",
+        turnId: "t1",
+      },
+      {
+        id: "turn-error:t1",
+        kind: "system",
+        role: "system",
+        text: "The provider stopped responding.",
+        turnId: "t1",
+        provenance: { source: "panel", channel: "notice", reason: "turnError", sourceId: "t1" },
+      },
+    ];
+
+    expect(
+      threadStreamLayoutBlocks(items, null, DEFAULT_WORKSPACE_ROOT).map((block) => (block.type === "item" ? block.item.id : block.id)),
+    ).toEqual(["u1", "turn-t1-activity", "a1", "turn-error:t1"]);
+  });
+
   it("groups completed hook and review logs before the final assistant message", () => {
     const items: ThreadStreamItem[] = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },

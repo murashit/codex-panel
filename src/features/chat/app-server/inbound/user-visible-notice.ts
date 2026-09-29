@@ -1,5 +1,6 @@
 import { createStructuredSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamItem, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
+import { turnErrorNoticeSections } from "../mappers/thread-stream/turn-items";
 import type { UserVisibleNoticeNotification } from "./notification-routing";
 
 export function userVisibleNoticeItem(notification: UserVisibleNoticeNotification, id: string): ThreadStreamItem | null {
@@ -14,12 +15,12 @@ export function userVisibleNoticeItem(notification: UserVisibleNoticeNotificatio
       return createStructuredSystemItem(id, notification.params.message, []);
     case "error": {
       const { error, willRetry } = notification.params;
-      const sections = detailSections(error.additionalDetails);
-      if (error.misalignment?.detailedExplanation) sections.push({ body: error.misalignment.detailedExplanation });
-      if (error.misalignment?.steer?.message)
-        sections.push({ title: "Suggested continuation input", body: error.misalignment.steer.message });
+      const sections = turnErrorNoticeSections(error);
       sections.push({ body: willRetry ? "Codex will retry automatically." : "Codex will not retry automatically." });
-      return createStructuredSystemItem(id, error.message, sections);
+      return {
+        ...createStructuredSystemItem(id, error.message, sections),
+        provenance: { source: "panel", channel: "notice", reason: "runtimeError", sourceId: id },
+      };
     }
     case "configWarning": {
       const { summary, details, path, range } = notification.params;

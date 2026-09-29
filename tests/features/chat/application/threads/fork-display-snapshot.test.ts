@@ -79,6 +79,15 @@ describe("fork display snapshots", () => {
     expect(reconciled.find((item) => item.id === "u1")).toMatchObject({ text: "server" });
   });
 
+  it("replaces a matching live error notice with the saved terminal error during history hydration", () => {
+    const liveNotice = systemErrorNotice("notice", "Final detail.");
+    const terminal = terminalError("Final detail.");
+
+    const reconciled = reconcileForkDisplayItems([message("u1", "turn-1"), liveNotice], [message("u1", "turn-1"), terminal]);
+
+    expect(reconciled.map((item) => item.id)).toEqual(["u1", terminal.id]);
+  });
+
   it("retains Panel-owned user context metadata while accepting hydrated user history", () => {
     const displayUser = {
       id: "local-user",
@@ -174,4 +183,28 @@ function taskProgress(turnId: string): ThreadStreamItem {
 
 function unscopedSystemMessage(): ThreadStreamItem {
   return { id: "system", kind: "system", role: "system", text: "Do not inherit" };
+}
+
+function systemErrorNotice(id: string, detail: string): ThreadStreamItem {
+  return {
+    id,
+    kind: "system",
+    role: "system",
+    text: "The request failed.",
+    turnId: "turn-1",
+    noticeSections: [{ body: detail }, { body: "Codex will not retry automatically." }],
+    provenance: { source: "panel", channel: "notice", reason: "runtimeError", sourceId: id },
+  };
+}
+
+function terminalError(detail: string): ThreadStreamItem {
+  return {
+    id: "turn-error:turn-1",
+    kind: "system",
+    role: "system",
+    text: "The request failed.",
+    turnId: "turn-1",
+    noticeSections: [{ body: detail }],
+    provenance: { source: "panel", channel: "notice", reason: "turnError", sourceId: "turn-1" },
+  };
 }

@@ -20,7 +20,7 @@ export type ThreadStreamItemProvenance =
   | {
       source: "panel";
       channel: "notice";
-      reason: "system" | "goalChange" | "parsedAutoReview" | "reviewMessage";
+      reason: "system" | "goalChange" | "parsedAutoReview" | "reviewMessage" | "runtimeError" | "turnError";
       sourceId?: string;
     }
   | {

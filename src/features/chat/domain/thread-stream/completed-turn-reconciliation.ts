@@ -1,5 +1,6 @@
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "./items";
 import { isLocalUserDialogueId } from "./local-dialogue-ids";
+import { isEquivalentTurnErrorNotice, isTerminalTurnErrorItem } from "./turn-error-notices";
 import { upsertThreadStreamItemById } from "./updates";
 
 export interface CompletedTurnReconciliationInput {
@@ -9,7 +10,11 @@ export interface CompletedTurnReconciliationInput {
 }
 
 export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationInput): readonly ThreadStreamItem[] {
-  const { currentItems, completedTurnId, turnItems } = input;
+  const { completedTurnId, turnItems } = input;
+  const terminalErrorItem = turnItems.find((item) => item.turnId === completedTurnId && isTerminalTurnErrorItem(item));
+  const currentItems = terminalErrorItem
+    ? input.currentItems.filter((item) => item.id !== terminalErrorItem.id && !isEquivalentTurnErrorNotice(item, terminalErrorItem))
+    : input.currentItems;
   if (turnItems.length === 0) return currentItems;
 
   const serverUserDialogueClientIds = new Set(turnItems.flatMap((item) => (isUserDialogue(item) && item.clientId ? [item.clientId] : [])));

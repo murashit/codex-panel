@@ -231,4 +231,32 @@ describe("app-server turn runtime fact adapter", () => {
     );
     expect(fact).toMatchObject({ type: "turnCompleted", completedItems: [], completedTurnTranscriptSummary: null });
   });
+
+  it("keeps a failed turn reason when the completed notification omits history items", () => {
+    const fact = turnRuntimeFactFromNotification(
+      {
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "failed",
+            error: { message: "The request failed.", codexErrorInfo: "badRequest", additionalDetails: null, misalignment: null },
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+            itemsView: "notLoaded",
+            items: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>,
+      () => "unused",
+    );
+
+    expect(fact).toMatchObject({
+      type: "turnCompleted",
+      outcome: "failed",
+      completedItems: [{ id: "turn-error:turn-active", kind: "system", text: "The request failed." }],
+    });
+  });
 });

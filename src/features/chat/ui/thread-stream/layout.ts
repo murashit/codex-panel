@@ -2,6 +2,7 @@ import { pathRelativeToRoot } from "../../../../domain/files/paths";
 import { lastTurnOutcomeItemsByTurn, threadStreamUserRoles } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamIsAutoReviewDecision } from "../../domain/thread-stream/review-items";
+import { isTerminalTurnErrorItem } from "../../domain/thread-stream/turn-error-notices";
 
 const STEERING_ACTIVITY_LABEL = "steering";
 
@@ -112,6 +113,7 @@ function isCompletedTurnDetailItem(
 ): boolean {
   const turnId = item.turnId;
   if (!turnId || role) return false;
+  if (isTerminalTurnErrorItem(item)) return false;
   return completedOutcomes.get(turnId)?.id !== item.id;
 }
 

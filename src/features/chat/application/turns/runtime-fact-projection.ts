@@ -228,7 +228,8 @@ function reviewWarningProjection(state: ChatState, item: ThreadStreamItem): Turn
   ) {
     return EMPTY_PROJECTION;
   }
-  return actionProjection({ type: "thread-stream/item-upserted", item });
+  const turnId = activeTurnId(state.activeTurn);
+  return actionProjection({ type: "thread-stream/item-upserted", item: turnId ? { ...item, turnId } : item });
 }
 
 function autoReviewUpdatedProjection(state: ChatState, item: ThreadStreamItem): TurnRuntimeProjection {

@@ -124,15 +124,17 @@ export function turnRuntimeFactFromNotification(
         threadId: notification.params.threadId,
         turnId: notification.params.turn.id,
       };
-    case "turn/completed":
+    case "turn/completed": {
+      const turn = notification.params.turn;
       return {
         type: "turnCompleted",
         threadId: notification.params.threadId,
-        turnId: notification.params.turn.id,
-        outcome: completedTurnOutcome(notification.params.turn.status),
-        completedItems: notification.params.turn.itemsView === "notLoaded" ? [] : threadStreamItemsFromTurns([notification.params.turn]),
-        completedTurnTranscriptSummary: completedTurnTranscriptSummaryFromAppServerTurn(notification.params.turn),
+        turnId: turn.id,
+        outcome: completedTurnOutcome(turn.status),
+        completedItems: threadStreamItemsFromTurns([turn]),
+        completedTurnTranscriptSummary: completedTurnTranscriptSummaryFromAppServerTurn(turn),
       };
+    }
     case "serverRequest/resolved":
       return { type: "requestResolved", requestId: notification.params.requestId };
     case "model/rerouted":
@@ -143,7 +145,9 @@ export function turnRuntimeFactFromNotification(
     case "windows/worldWritableWarning":
     case "windowsSandbox/setupCompleted": {
       const item = userVisibleNoticeItem(notification, localItemId("system"));
-      return item ? { type: "systemNotice", item } : null;
+      return item
+        ? { type: "systemNotice", item: notification.method === "error" ? { ...item, turnId: notification.params.turnId } : item }
+        : null;
     }
   }
 }

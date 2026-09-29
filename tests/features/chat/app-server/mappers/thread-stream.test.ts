@@ -17,6 +17,28 @@ import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/t
 import { legacyTurnContextManifestText } from "../../../../support/legacy-turn-context-manifest";
 
 describe("turn item conversion preserves app-server semantics", () => {
+  it.each(["failed", "interrupted"] as const)("restores a %s turn's error reason from history", (status) => {
+    const turn = turnRecord("error-turn", 1, {
+      status,
+      error: {
+        message: "The provider stopped responding.",
+        codexErrorInfo: "serverOverloaded",
+        additionalDetails: "Try again later.",
+        misalignment: null,
+      },
+    });
+
+    expect(threadStreamItemsFromTurns([turn])).toMatchObject([
+      {
+        id: "turn-error:error-turn",
+        kind: "system",
+        text: "The provider stopped responding.",
+        noticeSections: [{ body: "Try again later." }],
+        provenance: { reason: "turnError" },
+      },
+    ]);
+  });
+
   it("sorts app-server turns oldest first before converting messages", () => {
     const userMessage: TurnItem = {
       type: "userMessage",
@@ -33,19 +55,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       delivery: null,
       questions: null,
     };
-    const turns: TurnRecord[] = [
-      {
-        id: "new",
-        items: [assistantMessage],
-        itemsView: "full",
-        status: "completed",
-        startedAt: 2,
-        completedAt: 3,
-        durationMs: 1,
-        error: null,
-      },
-      { id: "old", items: [userMessage], itemsView: "full", status: "completed", startedAt: 1, completedAt: 2, durationMs: 1, error: null },
-    ];
+    const turns = [turnRecord("new", 2, { items: [assistantMessage] }), turnRecord("old", 1, { items: [userMessage] })];
 
     expect(
       threadStreamItemsFromTurns(turns)
@@ -439,7 +449,11 @@ describe("turn item conversion preserves app-server semantics", () => {
       };
 
       expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject(expected);
-      expect(threadStreamItemsFromTurns([{ id: "t1", items: [item], startedAt: 1 }])).toMatchObject([expected]);
+      expect(
+        threadStreamItemsFromTurns([
+          { id: "t1", items: [item], itemsView: "full", status: "completed", error: null, startedAt: 1, completedAt: 2, durationMs: 1 },
+        ]),
+      ).toMatchObject([expected]);
       expect(threadStreamItemFromTurnItem(item, "t1")).not.toHaveProperty("executionState");
     },
   );
@@ -465,7 +479,18 @@ describe("turn item conversion preserves app-server semantics", () => {
     };
 
     expect(
-      threadStreamItemsFromTurns([{ id: "t1", items: [dynamic, activity], startedAt: 1 }]).map((item) => [item.id, item.sourceItemId]),
+      threadStreamItemsFromTurns([
+        {
+          id: "t1",
+          items: [dynamic, activity],
+          itemsView: "full",
+          status: "completed",
+          error: null,
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+        },
+      ]).map((item) => [item.id, item.sourceItemId]),
     ).toEqual([
       ["spawn-call", "spawn-call"],
       ["subagent-activity:spawn-call", "subagent-activity:spawn-call"],
@@ -1364,5 +1389,19 @@ function hookRun() {
     startedAt: 1n,
     durationMs: 1n,
     entries: [{ kind: "feedback", text: "ok" }],
+  };
+}
+
+function turnRecord(id: string, startedAt: number, overrides: Partial<TurnRecord> = {}): TurnRecord {
+  return {
+    id,
+    startedAt,
+    completedAt: startedAt + 1,
+    durationMs: 1,
+    status: "completed",
+    itemsView: "full",
+    items: [],
+    error: null,
+    ...overrides,
   };
 }

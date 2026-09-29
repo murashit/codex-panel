@@ -7,11 +7,17 @@ import {
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../../shared/ui/json-preview";
 import type { ThreadHistoryPage } from "../../../application/threads/history-controller";
+import { createStructuredSystemItem } from "../../../domain/thread-stream/factories/system-items";
 import { contextAttachmentsFromHistoryContexts } from "../../../domain/thread-stream/format/context-attachments";
 import { threadStreamFileReferences } from "../../../domain/thread-stream/format/file-references";
 import { normalizeProposedPlanMarkdown } from "../../../domain/thread-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/thread-stream/format/user-message-text";
-import type { CommandThreadStreamTarget, ThreadStreamDiagnosticSection, ThreadStreamItem } from "../../../domain/thread-stream/items";
+import type {
+  CommandThreadStreamTarget,
+  ThreadStreamDiagnosticSection,
+  ThreadStreamItem,
+  ThreadStreamNoticeSection,
+} from "../../../domain/thread-stream/items";
 import type { ThreadStreamItemProvenance } from "../../../domain/thread-stream/provenance";
 import { agentThreadStreamItem, subagentActivityThreadStreamItem } from "./agent-items";
 import {
@@ -24,6 +30,7 @@ import {
   patchApplyExecutionState,
 } from "./execution-state";
 import { normalizeFileChanges } from "./file-changes";
+import { createReviewResultItem } from "./review-result-items";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
 type AgentMessageItem = Extract<TurnItem, { type: "agentMessage" }>;
@@ -49,12 +56,37 @@ interface TurnItemSourceFields {
 
 export type AppServerTurnItem = TurnItem;
 
+type TurnError = NonNullable<TurnRecord["error"]>;
+
+function turnErrorThreadStreamItem(turn: Pick<TurnRecord, "id" | "status" | "error">): ThreadStreamItem | null {
+  const { error } = turn;
+  if ((turn.status !== "failed" && turn.status !== "interrupted") || !error?.message.trim()) return null;
+
+  const id = `turn-error:${turn.id}`;
+  const provenance = { source: "panel", channel: "notice", reason: "turnError", sourceId: turn.id } as const;
+  const sections = turnErrorNoticeSections(error);
+  if (error.codexErrorInfo === "tooManyDenials" && sections.length === 0) {
+    return { ...createReviewResultItem(id, error.message), turnId: turn.id, reviewKind: "message", executionState: "failed", provenance };
+  }
+  return { ...createStructuredSystemItem(id, error.message, sections), turnId: turn.id, provenance };
+}
+
+export function turnErrorNoticeSections(error: TurnError): ThreadStreamNoticeSection[] {
+  const sections: ThreadStreamNoticeSection[] = [];
+  if (error.additionalDetails) sections.push({ body: error.additionalDetails });
+  if (error.misalignment?.detailedExplanation) sections.push({ body: error.misalignment.detailedExplanation });
+  if (error.misalignment?.steer?.message) {
+    sections.push({ title: "Suggested continuation input", body: error.misalignment.steer.message });
+  }
+  return sections;
+}
+
 export function completedTurnTranscriptSummaryFromAppServerTurn(turn: TurnRecord): TurnTranscriptSummary | null {
   return completedTurnTranscriptSummaryFromTurnRecord(turn);
 }
 
 export function chatThreadHistoryPageFromTurnsPage(page: {
-  readonly data: readonly Pick<TurnRecord, "id" | "items" | "startedAt">[];
+  readonly data: readonly TurnRecord[];
   readonly nextCursor: string | null;
 }): ThreadHistoryPage {
   return {
@@ -64,14 +96,16 @@ export function chatThreadHistoryPageFromTurnsPage(page: {
   };
 }
 
-export function threadStreamItemsFromTurns(turns: readonly Pick<TurnRecord, "id" | "items" | "startedAt">[]): ThreadStreamItem[] {
+export function threadStreamItemsFromTurns(turns: readonly TurnRecord[]): ThreadStreamItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: ThreadStreamItem[] = [];
   for (const turn of sortedTurns) {
-    for (const item of turn.items) {
+    for (const item of turn.itemsView === "notLoaded" ? [] : turn.items) {
       const streamItem = threadStreamItemFromTurnItem(item, turn.id);
       if (streamItem) items.push(streamItem);
     }
+    const errorItem = turnErrorThreadStreamItem(turn);
+    if (errorItem) items.push(errorItem);
   }
   return items;
 }

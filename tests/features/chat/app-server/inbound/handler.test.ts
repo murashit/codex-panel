@@ -1971,6 +1971,82 @@ describe("ChatInboundHandler", () => {
     });
   });
 
+  describe("turn error display", () => {
+    function completeTurnWithError(
+      handler: TestChatInboundHandler,
+      status: "failed" | "interrupted",
+      error: NonNullable<TurnRecord["error"]>,
+    ): void {
+      handler.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status,
+            error,
+            itemsView: "full",
+            items: [],
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+    }
+
+    it("replaces an equivalent error notification but retains an earlier retry reason", () => {
+      const handler = handlerForState(activeRunningState());
+      const error = {
+        message: "The provider stopped responding.",
+        codexErrorInfo: "serverOverloaded" as const,
+        additionalDetails: "Final detail.",
+        misalignment: null,
+      };
+
+      handler.handleNotification({
+        method: "error",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          willRetry: true,
+          error: { ...error, additionalDetails: "First detail." },
+        },
+      } satisfies Extract<ServerNotification, { method: "error" }>);
+      handler.handleNotification({
+        method: "error",
+        params: { threadId: "thread-active", turnId: "turn-active", willRetry: false, error },
+      } satisfies Extract<ServerNotification, { method: "error" }>);
+      completeTurnWithError(handler, "failed", error);
+
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        { kind: "system", text: error.message, noticeSections: [{ body: "First detail." }, { body: "Codex will retry automatically." }] },
+        { id: "turn-error:turn-active", kind: "system", text: error.message, noticeSections: [{ body: "Final detail." }] },
+      ]);
+    });
+
+    it("keeps one auto-review reason when a Guardian warning preceded an interrupted turn", () => {
+      const handler = handlerForState(activeRunningState());
+      const message = "Auto-review stopped after 3 denials.";
+
+      handler.handleNotification({
+        method: "guardianWarning",
+        params: { threadId: "thread-active", message },
+      } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
+      completeTurnWithError(handler, "interrupted", {
+        message,
+        codexErrorInfo: "tooManyDenials",
+        additionalDetails: null,
+        misalignment: null,
+      });
+
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        { id: "turn-error:turn-active", kind: "reviewResult", text: message, reviewKind: "message", executionState: "failed" },
+      ]);
+      expect(handler.currentState().connection.statusText).toBe("Turn interrupted.");
+    });
+  });
+
   describe("auto-review display", () => {
     it("renders guardian warnings as review results instead of system messages", () => {
       let state = chatStateFixture();
