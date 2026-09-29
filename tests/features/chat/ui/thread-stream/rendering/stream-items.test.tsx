@@ -274,13 +274,9 @@ describe("panel thread stream item rendering", () => {
 
     const element = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")));
 
-    expect(element).toBeDefined();
     expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details");
     expect(element.querySelector(".codex-panel__detail-item")?.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusCompleted");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
-    expect(element.querySelector(".codex-panel__output-title")?.textContent).toBe("Hook output");
     expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
   });
 

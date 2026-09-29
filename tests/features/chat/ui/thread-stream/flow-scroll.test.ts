@@ -195,8 +195,27 @@ describe("thread stream flow scrolling", () => {
     ]);
   });
 
-  it("uses instant composer scrolling when reduced motion is preferred", () => {
-    vi.stubGlobal("matchMedia", createTestMatchMedia(true));
+  it.each([
+    {
+      name: "reduced-motion text-line scrolling",
+      reducedMotion: true,
+      command: { kind: "scroll-by", amount: "text-lines", direction: -1 },
+      expectedTop: 160,
+    },
+    {
+      name: "repeated text-line scrolling",
+      reducedMotion: false,
+      command: { kind: "scroll-by", amount: "text-lines", direction: -1, repeated: true },
+      expectedTop: 160,
+    },
+    {
+      name: "repeated page scrolling",
+      reducedMotion: false,
+      command: { kind: "scroll-by", amount: "page", direction: 1, repeated: true },
+      expectedTop: 320,
+    },
+  ] as const)("scrolls instantly for $name", ({ reducedMotion, command, expectedTop }) => {
+    if (reducedMotion) vi.stubGlobal("matchMedia", createTestMatchMedia(true));
     const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
     const scrollCalls = installScrollToCapture(scrollViewport);
     scrollViewport.style.lineHeight = "20px";
@@ -204,39 +223,10 @@ describe("thread stream flow scrolling", () => {
     scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
-      controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1 });
+      controller.dispatch(command);
     });
 
-    expect(scrollViewport.scrollTop).toBe(160);
-    expect(scrollCalls).toEqual([]);
-  });
-
-  it("uses the normal text-line distance for repeated composer scrolling without smooth animation", () => {
-    const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
-    const scrollCalls = installScrollToCapture(scrollViewport);
-    scrollViewport.style.lineHeight = "20px";
-    scrollViewport.scrollTop = 240;
-    scrollViewport.dispatchEvent(new Event("scroll"));
-
-    void act(() => {
-      controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1, repeated: true });
-    });
-
-    expect(scrollViewport.scrollTop).toBe(160);
-    expect(scrollCalls).toEqual([]);
-  });
-
-  it("uses the normal page distance for repeated composer page scrolling without smooth animation", () => {
-    const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
-    const scrollCalls = installScrollToCapture(scrollViewport);
-    scrollViewport.scrollTop = 240;
-    scrollViewport.dispatchEvent(new Event("scroll"));
-
-    void act(() => {
-      controller.dispatch({ kind: "scroll-by", amount: "page", direction: 1, repeated: true });
-    });
-
-    expect(scrollViewport.scrollTop).toBe(320);
+    expect(scrollViewport.scrollTop).toBe(expectedTop);
     expect(scrollCalls).toEqual([]);
   });
 
