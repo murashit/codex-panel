@@ -25,7 +25,6 @@ describe("runtime thread settings patch", () => {
         activePermissionProfile: null,
       },
       pending: {
-        approvalPolicy: setRuntimeIntentValue("never"),
         permissionProfile: setRuntimeIntentValue(":workspace"),
       },
     });
@@ -33,11 +32,10 @@ describe("runtime thread settings patch", () => {
     expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot))).toMatchObject({
       permissionProfile: { effective: ":workspace", source: "pending" },
       sandboxPolicy: { effective: null, source: "pending" },
-      approvalPolicy: { effective: "never", source: "pending" },
+      approvalPolicy: { effective: "on-request", source: "active-thread" },
     });
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: {
-        approvalPolicy: "never",
         permissions: ":workspace",
       },
     });
@@ -313,32 +311,6 @@ describe("runtime thread settings patch", () => {
     expect(resolution.serviceTier.effective).toBeNull();
     expect(resolution.fastMode.active).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBeNull();
-  });
-
-  it("serializes service tier reset for thread start as the configured tier instead of null", () => {
-    const snapshot = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
-      pending: { fastMode: resetRuntimeIntentToConfig() },
-    });
-
-    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
-
-    expect(resolution.serviceTier.effective).toBe("fast");
-    expect(resolution.fastMode.active).toBe(false);
-    expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
-  });
-
-  it("omits service tier reset for thread start when config has no service tier", () => {
-    const snapshot = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({}),
-      pending: { fastMode: resetRuntimeIntentToConfig() },
-    });
-
-    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
-
-    expect(resolution.serviceTier.effective).toBeNull();
-    expect(resolution.fastMode.active).toBe(false);
-    expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBeUndefined();
   });
 
   it("serializes requested fast mode using the catalog Fast service tier id", () => {

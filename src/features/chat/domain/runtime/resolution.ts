@@ -4,8 +4,8 @@ import { cloneRuntimePermissionState, type RuntimeApprovalPolicy, type RuntimeSa
 import type { ApprovalsReviewer, RuntimeConfigSnapshot, ServiceTier } from "../../../../domain/runtime/settings";
 import {
   effectiveCollaborationMode,
+  type FastModeIntent,
   type PendingRuntimeIntent,
-  type RequestedFastMode,
   resetRuntimeIntentToConfig,
   setRuntimeIntentValue,
   unchangedRuntimeIntent,
@@ -31,7 +31,7 @@ interface CollaborationModeResolution {
 
 interface FastModeResolution {
   readonly available: boolean;
-  readonly requested: PendingRuntimeIntent<RequestedFastMode>;
+  readonly requested: FastModeIntent;
   readonly active: boolean;
   readonly confirmedActive: boolean;
   readonly source: RuntimeValueSource;
@@ -109,9 +109,6 @@ function resolveServiceTier(
   if (pendingFastMode.kind === "set" && pendingFastMode.value === "disabled") {
     return serviceTierValue(snapshot, config, null, "pending");
   }
-  if (pendingFastMode.kind === "resetToConfig") {
-    return serviceTierValue(snapshot, config, config.serviceTier, "config");
-  }
   if (snapshot.active.serviceTierKnown) {
     return serviceTierValue(snapshot, config, snapshot.active.serviceTier, "active-thread");
   }
@@ -148,7 +145,7 @@ function resolveAutoReview(reviewer: RuntimeLayeredValue<ApprovalsReviewer>): Au
 }
 
 function resolveFastMode(
-  requested: PendingRuntimeIntent<RequestedFastMode>,
+  requested: FastModeIntent,
   serviceTier: RuntimeLayeredValue<ServiceTier>,
   fastServiceTierId: string | null,
 ): FastModeResolution {
@@ -201,7 +198,7 @@ function resolveRuntimePermissions(snapshot: RuntimeSnapshot, config: RuntimeCon
     approvalPolicy: resolveRuntimeValue({
       configured: config.startupPermissions.approvalPolicy,
       active: snapshot.active.approvalPolicy,
-      pending: snapshot.pending.approvalPolicy,
+      pending: unchangedRuntimeIntent(),
       activeKnown: snapshot.active.approvalPolicyKnown,
     }),
   };

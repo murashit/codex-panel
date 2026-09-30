@@ -422,7 +422,6 @@ describe("chat panel projection integration", () => {
       runtime: {
         pending: {
           approvalsReviewer: { kind: "set", value: "auto_review" },
-          approvalPolicy: { kind: "unchanged" },
           permissionProfile: { kind: "unchanged" },
         },
       },

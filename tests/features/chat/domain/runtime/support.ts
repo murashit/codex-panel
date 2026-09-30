@@ -37,7 +37,6 @@ export function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSn
       model: { kind: "unchanged" },
       reasoningEffort: { kind: "unchanged" },
       permissionProfile: { kind: "unchanged" },
-      approvalPolicy: { kind: "unchanged" },
       approvalsReviewer: { kind: "unchanged" },
       collaborationMode: unchangedCollaborationModeIntent(),
       fastMode: { kind: "unchanged" },

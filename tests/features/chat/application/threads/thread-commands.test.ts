@@ -417,7 +417,6 @@ describe("thread management commands", () => {
           intent === "reset"
             ? {
                 model: { kind: "resetToConfig" },
-                fastMode: { kind: "resetToConfig" },
                 permissionProfile: { kind: "resetToConfig" },
               }
             : {
@@ -474,11 +473,7 @@ describe("thread management commands", () => {
       }),
     );
     expect(pendingRuntimeSettingsPatch(snapshot(), config).update).toEqual({
-      ...(intent === "set"
-        ? { model: "chosen-model", serviceTier: null }
-        : intent === "reset"
-          ? { model: null, serviceTier: null, permissions: null }
-          : {}),
+      ...(intent === "set" ? { model: "chosen-model", serviceTier: null } : intent === "reset" ? { model: null, permissions: null } : {}),
       collaborationMode: {
         mode: intent === "set" ? "default" : "plan",
         settings: {

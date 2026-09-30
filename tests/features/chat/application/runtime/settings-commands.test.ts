@@ -8,7 +8,6 @@ import {
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { activeThreadId, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import type { ActiveThreadSettingsAppliedAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import {
   createKeyedOperationCoordinator,
@@ -164,8 +163,8 @@ describe("createChatRuntimeSettingsCommands", () => {
     await expect(commands.requestReasoningEffort("high")).resolves.toBe(false);
     await expect(commands.requestPermissionProfile(":workspace")).resolves.toBe(false);
     await expect(commands.setCollaborationMode("plan")).resolves.toBe(false);
-    await commands.enableFastMode();
-    await commands.enableAutoReview();
+    await commands.toggleFastMode();
+    await commands.toggleAutoReview();
 
     expect(port.updateThreadSettings).not.toHaveBeenCalled();
     expect(messages).toHaveLength(6);
@@ -181,8 +180,8 @@ describe("createChatRuntimeSettingsCommands", () => {
     await expect(commands.requestModel("gpt-5.5")).resolves.toBe(true);
     await expect(commands.requestPermissionProfile(":workspace")).resolves.toBe(true);
     await expect(commands.requestReasoningEffort("high")).resolves.toBe(true);
-    await commands.enableFastMode();
-    await commands.enableAutoReview();
+    await commands.toggleFastMode();
+    await commands.toggleAutoReview();
     await expect(commands.setCollaborationMode("plan")).resolves.toBe(true);
     commands.requestDefaultCollaborationModeForNextTurn();
 
@@ -352,23 +351,6 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(messages).toEqual(["Fast mode on for subsequent turns."]);
   });
 
-  it("enables and disables fast mode through explicit commands", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const store = createChatStateStore(state);
-    const port = settingsPortFixture();
-    const messages: string[] = [];
-    const commands = runtimeCommandsFixture(store, port, messages);
-
-    await commands.enableFastMode();
-    store.dispatch({ type: "active-thread/settings-applied", ...threadSettings("fast") });
-    await commands.disableFastMode();
-
-    expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { serviceTier: "fast" });
-    expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { serviceTier: null });
-    expect(messages).toEqual(["Fast mode on for subsequent turns.", "Fast mode off for subsequent turns."]);
-  });
-
   it("keeps Fast disabled after clearing a thread tier when config defaults to Fast", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -380,7 +362,7 @@ describe("createChatRuntimeSettingsCommands", () => {
       runtimeConfig: { ...runtimeConfigFixture(), model: "gpt-5.5", serviceTier: "fast" },
     });
 
-    await commands.disableFastMode();
+    await commands.toggleFastMode();
 
     expect(port.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: null });
     expect(store.getState().runtime.active.serviceTier).toBeNull();
@@ -410,7 +392,6 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(port.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "priority" });
     expect(store.getState().runtime.active.serviceTier).toBe("priority");
 
-    store.dispatch({ type: "active-thread/settings-applied", ...threadSettings("priority") });
     await commands.toggleFastMode();
 
     expect(port.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: null });
@@ -531,7 +512,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages);
 
-    await commands.enableFastMode();
+    await commands.toggleFastMode();
 
     expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(store.getState().ui.toolbarPanel).toBe("status-panel");
@@ -919,7 +900,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(store.getState().runtime.active.model).toBeNull();
   });
 
-  it("enables and disables auto-review through explicit commands", async () => {
+  it("toggles auto-review and reports the user-visible result", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
@@ -927,9 +908,8 @@ describe("createChatRuntimeSettingsCommands", () => {
     const messages: string[] = [];
     const commands = runtimeCommandsFixture(store, port, messages);
 
-    await commands.enableAutoReview();
-    store.dispatch({ type: "active-thread/settings-applied", ...threadSettings(null, "auto_review") });
-    await commands.disableAutoReview();
+    await commands.toggleAutoReview();
+    await commands.toggleAutoReview();
 
     expect(port.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { approvalsReviewer: "auto_review" });
     expect(port.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { approvalsReviewer: "user" });
@@ -989,24 +969,5 @@ function modelFixture(model: string, fastTierId: string): ModelMetadata {
     serviceTiers: [{ id: fastTierId, name: "Fast" }],
     defaultServiceTier: null,
     isDefault: true,
-  };
-}
-
-function threadSettings(
-  serviceTier: string | null,
-  approvalsReviewer: Omit<ActiveThreadSettingsAppliedAction, "type">["approvalsReviewer"] = "user",
-): Omit<ActiveThreadSettingsAppliedAction, "type"> {
-  return {
-    model: "gpt-5.5",
-    reasoningEffort: "high",
-    collaborationMode: "default",
-    serviceTier,
-    approvalsReviewer,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
   };
 }

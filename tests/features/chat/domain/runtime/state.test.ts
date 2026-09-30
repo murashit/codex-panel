@@ -67,42 +67,6 @@ describe("chat runtime state", () => {
     expect(next.active.approvalPolicyKnown).toBe(expectedKnown);
   });
 
-  it("clears only the applied approval policy intent and preserves unrelated state", () => {
-    const initial = initialChatRuntimeState();
-    const state = {
-      ...initial,
-      active: {
-        ...initial.active,
-        model: "gpt-5.1",
-        reasoningEffort: "high" as const,
-        serviceTier: "flex" as const,
-        serviceTierKnown: true,
-        approvalsReviewer: "user" as const,
-      },
-      pending: {
-        ...initial.pending,
-        model: setRuntimeIntentValue("gpt-5.1"),
-        reasoningEffort: setRuntimeIntentValue("high" as const),
-        permissionProfile: setRuntimeIntentValue(":workspace"),
-        approvalPolicy: setRuntimeIntentValue("never" as const),
-        approvalsReviewer: setRuntimeIntentValue("auto_review" as const),
-        fastMode: setRuntimeIntentValue("enabled" as const),
-      },
-    };
-
-    const next = commitAppliedRuntimeSettingsPatchState(state, { approvalPolicy: "never" });
-
-    expect(next.active).toMatchObject({
-      ...state.active,
-      approvalPolicy: "never",
-      approvalPolicyKnown: true,
-    });
-    expect(next.pending).toMatchObject({
-      ...state.pending,
-      approvalPolicy: { kind: "unchanged" },
-    });
-  });
-
   it("preserves unknown service tier state when committing unrelated settings", () => {
     const initial = initialChatRuntimeState();
     const state = { ...initial, pending: { ...initial.pending, model: setRuntimeIntentValue("gpt-5.1") } };

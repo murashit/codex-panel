@@ -61,17 +61,12 @@ export interface ChatRuntimeSettingsCommands {
   requestReasoningEffort: (effort: ReasoningEffort) => Promise<boolean>;
   resetReasoningEffortToConfig: () => Promise<boolean>;
   requestReasoningEffortFromUi: (effort: ReasoningEffort) => Promise<void>;
-  resetReasoningEffortToConfigFromUi: () => Promise<void>;
   requestPermissionProfile: (permissionProfile: string) => Promise<boolean>;
   resetPermissionProfileToConfig: () => Promise<boolean>;
-  enableFastMode: () => Promise<void>;
-  disableFastMode: () => Promise<void>;
   toggleFastMode: () => Promise<void>;
   toggleCollaborationMode: () => Promise<void>;
   setCollaborationMode: (collaborationMode: CollaborationModeSelection) => Promise<boolean>;
   requestDefaultCollaborationModeForNextTurn: () => void;
-  enableAutoReview: () => Promise<void>;
-  disableAutoReview: () => Promise<void>;
   toggleAutoReview: () => Promise<void>;
 }
 
@@ -88,19 +83,14 @@ export function createChatRuntimeSettingsCommands(
     requestReasoningEffort: (effort) => requestReasoningEffort(context, effort),
     resetReasoningEffortToConfig: () => resetReasoningEffortToConfig(context),
     requestReasoningEffortFromUi: (effort) => requestReasoningEffortFromUi(context, effort),
-    resetReasoningEffortToConfigFromUi: () => resetReasoningEffortToConfigFromUi(context),
     requestPermissionProfile: (permissionProfile) => requestPermissionProfile(context, permissionProfile),
     resetPermissionProfileToConfig: () => resetPermissionProfileToConfig(context),
-    enableFastMode: () => setFastMode(context, "enabled"),
-    disableFastMode: () => setFastMode(context, "disabled"),
     toggleFastMode: () => toggleFastMode(context),
     toggleCollaborationMode: () => toggleCollaborationMode(context),
     setCollaborationMode: (collaborationMode) => setCollaborationMode(context, collaborationMode),
     requestDefaultCollaborationModeForNextTurn: () => {
       requestDefaultCollaborationModeForNextTurn(context);
     },
-    enableAutoReview: () => setAutoReview(context, "enabled"),
-    disableAutoReview: () => setAutoReview(context, "disabled"),
     toggleAutoReview: () => toggleAutoReview(context),
   };
 }
@@ -248,10 +238,6 @@ async function resetReasoningEffortToConfig(host: RuntimeSettingsCommandsContext
 
 async function requestReasoningEffortFromUi(host: RuntimeSettingsCommandsContext, effort: ReasoningEffort): Promise<void> {
   await runRuntimeUiCommand(host, () => requestReasoningEffort(host, effort), reasoningEffortOverrideMessage(effort));
-}
-
-async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsCommandsContext): Promise<void> {
-  await runRuntimeUiCommand(host, () => resetReasoningEffortToConfig(host), reasoningEffortOverrideMessage(null));
 }
 
 async function requestPermissionProfile(host: RuntimeSettingsCommandsContext, permissionProfile: string): Promise<boolean> {

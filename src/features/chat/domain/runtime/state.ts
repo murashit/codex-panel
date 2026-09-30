@@ -2,7 +2,6 @@ import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../doma
 import {
   initialRuntimePermissionKnownState,
   initialRuntimePermissionState,
-  type RuntimeApprovalPolicy,
   type RuntimePermissionKnownState,
   type RuntimePermissionState,
 } from "../../../../domain/runtime/permissions";
@@ -11,8 +10,8 @@ import { type ApprovalsReviewer, parseServiceTier, type ServiceTier } from "../.
 import {
   type ActiveCollaborationMode,
   type CollaborationModeIntent,
+  type FastModeIntent,
   type PendingRuntimeIntent,
-  type RequestedFastMode,
   unchangedCollaborationModeIntent,
   unchangedRuntimeIntent,
 } from "./intent";
@@ -35,10 +34,9 @@ export interface PendingRuntimeIntentState {
   readonly model: PendingRuntimeIntent<string>;
   readonly reasoningEffort: PendingRuntimeIntent<ReasoningEffort | null>;
   readonly permissionProfile: PendingRuntimeIntent<string>;
-  readonly approvalPolicy: PendingRuntimeIntent<RuntimeApprovalPolicy>;
   readonly approvalsReviewer: PendingRuntimeIntent<ApprovalsReviewer>;
   readonly collaborationMode: CollaborationModeIntent;
-  readonly fastMode: PendingRuntimeIntent<RequestedFastMode>;
+  readonly fastMode: FastModeIntent;
 }
 
 export function initialActiveChatRuntimeState(): ActiveThreadRuntimeState {
@@ -67,7 +65,6 @@ function initialPendingRuntimeIntentState(): PendingRuntimeIntentState {
     model: unchangedRuntimeIntent(),
     reasoningEffort: unchangedRuntimeIntent(),
     permissionProfile: unchangedRuntimeIntent(),
-    approvalPolicy: unchangedRuntimeIntent(),
     approvalsReviewer: unchangedRuntimeIntent(),
     collaborationMode: unchangedCollaborationModeIntent(),
     fastMode: unchangedRuntimeIntent(),
@@ -105,12 +102,11 @@ export function commitAppliedRuntimeSettingsPatchState(state: ChatRuntimeState, 
     },
     pending: {
       ...state.pending,
-      ...("model" in update ? { model: unchangedRuntimeIntent<string>() } : {}),
-      ...("effort" in update ? { reasoningEffort: unchangedRuntimeIntent<ReasoningEffort | null>() } : {}),
-      ...("serviceTier" in update ? { fastMode: unchangedRuntimeIntent<RequestedFastMode>() } : {}),
-      ...("approvalPolicy" in update ? { approvalPolicy: unchangedRuntimeIntent<RuntimeApprovalPolicy>() } : {}),
-      ...("approvalsReviewer" in update ? { approvalsReviewer: unchangedRuntimeIntent<ApprovalsReviewer>() } : {}),
-      ...("permissions" in update ? { permissionProfile: unchangedRuntimeIntent<string>() } : {}),
+      ...("model" in update ? { model: unchangedRuntimeIntent() } : {}),
+      ...("effort" in update ? { reasoningEffort: unchangedRuntimeIntent() } : {}),
+      ...("serviceTier" in update ? { fastMode: unchangedRuntimeIntent() } : {}),
+      ...("approvalsReviewer" in update ? { approvalsReviewer: unchangedRuntimeIntent() } : {}),
+      ...("permissions" in update ? { permissionProfile: unchangedRuntimeIntent() } : {}),
       ...("collaborationMode" in update ? { collaborationMode: unchangedCollaborationModeIntent() } : {}),
     },
   };

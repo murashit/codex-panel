@@ -33,7 +33,6 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
   applyRuntimeSettingsPatchValue(update, "model", pendingRuntimeRequestValue(pending.model));
   applyRuntimeSettingsPatchValue(update, "effort", pendingRuntimeRequestValue(pending.reasoningEffort));
   applyRuntimeSettingsPatchValue(update, "serviceTier", serviceTierRequest(snapshot, resolution, "thread-update"));
-  applyRuntimeSettingsPatchValue(update, "approvalPolicy", pendingRuntimeRequestValue(pending.approvalPolicy));
   applyRuntimeSettingsPatchValue(update, "permissions", pendingRuntimeRequestValue(pending.permissionProfile));
   applyRuntimeSettingsPatchValue(update, "approvalsReviewer", pendingRuntimeRequestValue(pending.approvalsReviewer));
   if (resolution.collaborationMode.dirty) {
@@ -59,18 +58,9 @@ function serviceTierRequest(
   resolution: RuntimeControlsResolution,
   target: "thread-start" | "thread-update",
 ): RuntimeServiceTierRequest {
-  // app-server has no separate "reset to config" token for service tiers.
-  // thread/start null falls back to app-server's baseline/default tier, so a reset
-  // to configured service_tier must send the configured id explicitly.
   if (snapshot.pending.fastMode.kind === "set") {
     if (snapshot.pending.fastMode.value === "disabled") return null;
     return resolution.fastMode.serviceTierRequestValue || undefined;
-  }
-  if (snapshot.pending.fastMode.kind === "resetToConfig") {
-    if (target === "thread-start") {
-      return resolution.serviceTier.configured || undefined;
-    }
-    return null;
   }
   if (target === "thread-start" && resolution.serviceTier.configured) {
     return resolution.serviceTier.configured;

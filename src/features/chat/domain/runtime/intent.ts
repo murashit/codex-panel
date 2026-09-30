@@ -11,12 +11,13 @@ export type PendingRuntimeIntent<T> =
   | { readonly kind: "set"; readonly value: T }
   | { readonly kind: "resetToConfig" };
 export type RequestedFastMode = "enabled" | "disabled";
+export type FastModeIntent = Exclude<PendingRuntimeIntent<RequestedFastMode>, { readonly kind: "resetToConfig" }>;
 
-export function unchangedRuntimeIntent<T>(): PendingRuntimeIntent<T> {
+export function unchangedRuntimeIntent(): { readonly kind: "unchanged" } {
   return { kind: "unchanged" };
 }
 
-export function setRuntimeIntentValue<T>(value: T): PendingRuntimeIntent<T> {
+export function setRuntimeIntentValue<T>(value: T): { readonly kind: "set"; readonly value: T } {
   return { kind: "set", value };
 }
 
