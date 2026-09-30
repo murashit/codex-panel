@@ -1,12 +1,12 @@
 import { reconcileCompletedTurnItems } from "../../domain/thread-stream/completed-turn-reconciliation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { attachHookRunsToTurn, completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
+import { completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import type { ChatState } from "../state/model";
 import type { ChatAction } from "../state/reducer";
 import { threadStreamItems, threadStreamPendingSteers } from "../state/thread-stream";
 import { chatThreadStreamViewState } from "../state/turn-scope";
 import type { TurnRuntimeFact } from "./runtime-facts";
-import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "./turn-state";
+import { activeTurnId } from "./turn-state";
 
 export interface TurnRuntimeProjectionOutcome {
   type: "turn-completed";
@@ -75,6 +75,7 @@ function runtimeFactProjection(state: ChatState, fact: TurnRuntimeFact): TurnRun
       });
     case "itemStarted":
     case "itemContentUpdated":
+    case "hookRunObserved":
     case "taskProgressUpdated":
       return actionProjection({ type: "thread-stream/item-upserted", item: fact.item });
     case "userMessageObserved":
@@ -89,13 +90,11 @@ function runtimeFactProjection(state: ChatState, fact: TurnRuntimeFact): TurnRun
     case "autoReviewUpdated":
       return autoReviewUpdatedProjection(state, fact.item);
     case "turnStarted":
-      return turnStartedProjection(state, fact);
+      return turnStartedProjection(fact);
     case "turnCompleted":
       return turnCompletedProjection(state, fact);
     case "turnDiffUpdated":
       return actionProjection({ type: "thread-stream/turn-diff-updated", turnId: fact.turnId, diff: fact.diff });
-    case "hookRunObserved":
-      return hookRunProjection(state, fact);
     case "requestResolved":
       return actionProjection({ type: "request/resolved", requestId: fact.requestId });
     case "reviewWarning":
@@ -143,14 +142,13 @@ function turnRuntimeFactAdvancesActivity(fact: TurnRuntimeFact): boolean {
   }
 }
 
-function turnStartedProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "turnStarted" }>): TurnRuntimeProjection {
+function turnStartedProjection(fact: Extract<TurnRuntimeFact, { type: "turnStarted" }>): TurnRuntimeProjection {
   return {
     actions: [
       {
         type: "turn/started",
         threadId: fact.threadId,
         turnId: fact.turnId,
-        items: threadStreamItemsWithPendingPromptSubmitHooks(state, fact.turnId),
       },
     ],
     outcomes: [],
@@ -194,30 +192,6 @@ function completedItemProjection(item: ThreadStreamItem, turnId: string): TurnRu
   };
 }
 
-function hookRunProjection(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "hookRunObserved" }>): TurnRuntimeProjection {
-  const resolvedTurnId = hookTurnId(state, fact);
-  const item = resolvedTurnId ? { ...fact.item, turnId: resolvedTurnId } : fact.item;
-  const currentPendingTurnStart = pendingTurnStartForState(state.activeTurn);
-  let pendingTurnStart = currentPendingTurnStart;
-  if (!resolvedTurnId && currentPendingTurnStart && fact.isPromptSubmission) {
-    const hookIds = currentPendingTurnStart.promptSubmitHookItemIds;
-    pendingTurnStart = hookIds.includes(item.id)
-      ? currentPendingTurnStart
-      : { ...currentPendingTurnStart, promptSubmitHookItemIds: [...hookIds, item.id] };
-  }
-  return actionProjection({
-    type: "turn/pending-start-hook-upserted",
-    item,
-    pendingTurnStart,
-  });
-}
-
-function hookTurnId(state: ChatState, fact: Extract<TurnRuntimeFact, { type: "hookRunObserved" }>): string | null {
-  if (fact.turnId) return fact.turnId;
-  if (fact.isPromptSubmission && !pendingTurnStartForState(state.activeTurn)) return activeTurnId(state.activeTurn);
-  return null;
-}
-
 function reviewWarningProjection(state: ChatState, item: ThreadStreamItem): TurnRuntimeProjection {
   if (
     isUnstructuredAutoReviewWarning(item) &&
@@ -242,13 +216,6 @@ function autoReviewUpdatedProjection(state: ChatState, item: ThreadStreamItem): 
       item,
     ),
   });
-}
-
-function threadStreamItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly ThreadStreamItem[] {
-  const pending = pendingTurnStartForState(state.activeTurn);
-  const items = threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn));
-  if (!pending) return items;
-  return attachHookRunsToTurn(items, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }
 
 function hasStructuredAutoReviewResult(items: readonly ThreadStreamItem[], activeTurnId: string | null): boolean {

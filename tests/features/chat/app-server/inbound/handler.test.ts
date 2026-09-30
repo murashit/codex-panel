@@ -14,7 +14,6 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
@@ -267,41 +266,6 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().threadStream.turnDiffs.size).toBe(0);
     });
 
-    it("attaches unscoped hook runs to the active turn while streaming", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "hook/completed",
-        params: {
-          threadId: "thread-active",
-          turnId: null,
-          run: {
-            id: "hook-1",
-            eventName: "userPromptSubmit",
-            handlerType: "command",
-            executionMode: "sync",
-            scope: "turn",
-            sourcePath: "/vault/.codex/hooks.json",
-            source: "project",
-            displayOrder: 1n,
-            status: "completed",
-            statusMessage: "Saving jj baseline",
-            startedAt: 1n,
-            completedAt: 2n,
-            durationMs: 1n,
-            entries: [],
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
-        id: "hook-hook-1-1",
-        kind: "hook",
-        turnId: "turn-active",
-      });
-    });
-
     it("leaves non-prompt unscoped hook runs outside the active turn", () => {
       const state = activeRunningState();
       const handler = handlerForState(state);
@@ -366,25 +330,16 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
     });
 
-    it("keeps pre-turn prompt submit hooks through turn start and completed-turn reconciliation", () => {
+    it("keeps prompt submit hooks with their server turn id through completed-turn reconciliation", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, {
-        activeTurn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
+        activeTurn: { lifecycle: { kind: "starting", anchorItemId: "local-user-1" } },
       });
       state = withChatStateStableThreadStreamItems(state, [
         { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
       ]);
       const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "hook/completed",
-        params: { threadId: "thread-active", turnId: null, run: promptSubmitHookRun("hook-1", 1n) },
-      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[1]).turnId).toBeUndefined();
-      expect(expectPresent(pendingTurnStart(handler.currentState().activeTurn)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
 
       handler.handleNotification({
         method: "turn/started",
@@ -403,12 +358,17 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
+      handler.handleNotification({
+        method: "hook/completed",
+        params: { threadId: "thread-active", turnId: "turn-active", run: promptSubmitHookRun("hook-1", 1n) },
+      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
+
       expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(chatStateThreadStreamItems(handler.currentState()).find((item) => item.id === "local-user-1")).not.toHaveProperty("turnId");
       expect(chatStateThreadStreamItems(handler.currentState()).find((item) => item.id === "hook-hook-1-1")).toMatchObject({
         turnId: "turn-active",
       });
-      expect(pendingTurnStart(handler.currentState().activeTurn)).toBeNull();
+      expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn-active" });
 
       handler.handleNotification({
         method: "turn/completed",
@@ -456,20 +416,12 @@ describe("ChatInboundHandler", () => {
         activeTurn: {
           lifecycle: {
             kind: "starting",
-            pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
+            anchorItemId: "local-user-1",
           },
         },
       });
       state = withChatStateStableThreadStreamItems(state, [
         { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
-        {
-          id: "hook-hook-1-1",
-          kind: "hook",
-          role: "tool",
-          text: "userPromptSubmit: Saving jj baseline",
-          toolName: "hook",
-          statusLabel: "Completed",
-        },
       ]);
       const maybeNameThread = vi.fn();
       const handler = handlerForState(state, { maybeNameThread });
@@ -501,11 +453,8 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(pendingTurnStart(handler.currentState().activeTurn)).toEqual({
-        anchorItemId: "local-user-1",
-        promptSubmitHookItemIds: ["hook-hook-1-1"],
-      });
-      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(handler.currentState().activeTurn.lifecycle).toEqual({ kind: "starting", anchorItemId: "local-user-1" });
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
     });
   });

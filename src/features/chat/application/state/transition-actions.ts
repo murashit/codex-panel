@@ -12,7 +12,6 @@ import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
 import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import type { ForkDraftPreparation, ForkReplacement } from "../threads/fork-draft";
-import type { PendingTurnStart } from "../turns/turn-state";
 import type { ChatPendingSubmissionState } from "./pending-submission";
 
 interface ResumedThreadActionParams {
@@ -72,26 +71,26 @@ interface ClearActiveThreadAction {
 export interface TurnOptimisticStartedAction {
   type: "turn/optimistic-started";
   item: UserThreadStreamDialogueItem;
-  pendingTurnStart: PendingTurnStart;
   pendingSubmissionId?: string;
 }
 
 export interface TurnStartAcknowledgedAction {
   type: "turn/start-acknowledged";
+  threadId: string;
+  anchorItemId: string;
   turnId: string;
-  items: readonly ThreadStreamItem[];
 }
 
 export interface TurnStartFailedAction {
   type: "turn/start-failed";
-  items: readonly ThreadStreamItem[];
+  threadId: string;
+  anchorItemId: string;
 }
 
 export interface TurnStartedAction {
   type: "turn/started";
   threadId: string;
   turnId: string;
-  items?: readonly ThreadStreamItem[];
 }
 
 export interface TurnCompletedAction {
@@ -105,12 +104,6 @@ export interface RequestResolvedAction {
   type: "request/resolved";
   requestId: PendingRequestId;
   resultItem?: ThreadStreamItem;
-}
-
-export interface PendingStartHookUpsertedAction {
-  type: "turn/pending-start-hook-upserted";
-  item: ThreadStreamItem;
-  pendingTurnStart: PendingTurnStart | null;
 }
 
 type PendingSubmissionAction =
@@ -139,7 +132,6 @@ export type ChatTransitionAction =
   | TurnStartAcknowledgedAction
   | TurnStartFailedAction
   | RequestResolvedAction
-  | PendingStartHookUpsertedAction
   | PendingSubmissionAction;
 
 export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {

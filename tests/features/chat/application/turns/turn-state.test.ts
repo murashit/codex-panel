@@ -3,14 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   type ChatTurnLifecycleEvent,
   type ChatTurnLifecycleState,
-  type PendingTurnStart,
   transitionChatTurnLifecycleState,
 } from "../../../../../src/features/chat/application/turns/turn-state";
 
 describe("chat turn lifecycle state machine", () => {
   it("moves an optimistic turn through acknowledgement and matching completion", () => {
-    const startingState = transitionChatTurnLifecycleState(idle(), optimisticStarted(pendingA));
-    expect(startingState).toEqual(starting(pendingA));
+    const startingState = transitionChatTurnLifecycleState(idle(), optimisticStarted("local-user-a"));
+    expect(startingState).toEqual(starting("local-user-a"));
 
     const runningState = transitionChatTurnLifecycleState(startingState, startAcknowledged("turn"));
     expect(runningState).toEqual(running("turn"));
@@ -19,7 +18,7 @@ describe("chat turn lifecycle state machine", () => {
   });
 
   it("accepts server start before acknowledgement and completes that turn", () => {
-    const startingState = transitionChatTurnLifecycleState(idle(), optimisticStarted(pendingA));
+    const startingState = transitionChatTurnLifecycleState(idle(), optimisticStarted("local-user-a"));
     const runningState = transitionChatTurnLifecycleState(startingState, started("server-turn"));
 
     expect(runningState).toEqual(running("server-turn"));
@@ -27,7 +26,7 @@ describe("chat turn lifecycle state machine", () => {
   });
 
   it("returns a failed optimistic start to idle", () => {
-    const startingState = transitionChatTurnLifecycleState(idle(), optimisticStarted(pendingA));
+    const startingState = transitionChatTurnLifecycleState(idle(), optimisticStarted("local-user-a"));
 
     expect(transitionChatTurnLifecycleState(startingState, startFailed())).toEqual(idle());
   });
@@ -45,36 +44,17 @@ describe("chat turn lifecycle state machine", () => {
   it.each([
     ["stale completion", completed("stale-turn")],
     ["late start failure", startFailed()],
-    ["cleared pending hook", pendingStartHookUpserted(null)],
   ] as const)("keeps the running turn after %s", (_label, event) => {
     expect(transitionChatTurnLifecycleState(running("turn"), event)).toEqual(running("turn"));
   });
-
-  it("updates pending hooks and clears an abandoned optimistic start", () => {
-    const initial = transitionChatTurnLifecycleState(idle(), optimisticStarted(pendingA));
-    const updated = transitionChatTurnLifecycleState(initial, pendingStartHookUpserted(pendingB));
-
-    expect(updated).toEqual(starting(pendingB));
-    expect(transitionChatTurnLifecycleState(updated, pendingStartHookUpserted(null))).toEqual(idle());
-  });
 });
-
-const pendingA = {
-  anchorItemId: "local-user-a",
-  promptSubmitHookItemIds: ["hook-a"],
-} satisfies PendingTurnStart;
-
-const pendingB = {
-  anchorItemId: "local-user-b",
-  promptSubmitHookItemIds: ["hook-b"],
-} satisfies PendingTurnStart;
 
 function idle(): ChatTurnLifecycleState {
   return { kind: "idle" };
 }
 
-function starting(pendingTurnStart: PendingTurnStart): ChatTurnLifecycleState {
-  return { kind: "starting", pendingTurnStart };
+function starting(anchorItemId: string): ChatTurnLifecycleState {
+  return { kind: "starting", anchorItemId };
 }
 
 function running(turnId: string): ChatTurnLifecycleState {
@@ -89,8 +69,8 @@ function completed(turnId: string): ChatTurnLifecycleEvent {
   return { type: "completed", turnId };
 }
 
-function optimisticStarted(pendingTurnStart: PendingTurnStart): ChatTurnLifecycleEvent {
-  return { type: "optimistic-started", pendingTurnStart };
+function optimisticStarted(anchorItemId: string): ChatTurnLifecycleEvent {
+  return { type: "optimistic-started", anchorItemId };
 }
 
 function startAcknowledged(turnId: string): ChatTurnLifecycleEvent {
@@ -99,8 +79,4 @@ function startAcknowledged(turnId: string): ChatTurnLifecycleEvent {
 
 function startFailed(): ChatTurnLifecycleEvent {
   return { type: "start-failed" };
-}
-
-function pendingStartHookUpserted(pendingTurnStart: PendingTurnStart | null): ChatTurnLifecycleEvent {
-  return { type: "pending-start-hook-upserted", pendingTurnStart };
 }

@@ -13,6 +13,7 @@ import {
   type ChatThreadStreamViewState,
   reduceThreadStreamSlice,
   type ThreadStreamAction,
+  threadStreamItems,
   threadStreamStartActiveSegment,
   threadStreamWithActiveTurnItems,
 } from "./thread-stream";
@@ -78,7 +79,7 @@ export function activeTurnWithLifecycle(state: ChatActiveTurnState, lifecycle: C
 function sameTurnScope(left: ChatTurnLifecycleState, right: ChatTurnLifecycleState): boolean {
   if (left.kind !== right.kind) return false;
   if (left.kind === "starting" && right.kind === "starting") {
-    return left.pendingTurnStart.anchorItemId === right.pendingTurnStart.anchorItemId;
+    return left.anchorItemId === right.anchorItemId;
   }
   if (left.kind === "running" && right.kind === "running") return left.turnId === right.turnId;
   return true;
@@ -88,24 +89,15 @@ export function activeTurnCleared(state: ChatActiveTurnState): ChatActiveTurnSta
   return initialChatActiveTurnState(state.turnScopeRevision + 1);
 }
 
-export function activeTurnStartedWithItems(
+export function activeTurnStarted(
   state: ChatActiveTurnState,
   threadStream: ChatThreadStreamState,
   turnId: string,
-  items: readonly ThreadStreamItem[],
+  items?: readonly ThreadStreamItem[],
 ): TurnScopeResult {
   const view = chatThreadStreamViewState(threadStream, state);
-  const nextView = threadStreamWithActiveTurnItems(view, turnId, items);
+  const nextView = threadStreamWithActiveTurnItems(view, turnId, items ?? threadStreamItems(view));
   return splitViewState(state, nextView);
-}
-
-export function activeTurnStartedWithoutItems(
-  state: ChatActiveTurnState,
-  threadStream: ChatThreadStreamState,
-  turnId: string,
-): TurnScopeResult {
-  const view = chatThreadStreamViewState(threadStream, state);
-  return splitViewState(state, threadStreamStartActiveSegment(view, turnId, []));
 }
 
 export function activeTurnOptimisticallyStarted(

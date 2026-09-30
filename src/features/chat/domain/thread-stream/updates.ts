@@ -1,4 +1,3 @@
-import { threadStreamUserRoles } from "./conversation";
 import type { ThreadStreamFileChange, ThreadStreamItem } from "./items";
 
 export function upsertThreadStreamItemById(items: readonly ThreadStreamItem[], next: ThreadStreamItem): ThreadStreamItem[] {
@@ -47,31 +46,4 @@ export function completeReasoningItems(items: readonly ThreadStreamItem[], turnI
     } satisfies ThreadStreamItem);
   }
   return changed ? nextItems : items;
-}
-
-export function attachHookRunsToTurn(
-  items: readonly ThreadStreamItem[],
-  turnId: string,
-  hookItemIds: readonly string[],
-  afterItemId?: string | null,
-): ThreadStreamItem[] {
-  const hookIdSet = new Set(hookItemIds);
-  const attachedHooks = items.filter((item) => hookIdSet.has(item.id)).map((item) => ({ ...item, turnId }));
-  if (attachedHooks.length === 0) return [...items];
-
-  const withoutAttachedHooks = items.filter((item) => !hookIdSet.has(item.id));
-  const anchorItemId = afterItemId ?? lastUserMessageAnchorId(withoutAttachedHooks, turnId);
-  if (!anchorItemId) return [...withoutAttachedHooks, ...attachedHooks];
-  const insertAfterIndex = withoutAttachedHooks.findIndex((item) => item.id === anchorItemId);
-  if (insertAfterIndex === -1) return [...withoutAttachedHooks, ...attachedHooks];
-  return [...withoutAttachedHooks.slice(0, insertAfterIndex + 1), ...attachedHooks, ...withoutAttachedHooks.slice(insertAfterIndex + 1)];
-}
-
-function lastUserMessageAnchorId(items: readonly ThreadStreamItem[], turnId: string): string | null {
-  const roles = threadStreamUserRoles(items);
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (item && roles[index] === "initiator" && (!item.turnId || item.turnId === turnId)) return item.id;
-  }
-  return null;
 }

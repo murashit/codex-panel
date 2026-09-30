@@ -1,11 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import {
-  attachHookRunsToTurn,
-  completeReasoningItems,
-  upsertThreadStreamItemById,
-} from "../../../../../src/features/chat/domain/thread-stream/updates";
+import { completeReasoningItems, upsertThreadStreamItemById } from "../../../../../src/features/chat/domain/thread-stream/updates";
 
 describe("thread stream item updates", () => {
   it("keeps item order and unrelated identities across arbitrary upserts", () => {
@@ -73,68 +69,7 @@ describe("thread stream item updates", () => {
     expect(result[1]).toBe(otherTurn);
     expect(result[2]).toBe(command);
   });
-
-  it("attaches selected hooks to a turn immediately after an explicit anchor", () => {
-    const first = userMessage("user", "turn");
-    const anchor = commandItem("anchor", "Completed");
-    const firstHook = hookItem("hook-1");
-    const last = commandItem("last", "Completed");
-    const secondHook = hookItem("hook-2");
-
-    const result = attachHookRunsToTurn([first, firstHook, anchor, last, secondHook], "turn", ["hook-1", "hook-2"], "anchor");
-
-    expect(result.map((item) => item.id)).toEqual(["user", "anchor", "hook-1", "hook-2", "last"]);
-    expect(result.filter((item) => item.kind === "hook").map((item) => item.turnId)).toEqual(["turn", "turn"]);
-  });
-
-  it("falls back to the target turn initiator rather than a steer or another turn", () => {
-    const targetPrompt = userMessage("target-prompt", "turn");
-    const targetSteer = {
-      ...userMessage("target-steer", "turn"),
-      provenance: { source: "localUser", channel: "optimistic", interaction: "steer", sourceId: "target-steer" },
-    } satisfies ThreadStreamItem;
-    const otherPrompt = userMessage("other-prompt", "other-turn");
-    const hook = hookItem("hook");
-
-    const result = attachHookRunsToTurn([targetPrompt, targetSteer, otherPrompt, hook], "turn", ["hook"]);
-
-    expect(result.map((item) => item.id)).toEqual(["target-prompt", "hook", "target-steer", "other-prompt"]);
-    expect(result[1]).toMatchObject({ id: "hook", turnId: "turn" });
-  });
-
-  it("uses the latest eligible user message as the fallback anchor", () => {
-    const earlier = userMessage("earlier");
-    const later = userMessage("later");
-    const hook = hookItem("hook");
-
-    expect(attachHookRunsToTurn([earlier, later, hook], "turn", ["hook"]).map((item) => item.id)).toEqual(["earlier", "later", "hook"]);
-  });
-
-  it("appends attached hooks when no user-message anchor exists", () => {
-    const command = commandItem("command", "Completed");
-    const hook = hookItem("hook");
-
-    const result = attachHookRunsToTurn([hook, command], "turn", ["hook"]);
-
-    expect(result.map((item) => item.id)).toEqual(["command", "hook"]);
-    expect(result[1]).toMatchObject({ id: "hook", turnId: "turn" });
-  });
-
-  it("appends attached hooks when an explicit anchor is missing and leaves items unchanged when hooks are missing", () => {
-    const prompt = userMessage("prompt", "turn");
-    const hook = hookItem("hook");
-
-    expect(attachHookRunsToTurn([hook, prompt], "turn", ["hook"], "missing").map((item) => item.id)).toEqual(["prompt", "hook"]);
-
-    const items = [prompt, hook];
-    const withoutMatchingHooks = attachHookRunsToTurn(items, "turn", ["missing"]);
-    expect(withoutMatchingHooks).toEqual(items);
-  });
 });
-
-function userMessage(id: string, turnId?: string): ThreadStreamItem {
-  return { id, kind: "dialogue", dialogueKind: "user", role: "user", text: id, ...(turnId ? { turnId } : {}) };
-}
 
 function commandItem(id: string, statusLabel: string): Extract<ThreadStreamItem, { kind: "command" }> {
   return {
@@ -159,8 +94,4 @@ function fileChangeItem(
 
 function reasoningItem(id: string, turnId: string): Extract<ThreadStreamItem, { kind: "reasoning" }> {
   return { id, kind: "reasoning", role: "tool", text: id, turnId, statusLabel: "Running", executionState: "running" };
-}
-
-function hookItem(id: string): Extract<ThreadStreamItem, { kind: "hook" }> {
-  return { id, kind: "hook", role: "tool", text: id };
 }

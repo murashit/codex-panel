@@ -109,17 +109,6 @@ export function createAwaitingResumeThreadState(
   };
 }
 
-export function createActiveThreadState(id: string): ChatActiveThreadState {
-  return {
-    id,
-    title: null,
-    tokenUsage: null,
-    lifetime: null,
-    canAcceptDirectInput: null,
-    provenance: null,
-  };
-}
-
 export function panelThreadIdForState(panelThread: ChatPanelThreadState): string | null {
   if (panelThread.kind === "awaiting-resume") return panelThread.threadId;
   return panelThread.kind === "active" ? panelThread.thread.id : null;

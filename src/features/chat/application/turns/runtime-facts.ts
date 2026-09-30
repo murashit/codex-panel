@@ -88,8 +88,6 @@ export type TurnRuntimeFact =
   | {
       type: "hookRunObserved";
       item: ThreadStreamItem;
-      turnId: string | null;
-      isPromptSubmission: boolean;
     }
   | {
       type: "requestResolved";

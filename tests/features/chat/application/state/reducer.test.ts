@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
-import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
+import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamStableItems } from "../../../../../src/features/chat/application/state/thread-stream";
+import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
-import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
+import { activeTurnId, chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { threadActivationFixture } from "../../../../support/thread-activation";
@@ -58,7 +59,7 @@ describe("chatReducer", () => {
     { label: "a different submission", phase: "committed", actionId: "older-web" },
     { label: "an uncommitted submission", phase: "cancellable", actionId: "current-web" },
   ] as const)("ignores an optimistic turn start owned by $label", ({ phase, actionId }) => {
-    const state = chatReducer(chatStateFixture(), {
+    const state = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), {
       type: "web-submission/pending",
       submission: pendingWebSubmission("current-web", phase),
     });
@@ -67,7 +68,7 @@ describe("chatReducer", () => {
     const next = chatReducer(state, {
       type: "turn/optimistic-started",
       item,
-      pendingTurnStart: { anchorItemId: item.id, promptSubmitHookItemIds: [] },
+
       pendingSubmissionId: actionId,
     });
 
@@ -75,7 +76,7 @@ describe("chatReducer", () => {
   });
 
   it("adopts an optimistic turn start from the matching committed web submission", () => {
-    const state = chatReducer(chatStateFixture(), {
+    const state = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), {
       type: "web-submission/pending",
       submission: pendingWebSubmission("current-web", "committed"),
     });
@@ -84,7 +85,7 @@ describe("chatReducer", () => {
     const next = chatReducer(state, {
       type: "turn/optimistic-started",
       item,
-      pendingTurnStart: { anchorItemId: item.id, promptSubmitHookItemIds: [] },
+
       pendingSubmissionId: "current-web",
     });
 
@@ -156,7 +157,7 @@ describe("chatReducer", () => {
       },
     },
   ] as const)("refuses to $label", ({ phase, action }) => {
-    const state = chatReducer(chatStateFixture(), {
+    const state = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), {
       type: "web-submission/pending",
       submission: pendingWebSubmission("current-web", phase),
     });
@@ -490,17 +491,51 @@ describe("chatReducer", () => {
     expect(chatStateThreadStreamItems(next)).toEqual([]);
   });
 
-  it("clears running state when a turn start fails", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, {
-      activeTurn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] } } },
+  it.each([
+    ["another thread", "other-thread", "local-user"],
+    ["another submission", "thread", "old-user"],
+  ])("ignores start responses belonging to %s", (_label, threadId, anchorItemId) => {
+    const state = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), {
+      type: "turn/optimistic-started",
+      item: userItem("local-user"),
     });
 
-    const next = chatReducer(state, { type: "turn/start-failed", items: [] });
+    expect(chatReducer(state, { type: "turn/start-acknowledged", threadId, anchorItemId, turnId: "turn" })).toBe(state);
+    expect(chatReducer(state, { type: "turn/start-failed", threadId, anchorItemId })).toBe(state);
+  });
 
-    expect(chatTurnBusy(next.activeTurn)).toBe(false);
-    expect(activeTurnId(next.activeTurn)).toBeNull();
-    expect(pendingTurnStart(next.activeTurn)).toBeNull();
+  it("acknowledges only its optimistic item without mutating the previous state", () => {
+    const previous = withChatStateStableThreadStreamItems(chatStateFixture({ activeThread: { id: "thread" } }), [dialogueItem("previous")]);
+    const state = chatReducer(previous, { type: "turn/optimistic-started", item: userItem("local-user") });
+    const next = chatReducer(state, { type: "turn/start-acknowledged", threadId: "thread", anchorItemId: "local-user", turnId: "turn" });
+
+    expect(next.activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
+    expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("previous"), { ...userItem("local-user"), turnId: "turn" }]);
+    expect(chatStateThreadStreamItems(state)).toEqual([dialogueItem("previous"), userItem("local-user")]);
+
+    const failed = chatReducer(state, { type: "turn/start-failed", threadId: "thread", anchorItemId: "local-user" });
+    expect(failed.activeTurn.lifecycle).toEqual({ kind: "idle" });
+    expect(chatStateThreadStreamItems(failed)).toEqual([dialogueItem("previous")]);
+  });
+
+  it.each(["notification", "response"] as const)("preserves optimistic input and server activity when %s arrives first", (first) => {
+    let state = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), {
+      type: "turn/optimistic-started",
+      item: userItem("local-user"),
+    });
+    const notification: ChatAction = { type: "turn/started", threadId: "thread", turnId: "turn" };
+    const response: ChatAction = { type: "turn/start-acknowledged", threadId: "thread", anchorItemId: "local-user", turnId: "turn" };
+    state = chatReducer(state, first === "notification" ? notification : response);
+    state = chatReducer(state, { type: "thread-stream/assistant-delta-appended", itemId: "assistant", turnId: "turn", delta: "working" });
+    const next = chatReducer(state, first === "notification" ? response : notification);
+
+    expect(chatStateThreadStreamItems(next)).toEqual([
+      { ...userItem("local-user"), turnId: "turn" },
+      expect.objectContaining({ id: "assistant", text: "working", turnId: "turn" }),
+    ]);
+    expect(chatReducer(next, { type: "turn/start-acknowledged", threadId: "thread", anchorItemId: "local-user", turnId: "old-turn" })).toBe(
+      next,
+    );
   });
 
   it("ignores stale turn start failures after the turn is already running", () => {
@@ -508,7 +543,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "running", turnId: "turn" } } });
     state = withChatStateStableThreadStreamItems(state, [dialogueItem("existing")]);
 
-    const next = chatReducer(state, { type: "turn/start-failed", items: [] });
+    const next = chatReducer(state, { type: "turn/start-failed", threadId: "thread", anchorItemId: "local-user" });
 
     expect(chatTurnBusy(next.activeTurn)).toBe(true);
     expect(activeTurnId(next.activeTurn)).toBe("turn");
@@ -601,7 +636,8 @@ describe("chatReducer", () => {
     const next = chatReducer(state, {
       type: "turn/start-acknowledged",
       turnId: "completed-turn",
-      items: [{ id: "local-user", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "completed-turn" }],
+      threadId: "thread",
+      anchorItemId: "local-user",
     });
 
     expect(chatTurnBusy(next.activeTurn)).toBe(false);
@@ -609,9 +645,9 @@ describe("chatReducer", () => {
   });
 
   it("ignores completed turns while a new turn is still starting", () => {
-    const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] };
+    const starting = { kind: "starting" as const, anchorItemId: "local-user" };
     let state = chatStateFixture();
-    state = chatStateWith(state, { activeTurn: { lifecycle: { kind: "starting", pendingTurnStart: pending } } });
+    state = chatStateWith(state, { activeTurn: { lifecycle: starting } });
     state = withChatStateStableThreadStreamItems(state, [
       { id: "local-user", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
     ]);
@@ -624,7 +660,7 @@ describe("chatReducer", () => {
     });
 
     expect(chatTurnBusy(next.activeTurn)).toBe(true);
-    expect(pendingTurnStart(next.activeTurn)).toEqual(pending);
+    expect(next.activeTurn.lifecycle).toEqual(starting);
     expect(chatStateThreadStreamItems(next)).toEqual(chatStateThreadStreamItems(state));
   });
 
@@ -806,4 +842,8 @@ function resumedThreadAction(threadId: string) {
     ...threadActivationFixture(thread(threadId)),
     type: "active-thread/resumed" as const,
   };
+}
+
+function userItem(id: string) {
+  return localUserDialogueItemFromInput({ id, text: id, codexInput: [{ type: "text", text: id }] });
 }

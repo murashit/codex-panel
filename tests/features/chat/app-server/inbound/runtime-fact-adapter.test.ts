@@ -132,10 +132,9 @@ describe("app-server turn runtime fact adapter", () => {
 
     expect(facts).toEqual({
       type: "hookRunObserved",
-      turnId: "turn-active",
-      isPromptSubmission: false,
       item: expect.objectContaining({
         id: "hook-hook-1-1",
+        turnId: "turn-active",
         kind: "hook",
         operation: "postToolUse",
         primaryTarget: { kind: "value", value: "Formatted 1 file." },

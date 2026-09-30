@@ -1,23 +1,17 @@
-export interface PendingTurnStart {
-  readonly anchorItemId: string;
-  readonly promptSubmitHookItemIds: readonly string[];
-}
-
 export const STATUS_TURN_RUNNING = "Turn running...";
 
 export type ChatTurnLifecycleState =
   | { readonly kind: "idle" }
-  | { readonly kind: "starting"; readonly pendingTurnStart: PendingTurnStart }
+  | { readonly kind: "starting"; readonly anchorItemId: string }
   | { readonly kind: "running"; readonly turnId: string };
 
 export type ChatTurnLifecycleEvent =
   | { type: "started"; turnId: string }
   | { type: "completed"; turnId: string }
   | { type: "cleared" }
-  | { type: "optimistic-started"; pendingTurnStart: PendingTurnStart }
+  | { type: "optimistic-started"; anchorItemId: string }
   | { type: "start-acknowledged"; turnId: string }
-  | { type: "start-failed" }
-  | { type: "pending-start-hook-upserted"; pendingTurnStart: PendingTurnStart | null };
+  | { type: "start-failed" };
 
 export interface ChatTurnLifecycleOwner {
   readonly lifecycle: ChatTurnLifecycleState;
@@ -32,11 +26,6 @@ export function activeTurnId(state: ChatTurnLifecycleOwner): string | null {
   return lifecycle.kind === "running" ? lifecycle.turnId : null;
 }
 
-export function pendingTurnStart(state: ChatTurnLifecycleOwner): PendingTurnStart | null {
-  const lifecycle = state.lifecycle;
-  return lifecycle.kind === "starting" ? lifecycle.pendingTurnStart : null;
-}
-
 export function transitionChatTurnLifecycleState(state: ChatTurnLifecycleState, event: ChatTurnLifecycleEvent): ChatTurnLifecycleState {
   switch (event.type) {
     case "started":
@@ -46,16 +35,13 @@ export function transitionChatTurnLifecycleState(state: ChatTurnLifecycleState, 
     case "cleared":
       return state.kind === "idle" ? state : { kind: "idle" };
     case "optimistic-started":
-      return { kind: "starting", pendingTurnStart: event.pendingTurnStart };
+      return { kind: "starting", anchorItemId: event.anchorItemId };
     case "start-acknowledged":
       if (state.kind === "starting" || (state.kind === "running" && state.turnId === event.turnId)) {
         return { kind: "running", turnId: event.turnId };
       }
       return state;
     case "start-failed":
-      return state.kind === "starting" ? { kind: "idle" } : state;
-    case "pending-start-hook-upserted":
-      if (event.pendingTurnStart) return { kind: "starting", pendingTurnStart: event.pendingTurnStart };
       return state.kind === "starting" ? { kind: "idle" } : state;
     default:
       return unhandledChatTurnLifecycleEvent(event);

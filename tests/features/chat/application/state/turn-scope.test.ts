@@ -2,39 +2,30 @@ import { describe, expect, it } from "vitest";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
-import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
+import { activeTurnId, chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
 import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture } from "../../support/state";
 
 describe("active turn aggregate", () => {
   it("owns the optimistic, running, child activity, and completed scopes", () => {
     const optimisticItem = userItem("local-user");
-    const optimistic = chatReducer(chatStateFixture(), {
+    const optimistic = chatReducer(chatStateFixture({ activeThread: { id: "thread" } }), {
       type: "turn/optimistic-started",
       item: optimisticItem,
-      pendingTurnStart: { anchorItemId: optimisticItem.id, promptSubmitHookItemIds: [] },
     });
     const optimisticRevision = optimistic.activeTurn.turnScopeRevision;
     expect(optimistic.activeTurn.lifecycle).toEqual({
       kind: "starting",
-      pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
+      anchorItemId: "local-user",
     });
     expect(chatTurnBusy(optimistic.activeTurn)).toBe(true);
     expect(activeTurnId(optimistic.activeTurn)).toBeNull();
-    expect(pendingTurnStart(optimistic.activeTurn)).toEqual({ anchorItemId: "local-user", promptSubmitHookItemIds: [] });
+
     expect(optimistic.activeTurn.activeSegment?.items).toEqual([optimisticItem]);
 
-    const withPromptHook = chatReducer(optimistic, {
-      type: "turn/pending-start-hook-upserted",
-      item: { id: "prompt-hook", kind: "hook", role: "tool", text: "prompt" },
-      pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["prompt-hook"] },
-    });
-    expect(withPromptHook.activeTurn.turnScopeRevision).toBe(optimisticRevision);
-
-    const secondOptimisticStart = chatReducer(withPromptHook, {
+    const secondOptimisticStart = chatReducer(optimistic, {
       type: "turn/optimistic-started",
       item: userItem("second-local-user"),
-      pendingTurnStart: { anchorItemId: "second-local-user", promptSubmitHookItemIds: [] },
     });
     const secondOptimisticRevision = secondOptimisticStart.activeTurn.turnScopeRevision;
     expect(secondOptimisticRevision).toBe(optimisticRevision + 1);
@@ -51,19 +42,21 @@ describe("active turn aggregate", () => {
     const running = chatReducer(preAckDelta, {
       type: "turn/start-acknowledged",
       turnId: "turn-1",
-      items: [userItem("local-user", "turn-1"), assistantItem("assistant", "turn-1", "working")],
+      threadId: "thread",
+      anchorItemId: "second-local-user",
     });
     const runningRevision = running.activeTurn.turnScopeRevision;
     expect(running.activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn-1" });
     expect(chatTurnBusy(running.activeTurn)).toBe(true);
     expect(activeTurnId(running.activeTurn)).toBe("turn-1");
-    expect(pendingTurnStart(running.activeTurn)).toBeNull();
+
     expect(runningRevision).toBe(secondOptimisticRevision + 1);
 
     const duplicateAcknowledgement = chatReducer(running, {
       type: "turn/start-acknowledged",
       turnId: "turn-1",
-      items: [userItem("local-user", "turn-1"), assistantItem("assistant", "turn-1", "working")],
+      threadId: "thread",
+      anchorItemId: "second-local-user",
     });
     expect(duplicateAcknowledgement.activeTurn.turnScopeRevision).toBe(runningRevision);
 
@@ -119,7 +112,7 @@ describe("active turn aggregate", () => {
     expect(completed.activeTurn.lifecycle).toEqual({ kind: "idle" });
     expect(chatTurnBusy(completed.activeTurn)).toBe(false);
     expect(activeTurnId(completed.activeTurn)).toBeNull();
-    expect(pendingTurnStart(completed.activeTurn)).toBeNull();
+
     expect(completed.activeTurn.turnScopeRevision).toBe(runningRevision + 1);
     expect(completed.activeTurn.activeSegment).toBeNull();
     expect(completed.activeTurn.pendingSteers).toEqual([]);
@@ -132,7 +125,7 @@ describe("active turn aggregate", () => {
   });
 
   it("rejects stale parent tracking and pending steers after an active turn changes", () => {
-    let state = chatStateFixture({ activeTurn: { lifecycle: { kind: "running", turnId: "turn-a" } } });
+    let state = chatStateFixture({ activeThread: { id: "thread" }, activeTurn: { lifecycle: { kind: "running", turnId: "turn-a" } } });
     state = chatReducer(state, {
       type: "thread-stream/pending-steer-added",
       item: {
@@ -150,12 +143,12 @@ describe("active turn aggregate", () => {
     state = chatReducer(state, {
       type: "turn/optimistic-started",
       item: optimisticItem,
-      pendingTurnStart: { anchorItemId: optimisticItem.id, promptSubmitHookItemIds: [] },
     });
     state = chatReducer(state, {
       type: "turn/start-acknowledged",
       turnId: "turn-b",
-      items: [userItem("local-user-b", "turn-b")],
+      threadId: "thread",
+      anchorItemId: "local-user-b",
     });
 
     const staleParent = chatReducer(state, {

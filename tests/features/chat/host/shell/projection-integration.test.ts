@@ -270,24 +270,25 @@ describe("chat panel projection integration", () => {
       type: "turn/started",
       threadId: "parent",
       turnId: "parent-turn",
-      items: [
-        {
-          id: "agent",
-          kind: "agent",
-          role: "tool",
-          coordinationUpdate: "snapshot",
-          turnId: "parent-turn",
-          action: "wait",
-          status: "inProgress",
-          senderThreadId: "parent",
-          targets: [{ threadId: "child" }],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
-          agents: [{ threadId: "child", status: "running", executionState: "running", message: null }],
-          executionState: "running",
-        },
-      ],
+    });
+    state = chatReducer(state, {
+      type: "thread-stream/item-added",
+      item: {
+        id: "agent",
+        kind: "agent",
+        role: "tool",
+        coordinationUpdate: "snapshot",
+        turnId: "parent-turn",
+        action: "wait",
+        status: "inProgress",
+        senderThreadId: "parent",
+        targets: [{ threadId: "child" }],
+        prompt: null,
+        model: null,
+        reasoningEffort: null,
+        agents: [{ threadId: "child", status: "running", executionState: "running", message: null }],
+        executionState: "running",
+      },
     });
     state = chatReducer(state, {
       type: "subagent-activity/tracked",

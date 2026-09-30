@@ -44,7 +44,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "turn/optimistic-started":
     case "turn/start-acknowledged":
     case "turn/start-failed":
-    case "turn/pending-start-hook-upserted":
     case "request/resolved":
     case "web-submission/pending":
     case "web-submission/committed":

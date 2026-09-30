@@ -6,7 +6,7 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { optimisticTurnStart } from "../../../../../src/features/chat/application/submission/optimistic-turn-start";
+import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import {
   createTurnSubmissionCommand,
   type TurnSubmissionCommandHost,
@@ -210,7 +210,7 @@ describe("TurnSubmissionCommand", () => {
     });
     expect(host.prepareInput).not.toHaveBeenCalled();
     expect(stateStore.getState().activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
-    expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
+    expect(stateStore.getState().connection.statusText).toBe("Turn running...");
   });
 
   it("replaces a pending web submission when starting a turn", async () => {
@@ -760,11 +760,10 @@ describe("TurnSubmissionCommand", () => {
   it("reports busy turns that cannot be steered", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
-    const optimistic = optimisticTurnStart({ id: "local-user", text: "pending", codexInput: textInput("pending") });
+    const item = localUserDialogueItemFromInput({ id: "local-user", text: "pending", codexInput: textInput("pending") });
     stateStore.dispatch({
       type: "turn/optimistic-started",
-      item: optimistic.item,
-      pendingTurnStart: optimistic.pendingTurnStart,
+      item,
     });
     const commands = createTurnSubmissionCommand(host);
 

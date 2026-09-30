@@ -178,7 +178,7 @@ function hookRunFact(
   status: string,
 ): TurnRuntimeFact | null {
   const item = hookRunThreadStreamItem(run, turnId, status);
-  return item ? { type: "hookRunObserved", item, turnId, isPromptSubmission: run.eventName === "userPromptSubmit" } : null;
+  return item ? { type: "hookRunObserved", item } : null;
 }
 
 function completedTurnOutcome(status: Extract<ServerNotification, { method: "turn/completed" }>["params"]["turn"]["status"]): TurnOutcome {

@@ -2,7 +2,6 @@ import { activeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
-import { pendingTurnStart } from "../turns/turn-state";
 import type { ComposerSubmissionClaim } from "./input-claim";
 
 export interface TurnSubmissionAttemptInput {
@@ -12,8 +11,6 @@ export interface TurnSubmissionAttemptInput {
 
 export class TurnSubmissionAttempt {
   private readonly panelTarget: PanelTargetLease;
-  private optimisticItemId: string | null = null;
-  private expectedThreadId: string | null = null;
 
   constructor(
     private readonly stateStore: ChatStateStore,
@@ -24,10 +21,6 @@ export class TurnSubmissionAttempt {
 
   get pendingSubmissionId(): string | undefined {
     return this.input.pendingSubmissionId;
-  }
-
-  get optimisticId(): string | null {
-    return this.optimisticItemId;
   }
 
   isPendingCurrent(): boolean {
@@ -58,19 +51,6 @@ export class TurnSubmissionAttempt {
 
   markAdopted(): void {
     this.input.submissionClaim?.markAdopted();
-  }
-
-  recordOptimistic(threadId: string, optimisticItemId: string): void {
-    this.expectedThreadId = threadId;
-    this.optimisticItemId = optimisticItemId;
-  }
-
-  failureStillApplies(): boolean {
-    if (!this.optimisticItemId) return this.isCurrent();
-    const state = this.stateStore.getState();
-    return (
-      activeThreadState(state)?.id === this.expectedThreadId && pendingTurnStart(state.activeTurn)?.anchorItemId === this.optimisticItemId
-    );
   }
 
   settle(accepted: boolean): void {

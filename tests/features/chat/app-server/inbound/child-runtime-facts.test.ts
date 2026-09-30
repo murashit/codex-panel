@@ -83,6 +83,43 @@ describe("normalized child runtime facts", () => {
     );
   });
 
+  it("advances child activity to observed hooks and updates the same run on completion", () => {
+    const started = {
+      method: "hook/started",
+      params: {
+        ...childScope,
+        run: {
+          id: "hook-1",
+          eventName: "userPromptSubmit",
+          handlerType: "command",
+          executionMode: "sync",
+          scope: "turn",
+          sourcePath: "/vault/.codex/hooks.json",
+          source: "project",
+          displayOrder: 1n,
+          status: "running",
+          statusMessage: "Preparing",
+          startedAt: 1n,
+          completedAt: null,
+          durationMs: null,
+          entries: [],
+        },
+      },
+    } satisfies RuntimeFactSource;
+    let state = receive(trackedParent(), assistantDelta("answer"));
+    state = receive(state, started);
+    expect(preview(state)).toMatchObject({ id: "hook-hook-1-1", kind: "hook", turnId: "child-turn", executionState: "running" });
+
+    state = receive(state, {
+      method: "hook/completed",
+      params: {
+        ...started.params,
+        run: { ...started.params.run, status: "completed", statusMessage: "Ready", completedAt: 2n, durationMs: 1n },
+      },
+    });
+    expect(preview(state)).toMatchObject({ id: "hook-hook-1-1", kind: "hook", turnId: "child-turn", executionState: "completed" });
+  });
+
   it("does not advance a newer preview for old item completion, but uses canonical turn completion", () => {
     let state = receive(trackedParent(), assistantDelta("newer"));
     state = receive(state, completedReasoning("older"));
@@ -121,7 +158,7 @@ describe("normalized child runtime facts", () => {
 
     const idle = chatStateWith(state, { activeTurn: { lifecycle: { kind: "idle" } } });
     expect(plan.actions.reduce(chatReducer, idle).activeTurn.subagents).toBe(idle.activeTurn.subagents);
-    state = chatReducer(state, { type: "turn/started", threadId: "parent", turnId: "next-parent-turn", items: [] });
+    state = chatReducer(state, { type: "turn/started", threadId: "parent", turnId: "next-parent-turn" });
     expect(state.activeTurn.subagents.byThreadId.size).toBe(0);
     expect(plan.actions.reduce(chatReducer, state).activeTurn.subagents).toBe(state.activeTurn.subagents);
     expect(planChatInboundNotification(state, notification, localId).actions).toEqual([]);

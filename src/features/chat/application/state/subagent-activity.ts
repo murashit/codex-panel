@@ -71,7 +71,7 @@ function reduceChildRuntimeFact(state: ChatSubagentActivityState, threadId: stri
     case "itemCompleted":
       return observeItem(state, threadId, fact.item, false);
     case "hookRunObserved":
-      return fact.turnId ? observeItem(state, threadId, { ...fact.item, turnId: fact.turnId }, true) : state;
+      return fact.item.turnId ? observeItem(state, threadId, fact.item, true) : state;
     case "autoReviewUpdated":
     case "reviewWarning":
       return observeItem(state, threadId, fact.item, true);

@@ -8,16 +8,9 @@ import type { ChatStateStore } from "../state/store";
 import { archiveForkSource, type ForkReplacementEffects, type ForkReplacementPublication } from "../threads/fork-replacement";
 import type { ThreadStartCommand } from "../threads/thread-start-command";
 import type { ChatTurnPort } from "../turns/turn-port";
-import { activeTurnId, chatTurnBusy, STATUS_TURN_RUNNING } from "../turns/turn-state";
+import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
 import type { ComposerSubmissionClaim } from "./input-claim";
-import {
-  acknowledgeOptimisticTurnStart,
-  cleanupFailedTurnStart,
-  localUserDialogueItemFromInput,
-  optimisticTurnStart,
-  shouldAcknowledgeTurnStart,
-} from "./optimistic-turn-start";
-import { submissionStateSnapshot } from "./snapshot";
+import { localUserDialogueItemFromInput } from "./local-user-dialogue";
 import { TurnSubmissionAttempt } from "./turn-submission-attempt";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
@@ -105,6 +98,7 @@ async function sendTurnText(
   const replacement = pendingForkReplacement(submissionState);
   let publication: ForkReplacementPublication | undefined;
   let targetThreadId: string | null = plan.kind === "start-turn" ? plan.threadId : null;
+  let optimisticItemId: string | null = null;
 
   try {
     if (replacement && plan.kind !== "blocked" && plan.kind !== "steer") {
@@ -149,9 +143,8 @@ async function sendTurnText(
     }
 
     const clientUserMessageId = localItemIds.next("local-user");
-    const optimisticItemId = attempt.pendingSubmissionId ?? clientUserMessageId;
-    attempt.recordOptimistic(activeThreadId, optimisticItemId);
-    const optimistic = optimisticTurnStart({
+    optimisticItemId = attempt.pendingSubmissionId ?? clientUserMessageId;
+    const optimistic = localUserDialogueItemFromInput({
       id: optimisticItemId,
       ...(attempt.pendingSubmissionId ? { clientId: clientUserMessageId } : {}),
       text: prepared.text,
@@ -159,8 +152,7 @@ async function sendTurnText(
     });
     host.stateStore.dispatch({
       type: "turn/optimistic-started",
-      item: optimistic.item,
-      pendingTurnStart: optimistic.pendingTurnStart,
+      item: optimistic,
       ...(attempt.pendingSubmissionId ? { pendingSubmissionId: attempt.pendingSubmissionId } : {}),
     });
     attempt.markAdopted();
@@ -171,38 +163,15 @@ async function sendTurnText(
       clientUserMessageId,
     });
     if (outcome.kind === "not-started") {
-      const failedState = submissionStateSnapshot(host.stateStore.getState());
-      if (failedState.activeThreadId !== activeThreadId || failedState.pendingTurnStart?.anchorItemId !== optimisticItemId) return false;
-      const items = cleanupFailedTurnStart({
-        items: failedState.items,
-        optimisticUserId: optimisticItemId,
-        pendingTurnStart: failedState.pendingTurnStart,
-      });
-      host.stateStore.dispatch({ type: "turn/start-failed", items });
+      host.stateStore.dispatch({ type: "turn/start-failed", threadId: activeThreadId, anchorItemId: optimisticItemId });
       return false;
     }
-    const response = outcome.value;
-    const acknowledgedState = submissionStateSnapshot(host.stateStore.getState());
-    const pendingStart = acknowledgedState.pendingTurnStart;
-    if (
-      shouldAcknowledgeTurnStart({
-        expectedThreadId: activeThreadId,
-        activeThreadId: acknowledgedState.activeThreadId,
-        pendingTurnStart: pendingStart,
-        activeTurnId: acknowledgedState.activeTurnId,
-        optimisticUserId: optimisticItemId,
-        responseTurnId: response.turnId,
-      })
-    ) {
-      const items = acknowledgeOptimisticTurnStart({
-        items: acknowledgedState.items,
-        optimisticUserId: optimisticItemId,
-        turnId: response.turnId,
-        pendingTurnStart: pendingStart,
-      });
-      host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turnId, items });
-      host.setStatus(STATUS_TURN_RUNNING);
-    }
+    host.stateStore.dispatch({
+      type: "turn/start-acknowledged",
+      threadId: activeThreadId,
+      anchorItemId: optimisticItemId,
+      turnId: outcome.value.turnId,
+    });
     if (replacement) {
       host.stateStore.dispatch({ type: "active-thread/fork-replacement-settled", threadId: activeThreadId });
       const acceptedPublication = publication;
@@ -211,14 +180,11 @@ async function sendTurnText(
     }
     return true;
   } catch (error) {
-    const failedState = submissionStateSnapshot(host.stateStore.getState());
-    if (attempt.failureStillApplies()) {
-      const items = cleanupFailedTurnStart({
-        items: failedState.items,
-        optimisticUserId: attempt.optimisticId,
-        pendingTurnStart: failedState.pendingTurnStart,
-      });
-      host.stateStore.dispatch({ type: "turn/start-failed", items });
+    const before = host.stateStore.getState();
+    const failureApplies = optimisticItemId && targetThreadId
+      ? host.stateStore.dispatch({ type: "turn/start-failed", threadId: targetThreadId, anchorItemId: optimisticItemId }) !== before
+      : attempt.isCurrent();
+    if (failureApplies) {
       attempt.failPending();
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }

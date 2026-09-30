@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import {
-  acknowledgeOptimisticTurnStart,
-  optimisticTurnStart,
-} from "../../../../../src/features/chat/application/submission/optimistic-turn-start";
+import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
 import {
   HistoryController,
   type ThreadHistoryPage,
@@ -317,36 +314,22 @@ describe("HistoryController", () => {
       const { loader, stateStore } = historyFixture({ readHistoryPage: vi.fn<HistoryPageReader>().mockReturnValue(pending.promise) });
       loader.applyInitialPage("thread", historyPage([], "cursor"));
       const loading = loader[method]();
-      const start = optimisticTurnStart({ id: "prompt", text: "Continue", codexInput: [] });
-      stateStore.dispatch({ type: "turn/optimistic-started", ...start });
-      const hook = { id: "prompt-hook", sourceItemId: "prompt-hook", kind: "hook", role: "tool", text: "Preparing" } as const;
-      const hookProjection = projectTurnRuntimeFact(stateStore.getState(), {
-        type: "hookRunObserved",
-        item: hook,
-        turnId: null,
-        isPromptSubmission: true,
-      });
-      for (const action of hookProjection.actions) stateStore.dispatch(action);
+      const item = localUserDialogueItemFromInput({ id: "prompt", text: "Continue", codexInput: [] });
+      stateStore.dispatch({ type: "turn/optimistic-started", item });
 
       pending.resolve(historyPage([message("older", "Earlier answer", "older-turn")], null));
       await loading;
-      expect(stateStore.getState().activeTurn.activeSegment?.items).toEqual([start.item, hook]);
-      const lifecycle = stateStore.getState().activeTurn.lifecycle;
+      expect(stateStore.getState().activeTurn.activeSegment?.items).toEqual([item]);
       stateStore.dispatch({
         type: "turn/start-acknowledged",
+        threadId: "thread",
+        anchorItemId: "prompt",
         turnId: "running",
-        items: acknowledgeOptimisticTurnStart({
-          items: chatStateThreadStreamItems(stateStore.getState()),
-          optimisticUserId: "prompt",
-          turnId: "running",
-          pendingTurnStart: lifecycle.kind === "starting" ? lifecycle.pendingTurnStart : null,
-        }),
       });
 
       expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
         expect.objectContaining({ id: "older" }),
         expect.objectContaining({ id: "prompt", text: "Continue", turnId: "running" }),
-        expect.objectContaining({ id: "prompt-hook", text: "Preparing", turnId: "running" }),
       ]);
     },
   );
