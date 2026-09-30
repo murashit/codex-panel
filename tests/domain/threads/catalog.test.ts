@@ -95,6 +95,10 @@ describe("thread catalog read model", () => {
       }),
     ).toBe(false);
   });
+
+  it("treats a changed working directory as a non-equivalent catalog entry", () => {
+    expect(threadCatalogEntryEqual(thread("thread"), { ...thread("thread"), cwd: "/another-project" })).toBe(false);
+  });
 });
 
 function thread(id: string): Thread {

@@ -15,7 +15,7 @@ If the Codex CLI is already installed and authenticated, Codex Panel uses that l
 
 ## How it works
 
-Codex Panel starts `codex app-server` locally. Each open panel keeps its own active thread and draft, with Codex working from the vault root.
+Codex Panel starts `codex app-server` locally. New threads use the vault root as their working directory. When you reopen a thread created elsewhere, Codex keeps that thread's original working directory; an explicit Obsidian file or selection reference can additionally make the current vault available as a workspace root for that thread and subsequent turns.
 
 Codex Panel stores panel preferences only, not API keys or provider credentials.
 
@@ -46,7 +46,7 @@ If Obsidian cannot find `codex`, set **Settings -> Codex Panel -> Codex executab
 
 ### Keep work separate or pick it up later
 
-A panel keeps its own active thread and draft. Open multiple panels to keep different tasks separate, or reopen regular threads later from panel history or the Threads view.
+A panel keeps its own active thread and draft. Open multiple panels to keep different tasks separate, or reopen regular threads later from panel history or the Threads view. The Threads view includes interactive sessions visible to the local Codex app-server, including sessions started outside Obsidian. Each row shows the thread's working directory so you can distinguish the current vault from another project.
 
 Use `/btw` for a temporary side chat, or `/refer <thread> <message>` to bring context from another thread without merging their histories.
 

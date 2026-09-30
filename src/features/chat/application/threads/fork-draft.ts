@@ -50,6 +50,7 @@ interface ThreadForkRuntimeOverrides {
   readonly approvalsReviewer?: ApprovalsReviewer;
   readonly permissions?: string;
   readonly sandboxPolicy?: RuntimeSandboxPolicy;
+  readonly runtimeWorkspaceRoots?: readonly string[];
 }
 
 export function forkDraftRuntime({ active, pending }: ChatRuntimeState): ChatRuntimeState {

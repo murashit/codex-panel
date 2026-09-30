@@ -277,7 +277,7 @@ describe("CodexChatView thread state", () => {
     await view.onOpen();
     await view.surface.activateThread("thread-1");
 
-    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1" }));
     expect(requestMethods(client)).not.toContain("thread/turns/list");
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("hello");
@@ -298,11 +298,11 @@ describe("CodexChatView thread state", () => {
 
     const firstOpen = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1" }));
     });
     const secondOpen = view.surface.activateThread("thread-2");
     await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-2", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-2" }));
     });
 
     secondResume.resolve(resumedThread("thread-2"));

@@ -30,6 +30,7 @@ interface TurnTranscriptSummaryPage {
 interface ThreadActivationResponse extends Partial<RuntimePermissionState> {
   thread: ThreadRecord;
   cwd: string;
+  runtimeWorkspaceRoots?: string[];
   model: string | null;
   serviceTier: ServiceTier | null;
   approvalsReviewer: ApprovalsReviewer | null;
@@ -140,11 +141,11 @@ function disabledMcpServers(value: unknown): Record<string, { enabled: boolean }
 export function resumeThread(
   client: AppServerRequestClient,
   threadId: string,
-  cwd: string,
+  cwd?: string,
 ): Promise<ClientResponseByMethod["thread/resume"]> {
   return client.request("thread/resume", {
     threadId,
-    cwd,
+    ...(cwd === undefined ? {} : { cwd }),
     excludeTurns: true,
     initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
   });
@@ -152,7 +153,7 @@ export function resumeThread(
 
 export async function listThreads(
   client: AppServerRequestClient,
-  cwd: string,
+  cwd: string | undefined,
   options: { archived?: boolean; sectionId?: string | null; signal?: AbortSignal } = {},
 ): Promise<Thread[]> {
   return collectCursorPages(async (cursor) => {
@@ -168,7 +169,7 @@ export async function listThreads(
 
 export async function readThreadPage(
   client: AppServerRequestClient,
-  cwd: string,
+  cwd: string | undefined,
   options: AppServerThreadListOptions = {},
 ): Promise<ThreadPage> {
   const archived = options.archived ?? false;
@@ -296,6 +297,7 @@ interface AppServerForkThreadOptions {
     readonly approvalsReviewer?: ApprovalsReviewer;
     readonly permissions?: string;
     readonly sandboxPolicy?: RuntimePermissionState["sandboxPolicy"];
+    readonly runtimeWorkspaceRoots?: readonly string[];
   };
 }
 
@@ -323,6 +325,7 @@ export async function forkThread(
     ...(permissions !== undefined ? { permissions } : {}),
     ...(sandbox !== undefined ? { sandbox } : {}),
     ...(runtime?.reasoningEffort !== undefined ? { config: { model_reasoning_effort: runtime.reasoningEffort } } : {}),
+    ...(runtime?.runtimeWorkspaceRoots === undefined ? {} : { runtimeWorkspaceRoots: [...runtime.runtimeWorkspaceRoots] }),
   });
   return threadActivationSnapshotFromAppServerResponse(response);
 }
@@ -376,7 +379,8 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
     activePermissionProfile: response.activePermissionProfile ?? null,
   });
   return {
-    thread: threadFromThreadRecord(response.thread),
+    thread: { ...threadFromThreadRecord(response.thread), cwd: response.cwd },
+    runtimeWorkspaceRoots: Array.isArray(response.runtimeWorkspaceRoots) ? [...response.runtimeWorkspaceRoots] : [],
     canAcceptDirectInput: typeof response.thread.canAcceptDirectInput === "boolean" ? response.thread.canAcceptDirectInput : null,
     approvalPolicyKnown: "approvalPolicy" in response,
     sandboxPolicyKnown: "sandbox" in response || "sandboxPolicy" in response,
@@ -412,7 +416,7 @@ export async function setThreadPinned(client: AppServerRequestClient, threadId: 
 
 export async function listPinnedThreads(
   client: AppServerRequestClient,
-  cwd: string,
+  cwd: string | undefined,
   options: { archived?: boolean; signal?: AbortSignal } = {},
 ): Promise<Thread[]> {
   return listThreads(client, cwd, { ...options, sectionId: BUILT_IN_PINNED_THREAD_SECTION_ID });
@@ -443,9 +447,9 @@ export function listThreadTurns(
   });
 }
 
-function readThreadRecordPage(client: AppServerRequestClient, cwd: string, options: AppServerThreadListOptions) {
+function readThreadRecordPage(client: AppServerRequestClient, cwd: string | undefined, options: AppServerThreadListOptions) {
   return client.request("thread/list", {
-    cwd,
+    ...(cwd === undefined ? {} : { cwd }),
     ...(options.cursor ? { cursor: options.cursor } : {}),
     ...(options.limit === undefined ? {} : { limit: options.limit }),
     archived: options.archived ?? false,

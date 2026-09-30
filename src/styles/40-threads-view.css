@@ -52,7 +52,9 @@
 .codex-panel-threads__row-main {
   position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
   box-sizing: border-box;
   --codex-panel-threads-row-title-color: currentcolor;
 }
@@ -80,6 +82,18 @@
   font-size: var(--font-ui-small);
   font-weight: var(--nav-item-weight, var(--font-normal));
   line-height: var(--line-height-tight);
+}
+
+.codex-panel-threads__row-workspace {
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+  color: var(--codex-panel-text-faint);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-normal);
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .codex-panel-threads__row--selected {

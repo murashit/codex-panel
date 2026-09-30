@@ -133,8 +133,7 @@ export class AppServerThreadCatalog {
     const key = ACTIVE_THREAD_SEARCH_INVENTORY_QUERY_KEY;
     const options = {
       queryKey: key,
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        this.scope.runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { signal })),
+      queryFn: ({ signal }: { signal: AbortSignal }) => this.scope.runWithClient((client) => listThreads(client, undefined, { signal })),
       staleTime: 0,
     };
     return this.scope.client.query(options);
@@ -253,14 +252,14 @@ export class AppServerThreadCatalog {
         signal.throwIfAborted();
         const page = await this.scope.runWithClient(async (client) => {
           if (pageParam !== null) {
-            return readThreadPage(client, this.scope.context.vaultPath, {
+            return readThreadPage(client, undefined, {
               cursor: pageParam,
               archived: false,
             });
           }
           const [pinnedThreads, firstPage] = await Promise.all([
-            listPinnedThreads(client, this.scope.context.vaultPath, { archived: false, signal }),
-            readThreadPage(client, this.scope.context.vaultPath, { archived: false }),
+            listPinnedThreads(client, undefined, { archived: false, signal }),
+            readThreadPage(client, undefined, { archived: false }),
           ]);
           const threads = [...pinnedThreads, ...firstPage.threads];
           return {
@@ -281,7 +280,7 @@ export class AppServerThreadCatalog {
     return {
       queryKey: ARCHIVED_THREADS_QUERY_KEY,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
-        this.scope.runWithClient((client) => listThreads(client, this.scope.context.vaultPath, { archived: true, signal })),
+        this.scope.runWithClient((client) => listThreads(client, undefined, { archived: true, signal })),
     };
   }
 

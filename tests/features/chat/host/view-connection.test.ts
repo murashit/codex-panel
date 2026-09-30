@@ -55,7 +55,7 @@ describe("CodexChatView connection lifecycle", () => {
     const opening = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
       expectRequestTimes(client, "config/read", 1);
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1" }));
     });
     await opening;
     let connected = false;
@@ -92,7 +92,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     const openingB = view.surface.activateThread("thread-b", { focus: false });
     await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-b", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-b" }));
     });
     await view.surface.activateThread("thread-a", { focus: false });
     delayed.resolve(resumedThread("thread-b"));
@@ -231,7 +231,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     const restoring = view.surface.activateThread();
     await waitForAsyncWork(() => {
-      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1" }));
     });
     resumed.resolve(resumedThread("thread-1"));
     await restoring;
