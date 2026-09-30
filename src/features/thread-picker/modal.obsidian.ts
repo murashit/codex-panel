@@ -1,5 +1,5 @@
 import { type App, Notice, Platform, SuggestModal } from "obsidian";
-import { type Thread, threadWorkingDirectoryLabel } from "../../domain/threads/model";
+import { type Thread, threadProjectWorkingDirectoryLabel } from "../../domain/threads/model";
 import { compareThreadSearchMatches, threadSearchMatches } from "../../domain/threads/search";
 import type { ThreadCatalogPaginatedActiveReader, ThreadCatalogSearchReader } from "../threads/catalog/thread-catalog";
 
@@ -133,10 +133,9 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   override renderSuggestion(value: ThreadSuggestion, el: HTMLElement): void {
     const contentEl = el.createDiv({ cls: "suggestion-content" });
     contentEl.createDiv({ cls: "suggestion-title", text: value.title });
-    if (value.thread.cwd) {
-      contentEl
-        .createDiv({ cls: "suggestion-note", text: threadWorkingDirectoryLabel(value.thread.cwd) })
-        .setAttribute("title", value.thread.cwd);
+    const workspaceLabel = threadProjectWorkingDirectoryLabel(value.thread);
+    if (workspaceLabel) {
+      contentEl.createDiv({ cls: "suggestion-note", text: workspaceLabel }).setAttribute("title", value.thread.cwd ?? workspaceLabel);
     }
   }
 

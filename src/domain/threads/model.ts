@@ -5,6 +5,7 @@ import type { ApprovalsReviewer, ServiceTier } from "../runtime/settings";
 export interface Thread {
   readonly id: string;
   readonly cwd?: string;
+  readonly projectId?: string | null;
   readonly preview: string;
   readonly name: string | null;
   readonly archived: boolean;
@@ -15,7 +16,9 @@ export interface Thread {
   readonly provenance: ThreadProvenance;
 }
 
-export function threadWorkingDirectoryLabel(cwd: string): string {
+export function threadProjectWorkingDirectoryLabel(thread: Pick<Thread, "cwd" | "projectId">): string | null {
+  if (!thread.cwd || !thread.projectId) return null;
+  const cwd = thread.cwd;
   const normalized = cwd.replace(/[\\/]+$/, "");
   const separator = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
   return normalized.slice(separator + 1) || cwd;

@@ -46,7 +46,7 @@ If Obsidian cannot find `codex`, set **Settings -> Codex Panel -> Codex executab
 
 ### Keep work separate or pick it up later
 
-A panel keeps its own active thread and draft. Open multiple panels to keep different tasks separate, or reopen regular threads later from panel history or the Threads view. The Threads view includes interactive sessions visible to the local Codex app-server, including sessions started outside Obsidian. Each row shows the thread's working directory so you can distinguish the current vault from another project.
+A panel keeps its own active thread and draft. Open multiple panels to keep different tasks separate, or reopen regular threads later from panel history or the Threads view. The Threads view includes interactive sessions visible to the local Codex app-server, including sessions started outside Obsidian. Project-associated threads show their working directory; ordinary chats omit generated default-folder names.
 
 Use `/btw` for a temporary side chat, or `/refer <thread> <message>` to bring context from another thread without merging their histories.
 

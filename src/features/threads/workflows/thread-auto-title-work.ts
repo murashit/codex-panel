@@ -80,6 +80,7 @@ export function createThreadAutoTitleWork(host: ThreadAutoTitleWorkHost): Thread
           unavailableThreadIds.delete(fact.threadId);
           return;
         case "thread-pinned":
+        case "thread-project-updated":
           return;
       }
     },

@@ -1,4 +1,4 @@
-import { type Thread, threadWorkingDirectoryLabel } from "../../../domain/threads/model";
+import { type Thread, threadProjectWorkingDirectoryLabel } from "../../../domain/threads/model";
 import type { ThreadRenameActiveState } from "../../../domain/threads/title";
 import { threadDisplayTitle, threadRenameDraftTitle } from "../../../domain/threads/title";
 
@@ -34,10 +34,11 @@ export function threadRowCoreProjection(input: {
   readonly defaultArchiveSaveMarkdown?: boolean | undefined;
 }): ThreadRowCoreProjection {
   const rename = input.renameState;
+  const workspaceLabel = threadProjectWorkingDirectoryLabel(input.thread);
   return {
     threadId: input.thread.id,
     title: threadDisplayTitle(input.thread),
-    ...(input.thread.cwd ? { workspaceLabel: threadWorkingDirectoryLabel(input.thread.cwd), workspacePath: input.thread.cwd } : {}),
+    ...(workspaceLabel ? { workspaceLabel, workspacePath: input.thread.cwd } : {}),
     selected: input.selected,
     isPinned: input.thread.isPinned === true,
     rename: {

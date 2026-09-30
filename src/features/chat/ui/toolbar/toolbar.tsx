@@ -111,7 +111,11 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
   if (!model.openPanel) return null;
   return (
     <div
-      className={["codex-panel__toolbar-panel", model.openPanel === "status" ? "codex-panel__toolbar-panel--status" : ""]
+      className={[
+        "codex-panel__toolbar-panel",
+        model.openPanel === "history" ? "codex-panel__toolbar-panel--history" : "",
+        model.openPanel === "status" ? "codex-panel__toolbar-panel--status" : "",
+      ]
         .filter(Boolean)
         .join(" ")}
       data-codex-panel-toolbar-panel={model.openPanel}
