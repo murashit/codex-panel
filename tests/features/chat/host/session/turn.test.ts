@@ -1,12 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ComposerInputSnapshot } from "../../../../../src/features/chat/application/composer/input-snapshot";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
 import { createSessionTurn } from "../../../../../src/features/chat/host/session/turn";
 import { deferred } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+
+const composers: ChatComposerController[] = [];
+afterEach(() => {
+  for (const composer of composers.splice(0)) composer.dispose();
+  vi.restoreAllMocks();
+});
 
 describe("createSessionTurn", () => {
   it("sends only plan text without composer context when implementing a plan", async () => {
@@ -14,13 +21,15 @@ describe("createSessionTurn", () => {
     resumeThread(stateStore, [
       { id: "plan", kind: "dialogue", role: "assistant", text: "Plan", dialogueKind: "proposedPlan", dialogueState: "completed" },
     ]);
-    const prepareInput = vi.fn((text: string, _snapshot: ComposerInputSnapshot) => ({
-      text,
-      input: [
-        { type: "text", text },
-        { type: "fileReference", name: "unexpected", path: "notes/Alpha.md" },
-      ],
-    }));
+    const prepareInput = vi.fn(
+      (text: string, _snapshot: ComposerInputSnapshot): ReturnType<ChatComposerController["preparedInput"]> => ({
+        text,
+        input: [
+          { type: "text", text },
+          { type: "fileReference", name: "unexpected", path: "notes/Alpha.md" },
+        ],
+      }),
+    );
     const fixture = sessionTurnFixture({ stateStore, prepareInput });
     await fixture.turn.submissionCommands.planImplementation.implement("plan");
     expect(prepareInput).not.toHaveBeenCalled();
@@ -44,13 +53,49 @@ describe("createSessionTurn", () => {
     const fixture = sessionTurnFixture({ stateStore, ensureConnected });
     const plan = fixture.turn.submissionCommands.planImplementation.implement("plan");
     await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledTimes(2));
-    await expect(fixture.turn.submissionCommands.sendTurnText({ text: "Another send" })).resolves.toBe(false);
+    fixture.composer.setDraft("Another send");
+    await fixture.submit();
+    expect(fixture.composer.draft).toBe("Another send");
     connection.resolve(true);
     await plan;
     expect(fixture.startTurn).toHaveBeenCalledOnce();
     expect(fixture.startTurn).toHaveBeenCalledWith(
       expect.objectContaining({ input: [{ type: "text", text: "Please implement this plan." }] }),
     );
+  });
+
+  it("does not change plan mode while the composer already owns a submission", async () => {
+    const stateStore = createChatStateStore();
+    resumeThread(stateStore, [
+      { id: "plan", kind: "dialogue", role: "assistant", text: "Plan", dialogueKind: "proposedPlan", dialogueState: "completed" },
+    ]);
+    const fixture = sessionTurnFixture({ stateStore, draft: "existing draft" });
+    const claim = fixture.composer.claimSubmission();
+    stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
+    await fixture.turn.submissionCommands.planImplementation.implement("plan");
+    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "plan" });
+    expect(stateStore.getState().ui.toolbarPanel).toBe("status-panel");
+    expect(fixture.startTurn).not.toHaveBeenCalled();
+    claim?.settle("failed");
+    expect(fixture.composer.draft).toBe("existing draft");
+  });
+
+  it.each(["connection", "turn"])("preserves the editable draft when implementing a plan fails at %s", async (failure) => {
+    const stateStore = createChatStateStore();
+    resumeThread(stateStore, [
+      { id: "plan", kind: "dialogue", role: "assistant", text: "Plan", dialogueKind: "proposedPlan", dialogueState: "completed" },
+    ]);
+    const fixture = sessionTurnFixture({
+      stateStore,
+      draft: "existing draft",
+      ...(failure === "connection" ? { ensureConnected: vi.fn().mockResolvedValue(false) } : {}),
+    });
+    fixture.startTurn.mockRejectedValueOnce(new Error("turn failed"));
+    await fixture.turn.submissionCommands.planImplementation.implement("plan");
+    expect(fixture.composer.draft).toBe("existing draft");
+    expect(fixture.composer.isSubmissionPreparing()).toBe(false);
+    if (failure === "turn") expect(fixture.status.addSystemMessage).toHaveBeenCalledWith("turn failed");
+    else expect(fixture.startTurn).not.toHaveBeenCalled();
   });
 
   it("lets the query owner settle cached tool inventory before rendering /tools", async () => {
@@ -94,7 +139,7 @@ describe("createSessionTurn", () => {
 
     await fixture.submit();
 
-    expect(referThread).toHaveBeenCalledWith(thread, "summarize", { sourcePath: "snapshot.md" });
+    expect(referThread).toHaveBeenCalledWith(thread, "summarize", expect.objectContaining({ sourcePath: "snapshot.md" }));
     expect(fixture.status.addSystemMessage).toHaveBeenCalledExactlyOnceWith("history unavailable");
   });
 });
@@ -103,7 +148,7 @@ function sessionTurnFixture(
   options: {
     stateStore?: ReturnType<typeof createChatStateStore>;
     draft?: string;
-    prepareInput?: ReturnType<typeof vi.fn>;
+    prepareInput?: (text: string, snapshot: ComposerInputSnapshot) => ReturnType<ChatComposerController["preparedInput"]>;
     ensureConnected?: ReturnType<typeof vi.fn>;
     referThread?: ReturnType<typeof vi.fn>;
     threads?: readonly import("../../../../../src/domain/threads/model").Thread[];
@@ -129,6 +174,32 @@ function sessionTurnFixture(
   };
   const ensureToolInventory = options.ensureToolInventory ?? vi.fn().mockResolvedValue(toolInventory());
   const startTurn = vi.fn().mockResolvedValue({ kind: "completed", value: { turnId: "turn" } });
+  const composer = new ChatComposerController({
+    stateStore,
+    sharedResources: { skillsSnapshot: () => [], subscribe: () => () => {} },
+    noteCandidateProvider: {
+      candidates: () => [],
+      dailyNoteReferences: () => [],
+      tags: () => [],
+      resolveFileReference: () => null,
+      dispose: () => {},
+    },
+    contextReferenceProvider: {
+      contextReferences: () => ({ activeNote: null, selection: null }),
+      retainSelectionEmphasis: () => null,
+      dispose: () => {},
+    },
+    sourcePath: () => "snapshot.md",
+    referenceActiveNoteOnSend: () => true,
+    canFocus: () => false,
+  } as never);
+  composers.push(composer);
+  composer.setDraft(draft);
+  vi.spyOn(composer, "preparedInput").mockImplementation((text, snapshot) =>
+    options.prepareInput
+      ? options.prepareInput(text, snapshot ?? composer.captureInputSnapshot())
+      : { text, input: [{ type: "text", text }] },
+  );
   const turn = createSessionTurn(
     {
       environment: {
@@ -167,28 +238,7 @@ function sessionTurnFixture(
         startNewThread: vi.fn(),
         selectThread: vi.fn(),
       },
-      composerController: {
-        get draft() {
-          return draft;
-        },
-        get trimmedDraft() {
-          return draft;
-        },
-        setDraft: vi.fn(),
-        preparedInput: options.prepareInput ?? vi.fn(),
-        captureInputSnapshot: vi.fn(() => ({ sourcePath: "snapshot.md" })),
-        claimSubmission: vi.fn(() => ({
-          text: draft,
-          inputSnapshot: { sourcePath: "snapshot.md" } as never,
-          isCurrent: vi.fn(() => true),
-          markAdopted: vi.fn(),
-          adoptPanelTarget: vi.fn(),
-          settle: vi.fn(),
-        })),
-        isSubmissionPreparing: vi.fn(() => false),
-        hasFocus: vi.fn(() => false),
-        focusComposer: vi.fn(),
-      },
+      composerController: composer,
       runtimeSettings: {
         applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
         requestDefaultCollaborationModeForNextTurn: () =>
@@ -214,6 +264,7 @@ function sessionTurnFixture(
   );
   return {
     turn,
+    composer,
     startTurn,
     submit: () => turn.submissionCommands.composerSubmit.submit(),
     ensureToolInventory,

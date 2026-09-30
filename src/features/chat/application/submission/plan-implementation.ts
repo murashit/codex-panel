@@ -2,18 +2,19 @@ import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/conversation";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId, type ChatState } from "../state/model";
-import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { type ChatThreadStreamViewState, threadStreamItems } from "../state/thread-stream";
 import { chatThreadStreamViewState } from "../state/turn-scope";
 import { type ChatTurnLifecycleState, chatTurnBusy } from "../turns/turn-state";
+import type { ComposerSubmissionClaim } from "./input-claim";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 
 export interface PlanImplementationHost {
   stateStore: ChatStateStore;
   ensureConnected(): Promise<boolean>;
-  sendTurnText(text: string): Promise<void>;
+  claimSubmission(text: string): ComposerSubmissionClaim | null;
+  sendTurnText(claim: ComposerSubmissionClaim): Promise<void>;
   requestDefaultCollaborationModeForNextTurn(): void;
 }
 
@@ -51,14 +52,17 @@ export function implementPlanTarget(state: PlanImplementationState): PlanImpleme
 export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
   const initial = host.stateStore.getState();
   if (itemId !== implementPlanTargetFromState(initial)?.itemId) return;
-  const target = capturePanelTargetLease(initial);
-  if (!(await host.ensureConnected())) return;
-  const current = host.stateStore.getState();
-  if (!panelTargetLeaseIsCurrent(current, target) || itemId !== implementPlanTargetFromState(current)?.itemId) {
-    return;
-  }
+  const claim = host.claimSubmission(IMPLEMENT_PLAN_PROMPT);
+  if (!claim) return;
+  try {
+    if (!(await host.ensureConnected())) return;
+    const current = host.stateStore.getState();
+    if (!claim.isCurrent() || itemId !== implementPlanTargetFromState(current)?.itemId) return;
 
-  host.requestDefaultCollaborationModeForNextTurn();
-  host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
-  await host.sendTurnText(IMPLEMENT_PLAN_PROMPT);
+    host.requestDefaultCollaborationModeForNextTurn();
+    host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
+    await host.sendTurnText(claim);
+  } finally {
+    claim.settle("failed");
+  }
 }

@@ -3,6 +3,7 @@ import { activePanelOperationDecision } from "../../../../../src/features/chat/a
 import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
+import { SubmissionInput } from "../../../../../src/features/chat/application/submission/input-claim";
 import {
   implementPlan,
   implementPlanTarget,
@@ -12,6 +13,7 @@ import { setCollaborationModeIntent } from "../../../../../src/features/chat/dom
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { emptyComposerInputSnapshot } from "../../support/composer-input";
 
 const planItem = (id: string): ThreadStreamItem => ({
   id,
@@ -64,6 +66,7 @@ function createPlanImplementationHost() {
   const host: PlanImplementationHost = {
     stateStore,
     ensureConnected,
+    claimSubmission: (text) => new SubmissionInput(text, emptyComposerInputSnapshot(), stateStore.getState, () => {}),
     sendTurnText,
     requestDefaultCollaborationModeForNextTurn,
   };
@@ -147,7 +150,7 @@ describe("implementPlan", () => {
     expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
     expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("default"));
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
-    expect(sendTurnText).toHaveBeenCalledWith("Please implement this plan.");
+    expect(sendTurnText).toHaveBeenCalledWith(expect.objectContaining({ text: "Please implement this plan." }));
   });
 
   it.each(["source", "another fork"])("does not implement a shared plan after switching to %s while connecting", async (destination) => {

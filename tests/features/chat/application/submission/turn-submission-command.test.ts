@@ -6,21 +6,37 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { SubmissionInput } from "../../../../../src/features/chat/application/submission/input-claim";
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
+
 import {
   createTurnSubmissionCommand,
   type TurnSubmissionCommandHost,
+  type TurnSubmissionRequest,
 } from "../../../../../src/features/chat/application/submission/turn-submission-command";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { deferred } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 const completed = <T>(value: T): EffectOutcome<T> => ({ kind: "completed", value });
 const notStarted = <T>(): EffectOutcome<T> => ({ kind: "not-started" });
+
+function claimedCommand(host: TurnSubmissionCommandHost) {
+  const command = createTurnSubmissionCommand(host);
+  return {
+    sendTurnText: (request: Omit<TurnSubmissionRequest, "submissionClaim"> & Partial<Pick<TurnSubmissionRequest, "submissionClaim">>) =>
+      command.sendTurnText({
+        ...request,
+        submissionClaim:
+          request.submissionClaim ?? new SubmissionInput(request.text, emptyComposerInputSnapshot(), host.stateStore.getState, () => {}),
+      }),
+  };
+}
 
 function thread(id: string): Thread {
   return {
@@ -107,7 +123,7 @@ describe("TurnSubmissionCommand", () => {
     const loadThread = vi.fn(() => resume.promise);
     host.ensureRestoredThreadLoaded = () => restoration.ensureLoaded(loadThread);
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "first", fallbackTitle: null });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     const submitting = commands.sendTurnText({ text: "hello" });
     await vi.waitFor(() => {
@@ -128,7 +144,7 @@ describe("TurnSubmissionCommand", () => {
       ensureConnected,
     });
     resumeThread(stateStore, undefined, "first");
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     const submitting = commands.sendTurnText({ text: "hello" });
     await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
@@ -149,7 +165,7 @@ describe("TurnSubmissionCommand", () => {
       }),
     });
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "child", fallbackTitle: "Agent" });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(false);
 
@@ -160,7 +176,7 @@ describe("TurnSubmissionCommand", () => {
   it("submits to a subagent when the loaded server capability allows direct input", async () => {
     const { host, startTurn, stateStore } = createHost();
     resumeSubagentThread(stateStore, true);
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(true);
 
@@ -175,7 +191,7 @@ describe("TurnSubmissionCommand", () => {
       type: "active-thread/resumed",
       canAcceptDirectInput: false,
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(false);
 
@@ -186,7 +202,7 @@ describe("TurnSubmissionCommand", () => {
   it("starts a side-chat turn when no pending runtime setting needs port", async () => {
     const { host, startTurn, stateStore } = createHost();
     resumeSideChat(stateStore);
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(true);
 
@@ -197,7 +213,7 @@ describe("TurnSubmissionCommand", () => {
 
   it("starts a thread when needed and acknowledges the optimistic turn", async () => {
     const { host, startTurn, stateStore } = createHost();
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     const submitted = await commands.sendTurnText({ text: "hello" });
 
@@ -226,7 +242,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await commands.sendTurnText({
       text: "https://example.com/ summarize",
@@ -257,7 +273,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     const submitting = commands.sendTurnText({
       text: pending.text,
@@ -303,7 +319,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     } as never);
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     const submitting = commands.sendTurnText({
       text: pending.text,
@@ -336,7 +352,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(
       commands.sendTurnText({
@@ -367,7 +383,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     } as never);
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     const submitting = commands.sendTurnText({
       text: pending.text,
@@ -406,7 +422,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     } as never);
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(
       commands.sendTurnText({
@@ -436,7 +452,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(
       commands.sendTurnText({
@@ -465,7 +481,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(
       commands.sendTurnText({
@@ -495,7 +511,7 @@ describe("TurnSubmissionCommand", () => {
         phase: "cancellable",
       },
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     const submitting = commands.sendTurnText({
       text: pending.text,
@@ -516,7 +532,7 @@ describe("TurnSubmissionCommand", () => {
     const { host, startTurn } = createHost({
       startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated" }),
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(commands.sendTurnText({ text: "hello" })).resolves.toBe(false);
 
@@ -531,7 +547,7 @@ describe("TurnSubmissionCommand", () => {
       return true;
     });
     host.applyPendingThreadSettings = applyPendingThreadSettings;
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await commands.sendTurnText({ text: "hello" });
 
@@ -555,7 +571,7 @@ describe("TurnSubmissionCommand", () => {
       })),
     });
     resumeThread(stateStore);
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await commands.sendTurnText({ text: "fix @selection", inputSnapshot });
 
@@ -583,7 +599,7 @@ describe("TurnSubmissionCommand", () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
       throw new Error("offline");
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await commands.sendTurnText({ text: "hello" });
 
@@ -594,7 +610,7 @@ describe("TurnSubmissionCommand", () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await commands.sendTurnText({ text: "follow up" });
 
@@ -618,7 +634,7 @@ describe("TurnSubmissionCommand", () => {
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     const settle = vi.fn();
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await commands.sendTurnText({
       text: "follow up",
@@ -652,7 +668,7 @@ describe("TurnSubmissionCommand", () => {
     });
     const steering = deferred<EffectOutcome<void>>();
     steerTurn.mockImplementation(() => steering.promise);
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
     const input = [
       { type: "text" as const, text: pending.text },
       {
@@ -704,7 +720,7 @@ describe("TurnSubmissionCommand", () => {
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     steerTurn.mockResolvedValue({ kind: "delivery-unknown" });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(true);
     const clientId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
@@ -733,7 +749,7 @@ describe("TurnSubmissionCommand", () => {
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     steerTurn.mockResolvedValue({ kind: "failed", error: new Error("cannot steer this turn") });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
 
@@ -749,7 +765,7 @@ describe("TurnSubmissionCommand", () => {
       resumeThread(stateStore, undefined, "second");
       return { kind: "failed", error: new Error("first thread rejected the steer") };
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await expect(commands.sendTurnText({ text: "follow up" })).resolves.toBe(false);
 
@@ -765,7 +781,7 @@ describe("TurnSubmissionCommand", () => {
       type: "turn/optimistic-started",
       item,
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await commands.sendTurnText({ text: "follow up" });
 
@@ -774,51 +790,22 @@ describe("TurnSubmissionCommand", () => {
     expect(startTurn).not.toHaveBeenCalled();
   });
 
-  it("accepts the first submission claim and rejects a second while preparation is pending", async () => {
-    const settings = deferred<boolean>();
-    const { host, startTurn, stateStore } = createHost({ applyPendingThreadSettings: vi.fn(() => settings.promise) });
-    resumeThread(stateStore);
-    const commands = createTurnSubmissionCommand(host);
-    const firstSettle = vi.fn();
-    const secondSettle = vi.fn();
-    const firstMarkAdopted = vi.fn();
-    const secondMarkAdopted = vi.fn();
-
-    const first = commands.sendTurnText({
-      text: "first",
-      submissionClaim: {
-        text: "first",
-        inputSnapshot: {} as never,
-        isCurrent: vi.fn(() => true),
-        markAdopted: firstMarkAdopted,
-        adoptPanelTarget: vi.fn(),
-        settle: firstSettle,
-      },
+  it("lets a new target submit while the previous target is still connecting", async () => {
+    const connecting = deferred<boolean>();
+    const { host, startTurn, stateStore } = createHost({
+      ensureConnected: vi
+        .fn()
+        .mockImplementationOnce(() => connecting.promise)
+        .mockResolvedValue(true),
     });
-    await vi.waitFor(() => expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce());
-    const second = commands.sendTurnText({
-      text: "second",
-      submissionClaim: {
-        text: "second",
-        inputSnapshot: {} as never,
-        isCurrent: vi.fn(() => true),
-        markAdopted: secondMarkAdopted,
-        adoptPanelTarget: vi.fn(),
-        settle: secondSettle,
-      },
-    });
-    settings.resolve(true);
-
-    await expect(first).resolves.toBe(true);
-    await expect(second).resolves.toBe(false);
-    expect(startTurn).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ input: textInput("first") }));
-    expect(firstSettle).toHaveBeenCalledOnce();
-    expect(firstSettle).toHaveBeenCalledWith("accepted");
-    expect(secondSettle).toHaveBeenCalledOnce();
-    expect(secondSettle).toHaveBeenCalledWith("failed");
-    expect(firstMarkAdopted).toHaveBeenCalledOnce();
-    expect(secondMarkAdopted).not.toHaveBeenCalled();
-    expect(firstMarkAdopted.mock.invocationCallOrder[0]).toBeLessThan(startTurn.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY);
+    resumeThread(stateStore, false, "first");
+    const commands = claimedCommand(host);
+    const first = commands.sendTurnText({ text: "first" });
+    resumeThread(stateStore, false, "second");
+    await expect(commands.sendTurnText({ text: "second" })).resolves.toBe(true);
+    connecting.resolve(true);
+    await expect(first).resolves.toBe(false);
+    expect(startTurn).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ threadId: "second", input: textInput("second") }));
   });
 
   it("keeps local user ids distinct when submissions share the same timestamp", async () => {
@@ -830,8 +817,8 @@ describe("TurnSubmissionCommand", () => {
         resumeThread(host.stateStore);
       }
 
-      await createTurnSubmissionCommand(first.host).sendTurnText({ text: "first" });
-      await createTurnSubmissionCommand(second.host).sendTurnText({ text: "second" });
+      await claimedCommand(first.host).sendTurnText({ text: "first" });
+      await claimedCommand(second.host).sendTurnText({ text: "second" });
 
       const firstId = first.startTurn.mock.calls[0]?.[0].clientUserMessageId;
       const secondId = second.startTurn.mock.calls[0]?.[0].clientUserMessageId;
@@ -851,7 +838,7 @@ describe("TurnSubmissionCommand", () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
       return completed(undefined);
     });
-    const commands = createTurnSubmissionCommand(host);
+    const commands = claimedCommand(host);
 
     await commands.sendTurnText({ text: "follow up" });
 
@@ -919,7 +906,7 @@ describe("deferred fork submission", () => {
         display: { items: [], turnDiffs: new Map() },
       },
     });
-    const command = createTurnSubmissionCommand(host);
+    const command = claimedCommand(host);
     return {
       hydrateCreatedFork,
       onThreadActivated,

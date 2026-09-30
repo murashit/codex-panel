@@ -169,8 +169,9 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
   const planImplementationHost: PlanImplementationHost = {
     stateStore: host.stateStore,
     ensureConnected,
-    sendTurnText: async (text) => {
-      await turnSubmissionCommand.sendTurnText({ text });
+    claimSubmission: (text) => composerController.claimTextSubmission(text, { restoreOnFailure: false }),
+    sendTurnText: async (claim) => {
+      await turnSubmissionCommand.sendTurnText({ text: claim.text, submissionClaim: claim });
     },
     requestDefaultCollaborationModeForNextTurn: () => {
       runtimeSettings.requestDefaultCollaborationModeForNextTurn();

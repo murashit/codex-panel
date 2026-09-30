@@ -260,7 +260,7 @@ export class ChatComposerController {
     return claim;
   }
 
-  claimTextSubmission(text: string): ComposerSubmissionClaim | null {
+  claimTextSubmission(text: string, options: { restoreOnFailure?: boolean } = {}): ComposerSubmissionClaim | null {
     if (this.submissionInput || !text.trim()) return null;
     return this.claimInput(
       text,
@@ -274,6 +274,7 @@ export class ChatComposerController {
         attachments: [],
       },
       new Map(),
+      options.restoreOnFailure,
     );
   }
 
@@ -281,6 +282,7 @@ export class ChatComposerController {
     text: string,
     inputSnapshot: ComposerInputSnapshot,
     claimedSelectionContexts: Map<string, RetainedComposerSelection>,
+    restoreOnFailure = true,
   ): ComposerSubmissionClaim {
     const claim = new SubmissionInput(
       text,
@@ -288,7 +290,7 @@ export class ChatComposerController {
       () => this.state,
       (outcome, replacementDraft) => {
         this.submissionInput = null;
-        if (outcome !== "failed") {
+        if (outcome !== "failed" || !restoreOnFailure) {
           releaseSelectionContexts(claimedSelectionContexts);
           if (outcome === "accepted" && replacementDraft !== undefined) {
             this.setDraft(prependClaimedDraft(replacementDraft, this.draft), {
