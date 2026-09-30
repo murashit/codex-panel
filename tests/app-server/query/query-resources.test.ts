@@ -1263,6 +1263,8 @@ function catalogSkill(name: string): CatalogSkillMetadata {
     name,
     description: "",
     path: `/tmp/${name}`,
+    scope: "repo",
+    pluginId: null,
     enabled: true,
   };
 }

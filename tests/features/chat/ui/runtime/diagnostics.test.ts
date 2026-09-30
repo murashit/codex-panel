@@ -24,6 +24,10 @@ function withMcpDiagnostic(diagnostics: Diagnostics, server: McpServerDiagnostic
   return { ...diagnostics, mcpServers: upsertMcpServerDiagnostic(diagnostics.mcpServers, server) };
 }
 
+function skillFixture(name: string, scope: SkillMetadata["scope"], pluginId: string | null = null, enabled = true): SkillMetadata {
+  return { name, scope, pluginId, enabled, description: "", path: `/skills/${name}/SKILL.md` };
+}
+
 describe("connection diagnostics", () => {
   it("shows unprobed runtime checks as unknown warnings", () => {
     const sections = appServerDiagnosticSections({
@@ -112,48 +116,20 @@ describe("connection diagnostics", () => {
 
   it("summarizes usable Codex capabilities and groups skills by provenance", () => {
     const skills = [
-      {
-        name: "codex-panel-local",
-        description: "Local panel skill",
-        path: "/Users/example/Repos/codex-panel/.codex/skills/codex-panel-local/SKILL.md",
-        enabled: true,
-      },
-      {
-        name: "jujutsu-agent-workflow",
-        description: "Personal skill",
-        path: "/Users/example/.agents/skills/jujutsu-agent-workflow/SKILL.md",
-        enabled: true,
-      },
-      {
-        name: "openai-docs",
-        description: "System skill",
-        path: "/Users/example/.codex/skills/.system/openai-docs/SKILL.md",
-        enabled: true,
-      },
-      {
-        name: "github:gh-fix-ci",
-        description: "GitHub CI skill",
-        path: "/Users/example/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/gh-fix-ci/SKILL.md",
-        enabled: true,
-      },
-      {
-        name: "github:github",
-        description: "GitHub skill",
-        path: "/Users/example/.codex/plugins/cache/openai-curated-remote/github/0.1.5/skills/github/SKILL.md",
-        enabled: true,
-      },
-      {
-        name: "gmail:gmail",
-        description: "Disabled skill",
-        path: "/Users/example/.codex/plugins/cache/openai-curated-remote/gmail/0.1.3/skills/gmail/SKILL.md",
-        enabled: false,
-      },
-    ] satisfies readonly SkillMetadata[];
+      skillFixture("codex-panel-local", "repo"),
+      skillFixture("jujutsu-agent-workflow", "user"),
+      skillFixture("openai-docs", "system"),
+      skillFixture("github:gh-fix-ci", "user", "usable-plugin"),
+      skillFixture("github:github", "user", "usable-plugin"),
+      skillFixture("gmail:gmail", "user", "disabled-plugin", false),
+      skillFixture("admin:guidance", "admin"),
+      skillFixture("writer", "user", "unversioned-plugin"),
+    ];
     const inventory: InventoryFixture = {
       plugins: [
         {
           id: "usable-plugin",
-          name: "usable-plugin",
+          name: "usable-bundle",
           displayName: "Usable Plugin",
           marketplaceName: "personal",
           marketplacePath: null,
@@ -189,8 +165,8 @@ describe("connection diagnostics", () => {
         },
         {
           id: "unversioned-plugin",
-          name: "unversioned-plugin",
-          displayName: "Unversioned Plugin",
+          name: "unversioned-bundle",
+          displayName: "Usable Plugin",
           marketplaceName: "personal",
           marketplacePath: null,
           localVersion: null,
@@ -241,7 +217,7 @@ describe("connection diagnostics", () => {
 
     const sections = toolInventoryDiagnosticSections(inventory, {
       value: skills,
-      probe: diagnosticProbeOk("6 skills", 1),
+      probe: diagnosticProbeOk("8 skills", 1),
     });
     const pluginRows = sections.find((section) => section.title === "Plugins")?.rows ?? [];
     const toolProviderRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
@@ -250,17 +226,33 @@ describe("connection diagnostics", () => {
     expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
     expect(pluginRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "Usable Plugin: version 1.2.3",
-      "Unversioned Plugin: version unknown",
+      "Usable Plugin: version unknown",
     ]);
     expect(toolProviderRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "codex_apps: apple_music, github, google_drive",
       "github: MCP server, connected, auth OAuth, 2 tools",
     ]);
     expect(skillRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
-      "codex-panel: codex-panel-local",
+      "Workspace: codex-panel-local",
       "Personal: jujutsu-agent-workflow",
       "System: openai-docs",
-      "GitHub: gh-fix-ci, github",
+      "Admin: admin:guidance",
+      "Usable Plugin: github:gh-fix-ci, github:github",
+      "Usable Plugin: writer",
+    ]);
+    const skillRowsFor = (value: ToolInventorySnapshot | null) =>
+      toolInventoryDiagnosticSections(value, { value: skills, probe: diagnosticProbeOk("8 skills", 1) })
+        .find((section) => section.title === "Skills")
+        ?.rows.slice(-2);
+    const fallbackRows = [
+      { label: "unversioned-plugin", value: "writer" },
+      { label: "usable-plugin", value: "github:gh-fix-ci, github:github" },
+    ];
+    expect(skillRowsFor(null)).toEqual(fallbackRows);
+    expect(skillRowsFor({ ...inventory, pluginsError: "offline" })).toEqual(skillRows.slice(-2));
+    expect(skillRowsFor({ ...inventory, plugins: inventory.plugins?.map((plugin) => ({ ...plugin, displayName: null })) ?? [] })).toEqual([
+      { label: "unversioned-bundle", value: "writer" },
+      { label: "usable-bundle", value: "github:gh-fix-ci, github:github" },
     ]);
   });
 

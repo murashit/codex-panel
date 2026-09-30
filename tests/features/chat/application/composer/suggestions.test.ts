@@ -444,6 +444,8 @@ describe("composer suggestions", () => {
           name: "obsidian-dataview-read",
           description: "Read Dataview results",
           path: "/vault/___/skills/obsidian-dataview-read/SKILL.md",
+          scope: "repo",
+          pluginId: null,
           enabled: true,
         },
       ])[0],

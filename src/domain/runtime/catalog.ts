@@ -28,6 +28,8 @@ export interface SkillMetadata {
   readonly shortDescription?: string;
   readonly interfaceShortDescription?: string;
   readonly path: string;
+  readonly scope: "user" | "repo" | "system" | "admin" | "unknown";
+  readonly pluginId: string | null;
   readonly enabled: boolean;
 }
 

@@ -20,7 +20,7 @@ export type CatalogModel = Pick<
 
 export type CatalogSkillMetadata = Pick<
   GeneratedSkillMetadata,
-  "name" | "description" | "shortDescription" | "interface" | "path" | "enabled"
+  "name" | "description" | "shortDescription" | "interface" | "path" | "scope" | "pluginId" | "enabled"
 >;
 
 export type CatalogHookMetadata = Pick<
@@ -59,8 +59,22 @@ export function skillMetadataFromCatalogSkills(skills: readonly CatalogSkillMeta
     ...(skill.shortDescription !== undefined ? { shortDescription: skill.shortDescription } : {}),
     ...(skill.interface?.shortDescription !== undefined ? { interfaceShortDescription: skill.interface.shortDescription } : {}),
     path: skill.path,
+    scope: skillScope(skill.scope),
+    pluginId: skill.pluginId ?? null,
     enabled: skill.enabled,
   }));
+}
+
+function skillScope(scope: CatalogSkillMetadata["scope"]): SkillMetadata["scope"] {
+  switch (scope) {
+    case "user":
+    case "repo":
+    case "system":
+    case "admin":
+      return scope;
+    default:
+      return "unknown";
+  }
 }
 
 export function hookItemsFromCatalogHooks(hooks: readonly CatalogHookMetadata[]): HookItem[] {

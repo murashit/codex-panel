@@ -1969,6 +1969,8 @@ function skill(name: string): SkillMetadata {
     name,
     description: `${name} description`,
     path: `/vault/skills/${name}/SKILL.md`,
+    scope: "repo",
+    pluginId: null,
     enabled: true,
   };
 }

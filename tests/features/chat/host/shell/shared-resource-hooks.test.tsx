@@ -38,7 +38,7 @@ describe("shared display resource hooks", () => {
       for (const listener of skillListeners) {
         listener({
           id: "skills",
-          value: [{ name: "writer", description: "", path: "/skills/writer", enabled: true }],
+          value: [{ name: "writer", description: "", path: "/skills/writer", scope: "repo", pluginId: null, enabled: true }],
           probe: diagnosticProbeOk("1 skill", 1),
         });
       }
@@ -83,7 +83,7 @@ describe("shared display resource hooks", () => {
       for (const listener of firstSkills) {
         listener({
           id: "skills",
-          value: [{ name: "old-context", description: "", path: "/old", enabled: true }],
+          value: [{ name: "old-context", description: "", path: "/old", scope: "repo", pluginId: null, enabled: true }],
           probe: diagnosticProbeOk("1 skill", 1),
         });
       }

@@ -52,9 +52,16 @@ describe("app-server catalog mappers", () => {
         shortDescription: "Write",
         interfaceShortDescription: "Draft",
         path: "/skills/writer",
+        scope: "repo",
+        pluginId: null,
         enabled: true,
       },
     ]);
+    expect(skillMetadataFromCatalogSkills([{ ...skillFixture(), scope: "user", pluginId: "notes@marketplace" }])[0]).toMatchObject({
+      scope: "user",
+      pluginId: "notes@marketplace",
+    });
+    expect(skillMetadataFromCatalogSkills([{ ...skillFixture(), scope: "future-scope" as never }])[0]?.scope).toBe("unknown");
   });
 
   it("maps app-server hooks to settings hook items", () => {
@@ -114,8 +121,8 @@ describe("app-server catalog adapters", () => {
           {
             cwd: "/vault",
             skills: [
-              { name: "enabled", description: "Enabled skill", path: "/skills/enabled", scope: "repo", enabled: true },
-              { name: "disabled", description: "Disabled skill", path: "/skills/disabled", scope: "repo", enabled: false },
+              { name: "enabled", description: "Enabled skill", path: "/skills/enabled", scope: "repo", pluginId: null, enabled: true },
+              { name: "disabled", description: "Disabled skill", path: "/skills/disabled", scope: "repo", pluginId: null, enabled: false },
             ],
           },
         ],
