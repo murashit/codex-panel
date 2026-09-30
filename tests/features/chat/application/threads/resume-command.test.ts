@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/usage";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/model";
@@ -15,23 +14,11 @@ import {
 } from "../../../../../src/features/chat/application/threads/resume-command";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 
 function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> = {}): ThreadResumeSnapshot {
   return {
-    activation: {
-      thread: panelThread(threadId),
-      canAcceptDirectInput: null,
-      model: "gpt-test",
-      serviceTier: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalsReviewer: "user",
-      reasoningEffort: null,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-    },
+    activation: threadActivationFixture(panelThread(threadId), { model: "gpt-test", approvalsReviewer: "user" }),
     rolloutPath: null,
     initialHistoryPage: null,
     ...overrides,
@@ -164,19 +151,8 @@ describe("ResumeCommand", () => {
     const activation = await commands.resumeThread("thread");
     host.resumeWork.begin("other");
     stateStore.dispatch({
+      ...threadActivationFixture(panelThread("other")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: panelThread("other"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     const streamBeforeHydration = stateStore.getState().threadStream;
 
@@ -242,19 +218,8 @@ describe("ResumeCommand", () => {
   it("does not switch threads while a different turn is busy", async () => {
     const { commands, host, resumeThread, stateStore } = createActions();
     stateStore.dispatch({
+      ...threadActivationFixture(panelThread("active")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: panelThread("active"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
@@ -292,19 +257,8 @@ describe("ResumeCommand", () => {
     const resumed = await commands.resumeThread("thread");
     await resumed?.hydrate();
     stateStore.dispatch({
+      ...threadActivationFixture(second.activation.thread),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: second.activation.thread,
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));

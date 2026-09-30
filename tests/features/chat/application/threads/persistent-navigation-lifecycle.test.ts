@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { EphemeralThreadLifecycle } from "../../../../../src/features/chat/application/threads/ephemeral-thread-lifecycle";
 import {
@@ -7,6 +6,7 @@ import {
   type PersistentNavigationLifecycle,
 } from "../../../../../src/features/chat/application/threads/persistent-navigation-lifecycle";
 import { deferred } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 
 describe("persistent navigation lifecycle", () => {
   it("unsubscribes a persistent subagent only after navigation adoption", async () => {
@@ -91,15 +91,7 @@ describe("persistent navigation lifecycle", () => {
 function subagentStore(busy: boolean) {
   const store = createChatStateStore();
   store.dispatch({
-    type: "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: {
+    ...threadActivationFixture({
       id: "child",
       cliVersion: "test",
       provenance: {
@@ -111,11 +103,8 @@ function subagentStore(busy: boolean) {
         agentNickname: "Scout",
         agentRole: "explorer",
       },
-    } as never,
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
+    } as never),
+    type: "active-thread/resumed",
   });
   if (busy) store.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
   return store;
@@ -123,19 +112,8 @@ function subagentStore(busy: boolean) {
 
 function resumeInteractiveThread(store: ReturnType<typeof createChatStateStore>, threadId: string): void {
   store.dispatch({
+    ...threadActivationFixture({ id: threadId, cliVersion: "test", provenance: { kind: "interactive" } } as never),
     type: "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: { id: threadId, cliVersion: "test", provenance: { kind: "interactive" } } as never,
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
   });
 }
 

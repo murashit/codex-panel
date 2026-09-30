@@ -18,6 +18,7 @@ import { DeferredTask } from "../../../../../src/shared/async/deferred-task";
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
 import { chatSharedResourcesFixture } from "../../support/shared-display-values";
@@ -124,19 +125,8 @@ describe("chat panel session runtime", () => {
       environment: { plugin: { threadGoalQueries: { ...threadGoalQueriesFixture(), observeChanges } } },
     });
     stateStore.dispatch({
+      ...threadActivationFixture(threadFixture({ id: "thread-1" })),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: threadFixture({ id: "thread-1" }),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread-1", open: true });
     const initial = goalFixture({ objective: "Initial", updatedAt: 1 });
@@ -218,19 +208,8 @@ describe("chat panel session runtime", () => {
   it("wires reconnect cleanup through the runtime toolbar action", async () => {
     const { runtime, stateStore } = sessionRuntimeFixture();
     stateStore.dispatch({
+      ...threadActivationFixture(threadFixture({ id: "thread-1", preview: "Active" })),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: threadFixture({ id: "thread-1", preview: "Active" }),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockResolvedValue(undefined);
     vi.spyOn(runtime.connection.manager, "isConnected").mockReturnValue(true);
@@ -249,19 +228,8 @@ describe("chat panel session runtime", () => {
   it("keeps a Side Chat /reconnect submission adopted across the runtime target reset", async () => {
     const { runtime, stateStore } = sessionRuntimeFixture();
     stateStore.dispatch({
+      ...threadActivationFixture(threadFixture({ id: "side-thread", preview: "Side chat" })),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: threadFixture({ id: "side-thread", preview: "Side chat" }),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
       lifetime: { kind: "ephemeral", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
     });
     const reconnecting = deferred<void>();
@@ -407,19 +375,8 @@ describe("chat panel session runtime", () => {
       onExit: vi.fn(),
     });
     stateStore.dispatch({
+      ...threadActivationFixture(threadFixture({ id: "side-thread", preview: "Side chat" })),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: threadFixture({ id: "side-thread", preview: "Side chat" }),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
       lifetime: { kind: "ephemeral", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
     });
     stateStore.dispatch({ type: "turn/started", threadId: "side-thread", turnId: "turn-1" });

@@ -3,6 +3,7 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createActiveThreadIdentitySync } from "../../../../../src/features/chat/application/threads/active-thread-identity-sync";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 
 function thread(id: string, name: string | null = null): Thread {
   return {
@@ -77,18 +78,7 @@ describe("createActiveThreadIdentitySync", () => {
 
 function activateThread(stateStore: ReturnType<typeof createChatStateStore>, id = "thread", name: string | null = null): void {
   stateStore.dispatch({
+    ...threadActivationFixture(thread(id, name)),
     type: "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: thread(id, name),
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
   });
 }

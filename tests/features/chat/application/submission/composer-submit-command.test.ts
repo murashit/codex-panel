@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
@@ -8,6 +7,7 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import type { ComposerSubmissionClaim } from "../../../../../src/features/chat/application/submission/input-claim";
 import { deferred } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -193,19 +193,8 @@ describe("submitComposer", () => {
     const hostWithRestoration = { ...host, ensureRestoredThreadLoaded: vi.fn(() => restored.promise) };
     const submitting = submitComposer(hostWithRestoration);
     stateStore.dispatch({
+      ...threadActivationFixture(thread("other")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("other"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
 
     restored.resolve(true);
@@ -453,19 +442,8 @@ describe("submitComposer", () => {
   it("drops a pending web submission when the active thread changes during fetch", async () => {
     const { host, execute, sendTurnText, stateStore } = createHost("/web https://example.com summarize");
     stateStore.dispatch({
+      ...threadActivationFixture(thread("first")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("first"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     const fetch = deferred<{ sendText: string }>();
     execute.mockImplementation(() => fetch.promise);
@@ -585,19 +563,8 @@ describe("submitComposer", () => {
   it("interrupts a running turn when submitting an empty draft", async () => {
     const { host, interruptTurn, showLatest, stateStore } = createHost("");
     stateStore.dispatch({
+      ...threadActivationFixture(thread("thread")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
 
@@ -610,19 +577,9 @@ describe("submitComposer", () => {
   it("interrupts a running turn even when the thread rejects direct input", async () => {
     const { host, interruptTurn, sendTurnText, stateStore } = createHost("unsent draft");
     stateStore.dispatch({
+      ...threadActivationFixture(thread("thread")),
       type: "active-thread/resumed",
       canAcceptDirectInput: false,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
 
@@ -636,18 +593,7 @@ describe("submitComposer", () => {
 
 function resumeActiveThread(stateStore: ReturnType<typeof createChatStateStore>, id: string): void {
   stateStore.dispatch({
+    ...threadActivationFixture(thread(id)),
     type: "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: thread(id),
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
   });
 }

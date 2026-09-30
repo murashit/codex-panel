@@ -13,18 +13,11 @@ import {
   type ThreadNavigationCommandsHost,
 } from "../../../../../src/features/chat/application/threads/thread-navigation-commands";
 import { deferred } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 
 function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagent = false): void {
   stateStore.dispatch({
-    type: "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: {
+    ...threadActivationFixture({
       id: threadId,
       cliVersion: "test",
       provenance: subagent
@@ -38,11 +31,8 @@ function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagen
             agentRole: "explorer",
           }
         : { kind: "interactive" },
-    } as never,
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
+    } as never),
+    type: "active-thread/resumed",
   });
 }
 

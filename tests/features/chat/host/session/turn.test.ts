@@ -6,6 +6,7 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { createSessionTurn } from "../../../../../src/features/chat/host/session/turn";
 import { deferred } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 
 describe("createSessionTurn", () => {
   it("sends only plan text without composer context when implementing a plan", async () => {
@@ -245,19 +246,8 @@ function thread(id: string): Thread {
 
 function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items: readonly ThreadStreamItem[]): void {
   stateStore.dispatch({
+    ...threadActivationFixture(thread("thread")),
     type: "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: thread("thread"),
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
     items,
   });
   stateStore.dispatch({

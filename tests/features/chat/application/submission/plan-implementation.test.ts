@@ -10,8 +10,8 @@ import {
 } from "../../../../../src/features/chat/application/submission/plan-implementation";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-
 import { deferred } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 
 const planItem = (id: string): ThreadStreamItem => ({
   id,
@@ -40,19 +40,8 @@ function resumeThread(
   threadId = "thread",
 ): void {
   stateStore.dispatch({
+    ...threadActivationFixture({ id: threadId, cliVersion: "test" } as never),
     type: "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: { id: threadId, cliVersion: "test" } as never,
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
     items,
     lifetime,
   });

@@ -16,6 +16,7 @@ import { resolveRuntimeControls } from "../../../../../src/features/chat/domain/
 import { pendingRuntimeSettingsPatch } from "../../../../../src/features/chat/domain/runtime/thread-settings-patch";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { runtimeConfigFixture } from "../../domain/runtime/support";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -60,19 +61,8 @@ describe("thread management commands", () => {
     await waitForAsyncWork(() => expect(host.ensureConnected).toHaveBeenCalledOnce());
 
     host.stateStore.dispatch({
+      ...threadActivationFixture(panelThread("other")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: panelThread("other"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     connection.resolve(true);
     await compacting;
@@ -107,19 +97,8 @@ describe("thread management commands", () => {
     const host = hostMock({ items: [] });
     host.effects.compactThread.mockReturnValue(compact.promise);
     host.stateStore.dispatch({
+      ...threadActivationFixture(panelThread("source")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: panelThread("source"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     const controller = threadCommands(host);
 
@@ -128,19 +107,8 @@ describe("thread management commands", () => {
       expect(host.effects.compactThread).toHaveBeenCalledWith("source");
     });
     host.stateStore.dispatch({
+      ...threadActivationFixture(panelThread("other")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: panelThread("other"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     compact.resolve(completed(undefined));
     await pendingCompact;

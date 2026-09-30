@@ -15,6 +15,7 @@ import { pendingWebSubmissionItem } from "../../../../../src/features/chat/appli
 import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { deferred } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -65,19 +66,8 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
 
 function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, created = false, threadId = "thread") {
   stateStore.dispatch({
+    ...threadActivationFixture(thread(threadId)),
     type: created ? "active-thread/created" : "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: thread(threadId),
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
   });
 }
 
@@ -95,37 +85,16 @@ function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore
     },
   };
   stateStore.dispatch({
+    ...threadActivationFixture(child),
     type: "active-thread/resumed",
     canAcceptDirectInput,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: child,
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
   });
 }
 
 function resumeSideChat(stateStore: ReturnType<typeof createChatStateStore>) {
   stateStore.dispatch({
+    ...threadActivationFixture(thread("side")),
     type: "active-thread/resumed",
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: thread("side"),
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
     lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
   });
 }
@@ -202,19 +171,9 @@ describe("TurnSubmissionCommand", () => {
   it("does not start a turn when the loaded thread rejects direct input", async () => {
     const { host, startTurn, stateStore } = createHost();
     stateStore.dispatch({
+      ...threadActivationFixture(thread("thread")),
       type: "active-thread/resumed",
       canAcceptDirectInput: false,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     const commands = createTurnSubmissionCommand(host);
 

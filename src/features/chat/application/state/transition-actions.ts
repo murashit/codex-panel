@@ -5,7 +5,7 @@ import {
   runtimePermissionStateOrDefault,
 } from "../../../../domain/runtime/permissions";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/settings";
-import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
+import type { ThreadActivationSnapshot } from "../../../../domain/threads/model";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
@@ -24,15 +24,9 @@ interface ResumedThreadActionParams {
   expectedPanelTargetRevision?: number;
 }
 
-export interface ActiveThreadResumedAction extends RuntimePermissionState, RuntimePermissionKnownState {
+export interface ActiveThreadResumedAction extends ThreadActivationSnapshot {
   type: "active-thread/resumed";
-  thread: Thread;
-  canAcceptDirectInput: boolean | null;
-  model: string | null;
-  reasoningEffort: ReasoningEffort | null;
-  serviceTier: ServiceTier | null;
   serviceTierKnown?: boolean;
-  approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
   items?: readonly ThreadStreamItem[];
   status?: string;
   preserveRequestedRuntimeSettings?: boolean;
@@ -152,17 +146,9 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
   const { response } = params;
   const permissions = runtimePermissionStateOrDefault(response);
   return {
+    ...response,
     type: "active-thread/resumed",
-    thread: response.thread,
-    canAcceptDirectInput: response.canAcceptDirectInput,
-    model: response.model,
-    reasoningEffort: response.reasoningEffort,
-    serviceTier: response.serviceTier,
     serviceTierKnown: params.serviceTierKnown ?? true,
-    approvalsReviewer: response.approvalsReviewer,
-    approvalPolicyKnown: response.approvalPolicyKnown,
-    sandboxPolicyKnown: response.sandboxPolicyKnown,
-    permissionProfileKnown: response.permissionProfileKnown,
     ...permissions,
     lifetime: { kind: "persistent" },
     ...(params.items ? { items: params.items } : {}),

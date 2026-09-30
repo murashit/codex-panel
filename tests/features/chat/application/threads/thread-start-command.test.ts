@@ -10,6 +10,7 @@ import { createThreadStartCommand } from "../../../../../src/features/chat/appli
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "../../support/shared-display-values";
 import { chatStateFixture } from "../../support/state";
 
@@ -256,21 +257,13 @@ function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
 }
 
 function activationFixture(thread: Thread, overrides: Partial<ThreadActivationSnapshot> = {}): ThreadActivationSnapshot {
-  return {
-    thread,
-    canAcceptDirectInput: null,
+  return threadActivationFixture(thread, {
     model: "gpt-5",
-    serviceTier: null,
-    approvalsReviewer: null,
-    reasoningEffort: null,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
     approvalPolicyKnown: false,
     sandboxPolicyKnown: false,
     permissionProfileKnown: false,
     ...overrides,
-  };
+  });
 }
 
 function completedActivation(value: ThreadActivationSnapshot): EffectOutcome<ThreadActivationSnapshot> {

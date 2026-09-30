@@ -11,6 +11,7 @@ import {
 } from "../../../../../src/features/chat/application/threads/goal-commands";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { deferred } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 type GoalCommandsHost = Parameters<typeof createGoalCommandsImpl>[0];
@@ -328,15 +329,7 @@ describe("createGoalCommands", () => {
     const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "new-thread", revision: 0 } });
     const ensureRestoredThreadLoaded = vi.fn(async () => {
       stateStore.dispatch({
-        type: "active-thread/resumed",
-        canAcceptDirectInput: null,
-        approvalPolicyKnown: true,
-        sandboxPolicyKnown: true,
-        permissionProfileKnown: true,
-        approvalPolicy: null,
-        sandboxPolicy: null,
-        activePermissionProfile: null,
-        thread: {
+        ...threadActivationFixture({
           id: "restored",
           preview: "Restored",
           createdAt: 1,
@@ -344,11 +337,8 @@ describe("createGoalCommands", () => {
           name: null,
           archived: false,
           provenance: { kind: "interactive" },
-        },
-        model: null,
-        reasoningEffort: null,
-        serviceTier: null,
-        approvalsReviewer: null,
+        }),
+        type: "active-thread/resumed",
       });
       return true;
     });

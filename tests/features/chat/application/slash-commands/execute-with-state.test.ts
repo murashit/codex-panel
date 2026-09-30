@@ -11,6 +11,7 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { deferred } from "../../../../support/async";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
@@ -169,19 +170,8 @@ describe("executePanelSlashCommand", () => {
   it("routes compact through the shared thread action port before a client is connected", async () => {
     const { compactThread, host, stateStore } = createHost({ connectionAvailable: () => false });
     stateStore.dispatch({
+      ...threadActivationFixture(thread("thread", "Thread")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread", "Thread"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
 
     await executePanelSlashCommand(host, "compact", "");
@@ -204,19 +194,8 @@ describe("executePanelSlashCommand", () => {
   it("rejects a directly typed goal command in a side chat before it reaches the goal port", async () => {
     const { host, stateStore } = createHost();
     stateStore.dispatch({
+      ...threadActivationFixture(thread("side", "Side chat")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("side", "Side chat"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
 
@@ -229,15 +208,7 @@ describe("executePanelSlashCommand", () => {
   it("allows directly typed goal display in a persistent subagent panel", async () => {
     const { host, stateStore } = createHost();
     stateStore.dispatch({
-      type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: {
+      ...threadActivationFixture({
         ...thread("child", "Child"),
         provenance: {
           kind: "subagent",
@@ -248,11 +219,8 @@ describe("executePanelSlashCommand", () => {
           agentNickname: "Scout",
           agentRole: "explorer",
         },
-      },
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
+      }),
+      type: "active-thread/resumed",
     });
     vi.mocked(host.goals.activeGoal).mockReturnValue({
       threadId: "child",
@@ -274,19 +242,8 @@ describe("executePanelSlashCommand", () => {
   it("keeps directly typed compact available in a side chat", async () => {
     const { compactThread, host, stateStore } = createHost();
     stateStore.dispatch({
+      ...threadActivationFixture(thread("side", "Side chat")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("side", "Side chat"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
 

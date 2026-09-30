@@ -9,6 +9,7 @@ import { pendingWebSubmissionItem } from "../../../../../src/features/chat/appli
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
@@ -424,15 +425,8 @@ describe("chatReducer", () => {
     const resumedItems = [dialogueItem("resumed-message")];
 
     const next = chatReducer(state, {
+      ...threadActivationFixture(thread("resumed-thread")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("resumed-thread"),
       model: "gpt-5.1",
       reasoningEffort: "high",
       serviceTier: "fast",
@@ -461,15 +455,8 @@ describe("chatReducer", () => {
     });
 
     const next = chatReducer(state, {
+      ...threadActivationFixture(thread("started-thread")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("started-thread"),
       model: "gpt-5",
       reasoningEffort: "medium",
       serviceTier: "fast",
@@ -496,19 +483,8 @@ describe("chatReducer", () => {
     state = withChatStateStableThreadStreamItems(state, [dialogueItem("previous-message")]);
 
     const next = chatReducer(state, {
+      ...threadActivationFixture(thread("resumed-thread")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("resumed-thread"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
 
     expect(chatStateThreadStreamItems(next)).toEqual([]);
@@ -654,18 +630,10 @@ describe("chatReducer", () => {
 
   it("preserves unknown service tier state when resuming from active runtime", () => {
     const state = chatReducer(chatStateFixture(), {
+      ...threadActivationFixture(thread("thread")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread"),
       model: "gpt-5.1",
       reasoningEffort: "high",
-      serviceTier: null,
       serviceTierKnown: false,
       approvalsReviewer: "user",
     });
@@ -679,38 +647,16 @@ describe("chatReducer", () => {
     const panelB = createChatStateStore();
 
     panelA.dispatch({
+      ...threadActivationFixture(thread("thread-a")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread-a"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     panelA.dispatch({ type: "composer/draft-set", draft: "panel A draft" });
     panelA.dispatch({ type: "request/user-input-queued", input: userInput(1) });
     panelA.dispatch({ type: "request/user-input-draft-set", key: "1:note", value: "panel A answer" });
 
     panelB.dispatch({
+      ...threadActivationFixture(thread("thread-b")),
       type: "active-thread/resumed",
-      canAcceptDirectInput: null,
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread-b"),
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
     });
     panelB.dispatch({ type: "composer/draft-set", draft: "panel B draft" });
     panelB.dispatch({ type: "request/user-input-queued", input: userInput(2) });
@@ -857,18 +803,7 @@ function thread(id: string): Thread {
 
 function resumedThreadAction(threadId: string) {
   return {
+    ...threadActivationFixture(thread(threadId)),
     type: "active-thread/resumed" as const,
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: thread(threadId),
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
   };
 }
