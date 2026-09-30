@@ -36,10 +36,6 @@ function turnTranscriptSummaryFromTurnRecord(turn: TurnRecord): TurnTranscriptSu
   return turnTranscriptSummaryFromTranscriptEntries(transcriptEntriesFromTurnRecord(turn));
 }
 
-export function turnTranscriptAssistantTextFromTurnRecord(turn: TurnRecord): string | null {
-  return turnTranscriptSummaryFromTurnRecord(turn).assistantText;
-}
-
 export function completedTurnTranscriptSummaryFromTurnRecord(turn: TurnRecord): TurnTranscriptSummary | null {
   if (turn.status !== "completed") return null;
   const summary = turnTranscriptSummaryFromTurnRecord(turn);

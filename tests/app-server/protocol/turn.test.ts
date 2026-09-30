@@ -7,7 +7,6 @@ import {
   type TurnItem,
   type TurnRecord,
   transcriptEntriesFromTurnRecords,
-  turnTranscriptAssistantTextFromTurnRecord,
 } from "../../../src/app-server/protocol/turn";
 
 describe("app-server turn records", () => {
@@ -159,10 +158,6 @@ describe("app-server turn records", () => {
         ]),
       ]),
     ).toEqual([{ kind: "user", text: "[$review] /skills/review", timestamp: null }]);
-  });
-
-  it("extracts assistant-like transcript text for generated turn consumers", () => {
-    expect(turnTranscriptAssistantTextFromTurnRecord(turn([userMessage("u1", "依頼"), planItem("p1", "計画")]))).toBe("計画");
   });
 
   it("extracts the final non-empty agent message text from a turn", () => {

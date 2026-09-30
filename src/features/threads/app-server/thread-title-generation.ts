@@ -1,9 +1,10 @@
 import {
   type EphemeralStructuredTurnRunner,
-  runEphemeralStructuredTurnForAssistantTranscriptText,
+  runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
 } from "../../../app-server/services/ephemeral-structured-turn";
 import type { ReasoningEffort } from "../../../domain/runtime/catalog";
+import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { ThreadTitleContext } from "../../../domain/threads/title";
 
 const THREAD_TITLE_MAX_CHARS = 40;
@@ -48,7 +49,7 @@ export async function generateThreadTitleWithCodex(
   runtimeSettings: ThreadTitleRuntimeSettings,
   options: GenerateThreadTitleWithCodexOptions = {},
 ): Promise<string | null> {
-  const response = await runEphemeralStructuredTurnForAssistantTranscriptText(
+  const response = await runEphemeralStructuredTurnForLastAgentText(
     {
       codexPath,
       cwd,
@@ -69,23 +70,14 @@ export async function generateThreadTitleWithCodex(
   return response ? threadTitleFromGeneratedText(response) : null;
 }
 
-function normalizeGeneratedThreadTitle(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const title = value
-    .trim()
-    .replace(/[\r\n\t]+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/^#+\s*/, "")
-    .replace(/^[-*]\s*/, "")
-    .replace(/^["'`「『]+/, "")
-    .replace(/["'`」』]+$/, "")
-    .trim();
-  if (!title) return null;
-  return title.length > THREAD_TITLE_MAX_CHARS ? title.slice(0, THREAD_TITLE_MAX_CHARS).trimEnd() : title;
-}
-
 function threadTitleFromGeneratedText(text: string): string | null {
-  return normalizeGeneratedThreadTitle(extractTitleFromModelText(text));
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (!parsed || typeof parsed !== "object" || !("title" in parsed) || typeof parsed.title !== "string") return null;
+    return normalizeExplicitThreadName(parsed.title)?.slice(0, THREAD_TITLE_MAX_CHARS).trimEnd() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function threadTitlePrompt(context: ThreadTitleContext): string {
@@ -107,32 +99,4 @@ function threadTitlePrompt(context: ThreadTitleContext): string {
     "Codex's first response:",
     context.assistantResponse,
   ].join("\n");
-}
-
-function extractTitleFromModelText(text: string): unknown {
-  const trimmed = stripCodeFence(text.trim());
-  const objectText = extractJsonObject(trimmed) ?? trimmed;
-  try {
-    const parsed = JSON.parse(objectText) as unknown;
-    if (parsed && typeof parsed === "object" && "title" in parsed) {
-      return (parsed as { title?: unknown }).title;
-    }
-  } catch {
-    return trimmed;
-  }
-  return trimmed;
-}
-
-function stripCodeFence(text: string): string {
-  return text
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "")
-    .trim();
-}
-
-function extractJsonObject(text: string): string | null {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  return text.slice(start, end + 1);
 }
