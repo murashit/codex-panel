@@ -38,6 +38,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "panel/restored-thread-applied":
     case "panel/restored-thread-renamed":
     case "panel/view-state-cleared":
+    case "panel/disposed":
     case "turn/started":
     case "turn/completed":
     case "turn/scoped-cleared":

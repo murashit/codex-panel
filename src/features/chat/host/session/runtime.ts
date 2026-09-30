@@ -386,6 +386,8 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       threadCatalog: threadCatalogObserver,
     },
     dispose: async (unmount: () => void): Promise<void> => {
+      // Invalidate local results while retaining thread facts for Side Chat cleanup.
+      stateStore.dispatch({ type: "panel/disposed" });
       try {
         sessionConnection.deactivate();
         commands.invalidateThreadWork();

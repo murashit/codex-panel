@@ -8,6 +8,8 @@ import { createServerDiagnostics } from "../../../../../src/domain/runtime/diagn
 import type { ServerInitialization } from "../../../../../src/domain/runtime/metadata";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { createChatRuntimeSettingsCommands } from "../../../../../src/features/chat/application/runtime/settings-commands";
+import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
@@ -314,6 +316,62 @@ describe("chat panel session runtime", () => {
     await vi.runAllTimersAsync();
     expect(warmup).not.toHaveBeenCalled();
   });
+
+  it.each(["success", "failure"] as const)(
+    "invalidates in-flight and queued settings before async disposal finishes (%s)",
+    async (outcome) => {
+      const first = sessionRuntimeFixture();
+      first.stateStore.dispatch({ ...threadActivationFixture(threadFixture()), type: "active-thread/resumed" });
+      const update = deferred<boolean>();
+      const updateThreadSettings = vi.fn().mockReturnValueOnce(update.promise).mockResolvedValue(true);
+      const queue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+      const messages = vi.fn();
+      const commandsFor = (stateStore: ChatStateStore) =>
+        createChatRuntimeSettingsCommands(
+          {
+            stateStore,
+            runtimeSettingsPort: { updateThreadSettings },
+            runtimeSnapshotForState: (state) =>
+              runtimeSnapshotForChatState(state, {
+                runtimeConfigSnapshot: () => null,
+                rateLimitsSnapshot: () => undefined,
+                modelsSnapshot: () => [],
+              }),
+            collaborationModeLabel: () => "Plan",
+            addSystemMessage: messages,
+          },
+          queue,
+        );
+      const commands = commandsFor(first.stateStore);
+      const pending = commands.requestModelFromUi("old");
+      await vi.waitFor(() => expect(updateThreadSettings).toHaveBeenCalledOnce());
+      const queued = commands.requestModelFromUi("queued");
+      const cleanup = deferred<void>();
+      vi.spyOn(first.runtime.thread.ephemeral, "dispose").mockReturnValue(cleanup.promise);
+      const disconnect = vi.spyOn(first.runtime.connection.manager, "disconnect");
+      const disposal = first.runtime.dispose(vi.fn());
+      const reopened = sessionRuntimeFixture();
+      reopened.stateStore.dispatch({ ...threadActivationFixture(threadFixture()), type: "active-thread/resumed" });
+      const fresh = commandsFor(reopened.stateStore).requestModel("new");
+      expect(updateThreadSettings).toHaveBeenCalledTimes(1);
+
+      if (outcome === "success") update.resolve(true);
+      else update.reject(new Error("old failure"));
+      await Promise.all([pending, queued]);
+      await expect(fresh).resolves.toBe(true);
+
+      expect(updateThreadSettings.mock.calls).toEqual([
+        ["thread", { model: "old" }],
+        ["thread", { model: "new" }],
+      ]);
+      expect(first.stateStore.getState().runtime.active.model).toBeNull();
+      expect(messages).not.toHaveBeenCalled();
+      expect(disconnect).not.toHaveBeenCalled();
+      cleanup.resolve(undefined);
+      await disposal;
+      await reopened.runtime.dispose(vi.fn());
+    },
+  );
 
   it("invalidates an inline rename before releasing the panel runtime", async () => {
     const renamed = deferred<boolean>();

@@ -26,6 +26,7 @@ import {
 } from "../../domain/runtime/thread-settings-patch";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId, type ChatState } from "../state/model";
+import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatAction } from "../state/reducer";
 import type { ChatStateStore } from "../state/store";
 
@@ -106,6 +107,7 @@ async function commitPendingThreadSettings(
   host: RuntimeSettingsCommandsContext,
   fields?: readonly (keyof RuntimeSettingsPatch)[],
 ): Promise<RuntimeSettingsCommitResult> {
+  const target = capturePanelTargetLease(state(host));
   const threadId = activeThreadId(state(host));
   if (!threadId) return { ok: true, collaborationModeApplied: true };
   const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
@@ -115,24 +117,26 @@ async function commitPendingThreadSettings(
 
   if (activePanelOperationBlocked(host, "thread-settings")) return { ok: false, collaborationModeApplied: false };
   const ok = fields
-    ? await commitRuntimeSettingsFields(host, threadId, pickRuntimeSettingsFields(update, fields))
-    : await settleRuntimeSettings(host, threadId);
-  return { ok, collaborationModeApplied: ok && collaborationModeApplied };
+    ? await commitRuntimeSettingsFields(host, threadId, target, pickRuntimeSettingsFields(update, fields))
+    : await settleRuntimeSettings(host, threadId, target);
+  const current = ok && panelTargetLeaseIsCurrent(state(host), target);
+  return { ok: current, collaborationModeApplied: current && collaborationModeApplied };
 }
 
 function commitRuntimeSettingsFields(
   host: RuntimeSettingsCommandsContext,
   threadId: string,
+  target: PanelTargetLease,
   update: RuntimeSettingsPatch,
 ): Promise<boolean> {
   if (patchEmpty(update)) return Promise.resolve(true);
   const command = { ...update };
   return host.threadCommits.run(threadId, async () => {
-    if (!runtimeSettingsThreadIsCurrent(host, threadId)) return false;
+    if (!panelTargetLeaseIsCurrent(state(host), target)) return false;
     if (!patchEqual(matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command), command)) return false;
 
-    const updated = await updateRuntimeSettings(host, threadId, command);
-    if (!updated || !runtimeSettingsThreadIsCurrent(host, threadId)) return false;
+    const updated = await updateRuntimeSettings(host, threadId, target, command);
+    if (!updated || !panelTargetLeaseIsCurrent(state(host), target)) return false;
 
     const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command);
     if ("model" in command && committed.model !== command.model) return false;
@@ -141,14 +145,15 @@ function commitRuntimeSettingsFields(
   });
 }
 
-async function settleRuntimeSettings(host: RuntimeSettingsCommandsContext, threadId: string): Promise<boolean> {
-  while (runtimeSettingsThreadIsCurrent(host, threadId)) {
+async function settleRuntimeSettings(host: RuntimeSettingsCommandsContext, threadId: string, target: PanelTargetLease): Promise<boolean> {
+  while (panelTargetLeaseIsCurrent(state(host), target)) {
     const result = await host.threadCommits.run(threadId, async (): Promise<"continue" | "failed" | "settled"> => {
-      if (!runtimeSettingsThreadIsCurrent(host, threadId)) return "failed";
+      if (!panelTargetLeaseIsCurrent(state(host), target)) return "failed";
       const update = currentPendingRuntimeSettingsPatch(host);
       if (patchEmpty(update)) return "settled";
 
-      if (!(await updateRuntimeSettings(host, threadId, update)) || !runtimeSettingsThreadIsCurrent(host, threadId)) return "failed";
+      if (!(await updateRuntimeSettings(host, threadId, target, update)) || !panelTargetLeaseIsCurrent(state(host), target))
+        return "failed";
 
       const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), update);
       if (!patchEmpty(committed)) commitRuntimeSettingsPatch(host, committed);
@@ -162,20 +167,17 @@ async function settleRuntimeSettings(host: RuntimeSettingsCommandsContext, threa
 async function updateRuntimeSettings(
   host: RuntimeSettingsCommandsContext,
   threadId: string,
+  target: PanelTargetLease,
   update: RuntimeSettingsPatch,
 ): Promise<boolean> {
   try {
     return await host.runtimeSettingsPort.updateThreadSettings(threadId, update);
   } catch (error) {
-    if (runtimeSettingsThreadIsCurrent(host, threadId)) {
+    if (panelTargetLeaseIsCurrent(state(host), target)) {
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     return false;
   }
-}
-
-function runtimeSettingsThreadIsCurrent(host: RuntimeSettingsCommandsHost, threadId: string): boolean {
-  return activeThreadId(state(host)) === threadId;
 }
 
 function commitRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost, update: RuntimeSettingsPatch): void {
@@ -292,8 +294,10 @@ async function toggleCollaborationMode(host: RuntimeSettingsCommandsContext): Pr
 
 async function setCollaborationMode(host: RuntimeSettingsCommandsContext, collaborationMode: CollaborationModeSelection): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
+  const target = capturePanelTargetLease(state(host));
   requestPendingRuntime(host, { collaborationMode: setCollaborationModeIntent(collaborationMode) });
   const result = await commitPendingThreadSettings(host, ["collaborationMode"]);
+  if (!panelTargetLeaseIsCurrent(state(host), target)) return false;
   if (result.ok) closeRuntimePanel(host);
   if (result.ok && result.collaborationModeApplied) {
     host.addSystemMessage(collaborationMode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.");
@@ -331,7 +335,8 @@ async function runRuntimeUiCommand(
   command: () => Promise<boolean>,
   successMessage: string,
 ): Promise<void> {
-  if (!(await command())) return;
+  const target = capturePanelTargetLease(state(host));
+  if (!(await command()) || !panelTargetLeaseIsCurrent(state(host), target)) return;
   closeRuntimePanel(host);
   host.addSystemMessage(successMessage);
 }

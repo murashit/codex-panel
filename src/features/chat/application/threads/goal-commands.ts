@@ -61,9 +61,8 @@ export function createGoalCommands(host: GoalCommandsHost): GoalCommands {
       host.stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: expanded });
     },
     setObjective: (objective, tokenBudget, submission) => saveObjective(host, objective, tokenBudget, submission),
-    setStatus: (threadId, status) => runGoalMutation(host, threadId, () => setGoal(host, threadId, { status })),
-    clear: (threadId) =>
-      runGoalMutation(host, threadId, () => executeGoalEffect(host, threadId, () => host.effects.clearThreadGoal(threadId))),
+    setStatus: (threadId, status) => setGoal(host, threadId, { status }),
+    clear: (threadId) => executeGoalEffect(host, threadId, () => host.effects.clearThreadGoal(threadId)),
     startEditingCurrent: () => {
       void startEditingCurrent(host);
     },
@@ -101,7 +100,7 @@ async function saveObjective(
   const threadId = activeThreadId(host.stateStore.getState());
   if (!threadId) return startThreadAndSaveObjective(host, normalized, tokenBudget, submission);
   submission?.markAdopted();
-  return runGoalMutation(host, threadId, () => setNormalizedObjective(host, threadId, normalized, tokenBudget));
+  return setNormalizedObjective(host, threadId, normalized, tokenBudget);
 }
 
 function setGoal(host: GoalCommandsHost, threadId: string, params: ThreadGoalUpdate): Promise<boolean> {
@@ -109,19 +108,23 @@ function setGoal(host: GoalCommandsHost, threadId: string, params: ThreadGoalUpd
 }
 
 async function executeGoalEffect(host: GoalCommandsHost, threadId: string, effect: () => Promise<EffectOutcome<void>>): Promise<boolean> {
+  const target = capturePanelTargetLease(host.stateStore.getState());
+  if (!goalMutationAdmissionIsCurrent(host, threadId)) return false;
   try {
-    if (!(await host.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId)) return false;
+    if (!(await host.ensureConnected()) || !panelTargetLeaseIsCurrent(host.stateStore.getState(), target)) return false;
+    if (!goalMutationAdmissionIsCurrent(host, threadId)) return false;
     const outcome = await effect();
     if (outcome.kind === "not-started") return false;
-    return activeThreadId(host.stateStore.getState()) === threadId;
+    return panelTargetLeaseIsCurrent(host.stateStore.getState(), target);
   } catch (error) {
-    addThreadGoalSystemMessage(host, threadId, errorMessage(error));
+    if (panelTargetLeaseIsCurrent(host.stateStore.getState(), target)) host.addSystemMessage(errorMessage(error));
     return false;
   }
 }
 
 async function startEditingCurrent(host: GoalCommandsHost): Promise<void> {
-  if (!(await prepareGoalMutation(host))) return;
+  const target = capturePanelTargetLease(host.stateStore.getState());
+  if (!(await prepareGoalMutation(host)) || !panelTargetLeaseIsCurrent(host.stateStore.getState(), target)) return;
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   const goal = currentGoal(host);
   host.stateStore.dispatch({
@@ -139,7 +142,8 @@ async function prepareGoalMutation(host: GoalCommandsHost): Promise<boolean> {
     host.addSystemMessage(decision.message);
     return false;
   }
-  if (!(await host.ensureRestoredThreadLoaded())) return false;
+  const target = capturePanelTargetLease(host.stateStore.getState());
+  if (!(await host.ensureRestoredThreadLoaded()) || !panelTargetLeaseIsCurrent(host.stateStore.getState(), target)) return false;
   const resumedDecision = activePanelOperationDecision(host.stateStore.getState(), "goal-mutation");
   if (resumedDecision.kind === "allowed") return true;
   if (resumedDecision.kind === "blocked") host.addSystemMessage(resumedDecision.message);
@@ -167,9 +171,7 @@ async function startThreadAndSaveObjective(
     const outcome = await host.startThread(objective);
     if (outcome.kind !== "created-activated" || !panelTargetLeaseIsCurrent(host.stateStore.getState(), outcome.target)) return false;
     submission?.markAdopted();
-    return await runGoalMutation(host, outcome.target.threadId, () =>
-      setNormalizedObjective(host, outcome.target.threadId, objective, tokenBudget),
-    );
+    return await setNormalizedObjective(host, outcome.target.threadId, objective, tokenBudget);
   } catch (error) {
     if (panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) host.addSystemMessage(errorMessage(error));
     return false;
@@ -185,18 +187,9 @@ function goalMutationAdmissionIsCurrent(host: GoalCommandsHost, threadId: string
   return activeThreadId(host.stateStore.getState()) === threadId && goalMutationAllowedNow(host);
 }
 
-function runGoalMutation(host: GoalCommandsHost, threadId: string, operation: () => Promise<boolean>): Promise<boolean> {
-  if (!goalMutationAdmissionIsCurrent(host, threadId)) return Promise.resolve(false);
-  return operation();
-}
-
 function currentGoal(host: GoalCommandsHost): ThreadGoal | null {
   const threadId = activeThreadId(host.stateStore.getState());
   return threadId ? (host.goalQueries.snapshot(threadId) ?? null) : null;
-}
-
-function addThreadGoalSystemMessage(host: GoalCommandsHost, threadId: string, text: string): void {
-  if (activeThreadId(host.stateStore.getState()) === threadId) host.addSystemMessage(text);
 }
 
 function errorMessage(error: unknown): string {

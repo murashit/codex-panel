@@ -15,6 +15,7 @@ import {
 } from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatRuntimeSettingsCommands", () => {
@@ -519,13 +520,15 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(messages).toEqual(["nope"]);
   });
 
-  it("does not commit stale runtime updates after the active thread changes", async () => {
+  it("does not commit stale runtime updates after returning to the same thread", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const port = settingsPortFixture({
       updateThreadSettings: vi.fn().mockImplementation(async () => {
         store.dispatch({ type: "active-thread/cleared" });
+        reopenThread(store);
+        store.dispatch({ type: "runtime/pending-intent-patched", patch: { model: { kind: "set", value: "gpt-5.5" } } });
         return true;
       }),
     });
@@ -535,19 +538,20 @@ describe("createChatRuntimeSettingsCommands", () => {
     await expect(commands.requestModel("gpt-5.5")).resolves.toBe(false);
 
     expect(port.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
-    expect(activeThreadId(store.getState())).toBeNull();
+    expect(activeThreadId(store.getState())).toBe("thread");
     expect(store.getState().runtime.active.model).toBeNull();
-    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(messages).toEqual([]);
   });
 
-  it("does not report stale runtime update failures after the active thread changes", async () => {
+  it("does not report stale runtime update failures after returning to the same thread", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const port = settingsPortFixture({
       updateThreadSettings: vi.fn().mockImplementation(async () => {
         store.dispatch({ type: "active-thread/cleared" });
+        reopenThread(store);
         throw new Error("nope");
       }),
     });
@@ -556,7 +560,7 @@ describe("createChatRuntimeSettingsCommands", () => {
 
     await expect(commands.requestModel("gpt-5.5")).resolves.toBe(false);
 
-    expect(activeThreadId(store.getState())).toBeNull();
+    expect(activeThreadId(store.getState())).toBe("thread");
     expect(store.getState().runtime.active.model).toBeNull();
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
@@ -569,6 +573,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const port = settingsPortFixture({
       updateThreadSettings: vi.fn().mockImplementation(async () => {
         store.dispatch({ type: "active-thread/cleared" });
+        reopenThread(store);
         throw new Error("nope");
       }),
     });
@@ -583,7 +588,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     await expect(commands.applyPendingThreadSettings()).resolves.toBe(false);
 
     expect(port.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
-    expect(activeThreadId(store.getState())).toBeNull();
+    expect(activeThreadId(store.getState())).toBe("thread");
     expect(messages).toEqual([]);
   });
 
@@ -741,47 +746,41 @@ describe("createChatRuntimeSettingsCommands", () => {
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
   });
 
-  it("runs A1, B, then A2 in shared thread FIFO order and leaves A2 on the server", async () => {
-    const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
-    const firstStore = createChatStateStore(panelState);
-    const secondStore = createChatStateStore(panelState);
-    const firstUpdate = deferred<boolean>();
-    const order: string[] = [];
-    let serverModel: string | null = null;
-    const firstPort = settingsPortFixture({
-      updateThreadSettings: vi.fn((_threadId, update) => {
-        order.push(`A:${update.model}`);
-        serverModel = update.model ?? null;
-        if (update.model === "a1") return firstUpdate.promise;
-        return Promise.resolve(true);
-      }),
-    });
-    const secondPort = settingsPortFixture({
-      updateThreadSettings: vi.fn((_threadId, update) => {
-        order.push(`B:${update.model}`);
-        serverModel = update.model ?? null;
-        return Promise.resolve(true);
-      }),
-    });
-    const threadCommits = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-    const firstCommands = runtimeCommandsFixture(firstStore, firstPort, [], threadCommits);
-    const secondCommands = runtimeCommandsFixture(secondStore, secondPort, [], threadCommits);
+  it.each(["field", "settle"] as const)(
+    "serializes a %s settings request across close/reopen and skips old queued intent",
+    async (kind) => {
+      const firstStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
+      const firstUpdate = deferred<boolean>();
+      const port = settingsPortFixture({
+        updateThreadSettings: vi
+          .fn()
+          .mockImplementationOnce(() => firstUpdate.promise)
+          .mockResolvedValue(true),
+      });
+      const threadCommits = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
+      const firstCommands = runtimeCommandsFixture(firstStore, port, [], threadCommits);
+      firstStore.dispatch({ type: "runtime/pending-intent-patched", patch: { model: { kind: "set", value: "old" } } });
+      const inFlight = kind === "field" ? firstCommands.requestModel("old") : firstCommands.applyPendingThreadSettings();
+      await vi.waitFor(() => expect(port.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "old" }));
+      const oldQueued = firstCommands.requestModel("stale");
+      firstStore.dispatch({ type: "panel/disposed" });
+      const secondStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
+      const secondCommands = runtimeCommandsFixture(secondStore, port, [], threadCommits);
+      const reopened = secondCommands.requestModel("new");
+      expect(port.updateThreadSettings).toHaveBeenCalledTimes(1);
 
-    const a1 = firstCommands.requestModel("a1");
-    await vi.waitFor(() => expect(firstPort.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "a1" }));
-    const b = secondCommands.requestModel("b");
-    const a2 = firstCommands.requestModel("a2");
-    expect(order).toEqual(["A:a1"]);
+      firstUpdate.resolve(true);
 
-    firstUpdate.resolve(true);
-
-    await expect(a1).resolves.toBe(false);
-    await expect(b).resolves.toBe(true);
-    await expect(a2).resolves.toBe(true);
-    expect(order).toEqual(["A:a1", "B:b", "A:a2"]);
-    expect(serverModel).toBe("a2");
-    expect(firstStore.getState().runtime.active.model).toBe("a2");
-  });
+      await expect(inFlight).resolves.toBe(false);
+      await expect(oldQueued).resolves.toBe(false);
+      await expect(reopened).resolves.toBe(true);
+      expect(vi.mocked(port.updateThreadSettings).mock.calls).toEqual([
+        ["thread", { model: "old" }],
+        ["thread", { model: "new" }],
+      ]);
+      expect(secondStore.getState().runtime.active.model).toBe("new");
+    },
+  );
 
   it("settles newly requested settings inside its queued turn-submission command", async () => {
     let state = chatStateFixture();
@@ -807,46 +806,6 @@ describe("createChatRuntimeSettingsCommands", () => {
     await expect(settingsSettled).resolves.toBe(true);
     expect(store.getState().runtime.active.model).toBe("gpt-new");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
-  });
-
-  it("re-enters the shared FIFO before settling settings requested during turn submission", async () => {
-    const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
-    const firstStore = createChatStateStore(panelState);
-    const secondStore = createChatStateStore(panelState);
-    const firstUpdate = deferred<boolean>();
-    const order: string[] = [];
-    let serverModel: string | null = null;
-    const firstPort = settingsPortFixture({
-      updateThreadSettings: vi.fn((_threadId, update) => {
-        order.push(`A:${update.model}`);
-        serverModel = update.model ?? null;
-        return update.model === "a1" ? firstUpdate.promise : Promise.resolve(true);
-      }),
-    });
-    const secondPort = settingsPortFixture({
-      updateThreadSettings: vi.fn((_threadId, update) => {
-        order.push(`B:${update.model}`);
-        serverModel = update.model ?? null;
-        return Promise.resolve(true);
-      }),
-    });
-    const threadCommits = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-    const firstCommands = runtimeCommandsFixture(firstStore, firstPort, [], threadCommits);
-    const secondCommands = runtimeCommandsFixture(secondStore, secondPort, [], threadCommits);
-
-    firstStore.dispatch({ type: "runtime/pending-intent-patched", patch: { model: { kind: "set", value: "a1" } } });
-    const settled = firstCommands.applyPendingThreadSettings();
-    await vi.waitFor(() => expect(firstPort.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "a1" }));
-    const b = secondCommands.requestModel("b");
-    const a2 = firstCommands.requestModel("a2");
-
-    firstUpdate.resolve(true);
-
-    await expect(b).resolves.toBe(true);
-    await expect(a2).resolves.toBe(true);
-    await expect(settled).resolves.toBe(true);
-    expect(order).toEqual(["A:a1", "B:b", "A:a2"]);
-    expect(serverModel).toBe("a2");
   });
 
   it("serializes a different-field intent behind the active settings update", async () => {
@@ -970,4 +929,19 @@ function modelFixture(model: string, fastTierId: string): ModelMetadata {
     defaultServiceTier: null,
     isDefault: true,
   };
+}
+
+function reopenThread(store: ReturnType<typeof createChatStateStore>): void {
+  store.dispatch({
+    ...threadActivationFixture({
+      id: "thread",
+      preview: "Thread",
+      createdAt: 1,
+      updatedAt: 1,
+      name: null,
+      archived: false,
+      provenance: { kind: "interactive" },
+    }),
+    type: "active-thread/resumed",
+  });
 }

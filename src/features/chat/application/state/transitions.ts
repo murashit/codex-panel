@@ -93,6 +93,8 @@ export function reduceChatTransition(state: ChatState, action: ChatTransitionAct
       return reduceRestoredThreadRenamedTransition(state, action.threadId, action.name);
     case "panel/view-state-cleared":
       return reduceViewStateClearedTransition(state);
+    case "panel/disposed":
+      return { ...state, panelTargetRevision: state.panelTargetRevision + 1 };
     case "turn/started":
       return reduceTurnStartedTransition(state, action);
     case "turn/completed":

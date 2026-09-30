@@ -125,6 +125,7 @@ export type ChatTransitionAction =
   | { type: "panel/restored-thread-applied"; threadId: string; fallbackTitle: string | null; forkReplacement?: ForkReplacement }
   | { type: "panel/restored-thread-renamed"; threadId: string; name: string | null }
   | { type: "panel/view-state-cleared" }
+  | { type: "panel/disposed" }
   | TurnStartedAction
   | TurnCompletedAction
   | ClearLocalTurnAction

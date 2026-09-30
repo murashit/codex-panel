@@ -109,53 +109,30 @@ describe("createGoalCommands", () => {
     expect(addSystemMessage).toHaveBeenCalledWith("Goals are unavailable in side chats.");
   });
 
-  it("does not report stale goal action failures after the active thread changes", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const update = deferred<never>();
-    const effects = effectsFixture({ setThreadGoal: vi.fn().mockReturnValue(update.promise) });
+  it.each([
+    ["status", "success"],
+    ["status", "failure"],
+    ["clear", "success"],
+    ["clear", "failure"],
+  ] as const)("ignores old %s %s after returning to the same thread", async (operation, outcome) => {
+    const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
+    const update = deferred<EffectOutcome<void>>();
+    const effect = vi.fn(() => update.promise);
+    const effects = effectsFixture(operation === "status" ? { setThreadGoal: effect } : { clearThreadGoal: effect });
     const addSystemMessage = vi.fn();
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } }),
-      addSystemMessage,
-    });
-
-    const pending = commands.setStatus("thread", "paused");
-    await vi.waitFor(() => expect(effects.setThreadGoal).toHaveBeenCalledOnce());
+    const commands = createGoalCommands({ stateStore, effects, startThread: vi.fn(), addSystemMessage });
+    const pending = operation === "status" ? commands.setStatus("thread", "paused") : commands.clear("thread");
+    await vi.waitFor(() => expect(effect).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
-    update.reject(new Error("offline"));
-    await pending;
+    reopenThread(stateStore);
+    if (outcome === "success") update.resolve(completed(undefined));
+    else update.reject(new Error("offline"));
 
+    await expect(pending).resolves.toBe(false);
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
-  it("does not report stale goal clear failures after the active thread changes", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    const stateStore = createChatStateStore(state);
-    const clear = deferred<never>();
-    const effects = effectsFixture({ clearThreadGoal: vi.fn().mockReturnValue(clear.promise) });
-    const addSystemMessage = vi.fn();
-    const commands = createGoalCommands({
-      stateStore,
-      effects,
-      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "thread", revision: 0 } }),
-      addSystemMessage,
-    });
-
-    const pending = commands.clear("thread");
-    await vi.waitFor(() => expect(effects.clearThreadGoal).toHaveBeenCalledOnce());
-    stateStore.dispatch({ type: "active-thread/cleared" });
-    clear.reject(new Error("offline"));
-    await pending;
-
-    expect(addSystemMessage).not.toHaveBeenCalled();
-  });
-
-  it("does not clear a stale goal when the active thread changes during the policy guard", async () => {
+  it("does not clear a stale goal when the panel returns to the same thread during connection", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
@@ -169,12 +146,13 @@ describe("createGoalCommands", () => {
 
     const pending = commands.clear("thread");
     stateStore.dispatch({ type: "active-thread/cleared" });
+    reopenThread(stateStore);
 
     await expect(pending).resolves.toBe(false);
     expect(effects.clearThreadGoal).not.toHaveBeenCalled();
   });
 
-  it("does not set a goal on an old panel target after connection completes", async () => {
+  it("does not set a goal on an old panel target after returning to the same thread during connection", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
@@ -193,6 +171,7 @@ describe("createGoalCommands", () => {
     const pending = commands.setObjective("Finish", null);
     await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
+    reopenThread(stateStore);
     connection.resolve(true);
 
     await expect(pending).resolves.toBe(false);
@@ -407,4 +386,19 @@ function effectsFixture(overrides: Partial<ThreadGoalEffects> = {}): ThreadGoalE
 
 function completed<T>(value: T): EffectOutcome<T> {
   return { kind: "completed", value };
+}
+
+function reopenThread(store: ReturnType<typeof createChatStateStore>): void {
+  store.dispatch({
+    ...threadActivationFixture({
+      id: "thread",
+      preview: "Thread",
+      createdAt: 1,
+      updatedAt: 1,
+      name: null,
+      archived: false,
+      provenance: { kind: "interactive" },
+    }),
+    type: "active-thread/resumed",
+  });
 }
