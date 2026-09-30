@@ -15,7 +15,7 @@ setupThreadStreamRendering();
 import {
   expectPresent,
   idleTurnLifecycle,
-  projectedThreadStreamBlocks,
+  projectedThreadStream,
   renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
   runningTurnLifecycle,
@@ -30,7 +30,7 @@ describe("panel thread stream rendering and action menu", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         items: [
           { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
           {
@@ -47,7 +47,7 @@ describe("panel thread stream rendering and action menu", () => {
     );
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         items: [
           { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
           {
@@ -84,13 +84,13 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("renders review result items as compact auto-review tool rows", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         { reviewKind: "automaticWarning", id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.classList.contains("codex-panel__stream-item--review-result")).toBe(true);
     expect(element.classList.contains("codex-panel__detail--plain")).toBe(true);
@@ -100,7 +100,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("renders review result details inside one auto-review details block", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           reviewKind: "automaticResult",
@@ -119,9 +119,9 @@ describe("panel thread stream rendering and action menu", () => {
           },
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(topLevelDetailsSummaries(element)).toEqual(["auto-review"]);
@@ -138,7 +138,7 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("renders structured system result details as visible selectable meta rows", () => {
     const renderMarkdown = vi.fn((parent: HTMLElement, text: string) => parent.createDiv({ text: `markdown:${text}` }));
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "system-help",
@@ -161,9 +161,9 @@ describe("panel thread stream rendering and action menu", () => {
         },
       ],
       renderMarkdown,
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.classList.contains("codex-panel__stream-item--system")).toBe(true);
     expect(element.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Available slash commands");
@@ -183,7 +183,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("renders goal events as collapsed tool-like thread stream items", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "goal-1",
@@ -195,9 +195,9 @@ describe("panel thread stream rendering and action menu", () => {
         },
       ],
       renderMarkdown: (element, text) => element.createDiv({ text }),
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.classList.contains("codex-panel__stream-item--tool")).toBe(true);
     expect(element.querySelector(".codex-panel__detail-label")?.textContent).toBe("goal");
@@ -224,14 +224,14 @@ describe("panel thread stream rendering and action menu", () => {
       },
       { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-2" },
     ] as const;
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [...items],
       textActionTargetsByItemId: new Map([["u2", { rollback: true }]]),
       onRollback,
       copyText,
     });
 
-    const rendered = blocks.map((block) => renderThreadStreamBlockElement(block));
+    const rendered = blocks.map((block) => renderThreadStreamBlockElement(block, context));
 
     expect(expectPresent(rendered[0]).querySelector(".codex-panel__rollback-turn")).toBeNull();
     expect(expectPresent(rendered[1]).querySelector(".codex-panel__rollback-turn")).toBeNull();
@@ -245,7 +245,7 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("renders copy actions for copyable messages", () => {
     const copyText = vi.fn();
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "rendered user", copyText: "**user**", turnId: "turn-1" },
         {
@@ -262,7 +262,7 @@ describe("panel thread stream rendering and action menu", () => {
       copyText,
     });
 
-    const rendered = blocks.map((block) => renderThreadStreamBlockElement(block));
+    const rendered = blocks.map((block) => renderThreadStreamBlockElement(block, context));
     const userButton = expectPresent(rendered[0]).querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue");
     const assistantButton = expectPresent(rendered[1]).querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue");
 
@@ -288,15 +288,15 @@ describe("panel thread stream rendering and action menu", () => {
       turnId: "turn-1",
     };
 
-    const closedBlock = projectedThreadStreamBlocks({
+    const { blocks: closedBlocks, context: closedContext } = projectedThreadStream({
       items: [item],
       onForkMenuToggle,
       copyText: vi.fn(),
       textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
       onFork,
-    })[0];
+    });
 
-    const closedElement = renderThreadStreamBlockElement(closedBlock);
+    const closedElement = renderThreadStreamBlockElement(expectPresent(closedBlocks[0]), closedContext);
     expect(closedElement.querySelector(".codex-panel__copy-dialogue")).not.toBeNull();
     const initialFork = expectPresent(closedElement.querySelector<HTMLButtonElement>(".codex-panel__fork-dialogue"));
     expect(initialFork.getAttribute("aria-label")).toBe("Fork from here");
@@ -304,16 +304,16 @@ describe("panel thread stream rendering and action menu", () => {
     initialFork.click();
     expect(onForkMenuToggle).toHaveBeenCalledWith("a1");
 
-    const openBlock = projectedThreadStreamBlocks({
+    const { blocks: openBlocks, context: openContext } = projectedThreadStream({
       items: [item],
       forkMenuItemId: "a1",
       onForkMenuToggle,
       copyText: vi.fn(),
       textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
       onFork,
-    })[0];
+    });
 
-    const openElement = renderThreadStreamBlockElement(openBlock);
+    const openElement = renderThreadStreamBlockElement(expectPresent(openBlocks[0]), openContext);
     expect(openElement.querySelector(".codex-panel__copy-dialogue")).toBeNull();
     expect(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-dialogue")?.getAttribute("aria-label")).toBe(
       "Fork and archive",
@@ -335,7 +335,7 @@ describe("panel thread stream rendering and action menu", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         ...baseContext,
         items: [
           {
@@ -355,7 +355,7 @@ describe("panel thread stream rendering and action menu", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         ...baseContext,
         items: [
           {
@@ -402,7 +402,7 @@ describe("panel thread stream rendering and action menu", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         ...baseContext,
         items: [
           {
@@ -423,7 +423,7 @@ describe("panel thread stream rendering and action menu", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         ...baseContext,
         items: [
           {
@@ -467,7 +467,7 @@ describe("panel thread stream rendering and action menu", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         ...baseContext,
         items: [
           {
@@ -546,16 +546,23 @@ describe("panel thread stream rendering and action menu", () => {
       copyText: vi.fn(),
     };
 
-    const runningBlock = projectedThreadStreamBlocks(context)[0];
-    const completedBlock = projectedThreadStreamBlocks({ ...context, turnLifecycle: idleTurnLifecycle() })[0];
+    const { blocks: runningBlocks, context: runningContext } = projectedThreadStream(context);
+    const { blocks: completedBlocks, context: completedContext } = projectedThreadStream({
+      ...context,
+      turnLifecycle: idleTurnLifecycle(),
+    });
 
-    expect(renderThreadStreamBlockElement(runningBlock).querySelector(".codex-panel__copy-dialogue")).toBeNull();
-    expect(renderThreadStreamBlockElement(completedBlock).querySelector(".codex-panel__copy-dialogue")).not.toBeNull();
+    expect(
+      renderThreadStreamBlockElement(expectPresent(runningBlocks[0]), runningContext).querySelector(".codex-panel__copy-dialogue"),
+    ).toBeNull();
+    expect(
+      renderThreadStreamBlockElement(expectPresent(completedBlocks[0]), completedContext).querySelector(".codex-panel__copy-dialogue"),
+    ).not.toBeNull();
   });
 
   it("renders implement plan action for eligible proposed plans", () => {
     const onImplementPlan = vi.fn();
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "p1",
@@ -571,9 +578,9 @@ describe("panel thread stream rendering and action menu", () => {
       copyText: vi.fn(),
       textActionTargetsByItemId: new Map([["p1", { implementPlan: { itemId: "p1" } }]]),
       onImplementPlan,
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
     const button = element.querySelector<HTMLButtonElement>(".codex-panel__implement-plan");
 
     expect(button?.getAttribute("aria-label")).toBe("Implement plan");
@@ -582,7 +589,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("does not render copy actions for tool items", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "tool-1",
@@ -594,9 +601,9 @@ describe("panel thread stream rendering and action menu", () => {
         },
       ],
       copyText: vi.fn(),
-    })[0];
+    });
 
-    expect(renderThreadStreamBlockElement(block).querySelector(".codex-panel__copy-dialogue")).toBeNull();
+    expect(renderThreadStreamBlockElement(expectPresent(blocks[0]), context).querySelector(".codex-panel__copy-dialogue")).toBeNull();
   });
 
   it("collapses tall user dialogues without changing the copy payload", () => {
@@ -613,7 +620,7 @@ describe("panel thread stream rendering and action menu", () => {
         }
       });
       const render = () => {
-        const blocks = projectedThreadStreamBlocks({
+        const blocksProjection = projectedThreadStream({
           items: [
             {
               id: "u1",
@@ -629,7 +636,7 @@ describe("panel thread stream rendering and action menu", () => {
           onDisclosureToggle,
           copyText,
         });
-        renderThreadStreamBlocksInAct(parent, blocks);
+        renderThreadStreamBlocksInAct(parent, blocksProjection);
       };
       render();
 
@@ -671,16 +678,16 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("does not show the collapse control for short user dialogues or assistant dialogues", () => {
     withStreamItemContentScrollHeight(120, () => {
-      const shortUserBlock = projectedThreadStreamBlocks({
+      const { blocks: shortUserBlocks, context: shortUserContext } = projectedThreadStream({
         items: [{ id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "short", turnId: "turn-1" }],
-      })[0];
-      const shortUser = renderThreadStreamBlockElement(shortUserBlock);
+      });
+      const shortUser = renderThreadStreamBlockElement(expectPresent(shortUserBlocks[0]), shortUserContext);
 
       expect(shortUser.querySelector<HTMLDetailsElement>(".codex-panel__stream-item-collapse-details")?.hidden).toBe(true);
     });
 
     withStreamItemContentScrollHeight(500, () => {
-      const assistantBlock = projectedThreadStreamBlocks({
+      const { blocks: assistantBlocks, context: assistantContext } = projectedThreadStream({
         items: [
           {
             id: "a1",
@@ -692,15 +699,15 @@ describe("panel thread stream rendering and action menu", () => {
             dialogueState: "completed",
           },
         ],
-      })[0];
-      const assistant = renderThreadStreamBlockElement(assistantBlock);
+      });
+      const assistant = renderThreadStreamBlockElement(expectPresent(assistantBlocks[0]), assistantContext);
 
       expect(assistant.querySelector(".codex-panel__stream-item-collapse-details")).toBeNull();
     });
   });
 
   it("renders command items as a compact summary with output behind details", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -717,9 +724,9 @@ describe("panel thread stream rendering and action menu", () => {
           output: "stderr details",
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("npm run check (exit 1)");
     expect(element.querySelector(".codex-panel__stream-summary")?.getAttribute("title")).toBeNull();
@@ -732,7 +739,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("omits command exit and duration rows while they are unavailable", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -747,9 +754,9 @@ describe("panel thread stream rendering and action menu", () => {
           output: "",
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
     const metaText = element.querySelector(".codex-panel__meta-grid")?.textContent ?? "";
 
     expect(metaText).toContain("commandnpm run check");
@@ -760,7 +767,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("derives command summaries from semantic targets instead of command text", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -775,15 +782,15 @@ describe("panel thread stream rendering and action menu", () => {
           output: "results",
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe('"semantic target" in src');
   });
 
   it("renders file diffs inside a single file change details block", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       workspaceRoot: "/vault/project",
       items: [
@@ -797,9 +804,9 @@ describe("panel thread stream rendering and action menu", () => {
           output: "patch applied",
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("src/main.ts");
     expect(topLevelDetailsSummaries(element)).toEqual(["file change"]);
@@ -810,7 +817,7 @@ describe("panel thread stream rendering and action menu", () => {
 
   it("renders the edited files footer with an open diff action when aggregated turn diff exists", () => {
     const openTurnDiff = vi.fn();
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -835,7 +842,7 @@ describe("panel thread stream rendering and action menu", () => {
       openTurnDiff,
     });
 
-    const assistant = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
+    const assistant = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")), context);
     const button = assistant.querySelector<HTMLButtonElement>(".codex-panel__open-turn-diff");
     const summary = assistant.querySelector<HTMLElement>(".codex-panel__edited-files summary");
 
@@ -854,7 +861,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("renders referenced thread metadata without exposing hidden context", () => {
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "u1",
@@ -873,7 +880,7 @@ describe("panel thread stream rendering and action menu", () => {
       ],
     });
 
-    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
+    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")), context);
 
     expect(user.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("この続きです");
     expect(user.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("Referenced 参照元");
@@ -882,7 +889,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("renders resolved file references as a collapsed user dialogue attachment", () => {
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "u1",
@@ -896,7 +903,7 @@ describe("panel thread stream rendering and action menu", () => {
       ],
     });
 
-    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
+    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")), context);
     const summary = user.querySelector<HTMLElement>(".codex-panel__context-items summary");
 
     expect(user.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Read [[Alpha]].");
@@ -907,7 +914,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("includes web attachments in the collapsed user dialogue context", () => {
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "u1",
@@ -922,7 +929,7 @@ describe("panel thread stream rendering and action menu", () => {
       ],
     });
 
-    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
+    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")), context);
     const summary = user.querySelector<HTMLElement>(".codex-panel__context-items summary");
 
     expect(summary?.textContent).toBe("Context · 2 items");
@@ -933,9 +940,9 @@ describe("panel thread stream rendering and action menu", () => {
   it("renders pending web submissions immediately as running user dialogue", () => {
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
     if (!pending) throw new Error("Expected pending web submission");
-    const blocks = projectedThreadStreamBlocks({ items: [pending] });
+    const { blocks, context } = projectedThreadStream({ items: [pending] });
 
-    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:local-web")));
+    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:local-web")), context);
 
     expect(user.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("https://example.com/ summarize");
     expect(user.querySelector(".codex-panel__context-items summary")?.textContent).toBe("Context · 1 item");
@@ -943,7 +950,7 @@ describe("panel thread stream rendering and action menu", () => {
   });
 
   it("does not render the open diff action without aggregated turn diff", () => {
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "patch-1",
@@ -966,7 +973,7 @@ describe("panel thread stream rendering and action menu", () => {
       openTurnDiff: vi.fn(),
     });
 
-    const assistant = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
+    const assistant = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")), context);
 
     expect(assistant.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
     expect(assistant.querySelector(".codex-panel__open-turn-diff")).toBeNull();

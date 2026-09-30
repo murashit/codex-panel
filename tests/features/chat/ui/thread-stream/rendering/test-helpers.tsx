@@ -22,7 +22,12 @@ import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/feat
 import { ThreadStreamViewport } from "../../../../../../src/features/chat/ui/thread-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../../src/shared/ui/preact-root.dom";
 
-export function projectedThreadStreamBlocks(context: TestThreadStreamContext): [ThreadStreamViewBlock, ...ThreadStreamViewBlock[]] {
+interface TestThreadStreamProjection {
+  blocks: ThreadStreamViewBlock[];
+  context: ThreadStreamContext;
+}
+
+export function projectedThreadStream(context: TestThreadStreamContext): TestThreadStreamProjection {
   const normalized = normalizeThreadStreamContext(context);
   const blocks = threadStreamViewBlocks({
     activeThreadId: normalized.activeThreadId,
@@ -39,12 +44,8 @@ export function projectedThreadStreamBlocks(context: TestThreadStreamContext): [
     subagentActivities: new Map(),
     authRecovery: null,
   });
-  if (blocks.length === 0) throw new Error("Expected at least one thread stream block.");
-  for (const block of blocks) threadStreamContextByBlock.set(block, normalized);
-  return blocks as [ThreadStreamViewBlock, ...ThreadStreamViewBlock[]];
+  return { blocks, context: normalized };
 }
-
-const threadStreamContextByBlock = new WeakMap<ThreadStreamViewBlock, ThreadStreamContext>();
 
 function pendingRequestBlockInput(context: TestThreadStreamContext): { signature: string; snapshot: PendingRequestBlockSnapshot } | null {
   if (threadStreamBlockItemsEmpty(context)) return null;
@@ -62,65 +63,26 @@ function threadStreamBlockItemsEmpty(context: TestThreadStreamContext): boolean 
   return (context.stableItems?.length ?? 0) === 0 && (context.activeItems?.length ?? 0) === 0;
 }
 
-type TestThreadStreamContext = Omit<
-  ThreadStreamContext,
-  | "activeThreadId"
-  | "copyText"
-  | "disclosures"
-  | "forkMenuItemId"
-  | "loadOlderTurns"
-  | "onDisclosureToggle"
-  | "onFork"
-  | "onForkMenuToggle"
-  | "onImplementPlan"
-  | "onRollback"
-  | "openThreadInNewView"
-  | "openTurnDiff"
-  | "pendingRequests"
-  | "renderObsidianMarkdown"
-  | "renderStreamMarkdown"
-> &
-  Partial<
-    Pick<
-      ThreadStreamContext,
-      | "activeThreadId"
-      | "copyText"
-      | "disclosures"
-      | "forkMenuItemId"
-      | "loadOlderTurns"
-      | "onDisclosureToggle"
-      | "onFork"
-      | "onForkMenuToggle"
-      | "onImplementPlan"
-      | "onRollback"
-      | "openThreadInNewView"
-      | "openTurnDiff"
-      | "renderObsidianMarkdown"
-      | "renderStreamMarkdown"
-    >
-  > & {
-    renderMarkdown?: (parent: HTMLElement, text: string) => void;
-    turnLifecycle?: ThreadStreamTurnLifecycleState;
-    historyCursor?: string | null;
-    loadingHistory?: boolean;
-    items: readonly ThreadStreamItem[];
-    stableItems?: readonly ThreadStreamItem[];
-    activeItems?: readonly ThreadStreamItem[];
-    workspaceRoot?: string;
-    turnDiffs?: ReadonlyMap<string, string>;
-    textActionTargetsByItemId?: ReadonlyMap<string, ThreadStreamTextActionTargets>;
-    pendingRequests?: TestPendingRequestContext;
-  };
+type TestThreadStreamContext = Partial<Omit<ThreadStreamContext, "pendingRequests">> & {
+  renderMarkdown?: (parent: HTMLElement, text: string) => void;
+  turnLifecycle?: ThreadStreamTurnLifecycleState;
+  historyCursor?: string | null;
+  loadingHistory?: boolean;
+  items: readonly ThreadStreamItem[];
+  stableItems?: readonly ThreadStreamItem[];
+  activeItems?: readonly ThreadStreamItem[];
+  workspaceRoot?: string;
+  turnDiffs?: ReadonlyMap<string, string>;
+  textActionTargetsByItemId?: ReadonlyMap<string, ThreadStreamTextActionTargets>;
+  pendingRequests?: TestPendingRequestContext;
+};
 
 interface TestPendingRequestContext extends PendingRequestBlockContext {
   signature: string;
   snapshot: () => PendingRequestBlockSnapshot;
 }
 
-type ThreadStreamTurnLifecycleState =
-  | { kind: "idle" }
-  | { kind: "starting"; pendingTurnStart: unknown }
-  | { kind: "running"; turnId: string };
+type ThreadStreamTurnLifecycleState = { kind: "idle" } | { kind: "running"; turnId: string };
 
 type NormalizedTestThreadStreamContext = ThreadStreamContext &
   Omit<TestThreadStreamContext, "activeThreadId" | "historyCursor" | "loadingHistory" | "loadOlderTurns" | "turnLifecycle"> & {
@@ -131,10 +93,6 @@ type NormalizedTestThreadStreamContext = ThreadStreamContext &
     workspaceRoot: string;
     turnLifecycle: ThreadStreamTurnLifecycleState;
   };
-
-function emptyDisclosures(): ThreadStreamDisclosureState {
-  return testDisclosures();
-}
 
 export function testDisclosures(
   overrides: Partial<Record<keyof ThreadStreamDisclosureState, readonly string[]>> = {},
@@ -163,7 +121,7 @@ function normalizeThreadStreamContext(context: TestThreadStreamContext): Normali
     loadingHistory: context.loadingHistory ?? false,
     loadOlderTurns: context.loadOlderTurns ?? vi.fn(),
     workspaceRoot: context.workspaceRoot ?? "/vault",
-    disclosures: context.disclosures ?? emptyDisclosures(),
+    disclosures: context.disclosures ?? testDisclosures(),
     forkMenuItemId: context.forkMenuItemId ?? null,
     onDisclosureToggle: context.onDisclosureToggle ?? vi.fn(),
     onForkMenuToggle: context.onForkMenuToggle ?? vi.fn(),
@@ -205,9 +163,9 @@ export function dispatchComposingInputValue(input: HTMLInputElement, value: stri
   input.dispatchEvent(event);
 }
 
-export function renderThreadStreamBlockElement(block: ThreadStreamViewBlock): HTMLElement {
+export function renderThreadStreamBlockElement(block: ThreadStreamViewBlock, context: ThreadStreamContext): HTMLElement {
   const parent = document.createElement("div");
-  renderThreadStreamBlocksInAct(parent, [block]);
+  renderThreadStreamBlocksInAct(parent, { blocks: [block], context });
   const host = expectPresent(parent.querySelector<HTMLElement>(`[data-codex-panel-block-key="${block.key}"]`));
   return expectPresent(host.firstElementChild as HTMLElement | null);
 }
@@ -216,11 +174,10 @@ export function actEvent(action: () => void): void {
   void act(action);
 }
 
-export function renderThreadStreamBlocksInAct(parent: HTMLElement, blocks: ThreadStreamViewBlock[]): void {
+export function renderThreadStreamBlocksInAct(parent: HTMLElement, { blocks, context }: TestThreadStreamProjection): void {
   parent.addClass("codex-panel__thread-stream");
   installThreadStreamViewportMetrics(parent);
   if (!parent.isConnected) document.body.appendChild(parent);
-  const context = threadStreamContextForBlocks(blocks);
   void act(() => {
     renderUiRoot(
       parent,
@@ -238,12 +195,6 @@ export function renderThreadStreamBlocksInAct(parent: HTMLElement, blocks: Threa
 const noOpThreadStreamScrollPortBinding: ThreadStreamScrollPortBinding = {
   mountScrollPort: () => () => undefined,
 };
-
-function threadStreamContextForBlocks(blocks: readonly ThreadStreamViewBlock[]): ThreadStreamContext {
-  const context = blocks.map((block) => threadStreamContextByBlock.get(block)).find((candidate) => candidate !== undefined);
-  if (!context) throw new Error("Expected thread stream blocks created by threadStreamBlocks().");
-  return context;
-}
 
 function installThreadStreamViewportMetrics(
   element: HTMLElement,

@@ -10,7 +10,7 @@ setupThreadStreamRendering();
 
 import {
   expectPresent,
-  projectedThreadStreamBlocks,
+  projectedThreadStream,
   renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
   runningTurnLifecycle,
@@ -20,17 +20,17 @@ import {
 
 describe("panel thread stream item rendering", () => {
   it("renders a supplied failure label even without a tool target or wire status", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         { id: "failed-tool", kind: "tool", role: "tool", toolName: "lookup", resultLabel: "access denied", executionState: "failed" },
       ],
-    })[0];
-    const element = renderThreadStreamBlockElement(block);
+    });
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("lookup (access denied)");
   });
 
   it("renders generic tool details as visible sections inside one details block", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -47,9 +47,9 @@ describe("panel thread stream item rendering", () => {
           ],
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("123");
     expect(topLevelDetailsSummaries(element)).toEqual(["github.pull_request_read"]);
@@ -60,7 +60,7 @@ describe("panel thread stream item rendering", () => {
   });
 
   it("renders dynamic tool type and qualified identity separately", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -74,16 +74,16 @@ describe("panel thread stream item rendering", () => {
           diagnostics: [{ title: "Arguments JSON", body: '{"wikilinks":["[[Note]]"]}' }],
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(topLevelDetailsSummaries(element)).toEqual(["dynamic tool"]);
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("codex_panel.resolve_wikilinks");
   });
 
   it("renders steering activity with its label and message", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "turn" },
         {
@@ -105,16 +105,17 @@ describe("panel thread stream item rendering", () => {
         },
       ],
       disclosures: testDisclosures({ activityGroups: ["turn"] }),
-    }).find((item) => item.key === "activity:turn-turn-activity");
+    });
+    const block = expectPresent(blocks.find((item) => item.key === "activity:turn-turn-activity"));
 
-    const element = renderThreadStreamBlockElement(expectPresent(block));
+    const element = renderThreadStreamBlockElement(block, context);
 
     expect(element.querySelector(".codex-panel__detail-header")?.textContent).toBe("steering");
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("also check tests and keep the summary compact");
   });
 
   it("derives generic tool summaries from primary targets instead of item text", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       workspaceRoot: "/vault/project",
       items: [
@@ -129,9 +130,9 @@ describe("panel thread stream item rendering", () => {
           turnId: "turn",
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("search: codex app-server");
   });
@@ -152,16 +153,16 @@ describe("panel thread stream item rendering", () => {
       items: [item] satisfies ThreadStreamItem[],
     };
 
-    renderThreadStreamBlocksInAct(parent, projectedThreadStreamBlocks({ ...baseContext, workspaceRoot: "/vault" }));
+    renderThreadStreamBlocksInAct(parent, projectedThreadStream({ ...baseContext, workspaceRoot: "/vault" }));
     expect(parent.querySelector(".codex-panel__stream-summary")?.textContent).toBe("project/assets/image.png");
 
-    renderThreadStreamBlocksInAct(parent, projectedThreadStreamBlocks({ ...baseContext, workspaceRoot: "/vault/project" }));
+    renderThreadStreamBlocksInAct(parent, projectedThreadStream({ ...baseContext, workspaceRoot: "/vault/project" }));
     expect(parent.querySelector(".codex-panel__stream-summary")?.textContent).toBe("assets/image.png");
     unmountUiRootInAct(parent);
   });
 
   it("keeps path summary tools absolute outside the workspace root", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       workspaceRoot: "/vault/project",
       items: [
@@ -175,15 +176,15 @@ describe("panel thread stream item rendering", () => {
           turnId: "turn",
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/tmp/image.png");
   });
 
   it("does not treat generic tool summaries as paths without an explicit marker", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       workspaceRoot: "/vault/project",
       items: [
@@ -196,15 +197,15 @@ describe("panel thread stream item rendering", () => {
           turnId: "turn",
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/vault/project");
   });
 
   it("renders hook metadata as rows inside one details block", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -224,9 +225,9 @@ describe("panel thread stream item rendering", () => {
           },
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(topLevelDetailsSummaries(element)).toEqual(["hook"]);
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
@@ -241,7 +242,7 @@ describe("panel thread stream item rendering", () => {
   });
 
   it("renders hook metadata when the hook is inside a completed-turn activity group", () => {
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "turn" },
         {
@@ -272,7 +273,10 @@ describe("panel thread stream item rendering", () => {
       disclosures: testDisclosures({ activityGroups: ["turn"], details: ["hook-1:details"] }),
     });
 
-    const element = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")));
+    const element = renderThreadStreamBlockElement(
+      expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")),
+      context,
+    );
 
     expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details");
     expect(element.querySelector(".codex-panel__detail-item")?.classList.contains("codex-panel__execution--completed")).toBe(true);
@@ -281,7 +285,7 @@ describe("panel thread stream item rendering", () => {
   });
 
   it("renders task progress items as a dedicated task list", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -298,9 +302,9 @@ describe("panel thread stream item rendering", () => {
           executionState: "running",
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.classList.contains("codex-panel__status-stream-item")).toBe(true);
     expect(element.classList.contains("codex-panel__task-progress")).toBe(true);
@@ -310,7 +314,7 @@ describe("panel thread stream item rendering", () => {
   });
 
   it("renders agent activity with a summary and consolidated details", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -330,9 +334,9 @@ describe("panel thread stream item rendering", () => {
           agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.classList.contains("codex-panel__detail")).toBe(true);
     expect(element.classList.contains("codex-panel__agent-activity")).toBe(true);
@@ -347,7 +351,7 @@ describe("panel thread stream item rendering", () => {
 
   it("renders v2 activity through the existing agent detail and summary UI", () => {
     const openThreadInNewView = vi.fn();
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       openThreadInNewView,
       items: [
@@ -369,7 +373,7 @@ describe("panel thread stream item rendering", () => {
       ],
     });
 
-    const detail = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:v2-started")));
+    const detail = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:v2-started")), context);
     expect(detail.classList.contains("codex-panel__agent-activity")).toBe(true);
     expect(detail.querySelector(".codex-panel__stream-summary")?.textContent).toBe("spawn /root/scout (started)");
     expect(detail.textContent).toContain("toolspawn");
@@ -378,13 +382,13 @@ describe("panel thread stream item rendering", () => {
     expectPresent(detail.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]')).click();
     expect(openThreadInNewView).toHaveBeenCalledWith("child");
 
-    const summary = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.kind === "liveAgentSummary")));
+    const summary = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.kind === "liveAgentSummary")), context);
     expect(summary.textContent).toContain("/root/scoutstarted");
   });
 
   it("keeps agent thread actions available after agent details expand", () => {
     const openThreadInNewView = vi.fn();
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       openThreadInNewView,
       disclosures: testDisclosures({ details: ["agent-1:agent-details"] }),
@@ -406,9 +410,9 @@ describe("panel thread stream item rendering", () => {
           agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
     expect(element.querySelector("details")?.hasAttribute("open")).toBe(true);
 
     expectPresent(element.querySelector<HTMLButtonElement>("details summary [aria-label='Open agent thread']")).click();
@@ -417,7 +421,7 @@ describe("panel thread stream item rendering", () => {
   });
 
   it("shortens multiline agent prompts in summaries", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -437,9 +441,9 @@ describe("panel thread stream item rendering", () => {
           agents: [],
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
     const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__stream-summary"));
 
     expect(summary.textContent).toContain("spawn child: Inspect the renderer.");
@@ -452,7 +456,7 @@ describe("panel thread stream item rendering", () => {
     const longMessage = `Done\n${"a".repeat(180)}`;
     const threadId = "019e061e-0046-7653-a362-86de9a47cb5c";
     const onDisclosureToggle = vi.fn();
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -473,9 +477,9 @@ describe("panel thread stream item rendering", () => {
         },
       ],
       onDisclosureToggle,
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     const agentRows = textContents(element, ".codex-panel__meta-grid dt, .codex-panel__meta-grid dd");
     expect(agentRows).toContain("019e061e");
@@ -494,7 +498,7 @@ describe("panel thread stream item rendering", () => {
 
   it("renders a compact live agent summary while subagents are running", () => {
     const openThreadInNewView = vi.fn();
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       openThreadInNewView,
       items: [
@@ -520,7 +524,7 @@ describe("panel thread stream item rendering", () => {
       ],
     });
 
-    const summary = renderThreadStreamBlockElement(expectPresent(blocks.at(-1)));
+    const summary = renderThreadStreamBlockElement(expectPresent(blocks.at(-1)), context);
 
     expect(summary.classList.contains("codex-panel__status-stream-item")).toBe(true);
     expect(summary.classList.contains("codex-panel__agent-summary")).toBe(true);
@@ -546,7 +550,7 @@ describe("panel thread stream item rendering", () => {
 
     renderThreadStreamBlocksInAct(
       runningParent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         turnLifecycle: runningTurnLifecycle("turn"),
         items: [item],
         renderMarkdown: (element, text) => element.createDiv({ text }),
@@ -564,7 +568,7 @@ describe("panel thread stream item rendering", () => {
     const completedParent = document.createElement("div");
     renderThreadStreamBlocksInAct(
       completedParent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         items: [item],
         renderMarkdown: (element, text) => element.createDiv({ text }),
       }),
@@ -579,7 +583,7 @@ describe("panel thread stream item rendering", () => {
   });
 
   it("marks the live agent summary failed when any subagent fails", () => {
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       turnLifecycle: runningTurnLifecycle("turn"),
       items: [
         {
@@ -604,7 +608,7 @@ describe("panel thread stream item rendering", () => {
       ],
     });
 
-    const summary = renderThreadStreamBlockElement(expectPresent(blocks.at(-1)));
+    const summary = renderThreadStreamBlockElement(expectPresent(blocks.at(-1)), context);
 
     expect(summary.classList.contains("codex-panel__execution--failed")).toBe(true);
     expect(summary.textContent).toContain("Agents 1 failed, 1 running");

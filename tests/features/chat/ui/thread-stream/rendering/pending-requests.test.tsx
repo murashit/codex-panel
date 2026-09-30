@@ -29,7 +29,7 @@ import {
   pendingOtherUserInput,
   pendingRequestActions,
   pendingUserInput,
-  projectedThreadStreamBlocks,
+  projectedThreadStream,
   renderPendingRequestNode,
   renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
@@ -492,7 +492,7 @@ describe("panel pending request rendering", () => {
 
   it("renders submitted user input separately from approvals", () => {
     const renderMarkdown = vi.fn((parent: HTMLElement, text: string) => parent.createDiv({ text: `markdown:${text}` }));
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "user-input-submitted-1",
@@ -505,9 +505,9 @@ describe("panel pending request rendering", () => {
         },
       ],
       renderMarkdown,
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("Input");
     expect(element.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Input submitted for 1 question.");
@@ -518,7 +518,7 @@ describe("panel pending request rendering", () => {
   });
 
   it("renders manual approval results with completion state and details", () => {
-    const block = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           id: "approval-1",
@@ -535,9 +535,9 @@ describe("panel pending request rendering", () => {
           },
         },
       ],
-    })[0];
+    });
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(expectPresent(blocks[0]), context);
 
     expect(element.classList.contains("codex-panel__stream-item--approval-result")).toBe(true);
     expect(element.classList.contains("codex-panel__detail")).toBe(true);
@@ -551,7 +551,7 @@ describe("panel pending request rendering", () => {
   });
 
   it("renders auto-review summaries under the final assistant message", () => {
-    const blocks = projectedThreadStreamBlocks({
+    const { blocks, context } = projectedThreadStream({
       items: [
         {
           reviewKind: "automaticResult",
@@ -585,7 +585,7 @@ describe("panel pending request rendering", () => {
     const block = blocks.find((candidate) => candidate.key === "item:assistant-1");
     if (!block) throw new Error("Expected assistant block");
 
-    const element = renderThreadStreamBlockElement(block);
+    const element = renderThreadStreamBlockElement(block, context);
 
     expect(element.querySelector(".codex-panel__auto-reviews summary")?.textContent).toBe("Auto-reviewed 2 requests");
     expect(element.querySelector(".codex-panel__auto-reviews")?.textContent).toContain("Auto-review approved: npm test");
@@ -598,7 +598,7 @@ describe("panel pending request rendering", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         items: [
           { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
         ],
@@ -634,7 +634,7 @@ describe("panel pending request rendering", () => {
       const inputs = parents.map((parent, index) => {
         renderThreadStreamBlocksInAct(
           parent,
-          projectedThreadStreamBlocks({
+          projectedThreadStream({
             items: [
               {
                 id: "a1",
@@ -678,7 +678,7 @@ describe("panel pending request rendering", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         items: [
           { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
         ],
@@ -712,7 +712,7 @@ describe("panel pending request rendering", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         items: [
           { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
         ],
@@ -769,7 +769,7 @@ describe("panel pending request rendering", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         items: [
           { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
         ],
@@ -845,7 +845,7 @@ describe("panel pending request rendering", () => {
 
     renderThreadStreamBlocksInAct(
       parent,
-      projectedThreadStreamBlocks({
+      projectedThreadStream({
         ...baseContext,
         pendingRequests: pendingRequestContext({
           signature: "request:1",
@@ -855,7 +855,7 @@ describe("panel pending request rendering", () => {
     );
     expect(parent.querySelector('[data-codex-panel-block-key="pending-requests"]')).not.toBeNull();
 
-    renderThreadStreamBlocksInAct(parent, projectedThreadStreamBlocks(baseContext));
+    renderThreadStreamBlocksInAct(parent, projectedThreadStream(baseContext));
 
     expect(parent.querySelector('[data-codex-panel-block-key="pending-requests"]')).toBeNull();
     expect(parent.querySelector('[data-codex-panel-block-key="item:a1"]')).not.toBeNull();
