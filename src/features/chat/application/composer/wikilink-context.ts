@@ -1,6 +1,7 @@
 import {
   ACTIVE_FILE_REFERENCE_NAME,
   codexTextInputWithReferences,
+  OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY,
   type RequestAdditionalContext,
   type SkillReference,
   type VaultFileReference,
@@ -30,7 +31,6 @@ interface ObsidianReference {
 
 export type WikiLinkFileReferenceResolver = (target: string) => VaultFileReference | null;
 
-const OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY = "codex_panel_obsidian_context";
 const WIKILINK_PATTERN = /\[\[([^\]\n]+?)\]\]/g;
 const SKILL_REFERENCE_PATTERN = /(^|[\s([{])\$([^\s\])}.,;!?]{1,120})(?=$|[\s\])}.,;!?])/g;
 

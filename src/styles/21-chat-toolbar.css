@@ -93,6 +93,14 @@
   user-select: text;
 }
 
+.codex-panel__toolbar-panel--history {
+  margin-inline: var(--codex-panel-edge-padding-x);
+  padding: var(--codex-panel-control-gap);
+  border: var(--codex-panel-border);
+  border-radius: var(--codex-panel-card-radius);
+  background: var(--background-secondary);
+}
+
 .codex-panel__status-panel-items {
   display: flex;
   flex-direction: column;

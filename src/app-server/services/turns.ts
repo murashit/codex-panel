@@ -14,6 +14,7 @@ type AppServerTurnRuntimeParams = Pick<
 export interface AppServerStartTurnOptions {
   threadId: string;
   cwd: string;
+  runtimeWorkspaceRoots?: readonly string[];
   input: string | CodexInput;
   clientUserMessageId?: string | null;
   runtime?: AppServerTurnRuntimeOverrides;
@@ -35,11 +36,12 @@ export function startTurn(
   client: AppServerRequestClient,
   options: AppServerStartTurnOptions,
 ): Promise<ClientResponseByMethod["turn/start"]> {
-  const { threadId, cwd, input, clientUserMessageId, runtime } = options;
+  const { threadId, cwd, runtimeWorkspaceRoots, input, clientUserMessageId, runtime } = options;
   const prepared = toTurnInput(input, contextSubmissionId(clientUserMessageId, "user"));
   const params: ClientRequestParams<"turn/start"> = {
     threadId,
     cwd,
+    ...(runtimeWorkspaceRoots === undefined ? {} : { runtimeWorkspaceRoots: [...runtimeWorkspaceRoots] }),
     ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
     ...(prepared.additionalContext !== undefined ? { additionalContext: prepared.additionalContext } : {}),
     ...appServerTurnRuntimeParams(runtime),

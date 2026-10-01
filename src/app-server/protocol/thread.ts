@@ -20,6 +20,8 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
   const recencyAt = hasRecencyAt ? thread.recencyAt : undefined;
   return {
     id: thread.id,
+    ...(typeof thread.cwd === "string" ? { cwd: thread.cwd } : {}),
+    ...(typeof thread.projectId === "string" || thread.projectId === null ? { projectId: thread.projectId } : {}),
     preview: normalizeString(thread.preview),
     name: thread.name === null ? null : normalizeString(thread.name),
     archived: options.archived ?? false,

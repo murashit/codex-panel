@@ -12,6 +12,8 @@ export interface RateLimitSummary {
 export interface ToolbarThreadRow {
   title: string;
   threadId: string;
+  workspaceLabel?: string;
+  workspacePath?: string;
   selected: boolean;
   isPinned?: boolean;
   renameDisabled: boolean;

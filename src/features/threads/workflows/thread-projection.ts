@@ -34,6 +34,11 @@ function threadListChangesForFact(
         { kind: "update", list: "active", threadId: fact.threadId, changes: { name: fact.name } },
         { kind: "update", list: "archived", threadId: fact.threadId, changes: { name: fact.name } },
       ];
+    case "thread-project-updated":
+      return [
+        { kind: "update", list: "active", threadId: fact.threadId, changes: { projectId: fact.projectId } },
+        { kind: "update", list: "archived", threadId: fact.threadId, changes: { projectId: fact.projectId } },
+      ];
     case "thread-pinned":
       return [
         { kind: "update", list: "active", threadId: fact.threadId, changes: { isPinned: fact.isPinned } },

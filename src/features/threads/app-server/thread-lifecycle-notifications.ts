@@ -16,6 +16,12 @@ export function threadFactFromLifecycleNotification(notification: ServerNotifica
         threadId: notification.params.threadId,
         name: normalizeExplicitThreadName(notification.params.threadName),
       };
+    case "thread/project/updated":
+      return {
+        type: "thread-project-updated",
+        threadId: notification.params.threadId,
+        projectId: notification.params.projectId,
+      };
     default:
       return null;
   }

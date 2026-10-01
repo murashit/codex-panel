@@ -111,7 +111,11 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
   if (!model.openPanel) return null;
   return (
     <div
-      className={["codex-panel__toolbar-panel", model.openPanel === "status" ? "codex-panel__toolbar-panel--status" : ""]
+      className={[
+        "codex-panel__toolbar-panel",
+        model.openPanel === "history" ? "codex-panel__toolbar-panel--history" : "",
+        model.openPanel === "status" ? "codex-panel__toolbar-panel--status" : "",
+      ]
         .filter(Boolean)
         .join(" ")}
       data-codex-panel-toolbar-panel={model.openPanel}
@@ -361,6 +365,8 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
         <>
           <ToolbarPanelItem
             label={thread.title}
+            meta={thread.workspaceLabel}
+            title={thread.workspacePath}
             selected={thread.selected}
             selectionStyle="row"
             className="codex-panel__thread"
@@ -454,6 +460,7 @@ function ToolbarPanelItem({
   disabled = false,
   selectionStyle = "item",
   meta,
+  title,
   className = "",
   interactive = true,
   renderContent,
@@ -464,6 +471,7 @@ function ToolbarPanelItem({
   disabled?: boolean | undefined;
   selectionStyle?: "item" | "row" | undefined;
   meta?: string | undefined;
+  title?: string | undefined;
   className?: string | undefined;
   interactive?: boolean | undefined;
   renderContent?: () => UiNode;
@@ -487,12 +495,17 @@ function ToolbarPanelItem({
     </>
   );
   if (!interactive) {
-    return <div className={itemClassName}>{content}</div>;
+    return (
+      <div className={itemClassName} title={title}>
+        {content}
+      </div>
+    );
   }
   return (
     // biome-ignore lint/a11y: Toolbar panel rows intentionally match Obsidian's native file explorer nav rows: pointer-first div items with state expressed by classes, while row icon actions remain real buttons.
     <div
       className={itemClassName}
+      title={title}
       onClick={
         disabled
           ? undefined

@@ -138,6 +138,11 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
           {/* biome-ignore lint/a11y: Thread rows intentionally follow Obsidian's native file explorer nav rows: pointer-first div items with selection represented by classes, while row actions stay as real icon buttons. */}
           <div className={mainClassName} onClick={open}>
             <span className="codex-panel-threads__row-title">{row.title}</span>
+            {row.workspaceLabel ? (
+              <span className="codex-panel-threads__row-workspace" title={row.workspacePath}>
+                {row.workspaceLabel}
+              </span>
+            ) : null}
           </div>
           <div className="codex-panel-threads__actions">
             <ThreadRowControls

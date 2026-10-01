@@ -471,7 +471,6 @@ describe("app-server query resources", () => {
     expect(cache.threadCatalog.hasMoreActiveThreads()).toBe(false);
     expect(cache.threadCatalog.recentActiveThreadsSnapshot()).toEqual([{ ...thread("first"), name: "renamed" }]);
     expect(listThreads).toHaveBeenNthCalledWith(2, {
-      cwd: "/vault",
       cursor: "page-2",
       archived: false,
       sortKey: "recency_at",
@@ -650,7 +649,6 @@ describe("app-server query resources", () => {
     await cache.threadCatalog.loadMoreActiveThreads();
     expect(cache.threadCatalog.activeThreadsSnapshot()).toEqual([thread("event-thread"), thread("new-second")]);
     expect(listThreads).toHaveBeenNthCalledWith(3, {
-      cwd: "/vault",
       cursor: "new-page-2",
       archived: false,
       sortKey: "recency_at",

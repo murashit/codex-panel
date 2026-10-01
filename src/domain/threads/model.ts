@@ -4,6 +4,8 @@ import type { ApprovalsReviewer, ServiceTier } from "../runtime/settings";
 
 export interface Thread {
   readonly id: string;
+  readonly cwd?: string;
+  readonly projectId?: string | null;
   readonly preview: string;
   readonly name: string | null;
   readonly archived: boolean;
@@ -12,6 +14,14 @@ export interface Thread {
   readonly updatedAt: number;
   readonly recencyAt?: number | null;
   readonly provenance: ThreadProvenance;
+}
+
+export function threadProjectWorkingDirectoryLabel(thread: Pick<Thread, "cwd" | "projectId">): string | null {
+  if (!thread.cwd || !thread.projectId) return null;
+  const cwd = thread.cwd;
+  const normalized = cwd.replace(/[\\/]+$/, "");
+  const separator = Math.max(normalized.lastIndexOf("/"), normalized.lastIndexOf("\\"));
+  return normalized.slice(separator + 1) || cwd;
 }
 
 export type ThreadProvenance =
@@ -54,6 +64,12 @@ export function shortThreadId(threadId: string): string {
 
 export interface ThreadActivationSnapshot extends RuntimePermissionState, RuntimePermissionKnownState {
   thread: Thread;
+  /**
+   * Thread-scoped workspace roots reported by app-server. These are separate
+   * from cwd: the original working directory remains the execution context,
+   * while additional roots can grant access to explicitly attached context.
+   */
+  readonly runtimeWorkspaceRoots?: readonly string[];
   /**
    * Whether the activated app-server thread accepts direct turn input.
    * `null` means the capability is unavailable, so panel mode policy decides.

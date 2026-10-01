@@ -103,6 +103,78 @@ describe("chat app-server adapters", () => {
     });
   });
 
+  it("keeps an external thread cwd while granting the vault root for explicit Obsidian context", async () => {
+    const request = vi.fn((method: string) => {
+      if (method === "thread/resume") {
+        return Promise.resolve({
+          thread: threadRecord("external", [], { cwd: "/external-project" }),
+          cwd: "/external-project",
+          runtimeWorkspaceRoots: ["/external-project"],
+          model: "gpt-test",
+          serviceTier: null,
+          approvalsReviewer: "user",
+          reasoningEffort: null,
+          initialTurnsPage: null,
+        });
+      }
+      if (method === "thread/fork") {
+        return Promise.resolve({
+          thread: threadRecord("forked", [], { cwd: "/external-project" }),
+          cwd: "/external-project",
+          runtimeWorkspaceRoots: ["/external-project", "/vault"],
+          model: "gpt-test",
+          serviceTier: null,
+          approvalsReviewer: "user",
+          reasoningEffort: null,
+          initialTurnsPage: null,
+        });
+      }
+      return Promise.resolve({ turn: { id: "turn-1" } });
+    });
+    const client = { request } as unknown as AppServerClient;
+    const gateway = createTestGateway({ currentClient: () => client });
+
+    await gateway.threadResume.resumeThread("external");
+    await gateway.turn.startTurn({
+      threadId: "external",
+      input: [
+        { type: "text", text: "Read the current note." },
+        { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "<active> -> Notes/Current.md" },
+      ],
+      clientUserMessageId: "local-user-external",
+    });
+
+    expect(request).toHaveBeenLastCalledWith("turn/start", {
+      threadId: "external",
+      cwd: "/external-project",
+      runtimeWorkspaceRoots: ["/external-project", "/vault"],
+      input: [{ type: "text", text: "Read the current note.", text_elements: [] }],
+      clientUserMessageId: "local-user-external",
+      additionalContext: {
+        "codex_panel.local-user-external.00.codex_panel_obsidian_context.part_01_of_01": {
+          kind: "untrusted",
+          value: expect.stringContaining("Notes/Current.md"),
+        },
+      },
+    });
+
+    await gateway.turn.startTurn({ threadId: "external", input: textInput("Continue."), clientUserMessageId: "local-user-external-2" });
+    expect(request).toHaveBeenLastCalledWith("turn/start", {
+      threadId: "external",
+      cwd: "/external-project",
+      input: [{ type: "text", text: "Continue.", text_elements: [] }],
+      clientUserMessageId: "local-user-external-2",
+    });
+
+    await gateway.threadStart.forkThread("external", {});
+    expect(request).toHaveBeenLastCalledWith("thread/fork", {
+      threadId: "external",
+      cwd: "/external-project",
+      runtimeWorkspaceRoots: ["/external-project", "/vault"],
+      excludeTurns: true,
+    });
+  });
+
   it("returns completed turn starts after the current client changes", async () => {
     const start = deferred<{ turn: { id: string } }>();
     const firstClient = { request: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
@@ -300,7 +372,7 @@ describe("chat app-server adapters", () => {
     ]);
   });
 
-  it("resumes threads with the session vault path and projects initial history", async () => {
+  it("resumes threads by ID and projects initial history", async () => {
     const request = vi.fn().mockResolvedValue({
       thread: { ...threadRecord("thread"), path: "/tmp/rollout.jsonl" },
       cwd: "/vault",
@@ -322,7 +394,6 @@ describe("chat app-server adapters", () => {
 
     expect(request).toHaveBeenCalledWith("thread/resume", {
       threadId: "thread",
-      cwd: "/vault",
       excludeTurns: true,
       initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
     });

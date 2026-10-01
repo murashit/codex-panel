@@ -880,7 +880,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
           method: string,
           params: Record<string, unknown>,
         ) => Promise<{ data: Record<string, unknown>[] }>;
-        const response = await request("thread/list", { cwd: "/vault", archived: false, cursor: null });
+        const response = await request("thread/list", { archived: false, cursor: null });
         const threads = response.data.map(threadFromRecord);
         emitActive(threads);
         return threads;
@@ -900,7 +900,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         ) => Promise<{
           data: Record<string, unknown>[];
         }>;
-        const response = await request("thread/list", { cwd: "/vault", archived: false, cursor: null });
+        const response = await request("thread/list", { archived: false, cursor: null });
         const threads = response.data.map(threadFromRecord);
         emitActive(threads);
       }),

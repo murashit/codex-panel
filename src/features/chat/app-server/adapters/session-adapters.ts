@@ -14,6 +14,7 @@ import {
   updateThreadSettings,
 } from "../../../../app-server/services/threads";
 import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/services/turns";
+import { type CodexInput, OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY } from "../../../../domain/input/input";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
 import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsPort } from "../../application/runtime/settings-commands";
@@ -36,26 +37,47 @@ interface ChatAppServerAdapterHost extends CurrentChatAppServerClientHost {
   vaultPath: string;
 }
 
+interface ChatAppServerSessionAdapterHost extends ChatAppServerAdapterHost {
+  threadExecutionContexts: Map<string, ThreadExecutionContext>;
+}
+
+interface ThreadExecutionContext {
+  readonly cwd: string;
+  readonly runtimeWorkspaceRoots: readonly string[];
+}
+
 export function createChatSessionAdapters(host: ChatAppServerAdapterHost) {
+  const sessionHost: ChatAppServerSessionAdapterHost = { ...host, threadExecutionContexts: new Map<string, ThreadExecutionContext>() };
   return {
-    runtimeSettings: createChatRuntimeSettingsAdapter(host),
-    threadStart: createChatThreadStartAdapter(host),
-    threadHistory: createChatThreadHistoryAdapter(host),
-    turn: createChatTurnAdapter(host),
-    threadResume: createChatThreadResumeAdapter(host),
-    threadCommands: createChatThreadCommandAdapter(host),
-    threadEphemeral: createChatEphemeralThreadAdapter(host),
-    threadSubscription: createChatThreadSubscriptionAdapter(host),
-    threadGoal: createChatThreadGoalAdapter(host),
+    runtimeSettings: createChatRuntimeSettingsAdapter(sessionHost),
+    threadStart: createChatThreadStartAdapter(sessionHost),
+    threadHistory: createChatThreadHistoryAdapter(sessionHost),
+    turn: createChatTurnAdapter(sessionHost),
+    threadResume: createChatThreadResumeAdapter(sessionHost),
+    threadCommands: createChatThreadCommandAdapter(sessionHost),
+    threadEphemeral: createChatEphemeralThreadAdapter(sessionHost),
+    threadSubscription: createChatThreadSubscriptionAdapter(sessionHost),
+    threadGoal: createChatThreadGoalAdapter(sessionHost),
   } as const;
 }
 
 export type ChatSessionAdapters = ReturnType<typeof createChatSessionAdapters>;
 
-function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadStartEffects {
+function createChatThreadStartAdapter(host: ChatAppServerSessionAdapterHost): ThreadStartEffects {
   return {
     forkThread: (threadId, options) =>
-      runCurrentChatAppServerEffect(host, (client) => forkThread(client, threadId, host.vaultPath, options)),
+      runCurrentChatAppServerEffect(host, async (client) => {
+        const executionContext = executionContextForThread(host, threadId);
+        const activation = await forkThread(client, threadId, executionContext.cwd, {
+          ...options,
+          runtime: {
+            ...options.runtime,
+            ...(executionContext.runtimeWorkspaceRoots.length > 0 ? { runtimeWorkspaceRoots: executionContext.runtimeWorkspaceRoots } : {}),
+          },
+        });
+        rememberThreadExecutionContext(host, activation);
+        return activation;
+      }),
     startThread: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
         const response = await startThread(client, {
@@ -64,21 +86,29 @@ function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadSta
           permissions: request.permissions,
           dynamicTools: panelDynamicTools(),
         });
-        return threadActivationSnapshotFromAppServerResponse(response);
+        const activation = threadActivationSnapshotFromAppServerResponse(response);
+        rememberThreadExecutionContext(host, activation);
+        return activation;
       }),
   };
 }
 
-function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
+function createChatTurnAdapter(host: ChatAppServerSessionAdapterHost): ChatTurnPort {
   return {
     startTurn: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
+        const executionContext = executionContextForThread(host, request.threadId);
+        const runtimeWorkspaceRoots = workspaceRootsForInput(executionContext, request.input, host.vaultPath);
         const response = await startTurn(client, {
           threadId: request.threadId,
-          cwd: host.vaultPath,
+          cwd: executionContext.cwd,
+          ...(runtimeWorkspaceRoots === undefined ? {} : { runtimeWorkspaceRoots }),
           input: request.input,
           clientUserMessageId: request.clientUserMessageId,
         });
+        if (runtimeWorkspaceRoots !== undefined) {
+          host.threadExecutionContexts.set(request.threadId, { ...executionContext, runtimeWorkspaceRoots });
+        }
         return { turnId: response.turn.id };
       }),
     steerTurn: async (request) => {
@@ -124,11 +154,47 @@ function createChatThreadHistoryAdapter(host: CurrentChatAppServerClientHost): T
   };
 }
 
-function createChatThreadResumeAdapter(host: ChatAppServerAdapterHost): ThreadResumeEffects {
+function createChatThreadResumeAdapter(host: ChatAppServerSessionAdapterHost): ThreadResumeEffects {
   return {
     resumeThread: (threadId): Promise<EffectOutcome<ThreadResumeSnapshot>> =>
-      runCurrentChatAppServerEffect(host, (client) => resumeChatThread(client, threadId, host.vaultPath)),
+      runCurrentChatAppServerEffect(host, async (client) => {
+        const snapshot = await resumeChatThread(client, threadId);
+        rememberThreadExecutionContext(host, snapshot.activation);
+        return snapshot;
+      }),
   };
+}
+
+function executionContextForThread(host: ChatAppServerSessionAdapterHost, threadId: string): ThreadExecutionContext {
+  return host.threadExecutionContexts.get(threadId) ?? { cwd: host.vaultPath, runtimeWorkspaceRoots: [] };
+}
+
+function rememberThreadExecutionContext(host: ChatAppServerSessionAdapterHost, activation: ThreadResumeSnapshot["activation"]): void {
+  if (!activation.thread.cwd) return;
+  host.threadExecutionContexts.set(activation.thread.id, {
+    cwd: activation.thread.cwd,
+    runtimeWorkspaceRoots: activation.runtimeWorkspaceRoots ?? [],
+  });
+}
+
+function workspaceRootsForInput(
+  context: ThreadExecutionContext,
+  input: string | CodexInput,
+  vaultPath: string,
+): readonly string[] | undefined {
+  if (!containsObsidianContext(input) || context.runtimeWorkspaceRoots.includes(vaultPath)) return undefined;
+  return [...new Set([...context.runtimeWorkspaceRoots, vaultPath])];
+}
+
+function containsObsidianContext(input: string | CodexInput): boolean {
+  return (
+    Array.isArray(input) &&
+    input.some(
+      (item) =>
+        (item.type === "additionalContext" && item.key === OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY && item.value.trim().length > 0) ||
+        (item.type === "fileReference" && item.path.trim().length > 0),
+    )
+  );
 }
 
 function createChatThreadCommandAdapter(host: ChatAppServerAdapterHost): ThreadCommandEffects {
@@ -228,8 +294,8 @@ async function readChatThreadHistoryPage(
   return chatThreadHistoryPageFromTurnsPage(await listThreadTurns(client, threadId, cursor, limit));
 }
 
-async function resumeChatThread(client: AppServerRequestClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
-  const response = await resumeThread(client, threadId, cwd);
+async function resumeChatThread(client: AppServerRequestClient, threadId: string): Promise<ThreadResumeSnapshot> {
+  const response = await resumeThread(client, threadId);
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),
     rolloutPath: response.thread.path,

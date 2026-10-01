@@ -9,6 +9,7 @@ export interface SkillReference {
 }
 
 export const ACTIVE_FILE_REFERENCE_NAME = "<active>";
+export const OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY = "codex_panel_obsidian_context";
 
 export interface RequestAdditionalContext {
   key: string;

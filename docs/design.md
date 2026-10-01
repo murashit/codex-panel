@@ -20,7 +20,7 @@ Successful Panel actions should appear coherently across affected surfaces. Chan
 
 Because app-server is experimental, favor a clean current flow over speculative compatibility layers.
 
-The Codex executable and Vault root define an app-server context, with the Vault root as its workspace and working directory. Retired contexts must not change active UI or shared state.
+The Codex executable and Vault root define an app-server context. New threads use the Vault root as their working directory; resumed threads retain the working directory recorded by app-server. Explicit Obsidian references may add the Vault root as a separate runtime workspace root for the thread and subsequent turns without changing `cwd`. Retired contexts must not change active UI or shared state.
 
 ## Code Boundaries
 
