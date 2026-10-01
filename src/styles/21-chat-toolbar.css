@@ -93,7 +93,8 @@
   user-select: text;
 }
 
-.codex-panel__status-panel-items {
+.codex-panel__status-panel-items,
+.codex-panel__chat-actions-panel-items {
   display: flex;
   flex-direction: column;
   gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap));

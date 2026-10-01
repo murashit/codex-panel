@@ -175,7 +175,7 @@
   align-items: center;
   min-width: 0;
   padding-inline-end: var(--size-4-2);
-  border-radius: var(--radius-s);
+  border-radius: var(--nav-item-radius, var(--radius-s));
 }
 
 .codex-panel-ui__nav-row:hover,
