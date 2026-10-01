@@ -101,8 +101,9 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     return leaf.view as CodexThreadsView;
   }
 
-  scheduleWorkspacePanelReconcile(): void {
-    this.panels.scheduleWorkspacePanelReconcile();
+  scheduleWorkspacePanelReconcile(options: { restore?: boolean } = {}): void {
+    if (!this.executionRuntime) return;
+    this.panels.scheduleWorkspacePanelReconcile(options);
   }
 
   cancelWorkspacePanelReconcile(): void {
@@ -264,6 +265,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
           this.panels.openThreadFromPanel(threadId, originViewId, originSwitchable),
         openTurnDiff: (state) => this.openTurnDiff(state),
         notifyPanelActivityChanged: () => {
+          this.scheduleWorkspacePanelReconcile({ restore: false });
           this.refreshThreadsViewLiveState();
         },
         openNewPanel: () => this.panels.openNewPanel(),

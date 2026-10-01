@@ -41,6 +41,12 @@ export default class CodexPanelPlugin extends Plugin {
       }),
     );
 
+    this.registerEvent(
+      this.app.workspace.on("layout-change", () => {
+        this.runtime.scheduleWorkspacePanelReconcile({ restore: false });
+      }),
+    );
+
     const openPanel = () => void this.runtime.activatePanel().catch(reportCommandError);
     this.addRibbonIcon("bot-message-square", "Open panel", openPanel);
 
@@ -80,7 +86,9 @@ export default class CodexPanelPlugin extends Plugin {
 
     this.addSettingTab(new CodexPanelSettingTab(this.app, this, this.runtime.settingTabHost()));
 
-    this.runtime.scheduleWorkspacePanelReconcile();
+    this.app.workspace.onLayoutReady(() => {
+      this.runtime.scheduleWorkspacePanelReconcile();
+    });
   }
 
   override onunload(): void {

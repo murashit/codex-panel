@@ -147,7 +147,7 @@ interface ChatWorkspacePanelOperationOptions {
   displaySnapshot?: ForkDisplaySnapshot;
 }
 
-export interface ChatWorkspacePanelSurface {
+interface ChatWorkspacePanelSurface {
   applyForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<boolean>;
   openPanelSnapshot(): ChatWorkspacePanelSnapshot;
   activateThread(threadId?: string, options?: ChatWorkspacePanelOperationOptions): Promise<boolean>;

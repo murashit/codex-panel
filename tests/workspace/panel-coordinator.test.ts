@@ -1,11 +1,11 @@
 import { sideChatDraft } from "../../src/features/chat/application/threads/fork-draft";
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { VIEW_TYPE_CODEX_PANEL } from "../../src/constants";
 import { createChatState } from "../../src/features/chat/application/state/model";
 import type { ForkDraftPreparation } from "../../src/features/chat/application/threads/fork-draft";
-import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
+import { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../../src/main";
 import { WorkspacePanelCoordinator } from "../../src/workspace/panel-coordinator";
 import { deferred } from "../support/async";
@@ -15,11 +15,88 @@ import { chatView, leaf, panelSnapshot, pluginWithLeaves } from "../support/plug
 installObsidianDomShims();
 
 describe("WorkspacePanelCoordinator", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reads snapshots without repairing or recording focus", async () => {
+    const restored = leaf({ state: { threadId: "same" } });
+    const active = leaf();
+    active.view = chatView(CodexChatView, active);
+    vi.spyOn((active.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "active", threadId: "same" }),
+    );
+    const independent = leaf({ state: { threadId: "other" } });
+    const plugin = await pluginWithLeaves([restored, independent, active]);
+    const activeView = plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>;
+    activeView.mockReturnValue(active.view);
+    const coordinator = panels(plugin);
+    expect(coordinator.getOpenPanelSnapshots()).toMatchObject([
+      { threadId: "other", lastFocused: false },
+      { viewId: "active", lastFocused: true },
+    ]);
+    activeView.mockReturnValue(null);
+    expect(coordinator.getOpenPanelSnapshots()).toMatchObject([
+      { threadId: "other", lastFocused: false },
+      { viewId: "active", lastFocused: false },
+    ]);
+    for (const target of [restored, independent, active]) {
+      expect(target.detach).not.toHaveBeenCalled();
+      expect(target.setViewState).not.toHaveBeenCalled();
+      expect(target.loadIfDeferred).not.toHaveBeenCalled();
+    }
+  });
+
+  it("coalesces repair without hydration and captures the current layout when it runs", async () => {
+    vi.useFakeTimers();
+    const first = leaf({ state: { threadId: "same" } });
+    const duplicate = leaf({ state: { threadId: "same" } });
+    const leaves = [first];
+    const plugin = await pluginWithLeaves(leaves);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(first);
+    const coordinator = panels(plugin);
+    coordinator.scheduleWorkspacePanelReconcile({ restore: false });
+    coordinator.scheduleWorkspacePanelReconcile({ restore: false });
+    leaves.push(duplicate);
+    expect(duplicate.setViewState).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(duplicate.setViewState).toHaveBeenCalledOnce();
+    expect(first.loadIfDeferred).not.toHaveBeenCalled();
+    expect(duplicate.loadIfDeferred).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("preserves full restoration when repair is requested %s first", async (repairFirst) => {
+    vi.useFakeTimers();
+    const restored = leaf({ state: { threadId: "one" } });
+    const coordinator = panels(await pluginWithLeaves([restored]));
+    coordinator.scheduleWorkspacePanelReconcile({ restore: !repairFirst });
+    coordinator.scheduleWorkspacePanelReconcile({ restore: repairFirst });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(restored.loadIfDeferred).toHaveBeenCalledOnce();
+  });
+
+  it("suppresses outstanding restoration writes and allows an independent repair after failure", async () => {
+    const first = leaf({ state: { threadId: "same" } });
+    const duplicate = leaf({ state: { threadId: "same" } });
+    const write = deferred<void>();
+    duplicate.setViewState.mockReturnValueOnce(write.promise);
+    const coordinator = panels(await pluginWithLeaves([first, duplicate]));
+    coordinator.reconcileWorkspacePanels();
+    coordinator.reconcileWorkspacePanels();
+    expect(duplicate.setViewState).toHaveBeenCalledOnce();
+    expect(duplicate.setViewState).toHaveBeenCalledWith({ type: VIEW_TYPE_CODEX_PANEL, state: { version: 1 } });
+    write.reject(new Error("Host write failed"));
+    await write.promise.catch(() => undefined);
+    expect(coordinator.getOpenPanelSnapshots()).toHaveLength(1);
+    expect(duplicate.setViewState).toHaveBeenCalledOnce();
+    coordinator.reconcileWorkspacePanels();
+    expect(duplicate.setViewState).toHaveBeenCalledTimes(2);
+  });
+
   it("creates and connects a side panel when no panel is available", async () => {
     const leaves = [] as ReturnType<typeof leaf>[];
     const plugin = await pluginWithLeaves(leaves);
     const panelLeaf = leaf();
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const view = chatView(CodexChatView, panelLeaf);
     panelLeaf.view = view;
     const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
@@ -44,7 +121,6 @@ describe("WorkspacePanelCoordinator", () => {
     const leaves = [] as ReturnType<typeof leaf>[];
     const plugin = await pluginWithLeaves(leaves);
     const panelLeaf = leaf();
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const view = chatView(CodexChatView, panelLeaf);
     panelLeaf.view = view;
     const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
@@ -67,7 +143,6 @@ describe("WorkspacePanelCoordinator", () => {
     const leaves = [] as ReturnType<typeof leaf>[];
     const plugin = await pluginWithLeaves(leaves);
     const panelLeaf = leaf();
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const view = chatView(CodexChatView, panelLeaf);
     const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
     const focus = vi.spyOn(view.surface, "focusComposer");
@@ -100,8 +175,8 @@ describe("WorkspacePanelCoordinator", () => {
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
     const coordinator = panels(plugin);
 
-    coordinator.reconcileWorkspacePanels(null, { loadRestoredLeaves: true });
-    coordinator.reconcileWorkspacePanels(null, { loadRestoredLeaves: true });
+    coordinator.reconcileWorkspacePanels(null, "restore");
+    coordinator.reconcileWorkspacePanels(null, "restore");
 
     expect(firstLeaf.loadIfDeferred).toHaveBeenCalledOnce();
     expect(secondLeaf.loadIfDeferred).toHaveBeenCalledOnce();
@@ -119,20 +194,7 @@ describe("WorkspacePanelCoordinator", () => {
     ]);
   });
 
-  it("repairs duplicate restored thread panels before they become active", async () => {
-    const firstLeaf = leaf({ state: { threadId: "thread-1" } });
-    const duplicateLeaf = leaf({ state: { threadId: "thread-1" } });
-    const coordinator = panels(await pluginWithLeaves([firstLeaf, duplicateLeaf]));
-
-    expect(coordinator.getOpenPanelSnapshots()).toHaveLength(1);
-    expect(duplicateLeaf.setViewState).toHaveBeenCalledWith({
-      type: VIEW_TYPE_CODEX_PANEL,
-      state: { version: 1 },
-    });
-  });
-
   it("prefers an already open thread over an idle panel", async () => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const openLeaf = leaf();
     openLeaf.view = chatView(CodexChatView, openLeaf);
     vi.spyOn((openLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
@@ -150,7 +212,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it("does not create a second panel when opening an already owned thread in a new view", async () => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const existingLeaf = leaf();
     existingLeaf.view = chatView(CodexChatView, existingLeaf);
     const existingView = existingLeaf.view as CodexChatView;
@@ -166,7 +227,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it.each([{ pendingMcpElicitations: 1 }, { hasForkDraft: true }])("does not reuse an occupied panel with %j", async (occupation) => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const pendingLeaf = leaf();
     pendingLeaf.view = chatView(CodexChatView, pendingLeaf);
     vi.spyOn((pendingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
@@ -192,7 +252,6 @@ describe("WorkspacePanelCoordinator", () => {
     [true, false],
     [true, true],
   ])("returns from a fork only after source activation succeeds (other panel=%s, success=%s)", async (otherPanel, success) => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const origin = leaf();
     const destination = otherPanel ? leaf() : origin;
     origin.view = chatView(CodexChatView, origin);
@@ -220,7 +279,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it.each(["queued", "opening"])("does not return a fork panel that changed while %s", async (stage) => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const origin = leaf();
     const target = leaf();
     origin.view = chatView(CodexChatView, origin);
@@ -252,7 +310,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it("uses a switchable origin before another empty panel", async () => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const originLeaf = leaf();
     originLeaf.view = chatView(CodexChatView, originLeaf);
     vi.spyOn((originLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
@@ -276,7 +333,6 @@ describe("WorkspacePanelCoordinator", () => {
     const restoredLeaf = leaf({ state: { threadId: "restored-thread" } });
     const plugin = await pluginWithLeaves([restoredLeaf]);
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(restoredLeaf);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const view = chatView(CodexChatView, restoredLeaf);
     const open = vi.spyOn(view.surface, "activateThread").mockResolvedValue(true);
     (plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mockImplementation(async () => {
@@ -292,7 +348,6 @@ describe("WorkspacePanelCoordinator", () => {
     const firstLeaf = leaf({ state: { threadId: "first" } });
     const secondLeaf = leaf({ state: { threadId: "second" } });
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const firstView = chatView(CodexChatView, firstLeaf);
     const secondView = chatView(CodexChatView, secondLeaf);
     const firstFocusThread = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(true);
@@ -325,7 +380,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it("starts a new chat through the current panel's normal activation path", async () => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const panelLeaf = leaf();
     panelLeaf.view = chatView(CodexChatView, panelLeaf);
     const view = panelLeaf.view as CodexChatView;
@@ -349,7 +403,6 @@ describe("WorkspacePanelCoordinator", () => {
     const leaves = [] as ReturnType<typeof leaf>[];
     const plugin = await pluginWithLeaves(leaves);
     (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(firstLeaf).mockReturnValueOnce(secondLeaf);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const firstView = chatView(CodexChatView, firstLeaf);
     const secondView = chatView(CodexChatView, secondLeaf);
     const firstOpen = vi.spyOn(firstView.surface, "activateThread").mockResolvedValue(true);
@@ -375,7 +428,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it("opens separate unsaved fork drafts from the same source without claiming its thread", async () => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const leaves: ReturnType<typeof leaf>[] = [];
     const plugin = await pluginWithLeaves(leaves);
     const firstLeaf = leaf();
@@ -418,7 +470,6 @@ describe("WorkspacePanelCoordinator", () => {
     const leaves = [] as ReturnType<typeof leaf>[];
     const plugin = await pluginWithLeaves(leaves);
     (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(firstLeaf).mockReturnValueOnce(secondLeaf);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const firstView = chatView(CodexChatView, firstLeaf);
     const secondView = chatView(CodexChatView, secondLeaf);
     vi.spyOn(firstView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "first", threadId: "same-thread" }));
@@ -446,7 +497,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it("settles concurrent panel selections on one thread owner", async () => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const firstLeaf = leaf();
     const secondLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
@@ -494,7 +544,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it("does not focus either view when replaced after operation completion and before reveal", async () => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const panelLeaf = leaf();
     panelLeaf.view = chatView(CodexChatView, panelLeaf);
     const view = panelLeaf.view as CodexChatView;
@@ -527,7 +576,6 @@ describe("WorkspacePanelCoordinator", () => {
     const leaves = [] as ReturnType<typeof leaf>[];
     const plugin = await pluginWithLeaves(leaves);
     (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(newLeaf);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const view = chatView(CodexChatView, newLeaf);
     newLeaf.setViewState.mockImplementation(async () => {
       newLeaf.view = view;
@@ -554,7 +602,6 @@ describe("WorkspacePanelCoordinator", () => {
     const leaves = [] as ReturnType<typeof leaf>[];
     const plugin = await pluginWithLeaves(leaves);
     (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(sideLeaf);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const sideView = chatView(CodexChatView, sideLeaf);
     const focus = vi.spyOn(sideView.surface, "focusComposer");
     let resolveOpening!: (opened: boolean) => void;
@@ -578,7 +625,6 @@ describe("WorkspacePanelCoordinator", () => {
   });
 
   it("tracks the active Codex panel in shared snapshots", async () => {
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
     const activeLeaf = leaf();
@@ -602,7 +648,6 @@ describe("WorkspacePanelCoordinator", () => {
     const leaves = [] as ReturnType<typeof leaf>[];
     const plugin = await pluginWithLeaves(leaves);
     (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(regularLeaf).mockReturnValueOnce(sideLeaf);
-    const { CodexChatView } = await import("../../src/features/chat/host/view.obsidian");
     const regularView = chatView(CodexChatView, regularLeaf);
     const sideView = chatView(CodexChatView, sideLeaf);
     const connect = vi.spyOn(regularView.surface, "connect").mockResolvedValue(undefined);
