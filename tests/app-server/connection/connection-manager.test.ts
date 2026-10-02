@@ -169,10 +169,30 @@ describe("ConnectionManager", () => {
 
     const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
     manager.disconnect();
+    expect(transport.running).toBe(false);
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
 
     await expect(connecting).rejects.toBeInstanceOf(StaleConnectionError);
     expect(onExit).not.toHaveBeenCalled();
+    expect(manager.currentClient()).toBeNull();
+  });
+
+  it("stops the transport when disconnecting an initialized client", async () => {
+    let transport!: SilentTransport;
+    const manager = new ConnectionManager(
+      "/bin/codex",
+      "/vault",
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ onTransport: (next) => (transport = next) }),
+    );
+    const connecting = manager.connect(silentConnectionHandlers());
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
+    await connecting;
+    expect(transport.running).toBe(true);
+
+    manager.disconnect();
+
+    expect(transport.running).toBe(false);
     expect(manager.currentClient()).toBeNull();
   });
 });

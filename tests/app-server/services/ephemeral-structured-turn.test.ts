@@ -33,7 +33,7 @@ describe("runEphemeralStructuredTurn", () => {
     expect(result.itemsView).toBe("full");
   });
 
-  it("reports matched structured turn progress without exposing raw notifications", async () => {
+  it("collects only matching progress and completion after turn/start resolves", async () => {
     const progress: unknown[] = [];
     const { clientFactory, client } = fakeStructuredTurnClientFactory();
     const running = runEphemeralStructuredTurn(
@@ -47,15 +47,38 @@ describe("runEphemeralStructuredTurn", () => {
     );
 
     await expectPresent(client.current).structuredTurnStarted;
+    // Deliver notifications in the next event-loop turn, after the start response's promise chain settles.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
     const fake = expectPresent(client.current);
     fake.emit(agentDeltaNotification("other-thread", "turn", "ignored"));
+    fake.emit(agentDeltaNotification("thread", "other-turn", "ignored"));
+    fake.emit(reasoningNotification("thread", "other-turn"));
+    fake.emit(completedItemNotification("thread", "other-turn", agentMessage("wrong", "ignored")));
+    fake.emit(turnCompletedNotification("thread", turn([], { id: "other-turn", status: "completed" })));
     fake.emit(reasoningNotification("thread", "turn"));
     fake.emit(agentDeltaNotification("thread", "turn", "draft"));
     fake.emit(completedItemNotification("thread", "turn", agentMessage("answer", '{"ok":true}')));
     fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
 
-    await running;
+    const result = await running;
+    expect(result.id).toBe("turn");
+    expect(result.items).toEqual([agentMessage("answer", '{"ok":true}')]);
     expect(progress).toEqual([{ type: "reasoning-activity" }, { type: "agent-message-delta", delta: "draft" }]);
+  });
+
+  it("rejects a process exit while waiting for completion and releases the client and timer", async () => {
+    const timers = timerHarness();
+    const { clientFactory, client } = fakeStructuredTurnClientFactory();
+    const running = runEphemeralStructuredTurn(runOptions(), { clientFactory, timers });
+    const failure = expect(running).rejects.toThrow("Structured test app-server exited.");
+    await expectPresent(client.current).structuredTurnStarted;
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expectPresent(client.current).emitExit();
+
+    await failure;
+    expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
+    expect(timers.clearTimeout).toHaveBeenCalledWith(123);
   });
 
   it("cleans up abort listeners after an operation settles", async () => {
@@ -425,6 +448,10 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
 
   emit(notification: ServerNotification): void {
     this.handlers.onNotification(notification);
+  }
+
+  emitExit(): void {
+    this.handlers.onExit(1, null);
   }
 
   emitServerRequest(request: ServerRequest): void {

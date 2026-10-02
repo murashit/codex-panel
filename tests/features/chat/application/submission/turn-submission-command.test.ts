@@ -773,6 +773,28 @@ describe("TurnSubmissionCommand", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
+  it.each(["accepted", "rejected"] as const)("does not publish an old %s steer into the next turn of the same thread", async (result) => {
+    const { host, stateStore, steerTurn } = createHost();
+    const steering = deferred<Awaited<ReturnType<typeof host.turnPort.steerTurn>>>();
+    resumeThread(stateStore);
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "first-turn" });
+    steerTurn.mockImplementation(() => steering.promise);
+    const submitting = claimedCommand(host).sendTurnText({ text: "follow up" });
+    await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
+    stateStore.dispatch({ type: "turn/completed", turnId: "first-turn", outcome: "completed", items: [] });
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "next-turn" });
+    const nextTurn = stateStore.getState().activeTurn;
+    vi.mocked(host.setStatus).mockClear();
+
+    steering.resolve(result === "accepted" ? completed(undefined) : { kind: "failed", error: new Error("old steer rejected") });
+
+    await expect(submitting).resolves.toBe(result === "accepted");
+    expect(activeThreadId(stateStore.getState())).toBe("thread");
+    expect(stateStore.getState().activeTurn).toEqual(nextTurn);
+    expect(host.setStatus).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+  });
+
   it("reports busy turns that cannot be steered", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);

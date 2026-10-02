@@ -70,7 +70,7 @@ gh run list --workflow mutation.yml --limit 5
 gh run download RUN_ID --pattern 'mutation-*' --dir /tmp/mutation-RUN_ID
 ```
 
-Check the Actions conclusion and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Artifacts are retained for 90 days, subject to repository limits. Mutation execution is limited to 100 minutes plus 10 seconds of termination grace within a 120-minute job. Failed runs may contain only metadata and logs; partial incremental reports are not uploaded.
+Check the Actions conclusion and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Artifacts are retained for 90 days, subject to repository limits. Mutation execution is limited to 120 minutes plus 10 seconds of termination grace within a 150-minute job. Failed runs may contain only metadata and logs; partial incremental reports are not uploaded.
 
 ## Update API Compatibility
 
