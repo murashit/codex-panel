@@ -59,6 +59,19 @@ These are optional diagnostics, not additional handoff gates:
 - `npm run test:coverage` reports unexercised authored source, including modules not imported by tests, in `coverage/index.html`. Use it to find missing behavior coverage; there is no percentage threshold.
 - `npm run test:mutation` explores correctness-critical logic selected in `stryker.config.mjs` and writes `reports/mutation/mutation.html`. Review surviving mutants individually: add tests for meaningful gaps, simplify equivalent or redundant code, and leave cases alone when neither improves the contract. Do not optimize for the aggregate score.
 
+### Weekly Mutation Runs
+
+`Mutation` runs the full configured scope every Monday at 04:00 JST (Sunday 19:00 UTC). Once the workflow is on the default branch, run it manually with `gh workflow run mutation.yml`. To run the same bounded mutation command locally on Linux with GNU `timeout`, use `node scripts/run-mutation.mjs`.
+
+Download a run's artifact:
+
+```sh
+gh run list --workflow mutation.yml --limit 5
+gh run download RUN_ID --pattern 'mutation-*' --dir /tmp/mutation-RUN_ID
+```
+
+Check the Actions conclusion and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Artifacts are retained for 90 days, subject to repository limits. Mutation execution is limited to 100 minutes plus 10 seconds of termination grace within a 120-minute job. Failed runs may contain only metadata and logs; partial incremental reports are not uploaded.
+
 ## Update API Compatibility
 
 Run `npm run api:baseline` after changing compatibility metadata and keep the README Compatibility table aligned. This checks recorded metadata; it does not prove runtime compatibility or replace regenerating bindings.
