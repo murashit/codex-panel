@@ -35,6 +35,43 @@ describe("CodexPanelPlugin lifecycle", () => {
     expect(secondLeaf.loadIfDeferred).toHaveBeenCalledOnce();
   });
 
+  it("repairs background layout changes without loading restored leaves", async () => {
+    vi.useFakeTimers();
+    const leaves = [leaf({ state: { threadId: "same" } })];
+    const plugin = await pluginWithLeaves(leaves);
+    const handlers: (() => void)[] = [];
+    (plugin.app.workspace.on as ReturnType<typeof vi.fn>).mockImplementation((name: string, handler: () => void) => {
+      if (name === "layout-change") handlers.push(handler);
+      return {};
+    });
+    await plugin.onload();
+    await vi.advanceTimersByTimeAsync(0);
+    leaves[0]?.loadIfDeferred.mockClear();
+    const duplicate = leaf({ state: { threadId: "same" } });
+    leaves.push(duplicate);
+    for (const handler of handlers) handler();
+    expect(duplicate.setViewState).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(duplicate.setViewState).toHaveBeenCalledOnce();
+    for (const target of leaves) expect(target.loadIfDeferred).not.toHaveBeenCalled();
+    plugin.onunload();
+  });
+
+  it("does not revive reconciliation when layout becomes ready after unload", async () => {
+    vi.useFakeTimers();
+    const panel = leaf();
+    const plugin = await pluginWithLeaves([panel]);
+    let ready: (() => void) | undefined;
+    (plugin.app.workspace.onLayoutReady as ReturnType<typeof vi.fn>).mockImplementation((callback: () => void) => {
+      ready = callback;
+    });
+    await plugin.onload();
+    plugin.onunload();
+    ready?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(panel.loadIfDeferred).not.toHaveBeenCalled();
+  });
+
   it("discards turn diff leaves on plugin load because their payloads do not survive reloads", async () => {
     const turnDiffLeaf = leaf();
     const plugin = await pluginWithLeaves([], { turnDiffLeaves: [turnDiffLeaf] });

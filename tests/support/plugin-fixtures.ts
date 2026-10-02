@@ -39,6 +39,7 @@ export async function pluginWithLeaves(
         getActiveViewOfType: vi.fn(() => null),
         ensureSideLeaf: vi.fn(() => Promise.reject(new Error("Unexpected ensureSideLeaf call."))),
         on: vi.fn(() => ({})),
+        onLayoutReady: vi.fn((callback: () => void) => callback()),
         activeLeaf: null,
         rightSplit: {},
       },

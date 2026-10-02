@@ -63,7 +63,10 @@ function currentChatHost(plugin: CodexPanelPlugin): CodexChatHost {
 }
 
 describe("CodexPanelPlugin runtime integration", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
 
   beforeEach(() => {
     vi.useRealTimers();
@@ -83,6 +86,22 @@ describe("CodexPanelPlugin runtime integration", () => {
         dispose() {}
       } as never,
     );
+  });
+
+  it("repairs duplicate ownership on panel activity changes without hydrating panels", async () => {
+    vi.useFakeTimers();
+    const first = leaf({ state: { threadId: "same" } });
+    const duplicate = leaf({ state: { threadId: "same" } });
+    const plugin = await pluginWithLeaves([first, duplicate]);
+    const host = currentChatHost(plugin);
+    host.workspace.notifyPanelActivityChanged();
+    host.workspace.notifyPanelActivityChanged();
+    expect(duplicate.setViewState).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(duplicate.setViewState).toHaveBeenCalledOnce();
+    expect(first.loadIfDeferred).not.toHaveBeenCalled();
+    expect(duplicate.loadIfDeferred).not.toHaveBeenCalled();
+    plugin.runtime.reset();
   });
 
   it("creates and loads a turn diff leaf before publishing its session payload", async () => {
