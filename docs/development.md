@@ -8,6 +8,8 @@ Use the Node.js version in `.node-version` and install dependencies with `npm ci
 
 The project `.npmrc` disables lifecycle scripts and automatic install-time audits. Explicit `npm run` commands still run, without pre/post hooks. Run `npm audit` separately when reviewing dependency vulnerabilities; release preflight audits runtime dependencies explicitly.
 
+`package.json` overrides Obsidian's pinned Moment dependency with 2.31.0 to address [GHSA-4p3w-j4w9-5jqw](https://github.com/advisories/GHSA-4p3w-j4w9-5jqw). Remove the override when Obsidian depends on a patched version.
+
 Obsidian loads the generated `main.js` and `styles.css`, not the TypeScript or authored CSS. Run `npm run build` before live validation unless `npm run check` has already built the current source. Edit CSS in `src/styles/`; `npm run build:styles` regenerates only the stylesheet and checks its source order. Keep generated load artifacts out of version control.
 
 ## Choose the Owner of a Change

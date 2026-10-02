@@ -78,5 +78,10 @@
     "obsidian-daily-notes-interface": "^0.9.5",
     "preact": "^10.29.8",
     "unist-util-visit": "^5.1.0"
+  },
+  "overrides": {
+    "obsidian": {
+      "moment": "2.31.0"
+    }
   }
 }
