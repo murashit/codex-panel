@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import Defuddle from "defuddle";
 import * as obsidian from "obsidian";
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import type { CodexInput } from "../../../../../src/domain/input/input";
@@ -18,6 +19,21 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("web context reader", () => {
   beforeEach(() => {
+    vi.spyOn(Defuddle.prototype, "parse").mockReturnValue({
+      content: "<article><p>Extracted article</p></article>",
+      title: "Extracted title",
+      description: "",
+      domain: "example.com",
+      favicon: "",
+      image: "",
+      language: "en",
+      parseTime: 0,
+      published: "",
+      author: "",
+      site: "",
+      schemaOrgData: {},
+      wordCount: 2,
+    });
     requestUrl.mockResolvedValue({
       headers: {},
       json: {},
@@ -29,6 +45,7 @@ describe("web context reader", () => {
   });
 
   it("attaches fetched Markdown as untrusted context while preserving prepared message input", async () => {
+    const parseHtml = vi.spyOn(window.DOMParser.prototype, "parseFromString");
     const inputSnapshot = { sourcePath: "source.md" } as ComposerInputSnapshot;
     const messageInput = [
       { type: "text" as const, text: "Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]" },
@@ -53,7 +70,9 @@ describe("web context reader", () => {
     );
 
     expect(requestUrl).toHaveBeenCalledWith({ url: "https://example.com/article", method: "GET", throw: false });
-    expect(htmlToMarkdown).toHaveBeenCalledWith(expect.stringContaining("Readable article"));
+    expect(parseHtml).toHaveBeenCalledWith(expect.stringContaining("<article><p>Readable article</p></article>"), "text/html");
+    expect(Defuddle.prototype.parse).toHaveBeenCalledOnce();
+    expect(htmlToMarkdown).toHaveBeenCalledWith("<article><p>Extracted article</p></article>");
     expect(prepareInput).toHaveBeenCalledWith("Summarize [[Alpha]] [[Files/Sketch.png]]", inputSnapshot);
     expect(result).toEqual({
       text: "https://example.com/article Summarize [[Notes/Alpha.md]] [[Files/Sketch.png]]",
@@ -63,7 +82,8 @@ describe("web context reader", () => {
           type: "additionalContext",
           key: "codex_panel_web_context",
           kind: "untrusted",
-          value: "Web page context for the current user input:\nSource: https://example.com/article\nTitle: Example\n\nReadable article",
+          value:
+            "Web page context for the current user input:\nSource: https://example.com/article\nTitle: Extracted title\n\nReadable article",
         },
         { type: "fileReference", name: "Alpha", path: "Notes/Alpha.md" },
         { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selection" },
