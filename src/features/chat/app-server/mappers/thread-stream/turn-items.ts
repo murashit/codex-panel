@@ -85,21 +85,20 @@ export function completedTurnTranscriptSummaryFromAppServerTurn(turn: TurnRecord
   return completedTurnTranscriptSummaryFromTurnRecord(turn);
 }
 
-export function chatThreadHistoryPageFromTurnsPage(page: {
+export function chatThreadHistoryPageFromNewestFirstTurnsPage(page: {
   readonly data: readonly TurnRecord[];
   readonly nextCursor: string | null;
 }): ThreadHistoryPage {
   return {
-    items: threadStreamItemsFromTurns(page.data),
+    items: threadStreamItemsFromTurns([...page.data].reverse()),
     nextCursor: page.nextCursor,
     hadTurns: page.data.length > 0,
   };
 }
 
 export function threadStreamItemsFromTurns(turns: readonly TurnRecord[]): ThreadStreamItem[] {
-  const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: ThreadStreamItem[] = [];
-  for (const turn of sortedTurns) {
+  for (const turn of turns) {
     for (const item of turn.itemsView === "notLoaded" ? [] : turn.items) {
       const streamItem = threadStreamItemFromTurnItem(item, turn.id);
       if (streamItem) items.push(streamItem);

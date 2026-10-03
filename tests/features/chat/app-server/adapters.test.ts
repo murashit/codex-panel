@@ -273,9 +273,16 @@ describe("chat app-server adapters", () => {
     });
   });
 
-  it("reads thread history pages as thread stream items", async () => {
+  it.each([
+    { timestamps: "distinct", newer: 2, older: 1 },
+    { timestamps: "equal", newer: 1, older: 1 },
+    { timestamps: "missing", newer: null, older: 1 },
+  ])("reads newest-first history in conversation order with $timestamps timestamps", async ({ newer, older }) => {
     const request = vi.fn().mockResolvedValue({
-      data: [turn([userMessage("u1", "prompt"), agentMessage("a1", "answer")])],
+      data: [
+        turn([agentMessage("a2", "latest")], { id: "new", startedAt: newer }),
+        turn([userMessage("u1", "prompt"), agentMessage("a1", "answer")], { id: "old", startedAt: older }),
+      ],
       nextCursor: "older",
     });
     const client = { request } as unknown as AppServerClient;
@@ -295,8 +302,9 @@ describe("chat app-server adapters", () => {
     expect(page?.nextCursor).toBe("older");
     expect(page?.hadTurns).toBe(true);
     expect(page?.items).toEqual([
-      expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" }),
-      expect.objectContaining({ kind: "dialogue", role: "assistant", text: "answer" }),
+      expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt", copyText: "prompt" }),
+      expect.objectContaining({ kind: "dialogue", role: "assistant", text: "answer", copyText: "answer" }),
+      expect.objectContaining({ kind: "dialogue", role: "assistant", text: "latest", copyText: "latest" }),
     ]);
   });
 

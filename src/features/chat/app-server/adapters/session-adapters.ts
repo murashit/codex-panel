@@ -24,7 +24,7 @@ import type { ThreadResumeEffects, ThreadResumeSnapshot } from "../../applicatio
 import type { ThreadCommandEffects } from "../../application/threads/thread-commands";
 import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";
-import { chatThreadHistoryPageFromTurnsPage } from "../mappers/thread-stream/turn-items";
+import { chatThreadHistoryPageFromNewestFirstTurnsPage } from "../mappers/thread-stream/turn-items";
 import { panelDynamicTools } from "./dynamic-tool-registration";
 import { EphemeralThreadCleanupRequiredError, forkEphemeralThread } from "./side-chat";
 
@@ -225,7 +225,7 @@ async function readChatThreadHistoryPage(
   cursor: string | null,
   limit = 20,
 ): Promise<ThreadHistoryPage> {
-  return chatThreadHistoryPageFromTurnsPage(await listThreadTurns(client, threadId, cursor, limit));
+  return chatThreadHistoryPageFromNewestFirstTurnsPage(await listThreadTurns(client, threadId, cursor, limit));
 }
 
 async function resumeChatThread(client: AppServerRequestClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
@@ -233,6 +233,6 @@ async function resumeChatThread(client: AppServerRequestClient, threadId: string
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),
     rolloutPath: response.thread.path,
-    initialHistoryPage: response.initialTurnsPage ? chatThreadHistoryPageFromTurnsPage(response.initialTurnsPage) : null,
+    initialHistoryPage: response.initialTurnsPage ? chatThreadHistoryPageFromNewestFirstTurnsPage(response.initialTurnsPage) : null,
   };
 }

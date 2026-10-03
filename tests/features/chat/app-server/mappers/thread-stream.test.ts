@@ -18,15 +18,21 @@ import { legacyTurnContextManifestText } from "../../../../support/legacy-turn-c
 
 describe("turn item conversion preserves app-server semantics", () => {
   it.each(["failed", "interrupted"] as const)("restores a %s turn's error reason from history", (status) => {
-    const turn = turnRecord("error-turn", 1, {
+    const turn: TurnRecord = {
+      id: "error-turn",
+      startedAt: 1,
+      completedAt: 2,
+      durationMs: 1,
       status,
+      itemsView: "full",
+      items: [],
       error: {
         message: "The provider stopped responding.",
         codexErrorInfo: "serverOverloaded",
         additionalDetails: "Try again later.",
         misalignment: null,
       },
-    });
+    };
 
     expect(threadStreamItemsFromTurns([turn])).toMatchObject([
       {
@@ -37,33 +43,6 @@ describe("turn item conversion preserves app-server semantics", () => {
         provenance: { reason: "turnError" },
       },
     ]);
-  });
-
-  it("sorts app-server turns oldest first before converting messages", () => {
-    const userMessage: TurnItem = {
-      type: "userMessage",
-      id: "u1",
-      clientId: null,
-      content: [{ type: "text", text: "hello", text_elements: [] }],
-    };
-    const assistantMessage: TurnItem = {
-      type: "agentMessage",
-      id: "a1",
-      text: "world",
-      phase: null,
-      memoryCitation: null,
-      delivery: null,
-      questions: null,
-    };
-    const turns = [turnRecord("new", 2, { items: [assistantMessage] }), turnRecord("old", 1, { items: [userMessage] })];
-
-    expect(
-      threadStreamItemsFromTurns(turns)
-        .filter((item) => item.kind === "dialogue")
-        .map((item) => item.text),
-    ).toEqual(["hello", "world"]);
-    expect(threadStreamItemFromTurnItem(userMessage)).toMatchObject({ role: "user", copyText: "hello" });
-    expect(threadStreamItemFromTurnItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
   });
 
   it("restores v2 context metadata without exposing its descriptor", () => {
@@ -1383,19 +1362,5 @@ function hookRun() {
     startedAt: 1n,
     durationMs: 1n,
     entries: [{ kind: "feedback", text: "ok" }],
-  };
-}
-
-function turnRecord(id: string, startedAt: number, overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return {
-    id,
-    startedAt,
-    completedAt: startedAt + 1,
-    durationMs: 1,
-    status: "completed",
-    itemsView: "full",
-    items: [],
-    error: null,
-    ...overrides,
   };
 }
