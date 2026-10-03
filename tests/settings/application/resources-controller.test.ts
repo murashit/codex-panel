@@ -169,6 +169,34 @@ describe("SettingsResourcesController", () => {
     expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
   });
 
+  it.each([true, false])("writes hook enabled=%s and publishes the refreshed catalog", async (enabled) => {
+    const write = deferred<unknown>();
+    const client = settingsClient({ hooks: [hook({ enabled })] });
+    client.requestHandlers["config/batchWrite"] = vi.fn(() => write.promise);
+    useContextClients(client);
+    const display = vi.fn();
+    const controller = settingsResourcesController(settingsTabHost(), { display, notify: noop });
+    controller.activate();
+
+    const mutation = controller.setHookEnabled(hook({ enabled: !enabled }), enabled);
+    await flushPromises();
+    expect(client.requestHandlers["config/batchWrite"]).toHaveBeenCalledExactlyOnceWith({
+      edits: [{ keyPath: "hooks.state", value: { "hook-key": { enabled } }, mergeStrategy: "upsert" }],
+      reloadUserConfig: true,
+    });
+    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "loading" });
+    await controller.setHookEnabled(hook(), !enabled);
+    expect(client.requestHandlers["config/batchWrite"]).toHaveBeenCalledOnce();
+    display.mockClear();
+
+    write.resolve({});
+    await mutation;
+
+    expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-key", enabled })]);
+    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "idle" });
+    expect(display).toHaveBeenCalled();
+  });
+
   it("keeps hook operation failures out of catalog state", async () => {
     const failedClient = settingsClient();
     failedClient.requestHandlers["config/batchWrite"] = vi.fn().mockRejectedValue(new Error("write failed"));

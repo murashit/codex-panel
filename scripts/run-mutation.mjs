@@ -76,7 +76,7 @@ function countReport(cwd) {
 
 // GNU timeout owns the entire child process group, including Stryker workers.
 // Keep its deadline below the Actions step/job limits so finalization can run.
-export async function runMutation({ cwd = process.cwd(), invocation = command, timeoutSeconds = 6000 } = {}) {
+export async function runMutation({ cwd = process.cwd(), invocation = command, timeoutSeconds = 7200 } = {}) {
   rmSync(resolve(cwd, reportDirectory), { recursive: true, force: true });
   const metadata = initialMetadata(cwd);
   const started = Date.now();
