@@ -12,7 +12,6 @@ import type { ChatStateStore } from "../../application/state/store";
 import { createEphemeralThreadLifecycle } from "../../application/threads/ephemeral-thread-lifecycle";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { sideChatDraft } from "../../application/threads/fork-draft";
-import { createPersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
 import { collaborationModeIntentValue } from "../../domain/runtime/intent";
@@ -192,12 +191,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     sharedResources,
   });
-  const navigation = createPersistentNavigationLifecycle({
-    stateStore,
-    ephemeral,
-    unsubscribeThread: (threadId) => appServer.threadSubscription.unsubscribeThread(threadId),
-    addSystemMessage: status.addSystemMessage,
-  });
   const threadCommands = createSessionThreadCommands(host, {
     appServer,
     ensureConnected,
@@ -205,7 +198,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     composerController,
     foundation: threadFoundation,
     features: threadFeatures,
-    navigation,
+    ephemeral,
     applyForkDraft: host.applyForkDraft,
   });
   const reconnectHost = {
@@ -373,8 +366,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       identity: threadFeatures.identity,
       ensureRestoredThreadLoaded: threadFeatures.ensureRestoredThreadLoaded,
       ephemeral,
-      navigation,
-      unsubscribe: (threadId: string) => appServer.threadSubscription.unsubscribeThread(threadId),
     },
     composer: {
       controller: composerController,

@@ -17,7 +17,7 @@ const EPHEMERAL_INTERRUPT_RELEASE_TIMEOUT_MS = 1_000;
 
 export interface EphemeralThreadLifecycle {
   create(sourceThreadId: string, isCurrent: () => boolean): Promise<EffectOutcome<ThreadActivationSnapshot>>;
-  prepareForPersistentNavigation(): Promise<boolean>;
+  prepareForNavigation(): Promise<boolean>;
   cleanupForConnectionReset(): Promise<void>;
   dispose(): Promise<void>;
 }
@@ -83,9 +83,10 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       return { kind: "completed", value: result.activation };
     },
 
-    async prepareForPersistentNavigation(): Promise<boolean> {
+    async prepareForNavigation(): Promise<boolean> {
       const state = host.stateStore.getState();
       const active = activeThreadState(state);
+      // Persistent subscriptions are connection-wide, including child approvals shown in other panels.
       if (active?.lifetime?.kind !== "ephemeral") {
         await retryRequiredCleanup();
         return true;

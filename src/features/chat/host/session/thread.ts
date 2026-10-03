@@ -7,11 +7,11 @@ import { threadStreamItems } from "../../application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import type { EphemeralThreadLifecycle } from "../../application/threads/ephemeral-thread-lifecycle";
 import type { ForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { createGoalCommands, type GoalCommands } from "../../application/threads/goal-commands";
 import { HistoryController } from "../../application/threads/history-controller";
-import type { PersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import { RestorationController } from "../../application/threads/restoration-controller";
 import { createResumeCommand, type ResumeCommand } from "../../application/threads/resume-command";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
@@ -81,7 +81,7 @@ interface SessionThreadCommandInput {
   composerController: ChatComposerController;
   foundation: SessionThreadFoundation;
   features: SessionThreadFeatures;
-  navigation: PersistentNavigationLifecycle;
+  ephemeral: Pick<EphemeralThreadLifecycle, "prepareForNavigation">;
 }
 
 interface SessionThreadCommandsResult {
@@ -231,7 +231,7 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
     focusComposer: () => {
       composerController.focusComposer();
     },
-    navigation: input.navigation,
+    ephemeral: input.ephemeral,
   });
   return { commands, toolbarPanelActions, navigation };
 }

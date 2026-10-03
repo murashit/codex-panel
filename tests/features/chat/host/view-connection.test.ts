@@ -162,27 +162,9 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.surface.openPanelSnapshot().threadId).toBe("thread-b");
   });
 
-  it("commits source cleanup when a newer target wins immediately after activation", async () => {
-    const unsubscribe = vi.fn().mockResolvedValue({});
+  it("keeps the newest target when another activation starts during adoption", async () => {
     const client = connectedClient({
-      "thread/resume": vi.fn((params) => {
-        const { threadId } = params as { threadId: string };
-        return Promise.resolve(
-          resumedThread(
-            threadId,
-            threadId === "thread-a"
-              ? {
-                  parentThreadId: "parent",
-                  sessionId: "session",
-                  threadSource: "subAgentThreadSpawn",
-                  agentNickname: "Scout",
-                  agentRole: "explorer",
-                }
-              : {},
-          ),
-        );
-      }),
-      "thread/unsubscribe": unsubscribe,
+      "thread/resume": vi.fn((params) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
     });
     connectionMockState().client = client;
     let view: Awaited<ReturnType<typeof chatView>>;
@@ -192,14 +174,14 @@ describe("CodexChatView connection lifecycle", () => {
       newerActivation = view.surface.activateThread("thread-c", { focus: false });
     });
     view = await chatView({ host: chatHost({ notifyPanelActivityChanged }) });
+    await view.onOpen();
     await view.surface.activateThread("thread-a", { focus: false });
 
     await view.surface.activateThread("thread-b", { focus: false });
     await newerActivation;
 
-    await waitForAsyncWork(() => {
-      expect(unsubscribe).toHaveBeenCalledWith({ threadId: "thread-a" }, expect.anything());
-    });
+    expect(view.surface.openPanelSnapshot().threadId).toBe("thread-c");
+    expect(requestMethods(client)).not.toContain("thread/unsubscribe");
   });
 
   it("keeps a preserved draft editable while workspace coordination restores its thread", async () => {
@@ -360,6 +342,38 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(client, "thread/goal/get", 0);
     expect(view.containerEl.querySelector(".codex-panel__goal-load-error")).toBeNull();
   });
+
+  it.each(["success", "failure", "reselected"] as const)(
+    "adopts a replacement draft only after side chat cleanup (%s)",
+    async (outcome) => {
+      const released = deferred<unknown>();
+      const client = connectedClient({
+        "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
+        "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
+        "thread/unsubscribe": vi.fn(() => released.promise),
+      });
+      connectionMockState().client = client;
+      const view = await chatView();
+      await view.onOpen();
+      await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
+      connectionMockState().onNotification?.({
+        method: "turn/completed",
+        params: { threadId: "side", turn: completedTurn("turn-1") },
+      } as ServerNotification);
+      const replacing = view.surface.applyForkDraft(sideChatDraft("another", "Another"));
+      await waitForAsyncWork(() => expectRequestTimes(client, "thread/unsubscribe", 1));
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", hasForkDraft: false });
+      if (outcome === "reselected") await view.surface.activateThread("side");
+      if (outcome === "failure") released.reject(new Error("Could not discard side chat"));
+      else released.resolve({ status: "unsubscribed" });
+
+      await expect(replacing).resolves.toBe(outcome === "success");
+      expect(view.surface.openPanelSnapshot()).toMatchObject({
+        hasForkDraft: outcome === "success",
+        threadId: outcome === "failure" ? "side" : null,
+      });
+    },
+  );
 
   it("keeps a late MCP inventory read scoped to its original thread", async () => {
     const threadA = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();

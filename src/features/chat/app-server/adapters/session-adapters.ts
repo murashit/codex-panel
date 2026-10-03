@@ -45,7 +45,6 @@ export function createChatSessionAdapters(host: ChatAppServerAdapterHost) {
     threadResume: createChatThreadResumeAdapter(host),
     threadCommands: createChatThreadCommandAdapter(host),
     threadEphemeral: createChatEphemeralThreadAdapter(host),
-    threadSubscription: createChatThreadSubscriptionAdapter(host),
     threadGoal: createChatThreadGoalAdapter(host),
   } as const;
 }
@@ -176,18 +175,6 @@ async function forkEphemeralThreadResult(
     }
     throw error;
   }
-}
-
-function createChatThreadSubscriptionAdapter(host: ChatAppServerAdapterHost) {
-  return {
-    unsubscribeThread: async (threadId: string) => {
-      const result = await withCurrentChatAppServerClient(host, async (client) => {
-        await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
-        return true;
-      });
-      return result ?? false;
-    },
-  };
 }
 
 function createChatThreadGoalAdapter(host: CurrentChatAppServerClientHost): ThreadGoalEffects {

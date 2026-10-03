@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, expect, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { ActiveThreadData } from "../../../../src/app-server/query/active-thread-inventory";
 import { AppServerMetadataQueries } from "../../../../src/app-server/query/metadata-queries";
 import { AppServerQueryScope } from "../../../../src/app-server/query/query-scope";
@@ -287,6 +288,19 @@ export function completedTurn(turnId: string) {
       { type: "userMessage", id: "user-1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
       { type: "agentMessage", id: "agent-1", text: "done", phase: "final_answer", memoryCitation: null },
     ],
+  };
+}
+
+export function runningTurn(turnId: string): TurnRecord {
+  return {
+    id: turnId,
+    status: "inProgress",
+    error: null,
+    startedAt: 1,
+    completedAt: null,
+    durationMs: null,
+    itemsView: "full",
+    items: [],
   };
 }
 

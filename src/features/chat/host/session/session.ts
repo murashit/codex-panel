@@ -2,7 +2,6 @@ import { Notice } from "obsidian";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
 import { DeferredTask } from "../../../../shared/async/deferred-task";
 import {
-  activeThreadId,
   activeThreadState,
   awaitingResumeThreadState,
   type ChatState,
@@ -141,16 +140,17 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async applyForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<boolean> {
-    const previousThreadId = activeThreadId(this.state);
-    this.pendingRuntimeRestore = null;
     this.runtime.commands.invalidateThreadWork();
     this.pendingPersistentActivation = null;
+    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
+      const intent = this.resumeWork.begin(null);
+      if (!(await this.runtime.thread.ephemeral.prepareForNavigation()) || !this.resumeWork.canCommit(intent, this.state)) return false;
+    }
+    if (this.closing) return false;
+    this.pendingRuntimeRestore = null;
     this.stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
     this.environment.view.refreshTabHeader();
     this.environment.obsidian.requestWorkspaceLayoutSave();
-    const target = capturePanelTargetLease(this.state);
-    if (previousThreadId) await this.runtime.thread.unsubscribe(previousThreadId);
-    if (this.closing || !panelTargetLeaseIsCurrent(this.state, target)) return false;
     const text = initialMessage?.trim();
     if (!text) return true;
     const submissionClaim = this.runtime.composer.controller.claimTextSubmission(text);
@@ -211,8 +211,8 @@ export class ChatPanelSession implements ChatPanelHandle {
       return true;
     }
     if (activeThreadState(this.state)?.id === targetThreadId) {
+      this.resumeWork.begin(targetThreadId);
       if (pending) {
-        this.resumeWork.begin(targetThreadId);
         this.pendingPersistentActivation = null;
       }
       if (options.focus !== false) this.focusComposer();
@@ -239,12 +239,10 @@ export class ChatPanelSession implements ChatPanelHandle {
       return this.runtime.thread.ensureRestoredThreadLoaded(displaySnapshot);
     }
     const intent = this.resumeWork.begin(threadId);
-    const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
-    if (!preparation || !this.resumeWork.isCurrent(intent)) return false;
+    if (!(await this.runtime.thread.ephemeral.prepareForNavigation()) || !this.resumeWork.isCurrent(intent)) return false;
     const activation = await this.runtime.thread.resume.resumeThread(threadId, intent, displaySnapshot);
     if (!activation) return false;
     this.reconcilePendingPersistentRuntimeTarget(threadId);
-    this.runtime.thread.navigation.commitPersistentNavigation(preparation);
     if (!(await activation.hydrate()) || !this.resumeWork.isCurrent(intent)) return false;
     return true;
   }

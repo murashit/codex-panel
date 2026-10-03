@@ -49,7 +49,7 @@ describe("ephemeral thread lifecycle", () => {
     });
     activateSideThread(store);
 
-    await expect(lifecycle.prepareForPersistentNavigation()).resolves.toBe(true);
+    await expect(lifecycle.prepareForNavigation()).resolves.toBe(true);
 
     expect(port.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
     expect(activeThreadId(store.getState())).toBeNull();
@@ -187,7 +187,7 @@ describe("ephemeral thread lifecycle", () => {
       expect(port.unsubscribeEphemeralThread).toHaveBeenCalledTimes(1);
       expect(activeThreadId(store.getState())).toBeNull();
 
-      await expect(lifecycle.prepareForPersistentNavigation()).resolves.toBe(true);
+      await expect(lifecycle.prepareForNavigation()).resolves.toBe(true);
       expect(port.unsubscribeEphemeralThread).toHaveBeenCalledTimes(2);
       expect(port.unsubscribeEphemeralThread).toHaveBeenLastCalledWith("side");
     },
@@ -253,7 +253,7 @@ describe("ephemeral thread lifecycle", () => {
     });
     activateSideThread(store);
 
-    await expect(lifecycle.prepareForPersistentNavigation()).resolves.toBe(false);
+    await expect(lifecycle.prepareForNavigation()).resolves.toBe(false);
 
     expect(activeThreadId(store.getState())).toBe("side");
     expect(addSystemMessage).toHaveBeenCalledWith("Could not discard the side chat. Try again before switching threads.");

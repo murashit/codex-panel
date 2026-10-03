@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import type { ConnectionManagerHandlers } from "../../../../src/app-server/connection/connection-manager";
+import { AppServerContextConnection } from "../../../../src/app-server/connection/context-connection";
+import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
+import { createChatState } from "../../../../src/features/chat/application/state/model";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
@@ -15,7 +19,9 @@ import {
   panelThread,
   requestMethods,
   resumedThread,
+  runningTurn,
   setupViewConnectionHarness,
+  threadFixture,
   turnWithUserMessage,
 } from "./view-connection-harness";
 
@@ -48,86 +54,148 @@ describe("CodexChatView thread state", () => {
     expect(view.getState()).toEqual({ version: 1 });
   });
 
-  it("resumes another persistent thread before unsubscribing a running subagent", async () => {
+  it.each(["other", "unavailable", "fork-draft", "close"] as const)(
+    "keeps the persistent child subscribed when leaving its panel for %s",
+    async (destination) => {
+      const client = connectedClient({
+        "thread/resume": vi.fn((params: unknown) => {
+          const threadId = (params as { threadId: string }).threadId;
+          return Promise.resolve(
+            threadId === "unavailable"
+              ? null
+              : resumedThread(threadId, threadId === "child" ? { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" } : {}),
+          );
+        }),
+      });
+      connectionMockState().client = client;
+      const view = await chatView();
+      const surface = view.surface;
+      await view.surface.activateThread("child");
+      if (destination !== "fork-draft") {
+        connectionMockState().onNotification?.({
+          method: "turn/started",
+          params: {
+            threadId: "child",
+            turn: runningTurn("turn-child"),
+          },
+        } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+      }
+
+      if (destination === "close") await view.onClose();
+      else if (destination === "fork-draft") {
+        await view.surface.applyForkDraft({
+          draft: { kind: "persistent", sourceThreadId: "child", boundary: { kind: "through-turn", turnId: "turn-child" } },
+          runtime: createChatState().runtime,
+          display: { items: [], turnDiffs: new Map() },
+        });
+      } else await view.surface.activateThread(destination);
+
+      expect(requestMethods(client)).not.toContain("thread/unsubscribe");
+      expect(requestMethods(client)).not.toContain("turn/interrupt");
+      expect(surface.openPanelSnapshot()).toMatchObject({
+        threadId: destination === "unavailable" ? "child" : destination === "other" ? "other" : null,
+        ...(destination === "unavailable" ? { turnBusy: true } : {}),
+        hasForkDraft: destination === "fork-draft",
+      });
+    },
+  );
+
+  it("answers child approvals in the parent after the child panel navigates away and closes", async () => {
     const client = connectedClient({
       "thread/resume": vi.fn((params: unknown) => {
         const threadId = (params as { threadId: string }).threadId;
         return Promise.resolve(
-          threadId === "child"
-            ? resumedThread(threadId, { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" })
-            : resumedThread(threadId),
+          resumedThread(threadId, threadId === "child" ? { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" } : {}),
         );
       }),
-      "thread/unsubscribe": vi.fn().mockResolvedValue({ status: "unsubscribed" }),
     });
     connectionMockState().client = client;
-    const view = await chatView();
-
-    await view.surface.activateThread("child");
-    connectionMockState().onNotification?.({
-      method: "turn/started",
-      params: {
-        threadId: "child",
-        turn: {
-          id: "turn-child",
-          status: "inProgress",
-          startedAt: 1,
-          completedAt: null,
-          durationMs: null,
-          error: null,
-          itemsView: "full",
-          items: [],
+    const transport = { handlers: null as ConnectionManagerHandlers | null };
+    const disconnect = vi.fn();
+    const connection = new AppServerContextConnection(
+      "codex",
+      "/vault",
+      { clientInfo: { name: "test", title: "Test", version: "0" }, capabilities: { experimentalApi: true, requestAttestation: false } },
+      { onNotification: () => false, onExit: () => undefined },
+      {
+        connect: async (handlers) => {
+          transport.handlers = handlers;
+          return { codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "linux", userAgent: "test" };
         },
+        currentClient: () => client as unknown as AppServerClient,
+        disconnect,
       },
-    } satisfies Extract<ServerNotification, { method: "turn/started" }>);
-
-    await view.surface.activateThread("other");
-
-    const unsubscribeCall = client.request.mock.calls.findIndex(([method]) => method === "thread/unsubscribe");
-    const otherResumeCall = client.request.mock.calls.findIndex(
-      ([method, params]) => method === "thread/resume" && (params as { threadId: string }).threadId === "other",
     );
-    expect(unsubscribeCall).toBeGreaterThanOrEqual(0);
-    expect(unsubscribeCall).toBeGreaterThan(otherResumeCall);
-    expect(client.request).not.toHaveBeenCalledWith("turn/interrupt", expect.anything());
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "other" });
-  });
-
-  it("keeps a running subagent subscribed when openThread cannot resume the target", async () => {
-    const client = connectedClient({
-      "thread/resume": vi.fn((params: unknown) => {
-        const threadId = (params as { threadId: string }).threadId;
-        return Promise.resolve(
-          threadId === "child" ? resumedThread(threadId, { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" }) : null,
-        );
-      }),
-      "thread/unsubscribe": vi.fn().mockResolvedValue({ status: "unsubscribed" }),
-    });
-    connectionMockState().client = client;
-    const view = await chatView();
-
-    await view.surface.activateThread("child");
-    connectionMockState().onNotification?.({
-      method: "turn/started",
-      params: {
-        threadId: "child",
-        turn: {
-          id: "turn-child",
-          status: "inProgress",
-          startedAt: 1,
-          completedAt: null,
-          durationMs: null,
-          error: null,
-          itemsView: "full",
-          items: [],
+    const host = { ...chatHost(), appServerConnection: connection };
+    const child = await chatView({ host });
+    const parent = await chatView({ host });
+    try {
+      await child.onOpen();
+      await parent.onOpen();
+      await child.surface.activateThread("child");
+      await parent.surface.activateThread("parent");
+      transport.handlers?.onNotification({
+        method: "turn/started",
+        params: {
+          threadId: "parent",
+          turn: runningTurn("parent-turn"),
         },
-      },
-    } satisfies Extract<ServerNotification, { method: "turn/started" }>);
-
-    await view.surface.activateThread("other");
-
-    expect(requestMethods(client).filter((method) => method === "thread/unsubscribe")).toEqual([]);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "child", turnBusy: true });
+      });
+      transport.handlers?.onNotification({
+        method: "thread/started",
+        params: { thread: { ...threadFixture("child"), parentThreadId: "parent", threadSource: "subAgentThreadSpawn" } },
+      } as ServerNotification);
+      transport.handlers?.onNotification({
+        method: "turn/started",
+        params: {
+          threadId: "child",
+          turn: runningTurn("child-turn"),
+        },
+      });
+      await child.surface.startNewThread();
+      expect(child.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnBusy: false, hasForkDraft: false });
+      for (const id of [51, 52]) {
+        const responder = { respond: vi.fn(), reject: vi.fn() };
+        transport.handlers?.onServerRequest(
+          {
+            id,
+            method: "item/commandExecution/requestApproval",
+            params: {
+              kind: "command",
+              command: "npm test",
+              cwd: "/vault",
+              threadId: "child",
+              turnId: "child-turn",
+              itemId: `command-${id}`,
+              approvalId: null,
+              environmentId: null,
+              startedAtMs: 1,
+              reason: null,
+              commandActions: [],
+              proposedExecpolicyAmendment: null,
+              proposedNetworkPolicyAmendments: [],
+              availableDecisions: ["accept", "decline"],
+            },
+          } satisfies ServerRequest,
+          responder,
+        );
+        await waitForAsyncWork(() => expect(parent.containerEl.textContent).toContain("npm test"));
+        expect(child.containerEl.textContent).not.toContain("npm test");
+        const allow = [...parent.containerEl.querySelectorAll("button")].find((button) => button.textContent === "Allow");
+        if (!allow) throw new Error("Missing child approval action in parent panel");
+        allow.click();
+        await waitForAsyncWork(() => expect(responder.respond).toHaveBeenCalledExactlyOnceWith({ decision: "accept" }));
+        expect(responder.reject).not.toHaveBeenCalled();
+        await child.onClose();
+      }
+      expect(requestMethods(client)).not.toContain("thread/unsubscribe");
+      expect(disconnect).not.toHaveBeenCalled();
+    } finally {
+      await child.onClose();
+      await parent.onClose();
+      connection.dispose();
+    }
+    expect(disconnect).toHaveBeenCalledOnce();
   });
 
   it("resets to an unstarted empty chat without starting a thread", async () => {

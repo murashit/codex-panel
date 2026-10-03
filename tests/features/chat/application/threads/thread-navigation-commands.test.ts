@@ -3,10 +3,6 @@ import { createChatState } from "../../../../../src/features/chat/application/st
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ActiveThreadIdentitySync } from "../../../../../src/features/chat/application/threads/active-thread-identity-sync";
 import { sideChatDraft } from "../../../../../src/features/chat/application/threads/fork-draft";
-import type {
-  PersistentNavigationLifecycle,
-  PersistentNavigationPreparation,
-} from "../../../../../src/features/chat/application/threads/persistent-navigation-lifecycle";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import {
   createThreadNavigationCommands,
@@ -48,7 +44,7 @@ function createActionsHarness(overrides: Partial<ThreadNavigationCommandsHost> =
     resumeWork: new ChatResumeWorkTracker(),
     addSystemMessage: vi.fn(),
     focusComposer: vi.fn(),
-    navigation: navigationMock(),
+    ephemeral: { prepareForNavigation: vi.fn().mockResolvedValue(true) },
     ...overrides,
   };
   return { commands: createThreadNavigationCommands(host), host, stateStore };
@@ -81,63 +77,49 @@ describe("ThreadNavigationCommands", () => {
   });
 
   it("keeps the current turn when it starts during blank chat preparation", async () => {
-    const prepared = deferred<PersistentNavigationPreparation | null>();
-    const navigation = navigationMock();
-    navigation.prepareForPersistentNavigation.mockReturnValue(prepared.promise);
-    const { commands, host, stateStore } = createActionsHarness({ navigation });
+    const prepared = deferred<boolean>();
+    const { commands, host, stateStore } = createActionsHarness({
+      ephemeral: { prepareForNavigation: vi.fn(() => prepared.promise) },
+    });
     resumeThreadState(stateStore, "active");
     const pending = commands.startNewThread();
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
-    prepared.resolve({ kind: "ready" });
+    prepared.resolve(true);
     await pending;
     expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
-    expect(navigation.commitPersistentNavigation).not.toHaveBeenCalled();
     expect(host.focusComposer).not.toHaveBeenCalled();
   });
 
-  it("starts a blank chat while a subagent turn continues", async () => {
-    const navigation = navigationMock();
-    const { commands, host, stateStore } = createActionsHarness({ navigation });
-    resumeThreadState(stateStore, "child", true);
-    stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
+  it("keeps a side chat active when its cleanup fails", async () => {
+    const { commands, host, stateStore } = createActionsHarness({
+      ephemeral: { prepareForNavigation: vi.fn().mockResolvedValue(false) },
+    });
+    stateStore.dispatch({
+      ...threadActivationFixture({ id: "side", provenance: { kind: "interactive" } } as never),
+      type: "active-thread/resumed",
+      lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: null },
+    });
 
     await commands.startNewThread();
 
-    expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith(null);
-    expect(host.identity.clearActiveThreadIdentity).toHaveBeenCalledOnce();
-    expectCallBefore(navigation.prepareForPersistentNavigation, host.identity.clearActiveThreadIdentity as ReturnType<typeof vi.fn>);
-    expect(host.focusComposer).toHaveBeenCalledOnce();
-  });
-
-  it("keeps a running subagent active when navigation preparation fails", async () => {
-    const navigation = navigationMock(null);
-    const { commands, host, stateStore } = createActionsHarness({ navigation });
-    resumeThreadState(stateStore, "child", true);
-    stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
-
-    await commands.startNewThread();
-
-    expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith(null);
     expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
     expect(host.focusComposer).not.toHaveBeenCalled();
   });
 
-  it("does not commit subagent cleanup when a blank-target intent is superseded before adoption", async () => {
-    const prepared = deferred<PersistentNavigationPreparation | null>();
-    const navigation = navigationMock();
-    navigation.prepareForPersistentNavigation.mockReturnValue(prepared.promise);
-    const { commands, host, stateStore } = createActionsHarness({ navigation });
+  it("keeps the selected thread when a blank-target intent is superseded before adoption", async () => {
+    const prepared = deferred<boolean>();
+    const { commands, host, stateStore } = createActionsHarness({
+      ephemeral: { prepareForNavigation: vi.fn(() => prepared.promise) },
+    });
     resumeThreadState(stateStore, "child", true);
     stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
 
     const startingNew = commands.startNewThread();
-    await vi.waitFor(() => expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith(null));
     host.resumeWork.begin("child");
-    prepared.resolve({ kind: "unsubscribe-on-adoption", threadId: "child" });
+    prepared.resolve(true);
     await startingNew;
 
     expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
-    expect(navigation.commitPersistentNavigation).not.toHaveBeenCalled();
   });
 
   it("allows switching away from a running subagent through workspace coordination", async () => {
@@ -202,20 +184,3 @@ describe("ThreadNavigationCommands", () => {
     expect(host.openThreadFromPanel).toHaveBeenCalledWith("other", false);
   });
 });
-
-function expectCallBefore(first: ReturnType<typeof vi.fn>, second: ReturnType<typeof vi.fn>): void {
-  const firstCall = first.mock.invocationCallOrder[0];
-  const secondCall = second.mock.invocationCallOrder[0];
-  if (firstCall === undefined || secondCall === undefined) throw new Error("Expected both mocks to have been called.");
-  expect(firstCall).toBeLessThan(secondCall);
-}
-
-function navigationMock(preparation: PersistentNavigationPreparation | null = { kind: "ready" }): PersistentNavigationLifecycle & {
-  prepareForPersistentNavigation: ReturnType<typeof vi.fn>;
-  commitPersistentNavigation: ReturnType<typeof vi.fn>;
-} {
-  return {
-    prepareForPersistentNavigation: vi.fn().mockResolvedValue(preparation),
-    commitPersistentNavigation: vi.fn((_preparation: PersistentNavigationPreparation): void => undefined),
-  };
-}

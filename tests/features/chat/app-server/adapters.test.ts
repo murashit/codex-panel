@@ -396,19 +396,6 @@ describe("chat app-server adapters", () => {
     expect(secondRequest).not.toHaveBeenCalled();
   });
 
-  it("unsubscribes a panel from a persistent thread without interrupting its turn", async () => {
-    const request = vi.fn().mockResolvedValue({ status: "unsubscribed" });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadSubscription;
-
-    await expect(adapter.unsubscribeThread("child")).resolves.toBe(true);
-
-    expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "child" }, { timeoutMs: 5_000 });
-    expect(request).not.toHaveBeenCalledWith("turn/interrupt", expect.anything());
-  });
-
   it("returns successful runtime settings updates after the current client changes", async () => {
     const update = deferred<void>();
     const request = vi.fn().mockReturnValue(update.promise);
