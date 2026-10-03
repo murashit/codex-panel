@@ -42,16 +42,14 @@ export function ObsidianDropdown({
       container.empty();
     };
   }, [onChangeRef]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the latest ref lets option identity stay stable while the semantic key controls reconstruction.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: use the semantic option key rather than array identity to synchronize the native control.
   useLayoutEffect(() => {
     const dropdown = dropdownRef.current;
     if (!dropdown) return;
     dropdown.selectEl.replaceChildren();
     for (const option of optionsRef.current) dropdown.addOption(option.value, option.label);
-  }, [optionsKey]);
-  useLayoutEffect(() => {
-    dropdownRef.current?.setValue(value);
-  }, [value]);
+    dropdown.setValue(value);
+  }, [optionsKey, value]);
 
   return <span ref={ref} />;
 }

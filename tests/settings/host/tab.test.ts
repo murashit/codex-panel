@@ -391,10 +391,17 @@ describe("settings tab", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New", archived: true })]);
-    const tab = newSettingsTab({ fetchModels, refreshModels, refreshArchived });
+    const tab = newSettingsTab({
+      modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]),
+      fetchModels,
+      refreshModels,
+      refreshArchived,
+    });
 
     tab.display();
+    expect(tab.containerEl.textContent).toContain("gpt-cached");
     await flushPromises();
+    expect(tab.containerEl.textContent).toContain("gpt-5.4");
     clickButtonByLabel(tab, "Refresh Codex details");
     await flushPromises();
 
@@ -473,22 +480,6 @@ describe("settings tab", () => {
     expect(unsubscribe).toHaveBeenCalledOnce();
   });
 
-  it("uses cached models initially and publishes refreshed models", async () => {
-    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
-    const client = settingsClient({ models: [model("gpt-5.5")] });
-    useContextClients(client);
-    const tab = newSettingsTab({ modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]), fetchModels });
-
-    tab.display();
-
-    expect(tab.containerEl.textContent).toContain("gpt-cached");
-
-    await flushPromises();
-
-    expect(fetchModels).toHaveBeenCalledOnce();
-    expect(tab.containerEl.textContent).toContain("gpt-5.5");
-  });
-
   it("replaces stale cached model options with an empty successful refresh while preserving saved values", async () => {
     const fetchModels = vi.fn().mockResolvedValue([]);
     const client = settingsClient({ models: [] });
@@ -499,6 +490,7 @@ describe("settings tab", () => {
       settings: {
         threadNamingModel: "gpt-saved",
         rewriteSelectionModel: "gpt-cached",
+        rewriteSelectionEffort: "medium",
       },
     });
 
@@ -506,12 +498,28 @@ describe("settings tab", () => {
 
     expect(selectOptions(tab, "Automatic thread naming")).toEqual(["Codex default", "gpt-saved (saved)", "gpt-cached"]);
     expect(selectOptions(tab, "Selection rewrite")).toEqual(["Codex default", "gpt-cached"]);
+    expect(selectForSetting(tab, "Automatic thread naming")?.value).toBe("gpt-saved");
+    expect(selectForSetting(tab, "Selection rewrite")?.value).toBe("gpt-cached");
+    expect(selectForSetting(tab, "Selection rewrite", 1)?.value).toBe("medium");
+    const rewriteModel = selectForSetting(tab, "Selection rewrite");
+    if (!rewriteModel) throw new Error("Missing selection rewrite model dropdown");
+    document.body.append(tab.containerEl);
+    try {
+      rewriteModel.focus();
+      await flushPromises();
 
-    await flushPromises();
-
-    expect(fetchModels).toHaveBeenCalledOnce();
-    expect(selectOptions(tab, "Automatic thread naming")).toEqual(["Codex default", "gpt-saved (saved)"]);
-    expect(selectOptions(tab, "Selection rewrite")).toEqual(["Codex default", "gpt-cached (saved)"]);
+      expect(fetchModels).toHaveBeenCalledOnce();
+      expect(selectOptions(tab, "Automatic thread naming")).toEqual(["Codex default", "gpt-saved (saved)"]);
+      expect(selectOptions(tab, "Selection rewrite")).toEqual(["Codex default", "gpt-cached (saved)"]);
+      expect(selectForSetting(tab, "Automatic thread naming")?.value).toBe("gpt-saved");
+      expect(selectForSetting(tab, "Selection rewrite")?.value).toBe("gpt-cached");
+      expect(selectForSetting(tab, "Selection rewrite", 1)?.value).toBe("medium");
+      expect(selectForSetting(tab, "Selection rewrite")).toBe(rewriteModel);
+      expect(document.activeElement).toBe(rewriteModel);
+    } finally {
+      tab.hide();
+      tab.containerEl.remove();
+    }
   });
 
   it("uses model-provided reasoning efforts in helper settings while preserving saved unknown values", async () => {
@@ -803,8 +811,8 @@ function settingElement(tab: CodexPanelSettingTab, name: string): Element | null
   );
 }
 
-function selectForSetting(tab: CodexPanelSettingTab, name: string): HTMLSelectElement | null {
-  return settingElement(tab, name)?.querySelector("select") ?? null;
+function selectForSetting(tab: CodexPanelSettingTab, name: string, index = 0): HTMLSelectElement | null {
+  return settingElement(tab, name)?.querySelectorAll<HTMLSelectElement>("select")[index] ?? null;
 }
 
 function selectOptions(tab: CodexPanelSettingTab, name: string, index = 0): string[] {
