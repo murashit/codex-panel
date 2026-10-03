@@ -538,7 +538,7 @@ describe("ChatInboundHandler", () => {
         },
       });
 
-      expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
+      expect(handler.currentState().requests.pendingUserInputs).toMatchObject([{ requestId: 42, params: { isBlocking: true } }]);
       handler.resolveUserInput(42, { scope: "Narrow" });
       expect(respondToServerRequest).toHaveBeenCalledWith(42, { answers: { scope: { answers: ["Narrow"] } } });
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);

@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { duplicatePanels } from "../../src/workspace/panel-ownership";
 
@@ -13,8 +14,49 @@ describe("panel ownership", () => {
     expect([...duplicatePanels(input)].map((panel) => input.indexOf(panel))).toEqual([duplicate]);
   });
 
-  it("retains independent threads and every unassigned draft", () => {
-    const panels = ["one", "two", null, null].map((threadId) => ({ threadId, attached: true, active: false }));
-    expect(duplicatePanels(panels).size).toBe(0);
+  it("retains one preferred owner per thread and every unassigned draft", () => {
+    const panel = fc.record({
+      threadId: fc.option(fc.integer({ min: 0, max: 3 }), { nil: null }),
+      mode: fc.constantFrom("restored", "attached", "active"),
+    });
+    fc.assert(
+      fc.property(fc.array(panel, { maxLength: 30 }), (specs) => {
+        const activeIndex = specs.findIndex(({ mode }) => mode === "active");
+        const input = Object.freeze(
+          specs.map(({ threadId, mode }, index) =>
+            Object.freeze({
+              threadId: threadId === null ? null : String(threadId),
+              attached: mode !== "restored",
+              active: index === activeIndex,
+            }),
+          ),
+        );
+        const duplicates = duplicatePanels(input);
+        const retained = input.filter((entry) => !duplicates.has(entry));
+        for (const entry of input) {
+          if (entry.threadId === null) {
+            expect(retained).toContain(entry);
+            continue;
+          }
+          const group = input.filter((candidate) => candidate.threadId === entry.threadId);
+          const owner = group.find((candidate) => candidate.active) ?? group.find((candidate) => candidate.attached) ?? group[0];
+          expect(retained.filter((candidate) => candidate.threadId === entry.threadId)).toEqual([owner]);
+        }
+        expect([...duplicates].every((entry) => input.includes(entry))).toBe(true);
+        expect(duplicatePanels(retained).size).toBe(0);
+      }),
+      {
+        examples: [
+          [
+            [
+              { threadId: 0, mode: "attached" },
+              { threadId: 1, mode: "attached" },
+              { threadId: null, mode: "attached" },
+              { threadId: null, mode: "attached" },
+            ],
+          ],
+        ],
+      },
+    );
   });
 });

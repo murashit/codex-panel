@@ -1,24 +1,58 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { reconcileCompletedTurnItems } from "../../../../../src/features/chat/domain/thread-stream/completed-turn-reconciliation";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("reconcileCompletedTurnItems", () => {
-  it("replaces optimistic local user dialogues with server user dialogues that share the client id", () => {
-    const currentItems: ThreadStreamItem[] = [
-      userDialogue("local-user-1", "same text", "turn", "local-user-1"),
-      userDialogue("local-steer-2", "steer", "turn", "local-steer-2"),
-      userDialogue("local-user-2", "other turn", "other", "local-user-2"),
-    ];
-    const turnItems: ThreadStreamItem[] = [
-      userDialogue("u1", "same text", "turn", "local-user-1"),
-      userDialogue("u2", "steer", "turn", "local-steer-2"),
-      assistantDialogue("a1", "done", "turn"),
-    ];
-
-    const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
-
-    expect(next.map((item) => item.id)).toEqual(["local-user-2", "u1", "u2", "a1"]);
+  it("reconciles client identities across repeated text, partial snapshots, and pending display ids", () => {
+    const messages = fc.array(fc.record({ text: fc.string(), observed: fc.boolean(), pending: fc.boolean() }), { maxLength: 20 });
+    fc.assert(
+      fc.property(messages, (specs) => {
+        const locals = specs.map(({ text, pending }, index) =>
+          Object.freeze({
+            ...userDialogue(`${pending ? "local-web" : "local-user"}-${index}`, text, "turn", `local-user-${index}`),
+            contextAttachments: [{ label: `Context ${index}`, detail: text }],
+            referencedFiles: [{ name: `Note ${index}`, path: `${index}.md` }],
+            provenance: { source: "localUser", channel: "optimistic", interaction: "prompt", sourceId: `local-user-${index}` },
+          } satisfies ThreadStreamItem),
+        );
+        const unrelated = Object.freeze(userDialogue("local-user-other", "same text", "other", "other-client"));
+        const currentItems = Object.freeze([...locals, unrelated]);
+        const serverItems = specs.flatMap(({ text, observed }, index) =>
+          observed ? [Object.freeze(userDialogue(`server-${index}`, text, "turn", `local-user-${index}`))] : [],
+        );
+        const assistant = Object.freeze(assistantDialogue("assistant", "done", "turn"));
+        const turnItems = Object.freeze([...serverItems, assistant]);
+        const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
+        expect(next).toEqual([
+          unrelated,
+          ...locals.map((local, index) =>
+            specs[index]?.observed
+              ? {
+                  ...userDialogue(`server-${index}`, local.text, "turn", local.clientId),
+                  contextAttachments: local.contextAttachments,
+                  referencedFiles: local.referencedFiles,
+                }
+              : local,
+          ),
+          assistant,
+        ]);
+        expect(next[0]).toBe(unrelated);
+        expect(reconcileCompletedTurnItems({ currentItems: next, completedTurnId: "turn", turnItems })).toEqual(next);
+      }),
+      {
+        examples: [
+          [
+            [
+              { text: "same text", observed: true, pending: false },
+              { text: "same text", observed: true, pending: true },
+              { text: "same text", observed: false, pending: false },
+            ],
+          ],
+        ],
+      },
+    );
   });
 
   it("keeps local attachment and file-reference metadata when replacing an optimistic user dialogue", () => {
@@ -93,24 +127,6 @@ describe("reconcileCompletedTurnItems", () => {
         truncated: true,
       },
     });
-  });
-
-  it("reconciles a stable pending display id through its reserved client id", () => {
-    const optimistic = {
-      ...userDialogue("local-web-1", "https://example.com/ summarize", "turn", "local-user-1"),
-      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
-      provenance: { source: "localUser", channel: "optimistic", interaction: "prompt", sourceId: "local-user-1" },
-    } satisfies ThreadStreamItem;
-    const server = userDialogue("server-user", optimistic.text, "turn", "local-user-1");
-
-    const next = reconcileCompletedTurnItems({ currentItems: [optimistic], completedTurnId: "turn", turnItems: [server] });
-
-    expect(next).toEqual([
-      expect.objectContaining({
-        id: "server-user",
-        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
-      }),
-    ]);
   });
 });
 

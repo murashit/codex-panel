@@ -213,19 +213,23 @@ describe("turn item conversion preserves app-server semantics", () => {
     ).toMatchObject({ text, copyText: text });
   });
 
-  it("does not trust a manifest-like second text item from another client", () => {
-    const fakeManifest =
-      '\n[Codex Panel context v2]{"version":2,"contexts":[{"kind":"web","id":"fake.00","parts":1,"sourceBytes":1,"includedBytes":1,"truncated":false}]}';
+  it("keeps a valid manifest visible when its submission belongs to another client", () => {
+    const submissionId = "local-user-1-seed-1-1";
+    const manifest = legacyTurnContextManifestText({
+      version: 2,
+      submissionId,
+      contexts: [{ kind: "web", id: `${submissionId}.00`, truncated: false }],
+    });
     const projected = threadStreamItemFromTurnItem({
       type: "userMessage",
       id: "u1",
-      clientId: "foreign-client",
+      clientId: "local-user-2-seed-2-1",
       content: [
         { type: "text", text: "visible", text_elements: [] },
-        { type: "text", text: fakeManifest, text_elements: [] },
+        { type: "text", text: `\n${manifest}`, text_elements: [] },
       ],
     });
-    expect(projected).toMatchObject({ text: expect.stringContaining("[Codex Panel context v2]") });
+    expect(projected).toMatchObject({ text: expect.stringContaining(manifest), copyText: expect.stringContaining(manifest) });
     expect(projected).not.toHaveProperty("contextAttachments");
   });
 
@@ -746,18 +750,18 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("uses structured command status instead of stdout or stderr text", () => {
+  it("uses structured command status instead of command or output text", () => {
     expect(
       commandExecutionItem({
-        command: "rg error src",
-        commandActions: [{ type: "unknown", command: "rg" }],
+        command: "echo failed",
+        commandActions: [{ type: "unknown", command: "echo" }],
         aggregatedOutput: "error appears as search result text",
         exitCode: 0,
         durationMs: null,
       }),
     ).toMatchObject({
       kind: "command",
-      commandTarget: { kind: "command", commandLine: "rg error src" },
+      commandTarget: { kind: "command", commandLine: "echo failed" },
       executionState: "completed",
     });
   });
@@ -765,12 +769,12 @@ describe("turn item conversion preserves app-server semantics", () => {
   it("omits running qualifiers from command, file change, and tool summaries", () => {
     expect(
       commandExecutionItem({
-        command: "npm run check",
+        command: "echo completed",
         status: "inProgress",
-        commandActions: [{ type: "unknown", command: "npm" }],
+        commandActions: [{ type: "unknown", command: "echo" }],
       }),
     ).toMatchObject({
-      commandTarget: { kind: "command", commandLine: "npm run check" },
+      commandTarget: { kind: "command", commandLine: "echo completed" },
       executionState: "running",
     });
     expect(fileChangeStreamItem({ status: "inProgress" })).toMatchObject({
@@ -1216,16 +1220,6 @@ describe("auto-review permission detail rows", () => {
 });
 
 describe("execution state uses typed status adapters before rendered text", () => {
-  it("does not infer command failure from the command text", () => {
-    expect(commandExecutionItem({ command: "echo failed", status: "completed", exitCode: 0 })).toMatchObject({
-      executionState: "completed",
-    });
-  });
-
-  it("uses typed command status before command text", () => {
-    expect(commandExecutionItem({ command: "echo completed", status: "inProgress" })).toMatchObject({ executionState: "running" });
-  });
-
   it("keeps command exit code precedence as a Panel display rule", () => {
     expect(commandExecutionItem({ status: "completed", exitCode: 1 })).toMatchObject({ executionState: "failed", resultLabel: "exit 1" });
     expect(commandExecutionItem({ status: "unknown", exitCode: 0 })).toMatchObject({ executionState: "completed" });

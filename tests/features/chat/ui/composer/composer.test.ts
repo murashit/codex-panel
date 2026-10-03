@@ -2,7 +2,7 @@
 
 import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
-import type { ComposerMetaViewModel } from "../../../../../src/features/chat/ui/composer/composer";
+import type { ComposerMetaViewModel, ComposerShellProps } from "../../../../../src/features/chat/ui/composer/composer";
 import {
   type ComposerCallbacks,
   ComposerShell,
@@ -497,6 +497,7 @@ describe("ComposerShell decisions", () => {
   it("shrinks composer autogrow when the controlled draft clears after send", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
+    // Keep this callback stable so clearing the draft must trigger its own height update.
     const onComposer = vi.fn();
     let scrollHeight = 120;
     const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "scrollHeight");
@@ -506,95 +507,52 @@ describe("ComposerShell decisions", () => {
     });
 
     try {
-      renderUiRoot(
-        parent,
-        h(ComposerShell, {
-          viewId: "view",
-          draft: "line one\nline two",
-          busy: false,
-          canInterrupt: false,
-          submissionDisabled: false,
-          directInputDisabled: false,
-          runtimeControlsDisabled: false,
-          sendDisabled: false,
-          webSubmissionCancellable: false,
-          normalPlaceholder: "Ask Codex...",
-          suggestions: [],
-          selectedSuggestionIndex: 0,
-          pendingSelection: null,
-          onPendingSelectionApplied: vi.fn(),
-          callbacks,
-          meta: {
-            fatal: null,
-            context: {
-              cells: [
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-              ],
-              percent: "--%",
-            },
-            statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-            model: "default",
-            effort: null,
-            planActive: false,
-            autoReviewActive: false,
-            fastAvailable: true,
-            fastActive: false,
-            modelChoices: [],
-            effortChoices: [],
+      const props = {
+        viewId: "view",
+        draft: "line one\nline two",
+        busy: false,
+        canInterrupt: false,
+        submissionDisabled: false,
+        directInputDisabled: false,
+        runtimeControlsDisabled: false,
+        sendDisabled: false,
+        webSubmissionCancellable: false,
+        normalPlaceholder: "Ask Codex...",
+        suggestions: [],
+        selectedSuggestionIndex: 0,
+        pendingSelection: null,
+        onPendingSelectionApplied: vi.fn(),
+        callbacks,
+        meta: {
+          fatal: null,
+          context: {
+            cells: [
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+            ],
+            percent: "--%",
           },
-          onComposer,
-        }),
-      );
+          statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+          model: "default",
+          effort: null,
+          planActive: false,
+          autoReviewActive: false,
+          fastAvailable: true,
+          fastActive: false,
+          modelChoices: [],
+          effortChoices: [],
+        },
+        onComposer,
+      } satisfies ComposerShellProps;
+      renderUiRoot(parent, h(ComposerShell, props));
       const composer = parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input");
       if (!composer) throw new Error("Expected composer shell elements to mount.");
       expect(composer.style.height).toBe("120px");
 
       scrollHeight = 56;
-      renderUiRoot(
-        parent,
-        h(ComposerShell, {
-          viewId: "view",
-          draft: "",
-          busy: false,
-          canInterrupt: false,
-          submissionDisabled: false,
-          directInputDisabled: false,
-          runtimeControlsDisabled: false,
-          sendDisabled: false,
-          webSubmissionCancellable: false,
-          normalPlaceholder: "Ask Codex...",
-          suggestions: [],
-          selectedSuggestionIndex: 0,
-          pendingSelection: null,
-          onPendingSelectionApplied: vi.fn(),
-          callbacks,
-          meta: {
-            fatal: null,
-            context: {
-              cells: [
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-              ],
-              percent: "--%",
-            },
-            statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-            model: "default",
-            effort: null,
-            planActive: false,
-            autoReviewActive: false,
-            fastAvailable: true,
-            fastActive: false,
-            modelChoices: [],
-            effortChoices: [],
-          },
-          onComposer,
-        }),
-      );
+      renderUiRoot(parent, h(ComposerShell, { ...props, draft: "" }));
 
       expect(composer.style.height).toBe("56px");
     } finally {

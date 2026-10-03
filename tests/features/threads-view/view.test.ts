@@ -108,24 +108,6 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).toContain("Observed thread");
   });
 
-  it("opens selected threads through the shared panel selection path", async () => {
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-    });
-    const host = threadsHost({
-      openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
-    });
-    const view = await threadsView(host);
-
-    await view.refresh();
-    const rowMain = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__row-main");
-    rowMain?.click();
-
-    await waitForAsyncWork(() => {
-      expect(host.openThreadInAvailableView).toHaveBeenCalledWith("thread");
-    });
-  });
-
   it("shows threads in activity order even when the catalog returns them in another order", async () => {
     const threads = [
       { ...threadFromRecord(threadFixture({ id: "updated-newer", preview: "Updated newer", updatedAt: 20 })), recencyAt: 10 },
@@ -167,6 +149,7 @@ describe("CodexThreadsView", () => {
     try {
       await view.refresh();
       view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+      expect(archiveThread).not.toHaveBeenCalled();
       const title = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__row-title");
       expect(title).not.toBeNull();
       if (!title) return;

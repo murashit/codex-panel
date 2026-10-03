@@ -54,6 +54,10 @@ describe("approval model", () => {
 
     expect(approval.title).toBe("Command approval");
     expect(approval.summary).toBe("npm run build");
+    expect(approval.details).toEqual([
+      { key: "command", value: "npm run build" },
+      { key: "cwd", value: "/tmp/project" },
+    ]);
     expect(approvalActionLabels(approval)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
     expect(approvalResponseAt(request, approval, 1)).toEqual({ decision: "acceptForSession" });
     expect(() => approvalResponse(request, "accept")).toThrow("Command approval requires an offered option.");
@@ -466,35 +470,6 @@ describe("approval model", () => {
       { key: "cwd", value: "/tmp/project" },
       { key: "actions", value: '{\n  "path": "/tmp/project/src/main.ts"\n}\nlegacy action' },
       { key: "future network rules", value: "rule api.github.com\nallow (unknown host)\nlegacy rule" },
-    ]);
-  });
-
-  it("omits empty approval detail rows", () => {
-    const approval = expectPresent(
-      toPendingApproval({
-        id: 24,
-        method: "item/commandExecution/requestApproval",
-        params: {
-          kind: "command",
-          command: "npm test",
-          cwd: "/tmp/project",
-          threadId: "thread",
-          turnId: "turn",
-          itemId: "command",
-          environmentId: null,
-          startedAtMs: 1,
-          reason: null,
-          commandActions: [],
-          proposedExecpolicyAmendment: null,
-          proposedNetworkPolicyAmendments: [],
-          availableDecisions: ["accept", "decline"],
-        },
-      }),
-    );
-
-    expect(approval.details).toEqual([
-      { key: "command", value: "npm test" },
-      { key: "cwd", value: "/tmp/project" },
     ]);
   });
 

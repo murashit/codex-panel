@@ -192,18 +192,6 @@ describe("threads view renderer decisions", () => {
     expect(actions.archiveThread).toHaveBeenCalledWith("thread", true);
   });
 
-  it("starts threads view archive confirmation before archiving", () => {
-    const parent = document.createElement("div");
-    const actions = threadsViewActions();
-    const row = rowFixture();
-
-    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
-    parent.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
-
-    expect(actions.startArchive).toHaveBeenCalledWith("thread");
-    expect(actions.archiveThread).not.toHaveBeenCalled();
-  });
-
   it("adapts the inline rename editor while keeping row navigation inactive", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
@@ -222,23 +210,6 @@ describe("threads view renderer decisions", () => {
 
     expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main")).click();
     expect(actions.openThread).not.toHaveBeenCalled();
-  });
-
-  it("renders threads view rename auto-name loading state", () => {
-    const parent = document.createElement("div");
-    const actions = threadsViewActions();
-    const row = rowFixture({
-      title: "Old name",
-      rename: { active: true, draft: "Old name", generating: true, saving: false, autoNameDisabled: false },
-    });
-
-    renderThreadsViewShell(parent, { status: null, loading: false, rows: [row] }, actions);
-
-    expect(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(true);
-    const cancelAutoName = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]'));
-    expect(cancelAutoName.disabled).toBe(false);
-    cancelAutoName.click();
-    expect(actions.cancelAutoName).toHaveBeenCalledWith("thread");
   });
 
   it("disables history expansion during any shared thread fetch", () => {

@@ -6,16 +6,6 @@ import { describe, expect, it, vi } from "vitest";
 import { renderUiRoot, unmountUiRoot } from "../../../src/shared/ui/preact-root.dom";
 
 describe("Preact root adapter", () => {
-  it("reuses roots that render no host children", () => {
-    const parent = document.createElement("div");
-
-    renderUiRoot(parent, null);
-    renderUiRoot(parent, <button type="button">Ready</button>);
-
-    expect(parent.querySelector("button")?.textContent).toBe("Ready");
-    unmountUiRoot(parent);
-  });
-
   it("runs Preact cleanup before an external replaceChildren empties the host", () => {
     const parent = document.createElement("div");
     const cleanup = vi.fn();

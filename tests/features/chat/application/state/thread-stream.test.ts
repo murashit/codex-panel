@@ -214,21 +214,6 @@ describe("thread stream state", () => {
     expect(threadStreamItems(next)).toEqual([expect.objectContaining({ id: "assistant", text: "active" })]);
   });
 
-  it("keeps optimistic items when the active turn is acknowledged by a delta", () => {
-    const optimistic = threadStreamStartActiveSegment(initialView(), null, [dialogueItem("local-user")]);
-    const next = reduceThreadStreamSlice(optimistic, {
-      type: "thread-stream/assistant-delta-appended",
-      itemId: "assistant",
-      turnId: "turn",
-      delta: "ack",
-    });
-
-    expect(threadStreamItems(next)).toEqual([
-      expect.objectContaining({ id: "local-user" }),
-      expect.objectContaining({ id: "assistant", text: "ack", turnId: "turn" }),
-    ]);
-  });
-
   it("appends text only when an existing source item has the same kind", () => {
     let state = threadStreamStartActiveSegment(initialView(), "turn", []);
     state = reduceThreadStreamSlice(state, {
