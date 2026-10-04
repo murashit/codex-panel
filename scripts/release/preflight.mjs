@@ -114,6 +114,6 @@ run("npm", ["run", "release:check"], {
 run("npm", ["run", "api:baseline"]);
 run("npm", ["run", "test:policies"]);
 run("npm", ["run", "generate:app-server-types:check"]);
-run("npm", ["run", "check"]);
+run("npm", ["run", "check"], { env: { ...process.env, CI: "1" } });
 
 console.log(`release preflight passed for ${packageVersion}`);

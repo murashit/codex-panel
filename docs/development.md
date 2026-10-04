@@ -36,6 +36,10 @@ Prefer correcting behavior or state structure when that resolves the confusion. 
 
 Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Focused checks do not replace this sequence unless validation is explicitly scoped otherwise.
 
+Also run `npm run api:baseline` and `npm run release:check`. These metadata checks run on every CI change: the first checks compatibility declarations and dependency pins; the second checks version-file consistency and the current version's release-note format. They do not establish runtime API compatibility or readiness to publish.
+
+Local `check` uses parallel tests. CI uses one worker with shuffled files and tests; on POSIX shells, `CI=1 npm run check` selects that mode locally. Use `npm run test:order` when an explicit test-only run is needed, including on other shells. A successful CI-mode `check` already covers the order check for the same source state; do not repeat it solely to satisfy the table below.
+
 Run additional checks when the affected contract requires them:
 
 | Change | Additional validation |
@@ -44,7 +48,13 @@ Run additional checks when the affected contract requires them:
 | Biome configuration, Grit matchers, or Biome version | `npm run test:policies` |
 | API baselines or generated bindings | Follow the compatibility procedure below |
 
-`test:order` runs the suite in one worker with shuffled files and tests, matching the CI test mode. Use live Obsidian validation when material integration behavior is not covered by automation; a deterministic test that exercises the cause is sufficient for an otherwise reproducible defect.
+`test:order` runs the suite in one worker with shuffled files and tests, matching the CI test mode. Re-run affected checks after subsequent edits.
+
+### Validate in Obsidian
+
+Use live Obsidian validation when material integration behavior is not covered by automation; a deterministic test that exercises the cause is sufficient for an otherwise reproducible defect. Automated tests use mocked Obsidian and DOM boundaries and do not establish desktop integration behavior.
+
+In a supported Obsidian desktop app, enable Codex Panel in the test vault and make sure its plugin directory loads the checkout's current `main.js`, `manifest.json`, and `styles.css`. Make sure the current source is built, then reload the plugin before testing the affected interaction. Model interactions require an authenticated Codex CLI on that host.
 
 ### Write Tests That Survive Refactoring
 

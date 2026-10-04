@@ -13,7 +13,7 @@ Use the range audit and release-note drafting procedure in `docs/release.md`. In
 
 ## Prepare and publish
 
-Prepare the version and final notes, then follow the approval checkpoint in `docs/release.md`: present the notes, version, and included range and stop before the release commit, tag, or push. A general request such as “let’s release” does not waive this checkpoint.
+Prepare the version and final notes using `docs/release.md`, then present the notes, selected version, and included range and wait for user approval before creating the release commit, tag, or push. A general request such as “let’s release” authorizes preparation, not this approval. Reuse approval of these concrete contents; an approved wording correction needs no further approval unless it changes the scope, version, or meaning.
 
 After approval, follow the documented commit, preflight, tag, and push procedure. Finish after a successful tag push; monitor Actions or verify release assets only when requested.
 
