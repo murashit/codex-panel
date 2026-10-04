@@ -58,13 +58,11 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const localItemIds = createLocalIdSource();
   const resourceContext = environment.plugin.appServerContext;
   const connection = environment.plugin.appServerConnection.createLease();
-  const currentClient = () => connection.currentClient();
+  const currentClient = connection.currentClient;
   const appServer = createChatAppServerGateway({
     vaultPath: resourceContext.vaultPath,
     currentClient,
-    recordThreadSubscription: (threadId, client) => {
-      connection.recordThreadSubscription(threadId, client);
-    },
+    recordThreadSubscription: connection.recordThreadSubscription,
   });
   const status = createSessionStatus(stateStore, localItemIds);
   const unsubscribeGoalChanges = environment.plugin.threadGoalQueries.observeChanges((threadId, previous, next) => {
@@ -164,7 +162,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     threadStart,
     foundation: threadFoundation,
     notifyActiveThreadIdentityChanged,
-    withThreadActivation: (threadId, operation) => connection.withThreadActivation(threadId, operation),
+    withThreadActivation: connection.withThreadActivation,
   });
   const composerController = new ChatComposerController({
     fuzzyMatcher: obsidianFuzzyMatcher,

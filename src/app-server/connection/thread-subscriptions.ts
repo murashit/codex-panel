@@ -30,12 +30,14 @@ export class ThreadSubscriptions {
       if (this.activations.has(threadId) || (!subscribe && this.activations.has(null))) continue;
       if (subscribe === this.subscribed.has(threadId) || this.updates.has(threadId)) continue;
       const generation = this.generation;
-      const update = this.update(threadId, subscribe, client, generation).then((updated) => {
-        if (this.updates.get(threadId) !== update) return;
-        this.updates.delete(threadId);
-        if (updated) this.reconcile();
-      });
-      this.updates.set(threadId, update);
+      this.updates.set(
+        threadId,
+        this.update(threadId, subscribe, client, generation).then((updated) => {
+          if (generation !== this.generation) return;
+          this.updates.delete(threadId);
+          if (updated) this.reconcile();
+        }),
+      );
     }
   }
 

@@ -63,7 +63,7 @@ interface SessionThreadFeaturesInput {
   ensureConnected: () => Promise<void>;
   status: SessionThreadStatus;
   threadStart: ThreadStartCommand;
-  withThreadActivation<T>(threadId: string, operation: () => Promise<T>): Promise<T>;
+  withThreadActivation: <T>(threadId: string, operation: () => Promise<T>) => Promise<T>;
   foundation: SessionThreadFoundation;
   notifyActiveThreadIdentityChanged: () => void;
 }
@@ -153,7 +153,7 @@ export function createSessionThreadFeatures(host: SessionThreadHost, input: Sess
     history: foundation.history,
     invalidateThreadWork: invalidateActiveThreadWork,
     notifyActiveThreadIdentityChanged,
-    withThreadActivation: (threadId, operation) => input.withThreadActivation(threadId, operation),
+    withThreadActivation: input.withThreadActivation,
   });
   const goals = createGoalCommands({
     stateStore: host.stateStore,
@@ -248,7 +248,7 @@ function createSessionThreadLifecycle(
     history: HistoryController;
     invalidateThreadWork: () => void;
     notifyActiveThreadIdentityChanged: () => void;
-    withThreadActivation<T>(threadId: string, operation: () => Promise<T>): Promise<T>;
+    withThreadActivation: <T>(threadId: string, operation: () => Promise<T>) => Promise<T>;
   },
 ): SessionThreadLifecycle {
   const { appServer, ensureConnected, status, autoTitleCoordinator, history, invalidateThreadWork, notifyActiveThreadIdentityChanged } =
@@ -260,7 +260,7 @@ function createSessionThreadLifecycle(
     autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
   };
   const resume = createResumeCommand({
-    withThreadActivation: (threadId, operation) => input.withThreadActivation(threadId, operation),
+    withThreadActivation: input.withThreadActivation,
     stateStore: host.stateStore,
     effects: appServer.threadResume,
     ensureConnected: async () => {

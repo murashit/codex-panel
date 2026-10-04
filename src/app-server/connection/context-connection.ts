@@ -21,12 +21,12 @@ export interface AppServerContextConnectionHandlers {
 
 export interface AppServerContextConnectionLease {
   connect(handlers: AppServerContextConnectionLeaseHandlers): Promise<ServerInitialization>;
-  currentClient(): AppServerClient | null;
+  currentClient: () => AppServerClient | null;
   isConnected(): boolean;
   disconnect(): void;
   updateThreadSubscriptions(threadIds: readonly string[]): void;
-  recordThreadSubscription(threadId: string, client: AppServerClient): void;
-  withThreadActivation<T>(threadId: string | null, operation: () => Promise<T>): Promise<T>;
+  recordThreadSubscription: (threadId: string, client: AppServerClient) => void;
+  withThreadActivation: <T>(threadId: string | null, operation: () => Promise<T>) => Promise<T>;
 }
 
 interface ActiveLease {

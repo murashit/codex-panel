@@ -6,7 +6,10 @@ import { activeThreadId, activeThreadState } from "../../../../../src/features/c
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
-import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
+import {
+  createThreadStartCommand,
+  type ThreadStartCommandHost,
+} from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { deferred } from "../../../../support/async";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
@@ -21,17 +24,12 @@ describe("thread start commands", () => {
     const optimistic = { ...started, preview: "first prompt" };
     const recordStartedThread = vi.fn();
 
-    const commands = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
+    const commands = threadStartCommands({
       stateStore,
       effects: {
         forkThread: vi.fn(),
         startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started, { canAcceptDirectInput: false }))),
       },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
     });
 
@@ -52,15 +50,9 @@ describe("thread start commands", () => {
       .fn()
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValue(completedActivation(activationFixture(threadFixture("retried"))));
-    const commands = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
+    const commands = threadStartCommands({
       stateStore,
       effects: { forkThread: vi.fn(), startThread },
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn(),
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
-      recordStartedThread: vi.fn(),
     });
     await expect(commands.startThread()).rejects.toThrow("offline");
     await expect(commands.startThread()).resolves.toMatchObject({ kind: "created-activated", target: { threadId: "retried" } });
@@ -88,15 +80,9 @@ describe("thread start commands", () => {
       ),
     );
 
-    const commands = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
+    const commands = threadStartCommands({
       stateStore,
       effects: { forkThread: vi.fn(), startThread },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
-      recordStartedThread: vi.fn(),
     });
 
     await commands.startThread("first prompt");
@@ -129,14 +115,9 @@ describe("thread start commands", () => {
     });
     const started = deferred<EffectOutcome<ThreadActivationSnapshot>>();
     const recordStartedThread = vi.fn();
-    const commands = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
+    const commands = threadStartCommands({
       stateStore,
       effects: { forkThread: vi.fn(), startThread: vi.fn(() => started.promise) },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
     });
 
@@ -149,68 +130,38 @@ describe("thread start commands", () => {
     expect(recordStartedThread).toHaveBeenCalledWith(threadFixture("delayed", { preview: pending.text }));
   });
 
-  it("starts threads with service tier from explicit effective config", async () => {
+  it("starts threads with service tier and permissions from effective config", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const shared = chatSharedResourcesFixture({ runtimeConfig: { ...runtimeConfigFixture(), serviceTier: "flex" } });
-    const startThread = vi
-      .fn()
-      .mockResolvedValue(completedActivation(activationFixture(threadFixture("started"), { serviceTier: "flex" })));
-    const commands = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
-      stateStore,
-      effects: { forkThread: vi.fn(), startThread },
-      runtimeSnapshotForState: runtimeSnapshotForShared(shared),
-      recordStartedThread: vi.fn(),
-    });
-
-    await commands.startThread();
-
-    expect(startThread).toHaveBeenCalledWith({ serviceTier: "flex" });
-  });
-
-  it("starts threads with permission profile from explicit config", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
+    const config = runtimeConfigFixture();
     const shared = chatSharedResourcesFixture({
       runtimeConfig: {
-        ...runtimeConfigFixture(),
+        ...config,
+        serviceTier: "flex",
         startupPermissions: {
-          ...runtimeConfigFixture().startupPermissions,
+          ...config.startupPermissions,
           activePermissionProfile: { id: ":workspace", extends: null },
         },
       },
     });
     const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started"))));
-    const commands = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
+    const commands = threadStartCommands({
       stateStore,
       effects: { forkThread: vi.fn(), startThread },
       runtimeSnapshotForState: runtimeSnapshotForShared(shared),
-      recordStartedThread: vi.fn(),
     });
 
     await commands.startThread();
 
-    expect(startThread).toHaveBeenCalledWith({ permissions: ":workspace" });
+    expect(startThread).toHaveBeenCalledWith({ serviceTier: "flex", permissions: ":workspace" });
   });
 
   it("keeps app-server preview when newly started threads already have one", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const started = threadFixture("started", { preview: "server preview" });
     const recordStartedThread = vi.fn();
-    const commands = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
+    const commands = threadStartCommands({
       stateStore,
       effects: { forkThread: vi.fn(), startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
     });
 
@@ -222,14 +173,9 @@ describe("thread start commands", () => {
   it("does not apply newly started threads after the port returns no activation", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const recordStartedThread = vi.fn();
-    const commands = createThreadStartCommand({
-      withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
-      onThreadActivated: vi.fn(),
-      hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
+    const commands = threadStartCommands({
       stateStore,
       effects: { forkThread: vi.fn(), startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
-      runtimeSnapshotForState: runtimeSnapshotForTestState,
       recordStartedThread,
     });
 
@@ -239,7 +185,17 @@ describe("thread start commands", () => {
   });
 });
 
-const runtimeSnapshotForTestState = runtimeSnapshotForShared(chatSharedResourcesFixture());
+function threadStartCommands(overrides: Pick<ThreadStartCommandHost, "stateStore" | "effects"> & Partial<ThreadStartCommandHost>) {
+  return createThreadStartCommand({
+    withThreadActivation: async (operation) => operation(),
+    createSideChat: vi.fn(),
+    onThreadActivated: vi.fn(),
+    hydrateCreatedFork: vi.fn(),
+    runtimeSnapshotForState: runtimeSnapshotForShared(chatSharedResourcesFixture()),
+    recordStartedThread: vi.fn(),
+    ...overrides,
+  });
+}
 
 function runtimeSnapshotForShared(shared: ChatSharedDisplayValues) {
   return (state: Parameters<typeof runtimeSnapshotForChatState>[0]) =>
