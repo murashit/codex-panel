@@ -410,7 +410,7 @@ describe("chat panel session runtime", () => {
       "codex",
       "/vault",
       {} as never,
-      { onNotification: () => false, onExit: vi.fn() },
+      { onNotification: () => false, onSubscriptionError: vi.fn(), onExit: vi.fn() },
       {
         connect: vi.fn(async (handlers: ConnectionManagerHandlers) => {
           managerState.handlers ??= handlers;
@@ -627,6 +627,9 @@ describe("chat panel session runtime", () => {
       createLease: () => ({
         connect: vi.fn().mockResolvedValue(serverInitializationFixture()),
         currentClient: () => null,
+        updateThreadSubscriptions: vi.fn(),
+        recordThreadSubscription: vi.fn(),
+        withThreadActivation: async (_threadId, operation) => operation(),
         isConnected: () => false,
         disconnect: vi.fn(),
       }),
@@ -642,7 +645,7 @@ describe("chat panel session runtime", () => {
       "codex",
       "/vault",
       {} as never,
-      { onNotification: () => false, onExit: vi.fn() },
+      { onNotification: () => false, onSubscriptionError: vi.fn(), onExit: vi.fn() },
       {
         connect,
         currentClient: options.currentClient,

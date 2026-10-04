@@ -62,6 +62,7 @@ describe("chat session adapters", () => {
     currentClient = client;
     const adapters = createChatSessionAdapters({
       vaultPath: "/vault",
+      recordThreadSubscription: vi.fn(),
       currentClient: () => currentClient,
     });
 
@@ -79,6 +80,7 @@ function adaptersWithSteerError(error: Error) {
 function adaptersWithClient(client: AppServerClient) {
   return createChatSessionAdapters({
     vaultPath: "/vault",
+    recordThreadSubscription: vi.fn(),
     currentClient: () => client,
   });
 }

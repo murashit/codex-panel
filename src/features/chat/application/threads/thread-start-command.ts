@@ -29,6 +29,7 @@ export interface ThreadStartCommandHost {
   stateStore: ChatStateStore;
   createSideChat: (sourceThreadId: string, isCurrent: () => boolean) => Promise<EffectOutcome<ThreadActivationSnapshot>>;
   effects: ThreadStartEffects;
+  withThreadActivation<T>(operation: () => Promise<T>): Promise<T>;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   recordStartedThread: (thread: Thread) => void;
   hydrateCreatedFork: (threadId: string) => Promise<void>;
@@ -76,6 +77,24 @@ async function startThread(
   } = {},
 ): Promise<ThreadStartOutcome> {
   const requestState = host.stateStore.getState();
+  const draft = requestState.panelThread.kind === "fork-draft" ? requestState.panelThread.draft : null;
+  const create = () => createAndAdoptThread(host, requestState, preview, options);
+  const outcome = draft?.kind === "side-chat" ? await create() : await host.withThreadActivation(create);
+  if (outcome.kind !== "created-activated") return outcome;
+  if (draft?.kind === "persistent") {
+    await host.hydrateCreatedFork(outcome.target.threadId);
+    if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), outcome.target)) return { kind: "created-not-activated" };
+  }
+  host.onThreadActivated(draft?.kind === "persistent");
+  return outcome;
+}
+
+async function createAndAdoptThread(
+  host: ThreadStartCommandHost,
+  requestState: ChatState,
+  preview: string | undefined,
+  options: { onCreated?: (thread: Thread) => void },
+): Promise<ThreadStartOutcome> {
   const panelTarget = capturePanelTargetLease(requestState);
   const runtimeSnapshot = host.runtimeSnapshotForState(requestState);
   const runtimeConfig = runtimeConfigOrDefault(runtimeSnapshot.runtimeConfig);
@@ -136,13 +155,5 @@ async function startThread(
   if (activeThreadId(applied) !== action.thread.id) {
     return { kind: "created-not-activated" };
   }
-  const activatedTarget = { revision: applied.panelTargetRevision, threadId: action.thread.id };
-  if (draft?.kind === "persistent") {
-    await host.hydrateCreatedFork(action.thread.id);
-    if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), activatedTarget)) {
-      return { kind: "created-not-activated" };
-    }
-  }
-  host.onThreadActivated(draft?.kind === "persistent");
-  return { kind: "created-activated", target: activatedTarget };
+  return { kind: "created-activated", target: { revision: applied.panelTargetRevision, threadId: action.thread.id } };
 }

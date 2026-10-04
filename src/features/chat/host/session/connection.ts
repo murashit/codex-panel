@@ -10,6 +10,7 @@ import type { LocalIdSource } from "../../application/local-id-source";
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import { panelThreadSubscriptions } from "../../application/threads/thread-subscriptions";
 import type { ChatPanelEnvironment } from "../contracts";
 import { resolveObsidianWikilinks } from "../obsidian/wikilink-resolution.obsidian";
 
@@ -95,6 +96,11 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   const { connection, localItemIds, status, autoTitleCoordinator } = input;
   let active = true;
   const serverRequestResponders = createServerRequestResponderRegistry();
+  const updateThreadSubscriptions = () => {
+    connection.updateThreadSubscriptions(panelThreadSubscriptions(stateStore.getState()));
+  };
+  const stopObservingSubscriptions = stateStore.subscribe(updateThreadSubscriptions);
+  updateThreadSubscriptions();
   const refreshSharedThreads = async (): Promise<void> => {
     await environment.plugin.threadCatalog.refreshActiveThreads();
   };
@@ -178,6 +184,8 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
     invalidateConnectionScope,
     deactivate: () => {
       active = false;
+      stopObservingSubscriptions();
+      connection.updateThreadSubscriptions([]);
       connectionCoordinator.invalidate();
       invalidateConnectionScope();
     },

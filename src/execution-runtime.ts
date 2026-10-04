@@ -1,4 +1,4 @@
-import type { App } from "obsidian";
+import { type App, Notice } from "obsidian";
 
 import { codexPanelAppServerInitializeParams } from "./app-server/connection/client-profile";
 import { AppServerContextConnection } from "./app-server/connection/context-connection";
@@ -101,6 +101,9 @@ export class CodexExecutionRuntime {
             return true;
           }
           return false;
+        },
+        onSubscriptionError: (message) => {
+          new Notice(message);
         },
         onExit: () => {
           this.queryScope.invalidate();

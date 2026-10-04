@@ -418,6 +418,7 @@ describe("thread management commands", () => {
     }
     const forkThread = vi.fn(async () => completed({ ...activation, thread: panelThread("child") }));
     const starter = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       stateStore: host.stateStore,
       effects: { forkThread, startThread: vi.fn() },

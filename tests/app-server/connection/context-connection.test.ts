@@ -9,6 +9,7 @@ import {
 import type { ServerNotification, ServerRequest } from "../../../src/app-server/connection/rpc-messages";
 import type { ServerInitialization } from "../../../src/domain/runtime/metadata";
 import type { InitializeParams } from "../../../src/generated/app-server/InitializeParams";
+import { waitForAsyncWork } from "../../support/async";
 
 const INITIALIZE_PARAMS = {
   clientInfo: { name: "test", title: "Test", version: "0" },
@@ -210,17 +211,47 @@ describe("AppServerContextConnection", () => {
     expect(responder.reject).toHaveBeenCalledWith(-32601, expect.stringContaining("No Codex Panel view"));
   });
 
-  it("releases one panel lease without disconnecting the shared process", async () => {
+  it.each([false, true])("cleans up automatic persistent attachments without a panel consumer (ephemeral=%s)", async (ephemeral) => {
     const manager = managerFixture();
+    const request = vi.mocked(manager.client.request).mockResolvedValue({ status: "unsubscribed" } as never);
     const connection = contextConnection(manager);
+    await connection.withClient(async () => undefined);
+    manager.handlers?.onNotification({
+      method: "thread/started",
+      params: { thread: { id: "unowned", ephemeral } },
+    } as ServerNotification);
+    if (ephemeral) expect(request).not.toHaveBeenCalled();
+    else
+      await waitForAsyncWork(() =>
+        expect(request).toHaveBeenCalledExactlyOnceWith("thread/unsubscribe", { threadId: "unowned" }, expect.anything()),
+      );
+    connection.dispose();
+  });
+
+  it.each([false, true])("retains shared demand until the last panel leaves and reports cleanup failure (%s)", async (failCleanup) => {
+    const manager = managerFixture();
+    const failure = vi.fn();
+    const connection = contextConnection(
+      manager,
+      vi.fn(() => false),
+      vi.fn(),
+      failure,
+    );
     const firstHandlers = leaseHandlers();
     const secondHandlers = leaseHandlers();
     const first = connection.createLease();
     const second = connection.createLease();
     await first.connect(firstHandlers);
     await second.connect(secondHandlers);
+    first.updateThreadSubscriptions(["child"]);
+    second.updateThreadSubscriptions(["child"]);
+    await waitForAsyncWork(() =>
+      expect(manager.client.request).toHaveBeenCalledExactlyOnceWith("thread/resume", { threadId: "child", excludeTurns: true }),
+    );
+    if (failCleanup) vi.mocked(manager.client.request).mockRejectedValueOnce(new Error("unsubscribe failed"));
 
     first.disconnect();
+    expect(manager.client.request).toHaveBeenCalledOnce();
     manager.handlers?.onNotification({
       method: "thread/archived",
       params: { threadId: "thread" },
@@ -230,6 +261,12 @@ describe("AppServerContextConnection", () => {
     expect(secondHandlers.onNotification).toHaveBeenCalledOnce();
     expect(manager.disconnect).not.toHaveBeenCalled();
 
+    second.disconnect();
+    await waitForAsyncWork(() => expect(manager.client.request).toHaveBeenCalledTimes(2));
+    expect(manager.client.request).toHaveBeenLastCalledWith("thread/unsubscribe", { threadId: "child" }, expect.anything());
+    if (failCleanup)
+      await waitForAsyncWork(() => expect(failure).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("unsubscribe failed")));
+    else expect(failure).not.toHaveBeenCalled();
     connection.dispose();
     expect(manager.disconnect).toHaveBeenCalledOnce();
   });
@@ -239,8 +276,15 @@ function contextConnection(
   manager: ReturnType<typeof managerFixture>,
   onNotification = vi.fn(() => false),
   onExit = vi.fn(),
+  onSubscriptionError = vi.fn(),
 ): AppServerContextConnection {
-  return new AppServerContextConnection("codex", "/vault", INITIALIZE_PARAMS, { onNotification, onExit }, manager as never);
+  return new AppServerContextConnection(
+    "codex",
+    "/vault",
+    INITIALIZE_PARAMS,
+    { onNotification, onExit, onSubscriptionError },
+    manager as never,
+  );
 }
 
 function managerFixture() {

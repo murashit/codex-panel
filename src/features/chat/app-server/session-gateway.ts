@@ -7,6 +7,7 @@ import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./a
 export interface ChatAppServerGatewayHost {
   vaultPath: string;
   currentClient(): AppServerClient | null;
+  recordThreadSubscription(threadId: string, client: AppServerClient): void;
 }
 
 interface ChatThreadReferenceResolverOptions {

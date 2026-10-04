@@ -897,6 +897,7 @@ describe("deferred fork submission", () => {
     const hydrateCreatedFork = vi.fn().mockResolvedValue(undefined);
     const onThreadActivated = vi.fn();
     const starter = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       stateStore,
       effects: { startThread, forkThread },

@@ -34,6 +34,7 @@ interface CurrentChatAppServerClientHost {
 
 interface ChatAppServerAdapterHost extends CurrentChatAppServerClientHost {
   vaultPath: string;
+  recordThreadSubscription(threadId: string, client: AppServerClient): void;
 }
 
 export function createChatSessionAdapters(host: ChatAppServerAdapterHost) {
@@ -54,7 +55,11 @@ export type ChatSessionAdapters = ReturnType<typeof createChatSessionAdapters>;
 function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadStartEffects {
   return {
     forkThread: (threadId, options) =>
-      runCurrentChatAppServerEffect(host, (client) => forkThread(client, threadId, host.vaultPath, options)),
+      runCurrentChatAppServerEffect(host, async (client) => {
+        const activation = await forkThread(client, threadId, host.vaultPath, options);
+        host.recordThreadSubscription(activation.thread.id, client);
+        return activation;
+      }),
     startThread: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
         const response = await startThread(client, {
@@ -63,6 +68,7 @@ function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadSta
           permissions: request.permissions,
           dynamicTools: panelDynamicTools(),
         });
+        host.recordThreadSubscription(response.thread.id, client);
         return threadActivationSnapshotFromAppServerResponse(response);
       }),
   };
@@ -126,7 +132,11 @@ function createChatThreadHistoryAdapter(host: CurrentChatAppServerClientHost): T
 function createChatThreadResumeAdapter(host: ChatAppServerAdapterHost): ThreadResumeEffects {
   return {
     resumeThread: (threadId): Promise<EffectOutcome<ThreadResumeSnapshot>> =>
-      runCurrentChatAppServerEffect(host, (client) => resumeChatThread(client, threadId, host.vaultPath)),
+      runCurrentChatAppServerEffect(host, async (client) => {
+        const response = await resumeChatThread(client, threadId, host.vaultPath);
+        host.recordThreadSubscription(response.activation.thread.id, client);
+        return response;
+      }),
   };
 }
 

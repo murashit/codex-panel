@@ -139,6 +139,9 @@ function sessionConnectionFixture() {
       },
       isConnected: () => connected,
       currentClient: () => null,
+      updateThreadSubscriptions: vi.fn(),
+      recordThreadSubscription: vi.fn(),
+      withThreadActivation: async (_threadId, operation) => operation(),
       disconnect: () => {
         connected = false;
       },

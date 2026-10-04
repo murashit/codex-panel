@@ -28,6 +28,7 @@ export interface ResumeCommandHost {
   history: HistoryController;
   effects: ThreadResumeEffects;
   ensureConnected: () => Promise<boolean>;
+  withThreadActivation<T>(threadId: string, operation: () => Promise<T>): Promise<T>;
   closing: () => boolean;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   notifyActiveThreadIdentityChanged: () => void;
@@ -68,20 +69,23 @@ async function resumeThread(
   try {
     if (!(await host.ensureConnected())) return null;
     if (isStaleResume(host, resume, initialPanelTarget)) return null;
-    const effect = await host.effects.resumeThread(threadId);
-    if (effect.kind === "not-started") return null;
-    host.recordResumedThread(effect.value.activation.thread);
-    if (isStaleResume(host, resume, initialPanelTarget)) return null;
-    if (!host.resumeWork.canCommit(resume, host.stateStore.getState())) return null;
-    const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision, displaySnapshot);
-    if (!adoptedPanelTarget) return null;
-    let hydration: Promise<boolean> | null = null;
-    return {
-      hydrate: () => {
-        hydration ??= hydrateResumedThread(host, effect.value, resume, adoptedPanelTarget, displaySnapshot);
-        return hydration;
-      },
-    };
+    return await host.withThreadActivation(threadId, async () => {
+      if (isStaleResume(host, resume, initialPanelTarget)) return null;
+      const effect = await host.effects.resumeThread(threadId);
+      if (effect.kind === "not-started") return null;
+      host.recordResumedThread(effect.value.activation.thread);
+      if (isStaleResume(host, resume, initialPanelTarget)) return null;
+      if (!host.resumeWork.canCommit(resume, host.stateStore.getState())) return null;
+      const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision, displaySnapshot);
+      if (!adoptedPanelTarget) return null;
+      let hydration: Promise<boolean> | null = null;
+      return {
+        hydrate: () => {
+          hydration ??= hydrateResumedThread(host, effect.value, resume, adoptedPanelTarget, displaySnapshot);
+          return hydration;
+        },
+      };
+    });
   } catch (error) {
     if (isStaleResume(host, resume, initialPanelTarget)) return null;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));

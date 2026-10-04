@@ -446,6 +446,7 @@ type AppServerThreadStartResponse = ClientResponseByMethod["thread/start"];
 function createTestGateway(options: { vaultPath?: string; currentClient: () => AppServerClient | null }) {
   return createChatAppServerGateway({
     vaultPath: options.vaultPath ?? "/vault",
+    recordThreadSubscription: vi.fn(),
     currentClient: options.currentClient,
   });
 }

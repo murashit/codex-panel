@@ -38,6 +38,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     resumeWork: new ChatResumeWorkTracker(),
     history: { loadLatest, applyInitialPage, invalidate: invalidateHistory } as unknown as HistoryController,
     closing: () => false,
+    withThreadActivation: async (_threadId, operation) => operation(),
     systemItem: (text: string) => ({ id: "system", kind: "system" as const, role: "system" as const, text }),
     resetThreadTurnPresence: vi.fn(),
     notifyActiveThreadIdentityChanged: vi.fn(),

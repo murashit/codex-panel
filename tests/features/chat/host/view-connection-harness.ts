@@ -90,6 +90,9 @@ function contextConnectionMock(
             platformOs: "macos",
           };
         },
+        updateThreadSubscriptions: vi.fn(),
+        recordThreadSubscription: vi.fn(),
+        withThreadActivation: async (_threadId, operation) => operation(),
         currentClient: () => (connected ? (client as never) : null),
         isConnected: () => connected && connectionMock.state.connected,
         disconnect: () => {
@@ -158,6 +161,7 @@ function baseClientHandlers(): RequestHandlers {
     "thread/inject_items": vi.fn().mockResolvedValue({}),
     "thread/read": vi.fn().mockResolvedValue({ thread: threadFixture("thread-1") }),
     "thread/archive": vi.fn().mockResolvedValue({}),
+    "thread/unsubscribe": vi.fn().mockResolvedValue({ status: "unsubscribed" }),
   };
 }
 

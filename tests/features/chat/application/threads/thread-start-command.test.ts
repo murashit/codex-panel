@@ -22,6 +22,7 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
 
     const commands = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
@@ -52,6 +53,7 @@ describe("thread start commands", () => {
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValue(completedActivation(activationFixture(threadFixture("retried"))));
     const commands = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       stateStore,
       effects: { forkThread: vi.fn(), startThread },
@@ -87,6 +89,7 @@ describe("thread start commands", () => {
     );
 
     const commands = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
@@ -127,6 +130,7 @@ describe("thread start commands", () => {
     const started = deferred<EffectOutcome<ThreadActivationSnapshot>>();
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
@@ -152,6 +156,7 @@ describe("thread start commands", () => {
       .fn()
       .mockResolvedValue(completedActivation(activationFixture(threadFixture("started"), { serviceTier: "flex" })));
     const commands = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
@@ -179,6 +184,7 @@ describe("thread start commands", () => {
     });
     const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started"))));
     const commands = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
@@ -198,6 +204,7 @@ describe("thread start commands", () => {
     const started = threadFixture("started", { preview: "server preview" });
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
@@ -216,6 +223,7 @@ describe("thread start commands", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const recordStartedThread = vi.fn();
     const commands = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),

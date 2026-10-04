@@ -240,6 +240,7 @@ describe("ChatComposerController", () => {
     const { controller, stateStore } = composerControllerFixture();
     if (panel === "existing") resumeComposerThread(stateStore, "thread");
     const starter = createThreadStartCommand({
+      withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),

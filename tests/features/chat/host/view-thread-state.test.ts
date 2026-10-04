@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
+import { Notice } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../src/app-server/connection/context-connection";
 import type { ServerNotification, ServerRequest } from "../../../../src/app-server/connection/rpc-messages";
 import { createChatState } from "../../../../src/features/chat/application/state/model";
+import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
@@ -54,51 +56,63 @@ describe("CodexChatView thread state", () => {
     expect(view.getState()).toEqual({ version: 1 });
   });
 
-  it.each(["other", "unavailable", "fork-draft", "close"] as const)(
-    "keeps the persistent child subscribed when leaving its panel for %s",
-    async (destination) => {
-      const client = connectedClient({
-        "thread/resume": vi.fn((params: unknown) => {
-          const threadId = (params as { threadId: string }).threadId;
-          return Promise.resolve(
-            threadId === "unavailable"
-              ? null
-              : resumedThread(threadId, threadId === "child" ? { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" } : {}),
-          );
-        }),
-      });
-      connectionMockState().client = client;
-      const view = await chatView();
-      const surface = view.surface;
-      await view.surface.activateThread("child");
-      if (destination !== "fork-draft") {
-        connectionMockState().onNotification?.({
-          method: "turn/started",
-          params: {
-            threadId: "child",
-            turn: runningTurn("turn-child"),
-          },
-        } satisfies Extract<ServerNotification, { method: "turn/started" }>);
-      }
+  it.each([
+    ["child", "other"],
+    ["child", "unavailable"],
+    ["child", "fork-draft"],
+    ["child", "close"],
+    ["ordinary", "other"],
+  ] as const)("releases an unneeded %s after navigating to %s", async (source, destination) => {
+    const client = connectedClient({
+      "thread/resume": vi.fn((params: unknown) => {
+        const threadId = (params as { threadId: string }).threadId;
+        return Promise.resolve(
+          threadId === "unavailable"
+            ? null
+            : resumedThread(threadId, threadId === "child" ? { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" } : {}),
+        );
+      }),
+    });
+    const shared = sharedConnectionFixture(client);
+    const view = await chatView({ host: shared.host });
+    const surface = view.surface;
+    await view.surface.activateThread(source);
+    if (source === "child" && destination !== "fork-draft") {
+      shared.transport.handlers?.onNotification({
+        method: "turn/started",
+        params: {
+          threadId: source,
+          turn: runningTurn("turn-child"),
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+    }
 
-      if (destination === "close") await view.onClose();
-      else if (destination === "fork-draft") {
-        await view.surface.applyForkDraft({
-          draft: { kind: "persistent", sourceThreadId: "child", boundary: { kind: "through-turn", turnId: "turn-child" } },
-          runtime: createChatState().runtime,
-          display: { items: [], turnDiffs: new Map() },
-        });
-      } else await view.surface.activateThread(destination);
-
-      expect(requestMethods(client)).not.toContain("thread/unsubscribe");
-      expect(requestMethods(client)).not.toContain("turn/interrupt");
-      expect(surface.openPanelSnapshot()).toMatchObject({
-        threadId: destination === "unavailable" ? "child" : destination === "other" ? "other" : null,
-        ...(destination === "unavailable" ? { turnBusy: true } : {}),
-        hasForkDraft: destination === "fork-draft",
+    if (destination === "close") await view.onClose();
+    else if (destination === "fork-draft") {
+      await view.surface.applyForkDraft({
+        draft: { kind: "persistent", sourceThreadId: "child", boundary: { kind: "through-turn", turnId: "turn-child" } },
+        runtime: createChatState().runtime,
+        display: { items: [], turnDiffs: new Map() },
       });
-    },
-  );
+    } else await view.surface.activateThread(destination);
+
+    if (destination === "unavailable") expectRequestTimes(client, "thread/unsubscribe", 0);
+    else
+      await waitForAsyncWork(() =>
+        expect(client.request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: source }, expect.anything()),
+      );
+    expect(requestMethods(client)).not.toContain("turn/interrupt");
+    expect(surface.openPanelSnapshot()).toMatchObject({
+      threadId: destination === "unavailable" ? source : destination === "other" ? "other" : null,
+      ...(destination === "unavailable" ? { turnBusy: true } : {}),
+      hasForkDraft: destination === "fork-draft",
+    });
+    if (destination === "other")
+      expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "other" }, expect.anything());
+    await view.onClose();
+    expect(shared.disconnect).not.toHaveBeenCalled();
+    shared.connection.dispose();
+  });
 
   it("answers child approvals in the parent after the child panel navigates away and closes", async () => {
     const client = connectedClient({
@@ -109,24 +123,8 @@ describe("CodexChatView thread state", () => {
         );
       }),
     });
-    connectionMockState().client = client;
-    const transport = { handlers: null as ConnectionManagerHandlers | null };
-    const disconnect = vi.fn();
-    const connection = new AppServerContextConnection(
-      "codex",
-      "/vault",
-      { clientInfo: { name: "test", title: "Test", version: "0" }, capabilities: { experimentalApi: true, requestAttestation: false } },
-      { onNotification: () => false, onExit: () => undefined },
-      {
-        connect: async (handlers) => {
-          transport.handlers = handlers;
-          return { codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "linux", userAgent: "test" };
-        },
-        currentClient: () => client as unknown as AppServerClient,
-        disconnect,
-      },
-    );
-    const host = { ...chatHost(), appServerConnection: connection };
+    const shared = sharedConnectionFixture(client);
+    const { connection, host, transport, disconnect } = shared;
     const child = await chatView({ host });
     const parent = await chatView({ host });
     try {
@@ -188,7 +186,16 @@ describe("CodexChatView thread state", () => {
         expect(responder.reject).not.toHaveBeenCalled();
         await child.onClose();
       }
-      expect(requestMethods(client)).not.toContain("thread/unsubscribe");
+      expectRequestTimes(client, "thread/unsubscribe", 0);
+      transport.handlers?.onNotification({
+        method: "turn/completed",
+        params: { threadId: "parent", turn: completedTurn("parent-turn") },
+      } as ServerNotification);
+      await waitForAsyncWork(() =>
+        expect(client.request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "child" }, expect.anything()),
+      );
+      expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "parent" }, expect.anything());
+      expect(requestMethods(client)).not.toContain("turn/interrupt");
       expect(disconnect).not.toHaveBeenCalled();
     } finally {
       await child.onClose();
@@ -196,6 +203,98 @@ describe("CodexChatView thread state", () => {
       connection.dispose();
     }
     expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("notifies release failure and retries when the panel responsibility changes", async () => {
+    const client = connectedClient({
+      "thread/resume": vi.fn((params) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
+      "thread/unsubscribe": vi
+        .fn()
+        .mockRejectedValueOnce(new Error("Could not deliver unsubscribe"))
+        .mockResolvedValue({ status: "unsubscribed" }),
+    });
+    const shared = sharedConnectionFixture(client);
+    const view = await chatView({ host: shared.host });
+    await view.onOpen();
+    await view.surface.activateThread("first");
+    await view.surface.activateThread("second");
+    await waitForAsyncWork(() => expect(notices).toEqual([expect.stringContaining("Could not deliver unsubscribe")]));
+    expect(view.surface.openPanelSnapshot().threadId).toBe("second");
+    shared.transport.handlers?.onNotification({ method: "thread/name/updated", params: { threadId: "second", threadName: "Renamed" } });
+    await Promise.resolve();
+    expect(notices).toHaveLength(1);
+    expectRequestTimes(client, "thread/unsubscribe", 1);
+    await view.surface.startNewThread();
+    await waitForAsyncWork(() =>
+      expect(
+        client.request.mock.calls.filter(
+          ([method, params]) => method === "thread/unsubscribe" && (params as { threadId: string }).threadId === "first",
+        ),
+      ).toHaveLength(2),
+    );
+    await view.onClose();
+    shared.connection.dispose();
+  });
+
+  it.each(["creation", "history"] as const)("releases a persistent fork after its panel closes during %s", async (pendingPhase) => {
+    const forked = deferred<{ thread: ReturnType<typeof threadFixture> }>();
+    const history = deferred<{ data: []; nextCursor: null }>();
+    const client = connectedClient({
+      "thread/fork": vi.fn(() => forked.promise),
+      "thread/turns/list": vi.fn(() => history.promise),
+    });
+    const shared = sharedConnectionFixture(client);
+    const view = await chatView({ host: shared.host });
+    const creating = view.surface.applyForkDraft(
+      {
+        draft: { kind: "persistent", sourceThreadId: "source", boundary: { kind: "through-turn", turnId: "source-turn" } },
+        runtime: createChatState().runtime,
+        display: { items: [], turnDiffs: new Map() },
+      },
+      "Continue this fork",
+    );
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/fork", 1));
+    shared.transport.handlers?.onNotification({
+      method: "thread/started",
+      params: { thread: threadFixture("late-fork") },
+    } as ServerNotification);
+    expectRequestTimes(client, "thread/unsubscribe", 0);
+    if (pendingPhase === "history") {
+      forked.resolve({ thread: threadFixture("late-fork") });
+      await waitForAsyncWork(() => expectRequestTimes(client, "thread/turns/list", 1));
+    }
+    await view.onClose();
+    if (pendingPhase === "creation") forked.resolve({ thread: threadFixture("late-fork") });
+    await waitForAsyncWork(() =>
+      expect(client.request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "late-fork" }, expect.anything()),
+    );
+    history.resolve({ data: [], nextCursor: null });
+    await creating;
+    expect(requestMethods(client)).not.toContain("turn/start");
+    shared.connection.dispose();
+  });
+
+  it.each([false, true])("waits for the same thread's unsubscribe and abandons a reopen if the panel closes (%s)", async (closes) => {
+    const released = deferred<unknown>();
+    const client = connectedClient({
+      "thread/resume": vi.fn((params) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
+      "thread/unsubscribe": vi.fn(() => released.promise),
+    });
+    const shared = sharedConnectionFixture(client);
+    const view = await chatView({ host: shared.host });
+    await view.surface.activateThread("thread");
+    await view.surface.startNewThread();
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/unsubscribe", 1));
+    const reopening = view.surface.activateThread("thread");
+    expectRequestTimes(client, "thread/resume", 1);
+    if (closes) await view.onClose();
+    released.resolve({ status: "unsubscribed" });
+    await reopening;
+    expectRequestTimes(client, "thread/resume", closes ? 1 : 2);
+    if (!closes) expect(view.surface.openPanelSnapshot().threadId).toBe("thread");
+    expectRequestTimes(client, "thread/unsubscribe", 1);
+    await view.onClose();
+    shared.connection.dispose();
   });
 
   it("resets to an unstarted empty chat without starting a thread", async () => {
@@ -361,8 +460,8 @@ describe("CodexChatView thread state", () => {
         (params as { threadId: string }).threadId === "thread-1" ? firstResume.promise : secondResume.promise,
       ),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const shared = sharedConnectionFixture(client);
+    const view = await chatView({ host: shared.host });
 
     const firstOpen = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
@@ -378,12 +477,18 @@ describe("CodexChatView thread state", () => {
     firstResume.resolve(resumedThread("thread-1"));
     await firstOpen;
 
+    await waitForAsyncWork(() =>
+      expect(client.request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "thread-1" }, expect.anything()),
+    );
+    expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "thread-2" }, expect.anything());
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-2", threadTitle: "Restored thread" });
     expectRequestTimes(client, "thread/turns/list", 1);
     expect(client.request).toHaveBeenCalledWith(
       "thread/turns/list",
       expect.objectContaining({ threadId: "thread-2", cursor: null, limit: 20 }),
     );
+    await view.onClose();
+    shared.connection.dispose();
   });
 
   it("invalidates stale history hydration when a second resume starts", async () => {
@@ -420,3 +525,30 @@ describe("CodexChatView thread state", () => {
     expect(view.containerEl.textContent).not.toContain("first prompt");
   });
 });
+
+function sharedConnectionFixture(client: ReturnType<typeof connectedClient>) {
+  connectionMockState().client = client;
+  const transport = { handlers: null as ConnectionManagerHandlers | null };
+  const disconnect = vi.fn();
+  const connection = new AppServerContextConnection(
+    "codex",
+    "/vault",
+    { clientInfo: { name: "test", title: "Test", version: "0" }, capabilities: { experimentalApi: true, requestAttestation: false } },
+    {
+      onNotification: () => false,
+      onSubscriptionError: (message) => {
+        new Notice(message);
+      },
+      onExit: () => undefined,
+    },
+    {
+      connect: async (handlers) => {
+        transport.handlers = handlers;
+        return { codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "linux", userAgent: "test" };
+      },
+      currentClient: () => client as unknown as AppServerClient,
+      disconnect,
+    },
+  );
+  return { connection, transport, disconnect, host: { ...chatHost(), appServerConnection: connection } };
+}
