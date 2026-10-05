@@ -71,7 +71,9 @@ These are optional diagnostics, not additional handoff gates:
 
 ### Weekly Mutation Runs
 
-`Mutation` runs the full configured scope every Monday at 04:00 JST (Sunday 19:00 UTC). Once the workflow is on the default branch, run it manually with `gh workflow run mutation.yml`. To run the same bounded mutation command locally on Linux with GNU `timeout`, use `node scripts/run-mutation.mjs`.
+`Mutation` runs the full configured scope every Monday at 04:00 JST (Sunday 19:00 UTC). It restores the newest compatible incremental checkpoint from this workflow's completed runs on `main`, including timed-out runs. Stryker tracks changes to mutated source and tests; dependencies, configuration, runners, test helpers, fixtures, snapshots, and source outside the mutation scope invalidate reuse. Missing, expired, invalid, or incompatible baselines start a cold run.
+
+Once the workflow is on the default branch, run it manually with `gh workflow run mutation.yml`. Use `-f force=true` only when a full rerun is needed. On Linux with GNU `timeout`, `node scripts/run-mutation.mjs` uses a compatible local checkpoint; add `--force` to rerun every mutant.
 
 Download a run's artifact:
 
@@ -80,7 +82,9 @@ gh run list --workflow mutation.yml --limit 5
 gh run download RUN_ID --pattern 'mutation-*' --dir /tmp/mutation-RUN_ID
 ```
 
-Check the Actions conclusion and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Artifacts are retained for 90 days, subject to repository limits. Mutation execution is limited to 120 minutes plus 10 seconds of termination grace within a 150-minute job. Failed runs may contain only metadata and logs; partial incremental reports are not uploaded.
+Check the Actions conclusion and `run.json` (`commit` and `completed`) before opening `mutation.html` or reading `mutation.json`. Metadata records the baseline source, whether reuse was enabled, and Stryker's reported reused-mutant count (unknown if interrupted before analysis). Completion requires successful execution and a final report; a partial checkpoint is never proof of completion.
+
+Result and `mutation-baseline-*` checkpoint artifacts are retained for 90 days, subject to repository limits. Mutation execution is limited to 120 minutes plus 60 seconds of termination grace within a 122-minute step and 150-minute job. The grace lets Stryker save partial progress for the next run. Failed runs retain available checkpoints, metadata, and full logs; forced termination or cancellation can prevent checkpoint saving or artifact upload. Actions summaries stay compact.
 
 ## Update API Compatibility
 

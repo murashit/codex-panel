@@ -5,9 +5,15 @@ on:
     # Monday 04:00 JST (Sunday 19:00 UTC).
     - cron: '0 19 * * 0'
   workflow_dispatch:
+    inputs:
+      force:
+        description: Rerun all mutants without reusing previous results
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: mutation-${{ github.ref }}
@@ -35,14 +41,34 @@ jobs:
         run: npm ci
         timeout-minutes: 5
 
+      - name: Restore compatible mutation baseline
+        if: ${{ !inputs.force }}
+        continue-on-error: true
+        run: node scripts/mutation-baseline.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        timeout-minutes: 3
+
       - name: Run full mutation suite
-        run: node scripts/run-mutation.mjs
+        run: node scripts/run-mutation.mjs $MUTATION_FORCE
+        env:
+          MUTATION_FORCE: ${{ inputs.force && '--force' || '' }}
         timeout-minutes: 122
 
       - name: Finalize run metadata
         if: always()
         run: node scripts/run-mutation.mjs --finalize
         timeout-minutes: 1
+
+      - name: Upload incremental checkpoint
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        timeout-minutes: 3
+        with:
+          name: mutation-baseline-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/mutation-baseline/
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Upload mutation results
         if: always()
