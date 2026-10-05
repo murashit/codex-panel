@@ -20,7 +20,10 @@ export interface ThreadsViewHost {
   visiblePanelActivities(threads: readonly Thread[]): readonly ThreadsViewPanelActivity[];
 }
 
-type ThreadsViewThreadCatalog = ThreadCatalogPaginatedActiveReader;
+type ThreadsViewThreadCatalog = Pick<
+  ThreadCatalogPaginatedActiveReader,
+  "activeThreadsSnapshot" | "observeActiveThreadsResult" | "refreshActiveThreads" | "loadMoreActiveThreads"
+>;
 
 export interface ThreadsViewSettingsAccess {
   archiveExportEnabled(): boolean;

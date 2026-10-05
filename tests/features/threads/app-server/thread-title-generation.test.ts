@@ -42,6 +42,7 @@ describe("thread title", () => {
         signal,
       }),
     );
+    expect(runner.mock.calls[0]?.[0].prompt).toContain(titleContext().assistantResponse);
   });
 
   it.each([
