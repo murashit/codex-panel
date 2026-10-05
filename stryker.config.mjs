@@ -20,5 +20,6 @@ export default {
   ],
   ignoreStatic: true,
   incremental: true,
+  incrementalFile: "reports/mutation-baseline/stryker-incremental.json",
   reporters: ["clear-text", "progress", "html"],
 };
