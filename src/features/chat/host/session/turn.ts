@@ -129,7 +129,6 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
   const slashCommandHost: PanelSlashCommandHost = {
     stateStore: host.stateStore,
     connectionAvailable: () => appServer.connectionAvailable(),
-    sharedResources,
     listedThreads: () => host.environment.plugin.threadCatalog.activeThreadsSnapshot() ?? [],
     referThread,
     readWebUrl: (url, message, snapshot, isCurrent) =>

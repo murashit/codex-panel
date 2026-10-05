@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../../../../src/features/chat/application/state/turn-scope";
 import { activeTurnId, chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
@@ -13,7 +14,6 @@ describe("active turn aggregate", () => {
       type: "turn/optimistic-started",
       item: optimisticItem,
     });
-    const optimisticRevision = optimistic.activeTurn.turnScopeRevision;
     expect(optimistic.activeTurn.lifecycle).toEqual({
       kind: "starting",
       anchorItemId: "local-user",
@@ -27,8 +27,6 @@ describe("active turn aggregate", () => {
       type: "turn/optimistic-started",
       item: userItem("second-local-user"),
     });
-    const secondOptimisticRevision = secondOptimisticStart.activeTurn.turnScopeRevision;
-    expect(secondOptimisticRevision).toBe(optimisticRevision + 1);
 
     const preAckDelta = chatReducer(secondOptimisticStart, {
       type: "thread-stream/assistant-delta-appended",
@@ -36,7 +34,6 @@ describe("active turn aggregate", () => {
       turnId: "turn-1",
       delta: "working",
     });
-    expect(preAckDelta.activeTurn.turnScopeRevision).toBe(secondOptimisticRevision);
     expect(preAckDelta).toBe(secondOptimisticStart);
 
     const running = chatReducer(preAckDelta, {
@@ -45,20 +42,9 @@ describe("active turn aggregate", () => {
       threadId: "thread",
       anchorItemId: "second-local-user",
     });
-    const runningRevision = running.activeTurn.turnScopeRevision;
     expect(running.activeTurn.lifecycle).toEqual({ kind: "running", turnId: "turn-1" });
     expect(chatTurnBusy(running.activeTurn)).toBe(true);
     expect(activeTurnId(running.activeTurn)).toBe("turn-1");
-
-    expect(runningRevision).toBe(secondOptimisticRevision + 1);
-
-    const duplicateAcknowledgement = chatReducer(running, {
-      type: "turn/start-acknowledged",
-      turnId: "turn-1",
-      threadId: "thread",
-      anchorItemId: "second-local-user",
-    });
-    expect(duplicateAcknowledgement.activeTurn.turnScopeRevision).toBe(runningRevision);
 
     const withChild = chatReducer(running, {
       type: "subagent-activity/tracked",
@@ -82,7 +68,7 @@ describe("active turn aggregate", () => {
       turnId: "turn-1",
       delta: " more",
     });
-    expect(withMoreDelta.activeTurn.turnScopeRevision).toBe(runningRevision);
+    expect(withMoreDelta.threadStream).toBe(withChildTurn.threadStream);
     expect(withMoreDelta.activeTurn.subagents.byThreadId.has("child-thread")).toBe(true);
 
     const withAuthRecovery = chatReducer(withMoreDelta, {
@@ -113,7 +99,6 @@ describe("active turn aggregate", () => {
     expect(chatTurnBusy(completed.activeTurn)).toBe(false);
     expect(activeTurnId(completed.activeTurn)).toBeNull();
 
-    expect(completed.activeTurn.turnScopeRevision).toBe(runningRevision + 1);
     expect(completed.activeTurn.activeSegment).toBeNull();
     expect(completed.activeTurn.pendingSteers).toEqual([]);
     expect(completed.activeTurn.subagents.byThreadId).toEqual(new Map());
@@ -122,6 +107,24 @@ describe("active turn aggregate", () => {
       userItem("local-user", "turn-1"),
       assistantItem("assistant", "turn-1", "working more"),
     ]);
+  });
+
+  it("does not publish stream updates that leave the conversation unchanged", () => {
+    const store = createChatStateStore(chatStateFixture());
+    const listener = vi.fn();
+    store.subscribe(listener);
+    const item = { id: "log", kind: "system", role: "system", text: "Already reported" } as const;
+    store.dispatch({ type: "thread-stream/deduped-log-added", text: item.text, item });
+    expect(listener).toHaveBeenCalledOnce();
+    listener.mockClear();
+    const current = store.getState();
+
+    store.dispatch({ type: "thread-stream/deduped-log-added", text: item.text, item });
+    store.dispatch({ type: "thread-stream/pending-steer-removed", clientId: "unknown" });
+    store.dispatch({ type: "thread-stream/history-loading-set", loading: false });
+
+    expect(store.getState()).toBe(current);
+    expect(listener).not.toHaveBeenCalled();
   });
 
   it("rejects stale parent tracking and pending steers after an active turn changes", () => {

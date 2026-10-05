@@ -1,6 +1,7 @@
 import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import type { AuthRecoveryProgress } from "../turns/auth-recovery";
 import type { ChatTurnLifecycleState } from "../turns/turn-state";
+import { patchObject } from "./patch";
 import {
   type ChatSubagentActivityState,
   initialSubagentActivityState,
@@ -20,7 +21,6 @@ import {
 
 export interface ChatActiveTurnState extends ChatThreadStreamActiveState {
   readonly lifecycle: ChatTurnLifecycleState;
-  readonly turnScopeRevision: number;
   readonly subagents: ChatSubagentActivityState;
   readonly authRecovery: AuthRecoveryProgress | null;
 }
@@ -36,11 +36,10 @@ export interface TurnScopeResult {
   readonly threadStream: ChatThreadStreamState;
 }
 
-export function initialChatActiveTurnState(turnScopeRevision = 0): ChatActiveTurnState {
+export function initialChatActiveTurnState(): ChatActiveTurnState {
   const lifecycle: ChatTurnLifecycleState = { kind: "idle" };
   return {
     lifecycle,
-    turnScopeRevision,
     activeSegment: null,
     pendingSteers: [],
     subagents: initialSubagentActivityState(),
@@ -72,7 +71,6 @@ export function activeTurnWithLifecycle(state: ChatActiveTurnState, lifecycle: C
     ...state,
     ...transientReset,
     lifecycle,
-    turnScopeRevision: scopeChanged ? state.turnScopeRevision + 1 : state.turnScopeRevision,
   };
 }
 
@@ -85,10 +83,6 @@ function sameTurnScope(left: ChatTurnLifecycleState, right: ChatTurnLifecycleSta
   return true;
 }
 
-export function activeTurnCleared(state: ChatActiveTurnState): ChatActiveTurnState {
-  return initialChatActiveTurnState(state.turnScopeRevision + 1);
-}
-
 export function activeTurnStarted(
   state: ChatActiveTurnState,
   threadStream: ChatThreadStreamState,
@@ -97,7 +91,7 @@ export function activeTurnStarted(
 ): TurnScopeResult {
   const view = chatThreadStreamViewState(threadStream, state);
   const nextView = threadStreamWithActiveTurnItems(view, turnId, items ?? threadStreamItems(view));
-  return splitViewState(state, nextView);
+  return splitViewState(state, threadStream, nextView);
 }
 
 export function activeTurnOptimisticallyStarted(
@@ -106,7 +100,7 @@ export function activeTurnOptimisticallyStarted(
   item: UserThreadStreamDialogueItem,
 ): TurnScopeResult {
   const view = chatThreadStreamViewState(threadStream, state);
-  return splitViewState(state, threadStreamStartActiveSegment(view, null, [item]));
+  return splitViewState(state, threadStream, threadStreamStartActiveSegment(view, null, [item]));
 }
 
 export function reduceTurnScope(
@@ -134,7 +128,7 @@ export function reduceTurnScope(
   }
 
   const nextView = reduceThreadStreamSlice(chatThreadStreamViewState(threadStream, activeTurn), action);
-  return splitViewState(activeTurn, nextView);
+  return splitViewState(activeTurn, threadStream, nextView);
 }
 
 function reduceSubagentAction(
@@ -175,20 +169,19 @@ function staleThreadStreamAction(activeTurn: ChatActiveTurnState, action: Thread
   }
 }
 
-function splitViewState(activeTurn: ChatActiveTurnState, view: ChatThreadStreamViewState): TurnScopeResult {
-  const nextActiveTurn =
-    view.activeSegment === activeTurn.activeSegment && view.pendingSteers === activeTurn.pendingSteers
-      ? activeTurn
-      : { ...activeTurn, activeSegment: view.activeSegment, pendingSteers: view.pendingSteers };
-  return { activeTurn: nextActiveTurn, threadStream: withoutActiveState(view) };
-}
-
-function withoutActiveState(view: ChatThreadStreamViewState): ChatThreadStreamState {
+function splitViewState(
+  activeTurn: ChatActiveTurnState,
+  threadStream: ChatThreadStreamState,
+  view: ChatThreadStreamViewState,
+): TurnScopeResult {
   return {
-    stableItems: view.stableItems,
-    turnDiffs: view.turnDiffs,
-    historyCursor: view.historyCursor,
-    loadingHistory: view.loadingHistory,
-    reportedLogs: view.reportedLogs,
+    activeTurn: patchObject(activeTurn, { activeSegment: view.activeSegment, pendingSteers: view.pendingSteers }),
+    threadStream: patchObject(threadStream, {
+      stableItems: view.stableItems,
+      turnDiffs: view.turnDiffs,
+      historyCursor: view.historyCursor,
+      loadingHistory: view.loadingHistory,
+      reportedLogs: view.reportedLogs,
+    }),
   };
 }

@@ -1,24 +1,21 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { TurnRecord } from "../../../src/app-server/protocol/turn";
-import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
-import { createThreadMutationAdapter, createThreadTitleAdapter } from "../../../src/features/threads/app-server/workflow-adapters";
-import type { ThreadFactSink } from "../../../src/features/threads/workflows/thread-facts";
-import { createThreadMutationCommands } from "../../../src/features/threads/workflows/thread-mutation-commands";
+import type { ThreadTitleContext } from "../../../src/domain/threads/title";
+import type { ArchiveThreadResult, ThreadTitlePort } from "../../../src/features/threads/workflows/ports";
 import { createThreadReplacementPublication } from "../../../src/features/threads/workflows/thread-replacement-publication";
 import type { ThreadsViewHost } from "../../../src/features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "../../../src/features/threads-view/state";
+import type { CodexThreadsView } from "../../../src/features/threads-view/view.obsidian";
 import { DEFAULT_SETTINGS } from "../../../src/settings/preferences";
 import type { ObservedPaginatedResult } from "../../../src/shared/async/observed-result";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
+import { threadMutationCommandsMock } from "../../support/thread-mutations";
 
-let currentClient: Record<string, unknown> | null = null;
-
-const titleRunner = vi.fn<EphemeralStructuredTurnRunner>();
+const openViews: CodexThreadsView[] = [];
 
 installObsidianDomShims();
 
@@ -26,41 +23,39 @@ describe("CodexThreadsView", () => {
   beforeEach(() => {
     vi.useRealTimers();
     notices.length = 0;
-    currentClient = null;
-    titleRunner.mockReset();
-    titleRunner.mockRejectedValue(new Error("Unexpected structured turn."));
+  });
+
+  afterEach(async () => {
+    for (const view of openViews.splice(0)) {
+      await view.onClose();
+      view.unload();
+      view.containerEl.remove();
+    }
   });
 
   it("ignores stale refresh results after close", async () => {
-    let resolveThreads!: (value: unknown) => void;
-    const listThreads = vi.fn(
-      () =>
-        new Promise((resolve) => {
-          resolveThreads = resolve;
-        }),
-    );
-    currentClient = clientFixture({
-      "thread/list": listThreads,
-    });
-    const view = await threadsView();
+    const pending = deferred<void>();
+    const catalog = catalogFixture();
+    catalog.catalog.refreshActiveThreads.mockReturnValue(pending.promise);
+    const view = await threadsView(threadsHost({ threadCatalog: catalog.catalog }));
 
     const refresh = view.refresh();
     await waitForAsyncWork(() => {
-      expect(listThreads).toHaveBeenCalled();
+      expect(catalog.catalog.refreshActiveThreads).toHaveBeenCalled();
     });
     await view.onClose();
-    resolveThreads({ data: [threadFixture({ id: "thread", preview: "Late thread" })] });
+    catalog.publish(queryResult([threadFixture({ preview: "Late thread" })]));
+    pending.resolve();
     await refresh;
 
     expect(view.containerEl.textContent).not.toContain("Late thread");
   });
 
   it("renders shared thread refresh failures", async () => {
-    const listThreads = vi.fn().mockRejectedValue(new Error("Codex app-server stopped."));
-    currentClient = clientFixture({
-      "thread/list": listThreads,
-    });
-    const view = await threadsView();
+    const catalog = catalogFixture();
+    catalog.catalog.refreshActiveThreads.mockRejectedValue(new Error("Codex app-server stopped."));
+    const host = threadsHost({ threadCatalog: catalog.catalog });
+    const view = await threadsView(host);
 
     await view.refresh();
 
@@ -70,12 +65,9 @@ describe("CodexThreadsView", () => {
   });
 
   it("keeps existing threads and notifies when an explicit refresh fails", async () => {
-    const listThreads = vi
-      .fn()
-      .mockResolvedValueOnce({ data: [threadFixture({ id: "thread", preview: "Cached thread" })] })
-      .mockRejectedValueOnce(new Error("Refresh failed."));
-    currentClient = clientFixture({ "thread/list": listThreads });
-    const view = await threadsView();
+    const catalog = catalogFixture(queryResult([threadFixture({ preview: "Cached thread" })]));
+    catalog.catalog.refreshActiveThreads.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Refresh failed."));
+    const view = await threadsView(threadsHost({ threadCatalog: catalog.catalog }));
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Cached thread"));
 
     await view.refresh();
@@ -86,41 +78,24 @@ describe("CodexThreadsView", () => {
   });
 
   it("uses the shared query observer as the authoritative list projection", async () => {
-    let observer!: (result: ObservedPaginatedResult<readonly Thread[]>) => void;
-    const returned = threadFromRecord(threadFixture({ id: "returned", preview: "Returned directly" }));
-    const view = await threadsView(
-      threadsHost({
-        threadCatalog: {
-          fetchActiveThreads: vi.fn().mockResolvedValue([returned]),
-          refreshActiveThreads: vi.fn().mockResolvedValue([returned]),
-          observeActiveThreadsResult: vi.fn((listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
-            observer = listener;
-            return () => undefined;
-          }),
-        },
-      }),
-    );
+    const catalog = catalogFixture();
+    const view = await threadsView(threadsHost({ threadCatalog: catalog.catalog }));
 
     await view.refresh();
-    expect(view.containerEl.textContent).not.toContain("Returned directly");
+    expect(view.containerEl.querySelector(".codex-panel-threads__row")).toBeNull();
 
-    observer(queryResult([threadFromRecord(threadFixture({ id: "observed", preview: "Observed thread" }))]));
+    catalog.publish(queryResult([threadFixture({ id: "observed", preview: "Observed thread" })]));
     expect(view.containerEl.textContent).toContain("Observed thread");
   });
 
   it("shows threads in activity order even when the catalog returns them in another order", async () => {
-    const threads = [
-      { ...threadFromRecord(threadFixture({ id: "updated-newer", preview: "Updated newer", updatedAt: 20 })), recencyAt: 10 },
-      { ...threadFromRecord(threadFixture({ id: "recent", preview: "Recent activity", updatedAt: 10 })), recencyAt: 30 },
-    ];
-    const view = await threadsView(
-      threadsHost({
-        threadCatalog: {
-          fetchActiveThreads: vi.fn().mockResolvedValue(threads),
-          refreshActiveThreads: vi.fn().mockResolvedValue(threads),
-        },
-      }),
+    const catalog = catalogFixture(
+      queryResult([
+        threadFixture({ id: "updated-newer", preview: "Updated newer", updatedAt: 20, recencyAt: 10 }),
+        threadFixture({ id: "recent", preview: "Recent activity", updatedAt: 10, recencyAt: 30 }),
+      ]),
     );
+    const view = await threadsView(threadsHost({ threadCatalog: catalog.catalog }));
 
     await view.refresh();
 
@@ -131,7 +106,9 @@ describe("CodexThreadsView", () => {
 
   it("keeps archive confirmation through title pointerdown, then clears it before navigation", async () => {
     const opened = deferred<void>();
-    const archiveThread = vi.fn().mockResolvedValue({});
+    const archiveThread = vi
+      .fn<ThreadsViewHost["threadMutations"]["archiveThread"]>()
+      .mockResolvedValue({ kind: "archived", exportedPath: null });
     let archiveConfirmVisibleWhenOpening: boolean | null = null;
     let view!: Awaited<ReturnType<typeof threadsView>>;
     const openThreadInAvailableView = vi.fn(() => {
@@ -139,11 +116,8 @@ describe("CodexThreadsView", () => {
       archiveConfirmVisibleWhenOpening = view.containerEl.querySelector(".codex-panel-threads__archive-confirm") !== null;
       return opened.promise;
     });
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/archive": archiveThread,
-    });
-    view = await threadsView(threadsHost({ openThreadInAvailableView }));
+
+    view = await threadsView(threadsHost({ openThreadInAvailableView, threadMutations: threadMutationCommandsMock({ archiveThread }) }));
     document.body.append(view.containerEl);
 
     try {
@@ -174,7 +148,7 @@ describe("CodexThreadsView", () => {
       expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).not.toBeNull();
       archiveWithoutSaving.click();
 
-      await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" }));
+      await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith("thread", { saveMarkdown: false }));
       expect(openThreadInAvailableView).toHaveBeenCalledOnce();
     } finally {
       opened.resolve(undefined);
@@ -184,9 +158,6 @@ describe("CodexThreadsView", () => {
   });
 
   it("opens a new panel from the threads view toolbar", async () => {
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-    });
     const host = threadsHost({
       openNewPanel: vi.fn().mockResolvedValue(undefined),
     });
@@ -202,9 +173,6 @@ describe("CodexThreadsView", () => {
   });
 
   it.each(["thread", "new-panel"])("reports %s navigation failure only while the view is open", async (target) => {
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-    });
     const pending = deferred<void>();
     const navigate = vi.fn().mockRejectedValueOnce(new Error("Could not open panel")).mockReturnValueOnce(pending.promise);
     const host = threadsHost({
@@ -228,35 +196,25 @@ describe("CodexThreadsView", () => {
   });
 
   it("refreshes threads from the threads view toolbar", async () => {
-    const listThreads = vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] });
-    currentClient = clientFixture({ "thread/list": listThreads });
-    const view = await threadsView();
+    const host = threadsHost();
+    const view = await threadsView(host);
 
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Refresh threads"]')?.click();
 
     await waitForAsyncWork(() => {
-      expect(listThreads).toHaveBeenCalledTimes(2);
+      expect(host.threadCatalog.refreshActiveThreads).toHaveBeenCalledTimes(2);
     });
   });
 
   it("loads another thread page only after the user requests it", async () => {
-    const first = threadFromRecord(threadFixture({ id: "first", preview: "First page" }));
-    const second = threadFromRecord(threadFixture({ id: "second", preview: "Second page" }));
-    let hasMore = true;
-    const loadMoreActive = vi.fn(async () => {
-      hasMore = false;
-      return [first, second];
+    const first = threadFixture({ id: "first", preview: "First page" });
+    const second = threadFixture({ id: "second", preview: "Second page" });
+    const catalog = catalogFixture(queryResult([first], null, true));
+    catalog.catalog.loadMoreActiveThreads.mockImplementation(async () => {
+      catalog.publish(queryResult([first, second]));
     });
-    const view = await threadsView(
-      threadsHost({
-        threadCatalog: {
-          refreshActiveThreads: vi.fn(async () => [first]),
-          hasMoreActiveThreads: vi.fn(() => hasMore),
-          loadMoreActiveThreads: loadMoreActive,
-        },
-      }),
-    );
+    const view = await threadsView(threadsHost({ threadCatalog: catalog.catalog }));
 
     await view.refresh();
     expect(view.containerEl.textContent).toContain("First page");
@@ -264,25 +222,16 @@ describe("CodexThreadsView", () => {
 
     view.containerEl.querySelector<HTMLButtonElement>(".codex-panel-threads__load-more")?.click();
     await waitForAsyncWork(() => {
-      expect(loadMoreActive).toHaveBeenCalledOnce();
+      expect(catalog.catalog.loadMoreActiveThreads).toHaveBeenCalledOnce();
       expect(view.containerEl.textContent).toContain("Second page");
     });
     expect(view.containerEl.querySelector(".codex-panel-threads__load-more")).toBeNull();
   });
 
   it("keeps existing threads and notifies when loading another page fails", async () => {
-    const first = threadFromRecord(threadFixture({ id: "first", preview: "First page" }));
-    const loadMoreActive = vi.fn().mockRejectedValue(new Error("Load more failed."));
-    const view = await threadsView(
-      threadsHost({
-        threadCatalog: {
-          activeThreadsSnapshot: vi.fn(() => [first]),
-          fetchActiveThreads: vi.fn().mockResolvedValue([first]),
-          hasMoreActiveThreads: vi.fn(() => true),
-          loadMoreActiveThreads: loadMoreActive,
-        },
-      }),
-    );
+    const catalog = catalogFixture(queryResult([threadFixture({ id: "first", preview: "First page" })], null, true));
+    catalog.catalog.loadMoreActiveThreads.mockRejectedValue(new Error("Load more failed."));
+    const view = await threadsView(threadsHost({ threadCatalog: catalog.catalog }));
 
     view.containerEl.querySelector<HTMLButtonElement>(".codex-panel-threads__load-more")?.click();
     await waitForAsyncWork(() => expect(notices).toContain("Load more failed."));
@@ -292,60 +241,47 @@ describe("CodexThreadsView", () => {
   });
 
   it("renders cached thread lists before refreshing", async () => {
-    const refresh = vi.fn(
-      () =>
-        new Promise<readonly Thread[]>(() => {
-          // Keep the app-server refresh pending so the cached snapshot remains visible for this assertion.
-        }),
-    );
-    const fetch = vi.fn().mockRejectedValue(new Error("Opening the view must force a refresh."));
-    const view = await threadsView(
-      threadsHost({
-        threadCatalog: {
-          activeThreadsSnapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
-          fetchActiveThreads: fetch,
-          refreshActiveThreads: refresh,
-        },
-      }),
-    );
+    const pending = deferred<void>();
+    const catalog = catalogFixture(queryResult([threadFixture({ id: "cached", preview: "Cached thread" })]));
+    catalog.catalog.refreshActiveThreads.mockReturnValue(pending.promise);
+    const view = await threadsView(threadsHost({ threadCatalog: catalog.catalog }));
 
     expect(view.containerEl.textContent).toContain("Cached thread");
-    expect(refresh).toHaveBeenCalledOnce();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(catalog.catalog.refreshActiveThreads).toHaveBeenCalledOnce();
+    await view.onClose();
+    pending.resolve();
   });
 
   it("lets a completed archive settle after the threads view closes", async () => {
-    const archived = deferred<object>();
-    const archiveThread = vi.fn(() => archived.promise);
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/archive": archiveThread,
-    });
-    const view = await threadsView(threadsHost());
+    const archived = deferred<ArchiveThreadResult>();
+    const archiveThread = vi.fn<ThreadsViewHost["threadMutations"]["archiveThread"]>(() => archived.promise);
+
+    const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ archiveThread }) }));
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
-    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" }));
-    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.disabled).toBe(true);
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.click();
+    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledWith("thread", { saveMarkdown: true }));
+    expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.disabled).toBe(true);
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.click();
     expect(archiveThread).toHaveBeenCalledOnce();
 
     await view.onClose();
-    archived.resolve({});
-    await waitForAsyncWork(() => expect(archiveThread).toHaveBeenCalledOnce());
+    archived.resolve({ kind: "archived", exportedPath: "Codex Archives/thread.md" });
+    await archived.promise;
+    expect(notices).toEqual([]);
     expect(view.containerEl.childElementCount).toBe(0);
   });
 
   it("does not archive a thread while its panel is pending or running", async () => {
-    const archiveThread = vi.fn().mockResolvedValue({});
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/archive": archiveThread,
-    });
+    const archiveThread = vi
+      .fn<ThreadsViewHost["threadMutations"]["archiveThread"]>()
+      .mockResolvedValue({ kind: "archived", exportedPath: null });
+
     const view = await threadsView(
       threadsHost({
-        openPanelActivities: vi.fn(() => [{ threadId: "thread", selected: false, pending: true, running: false }]),
+        threadMutations: threadMutationCommandsMock({ archiveThread }),
+        visiblePanelActivities: vi.fn(() => [{ threadId: "thread", selected: false, pending: true, running: false }]),
       }),
     );
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
@@ -357,8 +293,8 @@ describe("CodexThreadsView", () => {
   });
 
   it("keeps replacement panel activity on a visible row while the catalog observer is delayed", async () => {
-    const source = threadFromRecord(threadFixture({ id: "source", preview: "Source" }));
-    const replacement = threadFromRecord(threadFixture({ id: "replacement", preview: "Replacement" }));
+    const source = threadFixture({ id: "source", preview: "Source" });
+    const replacement = threadFixture({ id: "replacement", preview: "Replacement" });
     let cachedThreads: readonly Thread[] = [source];
     let activities: readonly ThreadsViewPanelActivity[] = [{ threadId: "source", selected: true, pending: false, running: false }];
     const publication = createThreadReplacementPublication((facts) => {
@@ -372,8 +308,8 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
+          ...catalogFixture(queryResult([source])).catalog,
           activeThreadsSnapshot: () => cachedThreads,
-          refreshActiveThreads: async () => cachedThreads,
         },
         visiblePanelActivities: (threads: readonly Thread[]) =>
           activities.map((activity) => ({
@@ -395,14 +331,9 @@ describe("CodexThreadsView", () => {
   });
 
   it("keeps the rename editor locked until a save finishes", async () => {
-    const saved = deferred<object>();
-    const renameThreadRequest = vi.fn(() => saved.promise);
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/name/set": renameThreadRequest,
-    });
-    const host = threadsHost();
-    const view = await threadsView(host);
+    const saved = deferred<boolean>();
+    const renameThreadRequest = vi.fn<ThreadsViewHost["threadMutations"]["renameThread"]>(() => saved.promise);
+    const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) }));
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
@@ -412,7 +343,7 @@ describe("CodexThreadsView", () => {
     changeInputValue(firstInput, "  Saved   title  ");
     firstInput.dispatchEvent(new FocusEvent("blur"));
     await waitForAsyncWork(() => {
-      expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Saved title" });
+      expect(renameThreadRequest).toHaveBeenCalledWith("thread", "  Saved   title  ", { shouldStart: expect.any(Function) });
     });
 
     firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -420,19 +351,15 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(true);
     expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
 
-    saved.resolve({});
+    saved.resolve(true);
 
     await waitForAsyncWork(() => expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).toBeNull());
   });
 
   it("restores the same editor when a locked rename save fails", async () => {
-    const saved = deferred<object>();
-    const renameThreadRequest = vi.fn(() => saved.promise);
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/name/set": renameThreadRequest,
-    });
-    const view = await threadsView(threadsHost());
+    const saved = deferred<boolean>();
+    const renameThreadRequest = vi.fn<ThreadsViewHost["threadMutations"]["renameThread"]>(() => saved.promise);
+    const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ renameThread: renameThreadRequest }) }));
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
@@ -456,11 +383,8 @@ describe("CodexThreadsView", () => {
   });
 
   it("notifies an archive failure without adding list status", async () => {
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/archive": vi.fn().mockRejectedValue(new Error("Archive failed.")),
-    });
-    const view = await threadsView();
+    const archiveThread = vi.fn<ThreadsViewHost["threadMutations"]["archiveThread"]>().mockRejectedValue(new Error("Archive failed."));
+    const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ archiveThread }) }));
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
 
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
@@ -472,52 +396,30 @@ describe("CodexThreadsView", () => {
   });
 
   it("reports the saved note as well as an archive failure and keeps retry controls", async () => {
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/read": vi.fn().mockResolvedValue({ thread: { ...threadFixture({ id: "thread" }), turns: [] } }),
-      "thread/archive": vi.fn().mockRejectedValue(new Error("Archive failed.")),
+    const archiveThread = vi.fn<ThreadsViewHost["threadMutations"]["archiveThread"]>().mockResolvedValue({
+      kind: "failed",
+      message: "Archive failed.",
+      exportedPath: "Codex Archives/thread.md",
     });
-    const view = await threadsView();
+    const view = await threadsView(threadsHost({ threadMutations: threadMutationCommandsMock({ archiveThread }) }));
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
 
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save and archive thread"]')?.click();
     await waitForAsyncWork(() => expect(notices).toContain("Archive failed."));
 
-    expect(notices).toEqual(expect.arrayContaining([expect.stringMatching(/^Saved thread to Codex Archives\/.+\.md\.$/)]));
+    expect(archiveThread).toHaveBeenCalledWith("thread", { saveMarkdown: true });
+    expect(notices).toContain("Saved thread to Codex Archives/thread.md.");
     expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).not.toBeNull();
     await view.onClose();
   });
 
   it("auto-names a thread rename draft from completed history", async () => {
-    const threadTurnsList = vi.fn().mockResolvedValue({
-      data: [
-        turnFixture([
-          {
-            type: "userMessage",
-            id: "u1",
-            clientId: null,
-            content: [{ type: "text", text: "threads viewのrenameを直したい", text_elements: [] }],
-          },
-          {
-            type: "agentMessage",
-            id: "a1",
-            text: "rename UIを調整しました。",
-            phase: "final_answer",
-            memoryCitation: null,
-            delivery: null,
-            questions: null,
-          },
-        ]),
-      ],
-      nextCursor: null,
-    });
-    titleRunner.mockResolvedValue(titleTurn("Threads rename UI"));
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/turns/list": threadTurnsList,
-    });
-    const view = await threadsView();
+    const context = { userRequest: "threads viewのrenameを直したい", assistantResponse: "rename UIを調整しました。" };
+    const titlePort = titlePortFixture();
+    titlePort.persistedContext.mockResolvedValue(context);
+    titlePort.generateTitle.mockResolvedValue("Threads rename UI");
+    const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
@@ -527,102 +429,74 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     await waitForAsyncWork(() => {
-      expect(threadTurnsList).toHaveBeenCalledWith({
-        threadId: "thread",
-        cursor: null,
-        limit: 20,
-        sortDirection: "asc",
-        itemsView: "full",
-      });
-      expect(threadTurnsList).toHaveBeenCalledOnce();
-      expect(titleRunner).toHaveBeenCalledOnce();
-      expect(titleRunner.mock.calls[0]?.[0].prompt).toContain("threads viewのrenameを直したい");
-      expect(titleRunner.mock.calls[0]?.[0].prompt).toContain("rename UIを調整しました。");
+      expect(titlePort.persistedContext).toHaveBeenCalledOnce();
+      expect(titlePort.persistedContext).toHaveBeenCalledWith("thread");
+      expect(titlePort.generateTitle).toHaveBeenCalledOnce();
+      expect(titlePort.generateTitle).toHaveBeenCalledWith(context, expect.any(AbortSignal));
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
     });
   });
 
   it("disables auto-name while completed history is loading", async () => {
-    const history = deferred<unknown>();
-    const threadTurnsList = vi.fn().mockReturnValue(history.promise);
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/turns/list": threadTurnsList,
-    });
-    const view = await threadsView();
+    const history = deferred<ThreadTitleContext | null>();
+    const titlePort = titlePortFixture();
+    titlePort.persistedContext.mockReturnValue(history.promise);
+    const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
     await waitForAsyncWork(() => {
-      expect(threadTurnsList).toHaveBeenCalledOnce();
+      expect(titlePort.persistedContext).toHaveBeenCalledOnce();
     });
 
     expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
     expect(view.containerEl.querySelector(".codex-panel-threads__status")).toBeNull();
-    expect(titleRunner).not.toHaveBeenCalled();
+    expect(titlePort.generateTitle).not.toHaveBeenCalled();
     await view.onClose();
-    history.resolve({ data: [], nextCursor: null });
+    history.resolve(null);
   });
 
   it("keeps loading auto-name history while a rename save is in flight", async () => {
-    const history = deferred<unknown>();
-    const saved = deferred<object>();
-    const completedHistory = {
-      data: [
-        turnFixture([
-          { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "Name this", text_elements: [] }] },
-          { type: "agentMessage", id: "a1", text: "Done.", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
-        ]),
-      ],
-      nextCursor: null,
-    };
-    const threadTurnsList = vi.fn().mockReturnValue(history.promise);
-    titleRunner.mockResolvedValue(titleTurn("Generated title"));
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/name/set": vi.fn(() => saved.promise),
-      "thread/turns/list": threadTurnsList,
-    });
-    const view = await threadsView();
+    const history = deferred<ThreadTitleContext | null>();
+    const saved = deferred<boolean>();
+    const titlePort = titlePortFixture();
+    titlePort.persistedContext.mockReturnValue(history.promise);
+    titlePort.generateTitle.mockResolvedValue("Generated title");
+    const view = await threadsView(
+      threadsHost({
+        threadTitlePort: titlePort,
+        threadMutations: threadMutationCommandsMock({ renameThread: vi.fn(() => saved.promise) }),
+      }),
+    );
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    await waitForAsyncWork(() => expect(threadTurnsList).toHaveBeenCalledOnce());
+    await waitForAsyncWork(() => expect(titlePort.persistedContext).toHaveBeenCalledOnce());
     const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
     if (!input) throw new Error("Missing rename input");
     input.dispatchEvent(new FocusEvent("blur"));
     changeInputValue(input, "Changed while saving");
-    history.resolve(completedHistory);
+    history.resolve({ userRequest: "Name this", assistantResponse: "Done." });
     saved.reject(new Error("Rename failed."));
 
     await waitForAsyncWork(() => {
-      expect(threadTurnsList).toHaveBeenCalledOnce();
+      expect(titlePort.persistedContext).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(false);
     });
     const autoName = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
     autoName?.click();
     await waitForAsyncWork(() => {
-      expect(titleRunner).toHaveBeenCalledOnce();
+      expect(titlePort.generateTitle).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Generated title");
     });
   });
 
   it("does not remount the threads view when auto-name finishes after close", async () => {
     const generatedTitle = deferred<string | null>();
-    titleRunner.mockReturnValue(generatedTitle.promise.then(titleTurn));
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/turns/list": vi.fn().mockResolvedValue({
-        data: [
-          turnFixture([
-            { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "name this", text_elements: [] }] },
-            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
-          ]),
-        ],
-        nextCursor: null,
-      }),
-    });
-    const view = await threadsView();
+    const titlePort = titlePortFixture();
+    titlePort.persistedContext.mockResolvedValue({ userRequest: "Name this", assistantResponse: "Done." });
+    titlePort.generateTitle.mockReturnValue(generatedTitle.promise);
+    const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
@@ -631,9 +505,9 @@ describe("CodexThreadsView", () => {
     });
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     await waitForAsyncWork(() => {
-      expect(titleRunner).toHaveBeenCalledOnce();
+      expect(titlePort.generateTitle).toHaveBeenCalledOnce();
     });
-    const generationSignal = titleRunner.mock.calls[0]?.[0].signal;
+    const generationSignal = titlePort.generateTitle.mock.calls[0]?.[1];
     await view.onClose();
     expect(generationSignal?.aborted).toBe(true);
     generatedTitle.resolve("Late title");
@@ -644,35 +518,11 @@ describe("CodexThreadsView", () => {
   });
 
   it("cancels auto-name without applying a late generated title", async () => {
-    const threadTurnsList = vi.fn().mockResolvedValue({
-      data: [
-        turnFixture([
-          {
-            type: "userMessage",
-            id: "u1",
-            clientId: null,
-            content: [{ type: "text", text: "rename stale handling", text_elements: [] }],
-          },
-          {
-            type: "agentMessage",
-            id: "a1",
-            text: "Handled.",
-            phase: "final_answer",
-            memoryCitation: null,
-            delivery: null,
-            questions: null,
-          },
-        ]),
-      ],
-      nextCursor: null,
-    });
     const generatedTitle = deferred<string | null>();
-    titleRunner.mockReturnValue(generatedTitle.promise.then(titleTurn));
-    currentClient = clientFixture({
-      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      "thread/turns/list": threadTurnsList,
-    });
-    const view = await threadsView();
+    const titlePort = titlePortFixture();
+    titlePort.persistedContext.mockResolvedValue({ userRequest: "Name this", assistantResponse: "Done." });
+    titlePort.generateTitle.mockReturnValue(generatedTitle.promise);
+    const view = await threadsView(threadsHost({ threadTitlePort: titlePort }));
     document.body.append(view.containerEl);
 
     await view.refresh();
@@ -682,7 +532,7 @@ describe("CodexThreadsView", () => {
     });
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     await waitForAsyncWork(() => {
-      expect(titleRunner).toHaveBeenCalledOnce();
+      expect(titlePort.generateTitle).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')).toBeNull();
       expect(view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')).not.toBeNull();
     });
@@ -691,7 +541,7 @@ describe("CodexThreadsView", () => {
     expect(input).not.toBeNull();
     if (!input) return;
     expect(input.disabled).toBe(true);
-    const generationSignal = titleRunner.mock.calls[0]?.[0].signal;
+    const generationSignal = titlePort.generateTitle.mock.calls[0]?.[1];
     expect(generationSignal?.aborted).toBe(false);
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Cancel auto-name"]')?.click();
     const editableInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
@@ -713,18 +563,18 @@ describe("CodexThreadsView", () => {
     });
     const view = await threadsView(
       threadsHost({
-        threadCatalog: { observeActiveThreadsResult: () => unsubscribe },
+        threadCatalog: { ...catalogFixture().catalog, observeActiveThreadsResult: () => unsubscribe },
       }),
     );
 
     expect(() => view.detachRuntime()).not.toThrow();
     expect(unsubscribe).toHaveBeenCalledOnce();
 
-    const refresh = vi.fn().mockResolvedValue([]);
+    const refresh = vi.fn<ThreadsViewHost["threadCatalog"]["refreshActiveThreads"]>().mockResolvedValue(undefined);
     expect(() =>
       view.attachRuntime(
         threadsHost({
-          threadCatalog: { refreshActiveThreads: refresh },
+          threadCatalog: { ...catalogFixture().catalog, refreshActiveThreads: refresh },
         }),
       ),
     ).not.toThrow();
@@ -744,174 +594,47 @@ describe("CodexThreadsView", () => {
   });
 });
 
-type ThreadRequestHandler = ReturnType<typeof vi.fn<(params: Record<string, unknown>) => unknown>>;
-
-function clientFixture(overrides: Record<string, ThreadRequestHandler> = {}): Record<string, unknown> {
-  const handlers: Record<string, ThreadRequestHandler> = {
-    "thread/list": vi.fn().mockResolvedValue({ data: [] }),
-    "thread/archive": vi.fn().mockResolvedValue({}),
-    "thread/name/set": vi.fn().mockResolvedValue({}),
-    "thread/turns/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+function threadsHost(overrides: Partial<ThreadsViewHost> = {}) {
+  return {
+    settings: { archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled },
+    threadCatalog: catalogFixture(queryResult([threadFixture({ preview: "Thread preview" })])).catalog,
+    threadMutations: threadMutationCommandsMock(),
+    threadTitlePort: titlePortFixture(),
+    openNewPanel: vi.fn<ThreadsViewHost["openNewPanel"]>().mockResolvedValue(undefined),
+    openThreadInAvailableView: vi.fn<ThreadsViewHost["openThreadInAvailableView"]>().mockResolvedValue(undefined),
+    visiblePanelActivities: () => [],
     ...overrides,
-  };
+  } satisfies ThreadsViewHost;
+}
+
+function catalogFixture(initial = queryResult(null)) {
+  let result = initial;
+  let observer: ((result: ObservedPaginatedResult<readonly Thread[]>) => void) | null = null;
   return {
-    request: vi.fn((method: string, params: Record<string, unknown>) => {
-      const handler = handlers[method];
-      if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
-      return handler(params);
-    }),
+    publish(next: ObservedPaginatedResult<readonly Thread[]>) {
+      result = next;
+      observer?.(result);
+    },
+    catalog: {
+      activeThreadsSnapshot: () => result.value,
+      refreshActiveThreads: vi.fn<ThreadsViewHost["threadCatalog"]["refreshActiveThreads"]>().mockResolvedValue(undefined),
+      loadMoreActiveThreads: vi.fn<ThreadsViewHost["threadCatalog"]["loadMoreActiveThreads"]>().mockResolvedValue(undefined),
+      observeActiveThreadsResult: (listener: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
+        observer = listener;
+        listener(result);
+        return () => {
+          observer = null;
+        };
+      },
+    } satisfies ThreadsViewHost["threadCatalog"],
   };
 }
 
-function threadsHost(overrides: Record<string, unknown> = {}) {
-  type ThreadCatalogOverrides = Omit<Partial<ThreadsViewHost["threadCatalog"]>, "loadMoreActiveThreads" | "refreshActiveThreads"> & {
-    loadMoreActiveThreads?: () => Promise<readonly Thread[]>;
-    refreshActiveThreads?: () => Promise<readonly Thread[]>;
-  };
-  const threadCatalogOverrides: ThreadCatalogOverrides =
-    "threadCatalog" in overrides && overrides["threadCatalog"] !== null && typeof overrides["threadCatalog"] === "object"
-      ? (overrides["threadCatalog"] as ThreadCatalogOverrides)
-      : {};
-  const threadEventOverrides =
-    "threadFacts" in overrides && overrides["threadFacts"] !== null && typeof overrides["threadFacts"] === "object"
-      ? (overrides["threadFacts"] as Partial<ThreadFactSink>)
-      : {};
-  const applyThreadFact = threadEventOverrides.apply ?? vi.fn();
-  const hostOverrides = Object.fromEntries(
-    Object.entries(overrides).filter(([key]) => key !== "threadCatalog" && key !== "threadFacts" && key !== "openPanelActivities"),
-  );
-  const activeObservers = new Set<(result: ObservedPaginatedResult<readonly Thread[]>) => void>();
-  const activeThreadsSnapshot =
-    typeof threadCatalogOverrides["activeThreadsSnapshot"] === "function"
-      ? threadCatalogOverrides["activeThreadsSnapshot"]
-      : vi.fn(() => null);
-  const hasMoreActiveThreads =
-    typeof threadCatalogOverrides["hasMoreActiveThreads"] === "function"
-      ? threadCatalogOverrides["hasMoreActiveThreads"]
-      : vi.fn(() => false);
-  const emitActive = (threads: readonly Thread[]): void => {
-    for (const observer of activeObservers) observer(queryResult(threads, null, hasMoreActiveThreads()));
-  };
-  const clientAccess = {
-    withClient: async <T>(operation: (client: never) => Promise<T>): Promise<T> => {
-      const client = currentClient;
-      if (!client) throw new Error("No current client.");
-      return operation(client as never);
-    },
-  };
-  const openPanelActivities =
-    "openPanelActivities" in overrides && typeof overrides["openPanelActivities"] === "function"
-      ? (overrides["openPanelActivities"] as () => readonly ThreadsViewPanelActivity[])
-      : vi.fn(() => []);
-  const threadMutations = createThreadMutationCommands({
-    port: createThreadMutationAdapter(clientAccess),
-    archiveExport: {
-      settings: () => ({
-        archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
-        archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
-        archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
-      }),
-      enabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
-      vaultPath: "/vault",
-      vaultConfigDir: ".obsidian",
-    },
-    archiveDestination: () => ({
-      normalizePath: (path) => path,
-      exists: vi.fn().mockResolvedValue(false),
-      createFolder: vi.fn().mockResolvedValue(undefined),
-      createMarkdownFile: vi.fn().mockResolvedValue(undefined),
-    }),
-    facts: threadFactSink(applyThreadFact),
-    referenceThreads: () => [],
-    threadIsBusy: (threadId) =>
-      openPanelActivities().some((activity) => activity.threadId === threadId && (activity.pending || activity.running)),
-  });
+function titlePortFixture() {
   return {
-    settings: {
-      archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
-    },
-    threadMutations,
-    threadTitlePort: createThreadTitleAdapter({
-      clientAccess,
-      codexPath: "codex",
-      vaultPath: "/vault",
-      threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
-      threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
-      runner: titleRunner,
-    }),
-    openNewPanel: vi.fn().mockResolvedValue(undefined),
-    openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
-    visiblePanelActivities: () => openPanelActivities(),
-    threadCatalog: {
-      hasMoreActiveThreads,
-      ...threadCatalogOverrides,
-      loadMoreActiveThreads: vi.fn(async () => {
-        const load = threadCatalogOverrides["loadMoreActiveThreads"];
-        const threads = typeof load === "function" ? await load() : [];
-        emitActive(threads);
-      }),
-      fetchActiveThreads: vi.fn(async () => {
-        const load = threadCatalogOverrides["fetchActiveThreads"];
-        if (typeof load === "function") {
-          const threads = await load();
-          emitActive(threads);
-          return threads;
-        }
-        const client = currentClient;
-        if (!client) return [];
-        const request = client["request"] as (
-          method: string,
-          params: Record<string, unknown>,
-        ) => Promise<{ data: Record<string, unknown>[] }>;
-        const response = await request("thread/list", { cwd: "/vault", archived: false, cursor: null });
-        const threads = response.data.map(threadFromRecord);
-        emitActive(threads);
-        return threads;
-      }),
-      refreshActiveThreads: vi.fn(async () => {
-        const refresh = threadCatalogOverrides["refreshActiveThreads"];
-        if (typeof refresh === "function") {
-          const threads = await refresh();
-          emitActive(threads);
-          return;
-        }
-        const client = currentClient;
-        if (!client) return;
-        const request = client["request"] as (
-          method: string,
-          params: Record<string, unknown>,
-        ) => Promise<{
-          data: Record<string, unknown>[];
-        }>;
-        const response = await request("thread/list", { cwd: "/vault", archived: false, cursor: null });
-        const threads = response.data.map(threadFromRecord);
-        emitActive(threads);
-      }),
-      activeThreadsSnapshot,
-      recentActiveThreadsSnapshot:
-        typeof threadCatalogOverrides["recentActiveThreadsSnapshot"] === "function"
-          ? threadCatalogOverrides["recentActiveThreadsSnapshot"]
-          : vi.fn(() => null),
-      observeActiveThreadsResult:
-        typeof threadCatalogOverrides["observeActiveThreadsResult"] === "function"
-          ? threadCatalogOverrides["observeActiveThreadsResult"]
-          : vi.fn((observer: (result: ObservedPaginatedResult<readonly Thread[]>) => void) => {
-              activeObservers.add(observer);
-              observer(queryResult(activeThreadsSnapshot(), null, hasMoreActiveThreads()));
-              return () => activeObservers.delete(observer);
-            }),
-    },
-    ...hostOverrides,
-  };
-}
-
-function threadFactSink(apply: ThreadFactSink["apply"]): ThreadFactSink {
-  return {
-    apply,
-    applyBatch: (facts) => {
-      for (const fact of facts) apply(fact);
-    },
-  };
+    persistedContext: vi.fn<ThreadTitlePort["persistedContext"]>().mockResolvedValue(null),
+    generateTitle: vi.fn<ThreadTitlePort["generateTitle"]>().mockRejectedValue(new Error("Unexpected title generation.")),
+  } satisfies ThreadTitlePort;
 }
 
 async function threadsView(host = threadsHost()) {
@@ -932,23 +655,17 @@ async function threadsView(host = threadsHost()) {
       },
     },
   );
+  openViews.push(view);
+  view.load();
   await view.onOpen();
   return view;
 }
 
-function threadFromRecord(record: Record<string, unknown>): Thread {
-  return {
-    id: String(record["id"]),
-    preview: typeof record["preview"] === "string" ? record["preview"] : "",
-    name: typeof record["name"] === "string" ? record["name"] : null,
-    archived: false,
-    provenance: { kind: "interactive" },
-    createdAt: Number(record["createdAt"] ?? 0),
-    updatedAt: Number(record["updatedAt"] ?? 0),
-  };
-}
-
-function queryResult<T>(value: T | null, error: Error | null = null, hasMore = false): ObservedPaginatedResult<T> {
+function queryResult(
+  value: readonly Thread[] | null,
+  error: Error | null = null,
+  hasMore = false,
+): ObservedPaginatedResult<readonly Thread[]> {
   return {
     value,
     error,
@@ -958,60 +675,15 @@ function queryResult<T>(value: T | null, error: Error | null = null, hasMore = f
   };
 }
 
-function threadFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function threadFixture(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "thread",
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
+    name: null,
+    archived: false,
+    provenance: { kind: "interactive" },
     createdAt: 1,
     updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "unknown",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
-    turns: [],
     ...overrides,
   };
-}
-
-function turnFixture(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return {
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    error: null,
-    startedAt: 1,
-    completedAt: 2,
-    durationMs: 1,
-    ...overrides,
-  };
-}
-
-function titleTurn(title: string | null): TurnRecord {
-  return turnFixture(
-    title === null
-      ? []
-      : [
-          {
-            type: "agentMessage",
-            id: "title",
-            text: JSON.stringify({ title }),
-            phase: "final_answer",
-            memoryCitation: null,
-            delivery: null,
-            questions: null,
-          },
-        ],
-  );
 }
