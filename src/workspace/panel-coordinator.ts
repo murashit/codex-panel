@@ -83,16 +83,14 @@ export class WorkspacePanelCoordinator {
     await this.startNewChatInView(leaf, view);
   }
 
-  async activateNewView(
-    options: { connect?: boolean; focus?: boolean; state?: Record<string, unknown> } = {},
-  ): Promise<CodexChatView | null> {
-    const view = await this.createNewViewNow(options.state);
+  async activateNewView(options: { focus?: boolean } = {}): Promise<CodexChatView | null> {
+    const view = await this.createNewViewNow();
     if (!view) return null;
     const leaf = this.panelLeaves().find((candidate) => candidate.view === view);
     if (!leaf) return null;
     if (!(await this.revealAndVerifyPanel(leaf, view))) return null;
     const surface = view.surface;
-    if (options.connect !== false) await surface.connect();
+    await surface.connect();
     if (options.focus === false) return view;
     this.focusOwnedPanel(leaf, view);
     return view;

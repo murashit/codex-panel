@@ -139,32 +139,6 @@ describe("WorkspacePanelCoordinator", () => {
     expect(focus).not.toHaveBeenCalled();
   });
 
-  it("supports creating an unfocused, disconnected panel with persisted state", async () => {
-    const leaves = [] as ReturnType<typeof leaf>[];
-    const plugin = await pluginWithLeaves(leaves);
-    const panelLeaf = leaf();
-    const view = chatView(CodexChatView, panelLeaf);
-    const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
-    const focus = vi.spyOn(view.surface, "focusComposer");
-    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(panelLeaf);
-    panelLeaf.setViewState.mockImplementation(async () => {
-      panelLeaf.view = view;
-      leaves.push(panelLeaf);
-    });
-
-    await expect(
-      panels(plugin).activateNewView({ connect: false, focus: false, state: { version: 2, threadId: "thread-1" } }),
-    ).resolves.toBe(view);
-
-    expect(panelLeaf.setViewState).toHaveBeenCalledWith({
-      type: VIEW_TYPE_CODEX_PANEL,
-      active: false,
-      state: { version: 2, threadId: "thread-1" },
-    });
-    expect(connect).not.toHaveBeenCalled();
-    expect(focus).not.toHaveBeenCalled();
-  });
-
   it("deduplicates concurrent restored-panel loads for each leaf", async () => {
     const firstLeaf = leaf({ state: { threadId: "first" } });
     const secondLeaf = leaf({ state: { threadId: "second" } });
