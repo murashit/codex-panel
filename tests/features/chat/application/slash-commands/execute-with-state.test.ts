@@ -36,11 +36,6 @@ function createHost(overrides: PanelSlashCommandHostOverrides = {}) {
   const readWebUrl = vi.fn();
   const host: PanelSlashCommandHost = {
     stateStore,
-    sharedResources: {
-      runtimeConfigSnapshot: () => null,
-      rateLimitsSnapshot: () => undefined,
-      modelsSnapshot: () => null,
-    },
     listedThreads: () => [],
     connectionAvailable: () => true,
     referThread,

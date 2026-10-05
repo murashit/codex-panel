@@ -2,7 +2,6 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { PreparedInput } from "../composer/prepared-input";
 import { activePanelOperationDecision } from "../panel-operation-policy";
-import type { ChatRuntimeSharedResources } from "../runtime/snapshot";
 import { activeThreadId } from "../state/model";
 import type { ChatStateStore } from "../state/store";
 import type { ComposerSubmissionAdoption } from "../submission/input-claim";
@@ -15,7 +14,6 @@ export interface PanelSlashCommandHost extends SlashCommandExecutionPorts {
   connectionAvailable: () => boolean;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<PreparedInput>;
   readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<PreparedInput>;
-  sharedResources: ChatRuntimeSharedResources;
   listedThreads: () => readonly Thread[];
 }
 

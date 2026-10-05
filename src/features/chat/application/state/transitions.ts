@@ -30,11 +30,11 @@ import type {
   TurnStartFailedAction,
 } from "./transition-actions";
 import {
-  activeTurnCleared,
   activeTurnOptimisticallyStarted,
   activeTurnStarted,
   activeTurnWithLifecycle,
   chatThreadStreamViewState,
+  initialChatActiveTurnState,
   reduceTurnScope,
 } from "./turn-scope";
 import { clearAllRequestDisclosures, clearResolvedRequestDisclosures, initialUiState } from "./ui";
@@ -338,7 +338,7 @@ function reduceRequestResolvedTransition(state: ChatState, action: RequestResolv
 function clearTurnScopedState(state: ChatState): ChatState {
   const items = threadStreamItems(chatThreadStreamViewState(state.threadStream, state.activeTurn));
   return patchObject(state, {
-    activeTurn: activeTurnCleared(state.activeTurn),
+    activeTurn: initialChatActiveTurnState(),
     threadStream: threadStreamWithItems(state.threadStream, items),
     requests: initialChatRequestState(),
     ui: clearAllRequestDisclosures(state.ui),
