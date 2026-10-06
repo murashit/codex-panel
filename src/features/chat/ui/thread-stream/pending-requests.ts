@@ -129,11 +129,12 @@ function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): Pen
       id: field.id,
       title: field.title,
       description: field.description,
-      type: field.type,
       required: field.required,
       defaultDraft: mcpElicitationFieldDefaultDraft(field),
       draftKey: mcpElicitationDraftKey(elicitation.requestId, field.id),
-      options: "options" in field ? field.options : null,
+      ...(field.type === "single-select" || field.type === "multi-select"
+        ? { type: field.type, options: field.options }
+        : { type: field.type, options: null }),
     })),
     url: null,
   };

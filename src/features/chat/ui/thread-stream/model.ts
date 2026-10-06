@@ -42,27 +42,31 @@ export interface PendingUserInputViewModel {
   questions: readonly PendingUserInputQuestionViewModel[];
 }
 
-export interface PendingMcpElicitationFieldViewModel {
+interface PendingMcpElicitationFieldViewModelBase {
   id: string;
   title: string;
   description: string | null;
-  type: PendingMcpElicitationField["type"];
   required: boolean;
   defaultDraft: string;
   draftKey: string;
-  options: readonly { value: string; label: string }[] | null;
 }
 
-export interface PendingMcpElicitationViewModel {
+export type PendingMcpElicitationFieldViewModel = PendingMcpElicitationFieldViewModelBase &
+  (
+    | { type: "single-select" | "multi-select"; options: readonly { value: string; label: string }[] }
+    | { type: Exclude<PendingMcpElicitationField["type"], "single-select" | "multi-select">; options: null }
+  );
+
+interface PendingMcpElicitationViewModelBase {
   requestId: PendingRequestId;
   title: string;
   body: string;
-  mode: "form" | "url";
   serverName: string;
   message: string;
-  fields: readonly PendingMcpElicitationFieldViewModel[];
-  url: string | null;
 }
+
+export type PendingMcpElicitationViewModel = PendingMcpElicitationViewModelBase &
+  ({ mode: "form"; fields: readonly PendingMcpElicitationFieldViewModel[]; url: null } | { mode: "url"; fields: readonly []; url: string });
 
 export interface PendingRequestBlockSnapshot {
   approvals: readonly PendingApprovalViewModel[];

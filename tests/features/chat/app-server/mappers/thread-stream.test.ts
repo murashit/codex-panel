@@ -362,8 +362,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       ]),
     ).toMatchObject({
       id: "plan-progress-t1",
-      kind: "taskProgress",
-      role: "tool",
       explanation: "Working plan",
       steps: [
         { step: "Inspect code", status: "completed" },
@@ -1147,11 +1145,9 @@ describe("turn item conversion preserves app-server semantics", () => {
       review: { status: "inProgress", riskLevel: null, userAuthorization: null, rationale: null },
     });
     expect(started).toMatchObject({
-      kind: "reviewResult",
       text: `Auto-review started: ${summary}`,
       executionState: "running",
     });
-    if (started.kind !== "reviewResult") throw new Error("Expected an auto-review result item");
     expect(started.review?.auditFacts).toEqual([{ key: "status", value: "inProgress" }, ...auditFacts]);
 
     const completed = createAutoReviewResultItem({
@@ -1161,11 +1157,9 @@ describe("turn item conversion preserves app-server semantics", () => {
       review: { status: "approved", riskLevel: null, userAuthorization: null, rationale: null },
     });
     expect(completed).toMatchObject({
-      kind: "reviewResult",
       text: `Auto-review approved: ${summary}`,
       executionState: "completed",
     });
-    if (completed.kind !== "reviewResult") throw new Error("Expected an auto-review result item");
     expect(completed.review?.auditFacts).toEqual([{ key: "status", value: "approved" }, { key: "source", value: "agent" }, ...auditFacts]);
   });
 });

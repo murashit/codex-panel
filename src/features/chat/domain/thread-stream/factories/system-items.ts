@@ -1,6 +1,6 @@
-import type { ThreadStreamItem, ThreadStreamNoticeSection } from "../items";
+import type { SystemThreadStreamItem, ThreadStreamNoticeSection } from "../items";
 
-export function createSystemItem(id: string, text: string): ThreadStreamItem {
+export function createSystemItem(id: string, text: string): SystemThreadStreamItem {
   return {
     id,
     kind: "system",
@@ -10,7 +10,7 @@ export function createSystemItem(id: string, text: string): ThreadStreamItem {
   };
 }
 
-export function createStructuredSystemItem(id: string, text: string, noticeSections: ThreadStreamNoticeSection[]): ThreadStreamItem {
+export function createStructuredSystemItem(id: string, text: string, noticeSections: ThreadStreamNoticeSection[]): SystemThreadStreamItem {
   return {
     id,
     kind: "system",

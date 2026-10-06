@@ -1,4 +1,4 @@
-import type { ThreadStreamItem } from "../../../domain/thread-stream/items";
+import type { TaskProgressThreadStreamItem } from "../../../domain/thread-stream/items";
 
 type TaskStepStatus = "pending" | "inProgress" | "completed";
 
@@ -7,7 +7,11 @@ interface TaskPlanStep {
   status: TaskStepStatus;
 }
 
-export function taskProgressThreadStreamItem(turnId: string, explanation: string | null, plan: readonly TaskPlanStep[]): ThreadStreamItem {
+export function taskProgressThreadStreamItem(
+  turnId: string,
+  explanation: string | null,
+  plan: readonly TaskPlanStep[],
+): TaskProgressThreadStreamItem {
   const trimmedExplanation = explanation?.trim();
   return {
     id: `plan-progress-${turnId}`,

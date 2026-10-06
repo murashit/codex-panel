@@ -1,9 +1,9 @@
 import { createStructuredSystemItem } from "../../domain/thread-stream/factories/system-items";
-import type { ThreadStreamItem, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
+import type { SystemThreadStreamItem, ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import { turnErrorNoticeSections } from "../mappers/thread-stream/turn-items";
 import type { UserVisibleNoticeNotification } from "./notification-routing";
 
-export function userVisibleNoticeItem(notification: UserVisibleNoticeNotification, id: string): ThreadStreamItem | null {
+export function userVisibleNoticeItem(notification: UserVisibleNoticeNotification, id: string): SystemThreadStreamItem | null {
   switch (notification.method) {
     case "model/rerouted":
       return createStructuredSystemItem(id, `Model changed to ${notification.params.toModel}.`, [
