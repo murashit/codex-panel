@@ -1,7 +1,14 @@
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
-import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
+import type {
+  HookThreadStreamItem,
+  ReviewResultThreadStreamItem,
+  SystemThreadStreamItem,
+  TaskProgressThreadStreamItem,
+  ThreadStreamItem,
+  UserThreadStreamDialogueItem,
+} from "../../domain/thread-stream/items";
 import type { AuthRecoveryProgress } from "./auth-recovery";
 
 type TurnRuntimeTextItemKind = "tool" | "hook" | "reasoning";
@@ -51,8 +58,12 @@ export type TurnRuntimeFact =
       fallbackText: string;
     }
   | {
-      type: "itemStarted" | "itemContentUpdated" | "taskProgressUpdated";
+      type: "itemStarted" | "itemContentUpdated";
       item: ThreadStreamItem;
+    }
+  | {
+      type: "taskProgressUpdated";
+      item: TaskProgressThreadStreamItem;
     }
   | {
       type: "userMessageObserved";
@@ -65,7 +76,7 @@ export type TurnRuntimeFact =
     }
   | {
       type: "autoReviewUpdated";
-      item: ThreadStreamItem;
+      item: ReviewResultThreadStreamItem;
     }
   | {
       type: "turnStarted";
@@ -87,7 +98,7 @@ export type TurnRuntimeFact =
     }
   | {
       type: "hookRunObserved";
-      item: ThreadStreamItem;
+      item: HookThreadStreamItem;
     }
   | {
       type: "requestResolved";
@@ -95,9 +106,9 @@ export type TurnRuntimeFact =
     }
   | {
       type: "reviewWarning";
-      item: ThreadStreamItem;
+      item: ReviewResultThreadStreamItem;
     }
   | {
       type: "systemNotice";
-      item: ThreadStreamItem;
+      item: SystemThreadStreamItem;
     };

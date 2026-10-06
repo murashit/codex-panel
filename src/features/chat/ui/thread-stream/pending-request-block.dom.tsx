@@ -480,7 +480,7 @@ function McpElicitationFieldControl({
     case "single-select":
       return (
         <fieldset className="codex-panel__mcp-elicitation-options" aria-labelledby={labelId}>
-          {field.options?.map((option) => (
+          {field.options.map((option) => (
             <label key={option.value} className="codex-panel__mcp-elicitation-option">
               <input
                 className="codex-panel__mcp-elicitation-radio"
@@ -502,7 +502,7 @@ function McpElicitationFieldControl({
       const selected = selectedMcpElicitationValues(current);
       return (
         <fieldset className="codex-panel__mcp-elicitation-options" aria-labelledby={labelId}>
-          {field.options?.map((option) => {
+          {field.options.map((option) => {
             return (
               <label key={option.value} className="codex-panel__mcp-elicitation-option">
                 <input

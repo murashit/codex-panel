@@ -1,10 +1,5 @@
 import { pathRelativeToRoot } from "../../../../../domain/files/paths";
-import type {
-  ExecutionState,
-  ReviewResultThreadStreamItem,
-  ThreadStreamAuditFact,
-  ThreadStreamItem,
-} from "../../../domain/thread-stream/items";
+import type { ExecutionState, ReviewResultThreadStreamItem, ThreadStreamAuditFact } from "../../../domain/thread-stream/items";
 import { type ExecutionStateByStatus, executionStateFromStatus, RUNNING_EXECUTION_STATE } from "./execution-state";
 import { type AutoReviewPermissionProfile, permissionRows } from "./permission-rows";
 
@@ -80,7 +75,7 @@ export function createReviewResultItem(id: string, text: string): ReviewResultTh
   };
 }
 
-export function createAutoReviewResultItem(params: AutoReviewNotification): ThreadStreamItem {
+export function createAutoReviewResultItem(params: AutoReviewNotification): ReviewResultThreadStreamItem {
   const completed = "decisionSource" in params;
   const status = params.review.status;
   const action = autoReviewActionLabel(params.action);

@@ -162,7 +162,7 @@ export interface ThreadStreamContextAttachment {
   readonly detail?: string;
 }
 
-interface SystemThreadStreamItem extends ThreadStreamBase {
+export interface SystemThreadStreamItem extends ThreadStreamBase {
   readonly kind: "system";
   readonly role: "system";
   readonly text: string;
