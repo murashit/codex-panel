@@ -123,7 +123,7 @@ collaborationMode?: CollaborationMode | null,
  */
 multiAgentMode?: MultiAgentMode | null,
 /**
- * EXPERIMENTAL - Request a workspace-authorized cyber program for this
+ * EXPERIMENTAL - Request an authorized cyber program for this
  * turn. Omission preserves automatic behavior. This does not grant access.
  */
 cyberAccessProgram?: CyberAccessProgram | null, };
