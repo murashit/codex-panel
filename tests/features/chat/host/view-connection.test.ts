@@ -596,6 +596,7 @@ describe("CodexChatView connection lifecycle", () => {
         serviceName: "codex-panel",
       });
       expect(client.request).toHaveBeenCalledWith("thread/goal/set", {
+        origin: "user",
         threadId: "thread-new",
         objective: "Ship the feature",
         status: "active",

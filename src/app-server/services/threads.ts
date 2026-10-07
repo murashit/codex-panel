@@ -395,11 +395,11 @@ export async function readThreadGoal(client: AppServerRequestClient, threadId: s
 }
 
 export async function setThreadGoal(client: AppServerRequestClient, threadId: string, params: ThreadGoalUpdate): Promise<void> {
-  await client.request("thread/goal/set", { threadId, ...appServerThreadGoalUpdate(params) });
+  await client.request("thread/goal/set", { threadId, origin: "user", ...appServerThreadGoalUpdate(params) });
 }
 
 export async function clearThreadGoal(client: AppServerRequestClient, threadId: string): Promise<void> {
-  await client.request("thread/goal/clear", { threadId });
+  await client.request("thread/goal/clear", { threadId, origin: "user" });
 }
 
 export async function renameThread(client: AppServerRequestClient, threadId: string, name: string): Promise<void> {

@@ -3,8 +3,10 @@ import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { AppServerRequestClient } from "../../../src/app-server/services/request-client";
 import {
+  clearThreadGoal,
   listThreads,
   readThreadForArchiveExport,
+  setThreadGoal,
   startThread,
   threadFromAppServerRecord,
   unsubscribeThread,
@@ -12,6 +14,21 @@ import {
 import { deferred } from "../../support/async";
 
 describe("app-server thread response adapters", () => {
+  it("marks explicit goal edits, status changes, and clearing as user instructions", async () => {
+    const request = vi.fn().mockResolvedValue({});
+    const client = { request } as unknown as AppServerRequestClient;
+
+    await setThreadGoal(client, "thread", { objective: "Draft without sending", status: "active", tokenBudget: null });
+    await setThreadGoal(client, "thread", { status: "paused" });
+    await clearThreadGoal(client, "thread");
+
+    expect(request.mock.calls).toEqual([
+      ["thread/goal/set", { threadId: "thread", origin: "user", objective: "Draft without sending", status: "active", tokenBudget: null }],
+      ["thread/goal/set", { threadId: "thread", origin: "user", status: "paused" }],
+      ["thread/goal/clear", { threadId: "thread", origin: "user" }],
+    ]);
+  });
+
   it("preserves spawned subagent provenance in the domain thread", () => {
     const thread = threadFromAppServerRecord({
       id: "child",
