@@ -788,6 +788,7 @@ function runOptions(runner: EphemeralStructuredTurnRunner): SelectionRewriteTest
 
 function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
   return {
+    rootTurnId: null,
     id: "turn",
     items,
     itemsView: "full",

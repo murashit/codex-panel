@@ -281,6 +281,7 @@ export function turnWithUserMessage(text: string) {
 
 export function completedTurn(turnId: string) {
   return {
+    rootTurnId: null,
     id: turnId,
     status: "completed",
     error: null,
@@ -297,6 +298,7 @@ export function completedTurn(turnId: string) {
 
 export function runningTurn(turnId: string): TurnRecord {
   return {
+    rootTurnId: null,
     id: turnId,
     status: "inProgress",
     error: null,

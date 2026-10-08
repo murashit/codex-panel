@@ -35,6 +35,7 @@ describe("persisted title context", () => {
 
 function turn(withAnswer: boolean): TurnRecord {
   return {
+    rootTurnId: null,
     id: "turn",
     status: "completed",
     itemsView: "full",

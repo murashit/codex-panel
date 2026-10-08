@@ -18,6 +18,7 @@ describe("chat inbound routing", () => {
       params: {
         threadId: "thread-active",
         turn: {
+          rootTurnId: null,
           id: "turn-active",
           status: "completed",
           error: null,
@@ -455,6 +456,7 @@ function turnStartedNotification(): ServerNotification {
     params: {
       threadId: "thread-active",
       turn: {
+        rootTurnId: null,
         id: "turn-active",
         status: "inProgress",
         error: null,
@@ -474,6 +476,7 @@ function turnCompletedNotification(): ServerNotification {
     params: {
       threadId: "thread-active",
       turn: {
+        rootTurnId: null,
         id: "turn-active",
         status: "completed",
         error: null,

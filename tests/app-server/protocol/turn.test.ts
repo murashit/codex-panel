@@ -180,6 +180,7 @@ describe("app-server turn records", () => {
 
 function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
   return {
+    rootTurnId: null,
     id: "turn",
     items,
     itemsView: "full",

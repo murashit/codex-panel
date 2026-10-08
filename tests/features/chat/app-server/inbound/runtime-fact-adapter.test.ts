@@ -72,6 +72,7 @@ describe("app-server turn runtime fact adapter", () => {
       params: {
         threadId: "thread-active",
         turn: {
+          rootTurnId: null,
           id: "turn-active",
           status: "completed",
           error: null,
@@ -160,6 +161,7 @@ describe("app-server turn runtime fact adapter", () => {
           params: {
             threadId: "thread",
             turn: {
+              rootTurnId: null,
               id: "turn",
               status,
               error: null,
@@ -194,6 +196,7 @@ describe("app-server turn runtime fact adapter", () => {
         params: {
           threadId: "thread",
           turn: {
+            rootTurnId: null,
             id: "turn",
             status: "completed",
             error: null,
@@ -227,6 +230,7 @@ describe("app-server turn runtime fact adapter", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "turn-active",
             status: "failed",
             error: { message: "The request failed.", codexErrorInfo: "badRequest", additionalDetails: null, misalignment: null },

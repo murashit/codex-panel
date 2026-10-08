@@ -491,6 +491,7 @@ describe("CodexChatView connection lifecycle", () => {
       params: {
         threadId: "source",
         turn: {
+          rootTurnId: null,
           id: "parent-turn",
           status: "inProgress",
           startedAt: 1,
@@ -760,6 +761,7 @@ describe("CodexChatView connection lifecycle", () => {
       params: {
         threadId: "thread-1",
         turn: {
+          rootTurnId: null,
           id: "late-turn",
           status: "inProgress",
           startedAt: 1,

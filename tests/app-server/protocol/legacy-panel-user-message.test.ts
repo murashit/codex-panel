@@ -264,6 +264,7 @@ describe("legacy Codex Panel user-message compatibility", () => {
       "この続きです",
     );
     const turn: TurnRecord = {
+      rootTurnId: null,
       id: "turn-1",
       items: [
         {
