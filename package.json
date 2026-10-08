@@ -74,7 +74,7 @@
     "diff": "^9.0.0",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-to-markdown": "^2.1.3",
-    "micromark": "^4.0.2",
+    "micromark": "^4.0.3",
     "obsidian-daily-notes-interface": "^0.9.5",
     "preact": "^10.29.8",
     "unist-util-visit": "^5.1.0"
