@@ -49,7 +49,7 @@ jj bookmark set main -r @-
 npm run release:preflight
 jj tag set X.Y.Z -r main
 jj git push --remote origin --bookmark main
-git push origin X.Y.Z
+git push origin tag X.Y.Z
 ```
 
 `release:prepare` updates version files and writes a replaceable `## Changes` draft from the same Conventional Commit candidates. It validates only that the requested version is the next patch, minor, or major version; it does not decide which increment is appropriate.
@@ -58,4 +58,4 @@ Run `release:preflight` after the release commit is on `main`, with an empty wor
 
 The release commit must be named `chore(release): X.Y.Z` and may contain only the version metadata and `.github/release-notes/X.Y.Z.md`. Formatting, generated output, and unrelated fixes belong in earlier commits.
 
-The release notes file must contain a single `## Changes` section. The tag-triggered workflow validates and publishes the install assets. If it fails before creating the GitHub Release, fix the commit, move the local tag with `jj tag set --allow-move -r main X.Y.Z`, then update the remote tag with `git push --force origin X.Y.Z`.
+The release notes file must contain a single `## Changes` section. The tag-triggered workflow validates and publishes the install assets. If it fails before creating the GitHub Release, inspect whether a release or assets already exist and obtain explicit authorization to rewrite the published tag. Then fix the commit, move the local tag with `jj tag set --allow-move -r main X.Y.Z`, and update the remote tag with `git push origin tag X.Y.Z --force`.
