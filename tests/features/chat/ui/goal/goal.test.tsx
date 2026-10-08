@@ -6,12 +6,41 @@ import { describe, expect, it, vi } from "vitest";
 import type { SendShortcut } from "../../../../../src/domain/input/send-shortcut";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { GoalPanel, type GoalPanelActions, type GoalPanelEditorState } from "../../../../../src/features/chat/ui/goal/goal";
-import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
 
 describe("GoalPanel", () => {
+  it.each([true, false])("releases outside-pointer actions before its host is emptied (editing: %s)", async (editing) => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+    const callbacks = actions();
+    try {
+      await act(async () => {
+        renderUiRoot(
+          parent,
+          <GoalPanel
+            goal={goal()}
+            actions={callbacks}
+            sendShortcut="enter"
+            readOnly={false}
+            editor={editing ? { objectiveDraft: "Draft", tokenBudgetDraft: null } : null}
+            objectiveExpanded={!editing}
+          />,
+        );
+      });
+      parent.replaceChildren();
+      // A host rebuild must retire callbacks before Preact's next effect flush.
+      document.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      expect(callbacks.onCancelEditing).not.toHaveBeenCalled();
+      expect(callbacks.onObjectiveExpandedChange).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => unmountUiRoot(parent));
+      parent.remove();
+    }
+  });
+
   it("renders nothing when there is no goal", async () => {
     const parent = document.createElement("div");
 

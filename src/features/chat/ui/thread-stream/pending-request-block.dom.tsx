@@ -1,4 +1,4 @@
-import type { ComponentChild as UiNode } from "preact";
+import type { AccessibleInputHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
@@ -527,13 +527,17 @@ function McpElicitationFieldControl({
         </fieldset>
       );
     }
-    default:
+    default: {
+      const inputTypeProps = (
+        field.type === "number" || field.type === "integer"
+          ? { type: "number", step: field.type === "integer" ? "1" : "any" }
+          : { type: "text" }
+      ) satisfies AccessibleInputHTMLAttributes;
       return (
         <input
+          {...inputTypeProps}
           id={controlId}
           className="codex-panel__mcp-elicitation-input"
-          type={field.type === "number" || field.type === "integer" ? "number" : "text"}
-          step={field.type === "integer" ? "1" : field.type === "number" ? "any" : undefined}
           required={field.required}
           value={current}
           onInput={(event) => {
@@ -541,6 +545,7 @@ function McpElicitationFieldControl({
           }}
         />
       );
+    }
   }
 }
 
@@ -663,10 +668,11 @@ function FreeformUserInput({
   question: PendingUserInputQuestionViewModel;
   actions: PendingRequestBlockActions;
 }): UiNode {
+  const inputTypeProps = (isSecret ? { type: "password" } : { type: "text" }) satisfies AccessibleInputHTMLAttributes;
   return (
     <input
+      {...inputTypeProps}
       className="codex-panel__user-input-text"
-      type={isSecret ? "password" : "text"}
       value={current}
       onInput={(event) => {
         actions.setUserInputDraft(requestId, question.draftKey, event.currentTarget.value);

@@ -427,7 +427,10 @@ describe("ComposerShell decisions", () => {
     const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
     if (!suggestions) throw new Error("Expected composer suggestions to render.");
     expect(suggestions.getAttribute("role")).toBe("listbox");
-    expect(composer.getAttribute("aria-expanded")).toBe("true");
+    expect(composer.hasAttribute("role")).toBe(false);
+    expect(composer.getAttribute("aria-autocomplete")).toBe("list");
+    expect(composer.getAttribute("aria-haspopup")).toBe("listbox");
+    expect(composer.getAttribute("aria-controls")).toBe(suggestions.id);
     expect(composer.getAttribute("aria-activedescendant")).toBe(suggestions.querySelector("[role=option]")?.id);
     suggestions
       .querySelector<HTMLElement>(".codex-panel__composer-suggestion")
@@ -453,7 +456,6 @@ describe("ComposerShell decisions", () => {
     mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks);
 
     const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
-    expect(composer.getAttribute("aria-expanded")).toBe("false");
     expect(composer.hasAttribute("aria-activedescendant")).toBe(false);
     expect(suggestions?.hidden).toBe(true);
   });
