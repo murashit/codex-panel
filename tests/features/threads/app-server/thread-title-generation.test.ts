@@ -110,6 +110,7 @@ function runtimeSettings() {
 
 function turn(items: TurnRecord["items"]): TurnRecord {
   return {
+    rootTurnId: null,
     id: "turn",
     items,
     itemsView: "full",

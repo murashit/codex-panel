@@ -383,6 +383,7 @@ describe("CodexChatView workspace restoration", () => {
       params: {
         threadId: "thread-1",
         turn: {
+          rootTurnId: null,
           id: "turn-1",
           status: "inProgress",
           startedAt: 1,
@@ -422,6 +423,7 @@ describe("CodexChatView workspace restoration", () => {
       params: {
         threadId: "thread-1",
         turn: {
+          rootTurnId: null,
           id: "turn-1",
           status: "inProgress",
           startedAt: 1,
@@ -459,6 +461,7 @@ describe("CodexChatView workspace restoration", () => {
       params: {
         threadId: "thread-1",
         turn: {
+          rootTurnId: null,
           id: "turn-1",
           status: "completed",
           startedAt: 1,

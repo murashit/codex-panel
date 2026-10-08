@@ -73,6 +73,7 @@ describe("thread archive export", () => {
       thread({
         transcriptEntries: transcriptEntriesFromTurnRecords([
           {
+            rootTurnId: null,
             id: "turn",
             itemsView: "full",
             status: "completed",
@@ -91,7 +92,7 @@ describe("thread archive export", () => {
                 type: "agentMessage",
                 id: "commentary",
                 text: "Intermediate response",
-                phase: "commentary",
+                phase: "partial_answer",
                 memoryCitation: null,
                 delivery: null,
                 questions: null,

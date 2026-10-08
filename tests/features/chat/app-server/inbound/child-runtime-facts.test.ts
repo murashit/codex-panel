@@ -178,6 +178,7 @@ describe("normalized child runtime facts", () => {
 const childScope = { threadId: "child", turnId: "child-turn" };
 const parentScope = { threadId: "parent", turnId: "parent-turn" };
 const childTurn: Extract<ServerNotification, { method: "turn/started" }>["params"]["turn"] = {
+  rootTurnId: null,
   id: "child-turn",
   status: "inProgress",
   error: null,

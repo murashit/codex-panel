@@ -353,6 +353,7 @@ function archiveThread(historyMode: unknown, turns: readonly TurnRecord[] = []):
 
 function archiveTurn(id: string, items: readonly TurnItem[] = []): TurnRecord {
   return {
+    rootTurnId: null,
     id,
     items: [...items],
     itemsView: items.length > 0 ? "full" : "notLoaded",

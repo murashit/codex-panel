@@ -40,7 +40,14 @@ export function agentThreadStreamItem(item: ThreadStreamCollabAgentToolCall, tur
 }
 
 export function subagentActivityThreadStreamItem(
-  item: { id: string; kind: "started" | "interacted" | "interrupted" | "completed"; agentThreadId: string; agentPath: string },
+  item: {
+    id: string;
+    kind: "started" | "interacted" | "interrupted" | "completed";
+    agentThreadId: string;
+    agentPath: string;
+    model?: string | null;
+    reasoningEffort?: string | null;
+  },
   turnId?: string,
 ): AgentThreadStreamItem {
   const id = `subagent-activity:${item.id}`;
@@ -56,8 +63,8 @@ export function subagentActivityThreadStreamItem(
     senderThreadId: null,
     targets: [{ threadId: item.agentThreadId, label: item.agentPath }],
     prompt: null,
-    model: null,
-    reasoningEffort: null,
+    model: item.model ?? null,
+    reasoningEffort: item.reasoningEffort ?? null,
     agents: [],
   };
 }

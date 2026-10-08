@@ -183,6 +183,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "turn-active",
             status: "completed",
             error: null,
@@ -346,6 +347,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "turn-active",
             status: "inProgress",
             startedAt: 1,
@@ -375,6 +377,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "turn-active",
             status: "completed",
             startedAt: 1,
@@ -431,6 +434,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "stale-turn",
             status: "completed",
             startedAt: 1,
@@ -1124,6 +1128,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "turn-active",
             status: "completed",
             startedAt: 1,
@@ -1141,6 +1146,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "next-turn",
             status: "inProgress",
             startedAt: 3,
@@ -1419,6 +1425,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "child",
           turn: {
+            rootTurnId: null,
             id: "child-turn",
             status: "inProgress",
             startedAt: 1,
@@ -1480,6 +1487,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "child",
           turn: {
+            rootTurnId: null,
             id: "child-turn",
             status: "interrupted",
             startedAt: 1,
@@ -1519,6 +1527,8 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-active",
           startedAtMs: 1,
           item: {
+            model: null,
+            reasoningEffort: null,
             type: "subAgentActivity",
             id: "subagent-started",
             kind: "started",
@@ -1556,6 +1566,8 @@ describe("ChatInboundHandler", () => {
           turnId: "turn-active",
           completedAtMs: 2,
           item: {
+            model: null,
+            reasoningEffort: null,
             type: "subAgentActivity",
             id: "subagent-interrupted",
             kind: "interrupted",
@@ -1674,6 +1686,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "turn-active",
             status: "completed",
             error: null,
@@ -1718,6 +1731,7 @@ describe("ChatInboundHandler", () => {
       const maybeNameThread = vi.fn();
       const handler = handlerForState(state, { maybeNameThread });
       const turn = {
+        rootTurnId: null,
         id: "turn-active",
         status: "completed",
         error: null,
@@ -1878,6 +1892,7 @@ describe("ChatInboundHandler", () => {
         params: {
           threadId: "thread-active",
           turn: {
+            rootTurnId: null,
             id: "turn-active",
             status,
             error,
@@ -2182,6 +2197,7 @@ function trackDirectSubagent(handler: TestChatInboundHandler, threadId: string, 
     params: {
       threadId,
       turn: {
+        rootTurnId: null,
         id: turnId,
         status: "inProgress",
         startedAt: 1,

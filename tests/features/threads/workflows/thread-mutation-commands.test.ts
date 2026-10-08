@@ -325,6 +325,7 @@ describe("ThreadMutationCommands", () => {
             ...archivedThread(),
             turns: [
               {
+                rootTurnId: null,
                 id: "turn",
                 itemsView: "full",
                 status: "completed",

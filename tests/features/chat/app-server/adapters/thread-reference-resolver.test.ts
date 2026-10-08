@@ -12,6 +12,7 @@ describe("thread reference resolver", () => {
     const request = vi.fn().mockResolvedValue({
       data: [
         {
+          rootTurnId: null,
           id: "turn",
           itemsView: "full",
           status: "completed",

@@ -61,6 +61,7 @@ export type { BedrockSetupParams } from "./BedrockSetupParams";
 export type { BedrockSetupResponse } from "./BedrockSetupResponse";
 export type { BrowserUseAccessApprovalLifetime } from "./BrowserUseAccessApprovalLifetime";
 export type { BrowserUseConfig } from "./BrowserUseConfig";
+export type { BrowserUseExtensionRequirements } from "./BrowserUseExtensionRequirements";
 export type { BrowserUseOriginPolicy } from "./BrowserUseOriginPolicy";
 export type { BrowserUseOriginPolicyConfig } from "./BrowserUseOriginPolicyConfig";
 export type { BrowserUseRequirements } from "./BrowserUseRequirements";
@@ -149,6 +150,7 @@ export type { EnvironmentConnectionNotification } from "./EnvironmentConnectionN
 export type { EnvironmentInfoParams } from "./EnvironmentInfoParams";
 export type { EnvironmentInfoResponse } from "./EnvironmentInfoResponse";
 export type { EnvironmentShellInfo } from "./EnvironmentShellInfo";
+export type { EnvironmentSkillsParams } from "./EnvironmentSkillsParams";
 export type { EnvironmentStatusKind } from "./EnvironmentStatusKind";
 export type { EnvironmentStatusParams } from "./EnvironmentStatusParams";
 export type { EnvironmentStatusResponse } from "./EnvironmentStatusResponse";
@@ -493,6 +495,7 @@ export type { RemoteControlPairingStatusParams } from "./RemoteControlPairingSta
 export type { RemoteControlPairingStatusResponse } from "./RemoteControlPairingStatusResponse";
 export type { RemoteControlStatusChangedNotification } from "./RemoteControlStatusChangedNotification";
 export type { RemoteControlStatusReadResponse } from "./RemoteControlStatusReadResponse";
+export type { RequestHeader } from "./RequestHeader";
 export type { RequestPermissionProfile } from "./RequestPermissionProfile";
 export type { ResidencyRequirement } from "./ResidencyRequirement";
 export type { ResponseUsageMetadata } from "./ResponseUsageMetadata";
@@ -556,6 +559,9 @@ export type { ThreadAttachmentAddResponse } from "./ThreadAttachmentAddResponse"
 export type { ThreadAttachmentListParams } from "./ThreadAttachmentListParams";
 export type { ThreadAttachmentListResponse } from "./ThreadAttachmentListResponse";
 export type { ThreadAttachmentOperation } from "./ThreadAttachmentOperation";
+export type { ThreadAttachmentOwner } from "./ThreadAttachmentOwner";
+export type { ThreadAttachmentOwnerListParams } from "./ThreadAttachmentOwnerListParams";
+export type { ThreadAttachmentOwnerListResponse } from "./ThreadAttachmentOwnerListResponse";
 export type { ThreadAttachmentRemoveParams } from "./ThreadAttachmentRemoveParams";
 export type { ThreadAttachmentRemoveResponse } from "./ThreadAttachmentRemoveResponse";
 export type { ThreadAttachmentUpdatedNotification } from "./ThreadAttachmentUpdatedNotification";

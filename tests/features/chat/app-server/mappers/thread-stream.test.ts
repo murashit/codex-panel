@@ -17,8 +17,49 @@ import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/t
 import { legacyTurnContextManifestText } from "../../../../support/legacy-turn-context-manifest";
 
 describe("turn item conversion preserves app-server semantics", () => {
+  it.each(["commentary", "partial_answer", "final_answer", null] as const)(
+    "preserves %s assistant text in live and restored turns",
+    (phase) => {
+      const item: TurnItem = {
+        type: "agentMessage",
+        id: "answer",
+        text: "Answer text",
+        phase,
+        memoryCitation: null,
+        delivery: null,
+        questions: null,
+      };
+      const expected = {
+        id: "answer",
+        turnId: "t1",
+        kind: "dialogue",
+        role: "assistant",
+        text: "Answer text",
+        copyText: "Answer text",
+        dialogueState: "completed",
+      };
+      expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject(expected);
+      expect(
+        threadStreamItemsFromTurns([
+          {
+            id: "t1",
+            rootTurnId: "root-turn",
+            items: [item],
+            itemsView: "full",
+            status: "completed",
+            error: null,
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+          },
+        ]),
+      ).toMatchObject([expected]);
+    },
+  );
+
   it.each(["failed", "interrupted"] as const)("restores a %s turn's error reason from history", (status) => {
     const turn: TurnRecord = {
+      rootTurnId: null,
       id: "error-turn",
       startedAt: 1,
       completedAt: 2,
@@ -407,6 +448,8 @@ describe("turn item conversion preserves app-server semantics", () => {
     "preserves v2 %s activity and canonical agent identity in live and restored turns",
     (kind) => {
       const item: TurnItem = {
+        model: kind === "started" ? "gpt-5.5" : null,
+        reasoningEffort: kind === "started" ? "high" : null,
         type: "subAgentActivity",
         id: `activity-${kind}`,
         kind,
@@ -423,8 +466,8 @@ describe("turn item conversion preserves app-server semantics", () => {
         senderThreadId: null,
         targets: [{ threadId: "child-thread", label: "/root/scout" }],
         prompt: null,
-        model: null,
-        reasoningEffort: null,
+        model: kind === "started" ? "gpt-5.5" : null,
+        reasoningEffort: kind === "started" ? "high" : null,
         agents: [],
         turnId: "t1",
       };
@@ -432,7 +475,17 @@ describe("turn item conversion preserves app-server semantics", () => {
       expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject(expected);
       expect(
         threadStreamItemsFromTurns([
-          { id: "t1", items: [item], itemsView: "full", status: "completed", error: null, startedAt: 1, completedAt: 2, durationMs: 1 },
+          {
+            rootTurnId: null,
+            id: "t1",
+            items: [item],
+            itemsView: "full",
+            status: "completed",
+            error: null,
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+          },
         ]),
       ).toMatchObject([expected]);
       expect(threadStreamItemFromTurnItem(item, "t1")).not.toHaveProperty("executionState");
@@ -452,6 +505,8 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 1,
     };
     const activity: TurnItem = {
+      model: null,
+      reasoningEffort: null,
       type: "subAgentActivity",
       id: "spawn-call",
       kind: "started",
@@ -462,6 +517,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     expect(
       threadStreamItemsFromTurns([
         {
+          rootTurnId: null,
           id: "t1",
           items: [dynamic, activity],
           itemsView: "full",
