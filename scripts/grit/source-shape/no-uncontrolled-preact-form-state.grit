@@ -11,6 +11,6 @@ JsxAttribute(name=$name) as $stmt where {
       `select`,
       `textarea`
     }
-  } ,
+  },
   register_diagnostic(span=$stmt, message="Keep native Preact form state explicit with controlled value or checked props.", severity="error")
 }
