@@ -1,5 +1,5 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { isComposerSendKey, type SendShortcut } from "../../../../domain/input/send-shortcut";
 import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
 import { disposeDomListeners, listenDomEscapeKey, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
@@ -69,14 +69,14 @@ export function GoalPanel({ goal, actions, sendShortcut, editor, readOnly, objec
     return observeGoalObjectiveOverflow(content, setObjectiveOverflows);
   }, [editing, resetObjective]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!editing) return;
     const root = goalRef.current;
     if (!root) return;
     return closeGoalEditorOnOutsidePointer(root, actions.onCancelEditing);
   }, [actions, editing]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!objectiveExpanded) return;
     const root = goalRef.current;
     if (!root) return;

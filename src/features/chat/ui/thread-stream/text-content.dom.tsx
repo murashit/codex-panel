@@ -1,5 +1,5 @@
 import type { Ref, ComponentChild as UiNode } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { disposeDomListeners, listenDomEvent, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
 import { observeElementResize } from "../../../../shared/ui/resize-observer.measure";
@@ -28,7 +28,7 @@ export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTe
     return disposeDomListeners(disposeRendered, disposeResizeObserver);
   }, [view.id, view.body, view.renderMode]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!overflows || !expanded) return;
     const collapse = collapseRef.current;
     if (!collapse) return;

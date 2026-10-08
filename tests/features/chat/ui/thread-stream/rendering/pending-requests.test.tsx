@@ -353,10 +353,15 @@ describe("panel pending request rendering", () => {
     ]);
   });
 
-  it("focuses Plan mode input when pending requests ask for autofocus", () => {
+  it.each([
+    { isSecret: false, type: "text" },
+    { isSecret: true, type: "password" },
+  ])("focuses and routes $type input when pending requests ask for autofocus", ({ isSecret, type }) => {
     const parent = document.createElement("div");
     document.body.appendChild(parent);
     const input = pendingFreeformUserInput();
+    input.params.questions = input.params.questions.map((question) => ({ ...question, isSecret }));
+    const setUserInputDraft = vi.fn();
 
     try {
       renderPendingRequestNode(
@@ -369,12 +374,15 @@ describe("panel pending request rendering", () => {
           otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
         },
         new Set(),
-        pendingRequestActions(),
+        pendingRequestActions({ setUserInputDraft }),
         true,
       );
 
       const inputElement = parent.querySelector<HTMLInputElement>(".codex-panel__user-input-text");
       expect(document.activeElement).toBe(inputElement);
+      expect(inputElement?.type).toBe(type);
+      changeInputValue(expectPresent(inputElement), "Answer");
+      expect(setUserInputDraft).toHaveBeenCalledWith(input.requestId, "99:scope", "Answer");
     } finally {
       unmountUiRootInAct(parent);
       parent.remove();
@@ -763,6 +771,7 @@ describe("panel pending request rendering", () => {
           },
           { id: "estimate", title: "Estimate", description: null, type: "number", required: false, defaultValue: 1.5 },
           { id: "note", title: "Note", description: null, type: "string", required: false, defaultValue: "" },
+          { id: "count", title: "Count", description: null, type: "integer", required: false, defaultValue: 1 },
         ],
       },
     });
@@ -782,11 +791,15 @@ describe("panel pending request rendering", () => {
     );
 
     const fields = [...parent.querySelectorAll<HTMLElement>(".codex-panel__mcp-elicitation-field")];
+    expect(fields[2]?.querySelector("input")?.getAttribute("step")).toBe("any");
+    expect(fields[3]?.querySelector("input")?.hasAttribute("step")).toBe(false);
+    expect(fields[4]?.querySelector("input")?.getAttribute("step")).toBe("1");
     actEvent(() => {
       expectPresent(fields[0]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-checkbox")).click();
       expectPresent(fields[1]?.querySelectorAll<HTMLInputElement>(".codex-panel__mcp-elicitation-radio").item(1)).click();
       changeInputValue(expectPresent(fields[2]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "3.5");
       changeInputValue(expectPresent(fields[3]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "Ship today");
+      changeInputValue(expectPresent(fields[4]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "2");
       expectPresent(
         [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")].find(
           (button) => button.textContent === "Decline",
@@ -799,6 +812,7 @@ describe("panel pending request rendering", () => {
       ["54:mcp:priority", "high"],
       ["54:mcp:estimate", "3.5"],
       ["54:mcp:note", "Ship today"],
+      ["54:mcp:count", "2"],
     ]);
     expect(resolveMcpElicitation).toHaveBeenCalledWith(54, "decline");
     unmountUiRootInAct(parent);

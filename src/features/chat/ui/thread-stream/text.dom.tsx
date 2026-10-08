@@ -1,5 +1,5 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import { listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
 import { IconButton } from "../../../../shared/ui/icon.dom";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
@@ -48,7 +48,7 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
   const roleRef = useRef<HTMLDivElement | null>(null);
   const { fork, implementPlan, rollback } = view.actionTargets;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!forkMenuOpen) return;
     const role = roleRef.current;
     if (!role) return;

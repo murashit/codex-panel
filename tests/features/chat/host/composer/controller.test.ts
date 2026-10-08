@@ -1903,7 +1903,7 @@ describe("ChatComposerController", () => {
     expect(composer(parent).value).toBe("/plan then $ob");
     expect(composer(parent).selectionStart).toBe("/plan".length);
     expect(stateStore.getState().composer.suggestions).toEqual([]);
-    expect(composer(parent).getAttribute("aria-expanded")).toBe("false");
+    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions")?.hidden).toBe(true);
     expect(composer(parent).hasAttribute("aria-activedescendant")).toBe(false);
   });
 

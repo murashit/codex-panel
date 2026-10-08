@@ -163,9 +163,8 @@ export function ComposerShell({
           ref={composerRef}
           className="codex-panel-ui__text-input codex-panel__composer-input"
           placeholder={sendMode.canInterrupt && !composerLocked ? "Steer the current turn..." : normalPlaceholder}
-          role="combobox"
           aria-autocomplete="list"
-          aria-expanded={visibleSuggestions.length > 0 ? "true" : "false"}
+          aria-haspopup="listbox"
           aria-controls={composerSuggestionsListId(viewId)}
           aria-activedescendant={selectedSuggestionId}
           value={draft}
