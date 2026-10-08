@@ -10,4 +10,4 @@ import type { NonSteerableTurnKind } from "./NonSteerableTurnKind";
  * When an upstream HTTP status is available (for example, from the Responses API or a provider),
  * it is forwarded in `httpStatusCode` on the relevant `codexErrorInfo` variant.
  */
-export type CodexErrorInfo = { "httpConnectionFailed": { httpStatusCode: number | null, } } | { "responseStreamConnectionFailed": { httpStatusCode: number | null, } } | { "responseStreamDisconnected": { httpStatusCode: number | null, } } | { "responseTooManyFailedAttempts": { httpStatusCode: number | null, } } | { "activeTurnNotSteerable": { turnKind: NonSteerableTurnKind, } } | string | { [key: string]: unknown };
+export type CodexErrorInfo =                   { "httpConnectionFailed": { httpStatusCode: number | null, } } | { "responseStreamConnectionFailed": { httpStatusCode: number | null, } }           | { "responseStreamDisconnected": { httpStatusCode: number | null, } } | { "responseTooManyFailedAttempts": { httpStatusCode: number | null, } } | { "activeTurnNotSteerable": { turnKind: NonSteerableTurnKind, } }   | string | { [key: string]: unknown };

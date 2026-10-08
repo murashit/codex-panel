@@ -85,7 +85,7 @@ model?: string | null,
 /**
  * Override the service tier for this turn and subsequent turns.
  */
-serviceTier?: string | null,
+serviceTier?: string | null  ,
 /**
  * Override the service tier only when this request starts a new turn.
  * Use "default" for standard speed. Omitted or null inherits the thread's tier.

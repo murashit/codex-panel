@@ -21,7 +21,7 @@ export type ThreadStartParams = { model?: string | null, modelProvider?: string 
  * Allow a provider with an authoritative static model catalog to replace an unavailable
  * requested model with its default.
  */
-allowProviderModelFallback?: boolean, serviceTier?: string | null, cwd?: string | null,
+allowProviderModelFallback?: boolean, serviceTier?: string | null  , cwd?: string | null,
 /**
  * Replace the thread's runtime workspace roots. Paths must be absolute.
  */

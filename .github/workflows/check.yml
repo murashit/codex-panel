@@ -49,6 +49,8 @@ jobs:
             .node-version \
             scripts/app-server-compatibility.mjs \
             scripts/generate-app-server-types.mjs \
+            scripts/normalize-app-server-types.mjs \
+            scripts/check-app-server-type-normalization.mjs \
             src/app-server/compatibility.json \
             src/generated/app-server; then
             echo "bindings=true" >> "$GITHUB_OUTPUT"

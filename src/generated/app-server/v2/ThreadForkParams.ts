@@ -40,7 +40,7 @@ path?: string | null,
 /**
  * Configuration overrides for the forked thread, if any.
  */
-model?: string | null, modelProvider?: string | null, serviceTier?: string | null, cwd?: string | null,
+model?: string | null, modelProvider?: string | null, serviceTier?: string | null  , cwd?: string | null,
 /**
  * Replace the thread's runtime workspace roots. Paths must be absolute.
  */

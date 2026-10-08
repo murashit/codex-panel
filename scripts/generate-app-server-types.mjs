@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import ts from "typescript";
 import { readAppServerGenerationPolicy } from "./app-server-compatibility.mjs";
+import { normalizeSource } from "./normalize-app-server-types.mjs";
 
 const generatedRelativeDir = "src/generated/app-server";
 const generatedHeader = "// GENERATED CODE! DO NOT MODIFY BY HAND!";
@@ -125,32 +125,6 @@ async function listFiles(dir) {
     .filter((entry) => entry.isFile())
     .map((entry) => path.relative(dir, path.join(entry.parentPath, entry.name)).replaceAll(path.sep, "/"))
     .sort();
-}
-
-function normalizeSource(source) {
-  let normalized = source;
-  do {
-    source = normalized;
-    normalized = source.replaceAll("| null | null", "| null");
-  } while (normalized !== source);
-  return normalizeCodexErrorInfo(normalized);
-}
-
-function normalizeCodexErrorInfo(source) {
-  if (!source.includes("CodexErrorInfo")) return source;
-  const parsed = ts.createSourceFile("generated.ts", source, ts.ScriptTarget.Latest, true);
-  const declaration = parsed.statements.find(
-    (statement) => ts.isTypeAliasDeclaration(statement) && statement.name.text === "CodexErrorInfo",
-  );
-  if (!declaration || !ts.isUnionTypeNode(declaration.type)) return source;
-  const union = declaration.type;
-  if (!union.types.some((member) => member.kind === ts.SyntaxKind.StringKeyword)) return source;
-
-  // The open string alternative already accepts every known error name. Keep structured variants and unknown errors intact.
-  const members = union.types.filter((member) => !(ts.isLiteralTypeNode(member) && ts.isStringLiteral(member.literal)));
-  if (members.length === union.types.length) return source;
-  const normalized = members.map((member) => member.getFullText(parsed).trim()).join(" | ");
-  return source.slice(0, union.getStart(parsed)) + normalized + source.slice(union.end);
 }
 
 function addNormalizationNotice(source) {
