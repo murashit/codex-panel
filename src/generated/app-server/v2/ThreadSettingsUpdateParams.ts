@@ -46,7 +46,7 @@ model?: string | null,
  * Override the service tier for subsequent turns. `null` clears the
  * current service tier; omission leaves it unchanged.
  */
-serviceTier?: string | null,
+serviceTier?: string | null  ,
 /**
  * Override the reasoning effort for subsequent turns.
  */

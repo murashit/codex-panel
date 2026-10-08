@@ -33,4 +33,4 @@ summary?: ReasoningSummary | null,
 /**
  * `null` clears the requested tier; omission leaves it unchanged.
  */
-serviceTier?: string | null, };
+serviceTier?: string | null  , };
