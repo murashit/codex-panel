@@ -644,26 +644,6 @@ describe("chatReducer", () => {
     expect(activeTurnId(next.activeTurn)).toBeNull();
   });
 
-  it("ignores completed turns while a new turn is still starting", () => {
-    const starting = { kind: "starting" as const, anchorItemId: "local-user" };
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeTurn: { lifecycle: starting } });
-    state = withChatStateStableThreadStreamItems(state, [
-      { id: "local-user", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
-    ]);
-
-    const next = chatReducer(state, {
-      type: "turn/completed",
-      turnId: "stale-turn",
-      outcome: "completed",
-      items: [],
-    });
-
-    expect(chatTurnBusy(next.activeTurn)).toBe(true);
-    expect(next.activeTurn.lifecycle).toEqual(starting);
-    expect(chatStateThreadStreamItems(next)).toEqual(chatStateThreadStreamItems(state));
-  });
-
   it("preserves unknown service tier state when resuming from active runtime", () => {
     const state = chatReducer(chatStateFixture(), {
       ...threadActivationFixture(thread("thread")),

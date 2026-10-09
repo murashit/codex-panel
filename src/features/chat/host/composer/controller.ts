@@ -39,6 +39,7 @@ import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeasesMatch 
 import type { ChatAction } from "../../application/state/reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { type ComposerSubmissionClaim, SubmissionInput } from "../../application/submission/input-claim";
+import { ordinaryComposerAction } from "../../domain/composer/action";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../../ui/composer/composer";
 import { syncComposerHeight } from "../../ui/composer/height";
@@ -161,7 +162,11 @@ export class ChatComposerController {
       viewId: this.options.viewId,
       draft: model.draft,
       busy: model.turnBusy,
-      canInterrupt: composerCanInterrupt(model),
+      action: ordinaryComposerAction({
+        canInterrupt: composerCanInterrupt(model),
+        hasDraft: model.draft.trim().length > 0,
+        directInputBlocked: model.submissionBlockedByPanelPolicy,
+      }),
       submissionDisabled: model.webSubmissionPending,
       directInputDisabled: model.submissionBlockedByPanelPolicy,
       runtimeControlsDisabled: model.runtimeSettingsDisabled,

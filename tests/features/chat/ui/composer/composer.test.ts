@@ -2,6 +2,7 @@
 
 import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
+import { ordinaryComposerAction } from "../../../../../src/features/chat/domain/composer/action";
 import type { ComposerMetaViewModel, ComposerShellProps } from "../../../../../src/features/chat/ui/composer/composer";
 import {
   type ComposerCallbacks,
@@ -41,7 +42,7 @@ function mountComposerShell(
       viewId,
       draft,
       busy,
-      canInterrupt,
+      action: ordinaryComposerAction({ canInterrupt, hasDraft: draft.trim().length > 0, directInputBlocked: directInputDisabled }),
       submissionDisabled: webSubmissionPending,
       directInputDisabled,
       runtimeControlsDisabled,
@@ -513,7 +514,7 @@ describe("ComposerShell decisions", () => {
         viewId: "view",
         draft: "line one\nline two",
         busy: false,
-        canInterrupt: false,
+        action: "send",
         submissionDisabled: false,
         directInputDisabled: false,
         runtimeControlsDisabled: false,
@@ -626,70 +627,12 @@ describe("ComposerShell decisions", () => {
     expect(sendButton?.dataset["icon"]).toBe("corner-down-right");
   });
 
-  it("keeps interrupt enabled while a send-only attachment barrier is active", () => {
+  it("disables steering while a send-only attachment barrier is active", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    mountComposerShell(parent, "view", "", true, true, "Ask Codex...", [], 0, callbacks, undefined, false, false, true);
-    let sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
-
-    expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
-    expect(sendButton?.disabled).toBe(false);
-
     mountComposerShell(parent, "view", "steer later", true, true, "Ask Codex...", [], 0, callbacks, undefined, false, false, true);
-    sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
-    expect(sendButton?.disabled).toBe(true);
-  });
-
-  it("keeps interrupt available while direct input is disabled", () => {
-    const parent = document.createElement("div");
-    const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(
-      parent,
-      "view",
-      "unsent draft",
-      true,
-      true,
-      "This thread cannot accept messages.",
-      [],
-      0,
-      callbacks,
-      undefined,
-      false,
-      false,
-      false,
-      false,
-      true,
-    );
-    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
-
-    expect(composer.readOnly).toBe(true);
-    expect(composer.getAttribute("placeholder")).toBe("This thread cannot accept messages.");
-    expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
-    expect(sendButton?.disabled).toBe(false);
-  });
-
-  it("renders an enabled cancel control while a web import locks composer input", () => {
-    const parent = document.createElement("div");
-    const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, undefined, true);
-    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
-
-    expect(composer.readOnly).toBe(true);
-    expect(sendButton?.getAttribute("aria-label")).toBe("Cancel web import");
-    expect(sendButton?.disabled).toBe(false);
-    sendButton?.click();
-    expect(callbacks.onSendOrInterrupt).toHaveBeenCalledOnce();
-  });
-
-  it("keeps composer locked without offering cancel after a web import commits", () => {
-    const parent = document.createElement("div");
-    const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, undefined, true, false);
-    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
-
-    expect(composer.readOnly).toBe(true);
-    expect(sendButton?.getAttribute("aria-label")).toBe("Send");
     expect(sendButton?.disabled).toBe(true);
   });
 

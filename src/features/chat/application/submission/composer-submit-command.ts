@@ -1,3 +1,4 @@
+import { ordinaryComposerAction } from "../../domain/composer/action";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
@@ -77,12 +78,12 @@ export async function submitComposer(host: ComposerSubmitCommandHost): Promise<v
     const chatState = host.stateStore.getState();
     if (chatState.pendingSubmission) return;
     const operationDecision = activePanelOperationDecision(chatState, "submit");
-    if (
-      chatTurnBusy(chatState.activeTurn) &&
-      activeThreadState(chatState)?.id &&
-      activeTurnId(chatState.activeTurn) &&
-      (draft.length === 0 || operationDecision.kind === "blocked")
-    ) {
+    const action = ordinaryComposerAction({
+      canInterrupt: chatTurnBusy(chatState.activeTurn) && Boolean(activeThreadState(chatState)?.id && activeTurnId(chatState.activeTurn)),
+      hasDraft: draft.length > 0,
+      directInputBlocked: operationDecision.kind === "blocked",
+    });
+    if (action === "interrupt") {
       await interruptTurn(host, panelTarget);
       return;
     }

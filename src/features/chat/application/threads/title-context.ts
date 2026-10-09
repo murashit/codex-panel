@@ -4,7 +4,7 @@ import {
   threadTitleContextPromptText,
 } from "../../../../domain/threads/title";
 import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
-import { lastTurnOutcomeItemsByTurn } from "../../domain/thread-stream/conversation";
+import { lastCompletedAssistantDialoguesByTurn } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 
 export function completedTurnTitleContext(
@@ -18,7 +18,7 @@ export function completedTurnTitleContext(
 export function threadTitleContextFromThreadStreamItems(turnId: string, items: readonly ThreadStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
   const userRequest = turnItems.find(isUserThreadStreamDialogueItem)?.text.trim() ?? precedingUnscopedTitleSeed(turnId, items) ?? "";
-  const assistantResponse = lastTurnOutcomeItemsByTurn(turnItems).get(turnId)?.text.trim() ?? "";
+  const assistantResponse = lastCompletedAssistantDialoguesByTurn(turnItems).get(turnId)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
   return {
     userRequest: threadTitleContextPromptText(userRequest),

@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { createChatInboundHandler } from "../../../../../src/features/chat/app-server/inbound/handler";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import type { ComposerSubmissionClaim } from "../../../../../src/features/chat/application/submission/input-claim";
+import { canSwitchToThread } from "../../../../../src/features/chat/application/threads/thread-switching";
+import { chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
 import { deferred } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateWith } from "../../support/state";
@@ -560,7 +563,7 @@ describe("submitComposer", () => {
     expect(chatStateThreadStreamItems(host.stateStore.getState())).toEqual([]);
   });
 
-  it("interrupts a running turn when submitting an empty draft", async () => {
+  it("keeps an interrupted turn busy until its matching completion permits switching threads", async () => {
     const { host, interruptTurn, showLatest, stateStore } = createHost("");
     stateStore.dispatch({
       ...threadActivationFixture(thread("thread")),
@@ -572,6 +575,47 @@ describe("submitComposer", () => {
 
     expect(showLatest).not.toHaveBeenCalled();
     expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
+    expect(host.status.setStatus).toHaveBeenCalledWith("Interrupt requested.");
+    expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(true);
+    expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(false);
+
+    const inbound = createChatInboundHandler(
+      stateStore,
+      {
+        maybeNameThread: vi.fn(),
+        respondToServerRequest: vi.fn(() => true),
+        rejectServerRequest: vi.fn(() => true),
+        executeDynamicTool: vi.fn(),
+      },
+      host.localItemIds,
+    );
+    const completion = (turnId: string) =>
+      inbound.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread",
+          turn: {
+            id: turnId,
+            rootTurnId: null,
+            status: "interrupted",
+            error: null,
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+            itemsView: "summary",
+            items: [],
+          },
+        },
+      });
+
+    completion("previous-turn");
+    expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(true);
+    expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(false);
+
+    completion("turn");
+    expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(false);
+    expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(true);
+    expect(stateStore.getState().connection.statusText).toBe("Turn interrupted.");
   });
 
   it("interrupts a running turn even when the thread rejects direct input", async () => {

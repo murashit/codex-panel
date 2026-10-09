@@ -1,5 +1,5 @@
 import { pathRelativeToRoot } from "../../../../domain/files/paths";
-import { lastTurnOutcomeItemsByTurn, threadStreamUserRoles } from "../../domain/thread-stream/conversation";
+import { lastCompletedAssistantDialoguesByTurn, threadStreamUserRoles } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamIsAutoReviewDecision } from "../../domain/thread-stream/review-items";
 import { isTerminalTurnErrorItem } from "../../domain/thread-stream/turn-error-notices";
@@ -50,7 +50,7 @@ export function threadStreamLayoutBlocks(
   const roles = threadStreamUserRoles(visibleItems);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
-  const completedOutcomes = lastTurnOutcomeItemsByTurn(visibleItems);
+  const completedOutcomes = lastCompletedAssistantDialoguesByTurn(visibleItems);
   if (activeTurnId !== null) completedOutcomes.delete(activeTurnId);
 
   const groupedActivities = new Map<string, ThreadStreamActivityGroupItem[]>();
