@@ -14,7 +14,8 @@ export function threadStreamUserRoles(items: readonly ThreadStreamItem[]): ("ini
   });
 }
 
-export function isCompletedTurnOutcomeDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { turnId: string } {
+// Includes proposed plans; item completion does not imply that its turn has ended or succeeded.
+export function isCompletedAssistantDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { turnId: string } {
   return (
     item.kind === "dialogue" &&
     item.dialogueKind !== "user" &&
@@ -42,13 +43,13 @@ export interface PlanImplementationTarget {
 }
 
 export function forkCandidatesFromItems(items: readonly ThreadStreamItem[]): readonly ForkCandidate[] {
-  return [...lastTurnOutcomeItemsByTurn(items)].map(([turnId, item]) => ({ itemId: item.id, turnId }));
+  return [...lastCompletedAssistantDialoguesByTurn(items)].map(([turnId, item]) => ({ itemId: item.id, turnId }));
 }
 
-export function lastTurnOutcomeItemsByTurn(items: readonly ThreadStreamItem[]): Map<string, ThreadStreamDialogueItem> {
+export function lastCompletedAssistantDialoguesByTurn(items: readonly ThreadStreamItem[]): Map<string, ThreadStreamDialogueItem> {
   const outcomes = new Map<string, ThreadStreamDialogueItem>();
   for (const item of items) {
-    if (isCompletedTurnOutcomeDialogue(item)) outcomes.set(item.turnId, item);
+    if (isCompletedAssistantDialogue(item)) outcomes.set(item.turnId, item);
   }
   return outcomes;
 }

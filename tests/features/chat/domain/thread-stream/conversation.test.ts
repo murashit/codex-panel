@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   forkCandidatesFromItems,
+  isCompletedAssistantDialogue,
   isCompletedPlanCandidate,
-  isCompletedTurnOutcomeDialogue,
-  lastTurnOutcomeItemsByTurn,
+  lastCompletedAssistantDialoguesByTurn,
   threadStreamUserRoles,
 } from "../../../../../src/features/chat/domain/thread-stream/conversation";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
@@ -60,9 +60,9 @@ describe("shared conversation rules", () => {
         ...(execution !== undefined ? { executionState: execution } : {}),
       };
       expect(isCompletedPlanCandidate(item), JSON.stringify(item)).toBe(plan);
-      expect(isCompletedTurnOutcomeDialogue(item), JSON.stringify(item)).toBe(outcome);
+      expect(isCompletedAssistantDialogue(item), JSON.stringify(item)).toBe(outcome);
     }
-    expect(isCompletedTurnOutcomeDialogue(userMessage("user", "request", "turn"))).toBe(false);
+    expect(isCompletedAssistantDialogue(userMessage("user", "request", "turn"))).toBe(false);
     expect(isCompletedPlanCandidate(userMessage("user", "request", "turn"))).toBe(false);
   });
 
@@ -80,7 +80,7 @@ describe("shared conversation rules", () => {
       { ...first, id: "failed", executionState: "failed" as const },
       assistantDialogue("draft", "assistantResponse", "streaming", "two"),
     ];
-    const outcomes = lastTurnOutcomeItemsByTurn(items);
+    const outcomes = lastCompletedAssistantDialoguesByTurn(items);
     expect([...outcomes.keys()]).toEqual(["one", "two"]);
     expect(outcomes.get("one")).toBe(plan);
     expect(outcomes.get("two")).toBe(second);

@@ -2,6 +2,7 @@ import type { Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { disposeDomListeners, listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
 import { Icon, IconButton } from "../../../../shared/ui/icon.dom";
+import type { OrdinaryComposerAction } from "../../domain/composer/action";
 import { syncComposerHeight } from "./height";
 
 interface ComposerSuggestion {
@@ -72,7 +73,7 @@ export interface ComposerShellProps {
   viewId: string;
   draft: string;
   busy: boolean;
-  canInterrupt: boolean;
+  action: OrdinaryComposerAction;
   submissionDisabled: boolean;
   directInputDisabled: boolean;
   runtimeControlsDisabled: boolean;
@@ -93,7 +94,7 @@ export function ComposerShell({
   viewId,
   draft,
   busy,
-  canInterrupt,
+  action,
   submissionDisabled,
   directInputDisabled,
   runtimeControlsDisabled,
@@ -141,15 +142,7 @@ export function ComposerShell({
     if (pendingSelection.value === draft) restoreComposerSelection(composerRef.current, pendingSelection);
     onPendingSelectionApplied();
   }, [draft, pendingSelection, onPendingSelectionApplied]);
-  const sendMode = composerSendMode(
-    busy,
-    canInterrupt,
-    draft,
-    submissionDisabled,
-    directInputDisabled,
-    sendDisabled,
-    webSubmissionCancellable,
-  );
+  const sendMode = composerSendMode(busy, action, submissionDisabled, directInputDisabled, sendDisabled, webSubmissionCancellable);
   const composerLocked = submissionDisabled || directInputDisabled;
   const visibleSuggestions = composerLocked ? [] : suggestions;
   const normalizedSelectedSuggestionIndex = visibleSuggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
@@ -471,8 +464,7 @@ interface ComposerSendMode {
 
 function composerSendMode(
   busy: boolean,
-  canInterrupt: boolean,
-  draft: string,
+  action: OrdinaryComposerAction,
   submissionDisabled: boolean,
   directInputDisabled: boolean,
   sendDisabled: boolean,
@@ -487,9 +479,9 @@ function composerSendMode(
       canInterrupt: false,
     };
   }
-  const hasDraft = Boolean(draft.trim());
-  const interruptMode = canInterrupt && (!hasDraft || directInputDisabled);
-  const canSteer = canInterrupt && hasDraft && !directInputDisabled;
+  const canInterrupt = action !== "send";
+  const interruptMode = action === "interrupt";
+  const canSteer = action === "steer";
   return {
     icon: interruptMode ? "square" : canSteer ? "corner-down-right" : "send",
     label: interruptMode ? "Interrupt" : canSteer ? "Steer" : "Send",

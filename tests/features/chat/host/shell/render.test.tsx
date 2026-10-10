@@ -189,7 +189,7 @@ function shellParts(
             viewId: "view",
             draft: model.draft,
             busy: false,
-            canInterrupt: false,
+            action: "send",
             submissionDisabled: false,
             directInputDisabled: false,
             runtimeControlsDisabled: false,

@@ -193,12 +193,21 @@ describe("ChatComposerController", () => {
     controller.dispose();
   });
 
-  it("keeps keyboard interruption available on a read-only thread", () => {
+  it("keeps button and keyboard interruption available on a read-only thread", () => {
     const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread", canAcceptDirectInput: false } }));
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     const submit = vi.fn();
     const { controller, parent, renderShell } = composerControllerFixture({ stateStore, renderActions: { submit } });
+    controller.setDraft("unsent draft");
     renderShell();
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+    expect(composer(parent).readOnly).toBe(true);
+    expect(composer(parent).getAttribute("placeholder")).toBe("This thread cannot accept messages.");
+    expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
+    expect(sendButton?.disabled).toBe(false);
+    sendButton?.click();
+    expect(submit).toHaveBeenCalledOnce();
+    submit.mockClear();
     parent.querySelector("textarea")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(submit).toHaveBeenCalledOnce();
     controller.dispose();
@@ -611,7 +620,7 @@ describe("ChatComposerController", () => {
     expect(document.activeElement).toBe(composer);
   });
 
-  it("locks composer input while keeping keyboard cancellation of a web import available", () => {
+  it("locks composer input while keeping button and keyboard cancellation of a web import available", () => {
     const submit = vi.fn();
     const { controller, stateStore, parent, renderShell } = composerControllerFixture({ renderActions: { submit } });
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
@@ -626,18 +635,22 @@ describe("ChatComposerController", () => {
       },
     });
 
-    const props = controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit: vi.fn() });
-
-    expect(props.submissionDisabled).toBe(true);
-    expect(props.webSubmissionCancellable).toBe(true);
     renderShell();
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+    expect(composer(parent).readOnly).toBe(true);
+    expect(sendButton?.getAttribute("aria-label")).toBe("Cancel web import");
+    expect(sendButton?.disabled).toBe(false);
+    sendButton?.click();
+    expect(submit).toHaveBeenCalledOnce();
+    submit.mockClear();
     parent.querySelector("textarea")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(submit).toHaveBeenCalledOnce();
     controller.dispose();
   });
 
   it("locks composer input without offering cancel after a web submission commits", () => {
-    const { controller, stateStore } = composerControllerFixture();
+    const submit = vi.fn();
+    const { stateStore, parent, renderShell } = composerControllerFixture({ renderActions: { submit } });
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
     if (!pending) throw new Error("Expected pending web submission");
     stateStore.dispatch({
@@ -650,10 +663,14 @@ describe("ChatComposerController", () => {
       },
     } as never);
 
-    const props = controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit: vi.fn() });
-
-    expect(props.submissionDisabled).toBe(true);
-    expect(props.webSubmissionCancellable).toBe(false);
+    renderShell();
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+    expect(composer(parent).readOnly).toBe(true);
+    expect(sendButton?.getAttribute("aria-label")).toBe("Send");
+    expect(sendButton?.disabled).toBe(true);
+    sendButton?.click();
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(submit).not.toHaveBeenCalled();
   });
 
   it("captures completed thread identity across message edits and drops it when the title token changes", () => {
