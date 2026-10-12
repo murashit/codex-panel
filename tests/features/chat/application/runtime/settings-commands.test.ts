@@ -25,13 +25,7 @@ describe("createChatRuntimeSettingsCommands", () => {
     const store = createChatStateStore(state);
     const port = settingsPortFixture();
     const messages: string[] = [];
-    const commands = createChatRuntimeSettingsCommands({
-      stateStore: store,
-      runtimeSettingsPort: port,
-      runtimeSnapshotForState: runtimeSnapshotFixture,
-      collaborationModeLabel: () => "Plan",
-      addSystemMessage: (text) => messages.push(text),
-    });
+    const commands = runtimeCommandsFixture(store, port, messages);
 
     await expect(commands.requestModel("gpt-5.5")).resolves.toBe(true);
 
