@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -102,10 +103,27 @@ describe("vault write paths", () => {
     ]);
   });
 
-  it("increments collision suffixes until an unused vault path is found", async () => {
-    const destination = memoryDestination(["Files/Paper.pdf", "Files/Paper 2.pdf"]);
+  it.each([
+    ["Paper", ".pdf"],
+    ["README", ""],
+    [".env", ""],
+    ["Paper.v1", ".pdf"],
+    [".env", ".local"],
+  ])("finds the first unused collision path for %s%s", async (stem, extension) => {
+    await fc.assert(
+      fc.asyncProperty(fc.array(fc.boolean(), { maxLength: 8 }), async (occupied) => {
+        const filename = `${stem}${extension}`;
+        const candidates = [
+          `Files/${filename}`,
+          ...Array.from({ length: occupied.length }, (_, index) => `Files/${stem} ${String(index + 2)}${extension}`),
+        ];
+        const destination = memoryDestination(candidates.filter((_, index) => occupied[index]));
+        const expected = candidates.find((_, index) => !occupied[index]);
 
-    await expect(uniqueVaultPath(destination, "Files", "Paper.pdf")).resolves.toBe("Files/Paper 3.pdf");
+        await expect(uniqueVaultPath(destination, "Files", filename)).resolves.toBe(expected);
+      }),
+      { examples: [[[true, true]], [[true, false, true]], [[false, true]]] },
+    );
   });
 });
 

@@ -408,17 +408,50 @@ describe("AppServerClient", () => {
     await expect(second).resolves.toEqual({ dataBase64: btoa("second") });
   });
 
-  it("exposes initialized state through a single connection lifecycle", async () => {
-    const { client, transport } = await connectedClient();
+  it.each(["initializing", "initialized"] as const)(
+    "rejects duplicate connect while %s and preserves the original session",
+    async (phase) => {
+      let transport!: FakeTransport;
+      const client = createTestClient({
+        handlers: {
+          onNotification: () => undefined,
+          onServerRequest: () => undefined,
+          onLog: () => undefined,
+          onExit: () => undefined,
+        },
+        transportFactory: (handlers) => {
+          transport = new FakeTransport(handlers);
+          return transport;
+        },
+      });
+      const connecting = client.connect();
+      const originalTransport = transport;
+      const initialized = { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse>;
+      if (phase === "initialized") {
+        originalTransport.emitLine({ id: 1, result: initialized });
+        await connecting;
+      }
+      const listing = phase === "initialized" ? listModels(client) : null;
+      const sent = latestSent(originalTransport);
+      if (!("id" in sent)) throw new Error("Expected a pending request.");
 
-    expect(client.isConnected()).toBe(true);
-    expect(client.initializeResponse).toMatchObject({ codexHome: "/tmp/codex" });
+      const duplicate = client.connect();
+      originalTransport.emitLine({ id: sent.id, result: listing ? { data: [], nextCursor: null } : initialized });
+      await Promise.all([
+        expect(connecting).resolves.toEqual(initialized),
+        expect(duplicate).rejects.toThrow("already connecting or connected"),
+        ...(listing ? [expect(listing).resolves.toEqual({ data: [], nextCursor: null })] : []),
+      ]);
 
-    transport.emitExit(0);
+      expect(client.isConnected()).toBe(true);
+      expect(client.initializeResponse).toEqual(initialized);
 
-    expect(client.isConnected()).toBe(false);
-    expect(() => client.initializeResponse).toThrow("Codex app-server has not initialized.");
-  });
+      originalTransport.emitExit(0);
+
+      expect(client.isConnected()).toBe(false);
+      expect(() => client.initializeResponse).toThrow("Codex app-server has not initialized.");
+    },
+  );
 
   it("clears initialized state and rejects pending requests on disconnect", async () => {
     const { client } = await connectedClient();
@@ -588,17 +621,17 @@ describe("AppServerClient", () => {
     expect(onExit).not.toHaveBeenCalled();
   });
 
-  it("ignores stale transport events after reconnecting", async () => {
+  it("delivers active transport logs and ignores stale events across reconnect", async () => {
     const transports: FakeTransport[] = [];
     const onExit = vi.fn();
     const onNotification = vi.fn();
     const onServerRequest = vi.fn();
-    const onLog = vi.fn();
+    const logs: string[] = [];
     const client = createTestClient({
       handlers: {
         onNotification,
         onServerRequest,
-        onLog,
+        onLog: (message) => logs.push(message),
         onExit,
       },
       transportFactory: (handlers) => {
@@ -609,25 +642,32 @@ describe("AppServerClient", () => {
     });
 
     const firstConnect = client.connect();
-    transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    const firstTransport = expectTransport(transports[0]);
+    firstTransport.emitLog("first startup");
+    firstTransport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
     await firstConnect;
+    firstTransport.emitLog("first connected");
     client.disconnect();
+    firstTransport.emitLog("disconnected log");
     const secondConnect = client.connect();
-    const secondInitialize = latestSent(expectTransport(transports[1]));
+    const secondTransport = expectTransport(transports[1]);
+    secondTransport.emitLog("second startup");
+    const secondInitialize = latestSent(secondTransport);
     if (!("id" in secondInitialize) || typeof secondInitialize.id !== "number") throw new Error("Expected initialize request.");
-    transports[1]?.emitLine({ id: secondInitialize.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    secondTransport.emitLine({ id: secondInitialize.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
     await secondConnect;
 
-    transports[0]?.emitLine({ method: "warning", params: { message: "stale" } });
-    transports[0]?.emitLine({ id: 9, method: "currentTime/read", params: { threadId: "stale" } });
-    transports[0]?.emitLog("stale log");
-    transports[0]?.emitError(new Error("stale failure"));
-    transports[0]?.emitExit(1);
+    firstTransport.emitLine({ method: "warning", params: { message: "stale" } });
+    firstTransport.emitLine({ id: 9, method: "currentTime/read", params: { threadId: "stale" } });
+    firstTransport.emitLog("stale log");
+    firstTransport.emitError(new Error("stale failure"));
+    firstTransport.emitExit(1);
+    secondTransport.emitLog("second connected");
 
     expect(client.isConnected()).toBe(true);
     expect(onNotification).not.toHaveBeenCalled();
     expect(onServerRequest).not.toHaveBeenCalled();
-    expect(onLog).not.toHaveBeenCalled();
+    expect(logs).toEqual(["first startup", "first connected", "second startup", "second connected"]);
     expect(onExit).not.toHaveBeenCalled();
   });
 
