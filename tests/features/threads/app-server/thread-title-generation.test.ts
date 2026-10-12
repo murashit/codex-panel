@@ -6,6 +6,7 @@ import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { EphemeralStructuredTurnRunner } from "../../../../src/app-server/services/ephemeral-structured-turn";
 
 import { generateThreadTitleWithCodex } from "../../../../src/features/threads/app-server/thread-title-generation";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 
 describe("thread title", () => {
   it("runs a structured title request and parses its agent response", async () => {
@@ -109,17 +110,15 @@ function runtimeSettings() {
 }
 
 function turn(items: TurnRecord["items"]): TurnRecord {
-  return {
-    rootTurnId: null,
+  return appServerTurnFixture({
     id: "turn",
     items,
     itemsView: "full",
     status: "completed",
-    error: null,
     startedAt: 1,
     completedAt: 2,
     durationMs: 1,
-  };
+  });
 }
 
 function agentMessage(text: string): TurnRecord["items"][number] {

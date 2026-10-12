@@ -16,6 +16,7 @@ import { createThreadReplacementPublication } from "../../../../src/features/thr
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../../../src/shared/async/keyed-operation-coordinator";
 import { notices } from "../../../mocks/obsidian";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 import { installObsidianDomShims } from "../../../support/dom";
 import { threadMutationCommandsMock } from "../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../support/settings";
@@ -297,17 +298,13 @@ export function completedTurn(turnId: string) {
 }
 
 export function runningTurn(turnId: string): TurnRecord {
-  return {
-    rootTurnId: null,
+  return appServerTurnFixture({
     id: turnId,
     status: "inProgress",
-    error: null,
     startedAt: 1,
-    completedAt: null,
-    durationMs: null,
     itemsView: "full",
     items: [],
-  };
+  });
 }
 
 export function composerElement(view: { containerEl: HTMLElement }): HTMLTextAreaElement {

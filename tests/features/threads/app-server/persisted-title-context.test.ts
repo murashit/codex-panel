@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { AppServerRequestClient } from "../../../../src/app-server/services/request-client";
 import { readPersistedTitleContext } from "../../../../src/features/threads/app-server/persisted-title-context";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 
 describe("persisted title context", () => {
   it("reads ascending pages until a completed dialogue can supply a title", async () => {
@@ -34,12 +35,10 @@ describe("persisted title context", () => {
 });
 
 function turn(withAnswer: boolean): TurnRecord {
-  return {
-    rootTurnId: null,
+  return appServerTurnFixture({
     id: "turn",
     status: "completed",
     itemsView: "full",
-    error: null,
     startedAt: 1,
     completedAt: 2,
     durationMs: 1,
@@ -47,5 +46,5 @@ function turn(withAnswer: boolean): TurnRecord {
       { type: "userMessage", id: "user", clientId: null, content: [{ type: "text", text: "Request", text_elements: [] }] },
       ...(withAnswer ? [{ type: "plan" as const, id: "plan", text: "Answer" }] : []),
     ],
-  };
+  });
 }

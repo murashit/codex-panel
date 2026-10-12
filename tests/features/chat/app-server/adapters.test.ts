@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { AppServerClient, ClientResponseByMethod } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/input/input";
 import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { preparedUserInputWithWikiLinkReferencesSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred } from "../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -499,18 +499,13 @@ function threadStartResponse(threadId: string, overrides: Partial<AppServerThrea
 }
 
 function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return {
-    rootTurnId: null,
+  return appServerTurnFixture({
     id: "turn",
     items,
     itemsView: "full",
     status: "completed",
-    error: null,
-    startedAt: null,
-    completedAt: null,
-    durationMs: null,
     ...overrides,
-  };
+  });
 }
 
 function userMessage(id: string, text: string): TurnItem {

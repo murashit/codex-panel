@@ -4,6 +4,7 @@ import { planChatInboundNotification } from "../../../../../src/features/chat/ap
 import { routeServerNotification } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
 import { routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/server-request-routing";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
+import { appServerThreadFixture, appServerTurnFixture } from "../../../../support/app-server-records";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
@@ -17,17 +18,12 @@ describe("chat inbound routing", () => {
       method: "turn/completed",
       params: {
         threadId: "thread-active",
-        turn: {
-          rootTurnId: null,
+        turn: appServerTurnFixture({
           id: "turn-active",
           status: "completed",
-          error: null,
-          startedAt: null,
-          completedAt: null,
-          durationMs: null,
           itemsView: "full",
           items: [],
-        },
+        }),
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;
 
@@ -455,17 +451,12 @@ function turnStartedNotification(): ServerNotification {
     method: "turn/started",
     params: {
       threadId: "thread-active",
-      turn: {
-        rootTurnId: null,
+      turn: appServerTurnFixture({
         id: "turn-active",
         status: "inProgress",
-        error: null,
-        startedAt: null,
-        completedAt: null,
-        durationMs: null,
         itemsView: "full",
         items: [],
-      },
+      }),
     },
   };
 }
@@ -475,12 +466,9 @@ function turnCompletedNotification(): ServerNotification {
     method: "turn/completed",
     params: {
       threadId: "thread-active",
-      turn: {
-        rootTurnId: null,
+      turn: appServerTurnFixture({
         id: "turn-active",
         status: "completed",
-        error: null,
-        startedAt: null,
         completedAt: 2,
         durationMs: 1,
         itemsView: "full",
@@ -488,7 +476,7 @@ function turnCompletedNotification(): ServerNotification {
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
         ],
-      },
+      }),
     },
   };
 }
@@ -547,38 +535,19 @@ function authRecoveryNotification(
 }
 
 function threadSnapshot(id: string): Extract<ServerNotification, { method: "thread/started" }>["params"]["thread"] {
-  return {
+  return appServerThreadFixture({
     id,
-    extra: null,
-    environments: null,
-    originator: null,
-    daybreakEnabled: null,
     sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "Preview",
     ephemeral: false,
     historyMode: "paginated",
-    projectId: null,
     modelProvider: "openai",
-    model: null,
-    reasoningEffort: null,
     createdAt: 1,
     updatedAt: 1,
-    recencyAt: null,
-    section: null,
-    sectionEnteredAt: null,
     status: { type: "idle" },
-    path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
     source: "unknown",
-    canAcceptDirectInput: null,
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
     turns: [],
-  };
+  });
 }

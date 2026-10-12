@@ -14,6 +14,7 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { appServerThreadFixture, appServerTurnFixture } from "../../../../support/app-server-records";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
@@ -182,17 +183,12 @@ describe("ChatInboundHandler", () => {
         method: "turn/completed",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "turn-active",
             status: "completed",
-            error: null,
-            startedAt: null,
-            completedAt: null,
-            durationMs: null,
             itemsView: "full",
             items: [{ type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" }],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
@@ -346,17 +342,13 @@ describe("ChatInboundHandler", () => {
         method: "turn/started",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "turn-active",
             status: "inProgress",
             startedAt: 1,
-            completedAt: null,
-            durationMs: null,
-            error: null,
             itemsView: "full",
             items: [],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
@@ -376,14 +368,12 @@ describe("ChatInboundHandler", () => {
         method: "turn/completed",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "turn-active",
             status: "completed",
             startedAt: 1,
             completedAt: 2,
             durationMs: 1,
-            error: null,
             itemsView: "full",
             items: [
               { type: "userMessage", id: "u1", clientId: "local-user-1", content: [{ type: "text", text: "hello", text_elements: [] }] },
@@ -397,7 +387,7 @@ describe("ChatInboundHandler", () => {
                 questions: null,
               },
             ],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
@@ -433,14 +423,12 @@ describe("ChatInboundHandler", () => {
         method: "turn/completed",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "stale-turn",
             status: "completed",
             startedAt: 1,
             completedAt: 2,
             durationMs: 1,
-            error: null,
             itemsView: "full",
             items: [
               {
@@ -453,7 +441,7 @@ describe("ChatInboundHandler", () => {
                 questions: null,
               },
             ],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
@@ -1127,17 +1115,15 @@ describe("ChatInboundHandler", () => {
         method: "turn/completed",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "turn-active",
             status: "completed",
             startedAt: 1,
             completedAt: 2,
             durationMs: 1,
-            error: null,
             itemsView: "full",
             items: [],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
       expect(handler.currentState().requests.approvals).toEqual([]);
@@ -1145,17 +1131,13 @@ describe("ChatInboundHandler", () => {
         method: "turn/started",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "next-turn",
             status: "inProgress",
             startedAt: 3,
-            completedAt: null,
-            durationMs: null,
-            error: null,
             itemsView: "full",
             items: [],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
       handler.handleNotification({
@@ -1424,17 +1406,13 @@ describe("ChatInboundHandler", () => {
         method: "turn/started",
         params: {
           threadId: "child",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "child-turn",
             status: "inProgress",
             startedAt: 1,
-            completedAt: null,
-            durationMs: null,
-            error: null,
             itemsView: "full",
             items: [],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
       handler.handleNotification({
@@ -1486,17 +1464,15 @@ describe("ChatInboundHandler", () => {
         method: "turn/completed",
         params: {
           threadId: "child",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "child-turn",
             status: "interrupted",
             startedAt: 1,
             completedAt: 2,
             durationMs: 1,
-            error: null,
             itemsView: "full",
             items: [],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
@@ -1685,14 +1661,9 @@ describe("ChatInboundHandler", () => {
         method: "turn/completed",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "turn-active",
             status: "completed",
-            error: null,
-            startedAt: null,
-            completedAt: null,
-            durationMs: null,
             itemsView: "summary",
             items: [
               {
@@ -1705,7 +1676,7 @@ describe("ChatInboundHandler", () => {
                 questions: null,
               },
             ],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
@@ -1730,20 +1701,15 @@ describe("ChatInboundHandler", () => {
       const state = activeRunningState();
       const maybeNameThread = vi.fn();
       const handler = handlerForState(state, { maybeNameThread });
-      const turn = {
-        rootTurnId: null,
+      const turn = appServerTurnFixture({
         id: "turn-active",
         status: "completed",
-        error: null,
-        startedAt: null,
-        completedAt: null,
-        durationMs: null,
         itemsView: "full",
         items: [
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
         ],
-      } satisfies TurnRecord;
+      }) satisfies TurnRecord;
 
       handler.handleNotification({
         method: "turn/completed",
@@ -1891,8 +1857,7 @@ describe("ChatInboundHandler", () => {
         method: "turn/completed",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "turn-active",
             status,
             error,
@@ -1901,7 +1866,7 @@ describe("ChatInboundHandler", () => {
             startedAt: 1,
             completedAt: 2,
             durationMs: 1,
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
     }
@@ -2196,56 +2161,33 @@ function trackDirectSubagent(handler: TestChatInboundHandler, threadId: string, 
     method: "turn/started",
     params: {
       threadId,
-      turn: {
-        rootTurnId: null,
+      turn: appServerTurnFixture({
         id: turnId,
         status: "inProgress",
         startedAt: 1,
-        completedAt: null,
-        durationMs: null,
-        error: null,
         itemsView: "full",
         items: [],
-      },
+      }),
     },
   } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 }
 
 function appServerThread(id: string, cwd: string): ThreadStartedNotification["params"]["thread"] {
-  return {
+  return appServerThreadFixture({
     id,
-    extra: null,
-    environments: null,
-    originator: null,
-    daybreakEnabled: null,
     sessionId: id,
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
     ephemeral: false,
     historyMode: "paginated",
-    projectId: null,
     modelProvider: "openai",
-    model: null,
-    reasoningEffort: null,
     createdAt: 0,
     updatedAt: 0,
-    recencyAt: null,
-    section: null,
-    sectionEnteredAt: null,
     status: { type: "active", activeFlags: [] },
-    path: null,
     cwd,
     cliVersion: "codex",
     source: "unknown",
-    canAcceptDirectInput: null,
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
     turns: [],
-  };
+  });
 }
 
 function directSubagentThread(id: string, parentThreadId: string): ThreadStartedNotification["params"]["thread"] {

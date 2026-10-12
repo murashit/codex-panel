@@ -7,6 +7,7 @@ import { AppServerToolInventoryQueries } from "../../../../src/app-server/query/
 import type { ThreadGoal } from "../../../../src/domain/threads/goal";
 import { sideChatDraft } from "../../../../src/features/chat/application/threads/fork-draft";
 import { notices } from "../../../mocks/obsidian";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
@@ -490,17 +491,13 @@ describe("CodexChatView connection lifecycle", () => {
       method: "turn/started",
       params: {
         threadId: "source",
-        turn: {
-          rootTurnId: null,
+        turn: appServerTurnFixture({
           id: "parent-turn",
           status: "inProgress",
           startedAt: 1,
-          completedAt: null,
-          durationMs: null,
-          error: null,
           itemsView: "full",
           items: [],
-        },
+        }),
       },
     });
     expect(source.surface.openPanelSnapshot().turnBusy).toBe(true);
@@ -760,17 +757,13 @@ describe("CodexChatView connection lifecycle", () => {
       method: "turn/started",
       params: {
         threadId: "thread-1",
-        turn: {
-          rootTurnId: null,
+        turn: appServerTurnFixture({
           id: "late-turn",
           status: "inProgress",
           startedAt: 1,
-          completedAt: null,
-          durationMs: null,
-          error: null,
           itemsView: "full",
           items: [],
-        },
+        }),
       },
     } satisfies Extract<ServerNotification, { method: "turn/started" }>);
     expect(notifyPanelActivityChanged).toHaveBeenCalledTimes(2);

@@ -12,6 +12,7 @@ import type { ServerNotification } from "../../../src/generated/app-server/Serve
 import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
 import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
 import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
+import { appServerThreadFixture, appServerTurnFixture } from "../../support/app-server-records";
 
 interface TurnStartResponse {
   turn: TurnRecord;
@@ -527,55 +528,31 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
 }
 
 function thread(id: string): AppServerThread {
-  return {
+  return appServerThreadFixture({
     id,
-    extra: null,
-    environments: null,
-    originator: null,
-    daybreakEnabled: null,
     sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
     ephemeral: true,
     historyMode: "paginated",
-    projectId: null,
     modelProvider: "openai",
-    model: null,
-    reasoningEffort: null,
     createdAt: 1,
     updatedAt: 1,
-    recencyAt: null,
-    section: null,
-    sectionEnteredAt: null,
     status: { type: "idle" },
-    path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
     source: "unknown",
-    canAcceptDirectInput: null,
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
     turns: [],
-  };
+  });
 }
 
 function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return {
-    rootTurnId: null,
+  return appServerTurnFixture({
     id: "turn",
     items,
     itemsView: "full",
     status: "completed",
-    error: null,
-    startedAt: null,
-    completedAt: null,
-    durationMs: null,
     ...overrides,
-  };
+  });
 }
 
 function agentMessage(id: string, text: string): TurnItem {

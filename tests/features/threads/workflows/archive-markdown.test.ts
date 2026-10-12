@@ -3,6 +3,7 @@ import { transcriptEntriesFromTurnRecords } from "../../../../src/app-server/pro
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
 import { archivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-markdown";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 
 describe("thread archive export", () => {
   it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
@@ -72,12 +73,10 @@ describe("thread archive export", () => {
     const output = archivedThreadMarkdown(
       thread({
         transcriptEntries: transcriptEntriesFromTurnRecords([
-          {
-            rootTurnId: null,
+          appServerTurnFixture({
             id: "turn",
             itemsView: "full",
             status: "completed",
-            error: null,
             startedAt: timestamp(2026, 5, 18, 9, 0),
             completedAt: timestamp(2026, 5, 18, 9, 5),
             durationMs: 300000,
@@ -113,7 +112,7 @@ describe("thread archive export", () => {
                 questions: null,
               },
             ],
-          },
+          }),
         ]),
       }),
       new Date(2026, 4, 18),

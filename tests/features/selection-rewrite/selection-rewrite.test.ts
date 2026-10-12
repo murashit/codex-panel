@@ -12,6 +12,7 @@ import { SelectionRewritePopover } from "../../../src/features/selection-rewrite
 import { SelectionRewriteOutputError, type SelectionRewritePortRequest } from "../../../src/features/selection-rewrite/port";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
+import { appServerTurnFixture } from "../../support/app-server-records";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
@@ -787,18 +788,13 @@ function runOptions(runner: EphemeralStructuredTurnRunner): SelectionRewriteTest
 }
 
 function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return {
-    rootTurnId: null,
+  return appServerTurnFixture({
     id: "turn",
     items,
     itemsView: "full",
     status: "completed",
-    error: null,
-    startedAt: null,
-    completedAt: null,
-    durationMs: null,
     ...overrides,
-  };
+  });
 }
 
 function agentMessage(id: string, text: string): Extract<TurnRecord["items"][number], { type: "agentMessage" }> {
