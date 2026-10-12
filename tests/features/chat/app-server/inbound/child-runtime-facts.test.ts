@@ -7,6 +7,7 @@ import {
 } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
+import { appServerTurnFixture } from "../../../../support/app-server-records";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -177,17 +178,13 @@ describe("normalized child runtime facts", () => {
 
 const childScope = { threadId: "child", turnId: "child-turn" };
 const parentScope = { threadId: "parent", turnId: "parent-turn" };
-const childTurn: Extract<ServerNotification, { method: "turn/started" }>["params"]["turn"] = {
-  rootTurnId: null,
+const childTurn: Extract<ServerNotification, { method: "turn/started" }>["params"]["turn"] = appServerTurnFixture({
   id: "child-turn",
   status: "inProgress",
-  error: null,
   startedAt: 1,
-  completedAt: null,
-  durationMs: null,
   itemsView: "full",
   items: [],
-};
+});
 
 function runningParent(): ChatState {
   return chatStateFixture({ activeThread: { id: "parent" }, activeTurn: { lifecycle: { kind: "running", turnId: "parent-turn" } } });

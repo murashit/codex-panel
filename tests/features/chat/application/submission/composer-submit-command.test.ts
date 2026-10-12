@@ -9,6 +9,7 @@ import { submitComposer } from "../../../../../src/features/chat/application/sub
 import type { ComposerSubmissionClaim } from "../../../../../src/features/chat/application/submission/input-claim";
 import { canSwitchToThread } from "../../../../../src/features/chat/application/threads/thread-switching";
 import { chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
+import { appServerTurnFixture } from "../../../../support/app-server-records";
 import { deferred } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateWith } from "../../support/state";
@@ -594,17 +595,15 @@ describe("submitComposer", () => {
         method: "turn/completed",
         params: {
           threadId: "thread",
-          turn: {
+          turn: appServerTurnFixture({
             id: turnId,
-            rootTurnId: null,
             status: "interrupted",
-            error: null,
             startedAt: 1,
             completedAt: 2,
             durationMs: 1,
             itemsView: "summary",
             items: [],
-          },
+          }),
         },
       });
 

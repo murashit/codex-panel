@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
 import { turnRuntimeFactFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
+import { appServerTurnFixture } from "../../../../support/app-server-records";
 
 describe("app-server turn runtime fact adapter", () => {
   it.each([
@@ -71,11 +72,9 @@ describe("app-server turn runtime fact adapter", () => {
       method: "turn/completed",
       params: {
         threadId: "thread-active",
-        turn: {
-          rootTurnId: null,
+        turn: appServerTurnFixture({
           id: "turn-active",
           status: "completed",
-          error: null,
           startedAt: 1,
           completedAt: 2,
           durationMs: 1,
@@ -83,7 +82,7 @@ describe("app-server turn runtime fact adapter", () => {
           items: [
             { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
           ],
-        },
+        }),
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;
 
@@ -160,17 +159,12 @@ describe("app-server turn runtime fact adapter", () => {
           method: "turn/completed",
           params: {
             threadId: "thread",
-            turn: {
-              rootTurnId: null,
+            turn: appServerTurnFixture({
               id: "turn",
               status,
-              error: null,
-              startedAt: null,
-              completedAt: null,
-              durationMs: null,
               itemsView: "notLoaded",
               items: [],
-            },
+            }),
           },
         },
         () => "unused",
@@ -195,14 +189,9 @@ describe("app-server turn runtime fact adapter", () => {
         method: "turn/completed",
         params: {
           threadId: "thread",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "turn",
             status: "completed",
-            error: null,
-            startedAt: null,
-            completedAt: null,
-            durationMs: null,
             itemsView: "notLoaded",
             items: [
               {
@@ -215,7 +204,7 @@ describe("app-server turn runtime fact adapter", () => {
                 questions: null,
               },
             ],
-          },
+          }),
         },
       },
       () => "unused",
@@ -229,8 +218,7 @@ describe("app-server turn runtime fact adapter", () => {
         method: "turn/completed",
         params: {
           threadId: "thread-active",
-          turn: {
-            rootTurnId: null,
+          turn: appServerTurnFixture({
             id: "turn-active",
             status: "failed",
             error: { message: "The request failed.", codexErrorInfo: "badRequest", additionalDetails: null, misalignment: null },
@@ -239,7 +227,7 @@ describe("app-server turn runtime fact adapter", () => {
             durationMs: 1,
             itemsView: "notLoaded",
             items: [],
-          },
+          }),
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>,
       () => "unused",

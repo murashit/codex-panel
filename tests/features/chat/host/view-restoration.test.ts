@@ -5,6 +5,7 @@ import type { ServerNotification } from "../../../../src/app-server/connection/r
 import { createChatState } from "../../../../src/features/chat/application/state/model";
 import type { ForkDraftPreparation } from "../../../../src/features/chat/application/threads/fork-draft";
 import type { ChatPanelSession } from "../../../../src/features/chat/host/session/session";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
@@ -382,17 +383,13 @@ describe("CodexChatView workspace restoration", () => {
       method: "turn/started",
       params: {
         threadId: "thread-1",
-        turn: {
-          rootTurnId: null,
+        turn: appServerTurnFixture({
           id: "turn-1",
           status: "inProgress",
           startedAt: 1,
-          completedAt: null,
-          durationMs: null,
-          error: null,
           itemsView: "full",
           items: [],
-        },
+        }),
       },
     } satisfies Extract<ServerNotification, { method: "turn/started" }>);
     expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: true });
@@ -422,17 +419,13 @@ describe("CodexChatView workspace restoration", () => {
       method: "turn/started",
       params: {
         threadId: "thread-1",
-        turn: {
-          rootTurnId: null,
+        turn: appServerTurnFixture({
           id: "turn-1",
           status: "inProgress",
           startedAt: 1,
-          completedAt: null,
-          durationMs: null,
-          error: null,
           itemsView: "full",
           items: [],
-        },
+        }),
       },
     } satisfies Extract<ServerNotification, { method: "turn/started" }>);
     expect(notifyPanelActivityChanged).not.toHaveBeenCalled();
@@ -460,17 +453,15 @@ describe("CodexChatView workspace restoration", () => {
       method: "turn/completed",
       params: {
         threadId: "thread-1",
-        turn: {
-          rootTurnId: null,
+        turn: appServerTurnFixture({
           id: "turn-1",
           status: "completed",
           startedAt: 1,
           completedAt: 2,
           durationMs: 1,
-          error: null,
           itemsView: "full",
           items: [],
-        },
+        }),
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
     expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();

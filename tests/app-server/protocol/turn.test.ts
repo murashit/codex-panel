@@ -8,6 +8,7 @@ import {
   type TurnRecord,
   transcriptEntriesFromTurnRecords,
 } from "../../../src/app-server/protocol/turn";
+import { appServerTurnFixture } from "../../support/app-server-records";
 
 describe("app-server turn records", () => {
   it("projects readable transcript entries without command log items", () => {
@@ -179,18 +180,13 @@ describe("app-server turn records", () => {
 });
 
 function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return {
-    rootTurnId: null,
+  return appServerTurnFixture({
     id: "turn",
     items,
     itemsView: "full",
     status: "completed",
-    error: null,
-    startedAt: null,
-    completedAt: null,
-    durationMs: null,
     ...overrides,
-  };
+  });
 }
 
 function userMessage(id: string, text: string): TurnItem {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { threadActivationSnapshotFromAppServerResponse } from "../../../src/app-server/services/threads";
 import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
 import type { ThreadResumeResponse } from "../../../src/generated/app-server/v2/ThreadResumeResponse";
+import { appServerThreadFixture } from "../../support/app-server-records";
 
 describe("app-server thread activation", () => {
   it("maps app-server activation responses into panel-owned snapshots", () => {
@@ -52,38 +53,20 @@ function responseFixture(thread: AppServerThread): ThreadResumeResponse {
 }
 
 function threadFixture(id: string, name: string): AppServerThread {
-  return {
+  return appServerThreadFixture({
     id,
-    extra: null,
-    environments: null,
-    originator: null,
-    daybreakEnabled: null,
     sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
     ephemeral: false,
     historyMode: "paginated",
-    projectId: null,
     modelProvider: "openai",
-    model: null,
-    reasoningEffort: null,
     createdAt: 1,
     updatedAt: 1,
-    recencyAt: null,
-    section: null,
-    sectionEnteredAt: null,
     status: { type: "idle" },
-    path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
     source: "unknown",
-    canAcceptDirectInput: null,
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name,
     turns: [],
-  };
+  });
 }

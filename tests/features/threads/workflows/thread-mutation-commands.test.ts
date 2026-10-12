@@ -12,6 +12,7 @@ import {
   type ThreadMutationCommandsHost,
 } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/preferences";
+import { appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred } from "../../../support/async";
 import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 
@@ -324,12 +325,10 @@ describe("ThreadMutationCommands", () => {
           thread: {
             ...archivedThread(),
             turns: [
-              {
-                rootTurnId: null,
+              appServerTurnFixture({
                 id: "turn",
                 itemsView: "full",
                 status: "completed",
-                error: null,
                 startedAt: 1,
                 completedAt: 2,
                 durationMs: 1,
@@ -344,7 +343,7 @@ describe("ThreadMutationCommands", () => {
                     ],
                   },
                 ],
-              },
+              }),
             ],
           },
         });

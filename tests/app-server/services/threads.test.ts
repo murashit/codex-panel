@@ -11,6 +11,7 @@ import {
   threadFromAppServerRecord,
   unsubscribeThread,
 } from "../../../src/app-server/services/threads";
+import { appServerTurnFixture } from "../../support/app-server-records";
 import { deferred } from "../../support/async";
 
 describe("app-server thread response adapters", () => {
@@ -352,17 +353,15 @@ function archiveThread(historyMode: unknown, turns: readonly TurnRecord[] = []):
 }
 
 function archiveTurn(id: string, items: readonly TurnItem[] = []): TurnRecord {
-  return {
-    rootTurnId: null,
+  return appServerTurnFixture({
     id,
     items: [...items],
     itemsView: items.length > 0 ? "full" : "notLoaded",
     status: "completed",
-    error: null,
     startedAt: 1,
     completedAt: 2,
     durationMs: 1_000,
-  };
+  });
 }
 
 function userMessage(id: string, text: string): TurnItem {
