@@ -15,17 +15,17 @@ Trace behavioral claims to real producers, user actions, or lifecycle paths, and
 
 ## Decide findings
 
-Accept a finding only when it has:
+For each candidate, first decide whether it is worth addressing before developing a detailed replacement:
 
-- Concrete implementation evidence and a supported expectation or engineering activity at stake.
-- A material present cost, constraint, or risk, with its consequence and recurrence explained.
-- A concrete replacement that improves the whole model after accounting for added state, coordination, lifecycle, UX, compatibility, and testing costs.
+- Establish the supported expected behavior and reachable path for a behavioral concern, or the concrete maintenance activity and cost for a structural concern. A reproduction establishes what happens under its assumptions, not whether that behavior is wrong or worth changing.
+- Identify the material consequence, constraint, or risk and its likelihood or recurrence from available evidence; state what remains unknown. Structural improvements need a demonstrated maintenance burden, not a user-visible defect.
+- Compare the strongest keep-current case with a plausible improvement and its likely costs. Use enough comparison to judge whether work is worthwhile; do not require a completed design at this point.
 
-Compare the strongest keep-current case with the proposed replacement through affected callers and contracts. Prefer the simplest coherent owner and end state; do not preserve material debt just to keep a fix local. Retain compatibility that belongs to the supported product.
+Use a fresh read-only subagent at this point to challenge material candidates' evidence, expected behavior, and value, including the keep-current case. Supply raw paths, product constraints, and these criteria without seeding the conclusion. Resolve disagreements against evidence. If independent review is unavailable or disproportionate, record why and perform a separate second pass.
 
-Classify candidates as accepted, rejected with clearing evidence, or unresolved with specific missing evidence. Reopen rejected candidates only for material new evidence. Investigation depth should follow consequence and uncertainty, not an exhaustive enumeration of possible edge cases.
+Develop a concrete replacement only for candidates whose value is supported. Trace it through affected callers and contracts, and accept the finding only if it improves the whole model after accounting for added state, coordination, lifecycle, UX, compatibility, and testing costs. Prefer the simplest coherent owner and end state; do not preserve material debt just to keep a fix local. Retain compatibility that belongs to the supported product. Have independent review challenge material architecture judgments as they emerge; the initial value assessment does not establish that the replacement is sound.
 
-Use a fresh read-only subagent to challenge material architecture judgments, including the keep-current case. Supply raw paths, product constraints, and these acceptance criteria without seeding the conclusion. Resolve disagreements against evidence. If independent review is unavailable or disproportionate, record why and perform a separate second pass.
+Classify candidates as accepted, rejected with reasons, or unresolved. Use unresolved only when evidence supports material importance and specific missing evidence prevents a decision; identify that evidence. Reject candidates when improvement value is unsupported and keeping the current design is reasonable. Reopen rejected candidates only for material new evidence. Investigation depth should follow consequence and uncertainty, not an exhaustive enumeration of possible edge cases.
 
 ## Deliverable
 
