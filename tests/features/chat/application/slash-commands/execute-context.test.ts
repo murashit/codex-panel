@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeContextSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-context";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 type ContextCommandContext = Parameters<typeof executeContextSlashCommand>[2];
 
@@ -32,16 +32,11 @@ function context(overrides: Partial<ContextCommandContext> = {}): ContextCommand
 }
 
 function thread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread-1",
     preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
   return {

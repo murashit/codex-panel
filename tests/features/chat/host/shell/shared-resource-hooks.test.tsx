@@ -3,7 +3,6 @@
 import type { ComponentChild } from "preact";
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
-
 import { diagnosticProbeError, diagnosticProbeOk } from "../../../../../src/domain/runtime/diagnostics";
 import type { SkillsMetadataResource } from "../../../../../src/domain/runtime/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
@@ -15,6 +14,7 @@ import {
 import type { ThreadCatalogPaginatedActiveReader } from "../../../../../src/features/threads/catalog/thread-catalog";
 import type { ObservedPaginatedResult } from "../../../../../src/shared/async/observed-result";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 describe("shared display resource hooks", () => {
   it("subscribes panels directly to requested resources while retaining last-known-good values", async () => {
@@ -167,13 +167,8 @@ function threadResult(value: readonly Thread[]): ObservedPaginatedResult<readonl
 }
 
 function thread(id: string): Thread {
-  return {
+  return panelThreadFixture({
     id,
     preview: id,
-    name: null,
-    archived: false,
-    createdAt: 1,
-    updatedAt: 1,
-    provenance: { kind: "interactive" },
-  };
+  });
 }

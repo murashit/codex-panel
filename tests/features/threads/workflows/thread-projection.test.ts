@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-
 import type { Thread } from "../../../../src/domain/threads/model";
 import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
+import { panelThreadFixture } from "../../../support/panel-thread";
 
 describe("thread projection", () => {
   it("projects an ordered fact batch without mutating its snapshots", () => {
@@ -85,15 +85,11 @@ describe("thread projection", () => {
 });
 
 function thread(id: string, archived = false): Thread {
-  return {
+  return panelThreadFixture({
     id,
     preview: id,
-    name: null,
     archived,
-    createdAt: 1,
-    updatedAt: 1,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 function subagent(id: string): Thread {

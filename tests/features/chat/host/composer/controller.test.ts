@@ -31,13 +31,13 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact
 import { deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { substringMatcher } from "../../application/composer/fuzzy-matcher.test-support";
-import { chatSharedResourcesFixture } from "../../support/shared-display-values";
+import { chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 installObsidianDomShims();
 
-const emptySharedResources = chatSharedResourcesFixture();
+const emptySharedResources = chatSharedDisplayValuesFixture();
 
 type ChatComposerRenderActions = Parameters<ChatComposerController["renderState"]>[1];
 

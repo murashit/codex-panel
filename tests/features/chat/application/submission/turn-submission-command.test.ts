@@ -8,7 +8,6 @@ import { activeThreadId, createChatState } from "../../../../../src/features/cha
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { SubmissionInput } from "../../../../../src/features/chat/application/submission/input-claim";
 import { localUserDialogueItemFromInput } from "../../../../../src/features/chat/application/submission/local-user-dialogue";
-
 import {
   createTurnSubmissionCommand,
   type TurnSubmissionCommandHost,
@@ -18,6 +17,7 @@ import { pendingWebSubmissionItem } from "../../../../../src/features/chat/appli
 import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
@@ -39,15 +39,11 @@ function claimedCommand(host: TurnSubmissionCommandHost) {
 }
 
 function thread(id: string): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
     createdAt: 0,
     updatedAt: 0,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 type TurnSubmissionHostOverrides = Partial<TurnSubmissionCommandHost>;

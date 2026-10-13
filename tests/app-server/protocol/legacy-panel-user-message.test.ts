@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import { legacyPanelUserMessageProjection } from "../../../src/app-server/protocol/legacy-panel-user-message";
 import {
   type TurnItem,
@@ -13,18 +12,15 @@ import type { TurnTranscriptSummary } from "../../../src/domain/threads/transcri
 import { threadStreamItemFromTurnItem } from "../../../src/features/chat/app-server/mappers/thread-stream/turn-items";
 import { archivedThreadMarkdown } from "../../../src/features/threads/workflows/archive-markdown";
 import { legacyTurnContextManifestText } from "../../support/legacy-turn-context-manifest";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "019abcde-0000-7000-8000-000000000001",
     preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
     name: "参照元",
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 
 function referencedThreadV1Fixture(thread: Thread, turns: readonly TurnTranscriptSummary[], userRequest: string): string {

@@ -12,9 +12,10 @@ import {
 } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
-import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "../../support/shared-display-values";
+import { type ChatSharedDisplayValues, chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture } from "../../support/state";
 
 describe("thread start commands", () => {
@@ -133,7 +134,7 @@ describe("thread start commands", () => {
   it("starts threads with service tier and permissions from effective config", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const config = runtimeConfigFixture();
-    const shared = chatSharedResourcesFixture({
+    const shared = chatSharedDisplayValuesFixture({
       runtimeConfig: {
         ...config,
         serviceTier: "flex",
@@ -191,7 +192,7 @@ function threadStartCommands(overrides: Pick<ThreadStartCommandHost, "stateStore
     createSideChat: vi.fn(),
     onThreadActivated: vi.fn(),
     hydrateCreatedFork: vi.fn(),
-    runtimeSnapshotForState: runtimeSnapshotForShared(chatSharedResourcesFixture()),
+    runtimeSnapshotForState: runtimeSnapshotForShared(chatSharedDisplayValuesFixture()),
     recordStartedThread: vi.fn(),
     ...overrides,
   });
@@ -207,17 +208,13 @@ function runtimeSnapshotForShared(shared: ChatSharedDisplayValues) {
 }
 
 function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     createdAt: 0,
     updatedAt: 0,
     recencyAt: null,
     ...overrides,
-  };
+  });
 }
 
 function activationFixture(thread: Thread, overrides: Partial<ThreadActivationSnapshot> = {}): ThreadActivationSnapshot {

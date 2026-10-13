@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute";
 import type { SlashCommandExecutionContext } from "../../../../../src/features/chat/application/slash-commands/execution-contracts";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {
@@ -53,16 +53,11 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
 }
 
 function thread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread-1",
     preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 describe("slash command validation and routing", () => {
   it("rejects arguments for a no-argument command from catalog metadata", async () => {

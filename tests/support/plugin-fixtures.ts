@@ -12,6 +12,7 @@ import type CodexPanelPlugin from "../../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/preferences";
 import { createKeyedOperationCoordinator } from "../../src/shared/async/keyed-operation-coordinator";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
+import { panelThreadFixture } from "./panel-thread";
 import { threadMutationCommandsMock } from "./thread-mutations";
 
 const { default: CodexPanelPluginClass } = await import("../../src/main");
@@ -234,15 +235,10 @@ export async function flushMicrotasks(): Promise<void> {
 }
 
 export function thread(id: string): Thread {
-  return {
+  return panelThreadFixture({
     id,
     preview: id,
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 export function panelSnapshot(overrides: PanelSnapshotFixtureOverrides = {}): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {

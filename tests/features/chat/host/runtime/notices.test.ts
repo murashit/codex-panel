@@ -1,20 +1,18 @@
 import { describe, expect, it } from "vitest";
-
-import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
 import { createServerDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
-import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/settings";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/host/runtime/notices";
-import { type ChatSharedDisplayValues, chatSharedResourcesFixture } from "../../support/shared-display-values";
+import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
+import { type ChatSharedDisplayValues, chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatPanelRuntimeNotices", () => {
   it("builds slash-command runtime details from panel state and shared resources", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    const shared = chatSharedResourcesFixture({
-      runtimeConfig: runtimeConfigFixture({
+    const shared = chatSharedDisplayValuesFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         model: "gpt-5.5",
         model_provider: "openai",
         model_reasoning_effort: "high",
@@ -85,7 +83,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(chatSharedResourcesFixture()),
+      sharedResources: runtimeShared(chatSharedDisplayValuesFixture()),
     });
 
     expect(projection.permissionDetails()).toEqual([
@@ -117,8 +115,8 @@ describe("createChatPanelRuntimeNotices", () => {
         },
       },
     });
-    const shared = chatSharedResourcesFixture({
-      runtimeConfig: runtimeConfigFixture({
+    const shared = chatSharedDisplayValuesFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         approvals_reviewer: "user",
         approval_policy: "on-request",
       }),
@@ -164,7 +162,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(chatSharedResourcesFixture()),
+      sharedResources: runtimeShared(chatSharedDisplayValuesFixture()),
     });
 
     expect(projection.permissionDetails()[0]?.auditFacts).toEqual([
@@ -215,7 +213,7 @@ describe("createChatPanelRuntimeNotices", () => {
       connected: () => true,
       configuredCommand: () => "codex",
       vaultPath: () => "/vault",
-      sharedResources: runtimeShared(chatSharedResourcesFixture(), inventory),
+      sharedResources: runtimeShared(chatSharedDisplayValuesFixture(), inventory),
     });
 
     expect(projection.connectionDiagnosticDetails()[0]).toMatchObject({
@@ -243,14 +241,6 @@ function runtimeShared(shared: ChatSharedDisplayValues, toolInventory: ToolInven
     metadataDiagnosticsSnapshot: () => shared.metadataDiagnostics ?? createServerDiagnostics(),
     toolInventorySnapshot: () => toolInventory,
   };
-}
-
-function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {
-  return runtimeConfigSnapshotFromAppServerConfig({
-    config: config as ConfigReadResult["config"],
-    origins: {},
-    layers: null,
-  });
 }
 
 function modelFixture(model: string): ModelMetadata {

@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
@@ -11,6 +10,7 @@ import { createThreadAutoTitleWork } from "../../../../../src/features/threads/w
 import type { ThreadMutationCommands } from "../../../../../src/features/threads/workflows/thread-mutation-commands";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/preferences";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
 
@@ -80,13 +80,8 @@ describe("chat thread foundation auto-title handoff", () => {
 });
 
 function threadFixture(): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread",
     preview: "Thread preview",
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-    createdAt: 1,
-    updatedAt: 1,
-  };
+  });
 }

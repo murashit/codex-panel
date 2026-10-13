@@ -14,6 +14,7 @@ import {
   type KeyedOperationCoordinator,
 } from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -927,15 +928,12 @@ function modelFixture(model: string, fastTierId: string): ModelMetadata {
 
 function reopenThread(store: ReturnType<typeof createChatStateStore>): void {
   store.dispatch({
-    ...threadActivationFixture({
-      id: "thread",
-      preview: "Thread",
-      createdAt: 1,
-      updatedAt: 1,
-      name: null,
-      archived: false,
-      provenance: { kind: "interactive" },
-    }),
+    ...threadActivationFixture(
+      panelThreadFixture({
+        id: "thread",
+        preview: "Thread",
+      }),
+    ),
     type: "active-thread/resumed",
   });
 }

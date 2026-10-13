@@ -1,5 +1,4 @@
 import { expect, vi } from "vitest";
-
 import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
@@ -13,6 +12,7 @@ import type { SettingsResources } from "../../src/settings/application/resources
 import type { SettingsTabHost } from "../../src/settings/host/contracts";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/preferences";
 import type { ObservedResult } from "../../src/shared/async/observed-result";
+import { panelThreadFixture } from "../support/panel-thread";
 
 type ContextClientOperation = (
   codexPath: string,
@@ -24,16 +24,11 @@ export const settingsContextClientMock = vi.fn<ContextClientOperation>(() => {
 });
 
 export function panelThread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
     preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 
 export function appServerThread(overrides: Partial<ThreadRecord> = {}): ThreadRecord {

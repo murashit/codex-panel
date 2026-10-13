@@ -4,6 +4,7 @@ import type { RuntimePermissionProfileSummary } from "../../../../../src/domain/
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { SlashCommandName } from "../../../../../src/features/chat/application/slash-commands/catalog";
 import { activeSlashCommandSuggestions } from "../../../../../src/features/chat/application/slash-commands/suggestions";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 function suggestions(
   beforeCursor: string,
@@ -34,16 +35,11 @@ function replacements(items: ReturnType<typeof suggestions>): string[] {
 }
 
 function thread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "019abcde-0000-7000-8000-000000000001",
     preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 
 function model(name: string, efforts: ReasoningEffort[], overrides: Partial<ModelMetadata> = {}): ModelMetadata {

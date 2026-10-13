@@ -14,6 +14,7 @@ import {
 } from "../../../../../src/features/chat/application/threads/resume-command";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 
 function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> = {}): ThreadResumeSnapshot {
@@ -298,15 +299,11 @@ describe("ResumeCommand", () => {
 });
 
 function panelThread(id: string): PanelThread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
     createdAt: 0,
     updatedAt: 0,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 function historyPage(items: ThreadStreamItem[], nextCursor: string | null): ThreadHistoryPage {

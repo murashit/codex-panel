@@ -22,7 +22,7 @@ import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread
 import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
-import { chatSharedResourcesFixture } from "../../support/shared-display-values";
+import { chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -30,7 +30,7 @@ import { pendingApproval } from "../../ui/thread-stream/rendering/test-helpers";
 
 installObsidianDomShims();
 
-const emptySharedResources = chatSharedResourcesFixture();
+const emptySharedResources = chatSharedDisplayValuesFixture();
 
 function renderThreadStreamSurface(
   parent: HTMLElement,

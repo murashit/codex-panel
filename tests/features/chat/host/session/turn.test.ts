@@ -7,6 +7,7 @@ import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/t
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
 import { createSessionTurn } from "../../../../../src/features/chat/host/session/turn";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 
 const composers: ChatComposerController[] = [];
@@ -284,15 +285,11 @@ function toolInventory(): ToolInventorySnapshot {
 }
 
 function thread(id: string): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
     createdAt: 0,
     updatedAt: 0,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items: readonly ThreadStreamItem[]): void {

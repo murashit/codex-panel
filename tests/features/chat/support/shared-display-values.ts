@@ -23,7 +23,7 @@ export interface ChatSharedDisplayValues {
   readonly toolInventory: ToolInventorySnapshot | null;
 }
 
-export function chatSharedResourcesFixture(patch: Partial<ChatSharedDisplayValues> = {}): ChatSharedDisplayValues {
+export function chatSharedDisplayValuesFixture(patch: Partial<ChatSharedDisplayValues> = {}): ChatSharedDisplayValues {
   return {
     threads: [],
     hasMoreThreads: false,

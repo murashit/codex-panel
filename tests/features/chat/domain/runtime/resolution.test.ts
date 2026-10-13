@@ -6,12 +6,13 @@ import {
 } from "../../../../../src/features/chat/domain/runtime/intent";
 import { resolveRuntimeControls } from "../../../../../src/features/chat/domain/runtime/resolution";
 import { serviceTierRequestForThreadStart } from "../../../../../src/features/chat/domain/runtime/thread-settings-patch";
-import { modelFixture, runtimeConfigFixture, runtimeSnapshot, snapshotConfig } from "./support";
+import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
+import { modelFixture, runtimeSnapshot, snapshotConfig } from "./support";
 
 describe("runtime control resolution", () => {
   it("falls back to startup permissions until active thread permissions are reported", () => {
     const configured = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         default_permissions: ":workspace",
         approval_policy: "on-request",
       }),
@@ -24,7 +25,7 @@ describe("runtime control resolution", () => {
 
     const activeUnreported = runtimeSnapshot({
       activeThreadId: "thread",
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         default_permissions: ":workspace",
         approval_policy: "on-request",
       }),
@@ -57,7 +58,7 @@ describe("runtime control resolution", () => {
 
     const approvalOnlyReported = runtimeSnapshot({
       activeThreadId: "thread",
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         default_permissions: ":workspace",
         approval_policy: "on-request",
       }),
@@ -74,7 +75,7 @@ describe("runtime control resolution", () => {
   });
 
   it("marks the sandbox policy pending and unknown when selecting a different permission profile", () => {
-    const runtimeConfig = runtimeConfigFixture({});
+    const runtimeConfig = runtimeConfigFromAppServerFixture({});
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       runtimeConfig: {
@@ -119,7 +120,7 @@ describe("runtime control resolution", () => {
       excludeTmpdirEnvVar: true,
       excludeSlashTmp: false,
     };
-    const runtimeConfig = runtimeConfigFixture({});
+    const runtimeConfig = runtimeConfigFromAppServerFixture({});
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       runtimeConfig: {
@@ -153,14 +154,14 @@ describe("runtime control resolution", () => {
     const requested = runtimeSnapshot({
       pending: { approvalsReviewer: setRuntimeIntentValue("user") },
       active: { approvalsReviewer: "auto_review" },
-      runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ approvals_reviewer: "guardian_subagent" }),
     });
     const active = runtimeSnapshot({
       active: { approvalsReviewer: "user" },
-      runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ approvals_reviewer: "guardian_subagent" }),
     });
     const configured = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ approvals_reviewer: "guardian_subagent" }),
     });
     const activeGuardian = runtimeSnapshot({
       active: { approvalsReviewer: "guardian_subagent" },
@@ -174,7 +175,7 @@ describe("runtime control resolution", () => {
 
   it("uses effective model, effort, and fast mode config values", () => {
     const snapshot = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         model: "gpt-profile",
         model_reasoning_effort: "high",
         service_tier: "fast",
@@ -200,7 +201,7 @@ describe("runtime control resolution", () => {
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       active: { model: "gpt-5.5", serviceTier: "priority" },
-      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
 
@@ -219,7 +220,7 @@ describe("runtime control resolution", () => {
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       active: { model: "gpt-5.5", serviceTier: "default" },
-      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
 
@@ -233,7 +234,7 @@ describe("runtime control resolution", () => {
     const snapshot = runtimeSnapshot({
       active: { serviceTier: "flex" },
       pending: { fastMode: setRuntimeIntentValue("disabled") },
-      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ service_tier: "fast" }),
     });
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
@@ -245,7 +246,7 @@ describe("runtime control resolution", () => {
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       active: { serviceTier: null },
-      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ service_tier: "fast" }),
     });
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
@@ -255,7 +256,7 @@ describe("runtime control resolution", () => {
 
   it("resolves all runtime controls through pending, active, and config layers", () => {
     const configured = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         model: "gpt-config",
         model_reasoning_effort: "medium",
         default_permissions: ":workspace",
@@ -345,7 +346,7 @@ describe("runtime control resolution", () => {
   it("reports collaboration mode dirtiness and missing model blockers from the resolved runtime", () => {
     const blocked = runtimeSnapshot({
       pending: { collaborationMode: setCollaborationModeIntent("plan") },
-      runtimeConfig: runtimeConfigFixture({}),
+      runtimeConfig: runtimeConfigFromAppServerFixture({}),
     });
     const ready = runtimeSnapshot({
       pending: {
@@ -373,7 +374,7 @@ describe("runtime control resolution", () => {
   it("uses the explicit config when finding supported reasoning efforts", () => {
     const snapshot = runtimeSnapshot({
       pending: { model: resetRuntimeIntentToConfig() },
-      runtimeConfig: runtimeConfigFixture({ model: "snapshot-model" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ model: "snapshot-model" }),
       availableModels: [
         {
           ...modelFixture("snapshot-model"),
@@ -385,7 +386,7 @@ describe("runtime control resolution", () => {
         },
       ],
     });
-    const explicitConfig = runtimeConfigFixture({ model: "explicit-model" });
+    const explicitConfig = runtimeConfigFromAppServerFixture({ model: "explicit-model" });
 
     expect(resolveRuntimeControls(snapshot, explicitConfig).supportedReasoningEfforts).toEqual(["high"]);
   });
@@ -398,7 +399,7 @@ describe("runtime control resolution", () => {
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       active: { model: "gpt-5.5", serviceTier },
-      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ model: "gpt-5.5" }),
       availableModels: [{ ...modelFixture("gpt-5.5"), serviceTiers }],
     });
 

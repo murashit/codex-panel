@@ -8,6 +8,7 @@ import {
   type EphemeralThreadEffects,
 } from "../../../../../src/features/chat/application/threads/ephemeral-thread-lifecycle";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 describe("ephemeral thread lifecycle", () => {
   it("returns the prepared fork without activating it", async () => {
@@ -296,15 +297,9 @@ function transportMock(): EphemeralThreadEffects {
 
 function activationFixture(overrides: Partial<ThreadActivationSnapshot> = {}): ThreadActivationSnapshot {
   return {
-    thread: {
+    thread: panelThreadFixture({
       id: "side",
-      preview: "",
-      name: null,
-      archived: false,
-      createdAt: 1,
-      updatedAt: 1,
-      provenance: { kind: "interactive" },
-    },
+    }),
     canAcceptDirectInput: null,
     model: "gpt-5.5",
     serviceTier: null,

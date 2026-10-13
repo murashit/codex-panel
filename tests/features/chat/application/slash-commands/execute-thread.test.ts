@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeThreadSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-thread";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 type ThreadContext = Parameters<typeof executeThreadSlashCommand>[2];
 
@@ -27,16 +27,11 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
 }
 
 function thread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread-1",
     preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 describe("thread slash commands", () => {
   it("resumes a thread by title argument without accepting ids", async () => {

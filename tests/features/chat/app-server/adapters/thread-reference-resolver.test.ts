@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { CodexInput } from "../../../../../src/domain/input/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { createThreadReferenceResolver } from "../../../../../src/features/chat/app-server/adapters/thread-reference-resolver";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
@@ -109,13 +109,8 @@ describe("thread reference resolver", () => {
 });
 
 function threadFixture(): Thread {
-  return {
+  return panelThreadFixture({
     id: "019abcde-0000-7000-8000-000000000001",
-    preview: "",
     name: "Other",
-    createdAt: 1,
-    updatedAt: 1,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
