@@ -5,6 +5,7 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { renderThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
 import { type ThreadsRowModel, type ThreadsViewPanelActivity, threadRows } from "../../../src/features/threads-view/state";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 installObsidianDomShims();
 
@@ -24,16 +25,10 @@ function panelActivity(overrides: Partial<ThreadsViewPanelActivity> = {}): Threa
 }
 
 function threadFixture(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread",
-    preview: "",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 
 function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {

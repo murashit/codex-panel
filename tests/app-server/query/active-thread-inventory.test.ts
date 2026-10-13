@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-
 import {
   type ActiveThreadData,
   activeThreadDataHasMore,
@@ -8,6 +7,7 @@ import {
   recentActiveThreadsFromData,
 } from "../../../src/app-server/query/active-thread-inventory";
 import type { Thread } from "../../../src/domain/threads/model";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("active thread inventory", () => {
   it("flattens pages, removes duplicate ids, and sorts by recency stably", () => {
@@ -107,16 +107,11 @@ function page(threads: readonly Thread[], nextCursor: string | null, fetchedSize
 }
 
 function thread(id: string, recencyAt: number): Thread {
-  return {
+  return panelThreadFixture({
     id,
     preview: id,
-    name: null,
-    archived: false,
-    createdAt: 1,
-    updatedAt: 1,
     recencyAt,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 function subagent(id: string, recencyAt: number): Thread {

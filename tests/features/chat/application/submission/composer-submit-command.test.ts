@@ -11,20 +11,17 @@ import { canSwitchToThread } from "../../../../../src/features/chat/application/
 import { chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
 import { appServerTurnFixture } from "../../../../support/app-server-records";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 function thread(id: string): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
     createdAt: 0,
     updatedAt: 0,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 function submissionClaim(

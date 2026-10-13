@@ -10,6 +10,7 @@ import { pendingWebSubmissionItem } from "../../../../../src/features/chat/appli
 import { activeTurnId, chatTurnBusy } from "../../../../../src/features/chat/application/turns/turn-state";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -806,15 +807,9 @@ function uiDisclosureCount(state: ChatState): number {
 }
 
 function thread(id: string): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 function resumedThreadAction(threadId: string) {

@@ -2,18 +2,15 @@ import { describe, expect, it } from "vitest";
 import { utf8ByteLength } from "../../../../../src/domain/text/text";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { referencedThreadContext } from "../../../../../src/features/chat/domain/threads/reference-context";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "019abcde-0000-7000-8000-000000000001",
     preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
     name: "参照元",
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 
 describe("thread reference context", () => {

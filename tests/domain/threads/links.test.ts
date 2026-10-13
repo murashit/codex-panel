@@ -1,8 +1,8 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-
 import { codexThreadIdFromHref, threadReferenceMarkdown } from "../../../src/domain/threads/links";
 import type { Thread } from "../../../src/domain/threads/model";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("Codex thread deep links", () => {
   it("round-trips encoded thread ids written to Markdown links", () => {
@@ -48,14 +48,8 @@ describe("Codex thread deep links", () => {
 });
 
 function thread(overrides: Partial<Thread>): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread",
-    preview: "",
-    name: null,
-    createdAt: 1,
-    updatedAt: 1,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }

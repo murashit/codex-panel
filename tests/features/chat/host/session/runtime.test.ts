@@ -20,15 +20,16 @@ import { DeferredTask } from "../../../../../src/shared/async/deferred-task";
 import { createKeyedOperationCoordinator } from "../../../../../src/shared/async/keyed-operation-coordinator";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
-import { chatSharedResourcesFixture } from "../../support/shared-display-values";
+import { chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
 
 installObsidianDomShims();
 
-const emptySharedResources = chatSharedResourcesFixture();
+const emptySharedResources = chatSharedDisplayValuesFixture();
 
 describe("chat panel session runtime", () => {
   let panelRoot: HTMLElement;
@@ -718,16 +719,10 @@ describe("chat panel session runtime", () => {
   }
 
   function threadFixture(overrides: Partial<Thread> = {}): Thread {
-    return {
+    return panelThreadFixture({
       id: "thread",
-      preview: "",
-      name: null,
-      archived: false,
-      provenance: { kind: "interactive" },
-      createdAt: 1,
-      updatedAt: 1,
       ...overrides,
-    };
+    });
   }
 
   function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {

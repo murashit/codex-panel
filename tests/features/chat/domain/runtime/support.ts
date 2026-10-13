@@ -1,8 +1,8 @@
-import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../../src/domain/runtime/settings";
 import { unchangedCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { RuntimeSnapshot } from "../../../../../src/features/chat/domain/runtime/snapshot";
+import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 
 interface RuntimeSnapshotPatch extends Partial<Omit<RuntimeSnapshot, "active" | "pending">> {
   active?: Partial<RuntimeSnapshot["active"]>;
@@ -12,7 +12,7 @@ interface RuntimeSnapshotPatch extends Partial<Omit<RuntimeSnapshot, "active" | 
 export function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot {
   const { active, pending, ...snapshotOverrides } = overrides;
   const snapshot: RuntimeSnapshot = {
-    runtimeConfig: runtimeConfigFixture({
+    runtimeConfig: runtimeConfigFromAppServerFixture({
       model: "gpt-5.5",
       model_reasoning_effort: "high",
       service_tier: "flex",
@@ -63,14 +63,6 @@ export function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSn
 
 export function snapshotConfig(snapshot: RuntimeSnapshot): RuntimeConfigSnapshot {
   return runtimeConfigOrDefault(snapshot.runtimeConfig);
-}
-
-export function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {
-  return runtimeConfigSnapshotFromAppServerConfig({
-    config: config as ConfigReadResult["config"],
-    origins: {},
-    layers: null,
-  });
 }
 
 export function modelFixture(model: string): ModelMetadata {

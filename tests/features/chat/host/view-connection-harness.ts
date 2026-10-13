@@ -18,6 +18,7 @@ import { createKeyedOperationCoordinator } from "../../../../src/shared/async/ke
 import { notices } from "../../../mocks/obsidian";
 import { appServerTurnFixture } from "../../../support/app-server-records";
 import { installObsidianDomShims } from "../../../support/dom";
+import { panelThreadFixture } from "../../../support/panel-thread";
 import { threadMutationCommandsMock } from "../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../support/settings";
 
@@ -259,16 +260,10 @@ export function threadFixture(threadId: string): ThreadRecord {
 }
 
 export function panelThread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread-1",
-    preview: "",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 
 export function turnWithUserMessage(text: string) {

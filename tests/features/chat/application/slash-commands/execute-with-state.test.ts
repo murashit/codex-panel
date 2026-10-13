@@ -11,20 +11,18 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { submitComposer } from "../../../../../src/features/chat/application/submission/composer-submit-command";
 import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 function thread(id: string, name: string | null = null): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
     createdAt: 0,
     updatedAt: 0,
     name,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 type PanelSlashCommandHostOverrides = Partial<PanelSlashCommandHost>;

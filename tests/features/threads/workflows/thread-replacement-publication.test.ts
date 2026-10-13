@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-
 import { applyThreadCatalogChange, threadCatalogChangeList } from "../../../../src/domain/threads/catalog";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
+import { panelThreadFixture } from "../../../support/panel-thread";
 
 describe("thread replacement visibility", () => {
   it("keeps replacement activity on the source row until the replacement is visible", () => {
@@ -186,14 +186,8 @@ function visibleCatalogPublication(): {
 }
 
 function thread(id: string, overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }

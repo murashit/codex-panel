@@ -1,10 +1,10 @@
+import { panelThreadFixture } from "../../../../support/panel-thread";
+import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 // @vitest-environment jsdom
 
 import { type ComponentChild, h } from "preact";
 import { describe, expect, it, vi } from "vitest";
-import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
-import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/settings";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
@@ -37,7 +37,7 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact
 import { installObsidianDomShims } from "../../../../support/dom";
 import {
   type ChatSharedDisplayValues,
-  chatSharedResourcesFixture,
+  chatSharedDisplayValuesFixture,
   composerSharedValues,
   threadStreamSharedValues,
   toolbarSharedValues,
@@ -48,7 +48,7 @@ import { withChatStateStableThreadStreamItems } from "../../support/thread-strea
 
 installObsidianDomShims();
 
-const emptySharedResources = chatSharedResourcesFixture();
+const emptySharedResources = chatSharedDisplayValuesFixture();
 
 const selectChatPanelToolbar = (state: ChatState, shared: ChatSharedDisplayValues) =>
   selectChatPanelToolbarFromResources(state, toolbarSharedValues(shared));
@@ -60,7 +60,7 @@ const selectChatPanelComposer = (state: ChatState, shared: ChatSharedDisplayValu
 describe("chat panel projection integration", () => {
   it("uses replacement visibility only for the selected toolbar row", () => {
     let state = chatStateFixture({ activeThread: { id: "replacement" } });
-    const shared = chatSharedResourcesFixture({ threads: [threadFixture("source", "Source")] });
+    const shared = chatSharedDisplayValuesFixture({ threads: [threadFixture("source", "Source")] });
     state = chatStateWith(state, {
       activeTurn: { lifecycle: { kind: "running", turnId: "turn" } },
       ui: { toolbarPanel: "history" },
@@ -103,7 +103,7 @@ describe("chat panel projection integration", () => {
 
   it("disables archive only for the busy target thread", () => {
     let state = chatStateFixture({ activeThread: { id: "thread" } });
-    const shared = chatSharedResourcesFixture({
+    const shared = chatSharedDisplayValuesFixture({
       threads: [threadFixture("thread", "Thread"), threadFixture("other", "Other")],
     });
     state = chatStateWith(state, {
@@ -129,7 +129,7 @@ describe("chat panel projection integration", () => {
 
   it("disables other rename actions while a rename save is pending", () => {
     let state = chatStateFixture({ activeThread: { id: "thread" } });
-    const shared = chatSharedResourcesFixture({
+    const shared = chatSharedDisplayValuesFixture({
       threads: [threadFixture("thread", "Thread"), threadFixture("other", "Other")],
     });
     state = chatStateWith(state, {
@@ -323,7 +323,7 @@ describe("chat panel projection integration", () => {
 
   it("resolves persisted reference titles from the thread catalog", () => {
     let state = chatStateFixture();
-    const shared = chatSharedResourcesFixture({
+    const shared = chatSharedDisplayValuesFixture({
       threads: [
         {
           id: "thread-reference",
@@ -412,8 +412,8 @@ describe("chat panel projection integration", () => {
   it("renders new thread permission baseline in the status panel before a thread is active", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { ui: { toolbarPanel: "status-panel" } });
-    const shared = chatSharedResourcesFixture({
-      runtimeConfig: runtimeConfigFixture({
+    const shared = chatSharedDisplayValuesFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         default_permissions: ":workspace",
         approval_policy: "on-request",
         approvals_reviewer: "user",
@@ -449,7 +449,7 @@ describe("chat panel projection integration", () => {
 
   it("projects usage-limit reset labels from the supplied current time", () => {
     const state = chatStateFixture();
-    const shared = chatSharedResourcesFixture({
+    const shared = chatSharedDisplayValuesFixture({
       rateLimit: {
         limitId: "codex",
         limitName: "Codex",
@@ -469,8 +469,8 @@ describe("chat panel projection integration", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
-    const shared = chatSharedResourcesFixture({
-      runtimeConfig: runtimeConfigFixture({
+    const shared = chatSharedDisplayValuesFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         model: "gpt-5.5",
         model_reasoning_effort: "minimal",
         approvals_reviewer: "auto_review",
@@ -523,7 +523,7 @@ describe("chat panel projection integration", () => {
         role: "assistant",
       },
     ]);
-    const shared = chatSharedResourcesFixture({ runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }) });
+    const shared = chatSharedDisplayValuesFixture({ runtimeConfig: runtimeConfigFromAppServerFixture({ model: "gpt-5.5" }) });
 
     expect(composerProjectionFromState(composerProjectionActionsFixture(), state, shared).meta).toMatchObject({
       fatal: null,
@@ -610,8 +610,8 @@ describe("chat panel projection integration", () => {
 
   it("builds runtime composer choices from a shared resource snapshot", () => {
     const state = chatStateFixture();
-    const shared = chatSharedResourcesFixture({
-      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" }),
+    const shared = chatSharedDisplayValuesFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({ model: "gpt-5.5", model_reasoning_effort: "high" }),
       availableModels: [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")],
     });
     const selectedModels: string[] = [];
@@ -727,7 +727,7 @@ describe("chat panel projection integration", () => {
   it("derives composer placeholders", () => {
     let activeState = chatStateFixture();
     activeState = chatStateWith(activeState, { activeThread: { id: "thread-1" } });
-    const shared = chatSharedResourcesFixture({ threads: [threadFixture("thread-1", "Active")] });
+    const shared = chatSharedDisplayValuesFixture({ threads: [threadFixture("thread-1", "Active")] });
 
     expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState, shared).placeholder).toBe(
       "Ask Codex in “Active”...",
@@ -958,24 +958,11 @@ function composerProjectionActionsFixture(overrides: Partial<ChatPanelComposerRu
   };
 }
 
-function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {
-  return runtimeConfigSnapshotFromAppServerConfig({
-    config: config as ConfigReadResult["config"],
-    origins: {},
-    layers: null,
-  });
-}
-
 function threadFixture(id: string, name: string | null): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
-    createdAt: 1,
-    updatedAt: 1,
     name,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 function modelFixture(model: string, fastTierId?: string): ModelMetadata {

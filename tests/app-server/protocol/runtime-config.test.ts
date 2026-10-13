@@ -34,12 +34,12 @@ describe("runtime config protocol mapping", () => {
     { mode: "danger-full-access", expected: { type: "dangerFullAccess" } },
     { mode: "read-only", expected: { type: "readOnly", networkAccess: false } },
   ])("maps the $mode sandbox policy", ({ mode, expected }) => {
-    expect(runtimeConfigFixture({ sandbox_mode: mode }).startupPermissions.sandboxPolicy).toEqual(expected);
+    expect(runtimeConfigFromAppServerFixture({ sandbox_mode: mode }).startupPermissions.sandboxPolicy).toEqual(expected);
   });
 
   it("keeps startup permission defaults in the runtime config snapshot", () => {
     expect(
-      runtimeConfigFixture({
+      runtimeConfigFromAppServerFixture({
         default_permissions: ":workspace",
         approval_policy: "on-request",
         approvals_reviewer: "auto_review",
@@ -56,7 +56,7 @@ describe("runtime config protocol mapping", () => {
 
   it("keeps default permissions separate from legacy sandbox fields", () => {
     expect(
-      runtimeConfigFixture({
+      runtimeConfigFromAppServerFixture({
         default_permissions: "DevProfile",
         approval_policy: "on-request",
         sandbox_mode: "workspace-write",
@@ -78,7 +78,7 @@ describe("runtime config protocol mapping", () => {
 
   it.each([false, true])("preserves legacy workspace sandbox flags set to %s when no permission profile is reported", (enabled) => {
     expect(
-      runtimeConfigFixture({
+      runtimeConfigFromAppServerFixture({
         approval_policy: "on-request",
         sandbox_mode: "workspace-write",
         sandbox_workspace_write: {
@@ -104,7 +104,7 @@ describe("runtime config protocol mapping", () => {
   });
 
   it.each(["untrusted", "on-request", "never"] as const)("normalizes the %s startup approval policy", (approvalPolicy) => {
-    expect(runtimeConfigFixture({ approval_policy: approvalPolicy }).startupPermissions.approvalPolicy).toBe(approvalPolicy);
+    expect(runtimeConfigFromAppServerFixture({ approval_policy: approvalPolicy }).startupPermissions.approvalPolicy).toBe(approvalPolicy);
   });
 
   it.each([
@@ -114,7 +114,7 @@ describe("runtime config protocol mapping", () => {
     { name: "empty object", approvalPolicy: {} },
     { name: "non-object granular value", approvalPolicy: { granular: "all" } },
   ])("rejects an invalid startup approval policy: $name", ({ approvalPolicy }) => {
-    expect(runtimeConfigFixture({ approval_policy: approvalPolicy }).startupPermissions.approvalPolicy).toBeNull();
+    expect(runtimeConfigFromAppServerFixture({ approval_policy: approvalPolicy }).startupPermissions.approvalPolicy).toBeNull();
   });
 
   it.each([
@@ -171,7 +171,7 @@ describe("runtime config protocol mapping", () => {
     },
   ])("normalizes every granular approval policy flag for $name", ({ granular, expected }) => {
     expect(
-      runtimeConfigFixture({
+      runtimeConfigFromAppServerFixture({
         approval_policy: { granular },
       }).startupPermissions.approvalPolicy,
     ).toEqual({
@@ -180,7 +180,7 @@ describe("runtime config protocol mapping", () => {
   });
 });
 
-function runtimeConfigFixture(config: Record<string, unknown>) {
+function runtimeConfigFromAppServerFixture(config: Record<string, unknown>) {
   return runtimeConfigSnapshotFromAppServerConfig({
     config: config as ConfigReadResult["config"],
     origins: {},

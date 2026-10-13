@@ -11,6 +11,7 @@ import {
 } from "../../../../../src/features/chat/application/threads/goal-commands";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -391,15 +392,12 @@ function completed<T>(value: T): EffectOutcome<T> {
 
 function reopenThread(store: ReturnType<typeof createChatStateStore>): void {
   store.dispatch({
-    ...threadActivationFixture({
-      id: "thread",
-      preview: "Thread",
-      createdAt: 1,
-      updatedAt: 1,
-      name: null,
-      archived: false,
-      provenance: { kind: "interactive" },
-    }),
+    ...threadActivationFixture(
+      panelThreadFixture({
+        id: "thread",
+        preview: "Thread",
+      }),
+    ),
     type: "active-thread/resumed",
   });
 }

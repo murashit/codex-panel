@@ -16,8 +16,9 @@ import { resolveRuntimeControls } from "../../../../../src/features/chat/domain/
 import { pendingRuntimeSettingsPatch } from "../../../../../src/features/chat/domain/runtime/thread-settings-patch";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
+import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
-import { runtimeConfigFixture } from "../../domain/runtime/support";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
@@ -393,7 +394,7 @@ describe("thread management commands", () => {
                 collaborationMode: { kind: "set", value: "default" },
               },
       });
-    const config = runtimeConfigFixture({
+    const config = runtimeConfigFromAppServerFixture({
       model: "configured-model",
       model_reasoning_effort: "high",
       default_permissions: ":workspace",
@@ -557,16 +558,12 @@ function hostMock({
   };
 }
 function panelThread(id: string, overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id,
-    preview: "",
     createdAt: 0,
     updatedAt: 0,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }
 
 function completed<T>(value: T): EffectOutcome<T> {

@@ -8,6 +8,7 @@ import {
   type ThreadRenameEditorActionsHost,
 } from "../../../../../src/features/chat/host/session/rename-editor";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 describe("ThreadRenameEditorActions", () => {
   it("edits and cancels a panel rename draft", () => {
@@ -343,15 +344,10 @@ function actionsFixture(
 }
 
 function threadFixture(id: string): Thread {
-  return {
+  return panelThreadFixture({
     id,
     preview: "Thread preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
 
 async function flushPromises(): Promise<void> {

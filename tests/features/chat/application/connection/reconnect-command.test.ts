@@ -8,6 +8,7 @@ import { activeThreadId, createChatState } from "../../../../../src/features/cha
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ActiveThreadResumedAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { deferred } from "../../../../support/async";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 
 function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -250,14 +251,8 @@ function resumeSideThread(stateStore: ReturnType<typeof createChatStateStore>): 
 }
 
 function threadFixture(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread",
-    preview: "",
-    name: null,
-    archived: false,
-    createdAt: 1,
-    updatedAt: 1,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }

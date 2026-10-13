@@ -10,7 +10,8 @@ import {
   permissionProfileRequestForThreadStart,
   serviceTierRequestForThreadStart,
 } from "../../../../../src/features/chat/domain/runtime/thread-settings-patch";
-import { modelFixture, runtimeConfigFixture, runtimeSnapshot, snapshotConfig } from "./support";
+import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
+import { modelFixture, runtimeSnapshot, snapshotConfig } from "./support";
 
 describe("runtime thread settings patch", () => {
   it("keeps permission display scope separate from pending permission source", () => {
@@ -44,7 +45,7 @@ describe("runtime thread settings patch", () => {
   it("resolves permission profile reset intent back to legacy sandbox config", () => {
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         sandbox_mode: "workspace-write",
         sandbox_workspace_write: {
           writable_roots: ["/vault"],
@@ -80,7 +81,7 @@ describe("runtime thread settings patch", () => {
 
   it("selects config permission profiles for empty-panel thread starts", () => {
     const configured = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         default_permissions: ":workspace",
       }),
     });
@@ -88,7 +89,7 @@ describe("runtime thread settings patch", () => {
     expect(permissionProfileRequestForThreadStart(configured, snapshotConfig(configured))).toBe(":workspace");
 
     const pending = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         default_permissions: ":workspace",
       }),
       pending: { permissionProfile: setRuntimeIntentValue(":read-only") },
@@ -97,7 +98,7 @@ describe("runtime thread settings patch", () => {
     expect(permissionProfileRequestForThreadStart(pending, snapshotConfig(pending))).toBe(":read-only");
 
     const legacySandbox = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         sandbox_mode: "workspace-write",
       }),
     });
@@ -155,7 +156,7 @@ describe("runtime thread settings patch", () => {
     const snapshot = runtimeSnapshot({
       active: { model: "gpt-5-active" },
       pending: { model: resetRuntimeIntentToConfig() },
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         model_reasoning_effort: "high",
         service_tier: "flex",
         model_context_window: 100_000,
@@ -197,7 +198,7 @@ describe("runtime thread settings patch", () => {
 
   it("preserves other settings while warning that Plan mode has no effective model", () => {
     const snapshot = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({}),
+      runtimeConfig: runtimeConfigFromAppServerFixture({}),
       pending: {
         collaborationMode: setCollaborationModeIntent("plan"),
         approvalsReviewer: setRuntimeIntentValue("auto_review"),
@@ -213,12 +214,12 @@ describe("runtime thread settings patch", () => {
   it("uses the explicit config for collaboration mode thread settings", () => {
     const snapshot = runtimeSnapshot({
       pending: { collaborationMode: setCollaborationModeIntent("plan") },
-      runtimeConfig: runtimeConfigFixture({
+      runtimeConfig: runtimeConfigFromAppServerFixture({
         model: "snapshot-model",
         model_reasoning_effort: "low",
       }),
     });
-    const explicitConfig = runtimeConfigFixture({
+    const explicitConfig = runtimeConfigFromAppServerFixture({
       model: "explicit-model",
       model_reasoning_effort: "high",
     });
@@ -248,7 +249,7 @@ describe("runtime thread settings patch", () => {
     const activeRuntimeSnapshot = runtimeSnapshot({
       pending: { collaborationMode: setCollaborationModeIntent("plan") },
       active: { model: "gpt-5-active", serviceTier: "fast" },
-      runtimeConfig: runtimeConfigFixture({}),
+      runtimeConfig: runtimeConfigFromAppServerFixture({}),
     });
 
     expect(pendingRuntimeSettingsPatch(reviewerSnapshot, snapshotConfig(reviewerSnapshot))).toMatchObject({
@@ -289,7 +290,7 @@ describe("runtime thread settings patch", () => {
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       active: { model: "gpt-5-active", serviceTier: "fast" },
-      runtimeConfig: runtimeConfigFixture({}),
+      runtimeConfig: runtimeConfigFromAppServerFixture({}),
     });
 
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
@@ -302,7 +303,7 @@ describe("runtime thread settings patch", () => {
 
   it("serializes disabled Fast mode as a null service tier request", () => {
     const snapshot = runtimeSnapshot({
-      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ service_tier: "fast" }),
       pending: { fastMode: setRuntimeIntentValue("disabled") },
     });
 
@@ -320,7 +321,7 @@ describe("runtime thread settings patch", () => {
     };
     const snapshot = runtimeSnapshot({
       pending: { fastMode: setRuntimeIntentValue("enabled") },
-      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
+      runtimeConfig: runtimeConfigFromAppServerFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
 
@@ -336,13 +337,13 @@ describe("runtime thread settings patch", () => {
   });
 
   it("omits service tier when neither config nor pending intent selects one", () => {
-    const snapshot = runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({}) });
+    const snapshot = runtimeSnapshot({ runtimeConfig: runtimeConfigFromAppServerFixture({}) });
 
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBeUndefined();
   });
 
   it("passes through configured non-fast service tier ids", () => {
-    const snapshot = runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({ service_tier: "flex" }) });
+    const snapshot = runtimeSnapshot({ runtimeConfig: runtimeConfigFromAppServerFixture({ service_tier: "flex" }) });
 
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 

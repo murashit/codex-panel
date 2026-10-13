@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-
 import { explicitThreadName, type Thread, threadRecencyAt } from "../../../src/domain/threads/model";
 import { threadDisplayTitle, threadMeaningfulTitle, threadRenameDraftTitle, threadWindowTitle } from "../../../src/domain/threads/title";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("thread helpers", () => {
   it("resolves meaningful titles from explicit names, then previews, without id fallbacks", () => {
@@ -57,14 +57,8 @@ describe("thread helpers", () => {
 });
 
 function thread(overrides: Partial<Thread> = {}): Thread {
-  return {
+  return panelThreadFixture({
     id: "thread-1",
-    preview: "",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
     ...overrides,
-  };
+  });
 }

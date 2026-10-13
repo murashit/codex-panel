@@ -10,10 +10,10 @@ import { selectChatPanelComposer } from "../../../../../src/features/chat/host/c
 import { useChatSelector } from "../../../../../src/features/chat/host/shell/state-selector";
 import { selectChatPanelToolbar } from "../../../../../src/features/chat/host/toolbar/view-projection";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
-import { chatSharedResourcesFixture, composerSharedValues, toolbarSharedValues } from "../../support/shared-display-values";
+import { chatSharedDisplayValuesFixture, composerSharedValues, toolbarSharedValues } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
-const shared = chatSharedResourcesFixture();
+const shared = chatSharedDisplayValuesFixture();
 const composerSelector = (state: ChatState) => selectChatPanelComposer(state, composerSharedValues(shared));
 
 describe("useChatSelector", () => {
