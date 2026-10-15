@@ -6,7 +6,20 @@ workflows:
     '.github/workflows/check.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.0.0'
+    '.github/workflows/mutation.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'actions/setup-node@v7.0.0'
+        - 'actions/upload-artifact@v7.0.1'
+    '.github/workflows/release.yml':
+        - 'actions/attest@v4.2.2'
+        - 'actions/checkout@v7.0.1'
+        - 'actions/setup-node@v7.0.0'
 dependencies:
+    'actions/attest@v4.2.2':
+        ref: 'v4.2.2'
+        commit: 'sha1-1e69f48acb82d1966a394da916b4c1698aa569d6'
+        owner_id: 44036562
+        repo_id: 760701061
     'actions/checkout@v7.0.1':
         ref: 'v7.0.1'
         commit: 'sha1-3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -17,3 +30,8 @@ dependencies:
         commit: 'sha1-820762786026740c76f36085b0efc47a31fe5020'
         owner_id: 44036562
         repo_id: 189476904
+    'actions/upload-artifact@v7.0.1':
+        ref: 'v7.0.1'
+        commit: 'sha1-043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+        owner_id: 44036562
+        repo_id: 192625955
