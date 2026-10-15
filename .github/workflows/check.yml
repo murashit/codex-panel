@@ -26,12 +26,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify Check workflow dependencies
+      - name: Verify workflow dependencies
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh extension install github/gh-actions-lock --pin v0.2.0
-          gh actions-lock --verify .github/workflows/check.yml
+          gh actions-lock --verify
 
       - name: Fetch commit range base
         run: |
