@@ -177,12 +177,6 @@ describe("chatReducer", () => {
       clientId: "local-steer",
       contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
       referencedFiles: [{ name: "Note.md", path: "/vault/Note.md" }],
-      referencedThread: {
-        threadId: "referenced-thread",
-        title: "Referenced",
-        includedTurns: 1,
-        turnLimit: 20,
-      },
     };
 
     const next = chatReducer(state, {

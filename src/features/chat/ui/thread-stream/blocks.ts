@@ -18,7 +18,6 @@ interface ThreadStreamBlockProjectionInput {
   activeTurnId: string | null;
   historyCursor: string | null;
   loadingHistory: boolean;
-  referenceTitles?: ReadonlyMap<string, string>;
   items: readonly ThreadStreamItem[];
   stableItems: readonly ThreadStreamItem[];
   activeItems: readonly ThreadStreamItem[];
@@ -31,14 +30,6 @@ interface ThreadStreamBlockProjectionInput {
 }
 
 export function threadStreamViewBlocks(input: ThreadStreamBlockProjectionInput): ThreadStreamViewBlock[] {
-  if (input.referenceTitles) {
-    input = {
-      ...input,
-      items: resolvedReferenceTitles(input.items, input.referenceTitles),
-      stableItems: resolvedReferenceTitles(input.stableItems, input.referenceTitles),
-      activeItems: resolvedReferenceTitles(input.activeItems, input.referenceTitles),
-    };
-  }
   const headerBlocks = historyViewBlocks(input);
   if (input.stableItems.length === 0 && input.activeItems.length === 0 && !input.authRecovery) {
     return [...headerBlocks, { kind: "empty", key: "empty" }];
@@ -194,15 +185,4 @@ function statusViewContext(input: ThreadStreamBlockProjectionInput): ThreadStrea
     items: input.items,
     activeItems: input.activeItems,
   };
-}
-
-function resolvedReferenceTitles(
-  items: readonly ThreadStreamItem[],
-  titleByThreadId: ReadonlyMap<string, string>,
-): readonly ThreadStreamItem[] {
-  return items.map((item) => {
-    if (item.kind !== "dialogue" || !item.referencedThread) return item;
-    const title = titleByThreadId.get(item.referencedThread.threadId);
-    return title ? { ...item, referencedThread: { ...item.referencedThread, title } } : item;
-  });
 }

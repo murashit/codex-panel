@@ -63,43 +63,12 @@ function transcriptMarkdownLines(entries: readonly ThreadTranscriptEntry[]): str
 
 function markdownLinesFromTranscriptEntry(entry: ThreadTranscriptEntry): string[] {
   switch (entry.kind) {
-    case "user": {
-      const heading = timestampedHeading("User", entry.timestamp);
-      return [
-        heading,
-        "",
-        entry.text,
-        "",
-        ...(entry.referencedThread
-          ? [
-              `> Referenced: ${entry.referencedThread.title} (${String(entry.referencedThread.includedTurns)}/${String(entry.referencedThread.turnLimit)} turns${entry.referencedThread.truncated ? ", truncated" : ""}, ${entry.referencedThread.threadId})`,
-              "",
-            ]
-          : []),
-        ...(entry.contexts ?? []).flatMap((context) => [`> Context: ${archiveContextLabel(context, entry.text)}`, ""]),
-      ];
-    }
+    case "user":
+      return [timestampedHeading("User", entry.timestamp), "", entry.text, ""];
     case "assistant":
       return [timestampedHeading("Codex", entry.timestamp), "", entry.text, ""];
     case "plan":
       return [timestampedHeading("Proposed plan", entry.timestamp), "", entry.text, ""];
-  }
-}
-
-function archiveContextLabel(context: NonNullable<ThreadTranscriptEntry["contexts"]>[number], visibleText: string): string {
-  const truncated = context.truncated ? " (truncated)" : "";
-  if (context.kind === "obsidian") return `Obsidian context${truncated}`;
-  const url = visibleWebUrl(visibleText);
-  return `Web page${truncated}${url ? ` (${url})` : ""}`;
-}
-
-function visibleWebUrl(text: string): string | null {
-  const firstToken = text.trim().split(/\s+/, 1)[0] ?? "";
-  try {
-    const parsed = new URL(firstToken);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
-  } catch {
-    return null;
   }
 }
 

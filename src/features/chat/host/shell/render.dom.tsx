@@ -107,7 +107,7 @@ function ChatPanelShell({
         <div className="codex-panel__region codex-panel__region--goal">
           <ChatPanelGoalRegion stateStore={stateStore} threadGoalQueries={threadGoalQueries} dependencies={parts.goal} />
         </div>
-        <ChatPanelThreadStreamRegion stateStore={stateStore} threadCatalog={threadCatalog} dependencies={parts.threadStream} />
+        <ChatPanelThreadStreamRegion stateStore={stateStore} dependencies={parts.threadStream} />
         <div className="codex-panel__region codex-panel__region--composer">
           <ChatPanelComposerRegion
             stateStore={stateStore}
@@ -203,19 +203,12 @@ function selectThreadGoalKey(state: ChatState): { threadId: string | null; enabl
 
 function ChatPanelThreadStreamRegion({
   stateStore,
-  threadCatalog,
   dependencies,
 }: {
   stateStore: ChatStateStore;
-  threadCatalog: ThreadCatalogPaginatedActiveReader;
   dependencies: ChatPanelShellParts["threadStream"];
 }): UiNode {
-  const activeThreads = useActiveThreadsResource(threadCatalog);
-  const selector = useMemo(
-    () => (state: ChatState) => selectChatPanelThreadStream(state, { threads: activeThreads.threads }),
-    [activeThreads.threads],
-  );
-  const model = useChatSelector(stateStore, selector);
+  const model = useChatSelector(stateStore, selectChatPanelThreadStream);
   return useMemo(() => {
     const projection = projectThreadStream(model, dependencies.context);
     return (

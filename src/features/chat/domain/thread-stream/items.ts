@@ -1,4 +1,3 @@
-import type { ReferencedThreadMetadata } from "../../../../domain/threads/transcript";
 import type { AgentCoordinationUpdate } from "./agent-coordination";
 import type { ThreadStreamItemProvenance } from "./provenance";
 
@@ -124,7 +123,6 @@ interface ThreadStreamDialogueBase extends ThreadStreamBase {
   readonly text: string;
   readonly clientId?: string;
   readonly copyText?: string;
-  readonly referencedThread?: ReferencedThreadMetadata;
   readonly referencedFiles?: readonly ThreadStreamFileReference[];
   readonly contextAttachments?: readonly ThreadStreamContextAttachment[];
 }

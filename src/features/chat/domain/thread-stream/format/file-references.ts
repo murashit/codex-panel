@@ -7,7 +7,7 @@ export function fileReferencesFromInput(input: readonly CodexInputItem[]): Threa
   return threadStreamFileReferences(input.flatMap((item) => (item.type === "fileReference" ? [{ name: item.name, path: item.path }] : [])));
 }
 
-export function threadStreamFileReferences(references: readonly VaultFileReference[]): ThreadStreamFileReference[] {
+function threadStreamFileReferences(references: readonly VaultFileReference[]): ThreadStreamFileReference[] {
   const seenFilePaths = new Set<string>();
   const seenActiveNotePaths = new Set<string>();
   const fileReferences: ThreadStreamFileReference[] = [];

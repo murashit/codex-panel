@@ -125,34 +125,6 @@ describe("thread archive export", () => {
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 
-  it("renders persisted v2 reference metadata without embedding its payload", () => {
-    const entry = transcriptEntry("user", "続きです", 1);
-    entry.referencedThread = {
-      threadId: "thread-ref",
-      title: "thread-r",
-      includedTurns: 2,
-      turnLimit: 20,
-      omittedTurns: 3,
-      truncated: true,
-    };
-    const output = archivedThreadMarkdown(thread({ transcriptEntries: [entry] }), new Date(2026, 4, 18));
-
-    expect(output).toContain("続きです");
-    expect(output).toContain("> Referenced: thread-r (2/20 turns, truncated, thread-ref)");
-  });
-
-  it("renders persisted web and Obsidian context metadata", () => {
-    const entry = transcriptEntry("user", "https://example.com/article summarize", 1);
-    entry.contexts = [
-      { kind: "web", truncated: true },
-      { kind: "obsidian", truncated: false },
-    ];
-    const output = archivedThreadMarkdown(thread({ transcriptEntries: [entry] }), new Date(2026, 4, 18));
-
-    expect(output).toContain("> Context: Web page (truncated) (https://example.com/article)");
-    expect(output).toContain("> Context: Obsidian context");
-  });
-
   it("omits frontmatter tags when archive tags are empty", () => {
     const output = archivedThreadMarkdown(thread(), new Date(2026, 4, 18), { archiveExportTags: " , # , " });
 

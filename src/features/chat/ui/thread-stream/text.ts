@@ -3,7 +3,6 @@ import type { ThreadStreamItem, ThreadStreamNoticeSection, ThreadStreamUserInput
 import type { ThreadStreamItemAnnotations } from "./layout";
 import {
   type EditedFilesTextView,
-  type ReferencedThreadTextView,
   type TextItemDetailSectionView,
   type ThreadStreamTextActionTargets,
   type ThreadStreamTextView,
@@ -63,7 +62,6 @@ function copyTextForTextItem(item: TextItem, activeTurnId: string | null): strin
 function textMetadataView(item: TextItem, annotations?: ThreadStreamItemAnnotations): ThreadStreamTextMetadataView {
   return {
     ...definedProp("editedFiles", editedFilesView(item, annotations)),
-    ...definedProp("referencedThread", referencedThreadView(item)),
     ...definedProp("contextItems", contextItemsView(item)),
     autoReviewSummaries: item.kind === "dialogue" ? (annotations?.autoReviewSummaries ?? []) : [],
     systemDetails: item.kind === "system" ? systemDetailViews(item.noticeSections ?? []) : [],
@@ -77,11 +75,6 @@ function editedFilesView(item: TextItem, annotations?: ThreadStreamItemAnnotatio
     files: annotations.editedFiles,
     ...definedProp("turnDiff", item.turnId && annotations.turnDiff ? { turnId: item.turnId, diff: annotations.turnDiff.diff } : undefined),
   };
-}
-
-function referencedThreadView(item: TextItem): ReferencedThreadTextView | undefined {
-  if (item.kind !== "dialogue" || !item.referencedThread) return undefined;
-  return item.referencedThread;
 }
 
 function contextItemsView(item: TextItem): ThreadStreamTextMetadataView["contextItems"] | undefined {

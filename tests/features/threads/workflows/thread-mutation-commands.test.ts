@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { AppServerClientAccess } from "../../../../src/app-server/connection/client-access";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
-import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadMutationAdapter } from "../../../../src/features/threads/app-server/workflow-adapters";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
 import type { ArchiveThreadResult } from "../../../../src/features/threads/workflows/ports";
@@ -12,9 +11,7 @@ import {
   type ThreadMutationCommandsHost,
 } from "../../../../src/features/threads/workflows/thread-mutation-commands";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/preferences";
-import { appServerTurnFixture } from "../../../support/app-server-records";
 import { deferred } from "../../../support/async";
-import { legacyTurnContextManifestText } from "../../../support/legacy-turn-context-manifest";
 
 describe("ThreadMutationCommands", () => {
   it("renames a thread through the shared client", async () => {
@@ -301,75 +298,6 @@ describe("ThreadMutationCommands", () => {
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 
-  it("resolves persisted reference titles before archive export", async () => {
-    const client = clientMock();
-    const clientId = "local-user-1-seed-1-1";
-    const manifest = legacyTurnContextManifestText({
-      version: 2,
-      submissionId: clientId,
-      contexts: [
-        {
-          kind: "referencedThread",
-          id: `${clientId}.00`,
-          threadId: "thread-reference",
-          includedTurns: 1,
-          turnLimit: 20,
-          omittedTurns: 0,
-          truncated: false,
-        },
-      ],
-    });
-    client.request.mockImplementation((method: string, params: { threadId?: string; name?: string }) => {
-      if (method === "thread/read") {
-        return Promise.resolve({
-          thread: {
-            ...archivedThread(),
-            turns: [
-              appServerTurnFixture({
-                id: "turn",
-                itemsView: "full",
-                status: "completed",
-                startedAt: 1,
-                completedAt: 2,
-                durationMs: 1,
-                items: [
-                  {
-                    type: "userMessage",
-                    id: "user",
-                    clientId,
-                    content: [
-                      { type: "text", text: "continue", text_elements: [] },
-                      { type: "text", text: `\n${manifest}`, text_elements: [] },
-                    ],
-                  },
-                ],
-              }),
-            ],
-          },
-        });
-      }
-      if (method === "thread/archive") return Promise.resolve({});
-      throw new Error(`Unexpected app-server request: ${method} ${params.threadId}`);
-    });
-    const reference: Thread = {
-      id: "thread-reference",
-      name: "Readable reference title",
-      preview: "",
-      archived: false,
-      createdAt: 1,
-      updatedAt: 1,
-      provenance: { kind: "interactive" },
-    };
-    const { mutations, archiveDestination } = operationsFixture({ client, referenceThreads: [reference] });
-
-    await mutations.archiveThread("thread", { saveMarkdown: true });
-
-    expect(archiveDestination.createMarkdownFile).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.stringContaining("> Referenced: Readable reference title"),
-    );
-  });
-
   it("archives without reading transcript history when markdown export is disabled", async () => {
     const { mutations, client, archiveDestinationFactory, archiveExportSettings } = operationsFixture();
 
@@ -397,12 +325,7 @@ describe("ThreadMutationCommands", () => {
 });
 
 function operationsFixture(
-  options: {
-    clientAccess?: AppServerClientAccess;
-    client?: MockClient;
-    referenceThreads?: readonly Thread[];
-    threadIsBusy?: (threadId: string) => boolean;
-  } = {},
+  options: { clientAccess?: AppServerClientAccess; client?: MockClient; threadIsBusy?: (threadId: string) => boolean } = {},
 ) {
   const client = options.client ?? clientMock();
   const archiveDestination = archiveDestinationMock();
@@ -435,7 +358,6 @@ function operationsFixture(
     },
     archiveDestination: archiveDestinationFactory,
     facts: catalog,
-    referenceThreads: () => options.referenceThreads ?? [],
     threadIsBusy: options.threadIsBusy ?? (() => false),
   };
   return {

@@ -142,13 +142,6 @@ export interface ThreadStreamTextActionTargets {
   implementPlan?: PlanImplementationTarget;
 }
 
-export interface ReferencedThreadTextView {
-  title: string;
-  includedTurns: number;
-  turnLimit: number;
-  truncated?: boolean;
-}
-
 export interface ContextItemTextView {
   label: string;
   detail?: string;
@@ -180,7 +173,6 @@ export interface ThreadStreamTextView {
   actionTargets: ThreadStreamTextActionTargets;
   metadata: {
     editedFiles?: EditedFilesTextView;
-    referencedThread?: ReferencedThreadTextView;
     contextItems?: {
       itemId: string;
       items: readonly ContextItemTextView[];

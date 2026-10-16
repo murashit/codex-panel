@@ -860,34 +860,6 @@ describe("panel thread stream rendering and action menu", () => {
     });
   });
 
-  it("renders referenced thread metadata without exposing hidden context", () => {
-    const { blocks, context } = projectedThreadStream({
-      items: [
-        {
-          id: "u1",
-          kind: "dialogue",
-          dialogueKind: "user",
-          role: "user",
-          text: "この続きです",
-          copyText: "この続きです",
-          referencedThread: {
-            threadId: "thread-reference",
-            title: "参照元",
-            includedTurns: 2,
-            turnLimit: 20,
-          },
-        },
-      ],
-    });
-
-    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")), context);
-
-    expect(user.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("この続きです");
-    expect(user.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("Referenced 参照元");
-    expect(user.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("2/20 turns");
-    expect(user.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.getAttribute("title")).toBeNull();
-  });
-
   it("renders resolved file references as a collapsed user dialogue attachment", () => {
     const { blocks, context } = projectedThreadStream({
       items: [

@@ -161,6 +161,14 @@ describe("app-server turn records", () => {
     ).toEqual([{ kind: "user", text: "[$review] /skills/review", timestamp: null }]);
   });
 
+  it("keeps native plugin mentions when a user message has no visible text", () => {
+    expect(
+      transcriptEntriesFromTurnRecords([
+        turn([{ type: "userMessage", id: "u1", clientId: null, content: [{ type: "mention", name: "sample", path: "plugin://sample" }] }]),
+      ]),
+    ).toEqual([{ kind: "user", text: "[@sample] plugin://sample", timestamp: null }]);
+  });
+
   it("extracts the final non-empty agent message text from a turn", () => {
     expect(
       lastAgentMessageTextFromTurnRecord(
