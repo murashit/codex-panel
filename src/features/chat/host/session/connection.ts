@@ -1,5 +1,4 @@
 import { Notice } from "obsidian";
-
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerContextConnectionLease } from "../../../../app-server/connection/context-connection";
@@ -13,6 +12,7 @@ import type { AutoTitleCoordinator } from "../../application/threads/auto-title-
 import { panelThreadSubscriptions } from "../../application/threads/thread-subscriptions";
 import type { ChatPanelEnvironment } from "../contracts";
 import { resolveObsidianWikilinks } from "../obsidian/wikilink-resolution.obsidian";
+import type { SessionThreadReadState } from "./thread-read-state";
 
 type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
 
@@ -26,6 +26,7 @@ interface SessionConnectionInput {
   localItemIds: LocalIdSource;
   status: SessionConnectionStatus;
   autoTitleCoordinator: AutoTitleCoordinator;
+  threadReadState: Pick<SessionThreadReadState, "receive">;
 }
 
 interface SessionConnectionHost {
@@ -140,6 +141,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
         connection.connect({
           onNotification: (notification) => {
             if (!active) return;
+            if (notification.method === "thread/readState/changed") input.threadReadState.receive(notification.params);
             inboundHandler.handleNotification(notification);
           },
           onServerRequest: (request, responder) => {

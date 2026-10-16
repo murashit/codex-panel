@@ -137,6 +137,7 @@ export interface ChatWorkspacePanelSnapshot {
   threadId: string | null;
   turnBusy: boolean;
   pending: boolean;
+  unread: boolean;
   hasComposerDraft: boolean;
   hasForkDraft: boolean;
   connected: boolean;

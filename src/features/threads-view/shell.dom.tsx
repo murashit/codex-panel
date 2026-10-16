@@ -142,7 +142,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
           <div className="codex-panel-threads__actions">
             <ThreadRowControls
               isPinned={row.isPinned}
-              archiveDisabled={threadArchiveDisabled(row)}
+              archiveDisabled={row.archiveDisabled}
               archiveConfirm={archiveConfirm}
               classNames={{
                 action: "codex-panel-threads__row-button",
@@ -169,10 +169,6 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
       )}
     </div>
   );
-}
-
-function threadArchiveDisabled(row: ThreadsRowModel): boolean {
-  return row.lifecycleBusy || row.live?.status === "pending" || row.live?.status === "running";
 }
 
 function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {
@@ -219,6 +215,7 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
 function liveStatusClassName(status: NonNullable<ThreadsRowModel["live"]>["status"]): string {
   if (status === "open") return "codex-panel-threads__row--open";
   if (status === "pending") return "codex-panel-threads__row--pending";
+  if (status === "unread") return "codex-panel-threads__row--unread";
   return "codex-panel-threads__row--running";
 }
 

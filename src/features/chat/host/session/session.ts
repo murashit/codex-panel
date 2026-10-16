@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../../domain/threads/title";
 import { DeferredTask } from "../../../../shared/async/deferred-task";
+import { disposeDomListeners, listenDomEvent } from "../../../../shared/ui/events.dom";
 import {
   activeThreadState,
   awaitingResumeThreadState,
@@ -37,6 +38,8 @@ export class ChatPanelSession implements ChatPanelHandle {
   private observedPanelActivity: PanelActivity | null = null;
   private unsubscribePanelActivity: (() => void) | null = null;
   private pendingRuntimeRestore: ChatPanelRuntimeSnapshot | null;
+  private foregroundWindow: Window | null = null;
+  private stopObservingForeground: (() => void) | null = null;
   private pendingPersistentActivation: { threadId: string; promise: Promise<boolean> } | null = null;
 
   constructor(
@@ -263,6 +266,18 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.opened = true;
     this.closing = false;
     this.observePanelActivity();
+    const activate = () => {
+      this.observeForegroundWindow();
+      this.runtime.threadReadState.activate();
+    };
+    const workspace = this.environment.obsidian.app.workspace;
+    this.environment.obsidian.registerEvent(workspace.on("active-leaf-change", activate));
+    this.environment.obsidian.registerEvent(
+      workspace.on("layout-change", () => {
+        if (this.observeForegroundWindow()) this.runtime.threadReadState.activate();
+      }),
+    );
+    activate();
     this.environment.obsidian.registerPointerDown((event) => {
       this.closeToolbarPanelOnOutsidePointer(event);
     });
@@ -275,6 +290,9 @@ export class ChatPanelSession implements ChatPanelHandle {
   async close(): Promise<void> {
     this.opened = false;
     this.closing = true;
+    this.stopObservingForeground?.();
+    this.stopObservingForeground = null;
+    this.foregroundWindow = null;
     this.unsubscribePanelActivity?.();
     this.unsubscribePanelActivity = null;
     this.observedPanelActivity = null;
@@ -340,6 +358,22 @@ export class ChatPanelSession implements ChatPanelHandle {
       void this.applyForkDraft(snapshot.forkDraft);
     }
     this.runtime.composer.controller.restoreRuntimeSnapshot(snapshot.composer);
+  }
+
+  private observeForegroundWindow(): boolean {
+    if (this.closing) return false;
+    const win = this.viewWindow();
+    if (win === this.foregroundWindow) return false;
+    this.stopObservingForeground?.();
+    this.foregroundWindow = win;
+    const activate = () => {
+      this.runtime.threadReadState.activate();
+    };
+    this.stopObservingForeground = disposeDomListeners(
+      listenDomEvent(win, "focus", activate),
+      listenDomEvent(win.document, "visibilitychange", activate),
+    );
+    return true;
   }
 
   private viewWindow(): Window {
@@ -413,6 +447,7 @@ interface PanelActivity {
   readonly threadId: string | null;
   readonly turnBusy: boolean;
   readonly pending: boolean;
+  readonly unread: boolean;
   readonly hasForkDraft: boolean;
 }
 
@@ -421,6 +456,7 @@ function panelActivity(state: ChatState): PanelActivity {
     threadId: panelThreadId(state),
     hasForkDraft: state.panelThread.kind === "fork-draft",
     turnBusy: chatTurnBusy(state.activeTurn),
+    unread: state.threadReadReceipt?.unread ?? false,
     pending: hasPendingRequests(pendingRequestCountsFromQueues(state.requests)),
   };
 }
@@ -431,6 +467,7 @@ function panelActivityEquals(left: PanelActivity | null, right: PanelActivity): 
     left.threadId === right.threadId &&
     left.turnBusy === right.turnBusy &&
     left.pending === right.pending &&
+    left.unread === right.unread &&
     left.hasForkDraft === right.hasForkDraft
   );
 }

@@ -3,7 +3,7 @@ import { type RuntimePermissionState, runtimePermissionStateOrDefault } from "..
 import type { ApprovalsReviewer, RuntimeServiceTierRequest, RuntimeSettingsPatch, ServiceTier } from "../../domain/runtime/settings";
 import { parseServiceTier } from "../../domain/runtime/settings";
 import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
-import type { Thread, ThreadActivationSnapshot } from "../../domain/threads/model";
+import type { Thread, ThreadActivationSnapshot, ThreadReadReceipt } from "../../domain/threads/model";
 import type { ThreadTranscript, TurnTranscriptSummary } from "../../domain/threads/transcript";
 import { REFERENCED_THREAD_TURN_LIMIT, type ReferencedThreadTranscriptPage } from "../../domain/threads/transcript";
 import type { ClientResponseByMethod } from "../connection/client";
@@ -453,4 +453,22 @@ function readThreadRecordPage(client: AppServerRequestClient, cwd: string, optio
     sortKey: "recency_at",
     sortDirection: "desc",
   });
+}
+
+export function threadReadReceipt(state: ClientResponseByMethod["thread/read"]["readState"]): ThreadReadReceipt | null {
+  return state ? { revision: state.revision, unread: state.firstUnread !== null } : null;
+}
+
+export async function readThreadReceipt(client: AppServerRequestClient, threadId: string): Promise<ThreadReadReceipt | null> {
+  const response = await client.request("thread/read", { threadId, includeTurns: false });
+  return threadReadReceipt(response.readState);
+}
+
+export async function acknowledgeThreadReceipt(
+  client: AppServerRequestClient,
+  threadId: string,
+  expectedRevision: string,
+): Promise<ThreadReadReceipt> {
+  const response = await client.request("thread/readState/update", { threadId, expectedRevision, operation: { type: "read" } });
+  return { revision: response.readState.revision, unread: response.readState.firstUnread !== null };
 }

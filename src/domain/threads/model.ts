@@ -2,6 +2,11 @@ import type { ReasoningEffort } from "../runtime/catalog";
 import type { RuntimePermissionKnownState, RuntimePermissionState } from "../runtime/permissions";
 import type { ApprovalsReviewer, ServiceTier } from "../runtime/settings";
 
+export interface ThreadReadReceipt {
+  readonly revision: string;
+  readonly unread: boolean;
+}
+
 export interface Thread {
   readonly id: string;
   readonly preview: string;

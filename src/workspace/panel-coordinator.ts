@@ -533,6 +533,7 @@ function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): WorkspacePan
     threadId,
     turnBusy: false,
     pending: false,
+    unread: false,
     hasComposerDraft: false,
     hasForkDraft: false,
     connected: false,

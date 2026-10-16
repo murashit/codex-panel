@@ -33,6 +33,7 @@ import { createToolbarUiActions } from "../toolbar/actions";
 import { createSessionConnection } from "./connection";
 import { createSessionSharedResources } from "./shared-resources";
 import { createSessionThreadCommands, createSessionThreadFeatures, createSessionThreadFoundation } from "./thread";
+import { createSessionThreadReadState } from "./thread-read-state";
 import { createSessionTurn } from "./turn";
 
 interface ChatPanelSessionStatus {
@@ -65,6 +66,14 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     recordThreadSubscription: connection.recordThreadSubscription,
   });
   const status = createSessionStatus(stateStore, localItemIds);
+  const threadReadState = createSessionThreadReadState({
+    stateStore,
+    currentClient,
+    isForeground: () => {
+      const doc = environment.view.panelRoot()?.ownerDocument;
+      return environment.obsidian.isForeground() && Boolean(doc?.hasFocus()) && doc?.visibilityState !== "hidden";
+    },
+  });
   const unsubscribeGoalChanges = environment.plugin.threadGoalQueries.observeChanges((threadId, previous, next) => {
     applyGoalChange(stateStore, localItemIds, threadId, previous, next);
   });
@@ -95,6 +104,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       connection,
       localItemIds,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
+      threadReadState,
       status,
     },
   );
@@ -359,6 +369,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   };
 
   return {
+    threadReadState,
     connection: {
       manager: connection,
       coordinator: connectionCoordinator,
@@ -380,6 +391,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       threadCatalog: threadCatalogObserver,
     },
     dispose: async (unmount: () => void): Promise<void> => {
+      threadReadState.dispose();
       // Invalidate local results while retaining thread facts for Side Chat cleanup.
       stateStore.dispatch({ type: "panel/disposed" });
       try {

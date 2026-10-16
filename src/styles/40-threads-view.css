@@ -104,10 +104,15 @@
   --codex-panel-threads-gutter-color: color-mix(in srgb, var(--codex-panel-color-accent) 68%, transparent);
 }
 
+.codex-panel-threads__row--unread {
+  --codex-panel-threads-gutter-color: var(--codex-panel-text-normal);
+}
+
 .codex-panel-threads__row--open {
   --codex-panel-threads-gutter-color: var(--codex-panel-border-muted-color);
 }
 
+.codex-panel-threads__row--unread::before,
 .codex-panel-threads__row--pending::before,
 .codex-panel-threads__row--running::before,
 .codex-panel-threads__row--open::before {
