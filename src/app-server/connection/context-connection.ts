@@ -147,6 +147,13 @@ export class AppServerContextConnection implements AppServerClientAccess {
         for (const lease of this.activeLeases()) {
           if (lease.handlers.onServerRequest(request, responder)) return;
         }
+        switch (request.method) {
+          case "item/commandExecution/requestApproval":
+          case "item/fileChange/requestApproval":
+          case "item/permissions/requestApproval":
+            // An approval can race unsubscribe. Codex owns retention and resume replay.
+            return;
+        }
         responder.reject(-32601, `No Codex Panel view can handle app-server request: ${request.method}`);
       },
       onLog: (message) => {

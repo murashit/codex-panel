@@ -6,7 +6,7 @@ import { type ChatInboundHandler, createChatInboundHandler } from "../../app-ser
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { executePanelDynamicTool } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
-import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
+import { activeThreadId, activeThreadState, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import { panelThreadSubscriptions } from "../../application/threads/thread-subscriptions";
@@ -189,6 +189,10 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
       stopObservingSubscriptions();
       connection.updateThreadSubscriptions([]);
       connectionCoordinator.invalidate();
+      if (activeThreadState(stateStore.getState())?.lifetime?.kind !== "ephemeral") {
+        // Codex retains pending approvals across unsubscribe and replays them on resume.
+        for (const approval of stateStore.getState().requests.approvals) serverRequestResponders.forget(approval.requestId);
+      }
       invalidateConnectionScope();
     },
     refreshSharedThreads,
