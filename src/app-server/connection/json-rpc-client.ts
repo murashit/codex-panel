@@ -53,7 +53,7 @@ export class JsonRpcClient {
   request<M extends ClientRequestMethod, R>(
     method: M,
     params: ClientRequestParams<M>,
-    requestOptions: { timeoutMs?: number } = {},
+    requestOptions: { timeoutMs?: number; onResponse?: (response: R) => void } = {},
   ): Promise<R> {
     const id = this.nextId++;
     const promise = new Promise<R>((resolve, reject) => {
@@ -64,7 +64,15 @@ export class JsonRpcClient {
       }, requestOptions.timeoutMs ?? this.options.requestTimeoutMs);
       this.pending.set(id, {
         method,
-        resolve: resolve as (value: unknown) => void,
+        resolve: (value) => {
+          try {
+            // Snapshot owners must adopt responses before later lines in the same stdout batch.
+            requestOptions.onResponse?.(value as R);
+            resolve(value as R);
+          } catch (error) {
+            reject(error instanceof Error ? error : new Error(String(error)));
+          }
+        },
         reject,
         timeout,
       });

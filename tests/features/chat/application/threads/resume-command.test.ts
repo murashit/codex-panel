@@ -21,6 +21,7 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
   return {
     activation: threadActivationFixture(panelThread(threadId), { model: "gpt-test", approvalsReviewer: "user" }),
     rolloutPath: null,
+    activeTurnId: null,
     initialHistoryPage: null,
     ...overrides,
   };
@@ -28,9 +29,9 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
 
 function createActions(response: ThreadResumeSnapshot | null = activation("thread"), overrides: Partial<ResumeCommandHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
-  const resumeThread = vi
-    .fn<ThreadResumeEffects["resumeThread"]>()
-    .mockResolvedValue(response ? { kind: "completed", value: response } : { kind: "not-started" });
+  const resumeThread = vi.fn<ThreadResumeEffects["resumeThread"]>().mockImplementation(async (_threadId, adopt) => {
+    if (response) adopt(response);
+  });
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyInitialPage = vi.fn();
   const invalidateHistory = vi.fn();
@@ -71,7 +72,7 @@ describe("ResumeCommand", () => {
     const resumed = await commands.resumeThread("thread");
     await resumed?.hydrate();
 
-    expect(resumeThread).toHaveBeenCalledWith("thread");
+    expect(resumeThread).toHaveBeenCalledWith("thread", expect.any(Function));
     expect(activeThreadId(stateStore.getState())).toBe("thread");
     expect(loadLatest).toHaveBeenCalledWith("thread", {});
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
@@ -168,17 +169,16 @@ describe("ResumeCommand", () => {
 
     await commands.resumeThread("thread");
 
-    expect(resumeThread).toHaveBeenCalledWith("thread");
+    expect(resumeThread).toHaveBeenCalledWith("thread", expect.any(Function));
     expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
   it("does not invoke an older resume after a newer intent wins during connection", async () => {
     const firstConnection = deferred<boolean>();
-    const resumeThread = vi.fn<ThreadResumeEffects["resumeThread"]>().mockImplementation(async (threadId) => ({
-      kind: "completed",
-      value: activation(threadId),
-    }));
+    const resumeThread = vi.fn<ThreadResumeEffects["resumeThread"]>().mockImplementation(async (threadId, adopt) => {
+      adopt(activation(threadId));
+    });
     const ensureConnected = vi.fn().mockReturnValueOnce(firstConnection.promise).mockResolvedValue(true);
     const { commands, stateStore } = createActions(undefined, {
       effects: { resumeThread },
@@ -194,21 +194,24 @@ describe("ResumeCommand", () => {
     await expect(firstResume).resolves.toBeNull();
 
     expect(resumeThread).toHaveBeenCalledOnce();
-    expect(resumeThread).toHaveBeenCalledWith("second");
+    expect(resumeThread).toHaveBeenCalledWith("second", expect.any(Function));
     expect(activeThreadId(stateStore.getState())).toBe("second");
   });
 
   it("records a resumed thread without replacing a turn started during resume", async () => {
     const response = activation("other");
     const pendingResume = deferred<Awaited<ReturnType<ThreadResumeEffects["resumeThread"]>>>();
-    const effect = vi.fn(() => pendingResume.promise);
+    const effect = vi.fn<ThreadResumeEffects["resumeThread"]>(async (_threadId, adopt) => {
+      await pendingResume.promise;
+      adopt(response);
+    });
     const { commands, host, stateStore, loadLatest } = createActions(response, { effects: { resumeThread: effect } });
     stateStore.dispatch(resumedThreadAction({ response: activation("active").activation }));
     const pending = commands.resumeThread("other");
     await vi.waitFor(() => expect(effect).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
     const activeTurn = stateStore.getState().activeTurn;
-    await pendingResume.resolveAndFlush({ kind: "completed", value: response });
+    await pendingResume.resolveAndFlush(undefined);
     await expect(pending).resolves.toBeNull();
     expect(activeThreadId(stateStore.getState())).toBe("active");
     expect(stateStore.getState().activeTurn).toBe(activeTurn);

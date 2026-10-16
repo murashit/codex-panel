@@ -309,7 +309,7 @@ describe("chat app-server adapters", () => {
   });
 
   it("resumes threads with the session vault path and projects initial history", async () => {
-    const request = vi.fn().mockResolvedValue({
+    const response = {
       thread: { ...threadRecord("thread"), path: "/tmp/rollout.jsonl" },
       cwd: "/vault",
       model: "gpt-test",
@@ -320,30 +320,37 @@ describe("chat app-server adapters", () => {
         data: [turn([userMessage("u1", "prompt")])],
         nextCursor: "older",
       },
+    };
+    const request = vi.fn(async (_method, _params, options) => {
+      options.onResponse(response);
+      return response;
     });
     const client = { request } as unknown as AppServerClient;
     const adapter = createTestGateway({
       currentClient: () => client,
     }).threadResume;
 
-    const snapshot = await adapter.resumeThread("thread");
+    const adopt = vi.fn();
+    await adapter.resumeThread("thread", adopt);
 
-    expect(request).toHaveBeenCalledWith("thread/resume", {
-      threadId: "thread",
-      cwd: "/vault",
-      excludeTurns: true,
-      initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
-    });
-    expect(snapshot).toMatchObject({
-      kind: "completed",
-      value: {
-        activation: { thread: { id: "thread" }, canAcceptDirectInput: null },
-        rolloutPath: "/tmp/rollout.jsonl",
-        initialHistoryPage: {
-          nextCursor: "older",
-          hadTurns: true,
-          items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
-        },
+    expect(request).toHaveBeenCalledWith(
+      "thread/resume",
+      {
+        threadId: "thread",
+        cwd: "/vault",
+        excludeTurns: true,
+        initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
+      },
+      { onResponse: expect.any(Function) },
+    );
+    expect(adopt).toHaveBeenCalledWith({
+      activation: expect.objectContaining({ thread: expect.objectContaining({ id: "thread" }), canAcceptDirectInput: null }),
+      activeTurnId: null,
+      rolloutPath: "/tmp/rollout.jsonl",
+      initialHistoryPage: {
+        nextCursor: "older",
+        hadTurns: true,
+        items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
       },
     });
   });
@@ -353,7 +360,9 @@ describe("chat app-server adapters", () => {
       currentClient: () => null,
     }).threadResume;
 
-    await expect(adapter.resumeThread("thread")).resolves.toEqual({ kind: "not-started" });
+    const adopt = vi.fn();
+    await adapter.resumeThread("thread", adopt);
+    expect(adopt).not.toHaveBeenCalled();
   });
 
   it("cleans up a stale ephemeral fork through the client that created it", async () => {

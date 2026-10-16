@@ -238,6 +238,7 @@ describe("createGoalCommands", () => {
           updatedAt: 1,
           provenance: { kind: "interactive" },
         },
+        collaborationMode: null,
         canAcceptDirectInput: null,
         model: null,
         reasoningEffort: null,

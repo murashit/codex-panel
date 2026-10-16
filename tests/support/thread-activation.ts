@@ -4,6 +4,7 @@ export function threadActivationFixture(thread: Thread, overrides: Partial<Threa
   return {
     thread,
     canAcceptDirectInput: null,
+    collaborationMode: null,
     model: null,
     reasoningEffort: null,
     serviceTier: null,

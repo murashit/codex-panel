@@ -1,5 +1,5 @@
 import { unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
-import { initialActiveChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
+import { initialChatRuntimeState } from "../../domain/runtime/state";
 import { turnOutcomeLabel } from "../../domain/runtime/turn-outcome";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
 import type { ForkReplacement } from "../threads/fork-draft";
@@ -150,10 +150,18 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
   const runtimeBase = action.preserveRequestedRuntimeSettings ? state.runtime : initialChatRuntimeState();
   const turnScopedState = clearTurnScopedState(state);
   const nextPanelTargetRevision = sameConversation ? state.panelTargetRevision : state.panelTargetRevision + 1;
+  const threadStream = initialChatThreadStreamState(creatingFork ? state.threadStream.stableItems : (action.items ?? []));
+  const restoredTurn = action.activeTurnId
+    ? activeTurnStarted(
+        activeTurnWithLifecycle(initialChatActiveTurnState(), { kind: "running", turnId: action.activeTurnId }),
+        threadStream,
+        action.activeTurnId,
+      )
+    : { activeTurn: initialChatActiveTurnState(), threadStream };
   return patchObject(turnScopedState, {
     connection: {
       ...state.connection,
-      statusText: action.status ?? state.connection.statusText,
+      statusText: action.activeTurnId ? STATUS_TURN_RUNNING : (action.status ?? state.connection.statusText),
     },
     panelThread: {
       kind: "active",
@@ -175,7 +183,7 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
         serviceTierKnown: action.serviceTierKnown ?? true,
         model: action.model,
         reasoningEffort: action.reasoningEffort,
-        collaborationMode: initialActiveChatRuntimeState().collaborationMode,
+        collaborationMode: action.collaborationMode,
         serviceTier: action.serviceTier,
         approvalsReviewer: action.approvalsReviewer,
         approvalPolicyKnown: action.approvalPolicyKnown,
@@ -187,9 +195,10 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
       },
     },
     threadStream: {
-      ...initialChatThreadStreamState(creatingFork ? state.threadStream.stableItems : (action.items ?? [])),
+      ...restoredTurn.threadStream,
       ...(creatingFork ? { turnDiffs: state.threadStream.turnDiffs } : {}),
     },
+    activeTurn: restoredTurn.activeTurn,
     pendingSubmission: creating && state.pendingSubmission ? { ...state.pendingSubmission, targetThreadId: action.thread.id } : null,
     requests: initialChatRequestState(),
     composer: sameConversation ? state.composer : initialComposerState(),

@@ -173,7 +173,18 @@ function requestClient(handlers: RequestHandlers): TestAppServerClient {
     request: vi.fn((method: string, params: unknown, options?: unknown) => {
       const handler = handlers[method];
       if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
-      return handler(params, options);
+      const responseOptions = options as { onResponse?: (value: unknown) => void } | undefined;
+      if (!responseOptions?.onResponse) return handler(params, options);
+      let adopted = false;
+      const onResponse = (value: unknown) => {
+        if (adopted) return;
+        adopted = true;
+        responseOptions.onResponse?.(value);
+      };
+      return Promise.resolve(handler(params, { ...responseOptions, onResponse })).then((value) => {
+        onResponse(value);
+        return value;
+      });
     }),
   };
 }

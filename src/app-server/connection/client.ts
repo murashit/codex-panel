@@ -246,7 +246,7 @@ export class AppServerClient {
   request<M extends TypedClientRequestMethod>(
     method: M,
     params: ClientRequestParams<M>,
-    options: { timeoutMs?: number } = {},
+    options: { timeoutMs?: number; onResponse?: (response: ClientResponseByMethod[M]) => void } = {},
   ): Promise<ClientResponseByMethod[M]> {
     return this.rpc.request<M, ClientResponseByMethod[M]>(method, params, options);
   }

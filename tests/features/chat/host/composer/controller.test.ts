@@ -70,6 +70,7 @@ function trackComposerControllerTestCleanup(cleanup: () => void): void {
 function resumeComposerThread(stateStore: ChatStateStore, threadId: string, created = false): void {
   stateStore.dispatch({
     type: created ? "active-thread/created" : "active-thread/resumed",
+    collaborationMode: null,
     canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,
@@ -275,6 +276,7 @@ describe("ChatComposerController", () => {
               updatedAt: 1,
               provenance: { kind: "interactive" },
             },
+            collaborationMode: null,
             canAcceptDirectInput: null,
             model: null,
             reasoningEffort: null,

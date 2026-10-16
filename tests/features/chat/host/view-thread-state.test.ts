@@ -206,11 +206,12 @@ describe("CodexChatView thread state", () => {
   });
 
   it("notifies release failure and retries when the panel responsibility changes", async () => {
+    const release = deferred<unknown>();
     const client = connectedClient({
       "thread/resume": vi.fn((params) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
       "thread/unsubscribe": vi
         .fn()
-        .mockRejectedValueOnce(new Error("Could not deliver unsubscribe"))
+        .mockImplementationOnce(() => release.promise)
         .mockResolvedValue({ status: "unsubscribed" }),
     });
     const shared = sharedConnectionFixture(client);
@@ -218,6 +219,7 @@ describe("CodexChatView thread state", () => {
     await view.onOpen();
     await view.surface.activateThread("first");
     await view.surface.activateThread("second");
+    release.reject(new Error("Could not deliver unsubscribe"));
     await waitForAsyncWork(() => expect(notices).toEqual([expect.stringContaining("Could not deliver unsubscribe")]));
     expect(view.surface.openPanelSnapshot().threadId).toBe("second");
     shared.transport.handlers?.onNotification({ method: "thread/name/updated", params: { threadId: "second", threadName: "Renamed" } });
@@ -444,7 +446,9 @@ describe("CodexChatView thread state", () => {
     await view.onOpen();
     await view.surface.activateThread("thread-1");
 
-    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
+      onResponse: expect.any(Function),
+    });
     expect(requestMethods(client)).not.toContain("thread/turns/list");
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("hello");
@@ -465,11 +469,15 @@ describe("CodexChatView thread state", () => {
 
     const firstOpen = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
+        onResponse: expect.any(Function),
+      });
     });
     const secondOpen = view.surface.activateThread("thread-2");
     await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-2", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-2", cwd: "/vault" }), {
+        onResponse: expect.any(Function),
+      });
     });
 
     secondResume.resolve(resumedThread("thread-2"));

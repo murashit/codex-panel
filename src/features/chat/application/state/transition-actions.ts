@@ -17,6 +17,7 @@ import type { ChatPendingSubmissionState } from "./pending-submission";
 interface ResumedThreadActionParams {
   response: ThreadActivationSnapshot;
   items?: readonly ThreadStreamItem[];
+  activeTurnId?: string | null;
   preserveRequestedRuntimeSettings?: boolean;
   serviceTierKnown?: boolean;
   preserveGoalEditor?: boolean;
@@ -27,6 +28,7 @@ export interface ActiveThreadResumedAction extends ThreadActivationSnapshot {
   type: "active-thread/resumed";
   serviceTierKnown?: boolean;
   items?: readonly ThreadStreamItem[];
+  activeTurnId?: string | null;
   status?: string;
   preserveRequestedRuntimeSettings?: boolean;
   preserveGoalEditor?: boolean;
@@ -145,6 +147,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     ...permissions,
     lifetime: { kind: "persistent" },
     ...(params.items ? { items: params.items } : {}),
+    ...(params.activeTurnId ? { activeTurnId: params.activeTurnId } : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
     ...(params.preserveGoalEditor ? { preserveGoalEditor: true } : {}),
     ...(params.expectedPanelTargetRevision === undefined ? {} : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),

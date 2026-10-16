@@ -116,6 +116,118 @@ describe("CodexChatView connection lifecycle", () => {
     expect(surface.openPanelSnapshot().threadId).toBeNull();
   });
 
+  it("restores a warm running Plan turn before coalesced replay and keeps its live result", async () => {
+    const response = deferred<unknown>();
+    const turn = appServerTurnFixture({
+      id: "running",
+      status: "inProgress",
+      itemsView: "full",
+      items: [
+        {
+          type: "agentMessage",
+          id: "answer",
+          text: "Snapshot",
+          phase: "final_answer",
+          memoryCitation: null,
+          delivery: null,
+          questions: null,
+        },
+      ],
+    });
+    let receiveResponse: (value: unknown) => void = () => {
+      throw new Error("Expected pending resume");
+    };
+    const client = connectedClient({
+      "thread/resume": vi.fn((_params, options) => {
+        receiveResponse = (options as { onResponse: (value: unknown) => void }).onResponse;
+        return response.promise;
+      }),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+    const opening = view.surface.activateThread("thread-1", { focus: false });
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/resume", 1));
+    // App-server sends the snapshot before replay, without a turn/started notification.
+    connectionMockState().onNotification?.({
+      method: "item/agentMessage/delta",
+      params: { threadId: "thread-1", turnId: "running", itemId: "answer", delta: "Snapshot" },
+    });
+    const snapshot = {
+      ...resumedThread("thread-1"),
+      collaborationMode: { mode: "plan", settings: { model: "gpt-test", reasoning_effort: null, developer_instructions: null } },
+      initialTurnsPage: { data: [turn], nextCursor: null, backwardsCursor: null },
+    };
+    receiveResponse(snapshot);
+    response.resolve(snapshot);
+    connectionMockState().onNotification?.({
+      method: "item/agentMessage/delta",
+      params: { threadId: "thread-1", turnId: "running", itemId: "answer", delta: " plus live" },
+    });
+    const responder = { respond: vi.fn(), reject: vi.fn() };
+    connectionMockState().onServerRequest?.(
+      {
+        id: 901,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "thread-1",
+          turnId: "running",
+          itemId: "question",
+          isBlocking: true,
+          autoResolutionMs: null,
+          questions: [{ id: "next", header: "Next", question: "What now?", isOther: false, isSecret: false, options: null }],
+        },
+      },
+      responder,
+    );
+    await opening;
+    await waitForAsyncWork(() => {
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: true, pending: true });
+      expect(view.containerEl.textContent).toContain("Snapshot plus live");
+      expect(view.containerEl.textContent).toContain("What now?");
+      expect(view.containerEl.querySelector(".codex-panel__composer-meta-summary")?.textContent).toContain("plan on");
+      expect(view.containerEl.querySelector('[aria-label="Interrupt"]')).not.toBeNull();
+    });
+    expect(responder.reject).not.toHaveBeenCalled();
+    expectRequestTimes(client, "thread/turns/list", 0);
+    connectionMockState().onNotification?.({ method: "serverRequest/resolved", params: { threadId: "thread-1", requestId: 901 } });
+    await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot().pending).toBe(false));
+    requiredButton(view.containerEl, '[aria-label="Interrupt"]').click();
+    await waitForAsyncWork(() =>
+      expect(client.request).toHaveBeenCalledWith("turn/interrupt", { threadId: "thread-1", turnId: "running" }),
+    );
+    connectionMockState().onNotification?.({
+      method: "turn/completed",
+      params: {
+        threadId: "thread-1",
+        turn: appServerTurnFixture({
+          ...turn,
+          status: "completed",
+          items: [
+            {
+              type: "agentMessage",
+              id: "answer",
+              text: "Final result",
+              phase: "final_answer",
+              memoryCitation: null,
+              delivery: null,
+              questions: null,
+            },
+          ],
+        }),
+      },
+    });
+    await waitForAsyncWork(() => {
+      expect(view.surface.openPanelSnapshot().turnBusy).toBe(false);
+      expect(view.containerEl.textContent).toContain("Final result");
+      expect(view.containerEl.textContent).not.toContain("Snapshot plus live");
+    });
+    view.surface.setComposerText("Continue in Plan");
+    submitComposerByEnter(view);
+    await waitForAsyncWork(() => expectRequestTimes(client, "turn/start", 1));
+    expect(requestMethods(client)).not.toContain("thread/settings/update");
+  });
+
   it("shares post-initialize metadata loading across concurrent connect calls", async () => {
     const client = connectedClient();
     connectionMockState().client = client;
@@ -143,7 +255,9 @@ describe("CodexChatView connection lifecycle", () => {
     const opening = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
       expectRequestTimes(client, "config/read", 1);
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
+        onResponse: expect.any(Function),
+      });
     });
     await opening;
     let connected = false;
@@ -180,7 +294,9 @@ describe("CodexChatView connection lifecycle", () => {
 
     const openingB = view.surface.activateThread("thread-b", { focus: false });
     await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-b", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-b", cwd: "/vault" }), {
+        onResponse: expect.any(Function),
+      });
     });
     await view.surface.activateThread("thread-a", { focus: false });
     delayed.resolve(resumedThread("thread-b"));
@@ -301,7 +417,9 @@ describe("CodexChatView connection lifecycle", () => {
 
     const restoring = view.surface.activateThread();
     await waitForAsyncWork(() => {
-      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
+        onResponse: expect.any(Function),
+      });
     });
     resumed.resolve(resumedThread("thread-1"));
     await restoring;

@@ -364,6 +364,7 @@ describe("thread management commands", () => {
   ])("preserves inherited runtime through preparation and creation without resending it (%j)", async ({ serviceTier, intent }) => {
     const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
     const activation: ThreadActivationSnapshot = {
+      collaborationMode: null,
       canAcceptDirectInput: true,
       approvalPolicyKnown: true,
       sandboxPolicyKnown: true,

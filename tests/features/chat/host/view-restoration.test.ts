@@ -231,7 +231,9 @@ describe("CodexChatView workspace restoration", () => {
 
     await view.surface.activateThread("thread-1");
 
-    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
+      onResponse: expect.any(Function),
+    });
     expect(client.request).toHaveBeenCalledWith(
       "thread/turns/list",
       expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
@@ -325,7 +327,9 @@ describe("CodexChatView workspace restoration", () => {
     expect(requestMethods(client)).not.toContain("thread/resume");
     await view.surface.activateThread("thread-1");
 
-    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
+      onResponse: expect.any(Function),
+    });
     expect(client.request).toHaveBeenCalledWith(
       "thread/turns/list",
       expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
@@ -369,7 +373,9 @@ describe("CodexChatView workspace restoration", () => {
     await submitComposerByEnter(view);
 
     await waitForAsyncWork(() => {
-      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }), {
+        onResponse: expect.any(Function),
+      });
       expect(client.request).toHaveBeenCalledWith("turn/start", {
         threadId: "thread-1",
         cwd: "/vault",
