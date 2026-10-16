@@ -1,6 +1,6 @@
 import type { ReasoningEffort } from "../runtime/catalog";
 import type { RuntimePermissionKnownState, RuntimePermissionState } from "../runtime/permissions";
-import type { ApprovalsReviewer, ServiceTier } from "../runtime/settings";
+import type { ApprovalsReviewer, ModeKind, ServiceTier } from "../runtime/settings";
 
 export interface ThreadReadReceipt {
   readonly revision: string;
@@ -64,6 +64,7 @@ export interface ThreadActivationSnapshot extends RuntimePermissionState, Runtim
    * `null` means the capability is unavailable, so panel mode policy decides.
    */
   canAcceptDirectInput: boolean | null;
+  collaborationMode: ModeKind | null;
   model: string | null;
   serviceTier: ServiceTier | null;
   approvalsReviewer: ApprovalsReviewer | null;

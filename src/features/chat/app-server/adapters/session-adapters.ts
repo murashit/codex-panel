@@ -20,7 +20,7 @@ import type { RuntimeSettingsPort } from "../../application/runtime/settings-com
 import type { EphemeralThreadEffects, EphemeralThreadForkResult } from "../../application/threads/ephemeral-thread-lifecycle";
 import type { ThreadGoalEffects } from "../../application/threads/goal-commands";
 import type { ThreadHistoryPage, ThreadHistorySource } from "../../application/threads/history-controller";
-import type { ThreadResumeEffects, ThreadResumeSnapshot } from "../../application/threads/resume-command";
+import type { ThreadResumeEffects } from "../../application/threads/resume-command";
 import type { ThreadCommandEffects } from "../../application/threads/thread-commands";
 import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";
@@ -131,12 +131,19 @@ function createChatThreadHistoryAdapter(host: CurrentChatAppServerClientHost): T
 
 function createChatThreadResumeAdapter(host: ChatAppServerAdapterHost): ThreadResumeEffects {
   return {
-    resumeThread: (threadId): Promise<EffectOutcome<ThreadResumeSnapshot>> =>
-      runCurrentChatAppServerEffect(host, async (client) => {
-        const response = await resumeChatThread(client, threadId, host.vaultPath);
-        host.recordThreadSubscription(response.activation.thread.id, client);
-        return response;
-      }),
+    resumeThread: async (threadId, adopt) => {
+      const client = host.currentClient();
+      if (!client) return;
+      await resumeThread(client, threadId, host.vaultPath, (response) => {
+        host.recordThreadSubscription(response.thread.id, client);
+        adopt({
+          activation: threadActivationSnapshotFromAppServerResponse(response),
+          rolloutPath: response.thread.path,
+          activeTurnId: response.initialTurnsPage?.data.find((turn) => turn.status === "inProgress")?.id ?? null,
+          initialHistoryPage: response.initialTurnsPage ? chatThreadHistoryPageFromNewestFirstTurnsPage(response.initialTurnsPage) : null,
+        });
+      });
+    },
   };
 }
 
@@ -223,13 +230,4 @@ async function readChatThreadHistoryPage(
   limit = 20,
 ): Promise<ThreadHistoryPage> {
   return chatThreadHistoryPageFromNewestFirstTurnsPage(await listThreadTurns(client, threadId, cursor, limit));
-}
-
-async function resumeChatThread(client: AppServerRequestClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
-  const response = await resumeThread(client, threadId, cwd);
-  return {
-    activation: threadActivationSnapshotFromAppServerResponse(response),
-    rolloutPath: response.thread.path,
-    initialHistoryPage: response.initialTurnsPage ? chatThreadHistoryPageFromNewestFirstTurnsPage(response.initialTurnsPage) : null,
-  };
 }

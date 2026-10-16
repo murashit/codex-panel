@@ -227,6 +227,7 @@ function resumeActiveThread(
 ): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    collaborationMode: null,
     canAcceptDirectInput: null,
     approvalPolicyKnown: true,
     sandboxPolicyKnown: true,

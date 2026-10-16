@@ -136,6 +136,27 @@ describe("AppServerClient", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each([false, true])("adopts a response before coalesced replay (adoption fails=%s)", async (fails) => {
+    const order: string[] = [];
+    const { client, transport } = await connectedClient({ onNotification: () => order.push("replay") });
+    const result = client.request(
+      "thread/resume",
+      { threadId: "thread", excludeTurns: true },
+      {
+        onResponse: () => {
+          order.push("snapshot");
+          if (fails) throw new Error("Snapshot rejected");
+        },
+      },
+    );
+    const settled = fails ? expect(result).rejects.toThrow("Snapshot rejected") : expect(result).resolves.toEqual({});
+    transport.emitLine({ id: 2, result: {} });
+    transport.emitLine({ method: "thread/readState/changed", params: { threadId: "thread", readState: null } });
+    expect(order).toEqual(["snapshot", "replay"]);
+    await settled;
+    client.disconnect();
+  });
+
   it("routes responses, notifications, and server requests", async () => {
     let transport: FakeTransport;
     const getTransport = () => transport;

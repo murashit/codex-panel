@@ -1,13 +1,12 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { Thread, ThreadActivationSnapshot } from "../../../../domain/threads/model";
-import type { EffectOutcome } from "../effect-outcome";
 import { activeThreadState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import { resumedThreadAction } from "../state/transition-actions";
 import { chatThreadStreamViewState } from "../state/turn-scope";
-import type { ForkDisplaySnapshot } from "./fork-display-snapshot";
+import { type ForkDisplaySnapshot, reconcileForkDisplayItems } from "./fork-display-snapshot";
 import type { HistoryController, ThreadHistoryPage } from "./history-controller";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
 import { canSwitchToThread } from "./thread-switching";
@@ -16,10 +15,11 @@ export interface ThreadResumeSnapshot {
   activation: ThreadActivationSnapshot;
   rolloutPath: string | null;
   initialHistoryPage: ThreadHistoryPage | null;
+  activeTurnId: string | null;
 }
 
 export interface ThreadResumeEffects {
-  resumeThread(threadId: string): Promise<EffectOutcome<ThreadResumeSnapshot>>;
+  resumeThread(threadId: string, adopt: (snapshot: ThreadResumeSnapshot) => void): Promise<void>;
 }
 
 export interface ResumeCommandHost {
@@ -71,17 +71,21 @@ async function resumeThread(
     if (isStaleResume(host, resume, initialPanelTarget)) return null;
     return await host.withThreadActivation(threadId, async () => {
       if (isStaleResume(host, resume, initialPanelTarget)) return null;
-      const effect = await host.effects.resumeThread(threadId);
-      if (effect.kind === "not-started") return null;
-      host.recordResumedThread(effect.value.activation.thread);
-      if (isStaleResume(host, resume, initialPanelTarget)) return null;
-      if (!host.resumeWork.canCommit(resume, host.stateStore.getState())) return null;
-      const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision, displaySnapshot);
-      if (!adoptedPanelTarget) return null;
+      const adopted: { value: { snapshot: ThreadResumeSnapshot; panelTarget: PanelTargetLease } | null } = { value: null };
+      await host.effects.resumeThread(threadId, (snapshot) => {
+        host.recordResumedThread(snapshot.activation.thread);
+        if (isStaleResume(host, resume, initialPanelTarget)) return;
+        if (!host.resumeWork.canCommit(resume, host.stateStore.getState())) return;
+        const panelTarget = applyResumedThread(host, snapshot, initialPanelTarget.revision, displaySnapshot);
+        if (panelTarget) adopted.value = { snapshot, panelTarget };
+      });
+      const adoption = adopted.value;
+      if (!adoption) return null;
+      const { snapshot, panelTarget } = adoption;
       let hydration: Promise<boolean> | null = null;
       return {
         hydrate: () => {
-          hydration ??= hydrateResumedThread(host, effect.value, resume, adoptedPanelTarget, displaySnapshot);
+          hydration ??= hydrateResumedThread(host, snapshot, resume, panelTarget, displaySnapshot);
           return hydration;
         },
       };
@@ -133,7 +137,10 @@ function applyResumedThread(
     resumedThreadAction({
       response: response.activation,
       expectedPanelTargetRevision,
-      ...(displaySnapshot ? { items: displaySnapshot.items } : {}),
+      items: response.initialHistoryPage
+        ? reconcileForkDisplayItems(displaySnapshot?.items ?? [], response.initialHistoryPage.items)
+        : (displaySnapshot?.items ?? []),
+      activeTurnId: response.activeTurnId,
     }),
   );
   if (activeThreadState(state)?.id !== response.activation.thread.id) return null;

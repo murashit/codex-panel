@@ -300,6 +300,7 @@ function activationFixture(overrides: Partial<ThreadActivationSnapshot> = {}): T
     thread: panelThreadFixture({
       id: "side",
     }),
+    collaborationMode: null,
     canAcceptDirectInput: null,
     model: "gpt-5.5",
     serviceTier: null,

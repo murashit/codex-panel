@@ -35,6 +35,7 @@ interface ThreadActivationResponse extends Partial<RuntimePermissionState> {
   approvalsReviewer: ApprovalsReviewer | null;
   reasoningEffort: string | null;
   sandbox?: RuntimePermissionState["sandboxPolicy"];
+  collaborationMode?: ClientResponseByMethod["thread/resume"]["collaborationMode"];
 }
 
 export interface AppServerStartThreadOptions {
@@ -141,13 +142,18 @@ export function resumeThread(
   client: AppServerRequestClient,
   threadId: string,
   cwd: string,
+  onResponse?: (response: ClientResponseByMethod["thread/resume"]) => void,
 ): Promise<ClientResponseByMethod["thread/resume"]> {
-  return client.request("thread/resume", {
-    threadId,
-    cwd,
-    excludeTurns: true,
-    initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
-  });
+  return client.request(
+    "thread/resume",
+    {
+      threadId,
+      cwd,
+      excludeTurns: true,
+      initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
+    },
+    onResponse ? { onResponse } : undefined,
+  );
 }
 
 export async function listThreads(
@@ -381,6 +387,7 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
     approvalPolicyKnown: "approvalPolicy" in response,
     sandboxPolicyKnown: "sandbox" in response || "sandboxPolicy" in response,
     permissionProfileKnown: "activePermissionProfile" in response,
+    collaborationMode: response.collaborationMode?.mode ?? null,
     model: response.model,
     reasoningEffort: normalizeReasoningEffort(response.reasoningEffort),
     serviceTier: parseServiceTier(response.serviceTier),

@@ -39,7 +39,7 @@ export interface PendingRuntimeIntentState {
   readonly fastMode: FastModeIntent;
 }
 
-export function initialActiveChatRuntimeState(): ActiveThreadRuntimeState {
+function initialActiveChatRuntimeState(): ActiveThreadRuntimeState {
   return {
     ...initialRuntimePermissionState(),
     ...initialRuntimePermissionKnownState(),
