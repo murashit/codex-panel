@@ -29,6 +29,93 @@ import {
 describe("CodexChatView connection lifecycle", () => {
   setupViewConnectionHarness();
 
+  it("projects official receipts through panel snapshots and acknowledges foreground activation", async () => {
+    const focus = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const markRead = vi.fn().mockResolvedValue({ readState: { revision: "read", firstUnread: null } });
+    const client = connectedClient({
+      "thread/read": vi.fn().mockResolvedValue({ thread: threadFixture("thread-1"), readState: { revision: "read", firstUnread: null } }),
+      "thread/readState/update": markRead,
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+    await view.surface.activateThread("thread-1", { focus: false });
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/read", 1));
+
+    // Goal and lifecycle events never manufacture unread; Codex's receipt policy owns eligibility.
+    connectionMockState().onNotification?.({
+      method: "thread/goal/updated",
+      params: {
+        threadId: "thread-1",
+        turnId: null,
+        goal: goalSnapshot("Keep working", 1),
+      },
+    });
+    connectionMockState().onNotification?.({
+      method: "turn/started",
+      params: {
+        threadId: "thread-1",
+        turn: appServerTurnFixture({ id: "goal-turn", status: "inProgress", items: [], itemsView: "full" }),
+      },
+    });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: true, unread: false });
+    connectionMockState().onNotification?.({
+      method: "turn/completed",
+      params: {
+        threadId: "thread-1",
+        turn: appServerTurnFixture({ id: "goal-turn", status: "completed", items: [], itemsView: "full" }),
+      },
+    });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: false, unread: false });
+
+    connectionMockState().onNotification?.({
+      method: "thread/readState/changed",
+      params: {
+        threadId: "thread-1",
+        readState: { revision: "unseen", firstUnread: { type: "turn", turnId: "goal-turn" } },
+      },
+    });
+    expect(view.surface.openPanelSnapshot().unread).toBe(true);
+    expect(markRead).not.toHaveBeenCalled();
+    focus.mockReturnValue(true);
+    const activeLeafChanged = (view.app.workspace.on as ReturnType<typeof vi.fn>).mock.calls
+      .slice()
+      .reverse()
+      .find(([name]) => name === "active-leaf-change")?.[1];
+    activeLeafChanged();
+    expect(markRead).toHaveBeenCalledOnce();
+    await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot().unread).toBe(false));
+    expect(markRead).toHaveBeenCalledWith({ threadId: "thread-1", expectedRevision: "unseen", operation: { type: "read" } }, undefined);
+
+    const frame = document.createElement("iframe");
+    document.body.appendChild(frame);
+    const popout = frame.contentWindow;
+    if (!popout) throw new Error("Expected popout window");
+    popout.document.body.appendChild(view.containerEl);
+    const popoutFocus = vi.spyOn(popout.document, "hasFocus").mockReturnValue(false);
+    vi.spyOn(popout.document, "visibilityState", "get").mockReturnValue("visible");
+    const layoutChanged = (view.app.workspace.on as ReturnType<typeof vi.fn>).mock.calls
+      .slice()
+      .reverse()
+      .find(([name]) => name === "layout-change")?.[1];
+    layoutChanged();
+    connectionMockState().onNotification?.({
+      method: "thread/readState/changed",
+      params: {
+        threadId: "thread-1",
+        readState: { revision: "next", firstUnread: { type: "turn", turnId: "next-turn" } },
+      },
+    });
+    expect(markRead).toHaveBeenCalledTimes(1);
+    popoutFocus.mockReturnValue(true);
+    popout.dispatchEvent(new Event("focus"));
+    await waitForAsyncWork(() => expect(markRead).toHaveBeenCalledTimes(2));
+    const surface = view.surface;
+    await view.onClose();
+    expect(surface.openPanelSnapshot().threadId).toBeNull();
+  });
+
   it("shares post-initialize metadata loading across concurrent connect calls", async () => {
     const client = connectedClient();
     connectionMockState().client = client;

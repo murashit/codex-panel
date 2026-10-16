@@ -1,6 +1,6 @@
 import type { ServerInitialization } from "../../../../domain/runtime/metadata";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
-import type { Thread } from "../../../../domain/threads/model";
+import type { Thread, ThreadReadReceipt } from "../../../../domain/threads/model";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { initialChatRuntimeState } from "../../domain/runtime/state";
 import type { ChatRequestState } from "../pending-requests/state";
@@ -58,6 +58,7 @@ interface ChatStateShape {
   connection: ChatConnectionState;
   panelThread: ChatPanelThreadState;
   panelTargetRevision: number;
+  threadReadReceipt: ThreadReadReceipt | null;
   runtime: ChatRuntimeState;
   activeTurn: ChatActiveTurnState;
   threadStream: ChatThreadStreamState;
@@ -74,6 +75,7 @@ export function createChatState(): ChatState {
     connection: initialConnectionState(),
     panelThread: initialPanelThreadState(),
     panelTargetRevision: 0,
+    threadReadReceipt: null,
     runtime: initialChatRuntimeState(),
     activeTurn: initialChatActiveTurnState(),
     threadStream: initialChatThreadStreamState(),

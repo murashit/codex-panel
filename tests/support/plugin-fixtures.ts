@@ -249,6 +249,7 @@ export function panelSnapshot(overrides: PanelSnapshotFixtureOverrides = {}): Re
     threadId: "thread",
     turnBusy: false,
     pending,
+    unread: false,
     hasComposerDraft: false,
     hasForkDraft: false,
     connected: true,

@@ -218,6 +218,7 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
       threadId: snapshot.threadId,
       selected: snapshot.lastFocused,
       pending: snapshot.pending,
+      unread: snapshot.unread,
       running: snapshot.turnBusy,
     }));
   }

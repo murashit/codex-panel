@@ -1,6 +1,7 @@
 import type { ServerInitialization } from "../../../../domain/runtime/metadata";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
+import type { ThreadReadReceipt } from "../../../../domain/threads/model";
 import { type ChatRuntimeState, commitAppliedRuntimeSettingsPatchState, type PendingRuntimeIntentState } from "../../domain/runtime/state";
 import { type RequestAction, reduceRequestSlice } from "../pending-requests/state";
 import { type ComposerAction, reduceComposerSlice } from "./composer";
@@ -15,7 +16,9 @@ type ConnectionAction =
   | { type: "connection/status-set"; statusText: string; phase?: ChatConnectionPhase }
   | { type: "connection/initialized"; initializeResponse: ServerInitialization };
 
-type ActiveThreadAction = { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
+type ActiveThreadAction =
+  | { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null }
+  | { type: "active-thread/read-receipt-set"; receipt: ThreadReadReceipt | null };
 
 type RuntimeAction =
   | { type: "runtime/pending-intent-patched"; patch: Partial<PendingRuntimeIntentState> }
@@ -62,8 +65,10 @@ function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
     case "connection/status-set":
     case "connection/initialized":
       return patchObject(state, { connection: reduceConnectionSlice(state.connection, action) });
+    case "active-thread/read-receipt-set":
+      return patchObject(state, { threadReadReceipt: action.receipt });
     case "active-thread/token-usage-set":
-      return patchObject(state, { panelThread: reducePanelThreadSlice(state.panelThread, action) });
+      return patchObject(state, { panelThread: reducePanelThreadSlice(state.panelThread, action.tokenUsage) });
     case "runtime/pending-intent-patched":
     case "runtime/pending-thread-settings-committed":
       return patchObject(state, { runtime: reduceRuntimeSlice(state.runtime, action) });
@@ -136,9 +141,9 @@ function reduceConnectionSlice(state: ChatConnectionState, action: ConnectionAct
   }
 }
 
-function reducePanelThreadSlice(state: ChatPanelThreadState, action: ActiveThreadAction): ChatPanelThreadState {
+function reducePanelThreadSlice(state: ChatPanelThreadState, tokenUsage: ThreadTokenUsage | null): ChatPanelThreadState {
   if (state.kind !== "active") return state;
-  return patchObject(state, { thread: patchObject(state.thread, { tokenUsage: action.tokenUsage }) });
+  return patchObject(state, { thread: patchObject(state.thread, { tokenUsage }) });
 }
 
 function reduceRuntimeSlice(state: ChatRuntimeState, action: RuntimeAction): ChatRuntimeState {

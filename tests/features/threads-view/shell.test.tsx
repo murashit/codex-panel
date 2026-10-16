@@ -20,6 +20,7 @@ function panelActivity(overrides: Partial<ThreadsViewPanelActivity> = {}): Threa
     selected: false,
     pending: false,
     running: false,
+    unread: false,
     ...overrides,
   };
 }
@@ -38,7 +39,7 @@ function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
     threadId,
     title,
     live: null,
-    lifecycleBusy: false,
+    archiveDisabled: false,
     selected: false,
     isPinned: false,
     rename: { active: false, draft: title, generating: false, saving: false, autoNameDisabled: true },
@@ -91,12 +92,16 @@ describe("threads view renderer decisions", () => {
 
   it("shows pending, running, and idle states for the owning panel", () => {
     expect(
-      threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: "thread", pending: true, running: true })], new Map())[0]
-        ?.live,
+      threadRows(
+        [threadFixture({ id: "thread" })],
+        [panelActivity({ threadId: "thread", pending: true, running: true, unread: true })],
+        new Map(),
+      )[0]?.live,
     ).toMatchObject({ status: "pending" });
 
     expect(
-      threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: "thread", running: true })], new Map())[0]?.live,
+      threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: "thread", running: true, unread: true })], new Map())[0]
+        ?.live,
     ).toMatchObject({ status: "running" });
     expect(threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: "thread" })], new Map())[0]?.live).toMatchObject({
       status: "open",
@@ -104,6 +109,17 @@ describe("threads view renderer decisions", () => {
     expect(
       threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: null, running: true })], new Map())[0]?.live,
     ).toBeNull();
+  });
+
+  it("shows unread only for open panels without changing selection or row actions", () => {
+    const parent = document.createElement("div");
+    const rows = threadRows([threadFixture()], [panelActivity({ unread: true, selected: true })], new Map());
+    expect(rows[0]?.live).toEqual({ status: "unread" });
+    renderThreadsViewShell(parent, { status: null, loading: false, rows }, threadsViewActions());
+    expect(parent.querySelector(".codex-panel-threads__row--unread")).not.toBeNull();
+    expect(parent.querySelector(".is-selected")).not.toBeNull();
+    expect(parent.querySelectorAll(".codex-panel-threads__row-button")).toHaveLength(3);
+    expect(threadRows([threadFixture()], [], new Map())[0]?.live).toBeNull();
   });
 
   it("marks a row selected when one open panel for the thread was last focused", () => {

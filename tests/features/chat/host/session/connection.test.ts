@@ -131,6 +131,7 @@ function sessionConnectionFixture() {
     refreshTabHeader: vi.fn(),
   };
   const input: SessionConnectionInput = {
+    threadReadState: { receive: vi.fn() },
     connection: {
       connect: async (nextHandlers: AppServerContextConnectionLeaseHandlers) => {
         handlers = nextHandlers;

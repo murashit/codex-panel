@@ -168,6 +168,7 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
       },
     },
     panelTargetRevision: nextPanelTargetRevision,
+    threadReadReceipt: sameConversation ? state.threadReadReceipt : null,
     runtime: {
       ...runtimeBase,
       active: {
@@ -349,6 +350,7 @@ function clearThreadScopedState(state: ChatState): ChatState {
   const cleared = clearTurnScopedState(state);
   return patchObject(cleared, {
     panelThread: initialPanelThreadState(),
+    threadReadReceipt: null,
     panelTargetRevision: state.panelTargetRevision + 1,
     runtime: initialChatRuntimeState(),
     threadStream: initialChatThreadStreamState(),

@@ -30,6 +30,7 @@ import type { ThreadItemsListResponse } from "../../generated/app-server/v2/Thre
 import type { ThreadListResponse } from "../../generated/app-server/v2/ThreadListResponse";
 import type { ThreadMetadataUpdateResponse } from "../../generated/app-server/v2/ThreadMetadataUpdateResponse";
 import type { ThreadReadResponse } from "../../generated/app-server/v2/ThreadReadResponse";
+import type { ThreadReadStateUpdateResponse } from "../../generated/app-server/v2/ThreadReadStateUpdateResponse";
 import type { ThreadResumeResponse } from "../../generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadSectionListResponse } from "../../generated/app-server/v2/ThreadSectionListResponse";
 import type { ThreadSectionMoveResponse } from "../../generated/app-server/v2/ThreadSectionMoveResponse";
@@ -88,6 +89,7 @@ export interface ClientResponseByMethod {
   "thread/section/move": ThreadSectionMoveResponse;
   "threadSection/list": ThreadSectionListResponse;
   "thread/read": ThreadReadResponse;
+  "thread/readState/update": ThreadReadStateUpdateResponse;
   "thread/archive": ThreadArchiveResponse;
   "thread/delete": ThreadDeleteResponse;
   "thread/unsubscribe": ThreadUnsubscribeResponse;

@@ -273,7 +273,7 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.childElementCount).toBe(0);
   });
 
-  it("does not archive a thread while its panel is pending or running", async () => {
+  it.each(["pending", "running"] as const)("does not archive an unread thread while its panel is %s", async (status) => {
     const archiveThread = vi
       .fn<ThreadsViewHost["threadMutations"]["archiveThread"]>()
       .mockResolvedValue({ kind: "archived", exportedPath: null });
@@ -281,7 +281,15 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadMutations: threadMutationCommandsMock({ archiveThread }),
-        visiblePanelActivities: vi.fn(() => [{ threadId: "thread", selected: false, pending: true, running: false }]),
+        visiblePanelActivities: vi.fn(() => [
+          {
+            threadId: "thread",
+            selected: false,
+            pending: status === "pending",
+            running: status === "running",
+            unread: true,
+          },
+        ]),
       }),
     );
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Thread preview"));
@@ -296,7 +304,9 @@ describe("CodexThreadsView", () => {
     const source = threadFixture({ id: "source", preview: "Source" });
     const replacement = threadFixture({ id: "replacement", preview: "Replacement" });
     let cachedThreads: readonly Thread[] = [source];
-    let activities: readonly ThreadsViewPanelActivity[] = [{ threadId: "source", selected: true, pending: false, running: false }];
+    let activities: readonly ThreadsViewPanelActivity[] = [
+      { threadId: "source", selected: true, pending: false, running: false, unread: false },
+    ];
     const publication = createThreadReplacementPublication((facts) => {
       for (const fact of facts) {
         if (fact.type === "thread-upserted") cachedThreads = [fact.thread, ...cachedThreads.filter((item) => item.id !== fact.thread.id)];
@@ -319,7 +329,7 @@ describe("CodexThreadsView", () => {
       }),
     );
 
-    activities = [{ threadId: "replacement", selected: true, pending: false, running: false }];
+    activities = [{ threadId: "replacement", selected: true, pending: false, running: false, unread: false }];
     view.refreshLiveState();
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(view.containerEl.querySelector(".codex-panel-threads__row--selected")?.textContent).toContain("Source");

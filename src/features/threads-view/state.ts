@@ -2,7 +2,7 @@ import { compareThreadsPinnedFirst, type Thread } from "../../domain/threads/mod
 import type { ThreadRenameActiveState } from "../../domain/threads/title";
 import { type ThreadRowCoreProjection, threadRowCoreProjection } from "../threads/list/row-projection";
 
-type ThreadsLiveStatus = "pending" | "running" | "open";
+type ThreadsLiveStatus = "pending" | "running" | "unread" | "open";
 
 interface ThreadsLiveState {
   status: ThreadsLiveStatus;
@@ -13,11 +13,12 @@ export interface ThreadsViewPanelActivity {
   selected: boolean;
   pending: boolean;
   running: boolean;
+  unread: boolean;
 }
 
 export interface ThreadsRowModel extends ThreadRowCoreProjection {
   live: ThreadsLiveState | null;
-  lifecycleBusy: boolean;
+  archiveDisabled: boolean;
 }
 
 export type ThreadsRenameState = ThreadRenameActiveState;
@@ -44,7 +45,7 @@ export function threadRows(
     return {
       ...core,
       live,
-      lifecycleBusy: lifecycleBusyThreadIds.has(thread.id),
+      archiveDisabled: lifecycleBusyThreadIds.has(thread.id) || Boolean(threadPanelActivity?.pending || threadPanelActivity?.running),
     };
   });
 }
@@ -66,5 +67,6 @@ function panelActivitiesForThreads(panelActivities: readonly ThreadsViewPanelAct
 function panelActivityStatus(activity: ThreadsViewPanelActivity): ThreadsLiveStatus {
   if (activity.pending) return "pending";
   if (activity.running) return "running";
+  if (activity.unread) return "unread";
   return "open";
 }
