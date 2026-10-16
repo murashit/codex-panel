@@ -1,9 +1,16 @@
 import type { App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
-import type { AppServerContextConnectionLeaseHandlers } from "../../../../../src/app-server/connection/context-connection";
+import type { AppServerClient } from "../../../../../src/app-server/connection/client";
+import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
+import {
+  AppServerContextConnection,
+  type AppServerContextConnectionLease,
+  type AppServerContextConnectionLeaseHandlers,
+} from "../../../../../src/app-server/connection/context-connection";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createSessionConnection } from "../../../../../src/features/chat/host/session/connection";
+import { waitForAsyncWork } from "../../../../support/async";
 import { chatStateFixture } from "../../support/state";
 
 type SessionConnectionHost = Parameters<typeof createSessionConnection>[0];
@@ -21,8 +28,8 @@ describe("session connection", () => {
     expect(responder.respond).toHaveBeenCalledWith({ answers: { note: { answers: ["Continue"] } } });
   });
 
-  it("rejects each pending root and child responder once when its panel connection scope is invalidated", async () => {
-    const fixture = sessionConnectionFixture();
+  it.each(["reset", "exit", "side-chat-close"])("rejects pending root and child requests on %s", async (boundary) => {
+    const fixture = sessionConnectionFixture(undefined, boundary === "side-chat-close");
     await fixture.connect();
     const rootResponder = { respond: vi.fn(), reject: vi.fn() };
     const childResponder = { respond: vi.fn(), reject: vi.fn() };
@@ -37,8 +44,9 @@ describe("session connection", () => {
     fixture.deliver(commandApprovalRequest(2, "child", "child-turn"), childResponder);
     expect(fixture.stateStore.getState().requests.pendingUserInputs).toHaveLength(1);
     expect(fixture.stateStore.getState().requests.approvals).toHaveLength(1);
-    fixture.invalidate();
-    fixture.invalidate();
+    const close = boundary === "exit" ? fixture.exit : boundary === "side-chat-close" ? fixture.deactivate : fixture.invalidate;
+    close();
+    close();
     fixture.resolveUserInput(1, { note: "Continue" });
     fixture.resolveApproval(2, "accept");
 
@@ -47,6 +55,68 @@ describe("session connection", () => {
       expect(responder.reject).toHaveBeenCalledOnce();
       expect(responder.reject).toHaveBeenCalledWith(-32000, "Codex Panel disconnected before the request was answered.");
     }
+  });
+
+  it("leaves approvals with Codex across unsubscribe and answers only after resume replay and user choice", async () => {
+    let handlers: ConnectionManagerHandlers | undefined;
+    const approval = commandApprovalRequest(7, "thread-active", "turn-active");
+    const original = { respond: vi.fn(), reject: vi.fn() };
+    const late = { respond: vi.fn(), reject: vi.fn() };
+    const replayed = { respond: vi.fn(), reject: vi.fn() };
+    const request = vi.fn(async (method: string) => {
+      if (method === "thread/resume") handlers?.onServerRequest(approval, replayed);
+      return {};
+    });
+    const client = { request } as unknown as AppServerClient;
+    const disconnect = vi.fn();
+    const shared = new AppServerContextConnection(
+      "codex",
+      "/vault",
+      { clientInfo: { name: "test", title: "Test", version: "0" }, capabilities: { experimentalApi: true, requestAttestation: false } },
+      { onNotification: () => false, onSubscriptionError: vi.fn(), onExit: vi.fn() },
+      {
+        connect: async (next) => {
+          handlers = next;
+          return { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" };
+        },
+        currentClient: () => client,
+        disconnect,
+      },
+    );
+    const lease = shared.createLease();
+    lease.recordThreadSubscription("thread-active", client);
+    const first = sessionConnectionFixture(lease);
+    await first.connect();
+    handlers?.onServerRequest(approval, original);
+    expect(first.stateStore.getState().requests.approvals).toHaveLength(1);
+    first.stateStore.dispatch({ type: "panel/disposed" });
+    first.deactivate();
+    lease.disconnect();
+    await waitForAsyncWork(() =>
+      expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "thread-active" }, expect.anything()),
+    );
+    handlers?.onServerRequest(approval, late);
+    first.resolveApproval(7, "cancel");
+    for (const responder of [original, late]) {
+      expect(responder.respond).not.toHaveBeenCalled();
+      expect(responder.reject).not.toHaveBeenCalled();
+    }
+    expect(disconnect).not.toHaveBeenCalled();
+
+    const second = sessionConnectionFixture(shared.createLease());
+    await second.connect();
+    await waitForAsyncWork(() => expect(second.stateStore.getState().requests.approvals).toHaveLength(1));
+    expect(request).toHaveBeenCalledWith("thread/resume", { threadId: "thread-active", excludeTurns: true });
+    expect(replayed.respond).not.toHaveBeenCalled();
+    expect(replayed.reject).not.toHaveBeenCalled();
+    const action = second.stateStore
+      .getState()
+      .requests.approvals[0]?.actionOptions?.find((option) => option.action.intent === "cancel")?.action;
+    if (!action) throw new Error("Expected an offered cancellation action");
+    second.resolveApproval(7, action);
+    expect(replayed.respond).toHaveBeenCalledExactlyOnceWith({ decision: "cancel" });
+    shared.dispose();
+    expect(disconnect).toHaveBeenCalledOnce();
   });
 
   it("retains a responder when synchronous delivery throws", async () => {
@@ -91,13 +161,16 @@ describe("session connection", () => {
   });
 });
 
-function sessionConnectionFixture() {
+function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephemeral = false) {
   let connected = false;
   let handlers: AppServerContextConnectionLeaseHandlers | null = null;
   const addSystemMessage = vi.fn();
   const stateStore = createChatStateStore(
     chatStateFixture({
-      activeThread: { id: "thread-active" },
+      activeThread: {
+        id: "thread-active",
+        ...(ephemeral ? { lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: null } as const } : {}),
+      },
       activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
     }),
   );
@@ -132,7 +205,7 @@ function sessionConnectionFixture() {
   };
   const input: SessionConnectionInput = {
     threadReadState: { receive: vi.fn() },
-    connection: {
+    connection: lease ?? {
       connect: async (nextHandlers: AppServerContextConnectionLeaseHandlers) => {
         handlers = nextHandlers;
         connected = true;
@@ -171,6 +244,8 @@ function sessionConnectionFixture() {
     resolveUserInput: connection.inboundHandler.resolveUserInput,
     resolveApproval: connection.inboundHandler.resolveApproval,
     invalidate: connection.invalidateConnectionScope,
+    deactivate: connection.deactivate,
+    exit: () => handlers?.onExit(),
   };
 }
 
