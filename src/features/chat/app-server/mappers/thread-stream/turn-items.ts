@@ -2,14 +2,12 @@ import {
   completedTurnTranscriptSummaryFromTurnRecord,
   type TurnItem,
   type TurnRecord,
-  turnUserItemProjection,
+  turnUserItemText,
 } from "../../../../../app-server/protocol/turn";
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../../shared/ui/json-preview";
 import type { ThreadHistoryPage } from "../../../application/threads/history-controller";
 import { createStructuredSystemItem } from "../../../domain/thread-stream/factories/system-items";
-import { contextAttachmentsFromHistoryContexts } from "../../../domain/thread-stream/format/context-attachments";
-import { threadStreamFileReferences } from "../../../domain/thread-stream/format/file-references";
 import { normalizeProposedPlanMarkdown } from "../../../domain/thread-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/thread-stream/format/user-message-text";
 import type {
@@ -179,11 +177,7 @@ function turnItemSourceFields(item: { id: string }, turnId?: string): TurnItemSo
 }
 
 function userThreadStreamItem(item: UserMessageItem, turnId?: string): ThreadStreamItem {
-  const projection = turnUserItemProjection(item);
-  const text = projection.text;
-  const referencedThread = projection.referencedThread;
-  const referencedFiles = threadStreamFileReferences(projection.fileReferences);
-  const contextAttachments = contextAttachmentsFromHistoryContexts(projection.contexts, text);
+  const text = turnUserItemText(item);
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "dialogue",
@@ -191,10 +185,7 @@ function userThreadStreamItem(item: UserMessageItem, turnId?: string): ThreadStr
     role: "user",
     text: userMessageDisplayText(text, item.content),
     copyText: text,
-    ...(referencedThread ? { referencedThread } : {}),
     ...definedProp("clientId", item.clientId),
-    ...(referencedFiles.length > 0 ? { referencedFiles } : {}),
-    ...(contextAttachments.length > 0 ? { contextAttachments } : {}),
   };
 }
 

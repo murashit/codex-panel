@@ -1,5 +1,4 @@
-import type { VaultFileReference } from "../../domain/input/input";
-import type { ReferencedThreadMetadata, ReferencedThreadTurn } from "../../domain/threads/transcript";
+import type { ReferencedThreadTurn } from "../../domain/threads/transcript";
 import {
   type ThreadTranscriptEntry,
   type TurnTranscriptSummary,
@@ -7,12 +6,6 @@ import {
 } from "../../domain/threads/transcript";
 import type { ThreadItem as GeneratedThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn as GeneratedTurn } from "../../generated/app-server/v2/Turn";
-import { legacyPanelUserMessageProjection } from "./legacy-panel-user-message";
-import {
-  fileReferencesFromLegacyManifest,
-  legacyTurnContextProjection,
-  referencedThreadFromLegacyManifest,
-} from "./legacy-turn-context-manifest";
 
 export type TurnItem = GeneratedThreadItem;
 export type TurnRecord = GeneratedTurn;
@@ -49,42 +42,9 @@ export function completedTurnTranscriptSummariesFromTurnRecords(turns: readonly 
   });
 }
 
-export interface TurnUserItemProjection {
-  text: string;
-  referencedThread: ReferencedThreadMetadata | null;
-  fileReferences: VaultFileReference[];
-  contexts: TurnUserContextMetadata[];
-}
-
-interface TurnUserContextMetadata {
-  kind: "web" | "obsidian";
-  truncated: boolean;
-  inlineExcerpts?: number;
-}
-
-export function turnUserItemProjection(item: Extract<TurnItem, { type: "userMessage" }>): TurnUserItemProjection {
-  const projected = legacyTurnContextProjection(item.content, item.clientId);
-  if (!projected.manifest) {
-    const legacy = legacyPanelUserMessageProjection({
-      content: item.content,
-      visibleText: projected.text,
-    });
-    const supplementalText = nonTextUserInputText(item.content, projected.text, legacy.mentionTextByContentIndex);
-    return {
-      text: [legacy.text, supplementalText].filter(Boolean).join("\n"),
-      referencedThread: legacy.referencedThread,
-      fileReferences: legacy.fileReferences,
-      contexts: [],
-    };
-  }
-  const supplementalText = nonTextUserInputText(item.content, projected.text);
-  const text = [projected.text, supplementalText].filter(Boolean).join("\n");
-  return {
-    text,
-    referencedThread: referencedThreadFromLegacyManifest(projected.manifest),
-    fileReferences: fileReferencesFromLegacyManifest(projected.manifest),
-    contexts: legacyContextMetadata(projected.manifest.contexts),
-  };
+export function turnUserItemText(item: Extract<TurnItem, { type: "userMessage" }>): string {
+  const visibleText = item.content.flatMap((content) => (content.type === "text" ? [content.text] : [])).join("\n");
+  return [visibleText, nonTextUserInputText(item.content, visibleText)].filter(Boolean).join("\n");
 }
 
 export function lastAgentMessageTextFromTurnRecord(turn: TurnRecord): string | null {
@@ -100,20 +60,8 @@ export function lastAgentMessageTextFromTurnRecord(turn: TurnRecord): string | n
 
 function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): ThreadTranscriptEntry[] {
   if (item.type === "userMessage") {
-    const projection = turnUserItemProjection(item);
-    const text = projection.text.trim();
-    const contexts = projection.contexts.map((context) => ({ kind: context.kind, truncated: context.truncated }));
-    return text
-      ? [
-          {
-            kind: "user",
-            text,
-            timestamp: turn.startedAt,
-            ...(projection.referencedThread ? { referencedThread: projection.referencedThread } : {}),
-            ...(contexts.length > 0 ? { contexts } : {}),
-          },
-        ]
-      : [];
+    const text = turnUserItemText(item).trim();
+    return text ? [{ kind: "user", text, timestamp: turn.startedAt }] : [];
   }
   if (item.type === "agentMessage" || item.type === "plan") {
     const text = item.text.trim();
@@ -123,36 +71,17 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
   return [];
 }
 
-function legacyContextMetadata(
-  contexts: readonly { kind: "referencedThread" | "web" | "obsidian"; truncated: boolean; inlineExcerpts?: number }[],
-): TurnUserContextMetadata[] {
-  return contexts.flatMap((context) => {
-    if (context.kind === "referencedThread") return [];
-    return [
-      {
-        kind: context.kind,
-        truncated: context.truncated,
-        ...(context.inlineExcerpts === undefined ? {} : { inlineExcerpts: context.inlineExcerpts }),
-      },
-    ];
-  });
-}
-
-function nonTextUserInputText(
-  content: Extract<TurnItem, { type: "userMessage" }>["content"],
-  visibleText: string,
-  mentionTextByContentIndex?: ReadonlyMap<number, string>,
-): string {
+function nonTextUserInputText(content: Extract<TurnItem, { type: "userMessage" }>["content"], visibleText: string): string {
   const hasText = visibleText.length > 0;
   const textIncludes = (value: string) => value.length > 0 && visibleText.includes(value);
   return content
-    .map((item, index) => {
+    .map((item) => {
       if (item.type === "localImage") return hasText && textIncludes(item.path) ? "" : `[local image] ${item.path}`;
       if (item.type === "image") {
         if ("fileId" in item) return "[image]";
         return hasText && textIncludes(item.url) ? "" : `[image] ${item.url}`;
       }
-      if (item.type === "mention") return mentionTextByContentIndex?.get(index) ?? "";
+      if (item.type === "mention") return hasText ? "" : `[@${item.name}] ${item.path}`;
       if (item.type === "skill") return hasText ? "" : `[$${item.name}] ${item.path}`;
       return "";
     })

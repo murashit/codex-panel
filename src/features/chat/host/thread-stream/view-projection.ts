@@ -1,5 +1,3 @@
-import type { Thread } from "../../../../domain/threads/model";
-import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { activeThreadState, type ChatState } from "../../application/state/model";
@@ -109,7 +107,6 @@ function projectThreadStreamBlocks(
   const activeItems = model.activeTurn.activeSegment
     ? appendPendingDisplayItems(threadStreamActiveItems(stream), pendingSteers, model.pendingSubmission)
     : threadStreamActiveItems(stream);
-  const titleByThreadId = new Map(model.threads.map((thread) => [thread.id, threadDisplayTitle(thread)] as const));
   const items = appendPendingDisplayItems(canonicalItems, pendingSteers, model.pendingSubmission);
   const workspaceRoot = dependencies.vaultPath;
   const subagentActivities = new Map<string, ActiveSubagentActivity>();
@@ -139,7 +136,6 @@ function projectThreadStreamBlocks(
       : projectPendingRequestBlock({ ...model.requests, approvalDetails: model.disclosureApprovalDetails });
 
   return threadStreamViewBlocks({
-    referenceTitles: titleByThreadId,
     activeThreadId: model.activeThreadId,
     activeTurnId: activeTurnId(model.activeTurn),
     historyCursor: model.threadStream.historyCursor,
@@ -191,12 +187,7 @@ function patchTextActionTargets(
   byItemId.set(itemId, { ...byItemId.get(itemId), ...patch });
 }
 
-export interface ChatPanelThreadStreamSharedValues {
-  readonly threads: readonly Thread[];
-}
-
 export interface ChatPanelThreadStreamModel {
-  readonly threads: readonly Thread[];
   readonly activeThreadId: string | null;
   readonly forkSourceThreadId: string | null;
   readonly forkAllowed: boolean;
@@ -215,10 +206,9 @@ export interface ChatPanelThreadStreamModel {
   readonly forkMenuItemId: ChatState["ui"]["threadStreamActionMenu"]["forkMenuItemId"];
 }
 
-export function selectChatPanelThreadStream(state: ChatState, shared: ChatPanelThreadStreamSharedValues): ChatPanelThreadStreamModel {
+export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadStreamModel {
   const activeThread = activeThreadState(state);
   return {
-    threads: shared.threads,
     activeThreadId: activeThread?.id ?? null,
     forkSourceThreadId: state.panelThread.kind === "fork-draft" ? state.panelThread.draft.sourceThreadId : null,
     forkAllowed: activePanelOperationDecision(state, "fork").kind === "allowed",

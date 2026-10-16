@@ -1,5 +1,4 @@
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
-import { threadDisplayTitle } from "../../../domain/threads/title";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../shared/async/keyed-operation-coordinator";
 import { type ArchiveExportDestination, type ArchiveExportSettings, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ArchiveThreadResult, ThreadMutationPort } from "./ports";
@@ -15,7 +14,6 @@ export interface ThreadMutationCommandsHost {
   };
   archiveDestination(): ArchiveExportDestination;
   facts: ThreadFactSink;
-  referenceThreads(): readonly Thread[];
   threadIsBusy(threadId: string): boolean;
 }
 
@@ -83,17 +81,8 @@ async function archiveThread(
       prepare: shouldExport
         ? async (thread) => {
             const archiveSettings = host.archiveExport.settings();
-            const threads = host.referenceThreads();
-            const titleById = new Map(threads.map((item) => [item.id, threadDisplayTitle(item)] as const));
             const result = await exportArchivedThreadMarkdown(
-              {
-                ...thread,
-                transcriptEntries: thread.transcriptEntries.map((entry) => {
-                  if (!entry.referencedThread) return entry;
-                  const title = titleById.get(entry.referencedThread.threadId);
-                  return title ? { ...entry, referencedThread: { ...entry.referencedThread, title } } : entry;
-                }),
-              },
+              thread,
               {
                 ...archiveSettings,
                 vaultPath: host.archiveExport.vaultPath,

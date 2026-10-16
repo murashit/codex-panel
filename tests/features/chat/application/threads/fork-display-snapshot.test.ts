@@ -100,7 +100,6 @@ describe("fork display snapshots", () => {
       clientId: "submission",
       contextAttachments: [{ label: "Obsidian context", detail: "Note" }],
       referencedFiles: [{ name: "Note", path: "Note.md" }],
-      referencedThread: { threadId: "source-thread", title: "Source thread", includedTurns: 3, turnLimit: 20 },
       provenance: { source: "localUser", channel: "optimistic", interaction: "prompt", sourceId: "submission" },
     } satisfies ThreadStreamItem;
     const historyUser = {
@@ -121,7 +120,6 @@ describe("fork display snapshots", () => {
         id: "server-user",
         contextAttachments: displayUser.contextAttachments,
         referencedFiles: displayUser.referencedFiles,
-        referencedThread: displayUser.referencedThread,
       }),
     ]);
   });
@@ -137,7 +135,6 @@ describe("fork display snapshots", () => {
       turnId: "turn",
       contextAttachments: [{ label: "Obsidian context", detail: "Note" }],
       referencedFiles: [{ name: "Note", path: "Note.md" }],
-      referencedThread: { threadId: "source-thread", title: "Source thread", includedTurns: 3, turnLimit: 20 },
     } satisfies ThreadStreamItem;
     const historyUser = {
       id: "server-user",

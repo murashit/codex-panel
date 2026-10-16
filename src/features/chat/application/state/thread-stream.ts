@@ -266,13 +266,6 @@ function commitPendingSteer(state: ChatThreadStreamViewState, item: UserThreadSt
     ...item,
     ...(pending.contextAttachments ? { contextAttachments: pending.contextAttachments } : {}),
     ...(pending.referencedFiles ? { referencedFiles: pending.referencedFiles } : {}),
-    ...(pending.referencedThread
-      ? {
-          referencedThread: item.referencedThread
-            ? { ...item.referencedThread, title: pending.referencedThread.title }
-            : pending.referencedThread,
-        }
-      : {}),
   };
   const withoutPending = removePendingSteer(state, item.clientId);
   return patchObject(withoutPending, appendThreadStreamItemPatch(withoutPending, committed));

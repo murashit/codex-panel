@@ -6,7 +6,6 @@ import type { ToolInventorySnapshot } from "../../../../src/domain/runtime/tool-
 import type { RateLimitSnapshot } from "../../../../src/domain/runtime/usage";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ChatPanelComposerSharedValues } from "../../../../src/features/chat/host/composer/view-projection";
-import type { ChatPanelThreadStreamSharedValues } from "../../../../src/features/chat/host/thread-stream/view-projection";
 import type { ChatPanelToolbarSharedValues } from "../../../../src/features/chat/host/toolbar/view-projection";
 
 export interface ChatSharedDisplayValues {
@@ -56,10 +55,6 @@ export function toolbarSharedValues(shared: ChatSharedDisplayValues): ChatPanelT
     metadataDiagnostics: shared.metadataDiagnostics,
     toolInventory: shared.toolInventory,
   };
-}
-
-export function threadStreamSharedValues(shared: ChatSharedDisplayValues): ChatPanelThreadStreamSharedValues {
-  return { threads: shared.threads };
 }
 
 export function composerSharedValues(shared: ChatSharedDisplayValues): ChatPanelComposerSharedValues {

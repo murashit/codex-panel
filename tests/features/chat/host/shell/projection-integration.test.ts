@@ -24,7 +24,7 @@ import {
 import {
   type ChatThreadStreamDependencies,
   projectThreadStream,
-  selectChatPanelThreadStream as selectChatPanelThreadStreamFromResources,
+  selectChatPanelThreadStream,
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import {
   type ChatPanelToolbarDependencies,
@@ -39,7 +39,6 @@ import {
   type ChatSharedDisplayValues,
   chatSharedDisplayValuesFixture,
   composerSharedValues,
-  threadStreamSharedValues,
   toolbarSharedValues,
 } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
@@ -52,8 +51,6 @@ const emptySharedResources = chatSharedDisplayValuesFixture();
 
 const selectChatPanelToolbar = (state: ChatState, shared: ChatSharedDisplayValues) =>
   selectChatPanelToolbarFromResources(state, toolbarSharedValues(shared));
-const selectChatPanelThreadStream = (state: ChatState, shared: ChatSharedDisplayValues) =>
-  selectChatPanelThreadStreamFromResources(state, threadStreamSharedValues(shared));
 const selectChatPanelComposer = (state: ChatState, shared: ChatSharedDisplayValues) =>
   selectChatPanelComposerFromResources(state, composerSharedValues(shared));
 
@@ -223,7 +220,7 @@ describe("chat panel projection integration", () => {
       },
     });
     const dependencies = threadStreamSurfaceContext();
-    const projection = projectThreadStream(selectChatPanelThreadStream(state, emptySharedResources), dependencies);
+    const projection = projectThreadStream(selectChatPanelThreadStream(state), dependencies);
     expect(projection.context.activeThreadId).toBeNull();
     const targets = projection.blocks.flatMap((block) => (block.kind === "text" ? [block.view.actionTargets] : []));
     expect(targets.some((target) => target.rollback)).toBe(true);
@@ -256,7 +253,7 @@ describe("chat panel projection integration", () => {
       },
     ]);
 
-    const projection = projectThreadStream(selectChatPanelThreadStream(state, emptySharedResources), threadStreamSurfaceContext());
+    const projection = projectThreadStream(selectChatPanelThreadStream(state), threadStreamSurfaceContext());
     const textBlocks = projection.blocks.filter((block) => block.kind === "text");
     expect(textBlocks.map((block) => ({ body: block.view.body, rollback: block.view.actionTargets.rollback }))).toEqual([
       { body: "Question", rollback: undefined },
@@ -309,7 +306,7 @@ describe("chat panel projection integration", () => {
       },
     });
 
-    const projection = projectThreadStream(selectChatPanelThreadStream(state, emptySharedResources), threadStreamSurfaceContext());
+    const projection = projectThreadStream(selectChatPanelThreadStream(state), threadStreamSurfaceContext());
     const summary = projection.blocks.find((block) => block.kind === "liveAgentSummary");
 
     expect(summary).toMatchObject({
@@ -319,43 +316,6 @@ describe("chat panel projection integration", () => {
         rows: [{ threadId: "child", status: "Inspecting notification routing" }],
       },
     });
-  });
-
-  it("resolves persisted reference titles from the thread catalog", () => {
-    let state = chatStateFixture();
-    const shared = chatSharedDisplayValuesFixture({
-      threads: [
-        {
-          id: "thread-reference",
-          name: "Readable reference title",
-          preview: "",
-          archived: false,
-          createdAt: 1,
-          updatedAt: 1,
-          provenance: { kind: "interactive" },
-        },
-      ],
-    });
-    state = withChatStateStableThreadStreamItems(state, [
-      {
-        id: "user",
-        kind: "dialogue",
-        dialogueKind: "user",
-        role: "user",
-        text: "continue",
-        referencedThread: {
-          threadId: "thread-reference",
-          title: "thread-r",
-          includedTurns: 2,
-          turnLimit: 20,
-        },
-      },
-    ]);
-
-    const projection = projectThreadStream(selectChatPanelThreadStream(state, shared), threadStreamSurfaceContext());
-
-    expect(JSON.stringify(projection.blocks)).toContain("Readable reference title");
-    expect(JSON.stringify(projection.blocks)).not.toContain('"title":"thread-r"');
   });
 
   it("keeps compact available but hides goal mutation behind the side-chat policy", () => {
@@ -828,7 +788,7 @@ function shellModelsFromState(state: ChatState, shared: ChatSharedDisplayValues,
   return {
     toolbar: selectChatPanelToolbar(state, shared),
     goal: selectChatPanelGoal(state, goal),
-    threadStream: selectChatPanelThreadStream(state, shared),
+    threadStream: selectChatPanelThreadStream(state),
     composer: selectChatPanelComposer(state, shared),
   };
 }

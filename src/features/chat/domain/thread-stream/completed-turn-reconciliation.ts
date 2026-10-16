@@ -25,7 +25,6 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
     localMetadataByClientId.set(optimisticDialogueClientId(item), {
       contextAttachments: item.contextAttachments,
       referencedFiles: item.referencedFiles,
-      referencedThread: item.referencedThread,
     });
     if (serverUserDialogueClientIds.size > 0 || (!item.contextAttachments && !item.referencedFiles)) continue;
     if (item.turnId && item.turnId !== completedTurnId) continue;
@@ -40,14 +39,10 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
     const fallbackMetadata = localMetadataByFallbackText.get(item.copyText ?? item.text);
     const contextAttachments = item.contextAttachments ?? localMetadata?.contextAttachments ?? fallbackMetadata?.contextAttachments;
     const referencedFiles = item.referencedFiles ?? localMetadata?.referencedFiles ?? fallbackMetadata?.referencedFiles;
-    const referencedThread = item.referencedThread
-      ? { ...item.referencedThread, ...(localMetadata?.referencedThread ? { title: localMetadata.referencedThread.title } : {}) }
-      : localMetadata?.referencedThread;
     return {
       ...item,
       ...(contextAttachments ? { contextAttachments } : {}),
       ...(referencedFiles ? { referencedFiles } : {}),
-      ...(referencedThread ? { referencedThread } : {}),
     };
   });
 
@@ -77,7 +72,6 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
 interface LocalDialogueMetadata {
   contextAttachments?: ThreadStreamDialogueItem["contextAttachments"];
   referencedFiles?: ThreadStreamDialogueItem["referencedFiles"];
-  referencedThread?: ThreadStreamDialogueItem["referencedThread"];
 }
 
 function isUserDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {

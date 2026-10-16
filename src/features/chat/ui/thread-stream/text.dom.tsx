@@ -3,13 +3,7 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 import { listenOutsideDomEvent } from "../../../../shared/ui/events.dom";
 import { IconButton } from "../../../../shared/ui/icon.dom";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
-import type {
-  ContextItemTextView,
-  EditedFilesTextView,
-  ReferencedThreadTextView,
-  TextItemDetailSectionView,
-  ThreadStreamTextView,
-} from "./model";
+import type { ContextItemTextView, EditedFilesTextView, TextItemDetailSectionView, ThreadStreamTextView } from "./model";
 import { CollapsibleTextContent, TextContent } from "./text-content.dom";
 
 function closeStreamItemRoleMenuOnOutsidePointer(root: HTMLElement, onClose: () => void): () => void {
@@ -30,7 +24,6 @@ function Text({ view, context }: { view: ThreadStreamTextView; context: TextItem
         <TextContent key={view.contentKey} view={view} context={context} />
       )}
       {view.metadata.editedFiles ? <EditedFiles view={view.metadata.editedFiles} context={context} /> : null}
-      {view.metadata.referencedThread ? <ReferencedThread reference={view.metadata.referencedThread} /> : null}
       {view.metadata.contextItems ? (
         <ContextItems itemId={view.metadata.contextItems.itemId} items={view.metadata.contextItems.items} context={context} />
       ) : null}
@@ -136,22 +129,6 @@ function TextAction({ icon, label, className, onClick }: { icon: string; label: 
         onClick();
       }}
     />
-  );
-}
-
-function ReferencedThread({ reference }: { reference: ReferencedThreadTextView }): UiNode {
-  return (
-    <div className="codex-panel__referenced-thread">
-      <span className="codex-panel__referenced-thread-label">
-        <span>Referenced </span>
-        <span>{reference.title}</span>
-        <span className="codex-panel__edited-files-separator">·</span>
-        <span>
-          {reference.includedTurns}/{reference.turnLimit} turns
-          {reference.truncated ? " · truncated" : ""}
-        </span>
-      </span>
-    </div>
   );
 }
 

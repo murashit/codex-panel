@@ -2,15 +2,6 @@ import type { Thread } from "./model";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
 
-export interface ReferencedThreadMetadata {
-  threadId: string;
-  title: string;
-  includedTurns: number;
-  turnLimit: number;
-  omittedTurns?: number;
-  truncated?: boolean;
-}
-
 interface ReferencedThreadMessage {
   kind: "user" | "assistant" | "plan";
   text: string;
@@ -35,13 +26,6 @@ export interface ThreadTranscriptEntry {
   kind: ThreadTranscriptEntryKind;
   text: string;
   timestamp: number | null;
-  referencedThread?: ReferencedThreadMetadata;
-  contexts?: readonly ThreadTranscriptContext[];
-}
-
-interface ThreadTranscriptContext {
-  kind: "web" | "obsidian";
-  truncated: boolean;
 }
 
 export interface TurnTranscriptSummary {
