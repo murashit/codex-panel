@@ -82,7 +82,6 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   private closed = false;
   private readonly recentThreads: readonly Thread[];
   private completeThreadsPromise: Promise<readonly Thread[]> | null = null;
-  private completeThreads: readonly Thread[] | null = null;
 
   constructor(
     private readonly host: ThreadPickerHost,
@@ -159,14 +158,13 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   }
 
   private async loadCompleteThreadList(): Promise<readonly Thread[]> {
-    if (this.completeThreads) return this.completeThreads;
-    const pending = this.completeThreadsPromise ?? this.host.threadCatalog.fetchActiveThreadSearchInventory();
-    this.completeThreadsPromise = pending;
-    try {
-      this.completeThreads = Object.freeze([...(await pending)]);
-      return this.completeThreads;
-    } finally {
-      if (this.completeThreadsPromise === pending) this.completeThreadsPromise = null;
-    }
+    this.completeThreadsPromise ??= this.host.threadCatalog.fetchActiveThreadSearchInventory().then(
+      (threads) => Object.freeze([...threads]),
+      (error: unknown) => {
+        this.completeThreadsPromise = null;
+        throw error;
+      },
+    );
+    return this.completeThreadsPromise;
   }
 }

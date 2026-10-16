@@ -6,6 +6,7 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
 import { notices } from "../../mocks/obsidian";
 import { deferred } from "../../support/async";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("threadPickerSuggestions", () => {
   it("places pinned threads first only for empty queries", async () => {
@@ -18,16 +19,24 @@ describe("threadPickerSuggestions", () => {
     expect((await modal.getSuggestions("target")).map((item) => item.thread.id)).toEqual(["recent"]);
   });
 
-  it("loads complete history only when a search needs it", async () => {
+  it.each([false, true])("loads complete history only for search and retries failures (initial failure: %s)", async (failFirst) => {
     const host = threadPickerHost([thread({ id: "recent" })], [thread({ id: "recent" }), thread({ id: "older-target", name: "Needle" })]);
+    const load = vi.spyOn(host.threadCatalog, "fetchActiveThreadSearchInventory");
+    if (failFirst) load.mockRejectedValueOnce(new Error("Search unavailable"));
     const modal = await openedThreadPicker(host);
 
     expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["recent"]);
     expect(host.completeHistoryLoads).toBe(0);
     expect(host.sharedRefreshes).toBe(0);
 
+    if (failFirst) {
+      await expect(modal.getSuggestions("needle")).resolves.toEqual([]);
+      expect(notices.at(-1)).toBe("Search unavailable");
+    }
     const [needleSuggestions] = await Promise.all([modal.getSuggestions("needle"), modal.getSuggestions("target")]);
     expect(needleSuggestions.map((item) => item.thread.id)).toEqual(["older-target"]);
+    await expect(modal.getSuggestions("needle")).resolves.toEqual(needleSuggestions);
+    expect(load).toHaveBeenCalledTimes(failFirst ? 2 : 1);
     expect(host.completeHistoryLoads).toBe(1);
   });
 
@@ -189,16 +198,15 @@ async function openedThreadPickerSession(
   onClosed: () => void = () => undefined,
 ): Promise<{ controller: ReturnType<typeof openThreadPicker>; modal: CapturedThreadPickerModal }> {
   const captured: CapturedThreadPickerModal[] = [];
-  const originalOpen = Object.getOwnPropertyDescriptor(SuggestModal.prototype, "open");
-  SuggestModal.prototype.open = function captureOpen(this: SuggestModal<ThreadSuggestion>): void {
+  const open = vi.spyOn(SuggestModal.prototype, "open").mockImplementation(function (this: SuggestModal<ThreadSuggestion>): void {
     captured.push(this as CapturedThreadPickerModal);
-  };
+  });
   let controller: ReturnType<typeof openThreadPicker>;
   try {
     controller = openThreadPicker(isThreadPickerHost(input) ? input : threadPickerHost(input), onClosed);
     await flushMicrotasks();
   } finally {
-    if (originalOpen) Object.defineProperty(SuggestModal.prototype, "open", originalOpen);
+    open.mockRestore();
   }
   const modal = captured[0];
   if (!modal) throw new Error("Expected thread picker modal to open");
@@ -262,17 +270,7 @@ function threadPickerHost(
 }
 
 function thread(options: Partial<Thread> & { id: string }): Thread {
-  return {
-    id: options.id,
-    preview: options.preview ?? options.id,
-    createdAt: options.createdAt ?? 1,
-    updatedAt: options.updatedAt ?? 1,
-    ...(options.recencyAt === undefined ? {} : { recencyAt: options.recencyAt }),
-    ...(options.isPinned === undefined ? {} : { isPinned: options.isPinned }),
-    name: options.name ?? null,
-    archived: false,
-    provenance: options.provenance ?? { kind: "interactive" },
-  };
+  return panelThreadFixture({ preview: options.id, ...options });
 }
 
 async function flushMicrotasks(): Promise<void> {
