@@ -6,9 +6,6 @@ const MAX_SELECTION_REWRITE_INSTRUCTION_HISTORY = 20;
 
 const selectionRewriteInstructionHistory: string[] = [];
 
-type SelectionRewriteGenerationRunState = { kind: "idle" } | { kind: "running"; abortController: AbortController };
-type ActiveSelectionRewriteGenerationRun = Extract<SelectionRewriteGenerationRunState, { kind: "running" }>;
-
 export interface SelectionRewriteSessionOptions {
   runtimeSettings: SelectionRewriteRuntimeSettings;
   state: SelectionRewriteState;
@@ -29,7 +26,7 @@ export interface SelectionRewriteSessionRenderHooks {
 export type SelectionRewriteGenerateResult = "started" | "missing-instruction" | "already-running";
 
 export class SelectionRewriteSession {
-  private generationRun: SelectionRewriteGenerationRunState = { kind: "idle" };
+  private generationController: AbortController | null = null;
   private historyCursor: number | null = null;
   private historyDraft = "";
   private statusState: SelectionRewriteSessionStatus = { text: "", active: false };
@@ -52,7 +49,7 @@ export class SelectionRewriteSession {
   }
 
   get isGenerating(): boolean {
-    return this.generationRun.kind === "running";
+    return this.generationController !== null;
   }
 
   get hasInstruction(): boolean {
@@ -77,7 +74,7 @@ export class SelectionRewriteSession {
     const instruction = this.instructionDraftValue.trim();
     if (!instruction) return "missing-instruction";
 
-    const generationRun = this.startGeneration(instruction);
+    const controller = this.startGeneration(instruction);
     this.setStatus("Generating", { active: true });
     hooks.render();
 
@@ -86,29 +83,29 @@ export class SelectionRewriteSession {
         prompt: buildSelectionRewritePrompt(this.state),
         runtimeSettings: this.options.runtimeSettings,
         onActivity: (activity) => {
-          if (!this.isActiveGenerationRun(generationRun)) return;
+          if (!this.isActiveGenerationRun(controller)) return;
           this.updateActivity(activity);
           hooks.render();
         },
         onPreview: (text) => {
-          if (!this.isActiveGenerationRun(generationRun)) return;
+          if (!this.isActiveGenerationRun(controller)) return;
           this.updatePreview(text);
           hooks.render();
           hooks.position();
         },
-        signal: generationRun.abortController.signal,
+        signal: controller.signal,
       });
-      if (!this.isActiveGenerationRun(generationRun)) return "started";
+      if (!this.isActiveGenerationRun(controller)) return "started";
       this.showPreview(output.replacementText);
       hooks.render();
     } catch (error) {
-      if (generationRun.abortController.signal.aborted) {
+      if (controller.signal.aborted) {
         return "started";
       }
       this.showGenerationFailure(error);
       hooks.render();
     } finally {
-      if (this.isActiveGenerationRun(generationRun)) this.generationRun = { kind: "idle" };
+      if (this.isActiveGenerationRun(controller)) this.generationController = null;
       hooks.render();
       if (this.state.status === "preview") hooks.focusApplyButton();
       hooks.position();
@@ -118,11 +115,7 @@ export class SelectionRewriteSession {
   }
 
   cancel(): void {
-    this.abortGeneration();
-  }
-
-  abortGeneration(): void {
-    if (this.generationRun.kind === "running") this.generationRun.abortController.abort();
+    this.generationController?.abort();
   }
 
   navigateInstructionHistory(direction: SelectionRewriteInstructionHistoryDirection): boolean {
@@ -156,9 +149,9 @@ export class SelectionRewriteSession {
     return false;
   }
 
-  private startGeneration(instruction: string): ActiveSelectionRewriteGenerationRun {
-    const generationRun: ActiveSelectionRewriteGenerationRun = { kind: "running", abortController: new AbortController() };
-    this.generationRun = generationRun;
+  private startGeneration(instruction: string): AbortController {
+    const controller = new AbortController();
+    this.generationController = controller;
     rememberSelectionRewriteInstruction(instruction);
     this.historyCursor = null;
     this.historyDraft = "";
@@ -170,7 +163,7 @@ export class SelectionRewriteSession {
       replacementText: null,
       debugText: null,
     };
-    return generationRun;
+    return controller;
   }
 
   private updatePreview(text: string): void {
@@ -210,8 +203,8 @@ export class SelectionRewriteSession {
     this.setStatus(error instanceof Error ? error.message : String(error));
   }
 
-  private isActiveGenerationRun(generationRun: ActiveSelectionRewriteGenerationRun): boolean {
-    return !generationRun.abortController.signal.aborted && this.generationRun.kind === "running" && this.generationRun === generationRun;
+  private isActiveGenerationRun(controller: AbortController): boolean {
+    return !controller.signal.aborted && this.generationController === controller;
   }
 }
 

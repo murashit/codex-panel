@@ -89,7 +89,8 @@ export class ThreadsViewSession {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
     this.unsubscribeThreads = this.host.threadCatalog.observeActiveThreadsResult((result) => {
-      this.receiveObservedThreadsResult(result);
+      this.threadsResult = result;
+      this.render();
     });
     this.render();
     void this.refresh();
@@ -105,14 +106,10 @@ export class ThreadsViewSession {
   }
 
   async refresh(): Promise<void> {
-    await this.requestThreads(() => this.host.threadCatalog.refreshActiveThreads());
-  }
-
-  private async requestThreads(request: () => Promise<void>): Promise<void> {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime)) return;
     try {
-      await request();
+      await this.host.threadCatalog.refreshActiveThreads();
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime)) return;
       if (this.threadsResult.value) {
@@ -140,15 +137,14 @@ export class ThreadsViewSession {
   }
 
   refreshLiveState(): void {
-    this.scheduleRender();
+    this.renderTask.schedule(() => {
+      const activeThreadsSnapshot = this.host.threadCatalog.activeThreadsSnapshot();
+      if (activeThreadsSnapshot) this.threadsResult = { ...this.threadsResult, value: activeThreadsSnapshot };
+      this.render();
+    });
   }
 
   refreshSettings(): void {
-    this.render();
-  }
-
-  private receiveObservedThreadsResult(result: ObservedPaginatedResult<readonly Thread[]>): void {
-    this.threadsResult = result;
     this.render();
   }
 
@@ -207,14 +203,6 @@ export class ThreadsViewSession {
         archiveThread: (threadId, saveMarkdown) => void this.archiveThread(threadId, saveMarkdown),
       },
     );
-  }
-
-  private scheduleRender(): void {
-    this.renderTask.schedule(() => {
-      const activeThreadsSnapshot = this.host.threadCatalog.activeThreadsSnapshot();
-      if (activeThreadsSnapshot) this.threadsResult = { ...this.threadsResult, value: activeThreadsSnapshot };
-      this.render();
-    });
   }
 
   private async openThread(threadId: string): Promise<void> {

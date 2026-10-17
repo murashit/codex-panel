@@ -109,7 +109,7 @@ export class SelectionRewritePopover {
   close(): void {
     const hadElements = this.elements !== null;
     if (!hadElements && !this.session.isGenerating) return;
-    if (this.session.isGenerating) this.session.abortGeneration();
+    if (this.session.isGenerating) this.session.cancel();
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     if (this.elements) {
       unmountUiRoot(this.elements.root);

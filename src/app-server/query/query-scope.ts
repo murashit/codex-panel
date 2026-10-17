@@ -56,11 +56,8 @@ export class AppServerQueryScope {
       unsubscribe();
       return () => undefined;
     }
-    let subscribed = true;
     const trackedUnsubscribe = (): void => {
-      if (!subscribed) return;
-      subscribed = false;
-      this.observerUnsubscribes.delete(trackedUnsubscribe);
+      if (!this.observerUnsubscribes.delete(trackedUnsubscribe)) return;
       unsubscribe();
     };
     this.observerUnsubscribes.add(trackedUnsubscribe);

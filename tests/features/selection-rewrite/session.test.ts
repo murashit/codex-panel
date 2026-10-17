@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
 import {
   SelectionRewriteOutputError,
   type SelectionRewritePort,
@@ -35,6 +34,7 @@ describe("SelectionRewriteSession", () => {
     expect(session.isGenerating).toBe(true);
 
     session.cancel();
+    await expect(session.generate(renderHooks)).resolves.toBe("already-running");
     const activeRequest = expectPresent<SelectionRewritePortRequest>(request);
     expect(activeRequest.signal.aborted).toBe(true);
     activeRequest.onActivity("reasoning");
@@ -101,23 +101,19 @@ describe("SelectionRewriteSession", () => {
 function createSession(generate: SelectionRewritePort["generate"], instruction = "Make it concise."): SelectionRewriteSession {
   return new SelectionRewriteSession({
     runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
-    state: stateFixture(instruction),
+    state: {
+      filePath: "Note.md",
+      targetRange: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 8 } },
+      originalText: "Original",
+      noteText: "Original",
+      instruction,
+      status: "editing",
+      streamText: "",
+      replacementText: null,
+      debugText: null,
+    },
     port: { generate },
   });
-}
-
-function stateFixture(instruction: string): SelectionRewriteState {
-  return {
-    filePath: "Note.md",
-    targetRange: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 8 } },
-    originalText: "Original",
-    noteText: "Original",
-    instruction,
-    status: "editing",
-    streamText: "",
-    replacementText: null,
-    debugText: null,
-  };
 }
 
 function hooks(): SelectionRewriteSessionRenderHooks {
