@@ -337,11 +337,15 @@ describe("app-server query resources", () => {
       withClient: vi.fn(() => pending.promise) as AppServerClientAccess["withClient"],
     });
     const listener = vi.fn();
+    const cleanup = vi.fn();
+    const unsubscribe = cache.scope.trackObserver(cleanup);
     cache.metadataQueries.observeMetadataResource("models", listener, { emitCurrent: false });
 
     const fetch = cache.metadataQueries.fetchModels();
     listener.mockClear();
     cache.scope.dispose();
+    unsubscribe();
+    expect(cleanup).toHaveBeenCalledOnce();
     pending.resolve([]);
     await fetch.catch(() => undefined);
 
