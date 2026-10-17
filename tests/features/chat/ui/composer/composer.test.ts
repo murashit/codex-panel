@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { h } from "preact";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ordinaryComposerAction } from "../../../../../src/features/chat/domain/composer/action";
 import type { ComposerMetaViewModel, ComposerShellProps } from "../../../../../src/features/chat/ui/composer/composer";
 import {
@@ -15,8 +15,31 @@ import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
+afterEach(() => vi.restoreAllMocks());
 
 type ComposerSuggestion = Parameters<ComposerCallbacks["onSuggestionInsert"]>[0];
+
+const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
+  fatal: null,
+  context: {
+    cells: [
+      { text: "⣀", placeholder: true },
+      { text: "⣀", placeholder: true },
+      { text: "⣀", placeholder: true },
+      { text: "⣀", placeholder: true },
+    ],
+    percent: "--%",
+  },
+  statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+  model: "default",
+  effort: null,
+  planActive: false,
+  autoReviewActive: false,
+  fastAvailable: true,
+  fastActive: false,
+  modelChoices: [],
+  effortChoices: [],
+};
 
 function mountComposerShell(
   parent: HTMLElement,
@@ -54,29 +77,7 @@ function mountComposerShell(
       pendingSelection: null,
       onPendingSelectionApplied: vi.fn(),
       callbacks,
-      meta:
-        meta ??
-        ({
-          fatal: null,
-          context: {
-            cells: [
-              { text: "⣀", placeholder: true },
-              { text: "⣀", placeholder: true },
-              { text: "⣀", placeholder: true },
-              { text: "⣀", placeholder: true },
-            ],
-            percent: "--%",
-          },
-          statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-          model: "default",
-          effort: null,
-          planActive: false,
-          autoReviewActive: false,
-          fastAvailable: true,
-          fastActive: false,
-          modelChoices: [],
-          effortChoices: [],
-        } satisfies ComposerMetaViewModel),
+      meta: meta ?? DEFAULT_COMPOSER_META,
       onComposer: (composer) => {
         if (composer) elements.composer = composer;
       },
@@ -471,100 +472,46 @@ describe("ComposerShell decisions", () => {
     expect(callbacks.onInput).toHaveBeenCalledWith("Draft text");
   });
 
-  it("syncs composer autogrow when the controlled input changes height", () => {
-    const parent = document.createElement("div");
-    const callbacks = composerCallbacks();
-    let scrollHeight = 56;
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "scrollHeight");
-    Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
-      get: () => scrollHeight,
-      configurable: true,
-    });
-    try {
-      const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks);
-
-      scrollHeight = 120;
-      changeInputValue(composer, "line one\nline two");
-
-      expect(composer.style.height).toBe("120px");
-      expect(composer.style.overflowY).toBe("hidden");
-    } finally {
-      if (descriptor) {
-        Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);
-      } else {
-        Reflect.deleteProperty(HTMLTextAreaElement.prototype, "scrollHeight");
-      }
-    }
-  });
-
-  it("shrinks composer autogrow when the controlled draft clears after send", () => {
+  it("grows on input and shrinks when the controlled draft clears after send", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
     // Keep this callback stable so clearing the draft must trigger its own height update.
     const onComposer = vi.fn();
-    let scrollHeight = 120;
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "scrollHeight");
-    Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
-      get: () => scrollHeight,
-      configurable: true,
-    });
+    const measuredHeight = vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(120);
 
-    try {
-      const props = {
-        viewId: "view",
-        draft: "line one\nline two",
-        busy: false,
-        action: "send",
-        submissionDisabled: false,
-        directInputDisabled: false,
-        runtimeControlsDisabled: false,
-        sendDisabled: false,
-        webSubmissionCancellable: false,
-        normalPlaceholder: "Ask Codex...",
-        suggestions: [],
-        selectedSuggestionIndex: 0,
-        pendingSelection: null,
-        onPendingSelectionApplied: vi.fn(),
-        callbacks,
-        meta: {
-          fatal: null,
-          context: {
-            cells: [
-              { text: "⣀", placeholder: true },
-              { text: "⣀", placeholder: true },
-              { text: "⣀", placeholder: true },
-              { text: "⣀", placeholder: true },
-            ],
-            percent: "--%",
-          },
-          statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-          model: "default",
-          effort: null,
-          planActive: false,
-          autoReviewActive: false,
-          fastAvailable: true,
-          fastActive: false,
-          modelChoices: [],
-          effortChoices: [],
-        },
-        onComposer,
-      } satisfies ComposerShellProps;
-      renderUiRoot(parent, h(ComposerShell, props));
-      const composer = parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input");
-      if (!composer) throw new Error("Expected composer shell elements to mount.");
-      expect(composer.style.height).toBe("120px");
+    const props = {
+      viewId: "view",
+      draft: "line one\nline two",
+      busy: false,
+      action: "send",
+      submissionDisabled: false,
+      directInputDisabled: false,
+      runtimeControlsDisabled: false,
+      sendDisabled: false,
+      webSubmissionCancellable: false,
+      normalPlaceholder: "Ask Codex...",
+      suggestions: [],
+      selectedSuggestionIndex: 0,
+      pendingSelection: null,
+      onPendingSelectionApplied: vi.fn(),
+      callbacks,
+      meta: DEFAULT_COMPOSER_META,
+      onComposer,
+    } satisfies ComposerShellProps;
+    renderUiRoot(parent, h(ComposerShell, props));
+    const composer = parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input");
+    if (!composer) throw new Error("Expected composer shell elements to mount.");
+    expect(composer.style.height).toBe("120px");
 
-      scrollHeight = 56;
-      renderUiRoot(parent, h(ComposerShell, { ...props, draft: "" }));
+    measuredHeight.mockReturnValue(160);
+    changeInputValue(composer, "line one\nline two\nline three");
+    expect(composer.style.height).toBe("160px");
+    expect(composer.style.overflowY).toBe("hidden");
 
-      expect(composer.style.height).toBe("56px");
-    } finally {
-      if (descriptor) {
-        Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);
-      } else {
-        Reflect.deleteProperty(HTMLTextAreaElement.prototype, "scrollHeight");
-      }
-    }
+    measuredHeight.mockReturnValue(56);
+    renderUiRoot(parent, h(ComposerShell, { ...props, draft: "" }));
+
+    expect(composer.style.height).toBe("56px");
   });
 
   it("scrolls the selected composer suggestion fully into view below the viewport", () => {
@@ -638,33 +585,17 @@ describe("ComposerShell decisions", () => {
 
   it("honors the smaller viewport branch of the composer max-height CSS", () => {
     const composer = document.createElement("textarea");
-    const getComputedStyleMock = vi.spyOn(window, "getComputedStyle").mockReturnValue({
+    vi.spyOn(window, "getComputedStyle").mockReturnValue({
       minHeight: "76px",
       maxHeight: "min(208px, 40vh)",
       boxSizing: "border-box",
       width: "240px",
       getPropertyValue: () => "",
     } as unknown as CSSStyleDeclaration);
-    const viewportDescriptor = Object.getOwnPropertyDescriptor(window, "innerHeight");
-    Object.defineProperty(window, "innerHeight", { value: 400, configurable: true });
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "scrollHeight");
-    Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
-      get: () => 280,
-      configurable: true,
-    });
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(400);
+    vi.spyOn(HTMLTextAreaElement.prototype, "scrollHeight", "get").mockReturnValue(280);
 
-    try {
-      syncComposerHeight(composer);
-    } finally {
-      getComputedStyleMock.mockRestore();
-      if (viewportDescriptor) Object.defineProperty(window, "innerHeight", viewportDescriptor);
-      else Reflect.deleteProperty(window, "innerHeight");
-      if (descriptor) {
-        Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);
-      } else {
-        Reflect.deleteProperty(HTMLTextAreaElement.prototype, "scrollHeight");
-      }
-    }
+    syncComposerHeight(composer);
 
     expect(composer.style.height).toBe("160px");
     expect(composer.style.overflowY).toBe("auto");

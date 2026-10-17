@@ -3,8 +3,7 @@ export interface TextareaHeightOptions {
   maxHeightFallback: number;
 }
 
-const textareaHeightMirrors = new WeakMap<Document, HTMLTextAreaElement>();
-const textareaHeightMirrorDocuments = new Set<Document>();
+const textareaHeightMirrors = new Map<Document, HTMLTextAreaElement>();
 const TEXTAREA_HEIGHT_MIRROR_CLASS = "codex-panel-textarea-height-mirror";
 
 export function syncTextareaHeight(textarea: HTMLTextAreaElement | null, options: TextareaHeightOptions): void {
@@ -23,11 +22,10 @@ export function syncTextareaHeight(textarea: HTMLTextAreaElement | null, options
 }
 
 export function disposeTextareaHeightMirrors(): void {
-  for (const doc of textareaHeightMirrorDocuments) {
+  for (const doc of textareaHeightMirrors.keys()) {
     for (const mirror of doc.querySelectorAll(`.${TEXTAREA_HEIGHT_MIRROR_CLASS}`)) mirror.remove();
-    textareaHeightMirrors.delete(doc);
   }
-  textareaHeightMirrorDocuments.clear();
+  textareaHeightMirrors.clear();
 }
 
 function measureTextareaNaturalScrollHeight(textarea: HTMLTextAreaElement, style: CSSStyleDeclaration): number {
@@ -49,7 +47,6 @@ function textareaHeightMirror(doc: Document): HTMLTextAreaElement {
   mirror.addClass(TEXTAREA_HEIGHT_MIRROR_CLASS);
   if (!mirror.isConnected) doc.body.appendChild(mirror);
   textareaHeightMirrors.set(doc, mirror);
-  textareaHeightMirrorDocuments.add(doc);
   return mirror;
 }
 
