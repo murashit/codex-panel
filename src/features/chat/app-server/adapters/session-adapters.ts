@@ -10,23 +10,22 @@ import {
   setThreadGoal,
   startThread,
   threadActivationSnapshotFromAppServerResponse,
-  unsubscribeThread,
   updateThreadSettings,
 } from "../../../../app-server/services/threads";
 import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/services/turns";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
 import type { EffectOutcome } from "../../application/effect-outcome";
 import type { RuntimeSettingsPort } from "../../application/runtime/settings-commands";
-import type { EphemeralThreadEffects, EphemeralThreadForkResult } from "../../application/threads/ephemeral-thread-lifecycle";
 import type { ThreadGoalEffects } from "../../application/threads/goal-commands";
 import type { ThreadHistoryPage, ThreadHistorySource } from "../../application/threads/history-controller";
 import type { ThreadResumeEffects } from "../../application/threads/resume-command";
+import type { SideChatPort } from "../../application/threads/side-chat-commands";
 import type { ThreadCommandEffects } from "../../application/threads/thread-commands";
 import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";
 import { chatThreadHistoryPageFromNewestFirstTurnsPage } from "../mappers/thread-stream/turn-items";
 import { panelDynamicTools } from "./dynamic-tool-registration";
-import { EphemeralThreadCleanupRequiredError, forkEphemeralThread } from "./side-chat";
+import { createSideConversation, type SideConversation, type SideConversationFactory } from "./side-chat";
 
 interface CurrentChatAppServerClientHost {
   currentClient(): AppServerClient | null;
@@ -35,17 +34,59 @@ interface CurrentChatAppServerClientHost {
 interface ChatAppServerAdapterHost extends CurrentChatAppServerClientHost {
   vaultPath: string;
   recordThreadSubscription(threadId: string, client: AppServerClient): void;
+  releaseThreadRequests?: (threadId: string) => void;
+  reportCleanupFailure?: () => void;
+  createSideConversation?: SideConversationFactory;
+  currentTurn?: () => { threadId: string; turnId: string } | null;
 }
 
 export function createChatSessionAdapters(host: ChatAppServerAdapterHost) {
+  let sideChat: { threadId: string | null; conversation: SideConversation } | null = null;
+  let disposed = false;
+  const releaseSideChat = (): Promise<void> => {
+    const conversation = sideChat?.conversation;
+    sideChat = null;
+    return conversation?.release() ?? Promise.resolve();
+  };
+  const ephemeral: SideChatPort = {
+    async forkEphemeralThread(sourceThreadId, runtime, isCurrent) {
+      const client = host.currentClient();
+      if (!client || disposed) return null;
+      const current = (): boolean => !disposed && sideChat === owned && host.currentClient() === client && isCurrent();
+      const conversation = (host.createSideConversation ?? createSideConversation)({
+        client,
+        sourceThreadId,
+        runtime,
+        vaultPath: host.vaultPath,
+        isCurrent: current,
+        ...(host.currentTurn ? { currentTurn: host.currentTurn } : {}),
+        releaseRequests: (threadId) => host.releaseThreadRequests?.(threadId),
+        reportCleanupFailure: () => host.reportCleanupFailure?.(),
+      });
+      const owned = { threadId: null as string | null, conversation };
+      sideChat = owned;
+      const activation = await conversation.activate();
+      if (!activation || !current()) {
+        void conversation.release().catch(() => undefined);
+        return null;
+      }
+      owned.threadId = activation.thread.id;
+      return activation;
+    },
+    release: releaseSideChat,
+    dispose() {
+      disposed = true;
+      return releaseSideChat();
+    },
+  };
   return {
     runtimeSettings: createChatRuntimeSettingsAdapter(host),
     threadStart: createChatThreadStartAdapter(host),
     threadHistory: createChatThreadHistoryAdapter(host),
-    turn: createChatTurnAdapter(host),
+    turn: createChatTurnAdapter(host, (threadId) => (sideChat?.threadId === threadId ? sideChat.conversation : null)),
     threadResume: createChatThreadResumeAdapter(host),
     threadCommands: createChatThreadCommandAdapter(host),
-    threadEphemeral: createChatEphemeralThreadAdapter(host),
+    threadEphemeral: ephemeral,
     threadGoal: createChatThreadGoalAdapter(host),
   } as const;
 }
@@ -74,10 +115,12 @@ function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadSta
   };
 }
 
-function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
+function createChatTurnAdapter(host: ChatAppServerAdapterHost, sideChatFor: (threadId: string) => SideConversation | null): ChatTurnPort {
   return {
     startTurn: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
+        const sideChat = sideChatFor(request.threadId);
+        if (sideChat) return sideChat.start(request.input, request.clientUserMessageId);
         const response = await startTurn(client, {
           threadId: request.threadId,
           cwd: host.vaultPath,
@@ -153,56 +196,11 @@ function createChatThreadCommandAdapter(host: ChatAppServerAdapterHost): ThreadC
   };
 }
 
-function createChatEphemeralThreadAdapter(host: ChatAppServerAdapterHost): EphemeralThreadEffects {
-  return {
-    forkEphemeralThread: async (sourceThreadId) => {
-      const client = host.currentClient();
-      if (!client) return null;
-      const value = await forkEphemeralThreadResult(client, sourceThreadId, host.vaultPath);
-      if (!chatAppServerClientIsStale(host, client)) return value;
-      const threadId = value.kind === "ready" ? value.activation.thread.id : value.threadId;
-      try {
-        await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
-      } catch {
-        // The superseded connection remains the only valid cleanup context.
-      }
-      return null;
-    },
-    unsubscribeEphemeralThread: async (threadId) => {
-      const result = await withCurrentChatAppServerClient(host, async (client) => {
-        await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
-        return true;
-      });
-      return result ?? false;
-    },
-  };
-}
-
-async function forkEphemeralThreadResult(
-  client: AppServerRequestClient,
-  sourceThreadId: string,
-  vaultPath: string,
-): Promise<EphemeralThreadForkResult> {
-  try {
-    const snapshot = await forkEphemeralThread(client, sourceThreadId, vaultPath);
-    return { kind: "ready", ...snapshot };
-  } catch (error) {
-    if (error instanceof EphemeralThreadCleanupRequiredError) {
-      return { kind: "cleanup-required", threadId: error.threadId };
-    }
-    throw error;
-  }
-}
-
 function createChatThreadGoalAdapter(host: CurrentChatAppServerClientHost): ThreadGoalEffects {
   return {
     setThreadGoal: async (threadId, params) => runCurrentChatAppServerEffect(host, (client) => setThreadGoal(client, threadId, params)),
     clearThreadGoal: (threadId) => runCurrentChatAppServerEffect(host, async (client) => clearThreadGoal(client, threadId)),
   };
-}
-
-function chatAppServerClientIsStale(host: CurrentChatAppServerClientHost, client: AppServerClient): boolean {
-  return host.currentClient() !== client;
 }
 
 function runCurrentChatAppServerEffect<T>(

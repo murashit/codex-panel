@@ -17,6 +17,12 @@ export function parseServiceTier(value: unknown): ServiceTier | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+export function sameServiceTier(left: ServiceTier | null | undefined, right: ServiceTier | null | undefined): boolean {
+  // App-server reports the canonical value, while requests also accept these aliases.
+  const canonical = (tier: ServiceTier | null | undefined) => (tier === "fast" ? "priority" : (tier ?? "default"));
+  return canonical(left) === canonical(right);
+}
+
 export type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
 export type Verbosity = "low" | "medium" | "high";
 
@@ -81,14 +87,6 @@ export interface RuntimeSettingsPatch {
   serviceTier?: string | null;
   effort?: ReasoningEffort | null;
   collaborationMode?: CollaborationMode | null;
-}
-
-export function applyRuntimeSettingsPatchValue<K extends keyof RuntimeSettingsPatch>(
-  update: RuntimeSettingsPatch,
-  key: K,
-  value: RuntimeSettingsPatch[K] | undefined,
-): void {
-  if (value !== undefined) update[key] = value;
 }
 
 export function runtimeCollaborationModeSettings(

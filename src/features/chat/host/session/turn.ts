@@ -148,7 +148,10 @@ export function createSessionTurn(host: SessionTurnHost, input: SessionTurnInput
     reconnect,
     openSideChat: async (threadId, message) => {
       const source = host.environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((thread) => thread.id === threadId);
-      await host.environment.plugin.workspace.openForkDraft(sideChatDraft(threadId, source?.name ?? source?.preview ?? null), message);
+      await host.environment.plugin.workspace.openForkDraft(
+        sideChatDraft(threadId, source?.name ?? source?.preview ?? null, host.stateStore.getState().runtime),
+        message,
+      );
     },
     runtimeSettings,
     goals,

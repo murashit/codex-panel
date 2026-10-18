@@ -1,5 +1,4 @@
 import type { App, Component, EventRef } from "obsidian";
-
 import type { AppServerContextConnectionLease } from "../../../app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
@@ -20,11 +19,13 @@ import type { ThreadFactSink } from "../../threads/workflows/thread-facts";
 import type { ThreadMutationCommands } from "../../threads/workflows/thread-mutation-commands";
 import type { ThreadReplacementPublicationOwner } from "../../threads/workflows/thread-replacement-publication";
 import type { TurnDiffViewState } from "../../turn-diff/model";
+import type { SideConversationFactory } from "../app-server/adapters/side-chat";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ForkDisplaySnapshot } from "../application/threads/fork-display-snapshot";
 import type { ForkDraftPreparation, ForkReplacement } from "../application/threads/fork-draft";
 
 export interface CodexChatHost {
+  readonly createSideConversation: SideConversationFactory;
   readonly appServerConnection: { createLease(): AppServerContextConnectionLease };
   readonly appServerContext: Readonly<AppServerExecutionContext>;
   readonly settings: ChatPanelSettingsAccess;

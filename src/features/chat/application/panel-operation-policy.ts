@@ -134,7 +134,7 @@ function sideChatDecision(operation: ActivePanelOperation): ActivePanelOperation
     case "goal-read":
       return { kind: "blocked", message: "Goals are unavailable in side chats." };
     case "implement-plan":
-      return { kind: "blocked", message: "Plans cannot be implemented from side chats." };
+      return ALLOWED;
     case "compact":
       return ALLOWED;
     case "fork":
@@ -144,10 +144,10 @@ function sideChatDecision(operation: ActivePanelOperation): ActivePanelOperation
     case "start-side-chat":
       return { kind: "blocked", message: "Side chats cannot be started from another side chat." };
     case "permission-settings":
-      return { kind: "blocked", message: "Permission changes are unavailable in side chats." };
+      return ALLOWED;
     case "submit":
       return ALLOWED;
     case "thread-settings":
-      return { kind: "blocked", message: "Thread settings are unavailable in side chats." };
+      return ALLOWED;
   }
 }

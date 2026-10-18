@@ -1,3 +1,4 @@
+import { createSideConversation } from "../../src/features/chat/app-server/adapters/side-chat";
 // @vitest-environment jsdom
 
 import { FileSystemAdapter } from "obsidian";
@@ -6,7 +7,7 @@ import { BUILT_IN_PINNED_THREAD_SECTION_ID } from "../../src/app-server/protocol
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "../../src/constants";
 import { createServerDiagnostics } from "../../src/domain/runtime/diagnostics";
 import type { Thread } from "../../src/domain/threads/model";
-import type { CodexChatHost } from "../../src/features/chat/host/contracts";
+import type { ChatViewRuntimeOwner, CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/preferences";
@@ -79,7 +80,11 @@ export function leaf(options: { state?: Record<string, unknown> } = {}): TestLea
   };
 }
 
-export function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf): CodexChatView {
+export function chatView(
+  CodexChatViewCtor: typeof CodexChatView,
+  leaf: TestLeaf,
+  runtimeOwner: ChatViewRuntimeOwner = { attachChatView: (view) => view.attachRuntime(chatHostFixture()) },
+): CodexChatView {
   const containerEl = document.createElement("div");
   containerEl.createDiv();
   containerEl.createDiv();
@@ -111,11 +116,7 @@ export function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf
       },
       containerEl,
     } as never,
-    {
-      attachChatView: (runtimeView) => {
-        runtimeView.attachRuntime(chatHostFixture());
-      },
-    },
+    runtimeOwner,
   );
   const workspace = view.app.workspace as unknown as {
     getActiveViewOfType?: ReturnType<typeof vi.fn>;
@@ -152,6 +153,7 @@ function chatHostFixture(): CodexChatHost {
     },
     threadAutoTitleWork: { submit: vi.fn() },
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    createSideConversation,
     settings: chatPanelSettingsAccess(settings),
     workspace: {
       returnFromForkDraft: vi.fn().mockResolvedValue(true),

@@ -1,14 +1,9 @@
-import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { PreparedInput } from "../application/composer/prepared-input";
 import { type ChatSessionAdapters, createChatSessionAdapters } from "./adapters/session-adapters";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./adapters/thread-reference-resolver";
 
-export interface ChatAppServerGatewayHost {
-  vaultPath: string;
-  currentClient(): AppServerClient | null;
-  recordThreadSubscription(threadId: string, client: AppServerClient): void;
-}
+export type ChatAppServerGatewayHost = Parameters<typeof createChatSessionAdapters>[0];
 
 interface ChatThreadReferenceResolverOptions {
   prepareInput(text: string, snapshot: ComposerInputSnapshot): PreparedInput;

@@ -318,7 +318,7 @@ describe("chat panel projection integration", () => {
     });
   });
 
-  it("keeps compact available but hides goal mutation behind the side-chat policy", () => {
+  it("keeps side-chat settings and compact available while disabling saved goals", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {
       activeThread: {
@@ -344,7 +344,7 @@ describe("chat panel projection integration", () => {
     ]);
     const composer = selectChatPanelComposer(state, emptySharedResources);
     expect(composer.submissionBlockedByPanelPolicy).toBe(false);
-    expect(composer.runtimeSettingsDisabled).toBe(true);
+    expect(composer.runtimeSettingsDisabled).toBe(false);
     unmountUiRoot(parent);
   });
 

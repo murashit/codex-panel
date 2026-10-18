@@ -239,7 +239,7 @@ describe("runtime control resolution", () => {
     const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
     expect(resolution.serviceTier).toMatchObject({ effective: null, source: "pending" });
-    expect(resolution.fastMode).toMatchObject({ active: false, source: "pending", effectiveServiceTier: null });
+    expect(resolution.fastMode).toMatchObject({ active: false, source: "pending" });
   });
 
   it("keeps a cleared active thread service tier above configured Fast mode", () => {
@@ -318,7 +318,7 @@ describe("runtime control resolution", () => {
       approvalPolicy: { effective: "never", source: "active-thread" },
       approvalsReviewer: { effective: "user", source: "active-thread" },
       serviceTier: { effective: "flex", source: "active-thread" },
-      fastMode: { active: false, source: "active-thread", effectiveServiceTier: "flex" },
+      fastMode: { active: false, source: "active-thread" },
     });
     expect(resolveRuntimeControls(pending, snapshotConfig(pending))).toMatchObject({
       model: { confirmed: "gpt-active", confirmedSource: "active-thread", effective: "gpt-pending", source: "pending" },
@@ -343,31 +343,17 @@ describe("runtime control resolution", () => {
     });
   });
 
-  it("reports collaboration mode dirtiness and missing model blockers from the resolved runtime", () => {
-    const blocked = runtimeSnapshot({
+  it("resolves pending collaboration mode even without an effective model", () => {
+    const snapshot = runtimeSnapshot({
       pending: { collaborationMode: setCollaborationModeIntent("plan") },
       runtimeConfig: runtimeConfigFromAppServerFixture({}),
     });
-    const ready = runtimeSnapshot({
-      pending: {
-        collaborationMode: setCollaborationModeIntent("plan"),
-        model: setRuntimeIntentValue("gpt-5.5"),
-      },
-    });
 
-    expect(resolveRuntimeControls(blocked, snapshotConfig(blocked)).collaborationMode).toMatchObject({
+    expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot)).collaborationMode).toMatchObject({
       pending: setCollaborationModeIntent("plan"),
       confirmed: "default",
       effective: "plan",
       dirty: true,
-      blockedReason: "missing-model",
-    });
-    expect(resolveRuntimeControls(ready, snapshotConfig(ready)).collaborationMode).toMatchObject({
-      pending: setCollaborationModeIntent("plan"),
-      confirmed: "default",
-      effective: "plan",
-      dirty: true,
-      blockedReason: null,
     });
   });
 

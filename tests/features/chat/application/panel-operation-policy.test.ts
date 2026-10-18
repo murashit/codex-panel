@@ -30,10 +30,16 @@ describe("activePanelOperationDecisionForFacts", () => {
     expectDecisionKinds({ phase: "active", lifetime: "persistent", canAcceptDirectInput: null, provenance: "interactive" }, allAllowed());
   });
 
-  it("keeps side-chat submission and compaction available while blocking persistent-thread mutations", () => {
+  it("allows side-chat settings, plan execution and compaction while blocking saved-history actions", () => {
     expectDecisionKinds(
       { phase: "active", lifetime: "ephemeral", canAcceptDirectInput: null, provenance: "interactive" },
-      decisions({ submit: "allowed", compact: "allowed" }),
+      decisions({
+        submit: "allowed",
+        compact: "allowed",
+        "thread-settings": "allowed",
+        "permission-settings": "allowed",
+        "implement-plan": "allowed",
+      }),
     );
   });
 

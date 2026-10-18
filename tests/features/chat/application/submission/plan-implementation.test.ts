@@ -9,7 +9,7 @@ import {
   implementPlanTarget,
   type PlanImplementationHost,
 } from "../../../../../src/features/chat/application/submission/plan-implementation";
-import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
+import { collaborationModeIntentValue, setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
 import { threadActivationFixture } from "../../../../support/thread-activation";
@@ -48,8 +48,9 @@ function resumeThread(
     lifetime,
   });
   stateStore.dispatch({
-    type: "runtime/pending-intent-patched",
-    patch: { collaborationMode: { kind: "set", value: "plan" } },
+    type: "active-thread/settings-applied",
+    ...stateStore.getState().runtime.active,
+    collaborationMode: "plan",
   });
 }
 
@@ -84,7 +85,7 @@ function implementPlanTargetFromState(state: ReturnType<ChatStateStore["getState
     hasConversation: activeThreadState(state) !== null || state.panelThread.kind === "fork-draft",
     modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
     activeTurn: state.activeTurn,
-    runtime: state.runtime,
+    collaborationMode: collaborationModeIntentValue(state.runtime.pending.collaborationMode, state.runtime.active.collaborationMode),
     threadStream: chatThreadStreamViewState(state.threadStream, state.activeTurn),
   });
 }
@@ -125,23 +126,11 @@ describe("implementPlan", () => {
     expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: completed.id });
   });
 
-  it("does not offer or send plan implementation from a side chat", async () => {
-    const { host, ensureConnected, sendTurnText, stateStore } = createPlanImplementationHost();
-    const plan = planItem("plan");
-    resumeThread(stateStore, [plan], { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" });
-
-    expect(implementPlanTargetFromState(stateStore.getState())).toBeNull();
-
-    await implementPlan(host, plan.id);
-
-    expect(ensureConnected).not.toHaveBeenCalled();
-    expect(sendTurnText).not.toHaveBeenCalled();
-  });
-
-  it("switches out of plan mode and submits the implementation prompt", async () => {
+  it.each(["persistent", "ephemeral"] as const)("implements the offered plan in a %s chat after leaving Plan mode", async (kind) => {
     const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createPlanImplementationHost();
     const plan = planItem("plan");
-    resumeThread(stateStore, [plan]);
+    resumeThread(stateStore, [plan], kind === "persistent" ? { kind } : { kind, sourceThreadId: "source", sourceThreadTitle: "Source" });
+    expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: plan.id });
     stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
 
     await implementPlan(host, plan.id);
@@ -172,7 +161,7 @@ describe("implementPlan", () => {
     await implementing;
     expect(requestDefaultCollaborationModeForNextTurn).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
-    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
+    expect(stateStore.getState().runtime.active.collaborationMode).toBe("plan");
   });
 
   it("ignores stale plan items", async () => {

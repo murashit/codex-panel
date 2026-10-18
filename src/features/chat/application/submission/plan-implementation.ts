@@ -1,4 +1,4 @@
-import type { ChatRuntimeState } from "../../domain/runtime/state";
+import { type CollaborationModeSelection, collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/conversation";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId, type ChatState } from "../state/model";
@@ -22,7 +22,7 @@ interface PlanImplementationState {
   hasConversation: boolean;
   modeAllowed: boolean;
   activeTurn: { lifecycle: ChatTurnLifecycleState };
-  runtime: { pending: Pick<ChatRuntimeState["pending"], "collaborationMode"> };
+  collaborationMode: CollaborationModeSelection;
   threadStream: ChatThreadStreamViewState;
 }
 
@@ -31,19 +31,13 @@ function implementPlanTargetFromState(state: ChatState): PlanImplementationTarge
     hasConversation: activeThreadId(state) !== null || state.panelThread.kind === "fork-draft",
     modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
     activeTurn: state.activeTurn,
-    runtime: state.runtime,
+    collaborationMode: collaborationModeIntentValue(state.runtime.pending.collaborationMode, state.runtime.active.collaborationMode),
     threadStream: chatThreadStreamViewState(state.threadStream, state.activeTurn),
   });
 }
 
 export function implementPlanTarget(state: PlanImplementationState): PlanImplementationTarget | null {
-  if (
-    !state.hasConversation ||
-    !state.modeAllowed ||
-    chatTurnBusy(state.activeTurn) ||
-    state.runtime.pending.collaborationMode.kind !== "set" ||
-    state.runtime.pending.collaborationMode.value !== "plan"
-  ) {
+  if (!state.hasConversation || !state.modeAllowed || chatTurnBusy(state.activeTurn) || state.collaborationMode !== "plan") {
     return null;
   }
   return latestImplementablePlanTargetFromItems(threadStreamItems(state.threadStream));

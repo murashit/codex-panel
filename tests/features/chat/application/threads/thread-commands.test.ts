@@ -37,20 +37,6 @@ type ThreadCommandsHostMock = Omit<
 };
 
 describe("thread management commands", () => {
-  it("allows direct compaction of an active side chat", async () => {
-    const host = hostMock({
-      items: [],
-      activeThread: {
-        id: "side-thread",
-        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
-      },
-    });
-
-    await threadCommands(host).compactThread("side-thread");
-
-    expect(host.effects.compactThread).toHaveBeenCalledWith("side-thread");
-  });
-
   it("does not compact an old panel target after connection completes", async () => {
     const connection = deferred<boolean>();
     const host = hostMock({
@@ -72,8 +58,18 @@ describe("thread management commands", () => {
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
   });
 
-  it("requests thread compaction and reports the shared status", async () => {
-    const host = hostMock({ items: [] });
+  it.each(["persistent", "ephemeral"] as const)("requests %s thread compaction and reports the shared status", async (lifetime) => {
+    const host = hostMock({
+      items: [],
+      activeThread: {
+        id: "source",
+        ...(lifetime === "ephemeral"
+          ? {
+              lifetime: { kind: "ephemeral", sourceThreadId: "parent", sourceThreadTitle: "Parent" },
+            }
+          : {}),
+      },
+    });
     const controller = threadCommands(host);
 
     await controller.compactThread("source");
@@ -418,7 +414,7 @@ describe("thread management commands", () => {
     ] as const) {
       expect(draft[field]).toEqual(source[field]);
     }
-    const forkThread = vi.fn(async () => completed({ ...activation, thread: panelThread("child") }));
+    const forkThread = vi.fn(async () => completed({ ...activation, model: "server-model", thread: panelThread("child") }));
     const starter = createThreadStartCommand({
       withThreadActivation: async (operation) => operation(),
       createSideChat: vi.fn(),
@@ -430,9 +426,12 @@ describe("thread management commands", () => {
       onThreadActivated: vi.fn(),
     });
     await starter.startThread("edited prompt");
+    expect(host.stateStore.getState().runtime.active.model).toBe("server-model");
     expect(forkThread).toHaveBeenCalledWith(
       "source",
       expect.objectContaining({
+        position: { kind: "before-turn", turnId: "turn-3" },
+        deferGoalContinuation: true,
         runtime: expect.objectContaining({
           model: "gpt-5.6",
           reasoningEffort: null,
@@ -444,11 +443,15 @@ describe("thread management commands", () => {
       }),
     );
     expect(pendingRuntimeSettingsPatch(snapshot(), config).update).toEqual({
-      ...(intent === "set" ? { model: "chosen-model", serviceTier: null } : intent === "reset" ? { model: null, permissions: null } : {}),
+      ...(intent === "set"
+        ? { model: "chosen-model", serviceTier: null }
+        : intent === "reset"
+          ? { model: "configured-model", permissions: ":workspace" }
+          : {}),
       collaborationMode: {
         mode: intent === "set" ? "default" : "plan",
         settings: {
-          model: intent === "set" ? "chosen-model" : intent === "reset" ? "configured-model" : "gpt-5.6",
+          model: intent === "set" ? "chosen-model" : intent === "reset" ? "configured-model" : "server-model",
           reasoningEffort: "high",
           developerInstructions: null,
         },

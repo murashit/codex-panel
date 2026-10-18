@@ -7,7 +7,7 @@ const STATUS_RECONNECTING = "Reconnecting...";
 
 export interface ChatReconnectCommandHost {
   stateStore: ChatStateStore;
-  cleanupForConnectionReset: () => Promise<void>;
+  cleanupForConnectionReset: () => void;
   resetConnectionScope: () => void;
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
   ensureConnected: () => Promise<void>;
@@ -39,7 +39,7 @@ async function reconnectPanel(host: ChatReconnectCommandHost, options: Reconnect
   const panelTarget = capturePanelTargetLease(currentState);
   const ephemeral = activeThreadState(currentState)?.lifetime?.kind === "ephemeral";
   const threadId = ephemeral ? null : panelThreadId(currentState);
-  await host.cleanupForConnectionReset();
+  host.cleanupForConnectionReset();
   if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
   if (ephemeral) options.beforeTargetReset?.();
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });

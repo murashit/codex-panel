@@ -401,42 +401,48 @@ describe("WorkspacePanelCoordinator", () => {
     expect(secondFocus).toHaveBeenCalledOnce();
   });
 
-  it("opens separate unsaved fork drafts from the same source without claiming its thread", async () => {
-    const leaves: ReturnType<typeof leaf>[] = [];
-    const plugin = await pluginWithLeaves(leaves);
-    const firstLeaf = leaf();
-    const secondLeaf = leaf();
-    const firstView = chatView(CodexChatView, firstLeaf);
-    const secondView = chatView(CodexChatView, secondLeaf);
-    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(firstLeaf).mockReturnValueOnce(secondLeaf);
-    firstLeaf.setViewState.mockImplementation(async () => {
-      firstLeaf.view = firstView;
-      leaves.push(firstLeaf);
-    });
-    secondLeaf.setViewState.mockImplementation(async () => {
-      secondLeaf.view = secondView;
-      leaves.push(secondLeaf);
-    });
-    const preparation: ForkDraftPreparation = {
-      draft: {
-        kind: "persistent",
-        sourceThreadId: "source",
-        boundary: { kind: "through-turn", turnId: "turn" },
-      },
-      runtime: createChatState().runtime,
-      display: { items: [], turnDiffs: new Map() },
-    };
-    const coordinator = panels(plugin);
-    await coordinator.openForkDraft(preparation);
-    await coordinator.openForkDraft(preparation);
-    expect(coordinator.getOpenPanelSnapshots()).toHaveLength(2);
-    for (const view of [firstView, secondView]) {
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true, hasComposerDraft: false });
-      expect(view.getState()).toEqual({ version: 1 });
-    }
-    expect(firstLeaf.detach).not.toHaveBeenCalled();
-    expect(secondLeaf.detach).not.toHaveBeenCalled();
-  });
+  it.each(["persistent", "side-chat"] as const)(
+    "opens separate unsaved %s drafts from the same source without claiming its thread",
+    async (kind) => {
+      const leaves: ReturnType<typeof leaf>[] = [];
+      const plugin = await pluginWithLeaves(leaves);
+      const firstLeaf = leaf();
+      const secondLeaf = leaf();
+      const firstView = chatView(CodexChatView, firstLeaf);
+      const secondView = chatView(CodexChatView, secondLeaf);
+      (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValueOnce(firstLeaf).mockReturnValueOnce(secondLeaf);
+      firstLeaf.setViewState.mockImplementation(async () => {
+        firstLeaf.view = firstView;
+        leaves.push(firstLeaf);
+      });
+      secondLeaf.setViewState.mockImplementation(async () => {
+        secondLeaf.view = secondView;
+        leaves.push(secondLeaf);
+      });
+      const preparation: ForkDraftPreparation =
+        kind === "side-chat"
+          ? sideChatDraft("source", "Source")
+          : {
+              draft: {
+                kind: "persistent",
+                sourceThreadId: "source",
+                boundary: { kind: "through-turn", turnId: "turn" },
+              },
+              runtime: createChatState().runtime,
+              display: { items: [], turnDiffs: new Map() },
+            };
+      const coordinator = panels(plugin);
+      await coordinator.openForkDraft(preparation);
+      await coordinator.openForkDraft(preparation);
+      expect(coordinator.getOpenPanelSnapshots()).toHaveLength(2);
+      for (const view of [firstView, secondView]) {
+        expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasForkDraft: true, hasComposerDraft: false });
+        expect(view.getState()).toEqual({ version: 1 });
+      }
+      expect(firstLeaf.detach).not.toHaveBeenCalled();
+      expect(secondLeaf.detach).not.toHaveBeenCalled();
+    },
+  );
 
   it("settles same-thread new-panel requests on one owner", async () => {
     const firstLeaf = leaf();

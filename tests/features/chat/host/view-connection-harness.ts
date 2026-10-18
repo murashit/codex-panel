@@ -1,3 +1,4 @@
+import { createSideConversation } from "../../../../src/features/chat/app-server/adapters/side-chat";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, expect, vi } from "vitest";
@@ -444,6 +445,7 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     },
     threadAutoTitleWork: { submit: vi.fn() },
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+    createSideConversation,
     settings: chatPanelSettingsAccess(settings),
     workspace: {
       returnFromForkDraft: vi.fn().mockResolvedValue(true),

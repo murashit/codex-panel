@@ -2,15 +2,17 @@ import * as contextConnection from "../src/app-server/connection/context-connect
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import type { AppServerClient } from "../src/app-server/connection/client";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
+import { sideChatDraft } from "../src/features/chat/application/threads/fork-draft";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
 import { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import { CodexThreadsView } from "../src/features/threads-view/view.obsidian";
 import { CodexTurnDiffView } from "../src/features/turn-diff/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
-import { deferred } from "./support/async";
+import { connectedClient } from "./features/chat/host/view-connection-harness";
+import { deferred, waitForAsyncWork } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
 import {
   chatView,
@@ -26,6 +28,7 @@ import {
 installObsidianDomShims();
 
 const contextConnectionClientMock = vi.fn();
+const ActualContextConnection = contextConnection.AppServerContextConnection;
 
 function threadCatalog(plugin: CodexPanelPlugin) {
   return currentChatHost(plugin).threadCatalog;
@@ -340,30 +343,78 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(attachRuntime).not.toHaveBeenCalled();
   });
 
-  it("publishes a replacement after starting Chat target cleanup", async () => {
-    const cleanup = deferred<void>();
-    const attachRuntime = vi.fn();
-    const detachRuntime = vi.fn(() => cleanup.promise);
-    const runtimeView = Object.assign(Object.create(CodexChatView.prototype), {
-      attachRuntime,
-      detachRuntime,
-      isRuntimeAttached: () => false,
-    }) as ChatRuntimeView;
-    const runtimeLeaf = leaf();
-    runtimeLeaf.view = runtimeView;
-    const plugin = await pluginWithLeaves([runtimeLeaf]);
-    plugin.runtime.attachChatView(runtimeView);
-    attachRuntime.mockClear();
-
-    const publication = publishCodexPath(plugin, "codex-next");
-    await publication;
-
-    expect(detachRuntime).toHaveBeenCalledOnce();
-    expect(attachRuntime).toHaveBeenCalledOnce();
-    expect(attachRuntime.mock.calls[0]?.[0].appServerContext).toMatchObject({ codexPath: "codex-next", vaultPath: "/vault" });
-    expect(plugin.settings.codexPath).toBe("codex-next");
-    cleanup.resolve(undefined);
-  });
+  it.each([
+    { action: "reset", removed: true, stage: "fork" },
+    { action: "replace", removed: false, stage: "start" },
+  ] as const)(
+    "releases temporary conversations before stopping their context ($action, prior close=$removed, $stage)",
+    async ({ action, removed, stage }) => {
+      const interrupt = deferred<unknown>();
+      const forked = deferred<unknown>();
+      const started = deferred<unknown>();
+      const contexts: { client: ReturnType<typeof connectedClient>; disconnect: ReturnType<typeof vi.fn> }[] = [];
+      vi.spyOn(contextConnection, "AppServerContextConnection").mockImplementation(
+        class extends ActualContextConnection {
+          constructor(...args: ConstructorParameters<typeof ActualContextConnection>) {
+            const client = connectedClient({
+              "turn/interrupt": vi.fn(() => interrupt.promise),
+              ...(stage === "fork" ? { "thread/fork": vi.fn(() => forked.promise) } : {}),
+              ...(stage === "start" ? { "turn/start": vi.fn(() => started.promise) } : {}),
+            });
+            const disconnect = vi.fn();
+            super(args[0], args[1], args[2], args[3], {
+              connect: async () => ({ codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" }),
+              currentClient: () => client as unknown as AppServerClient,
+              disconnect,
+            });
+            contexts.push({ client, disconnect });
+          }
+        },
+      );
+      const leaves: TestLeaf[] = [];
+      const plugin = await pluginWithLeaves(leaves);
+      const panelLeaf = leaf();
+      const view = chatView(CodexChatView, panelLeaf, plugin.runtime);
+      panelLeaf.view = view;
+      leaves.push(panelLeaf);
+      await view.onOpen();
+      const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "A side question");
+      const original = contexts[0];
+      if (!original) throw new Error("Expected the original context.");
+      await waitForAsyncWork(() =>
+        expect(original.client.request).toHaveBeenCalledWith(stage === "fork" ? "thread/fork" : "turn/start", expect.anything()),
+      );
+      const closing = removed ? view.onClose() : null;
+      if (removed) leaves.length = 0;
+      if (action === "replace") await publishCodexPath(plugin, "codex-next");
+      else plugin.runtime.reset();
+      expect(original.disconnect).not.toHaveBeenCalled();
+      if (stage === "fork") forked.resolve({ thread: thread("late-side") });
+      await waitForAsyncWork(() =>
+        expect(original.client.request).toHaveBeenCalledWith("turn/interrupt", expect.anything(), { timeoutMs: 1_000 }),
+      );
+      expect(original.disconnect).not.toHaveBeenCalled();
+      if (action === "replace") {
+        expect(plugin.settings.codexPath).toBe("codex-next");
+        if (!removed) expect(view.isRuntimeAttached()).toBe(true);
+      }
+      interrupt.resolve({});
+      if (stage === "start") {
+        await waitForAsyncWork(() =>
+          expect(original.client.request).toHaveBeenCalledWith("thread/unsubscribe", expect.anything(), expect.anything()),
+        );
+        expect(original.disconnect).not.toHaveBeenCalled();
+        started.resolve({ turn: { id: "late-turn" } });
+      }
+      await closing;
+      await opening;
+      await waitForAsyncWork(() => expect(original.disconnect).toHaveBeenCalledOnce());
+      expect(original.client.request).toHaveBeenCalledWith("thread/unsubscribe", expect.anything(), expect.anything());
+      for (const replacement of contexts.slice(1)) expect(replacement.disconnect).not.toHaveBeenCalled();
+      await view.onClose();
+      plugin.runtime.reset();
+    },
+  );
 
   it("detaches and reattaches every open Threads view to the new execution runtime", async () => {
     const attachRuntime = vi.fn();

@@ -1,8 +1,7 @@
 import type { ServerInitialization } from "../../../../domain/runtime/metadata";
-import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { ThreadReadReceipt } from "../../../../domain/threads/model";
-import { type ChatRuntimeState, commitAppliedRuntimeSettingsPatchState, type PendingRuntimeIntentState } from "../../domain/runtime/state";
+import { type ChatRuntimeState, confirmRuntimeIntentState, type PendingRuntimeIntentState } from "../../domain/runtime/state";
 import { type RequestAction, reduceRequestSlice } from "../pending-requests/state";
 import { type ComposerAction, reduceComposerSlice } from "./composer";
 import type { ChatConnectionPhase, ChatConnectionState, ChatPanelThreadState, ChatState } from "./model";
@@ -22,7 +21,7 @@ type ActiveThreadAction =
 
 type RuntimeAction =
   | { type: "runtime/pending-intent-patched"; patch: Partial<PendingRuntimeIntentState> }
-  | { type: "runtime/pending-thread-settings-committed"; update: RuntimeSettingsPatch };
+  | { type: "runtime/pending-intent-confirmed"; intents: Partial<PendingRuntimeIntentState> };
 
 type ChatSliceAction = ConnectionAction | ActiveThreadAction | RuntimeAction | RequestAction | TurnScopeAction | ComposerAction | UiAction;
 
@@ -70,7 +69,7 @@ function reduceChatSlice(state: ChatState, action: ChatSliceAction): ChatState {
     case "active-thread/token-usage-set":
       return patchObject(state, { panelThread: reducePanelThreadSlice(state.panelThread, action.tokenUsage) });
     case "runtime/pending-intent-patched":
-    case "runtime/pending-thread-settings-committed":
+    case "runtime/pending-intent-confirmed":
       return patchObject(state, { runtime: reduceRuntimeSlice(state.runtime, action) });
     case "composer/attachment-save-started":
     case "composer/attachment-save-settled":
@@ -150,7 +149,7 @@ function reduceRuntimeSlice(state: ChatRuntimeState, action: RuntimeAction): Cha
   switch (action.type) {
     case "runtime/pending-intent-patched":
       return patchObject(state, { pending: patchObject(state.pending, action.patch) });
-    case "runtime/pending-thread-settings-committed":
-      return patchObject(state, commitAppliedRuntimeSettingsPatchState(state, action.update));
+    case "runtime/pending-intent-confirmed":
+      return patchObject(state, confirmRuntimeIntentState(state, action.intents));
   }
 }

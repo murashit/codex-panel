@@ -1,25 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { appServerRuntimeSettingsPatch } from "../../../src/app-server/protocol/thread-settings";
-import {
-  applyRuntimeSettingsPatchValue,
-  approvalsReviewerOrNull,
-  parseServiceTier,
-  type RuntimeSettingsPatch,
-  runtimeCollaborationModeSettings,
-} from "../../../src/domain/runtime/settings";
+import { approvalsReviewerOrNull, parseServiceTier, runtimeCollaborationModeSettings } from "../../../src/domain/runtime/settings";
 
 describe("app-server thread settings", () => {
-  it("applies defined thread setting values and omits undefined values", () => {
-    const update: RuntimeSettingsPatch = {};
-
-    applyRuntimeSettingsPatchValue(update, "model", "gpt-5.5");
-    applyRuntimeSettingsPatchValue(update, "effort", null);
-    applyRuntimeSettingsPatchValue(update, "serviceTier", undefined);
-
-    expect(update).toEqual({ model: "gpt-5.5", effort: null });
-  });
-
   it.each([
     ["user", "user"],
     ["auto_review", "auto_review"],
@@ -50,6 +34,7 @@ describe("app-server thread settings", () => {
   // Service-tier IDs are opaque here; the live app-server may canonicalize or omit them per model catalog.
   it("accepts opaque non-empty service tier ids from config and app-server reports", () => {
     expect(parseServiceTier("catalog-tier")).toBe("catalog-tier");
+    expect(parseServiceTier("default")).toBe("default");
   });
 
   it.each(["", null])("ignores absent service tier value %s", (serviceTier) => {

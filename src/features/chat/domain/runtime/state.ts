@@ -1,12 +1,11 @@
-import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/runtime/catalog";
+import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
 import {
   initialRuntimePermissionKnownState,
   initialRuntimePermissionState,
   type RuntimePermissionKnownState,
   type RuntimePermissionState,
 } from "../../../../domain/runtime/permissions";
-import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
-import { type ApprovalsReviewer, parseServiceTier, type ServiceTier } from "../../../../domain/runtime/settings";
+import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/settings";
 import {
   type ActiveCollaborationMode,
   type CollaborationModeIntent,
@@ -52,14 +51,6 @@ function initialActiveChatRuntimeState(): ActiveThreadRuntimeState {
   };
 }
 
-export function activeThreadRuntimeState(state: ChatRuntimeState): ActiveThreadRuntimeState {
-  return state.active;
-}
-
-export function pendingRuntimeIntentState(state: ChatRuntimeState): PendingRuntimeIntentState {
-  return state.pending;
-}
-
 function initialPendingRuntimeIntentState(): PendingRuntimeIntentState {
   return {
     model: unchangedRuntimeIntent(),
@@ -78,36 +69,11 @@ export function initialChatRuntimeState(): ChatRuntimeState {
   };
 }
 
-export function commitAppliedRuntimeSettingsPatchState(state: ChatRuntimeState, update: RuntimeSettingsPatch): ChatRuntimeState {
-  return {
-    ...state,
-    active: {
-      ...state.active,
-      ...("model" in update ? { model: update.model ?? null } : {}),
-      ...("effort" in update ? { reasoningEffort: normalizeReasoningEffort(update.effort) } : {}),
-      ...("serviceTier" in update ? { serviceTier: parseServiceTier(update.serviceTier), serviceTierKnown: true } : {}),
-      ...("approvalsReviewer" in update ? { approvalsReviewer: update.approvalsReviewer ?? null } : {}),
-      ...("approvalPolicy" in update
-        ? { approvalPolicy: update.approvalPolicy ?? null, approvalPolicyKnown: update.approvalPolicy !== null }
-        : {}),
-      ...("permissions" in update
-        ? {
-            activePermissionProfile: update.permissions ? { id: update.permissions, extends: null } : null,
-            sandboxPolicy: null,
-            permissionProfileKnown: update.permissions !== null,
-            sandboxPolicyKnown: update.permissions !== null,
-          }
-        : {}),
-      ...(update.collaborationMode ? { collaborationMode: update.collaborationMode.mode } : {}),
-    },
-    pending: {
-      ...state.pending,
-      ...("model" in update ? { model: unchangedRuntimeIntent() } : {}),
-      ...("effort" in update ? { reasoningEffort: unchangedRuntimeIntent() } : {}),
-      ...("serviceTier" in update ? { fastMode: unchangedRuntimeIntent() } : {}),
-      ...("approvalsReviewer" in update ? { approvalsReviewer: unchangedRuntimeIntent() } : {}),
-      ...("permissions" in update ? { permissionProfile: unchangedRuntimeIntent() } : {}),
-      ...("collaborationMode" in update ? { collaborationMode: unchangedCollaborationModeIntent() } : {}),
-    },
-  };
+export function confirmRuntimeIntentState(state: ChatRuntimeState, intents: Partial<PendingRuntimeIntentState>): ChatRuntimeState {
+  const pending = { ...state.pending };
+  for (const key of Object.keys(intents) as (keyof PendingRuntimeIntentState)[]) {
+    // Keep requests made while the confirmed update was in flight.
+    if (pending[key] === intents[key]) pending[key] = unchangedRuntimeIntent();
+  }
+  return { ...state, pending };
 }

@@ -490,7 +490,9 @@ describe("CodexChatView connection lifecycle", () => {
     const owner = chatViewRuntimeOwner(chatHost());
     const firstClient = connectedClient({
       "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
-      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("ephemeral-a") }),
+      "thread/fork": vi
+        .fn()
+        .mockResolvedValue({ thread: threadFixture("ephemeral-a"), model: "independent-side-model", reasoningEffort: "high" }),
       "thread/unsubscribe": vi.fn().mockResolvedValue({}),
     });
     connectionMockState().client = firstClient;
@@ -525,7 +527,15 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(nextClient, "thread/fork", 0);
     await submitComposerByEnter(view);
     await waitForAsyncWork(() => {
-      expect(nextClient.request).toHaveBeenCalledWith("thread/fork", expect.objectContaining({ threadId: "source", cwd: "/vault" }));
+      expect(nextClient.request).toHaveBeenCalledWith(
+        "thread/fork",
+        expect.objectContaining({
+          threadId: "source",
+          cwd: "/vault",
+          model: "independent-side-model",
+          config: { model_reasoning_effort: "high" },
+        }),
+      );
       expect(view.surface.openPanelSnapshot().threadId).toBe("ephemeral-b");
     });
   });
@@ -549,37 +559,52 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.containerEl.querySelector(".codex-panel__goal-load-error")).toBeNull();
   });
 
-  it.each(["success", "failure", "reselected"] as const)(
-    "adopts a replacement draft only after side chat cleanup (%s)",
-    async (outcome) => {
-      const released = deferred<unknown>();
-      const client = connectedClient({
-        "config/read": vi.fn().mockResolvedValue({ config: { developer_instructions: null } }),
-        "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
-        "thread/unsubscribe": vi.fn(() => released.promise),
-      });
-      connectionMockState().client = client;
-      const view = await chatView();
-      await view.onOpen();
-      await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
-      connectionMockState().onNotification?.({
-        method: "turn/completed",
-        params: { threadId: "side", turn: completedTurn("turn-1") },
-      } as ServerNotification);
-      const replacing = view.surface.applyForkDraft(sideChatDraft("another", "Another"));
-      await waitForAsyncWork(() => expectRequestTimes(client, "thread/unsubscribe", 1));
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", hasForkDraft: false });
-      if (outcome === "reselected") await view.surface.activateThread("side");
-      if (outcome === "failure") released.reject(new Error("Could not discard side chat"));
-      else released.resolve({ status: "unsubscribed" });
+  it.each(["draft", "active"] as const)("keeps the later %s target when busy side cleanup fails", async (target) => {
+    const released = deferred<unknown>();
+    const client = connectedClient({
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
+      "thread/resume": vi.fn().mockResolvedValue(resumedThread("other")),
+      "thread/unsubscribe": vi.fn(() => released.promise),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+    await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
+    expect(view.surface.openPanelSnapshot().turnBusy).toBe(true);
+    if (target === "draft") await expect(view.surface.applyForkDraft(sideChatDraft("another", "Another"))).resolves.toBe(true);
+    else await view.surface.activateThread("other");
+    const expected = { threadId: target === "draft" ? null : "other", hasForkDraft: target === "draft" };
+    expect(view.surface.openPanelSnapshot()).toMatchObject(expected);
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/unsubscribe", 1));
+    released.reject(new Error("Could not discard side chat"));
+    await waitForAsyncWork(() => expect(notices).toContain("Could not confirm side chat cleanup. Codex may still be running."));
+    expect(view.surface.openPanelSnapshot()).toMatchObject(expected);
+  });
 
-      await expect(replacing).resolves.toBe(outcome === "success");
-      expect(view.surface.openPanelSnapshot()).toMatchObject({
-        hasForkDraft: outcome === "success",
-        threadId: outcome === "failure" ? "side" : null,
-      });
-    },
-  );
+  it("keeps startup replacement final and reports uncertain late cleanup", async () => {
+    const started = deferred<{ turn: { id: string } }>();
+    const client = connectedClient({
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
+      "turn/start": vi.fn(() => started.promise),
+      "turn/interrupt": vi
+        .fn()
+        .mockResolvedValueOnce({})
+        .mockImplementation(async () => {
+          throw new Error("late interrupt timed out");
+        }),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+    const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
+    await waitForAsyncWork(() => expectRequestTimes(client, "turn/start", 1));
+    await view.surface.startNewThread();
+    expect(view.surface.openPanelSnapshot().threadId).toBeNull();
+    started.resolve({ turn: { id: "late-turn" } });
+    await expect(opening).resolves.toBe(false);
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasComposerDraft: false });
+    expect(notices).toContain("Could not confirm side chat cleanup. Codex may still be running.");
+  });
 
   it("keeps a late MCP inventory read scoped to its original thread", async () => {
     const threadA = deferred<{ data: ReturnType<typeof mcpStatus>[]; nextCursor: null }>();
@@ -617,6 +642,27 @@ describe("CodexChatView connection lifecycle", () => {
     threadA.resolve({ data: [mcpStatus("thread-a-server")], nextCursor: null });
     await Promise.resolve();
     expect(view.containerEl.textContent).not.toContain("thread-a-server");
+  });
+
+  it("closes a completed side chat without treating its terminal turn as active", async () => {
+    const client = connectedClient({
+      "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
+      "turn/interrupt": vi.fn(async (params) => {
+        if ((params as { turnId: string }).turnId) throw new Error("no active turn to interrupt");
+        return {};
+      }),
+    });
+    connectionMockState().client = client;
+    const view = await chatView();
+    await view.onOpen();
+    await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
+    connectionMockState().onNotification?.({
+      method: "turn/completed",
+      params: { threadId: "side", turn: completedTurn("turn-1") },
+    } as ServerNotification);
+    await view.onClose();
+    await waitForAsyncWork(() => expectRequestTimes(client, "thread/unsubscribe", 1));
+    expect(notices).not.toContain("Could not confirm side chat cleanup. Codex may still be running.");
   });
 
   it("settles a pending side chat request when its view closes", async () => {

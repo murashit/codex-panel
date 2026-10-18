@@ -8,7 +8,7 @@ import { activeThreadId, type ChatState } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { resumedThreadAction } from "../state/transition-actions";
-import type { ThreadForkOptions } from "./fork-draft";
+import { forkRuntimeSettings, type ThreadForkOptions, type ThreadForkRuntimeOverrides } from "./fork-draft";
 
 interface ThreadStartRequest {
   serviceTier?: RuntimeServiceTierRequest;
@@ -27,7 +27,11 @@ type ThreadStartOutcome =
 
 export interface ThreadStartCommandHost {
   stateStore: ChatStateStore;
-  createSideChat: (sourceThreadId: string, isCurrent: () => boolean) => Promise<EffectOutcome<ThreadActivationSnapshot>>;
+  createSideChat: (
+    sourceThreadId: string,
+    runtime: ThreadForkRuntimeOverrides,
+    isCurrent: () => boolean,
+  ) => Promise<EffectOutcome<ThreadActivationSnapshot>>;
   effects: ThreadStartEffects;
   withThreadActivation<T>(operation: () => Promise<T>): Promise<T>;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
@@ -85,23 +89,14 @@ async function startThread(
     const active = requestState.runtime.active;
     const sideChat = draft?.kind === "side-chat" ? draft : null;
     const effect = sideChat
-      ? await host.createSideChat(sideChat.sourceThreadId, () => panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget))
+      ? await host.createSideChat(sideChat.sourceThreadId, forkRuntimeSettings(active), () =>
+          panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget),
+        )
       : draft?.kind === "persistent"
         ? await host.effects.forkThread(draft.sourceThreadId, {
             position: draft.boundary,
             deferGoalContinuation: true,
-            runtime: {
-              ...(active.model ? { model: active.model } : {}),
-              reasoningEffort: active.reasoningEffort,
-              ...(active.serviceTierKnown ? { serviceTier: active.serviceTier } : {}),
-              ...(active.approvalPolicyKnown && active.approvalPolicy ? { approvalPolicy: active.approvalPolicy } : {}),
-              ...(active.approvalsReviewer ? { approvalsReviewer: active.approvalsReviewer } : {}),
-              ...(active.permissionProfileKnown && active.activePermissionProfile
-                ? { permissions: active.activePermissionProfile.id }
-                : active.sandboxPolicyKnown && active.sandboxPolicy
-                  ? { sandboxPolicy: active.sandboxPolicy }
-                  : {}),
-            },
+            runtime: forkRuntimeSettings(active),
           })
         : await host.effects.startThread({
             serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import { AppServerRpcError } from "../../../../../src/app-server/connection/json-rpc-client";
 import { createChatSessionAdapters } from "../../../../../src/features/chat/app-server/adapters/session-adapters";
+import { deferred } from "../../../../support/async";
 
 describe("chat session adapters", () => {
   it("classifies an app-server steer error as a definitive rejection", async () => {
@@ -67,6 +67,40 @@ describe("chat session adapters", () => {
     });
 
     await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "failed", error });
+  });
+  it.each(["thread/inject_items", "turn/start"] as const)("keeps cleanup on its original client after %s is superseded", async (stage) => {
+    const pending = deferred<unknown>();
+    const dispatched = deferred<void>();
+    const request = vi.fn((method: string) => {
+      if (method === stage) {
+        dispatched.resolve();
+        return pending.promise;
+      }
+      if (method === "config/read") return Promise.resolve({ config: {} });
+      if (method === "thread/fork")
+        return Promise.resolve({ thread: { id: "side", preview: "", createdAt: 1, updatedAt: 1 }, model: "model" });
+      return Promise.resolve({});
+    });
+    const original = { request } as unknown as AppServerClient;
+    const replacement = { request: vi.fn() } as unknown as AppServerClient;
+    let current = original;
+    const adapters = createChatSessionAdapters({ vaultPath: "/vault", currentClient: () => current, recordThreadSubscription: vi.fn() });
+    const forking = adapters.threadEphemeral.forkEphemeralThread("parent", {}, () => true);
+    let cleanup: Promise<void> | undefined;
+    let result: Promise<unknown>;
+    if (stage === "thread/inject_items") result = expect(forking).resolves.toBeNull();
+    else {
+      await forking;
+      result = expect(adapters.turn.startTurn({ threadId: "side", input: [], clientUserMessageId: "message" })).rejects.toThrow("released");
+    }
+    await dispatched.promise;
+    if (stage === "turn/start") cleanup = adapters.threadEphemeral.release();
+    current = replacement;
+    pending.resolve(stage === "turn/start" ? { turn: { id: "late-turn" } } : {});
+    await result;
+    await cleanup;
+    expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side" }, expect.anything());
+    expect(replacement.request).not.toHaveBeenCalled();
   });
 });
 

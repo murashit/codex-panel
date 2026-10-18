@@ -1,7 +1,7 @@
 import type { ChatStateStore } from "../state/store";
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
-import type { EphemeralThreadLifecycle } from "./ephemeral-thread-lifecycle";
 import type { ChatResumeWorkTracker } from "./resume-work";
+import type { SideChatCommands } from "./side-chat-commands";
 import { canSwitchToThread } from "./thread-switching";
 
 export interface ThreadNavigationCommandsHost {
@@ -12,7 +12,7 @@ export interface ThreadNavigationCommandsHost {
   resumeWork: ChatResumeWorkTracker;
   addSystemMessage: (text: string) => void;
   focusComposer: () => void;
-  ephemeral: Pick<EphemeralThreadLifecycle, "prepareForNavigation">;
+  ephemeral: Pick<SideChatCommands, "prepareForNavigation">;
 }
 
 export interface ThreadNavigationCommands {
@@ -37,7 +37,8 @@ export function createThreadNavigationCommands(host: ThreadNavigationCommandsHos
       const state = host.stateStore.getState();
       if (!canSwitchToThread(state, null)) return;
       const intent = host.resumeWork.begin(null);
-      if (!(await host.ephemeral.prepareForNavigation()) || !host.resumeWork.canCommit(intent, host.stateStore.getState())) return;
+      host.ephemeral.prepareForNavigation();
+      if (!host.resumeWork.canCommit(intent, host.stateStore.getState())) return;
 
       host.identity.clearActiveThreadIdentity();
       host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
