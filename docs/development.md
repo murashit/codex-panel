@@ -14,6 +14,8 @@ Obsidian loads the generated `main.js` and `styles.css`, not the TypeScript or a
 
 ## Choose the Owner of a Change
 
+Before choosing an implementation, trace the required user behavior through existing owners, callers, boundary contracts, and tests, including relevant paths and fixtures outside the expected diff. Compare keeping or repairing the current structure with plausible alternatives such as consolidating responsibility at its owner. Weigh responsibilities, state, dependencies, coordination, and duplication added against what is removed or improved, including the placement of test guarantees. Apply this to small changes too; neither a small patch nor preserving the current decomposition is the goal. Revisit the comparison when implementation evidence or review findings invalidate an assumption.
+
 Keep feature-specific behavior with its feature. Extract shared values and rules, including the pure calculations they need, to root `domain/`, and reusable execution or UI support to `shared/`; neither should depend on a feature's implementation. Group those roots by responsibility and keep related types and helpers together, even when a directory contains only one cohesive module.
 
 Keep protocol translation in app-server adapters. Wire behavior spanning features through the plugin's runtime and workspace owners rather than making one feature coordinate another. Put host adapters beside the code they connect; `.obsidian`, `.dom`, and `.measure` suffixes identify integration boundaries without making the host library a directory category. Keep component-specific DOM operations with their UI owner.
@@ -31,6 +33,18 @@ Before proposing or changing UI, inspect the affected flow in the current compon
 Consider the complete interaction: placement among existing actions, icon and accessible name, visibility settings, narrow widths, keyboard access, and the resulting selection, input, and recovery state. Apply the relevant dimensions to the change rather than treating this as a checklist requiring new mechanisms. For failures, distinguish the operation's result from the resource's state and check existing feedback before adding another display.
 
 Prefer correcting behavior or state structure when that resolves the confusion. Add explanatory copy only when it supports a concrete user decision or action; describing an implementation detail does not itself justify product copy or a README addition. Use source inspection and automated checks first; live Obsidian validation is needed only for material integration behavior those checks cannot establish.
+
+## Review and Simplify a Change
+
+Review behavior, responsibility boundaries, implementation quality, and regression risk against the required outcome. Bound the review by that behavior and its related responsibilities, rather than the patch or unrelated repository-wide exploration. Select angles according to the behavior and risk; not every angle applies to every change. Look beyond the diff at paired or analogous paths, callers, boundary definitions, and configuration. Check unintended asymmetry, duplicated sources of truth, ineffective indirection, and changed defaults affecting untouched consumers. Verify consequential claims in the change description and tests against implementation, relevant history, or authoritative documentation for the actual dependency version.
+
+Follow failures and interrupted or concurrent operations through state changes to what users can see and do: can an error become apparent success, lose useful context, leave inconsistent data, or allow a conflicting action? Check that validation exercises the real contract and isolates external side effects. Assess relevant performance risks using expected data size, call frequency, and measurements. Keep non-obvious intent and coupled assumptions discoverable through explicit dependencies and explanation where the rationale would otherwise be lost.
+
+Before acting on a behavioral finding, establish the reachable user or lifecycle path, violated contract and owner, and material consequence. For structural findings, identify the concrete maintenance activity and cost. A synthetic reproduction proves only the exercised behavior; check its assumptions against real producers and supported use. Separate demonstrated problems from hypotheses and optional improvements, and explain why material findings are addressed, rejected, or unresolved.
+
+Use findings to reconsider the shared assumption or ownership that allowed the problem. Trace other paths relying on it and compare a correction at its owner with local guards, including the state and coordination each would add. Resolving one reproduction does not establish that the affected paths were reviewed; investigate according to consequence and uncertainty rather than enumerating every imaginable edge case.
+
+Once the implementation works and known findings are resolved, reconsider the complete behavior path, including production code, tests, fixtures, documentation, and relevant pre-existing parts. Compare concrete alternatives meeting the same requirements at both responsibility boundaries and the level of functions, types, data flow, and repeated setup. A role for each piece, reviewer agreement, or passing checks does not establish the simplest coherent choice. Implementation and test line counts are prompts for investigation, not reduction targets. Implement worthwhile improvements, then review and validate the result; retain a structure when the comparison supports it.
 
 ## Validate a Change
 
@@ -56,9 +70,31 @@ Use live Obsidian validation when material integration behavior is not covered b
 
 In a supported Obsidian desktop app, enable Codex Panel in the test vault and make sure its plugin directory loads the checkout's current `main.js`, `manifest.json`, and `styles.css`. Make sure the current source is built, then reload the plugin before testing the affected interaction. Model interactions require an authenticated Codex CLI on that host.
 
+When the Obsidian CLI is available and targets that vault, use the relevant commands below. Reload after building the current source; open only the surface needed for the interaction:
+
+```sh
+obsidian plugin:reload id=codex-panel
+obsidian command id=codex-panel:open-panel
+obsidian command id=codex-panel:open-threads-view
+```
+
+Inspect runtime health and the affected UI with commands such as:
+
+```sh
+obsidian plugin id=codex-panel
+obsidian dev:errors
+obsidian dev:dom selector=.codex-panel total
+obsidian dev:css selector=.codex-panel
+obsidian dev:screenshot path=<scratch-path>/codex-panel.png
+```
+
+Use focused Codex Panel-owned selectors found in the relevant implementation or styles. When behavior depends on layout, asynchronous rendering, or virtualized DOM state, capture the visible state and relevant DOM metrics before and after the real input path, then again after rendering settles. Compare framework or data state with the DOM where possible. Remove temporary probes and instrumentation before final validation and re-check runtime errors.
+
 ### Write Tests That Survive Refactoring
 
-Tie each case to a reachable user action, external boundary, or distinct state transition. Keep representative normal workflows and remove cases that only check test doubles, impossible configurations, or internal structure without a durable contract. Extracting or moving a module does not itself justify a new suite; first identify what existing tests fail to protect.
+Tie each case to a reachable user action, external boundary, or distinct state transition. Review the assurance provided by existing and proposed cases together, including fixtures, mocks, repeated setup, and the owners and caller paths they exercise. For each affected case, identify the regression it protects, its distinct failure signal, and what it adds beyond existing coverage. Extracting or moving a module does not itself justify a new suite; first identify what existing tests fail to protect.
+
+Compare strengthening an existing case or parameterizing a shared flow with adding another setup. Weigh fixtures, mocks, and implementation coupling against the assurance they provide. Keep representative normal workflows, independently meaningful scenarios, and readable failure diagnosis. Remove cases that only check test doubles, impossible configurations, or internal structure without a durable contract, or repeat a covered outcome without a distinct failure signal. Passing tests or increased coverage alone do not justify their maintenance cost.
 
 Vitest reuses workers with `isolate: false`. Restore boundary spies, timers, globals, and DOM overrides after each test. Avoid per-file `vi.mock` replacements of shared modules; use scoped spies or existing dependency injection. Shared setup modules that register hooks must export an installer called by each test file, because importing a cached module does not register its hooks again.
 
@@ -114,6 +150,10 @@ Review protocol changes in their affected adapters and runtime paths, then compl
 
 Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), for example `feat(composer): add daily note context suggestions`. Scopes are optional; mark disruptive changes with `!` or a `BREAKING CHANGE:` footer.
 
+Make each final commit a coherent review unit with an honest description. Normally fold corrective follow-ups into the concern they complete, split mixed changes, and keep follow-ups separate only when meaningful on their own.
+
 Prefer a concise subject. Add a brief body only when future maintainers need rationale, constraints, or tradeoffs that are not evident from the diff. Keep routine check results, test counts, and work logs in the task or pull request report, not the commit message.
 
 CI validates introduced commit messages on pull requests and pushes. Check a range locally with `npm run commitlint -- --from <base> --to <head> --verbose`. Follow [Release](release.md) when preparing a version for publication.
+
+Write PR descriptions for reviewers from the final diff. Explain purpose, changes, validation, and limitations accurately and concisely, following repository guidance and recent PRs for language and level of detail. Include Issue or PR references when needed to understand the change or its dependencies. Compare the final diff and body before publication for accurate scope, expected language, and unnecessary references; conversation and work reports are not substitutes for that explanation.

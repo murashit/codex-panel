@@ -79,6 +79,10 @@ Use `/help` for the current slash command list.
 
 Codex Panel depends on the experimental `codex app-server` API.
 
+## Development
+
+See [Development](docs/development.md) for implementation, review, validation, and contribution guidance.
+
 ## License
 
 Codex Panel is licensed under the Apache License 2.0. See `LICENSE`.

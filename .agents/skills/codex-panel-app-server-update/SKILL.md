@@ -1,6 +1,6 @@
 ---
 name: codex-panel-app-server-update
-description: Update Codex Panel's CLI compatibility baseline and generated app-server bindings for a new Codex version.
+description: Update Codex Panel's CLI compatibility baseline and generated app-server bindings for a requested Codex version.
 ---
 
 # Codex Panel App-Server Update
