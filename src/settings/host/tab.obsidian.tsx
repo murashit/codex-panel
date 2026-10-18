@@ -101,6 +101,11 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         control: { type: "toggle", key: "showToolbar" },
       },
       {
+        name: "Temporary by default",
+        desc: "Starts new conversations without saving them to history.",
+        control: { type: "toggle", key: "newConversationsEphemeral" },
+      },
+      {
         type: "group",
         heading: "Panel helpers",
         cls: "codex-panel-settings__section",
@@ -249,6 +254,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   override async setControlValue(key: string, value: unknown): Promise<void> {
     switch (key) {
       case "showToolbar":
+      case "newConversationsEphemeral":
       case "scrollThreadFromComposerEdges":
       case "referenceActiveNoteOnSend":
       case "archiveExportEnabled":

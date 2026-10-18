@@ -10,6 +10,7 @@ export interface CodexPanelSettings {
   rewriteSelectionModel: string | null;
   rewriteSelectionEffort: ReasoningEffort | null;
   showToolbar: boolean;
+  newConversationsEphemeral: boolean;
   sendShortcut: SendShortcut;
   scrollThreadFromComposerEdges: boolean;
   referenceActiveNoteOnSend: boolean;
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   rewriteSelectionModel: null,
   rewriteSelectionEffort: null,
   showToolbar: true,
+  newConversationsEphemeral: false,
   sendShortcut: "enter",
   scrollThreadFromComposerEdges: false,
   referenceActiveNoteOnSend: false,
@@ -52,6 +54,7 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
     rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"], DEFAULT_SETTINGS.rewriteSelectionModel),
     rewriteSelectionEffort: reasoningEffortOrDefault(record["rewriteSelectionEffort"], DEFAULT_SETTINGS.rewriteSelectionEffort),
     showToolbar: booleanOrDefault(record["showToolbar"], DEFAULT_SETTINGS.showToolbar),
+    newConversationsEphemeral: booleanOrDefault(record["newConversationsEphemeral"], DEFAULT_SETTINGS.newConversationsEphemeral),
     sendShortcut: record["sendShortcut"] === "mod-enter" ? "mod-enter" : DEFAULT_SETTINGS.sendShortcut,
     scrollThreadFromComposerEdges: booleanOrDefault(
       record["scrollThreadFromComposerEdges"],

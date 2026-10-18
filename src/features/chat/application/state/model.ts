@@ -31,7 +31,8 @@ export interface ChatConnectionState {
 
 export interface ChatActiveThreadState {
   readonly id: string;
-  readonly title?: string | null;
+  readonly name: string | null;
+  readonly preview: string;
   readonly tokenUsage: ThreadTokenUsage | null;
   readonly lifetime: ActiveThreadLifetime | null;
   readonly canAcceptDirectInput: boolean | null;
@@ -40,7 +41,7 @@ export interface ChatActiveThreadState {
 
 export type ChatPanelThreadState =
   | { readonly kind: "fork-draft"; readonly draft: ForkDraft; readonly operation?: "creating" | "cancelling" }
-  | { readonly kind: "empty" }
+  | { readonly kind: "empty"; readonly ephemeral?: boolean; readonly operation?: "creating" }
   | {
       readonly kind: "awaiting-resume";
       readonly forkReplacement?: ForkReplacement;
@@ -50,14 +51,16 @@ export type ChatPanelThreadState =
     }
   | { readonly kind: "active"; readonly thread: ChatActiveThreadState; readonly forkReplacement?: ForkReplacement };
 
-type ActiveThreadLifetime =
+export type ActiveThreadLifetime =
   | { readonly kind: "persistent" }
-  | { readonly kind: "ephemeral"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
+  | { readonly kind: "ephemeral"; readonly mode: "ordinary" }
+  | { readonly kind: "ephemeral"; readonly mode: "side-chat"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
 
 interface ChatStateShape {
   connection: ChatConnectionState;
   panelThread: ChatPanelThreadState;
   panelTargetRevision: number;
+  newConversationEphemeralDefault: boolean;
   threadReadReceipt: ThreadReadReceipt | null;
   runtime: ChatRuntimeState;
   activeTurn: ChatActiveTurnState;
@@ -75,6 +78,7 @@ export function createChatState(): ChatState {
     connection: initialConnectionState(),
     panelThread: initialPanelThreadState(),
     panelTargetRevision: 0,
+    newConversationEphemeralDefault: false,
     threadReadReceipt: null,
     runtime: initialChatRuntimeState(),
     activeTurn: initialChatActiveTurnState(),
@@ -126,6 +130,16 @@ export function activeThreadId(state: ChatState): string | null {
 
 export function activeThreadState(state: ChatState): DeepReadonly<ChatActiveThreadState> | null {
   return state.panelThread.kind === "active" ? state.panelThread.thread : null;
+}
+
+export function newConversationEphemeral(state: ChatState): boolean {
+  return state.panelThread.kind === "empty" ? (state.panelThread.ephemeral ?? state.newConversationEphemeralDefault) : false;
+}
+
+export function isSideChatLifetime(
+  lifetime: ActiveThreadLifetime | null | undefined,
+): lifetime is Extract<ActiveThreadLifetime, { mode: "side-chat" }> {
+  return lifetime?.kind === "ephemeral" && lifetime.mode === "side-chat";
 }
 
 export function awaitingResumeThreadState(state: ChatState): Extract<ChatState["panelThread"], { kind: "awaiting-resume" }> | null {

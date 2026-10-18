@@ -107,7 +107,7 @@ function resumeSideChat(stateStore: ReturnType<typeof createChatStateStore>) {
   stateStore.dispatch({
     ...threadActivationFixture(thread("side")),
     type: "active-thread/resumed",
-    lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+    lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
   });
 }
 
@@ -555,7 +555,7 @@ describe("TurnSubmissionCommand", () => {
   });
 
   it("uses prepared visible text for optimistic history and app-server input", async () => {
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const inputSnapshot = { ...emptyComposerInputSnapshot(), sourcePath: "snapshot.md" };
     const { host, startTurn, stateStore } = createHost({
       prepareInput: vi.fn(() => ({
         text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
@@ -894,9 +894,8 @@ describe("deferred fork submission", () => {
     const onThreadActivated = vi.fn();
     const starter = createThreadStartCommand({
       withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
       stateStore,
-      effects: { startThread, forkThread },
+      effects: { forkSideChat: vi.fn(), startThread, forkThread },
       recordStartedThread: vi.fn(),
       hydrateCreatedFork,
       onThreadActivated,

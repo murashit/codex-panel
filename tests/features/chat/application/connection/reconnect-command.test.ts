@@ -27,7 +27,6 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
   });
   const host: ChatReconnectCommandHost = {
     stateStore,
-    cleanupForConnectionReset: vi.fn(),
     resetConnectionScope: vi.fn(),
     setStatus: vi.fn(),
     ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -54,7 +53,6 @@ describe("createReconnectPanelCommand", () => {
     expect(host.resetConnectionScope).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
-    expect(host.cleanupForConnectionReset).toHaveBeenCalledOnce();
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
   });
@@ -67,6 +65,7 @@ describe("createReconnectPanelCommand", () => {
         preview: "Persistent preview",
         name: "Persistent title",
         archived: false,
+        ephemeral: false,
         createdAt: 1,
         updatedAt: 1,
         provenance: { kind: "interactive" },
@@ -79,6 +78,7 @@ describe("createReconnectPanelCommand", () => {
         preview: "Subagent preview",
         name: "Subagent title",
         archived: false,
+        ephemeral: false,
         createdAt: 1,
         updatedAt: 1,
         provenance: {
@@ -117,25 +117,8 @@ describe("createReconnectPanelCommand", () => {
     await reconnect({ beforeTargetReset });
 
     expect(host.resumeThread).not.toHaveBeenCalled();
-    expect(host.cleanupForConnectionReset).toHaveBeenCalledOnce();
     expect(beforeTargetReset).toHaveBeenCalledOnce();
     expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
-    expect(vi.mocked(host.cleanupForConnectionReset).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(host.resetConnectionScope).mock.invocationCallOrder[0] ?? 0,
-    );
-  });
-
-  it("does not reset a newer target after synchronous cleanup reentry", async () => {
-    const { host, stateStore, reconnect } = createHost();
-    const beforeTargetReset = vi.fn();
-    resumeSideThread(stateStore);
-
-    vi.mocked(host.cleanupForConnectionReset).mockImplementation(() => {
-      stateStore.dispatch({ type: "active-thread/cleared" });
-    });
-    await expect(reconnect({ beforeTargetReset })).resolves.toBe(false);
-    expect(beforeTargetReset).not.toHaveBeenCalled();
-    expect(host.resetConnectionScope).not.toHaveBeenCalled();
   });
 
   it("does not announce a target reset when reconnecting a persistent thread", async () => {
@@ -222,7 +205,7 @@ function resumeActiveThread(
 function resumeSideThread(stateStore: ReturnType<typeof createChatStateStore>): void {
   resumeActiveThread(stateStore, {
     thread: threadFixture({ id: "side-thread", preview: "Side chat" }),
-    lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+    lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
   });
 }
 

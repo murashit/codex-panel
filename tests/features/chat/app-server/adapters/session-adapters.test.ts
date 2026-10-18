@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import { AppServerRpcError } from "../../../../../src/app-server/connection/json-rpc-client";
+import { ThreadSubscriptions } from "../../../../../src/app-server/connection/thread-subscriptions";
 import { createChatSessionAdapters } from "../../../../../src/features/chat/app-server/adapters/session-adapters";
-import { deferred } from "../../../../support/async";
+import { appServerThreadFixture } from "../../../../support/app-server-records";
+import { deferred, waitForAsyncWork } from "../../../../support/async";
 
 describe("chat session adapters", () => {
   it("classifies an app-server steer error as a definitive rejection", async () => {
@@ -68,40 +70,71 @@ describe("chat session adapters", () => {
 
     await expect(adapters.turn.steerTurn(steerRequest())).resolves.toEqual({ kind: "failed", error });
   });
-  it.each(["thread/inject_items", "turn/start"] as const)("keeps cleanup on its original client after %s is superseded", async (stage) => {
-    const pending = deferred<unknown>();
-    const dispatched = deferred<void>();
-    const request = vi.fn((method: string) => {
-      if (method === stage) {
-        dispatched.resolve();
-        return pending.promise;
-      }
-      if (method === "config/read") return Promise.resolve({ config: {} });
-      if (method === "thread/fork")
-        return Promise.resolve({ thread: { id: "side", preview: "", createdAt: 1, updatedAt: 1 }, model: "model" });
-      return Promise.resolve({});
-    });
-    const original = { request } as unknown as AppServerClient;
-    const replacement = { request: vi.fn() } as unknown as AppServerClient;
-    let current = original;
-    const adapters = createChatSessionAdapters({ vaultPath: "/vault", currentClient: () => current, recordThreadSubscription: vi.fn() });
-    const forking = adapters.threadEphemeral.forkEphemeralThread("parent", {}, () => true);
-    let cleanup: Promise<void> | undefined;
-    let result: Promise<unknown>;
-    if (stage === "thread/inject_items") result = expect(forking).resolves.toBeNull();
-    else {
-      await forking;
-      result = expect(adapters.turn.startTurn({ threadId: "side", input: [], clientUserMessageId: "message" })).rejects.toThrow("released");
-    }
-    await dispatched.promise;
-    if (stage === "turn/start") cleanup = adapters.threadEphemeral.release();
-    current = replacement;
-    pending.resolve(stage === "turn/start" ? { turn: { id: "late-turn" } } : {});
-    await result;
-    await cleanup;
-    expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side" }, expect.anything());
-    expect(replacement.request).not.toHaveBeenCalled();
-  });
+  it.each(["persistent-start", "temporary-start", "side-fork", "side-injection", "injection-failure"] as const)(
+    "releases an unadopted root through the shared owner without interrupting (%s)",
+    async (stage) => {
+      const pending = deferred<unknown>();
+      const reached = deferred<void>();
+      const heldMethod = stage.endsWith("start") ? "thread/start" : stage === "side-fork" ? "thread/fork" : "thread/inject_items";
+      const response = {
+        thread: appServerThreadFixture({
+          id: "created",
+          sessionId: "session",
+          preview: "",
+          ephemeral: stage !== "persistent-start",
+          historyMode: "paginated",
+          modelProvider: "openai",
+          createdAt: 1,
+          updatedAt: 1,
+          status: { type: "idle" },
+          cwd: "/vault",
+          cliVersion: "0.163.0",
+          source: "cli",
+          turns: [],
+        }),
+      };
+      const request = vi.fn((method: string) => {
+        if (method === heldMethod) {
+          reached.resolve();
+          return pending.promise;
+        }
+        if (method === "config/read") return Promise.resolve({ config: {} });
+        if (method === "thread/fork") return Promise.resolve(response);
+        return Promise.resolve({});
+      });
+      const original = { request } as unknown as AppServerClient;
+      const replacement = { request: vi.fn() } as unknown as AppServerClient;
+      let presented = true;
+      const failure = vi.fn();
+      const subscriptions = new ThreadSubscriptions(
+        () => original,
+        () => [],
+        failure,
+      );
+      const adapters = createChatSessionAdapters({
+        vaultPath: "/vault",
+        currentClient: () => (presented ? original : replacement),
+        recordThreadSubscription: (id, client) => subscriptions.record(id, client),
+      });
+      const creating = subscriptions.activate(null, () =>
+        stage.endsWith("start")
+          ? adapters.threadStart.startThread({ ephemeral: stage === "temporary-start" })
+          : adapters.threadStart.forkSideChat("parent", {}, () => presented),
+      );
+      const result =
+        stage === "injection-failure" ? expect(creating).rejects.toThrow("boundary failed") : expect(creating).resolves.toBeDefined();
+      await reached.promise;
+      // Close/replacement invalidates adoption while keeping shared connection bookkeeping alive.
+      presented = false;
+      if (stage === "injection-failure") pending.reject(new Error("boundary failed"));
+      else pending.resolve(heldMethod === "thread/inject_items" ? {} : response);
+      await result;
+      await waitForAsyncWork(() => expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "created" }, expect.anything()));
+      expect(request.mock.calls.some(([method]) => method === "turn/interrupt")).toBe(false);
+      expect(replacement.request).not.toHaveBeenCalled();
+      expect(failure).not.toHaveBeenCalled();
+    },
+  );
 });
 
 function adaptersWithSteerError(error: Error) {

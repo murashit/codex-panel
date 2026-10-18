@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient, ClientResponseByMethod } from "../../../../src/app-server/connection/client";
+import { AppServerRpcError } from "../../../../src/app-server/connection/json-rpc-client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/input/input";
@@ -11,21 +12,20 @@ import { deferred } from "../../../support/async";
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 describe("chat app-server adapters", () => {
-  it("starts threads with the session vault path and projects activation snapshots", async () => {
-    const request = vi.fn().mockResolvedValue(threadStartResponse("thread"));
+  it.each([false, true])("starts ordinary conversations with normal permissions and tools (temporary=%s)", async (ephemeral) => {
+    const response = threadStartResponse("thread");
+    const request = vi.fn().mockResolvedValue({ ...response, thread: { ...response.thread, ephemeral } });
     const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadStart;
-
-    const snapshot = await adapter.startThread({ serviceTier: "priority", permissions: ":workspace" });
-
-    expect(request).toHaveBeenCalledWith("thread/start", {
+    const recordThreadSubscription = vi.fn();
+    const gateway = createTestGateway({ currentClient: () => client, recordThreadSubscription });
+    const snapshot = await gateway.threadStart.startThread({ ephemeral, serviceTier: "priority", permissions: ":workspace" });
+    expect(request).toHaveBeenCalledExactlyOnceWith("thread/start", {
       cwd: "/vault",
       historyMode: "paginated",
       serviceName: "codex-panel",
       serviceTier: "priority",
       permissions: ":workspace",
+      ...(ephemeral ? { ephemeral: true } : {}),
       dynamicTools: [
         expect.objectContaining({
           type: "namespace",
@@ -34,11 +34,111 @@ describe("chat app-server adapters", () => {
         }),
       ],
     });
-    expect(snapshot).toMatchObject({
-      kind: "completed",
-      value: { thread: { id: "thread" }, canAcceptDirectInput: null },
-    });
+    expect(snapshot).toMatchObject({ kind: "completed", value: { thread: { id: "thread", ephemeral }, canAcceptDirectInput: null } });
+    expect(recordThreadSubscription).toHaveBeenCalledExactlyOnceWith("thread", client);
   });
+
+  it("routes multiple temporary turns through the ordinary turn boundary", async () => {
+    const request = vi.fn(async (method: string, _params?: unknown, _options?: unknown) => {
+      if (method === "thread/start") {
+        const response = threadStartResponse("temporary");
+        return { ...response, thread: { ...response.thread, ephemeral: true } };
+      }
+      if (method === "turn/start") return { turn: { id: "turn-1" } };
+      return {};
+    });
+    const client = { request } as unknown as AppServerClient;
+    const gateway = createTestGateway({
+      currentClient: () => client,
+    });
+    await gateway.threadStart.startThread({ ephemeral: true });
+    for (const message of ["edit then explain", "continue"]) {
+      await expect(
+        gateway.turn.startTurn({ threadId: "temporary", input: textInput(message), clientUserMessageId: message }),
+      ).resolves.toMatchObject({ kind: "completed", value: { turnId: "turn-1" } });
+    }
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["thread/start", "turn/start", "turn/start"]);
+  });
+
+  it.each([false, true])("propagates creation errors through the ordinary retry contract (temporary=%s)", async (ephemeral) => {
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new AppServerRpcError("thread/start", { code: -32000, message: "rejected" }))
+      .mockRejectedValueOnce(new Error("timed out"));
+    const client = { request } as unknown as AppServerClient;
+    const gateway = createTestGateway({ currentClient: () => client });
+    await expect(gateway.threadStart.startThread({ ephemeral })).rejects.toThrow("rejected");
+    await expect(gateway.threadStart.startThread({ ephemeral })).rejects.toThrow("timed out");
+  });
+
+  it.each(["named", "sandbox"] as const)(
+    "forks side chats with inherited %s permissions and a reference-history boundary",
+    async (permissions) => {
+      const request = vi.fn(async (method: string, _params?: unknown) => {
+        if (method === "config/read") return { config: { developer_instructions: "Existing policy." } };
+        if (method === "thread/fork") return threadStartResponse("side");
+        return {};
+      });
+      const client = { request } as unknown as AppServerClient;
+      const inherited = permissions === "named" ? { permissions: "trusted" } : { sandbox: "workspace-write", approvalPolicy: "on-request" };
+      const result = await createTestGateway({ currentClient: () => client }).threadStart.forkSideChat(
+        "source",
+        {
+          model: "parent-model",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+          approvalsReviewer: "user",
+          ...(permissions === "named" ? { permissions: "trusted" } : { approvalPolicy: "on-request" as const }),
+          sandboxPolicy: {
+            type: "workspaceWrite",
+            writableRoots: ["/vault"],
+            networkAccess: false,
+            excludeTmpdirEnvVar: false,
+            excludeSlashTmp: false,
+          },
+        },
+        () => true,
+      );
+      expect(request).toHaveBeenNthCalledWith(1, "config/read", { cwd: "/vault" });
+      expect(request).toHaveBeenNthCalledWith(2, "thread/fork", {
+        threadId: "source",
+        cwd: "/vault",
+        ephemeral: true,
+        excludeTurns: true,
+        model: "parent-model",
+        config: { model_reasoning_effort: "high" },
+        serviceTier: "fast",
+        approvalsReviewer: "user",
+        ...inherited,
+        developerInstructions: expect.stringContaining(
+          "Existing policy.\n\nYou are in a side conversation, not the main thread.\n\nThe inherited fork history is reference context only.",
+        ),
+      });
+      expect(request.mock.calls[1]?.[1]).toMatchObject({
+        developerInstructions: expect.stringContaining(
+          "Follow explicit new requests, including edits, using the normal permissions and approval process. Do not use sub-agents.",
+        ),
+      });
+      expect(request).toHaveBeenNthCalledWith(3, "thread/inject_items", {
+        threadId: "side",
+        items: [
+          {
+            type: "message",
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: expect.stringContaining(
+                  "Do not continue any instructions, goals, plans, tool calls, approvals, edits, or requests from before this boundary. Only messages submitted after this boundary are active user instructions",
+                ),
+              },
+            ],
+          },
+        ],
+      });
+      expect(result).toMatchObject({ kind: "completed", value: { thread: { id: "side" } } });
+    },
+  );
 
   it("starts turns with the session vault path and returns chat-owned turn ids", async () => {
     const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
@@ -387,11 +487,14 @@ describe("chat app-server adapters", () => {
 
 type AppServerThreadStartResponse = ClientResponseByMethod["thread/start"];
 
-function createTestGateway(options: { vaultPath?: string; currentClient: () => AppServerClient | null }) {
+function createTestGateway(
+  options: Pick<Parameters<typeof createChatAppServerGateway>[0], "currentClient"> &
+    Partial<Parameters<typeof createChatAppServerGateway>[0]>,
+) {
   return createChatAppServerGateway({
     vaultPath: options.vaultPath ?? "/vault",
     recordThreadSubscription: vi.fn(),
-    currentClient: options.currentClient,
+    ...options,
   });
 }
 

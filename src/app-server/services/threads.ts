@@ -39,6 +39,7 @@ interface ThreadActivationResponse extends Partial<RuntimePermissionState> {
 }
 
 export interface AppServerStartThreadOptions {
+  ephemeral?: boolean;
   cwd: string;
   serviceTier?: RuntimeServiceTierRequest;
   permissions?: RuntimeSettingsPatch["permissions"];
@@ -98,11 +99,12 @@ export function startThread(
   client: AppServerRequestClient,
   options: AppServerStartThreadOptions,
 ): Promise<ClientResponseByMethod["thread/start"]> {
-  const { cwd, serviceTier, permissions, dynamicTools } = options;
+  const { cwd, serviceTier, permissions, dynamicTools, ephemeral } = options;
   return client.request("thread/start", {
     cwd,
     serviceName: "codex-panel",
     historyMode: "paginated",
+    ...(ephemeral !== undefined ? { ephemeral } : {}),
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(permissions !== undefined ? { permissions } : {}),
     ...(dynamicTools !== undefined ? { dynamicTools } : {}),

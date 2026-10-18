@@ -128,6 +128,7 @@ describe("createSessionTurn", () => {
       createdAt: 1,
       updatedAt: 1,
       archived: false,
+      ephemeral: false,
       provenance: { kind: "interactive" as const },
     };
     const referThread = vi.fn().mockRejectedValue(new Error("history unavailable"));

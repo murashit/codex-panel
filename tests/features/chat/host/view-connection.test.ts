@@ -385,7 +385,7 @@ describe("CodexChatView connection lifecycle", () => {
     await newerActivation;
 
     expect(view.surface.openPanelSnapshot().threadId).toBe("thread-c");
-    expect(requestMethods(client)).not.toContain("thread/unsubscribe");
+    expect(client.request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "thread-c" }, expect.anything());
   });
 
   it("keeps a preserved draft editable while workspace coordination restores its thread", async () => {
@@ -559,39 +559,28 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.containerEl.querySelector(".codex-panel__goal-load-error")).toBeNull();
   });
 
-  it.each(["draft", "active"] as const)("keeps the later %s target when busy side cleanup fails", async (target) => {
-    const released = deferred<unknown>();
+  it.each(["draft", "active"] as const)("blocks changing a busy side chat to a %s target", async (target) => {
     const client = connectedClient({
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("other")),
-      "thread/unsubscribe": vi.fn(() => released.promise),
     });
     connectionMockState().client = client;
     const view = await chatView();
     await view.onOpen();
     await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     expect(view.surface.openPanelSnapshot().turnBusy).toBe(true);
-    if (target === "draft") await expect(view.surface.applyForkDraft(sideChatDraft("another", "Another"))).resolves.toBe(true);
-    else await view.surface.activateThread("other");
-    const expected = { threadId: target === "draft" ? null : "other", hasForkDraft: target === "draft" };
-    expect(view.surface.openPanelSnapshot()).toMatchObject(expected);
-    await waitForAsyncWork(() => expectRequestTimes(client, "thread/unsubscribe", 1));
-    released.reject(new Error("Could not discard side chat"));
-    await waitForAsyncWork(() => expect(notices).toContain("Could not confirm side chat cleanup. Codex may still be running."));
-    expect(view.surface.openPanelSnapshot()).toMatchObject(expected);
+    if (target === "draft") await expect(view.surface.applyForkDraft(sideChatDraft("another", "Another"))).resolves.toBe(false);
+    else await expect(view.surface.activateThread("other")).resolves.toBe(false);
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", turnBusy: true, hasForkDraft: false });
+    expectRequestTimes(client, "thread/unsubscribe", 0);
+    expectRequestTimes(client, "turn/interrupt", 0);
   });
 
-  it("keeps startup replacement final and reports uncertain late cleanup", async () => {
+  it("keeps the current conversation when New chat is requested during turn startup", async () => {
     const started = deferred<{ turn: { id: string } }>();
     const client = connectedClient({
       "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("side") }),
       "turn/start": vi.fn(() => started.promise),
-      "turn/interrupt": vi
-        .fn()
-        .mockResolvedValueOnce({})
-        .mockImplementation(async () => {
-          throw new Error("late interrupt timed out");
-        }),
     });
     connectionMockState().client = client;
     const view = await chatView();
@@ -599,11 +588,11 @@ describe("CodexChatView connection lifecycle", () => {
     const opening = view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     await waitForAsyncWork(() => expectRequestTimes(client, "turn/start", 1));
     await view.surface.startNewThread();
-    expect(view.surface.openPanelSnapshot().threadId).toBeNull();
-    started.resolve({ turn: { id: "late-turn" } });
-    await expect(opening).resolves.toBe(false);
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, hasComposerDraft: false });
-    expect(notices).toContain("Could not confirm side chat cleanup. Codex may still be running.");
+    expect(view.surface.openPanelSnapshot().threadId).toBe("side");
+    started.resolve({ turn: { id: "turn" } });
+    await expect(opening).resolves.toBe(true);
+    expectRequestTimes(client, "thread/unsubscribe", 0);
+    expectRequestTimes(client, "turn/interrupt", 0);
   });
 
   it("keeps a late MCP inventory read scoped to its original thread", async () => {
@@ -662,7 +651,7 @@ describe("CodexChatView connection lifecycle", () => {
     } as ServerNotification);
     await view.onClose();
     await waitForAsyncWork(() => expectRequestTimes(client, "thread/unsubscribe", 1));
-    expect(notices).not.toContain("Could not confirm side chat cleanup. Codex may still be running.");
+    expectRequestTimes(client, "turn/interrupt", 0);
   });
 
   it("settles a pending side chat request when its view closes", async () => {

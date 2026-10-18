@@ -17,61 +17,32 @@ type SessionConnectionHost = Parameters<typeof createSessionConnection>[0];
 type SessionConnectionInput = Parameters<typeof createSessionConnection>[1];
 
 describe("session connection", () => {
-  it("preserves the originating responder when an old side chat is released", async () => {
-    const fixture = sessionConnectionFixture(undefined, true);
+  it.each([
+    { boundary: "reset", lifetime: false },
+    { boundary: "exit", lifetime: false },
+    { boundary: "close", lifetime: false },
+    { boundary: "close", lifetime: "normal" as const },
+    { boundary: "close", lifetime: true },
+  ])("settles input but preserves approvals on presentation close ($boundary, $lifetime)", async ({ boundary, lifetime }) => {
+    const fixture = sessionConnectionFixture(undefined, lifetime);
     await fixture.connect();
-    const responder = { respond: vi.fn(), reject: vi.fn() };
-
-    fixture.deliver(userInputRequest(1), responder);
-    fixture.releaseThreadRequests("old-side");
+    const input = { respond: vi.fn(), reject: vi.fn() };
+    const approval = { respond: vi.fn(), reject: vi.fn() };
+    fixture.deliver(userInputRequest(1), input);
+    fixture.deliver(commandApprovalRequest(2, "thread-active", "turn-active"), approval);
+    // The approval may outlive presentation of its thread.
+    fixture.stateStore.dispatch({ type: "panel/view-state-cleared" });
+    const close = boundary === "exit" ? fixture.exit : boundary === "close" ? fixture.deactivate : fixture.invalidate;
+    close();
+    close();
     fixture.resolveUserInput(1, { note: "Continue" });
-
-    expect(responder.respond).toHaveBeenCalledWith({ answers: { note: { answers: ["Continue"] } } });
+    fixture.resolveApproval(2, "accept");
+    expect(input.respond).not.toHaveBeenCalled();
+    expect(input.reject).toHaveBeenCalledExactlyOnceWith(-32000, "Codex Panel disconnected before the request was answered.");
+    expect(approval.respond).not.toHaveBeenCalled();
+    if (boundary === "close") expect(approval.reject).not.toHaveBeenCalled();
+    else expect(approval.reject).toHaveBeenCalledExactlyOnceWith(-32000, "Codex Panel disconnected before the request was answered.");
   });
-
-  it.each(["reset", "exit", "side-chat-close", "side-chat-replace"])(
-    "settles owned requests without affecting other threads on side retirement (%s)",
-    async (boundary) => {
-      const side = boundary.startsWith("side-chat");
-      const fixture = sessionConnectionFixture(undefined, side);
-      await fixture.connect();
-      const rootInput = { respond: vi.fn(), reject: vi.fn() };
-      const rootApproval = { respond: vi.fn(), reject: vi.fn() };
-      const child = { respond: vi.fn(), reject: vi.fn() };
-      fixture.deliver(userInputRequest(1), rootInput);
-      fixture.deliver(commandApprovalRequest(2, "thread-active", "turn-active"), rootApproval);
-      fixture.stateStore.dispatch({ type: "subagent-activity/tracked", threadId: "child", parentTurnId: "turn-active" });
-      fixture.stateStore.dispatch({
-        type: "subagent-activity/runtime-fact",
-        threadId: "child",
-        fact: { type: "turnStarted", threadId: "child", turnId: "child-turn" },
-      });
-      fixture.deliver(commandApprovalRequest(3, "child", "child-turn"), child);
-      if (boundary === "side-chat-replace") {
-        fixture.releaseThreadRequests("thread-active");
-        expect(fixture.stateStore.getState().requests.pendingUserInputs).toEqual([]);
-        expect(fixture.stateStore.getState().requests.approvals.map((approval) => approval.requestId)).toEqual([3]);
-        fixture.stateStore.dispatch({ type: "panel/view-state-cleared" });
-      }
-      const close = boundary === "exit" ? fixture.exit : side ? fixture.deactivate : fixture.invalidate;
-      close();
-      close();
-      fixture.resolveUserInput(1, { note: "Continue" });
-      fixture.resolveApproval(2, "accept");
-      fixture.resolveApproval(3, "accept");
-      if (side) {
-        expect(child.respond).not.toHaveBeenCalled();
-        expect(child.reject).not.toHaveBeenCalled();
-      }
-      for (const responder of side ? [rootInput, rootApproval] : [rootInput, rootApproval, child]) {
-        expect(responder.respond).not.toHaveBeenCalled();
-        expect(responder.reject).toHaveBeenCalledExactlyOnceWith(
-          -32000,
-          boundary === "side-chat-replace" ? "The side chat was released." : "Codex Panel disconnected before the request was answered.",
-        );
-      }
-    },
-  );
 
   it("leaves approvals with Codex across unsubscribe and answers only after resume replay and user choice", async () => {
     let handlers: ConnectionManagerHandlers | undefined;
@@ -177,7 +148,7 @@ describe("session connection", () => {
   });
 });
 
-function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephemeral = false) {
+function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephemeral: boolean | "normal" = false) {
   let connected = false;
   let handlers: AppServerContextConnectionLeaseHandlers | null = null;
   const addSystemMessage = vi.fn();
@@ -185,7 +156,14 @@ function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephem
     chatStateFixture({
       activeThread: {
         id: "thread-active",
-        ...(ephemeral ? { lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: null } as const } : {}),
+        ...(ephemeral
+          ? {
+              lifetime:
+                ephemeral === "normal"
+                  ? { kind: "ephemeral" as const, mode: "ordinary" as const }
+                  : ({ kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: null } as const),
+            }
+          : {}),
       },
       activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },
     }),
@@ -259,7 +237,6 @@ function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephem
     },
     resolveUserInput: connection.inboundHandler.resolveUserInput,
     resolveApproval: connection.inboundHandler.resolveApproval,
-    releaseThreadRequests: connection.releaseThreadRequests,
     invalidate: connection.invalidateConnectionScope,
     deactivate: connection.deactivate,
     exit: () => handlers?.onExit(),

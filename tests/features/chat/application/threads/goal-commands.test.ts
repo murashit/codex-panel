@@ -5,6 +5,7 @@ import type { EffectOutcome } from "../../../../../src/features/chat/application
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { activeThreadId } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import {
   createGoalCommands as createGoalCommandsImpl,
   type ThreadGoalEffects,
@@ -89,7 +90,7 @@ describe("createGoalCommands", () => {
     state = chatStateWith(state, {
       activeThread: {
         id: "side",
-        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+        lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
       },
     });
     const stateStore = createChatStateStore(state);
@@ -109,6 +110,32 @@ describe("createGoalCommands", () => {
     expect(effects.clearThreadGoal).not.toHaveBeenCalled();
     expect(addSystemMessage).toHaveBeenCalledWith("Goals are unavailable in side chats.");
   });
+
+  it.each(["before-save", "during-connection", "already-created"] as const)(
+    "never creates or mutates a saved goal from a temporary conversation (%s)",
+    async (phase) => {
+      const stateStore = createChatStateStore();
+      if (phase === "already-created") {
+        stateStore.dispatch(
+          resumedThreadAction({ response: threadActivationFixture(panelThreadFixture({ id: "temporary", ephemeral: true })) }),
+        );
+      } else if (phase === "before-save") stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: true });
+      const connection = deferred<boolean>();
+      const ensureConnected = vi.fn(() => connection.promise);
+      const startThread = vi.fn();
+      const effects = effectsFixture();
+      const commands = createGoalCommands({ stateStore, effects, startThread, ensureConnected, addSystemMessage: vi.fn() });
+      const pending = commands.saveObjective("Keep this goal", null);
+      if (phase === "during-connection") {
+        await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
+        stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: true });
+      }
+      connection.resolve(true);
+      await expect(pending).resolves.toBe(false);
+      expect(startThread).not.toHaveBeenCalled();
+      expect(effects.setThreadGoal).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     ["status", "success"],
@@ -206,11 +233,10 @@ describe("createGoalCommands", () => {
     const startEffect = vi.fn(() => creation.promise);
     const starter = createThreadStartCommand({
       withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
-      effects: { forkThread: vi.fn(), startThread: startEffect },
+      effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread: startEffect },
       runtimeSnapshotForState: (state) =>
         runtimeSnapshotForChatState(state, {
           runtimeConfigSnapshot: () => null,
@@ -234,6 +260,7 @@ describe("createGoalCommands", () => {
           name: null,
           preview: "",
           archived: false,
+          ephemeral: false,
           createdAt: 1,
           updatedAt: 1,
           provenance: { kind: "interactive" },
@@ -318,6 +345,7 @@ describe("createGoalCommands", () => {
           updatedAt: 1,
           name: null,
           archived: false,
+          ephemeral: false,
           provenance: { kind: "interactive" },
         }),
         type: "active-thread/resumed",

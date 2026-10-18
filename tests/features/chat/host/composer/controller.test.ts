@@ -83,6 +83,7 @@ function resumeComposerThread(stateStore: ChatStateStore, threadId: string, crea
       preview: "",
       name: null,
       archived: false,
+      ephemeral: false,
       createdAt: 1,
       updatedAt: 1,
       provenance: { kind: "interactive" },
@@ -251,7 +252,6 @@ describe("ChatComposerController", () => {
     if (panel === "existing") resumeComposerThread(stateStore, "thread");
     const starter = createThreadStartCommand({
       withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
       onThreadActivated: vi.fn(),
       hydrateCreatedFork: vi.fn().mockResolvedValue(undefined),
       stateStore,
@@ -263,6 +263,7 @@ describe("ChatComposerController", () => {
         }),
       recordStartedThread: vi.fn(),
       effects: {
+        forkSideChat: vi.fn(),
         forkThread: vi.fn(),
         startThread: vi.fn().mockResolvedValue({
           kind: "completed",
@@ -272,6 +273,7 @@ describe("ChatComposerController", () => {
               preview: "",
               name: null,
               archived: false,
+              ephemeral: false,
               createdAt: 1,
               updatedAt: 1,
               provenance: { kind: "interactive" },
@@ -381,6 +383,7 @@ describe("ChatComposerController", () => {
                   name: "Other",
                   preview: "",
                   archived: false,
+                  ephemeral: false,
                   createdAt: 1,
                   updatedAt: 1,
                   provenance: { kind: "interactive" },
@@ -685,6 +688,7 @@ describe("ChatComposerController", () => {
         preview,
         name: null,
         archived: false,
+        ephemeral: false,
         createdAt: 1,
         updatedAt: 1,
         provenance: { kind: "interactive" },
@@ -728,7 +732,7 @@ describe("ChatComposerController", () => {
       chatStateFixture({
         activeThread: {
           id: "side-thread",
-          lifetime: { kind: "ephemeral", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
+          lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
         },
       }),
     );

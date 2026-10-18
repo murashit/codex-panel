@@ -19,13 +19,11 @@ import type { ThreadFactSink } from "../../threads/workflows/thread-facts";
 import type { ThreadMutationCommands } from "../../threads/workflows/thread-mutation-commands";
 import type { ThreadReplacementPublicationOwner } from "../../threads/workflows/thread-replacement-publication";
 import type { TurnDiffViewState } from "../../turn-diff/model";
-import type { SideConversationFactory } from "../app-server/adapters/side-chat";
 import type { ComposerRuntimeSnapshot } from "../application/composer/runtime-snapshot";
 import type { ForkDisplaySnapshot } from "../application/threads/fork-display-snapshot";
 import type { ForkDraftPreparation, ForkReplacement } from "../application/threads/fork-draft";
 
 export interface CodexChatHost {
-  readonly createSideConversation: SideConversationFactory;
   readonly appServerConnection: { createLease(): AppServerContextConnectionLease };
   readonly appServerContext: Readonly<AppServerExecutionContext>;
   readonly settings: ChatPanelSettingsAccess;
@@ -49,6 +47,7 @@ export interface ChatPanelSettingsAccess {
   scrollThreadFromComposerEdges(): boolean;
   sendShortcut(): SendShortcut;
   showToolbar(): boolean;
+  newConversationsEphemeral(): boolean;
 }
 
 export interface WorkspacePanels {

@@ -9,6 +9,7 @@ import { activeThreadId, type ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import { ComposerShell } from "../../ui/composer/composer";
 import { GoalPanel } from "../../ui/goal/goal";
+import { ConversationHeader } from "../../ui/header/header";
 import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll";
 import { ThreadStreamViewport } from "../../ui/thread-stream/stream-blocks";
 import { Toolbar, type ToolbarActions } from "../../ui/toolbar/toolbar";
@@ -16,6 +17,7 @@ import type { ChatPanelComposerActions, ChatPanelComposerPresenter } from "../co
 import { selectChatPanelComposer } from "../composer/view-projection";
 import type { ChatThreadGoalQueries } from "../contracts";
 import { type ChatPanelGoalDependencies, projectChatPanelGoal, selectChatPanelGoal } from "../goal/view-projection";
+import { conversationIdentity } from "../header/view-projection";
 import { type ChatThreadStreamDependencies, projectThreadStream, selectChatPanelThreadStream } from "../thread-stream/view-projection";
 import { type ChatPanelToolbarDependencies, projectChatPanelToolbar, selectChatPanelToolbar } from "../toolbar/view-projection";
 import {
@@ -104,21 +106,56 @@ function ChatPanelShell({
         </div>
       ) : null}
       <div key="body" className="codex-panel__body">
-        <div className="codex-panel__region codex-panel__region--goal">
-          <ChatPanelGoalRegion stateStore={stateStore} threadGoalQueries={threadGoalQueries} dependencies={parts.goal} />
+        <div className="codex-panel__region codex-panel__region--heading">
+          <ChatPanelIdentityRegion stateStore={stateStore} threadCatalog={threadCatalog} />
+          <div className="codex-panel__region--goal">
+            <ChatPanelGoalRegion stateStore={stateStore} threadGoalQueries={threadGoalQueries} dependencies={parts.goal} />
+          </div>
         </div>
         <ChatPanelThreadStreamRegion stateStore={stateStore} dependencies={parts.threadStream} />
         <div className="codex-panel__region codex-panel__region--composer">
           <ChatPanelComposerRegion
             stateStore={stateStore}
             appServerQueries={appServerQueries}
-            threadCatalog={threadCatalog}
             presenter={parts.composer.presenter}
             actions={parts.composer.actions}
           />
         </div>
       </div>
     </>
+  );
+}
+
+function ChatPanelIdentityRegion({ stateStore, threadCatalog }: Pick<ChatPanelShellProps, "stateStore" | "threadCatalog">): UiNode {
+  const resource = useActiveThreadsResource(threadCatalog);
+  const selector = useMemo(
+    () => (state: ChatState) => {
+      const identity = conversationIdentity(state, resource.threads);
+      return {
+        ...identity,
+        selectable: state.panelThread.kind === "empty",
+        disabled: state.panelThread.kind === "empty" && state.panelThread.operation !== undefined,
+      };
+    },
+    [resource.threads],
+  );
+  const model = useChatSelector(stateStore, selector);
+  return (
+    <ConversationHeader
+      title={model.title}
+      persistence={
+        model.ephemeral === null
+          ? null
+          : model.selectable
+            ? {
+                kind: "selectable",
+                ephemeral: model.ephemeral,
+                disabled: model.disabled,
+                onToggle: () => stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: !model.ephemeral }),
+              }
+            : { kind: "fixed", ephemeral: model.ephemeral }
+      }
+    />
   );
 }
 
@@ -226,29 +263,25 @@ function ChatPanelThreadStreamRegion({
 function ChatPanelComposerRegion({
   stateStore,
   appServerQueries,
-  threadCatalog,
   presenter,
   actions,
 }: {
   stateStore: ChatStateStore;
   appServerQueries: ChatSharedDisplayQueries;
-  threadCatalog: ThreadCatalogPaginatedActiveReader;
   presenter: ChatPanelComposerPresenter;
   actions: ChatPanelComposerActions;
 }): UiNode {
-  const activeThreads = useActiveThreadsResource(threadCatalog);
   const runtimeConfig = useRuntimeConfigResource(appServerQueries);
   const models = useModelsResource(appServerQueries);
   const rateLimits = useRateLimitsResource(appServerQueries);
   const selector = useMemo(
     () => (state: ChatState) =>
       selectChatPanelComposer(state, {
-        threads: activeThreads.threads,
         runtimeConfig,
         models: models.value,
         rateLimit: rateLimits.value,
       }),
-    [activeThreads.threads, runtimeConfig, models.value, rateLimits.value],
+    [runtimeConfig, models.value, rateLimits.value],
   );
   const model = useChatSelector(stateStore, selector);
   return useMemo(() => <ComposerShell {...presenter.renderState(model, actions)} />, [model, presenter, actions]);

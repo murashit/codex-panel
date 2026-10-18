@@ -1,16 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../../../../src/features/chat/application/panel-operation-policy";
-import { type ChatState, createChatState } from "../../../../src/features/chat/application/state/model";
-
-type ActivePanelThreadFacts =
-  | { readonly phase: "empty" }
-  | { readonly phase: "awaiting-resume"; readonly provenance: "interactive" | "subagent" | null }
-  | {
-      readonly phase: "active";
-      readonly lifetime: "persistent" | "ephemeral";
-      readonly canAcceptDirectInput: boolean | null;
-      readonly provenance: "interactive" | "subagent" | null;
-    };
+import { type ChatActiveThreadState, type ChatState, createChatState } from "../../../../src/features/chat/application/state/model";
+import { chatStateFixture } from "../support/state";
 
 const operations: readonly ActivePanelOperation[] = [
   "submit",
@@ -24,133 +15,96 @@ const operations: readonly ActivePanelOperation[] = [
   "goal-mutation",
   "implement-plan",
 ];
+const temporaryControls: readonly ActivePanelOperation[] = [
+  "submit",
+  "compact",
+  "thread-settings",
+  "permission-settings",
+  "implement-plan",
+];
+const agent: ChatActiveThreadState["provenance"] = {
+  kind: "subagent",
+  subagentKind: "other",
+  parentThreadId: null,
+  sessionId: null,
+  depth: null,
+  agentNickname: null,
+  agentRole: null,
+};
+const sideChat: ChatActiveThreadState["lifetime"] = {
+  kind: "ephemeral",
+  mode: "side-chat",
+  sourceThreadId: "source",
+  sourceThreadTitle: null,
+};
 
-describe("activePanelOperationDecisionForFacts", () => {
-  it("allows every mode-derived operation in an interactive persistent panel", () => {
-    expectDecisionKinds({ phase: "active", lifetime: "persistent", canAcceptDirectInput: null, provenance: "interactive" }, allAllowed());
-  });
+const activeCases: { name: string; patch: Partial<ChatActiveThreadState>; allowed: readonly ActivePanelOperation[] }[] = [
+  { name: "interactive persistent conversation", patch: {}, allowed: operations },
+  { name: "ordinary temporary conversation", patch: { lifetime: { kind: "ephemeral", mode: "ordinary" } }, allowed: temporaryControls },
+  { name: "side chat", patch: { lifetime: sideChat }, allowed: temporaryControls },
+  {
+    name: "ordinary temporary agent without input capability",
+    patch: { lifetime: { kind: "ephemeral", mode: "ordinary" }, provenance: agent },
+    allowed: [],
+  },
+  {
+    name: "ordinary temporary agent with input capability",
+    patch: { lifetime: { kind: "ephemeral", mode: "ordinary" }, provenance: agent, canAcceptDirectInput: true },
+    allowed: ["submit"],
+  },
+  { name: "agent without a server capability", patch: { provenance: agent }, allowed: ["fork", "goal-read"] },
+  {
+    name: "agent with direct input enabled",
+    patch: { provenance: agent, canAcceptDirectInput: true },
+    allowed: ["submit", "fork", "goal-read"],
+  },
+  { name: "agent with direct input disabled", patch: { provenance: agent, canAcceptDirectInput: false }, allowed: ["fork", "goal-read"] },
+  { name: "side chat carrying agent provenance", patch: { lifetime: sideChat, provenance: agent }, allowed: ["fork"] },
+  {
+    name: "interactive conversation with direct input disabled",
+    patch: { canAcceptDirectInput: false },
+    allowed: operations.filter((operation) => operation !== "submit"),
+  },
+];
 
-  it("allows side-chat settings, plan execution and compaction while blocking saved-history actions", () => {
-    expectDecisionKinds(
-      { phase: "active", lifetime: "ephemeral", canAcceptDirectInput: null, provenance: "interactive" },
-      decisions({
-        submit: "allowed",
-        compact: "allowed",
-        "thread-settings": "allowed",
-        "permission-settings": "allowed",
-        "implement-plan": "allowed",
-      }),
-    );
-  });
-
-  it("keeps subagent panels read-only when the server capability is unavailable", () => {
-    expectDecisionKinds(
-      { phase: "active", lifetime: "persistent", canAcceptDirectInput: null, provenance: "subagent" },
-      decisions({ fork: "allowed", "goal-read": "allowed" }),
-    );
-  });
-
-  it("uses the server capability for subagent submission while preserving other subagent restrictions", () => {
-    expectDecisionKinds(
-      { phase: "active", lifetime: "persistent", canAcceptDirectInput: true, provenance: "subagent" },
-      decisions({ submit: "allowed", fork: "allowed", "goal-read": "allowed" }),
-    );
-    expectDecisionKinds(
-      { phase: "active", lifetime: "persistent", canAcceptDirectInput: false, provenance: "subagent" },
-      decisions({ fork: "allowed", "goal-read": "allowed" }),
-    );
-  });
-
-  it("keeps subagent and side-chat restrictions when a side-chat response carries subagent provenance", () => {
-    expectDecisionKinds(
-      { phase: "active", lifetime: "ephemeral", canAcceptDirectInput: null, provenance: "subagent" },
-      decisions({ fork: "allowed" }),
-    );
-  });
-
-  it("blocks only submission when the loaded thread rejects direct input", () => {
-    expectDecisionKinds(
-      { phase: "active", lifetime: "persistent", canAcceptDirectInput: false, provenance: "interactive" },
-      allAllowedExcept("submit"),
-    );
-  });
-
-  it("requires restoration before a persistent goal mutation", () => {
-    expect(activePanelOperationDecision(stateFromFacts({ phase: "awaiting-resume", provenance: "interactive" }), "goal-mutation")).toEqual({
-      kind: "resume-required",
+describe("active panel operation policy", () => {
+  it.each(activeCases)("applies mode and capability precedence for $name", ({ patch, allowed }) => {
+    const state = chatStateFixture({
+      activeThread: {
+        id: "thread",
+        lifetime: { kind: "persistent" },
+        canAcceptDirectInput: null,
+        provenance: { kind: "interactive" },
+        ...patch,
+      },
     });
+    expectAllowedOperations(state, allowed);
   });
 
-  it("keeps restored subagent goals read-only before loading", () => {
-    expect(activePanelOperationDecision(stateFromFacts({ phase: "awaiting-resume", provenance: "subagent" }), "goal-mutation")).toEqual({
-      kind: "blocked",
-      message: "Goals are read-only in agent threads.",
-    });
+  it.each([false, true])("uses the uncreated conversation choice (temporary=%s)", (ephemeral) => {
+    const state = { ...createChatState(), newConversationEphemeralDefault: ephemeral };
+    expectAllowedOperations(state, ephemeral ? temporaryControls : operations);
   });
 
-  it("allows empty panels to start a goal-backed thread", () => {
-    expectDecisionKinds({ phase: "empty" }, allAllowed());
+  it("blocks conflicting operations during creation", () => {
+    const state: ChatState = { ...createChatState(), panelThread: { kind: "empty", ephemeral: true, operation: "creating" } };
+    expectAllowedOperations(state, []);
+  });
+
+  it.each([
+    { provenance: { kind: "interactive" } as const, decision: { kind: "resume-required" } },
+    { provenance: agent, decision: { kind: "blocked", message: "Goals are read-only in agent threads." } },
+  ])("checks provenance before restoring a goal mutation ($provenance.kind)", ({ provenance, decision }) => {
+    const state: ChatState = {
+      ...createChatState(),
+      panelThread: { kind: "awaiting-resume", threadId: "thread", fallbackTitle: null, provenance },
+    };
+    expect(activePanelOperationDecision(state, "goal-mutation")).toEqual(decision);
   });
 });
 
-function allAllowed(): Record<ActivePanelOperation, "allowed"> {
-  return Object.fromEntries(operations.map((operation) => [operation, "allowed"])) as Record<ActivePanelOperation, "allowed">;
-}
-
-function decisions(allowed: Partial<Record<ActivePanelOperation, "allowed">>): Record<ActivePanelOperation, "allowed" | "blocked"> {
-  return Object.fromEntries(operations.map((operation) => [operation, allowed[operation] ?? "blocked"])) as Record<
-    ActivePanelOperation,
-    "allowed" | "blocked"
-  >;
-}
-
-function allAllowedExcept(blocked: ActivePanelOperation): Record<ActivePanelOperation, "allowed" | "blocked"> {
-  return decisions(Object.fromEntries(operations.filter((operation) => operation !== blocked).map((operation) => [operation, "allowed"])));
-}
-
-function expectDecisionKinds(facts: ActivePanelThreadFacts, expected: Record<ActivePanelOperation, "allowed" | "blocked">): void {
+function expectAllowedOperations(state: ChatState, allowed: readonly ActivePanelOperation[]): void {
   for (const operation of operations) {
-    expect(activePanelOperationDecision(stateFromFacts(facts), operation).kind).toBe(expected[operation]);
+    expect(activePanelOperationDecision(state, operation).kind, operation).toBe(allowed.includes(operation) ? "allowed" : "blocked");
   }
-}
-
-function stateFromFacts(facts: ActivePanelThreadFacts): ChatState {
-  const state = createChatState();
-  if (facts.phase === "empty") return state;
-  const provenance =
-    facts.provenance === null
-      ? null
-      : facts.provenance === "interactive"
-        ? ({ kind: "interactive" } as const)
-        : ({
-            kind: "subagent",
-            subagentKind: "other",
-            parentThreadId: null,
-            sessionId: null,
-            depth: null,
-            agentNickname: null,
-            agentRole: null,
-          } as const);
-  if (facts.phase === "awaiting-resume") {
-    return {
-      ...state,
-      panelThread: { kind: "awaiting-resume", threadId: "thread", fallbackTitle: null, provenance },
-    };
-  }
-  return {
-    ...state,
-    panelThread: {
-      kind: "active",
-      thread: {
-        id: "thread",
-        tokenUsage: null,
-        lifetime:
-          facts.lifetime === "persistent"
-            ? { kind: "persistent" }
-            : { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: null },
-        canAcceptDirectInput: facts.canAcceptDirectInput,
-        provenance,
-      },
-    },
-  };
 }

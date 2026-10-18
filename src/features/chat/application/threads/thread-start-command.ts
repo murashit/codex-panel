@@ -4,18 +4,25 @@ import type { Thread, ThreadActivationSnapshot } from "../../../../domain/thread
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import type { EffectOutcome } from "../effect-outcome";
-import { activeThreadId, type ChatState } from "../state/model";
+import { activeThreadId, type ChatState, newConversationEphemeral } from "../state/model";
 import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { resumedThreadAction } from "../state/transition-actions";
 import { forkRuntimeSettings, type ThreadForkOptions, type ThreadForkRuntimeOverrides } from "./fork-draft";
 
 interface ThreadStartRequest {
+  ephemeral?: boolean;
   serviceTier?: RuntimeServiceTierRequest;
   permissions?: RuntimeSettingsPatch["permissions"];
 }
 
 export interface ThreadStartEffects {
+  forkSideChat: (
+    sourceThreadId: string,
+    runtime: ThreadForkRuntimeOverrides,
+    isCurrent: () => boolean,
+  ) => Promise<EffectOutcome<ThreadActivationSnapshot>>;
+
   forkThread(threadId: string, options: ThreadForkOptions): Promise<EffectOutcome<ThreadActivationSnapshot>>;
   startThread(request: ThreadStartRequest): Promise<EffectOutcome<ThreadActivationSnapshot>>;
 }
@@ -27,11 +34,6 @@ type ThreadStartOutcome =
 
 export interface ThreadStartCommandHost {
   stateStore: ChatStateStore;
-  createSideChat: (
-    sourceThreadId: string,
-    runtime: ThreadForkRuntimeOverrides,
-    isCurrent: () => boolean,
-  ) => Promise<EffectOutcome<ThreadActivationSnapshot>>;
   effects: ThreadStartEffects;
   withThreadActivation<T>(operation: () => Promise<T>): Promise<T>;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
@@ -61,11 +63,16 @@ export function createThreadStartCommand(host: ThreadStartCommandHost): ThreadSt
       if (threadId) return Promise.resolve({ kind: "created-activated", target: { revision: state.panelTargetRevision, threadId } });
       const draft = state.panelThread.kind === "fork-draft";
       if (state.panelThread.kind !== "empty" && !draft) return Promise.resolve({ kind: "not-started" });
-      if (draft && state.panelThread.operation) return Promise.resolve({ kind: "not-started" });
+      if (state.panelThread.operation) return Promise.resolve({ kind: "not-started" });
       if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision, operation: "creating" });
+      else host.stateStore.dispatch({ type: "panel/creation-state-set", revision: state.panelTargetRevision, operation: "creating" });
       const promise = startThread(host, preview, options).finally(() => {
         if (creation?.promise === promise) creation = null;
         if (draft) host.stateStore.dispatch({ type: "panel/fork-operation-set", revision: state.panelTargetRevision });
+        else {
+          const panel = host.stateStore.getState().panelThread;
+          if (panel.kind === "empty") host.stateStore.dispatch({ type: "panel/creation-state-set", revision: state.panelTargetRevision });
+        }
       });
       creation = { revision: state.panelTargetRevision, promise };
       return promise;
@@ -89,7 +96,7 @@ async function startThread(
     const active = requestState.runtime.active;
     const sideChat = draft?.kind === "side-chat" ? draft : null;
     const effect = sideChat
-      ? await host.createSideChat(sideChat.sourceThreadId, forkRuntimeSettings(active), () =>
+      ? await host.effects.forkSideChat(sideChat.sourceThreadId, forkRuntimeSettings(active), () =>
           panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget),
         )
       : draft?.kind === "persistent"
@@ -99,6 +106,7 @@ async function startThread(
             runtime: forkRuntimeSettings(active),
           })
         : await host.effects.startThread({
+            ...(newConversationEphemeral(requestState) ? { ephemeral: true } : {}),
             serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),
             permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
           });
@@ -111,7 +119,7 @@ async function startThread(
         : { ...activation.thread, preview: fallbackPreview };
     const patchedActivation = thread === activation.thread ? activation : { ...activation, thread };
     options.onCreated?.(thread);
-    if (!sideChat) host.recordStartedThread(thread);
+    if (!sideChat && !thread.ephemeral) host.recordStartedThread(thread);
     const current = host.stateStore.getState();
     if (!panelTargetLeaseIsCurrent(current, panelTarget)) {
       return { kind: "created-not-activated" };
@@ -129,6 +137,7 @@ async function startThread(
         ? {
             lifetime: {
               kind: "ephemeral" as const,
+              mode: "side-chat" as const,
               sourceThreadId: sideChat.sourceThreadId,
               sourceThreadTitle: sideChat.sourceThreadTitle,
             },
@@ -141,7 +150,7 @@ async function startThread(
     }
     return { kind: "created-activated", target: { revision: applied.panelTargetRevision, threadId: action.thread.id } };
   };
-  const outcome = draft?.kind === "side-chat" ? await create() : await host.withThreadActivation(create);
+  const outcome = await host.withThreadActivation(create);
   if (outcome.kind !== "created-activated") return outcome;
   if (draft?.kind === "persistent") {
     await host.hydrateCreatedFork(outcome.target.threadId);

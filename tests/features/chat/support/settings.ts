@@ -9,5 +9,6 @@ export function chatPanelSettingsAccess(settings: CodexPanelSettings): ChatPanel
     scrollThreadFromComposerEdges: () => settings.scrollThreadFromComposerEdges,
     sendShortcut: () => settings.sendShortcut,
     showToolbar: () => settings.showToolbar,
+    newConversationsEphemeral: () => settings.newConversationsEphemeral,
   };
 }

@@ -211,7 +211,7 @@ describe("AppServerContextConnection", () => {
     expect(responder.reject).toHaveBeenCalledWith(-32601, expect.stringContaining("No Codex Panel view"));
   });
 
-  it.each([false, true])("cleans up automatic persistent attachments without a panel consumer (ephemeral=%s)", async (ephemeral) => {
+  it.each([false, true])("cleans up acknowledged creation attachments without a panel consumer (ephemeral=%s)", async (ephemeral) => {
     const manager = managerFixture();
     const request = vi.mocked(manager.client.request).mockResolvedValue({ status: "unsubscribed" } as never);
     const connection = contextConnection(manager);
@@ -220,74 +220,65 @@ describe("AppServerContextConnection", () => {
       method: "thread/started",
       params: { thread: { id: "unowned", ephemeral } },
     } as ServerNotification);
-    if (ephemeral) expect(request).not.toHaveBeenCalled();
-    else
-      await waitForAsyncWork(() =>
-        expect(request).toHaveBeenCalledExactlyOnceWith("thread/unsubscribe", { threadId: "unowned" }, expect.anything()),
-      );
-    connection.dispose();
-  });
-
-  it.each([false, true])("retains shared demand until the last panel leaves and reports cleanup failure (%s)", async (failCleanup) => {
-    const manager = managerFixture();
-    const failure = vi.fn();
-    const connection = contextConnection(
-      manager,
-      vi.fn(() => false),
-      vi.fn(),
-      failure,
-    );
-    const firstHandlers = leaseHandlers();
-    const secondHandlers = leaseHandlers();
-    const first = connection.createLease();
-    const second = connection.createLease();
-    await first.connect(firstHandlers);
-    await second.connect(secondHandlers);
-    first.updateThreadSubscriptions(["child"]);
-    second.updateThreadSubscriptions(["child"]);
     await waitForAsyncWork(() =>
-      expect(manager.client.request).toHaveBeenCalledExactlyOnceWith("thread/resume", { threadId: "child", excludeTurns: true }),
+      expect(request).toHaveBeenCalledExactlyOnceWith("thread/unsubscribe", { threadId: "unowned" }, expect.anything()),
     );
-    if (failCleanup) vi.mocked(manager.client.request).mockRejectedValueOnce(new Error("unsubscribe failed"));
-
-    first.disconnect();
-    expect(manager.client.request).toHaveBeenCalledOnce();
-    manager.handlers?.onNotification({
-      method: "thread/archived",
-      params: { threadId: "thread" },
-    } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
-
-    expect(firstHandlers.onNotification).not.toHaveBeenCalled();
-    expect(secondHandlers.onNotification).toHaveBeenCalledOnce();
-    expect(manager.disconnect).not.toHaveBeenCalled();
-
-    second.disconnect();
-    await waitForAsyncWork(() => expect(manager.client.request).toHaveBeenCalledTimes(2));
-    expect(manager.client.request).toHaveBeenLastCalledWith("thread/unsubscribe", { threadId: "child" }, expect.anything());
-    if (failCleanup)
-      await waitForAsyncWork(() => expect(failure).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("unsubscribe failed")));
-    else expect(failure).not.toHaveBeenCalled();
     connection.dispose();
-    expect(manager.disconnect).toHaveBeenCalledOnce();
   });
-  it("rejects new work and UI delivery while the parent finishes child cleanup", async () => {
-    const manager = managerFixture();
-    const connection = contextConnection(manager);
-    let finish!: () => void;
-    const release = new Promise<void>((resolve) => {
-      finish = resolve;
-    });
-    const handlers = leaseHandlers();
-    await connection.createLease().connect(handlers);
-    connection.dispose(release);
-    await expect(connection.withClient(async () => undefined)).rejects.toThrow("disposed");
-    expect(handlers.onExit).toHaveBeenCalledOnce();
-    expect(manager.disconnect).not.toHaveBeenCalled();
-    manager.handlers?.onLog("late");
-    expect(handlers.onLog).not.toHaveBeenCalled();
-    finish();
-    await waitForAsyncWork(() => expect(manager.disconnect).toHaveBeenCalledOnce());
-  });
+
+  it.each([
+    { canResume: true, failCleanup: false },
+    { canResume: true, failCleanup: true },
+    { canResume: false, failCleanup: false },
+    { canResume: false, failCleanup: true },
+  ])(
+    "retains shared presentation until the last panel leaves ($canResume, cleanup failure=$failCleanup)",
+    async ({ canResume, failCleanup }) => {
+      const manager = managerFixture();
+      const failure = vi.fn();
+      const connection = contextConnection(
+        manager,
+        vi.fn(() => false),
+        vi.fn(),
+        failure,
+      );
+      const firstHandlers = leaseHandlers();
+      const secondHandlers = leaseHandlers();
+      const first = connection.createLease();
+      const second = connection.createLease();
+      await first.connect(firstHandlers);
+      await second.connect(secondHandlers);
+      first.updateThreadSubscriptions([{ threadId: "child", canResume }]);
+      second.updateThreadSubscriptions([{ threadId: "child", canResume }]);
+      second.updateThreadSubscriptions([{ threadId: "child", canResume }]);
+      if (canResume)
+        await waitForAsyncWork(() =>
+          expect(manager.client.request).toHaveBeenCalledExactlyOnceWith("thread/resume", { threadId: "child", excludeTurns: true }),
+        );
+      else expect(manager.client.request).not.toHaveBeenCalled();
+      if (failCleanup) vi.mocked(manager.client.request).mockRejectedValueOnce(new Error("unsubscribe failed"));
+
+      first.disconnect();
+      expect(manager.client.request).toHaveBeenCalledTimes(canResume ? 1 : 0);
+      manager.handlers?.onNotification({
+        method: "thread/archived",
+        params: { threadId: "thread" },
+      } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
+
+      expect(firstHandlers.onNotification).not.toHaveBeenCalled();
+      expect(secondHandlers.onNotification).toHaveBeenCalledOnce();
+      expect(manager.disconnect).not.toHaveBeenCalled();
+
+      second.disconnect();
+      await waitForAsyncWork(() => expect(manager.client.request).toHaveBeenCalledTimes(canResume ? 2 : 1));
+      expect(manager.client.request).toHaveBeenLastCalledWith("thread/unsubscribe", { threadId: "child" }, expect.anything());
+      if (failCleanup)
+        await waitForAsyncWork(() => expect(failure).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("unsubscribe failed")));
+      else expect(failure).not.toHaveBeenCalled();
+      connection.dispose();
+      expect(manager.disconnect).toHaveBeenCalledOnce();
+    },
+  );
 });
 
 function contextConnection(

@@ -8,7 +8,6 @@ import { AppServerThreadCatalog } from "./app-server/query/thread-catalog-querie
 import { AppServerThreadGoalQueries } from "./app-server/query/thread-goal-queries";
 import { AppServerToolInventoryQueries } from "./app-server/query/tool-inventory-queries";
 import { type EphemeralStructuredTurnRunner, runEphemeralStructuredTurn } from "./app-server/services/ephemeral-structured-turn";
-import { createSideConversation, type SideConversation } from "./features/chat/app-server/adapters/side-chat";
 import type { ChatPanelSettingsAccess, ChatRuntimeView, CodexChatHost, WorkspacePanels } from "./features/chat/host/contracts";
 import { createAppServerSelectionRewriteAdapter } from "./features/selection-rewrite/app-server-adapter";
 import type { SelectionRewritePort } from "./features/selection-rewrite/port";
@@ -60,7 +59,6 @@ export class CodexExecutionRuntime {
   readonly settingsResources: SettingsResources;
   private readonly runtimeSettingsCommitQueue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
   private readonly structuredTurnOperations = new Set<AbortController>();
-  private readonly sideConversations = new Set<SideConversation>();
   private activeThreadPicker: ThreadPickerController | null = null;
   private disposed = false;
 
@@ -156,13 +154,6 @@ export class CodexExecutionRuntime {
   private chatHost(): CodexChatHost {
     this.assertActive();
     return {
-      createSideConversation: (options) => {
-        this.assertActive();
-        const conversation = createSideConversation(options);
-        this.sideConversations.add(conversation);
-        void conversation.disposed.finally(() => this.sideConversations.delete(conversation)).catch(() => undefined);
-        return conversation;
-      },
       appServerConnection: this.appServerConnection,
       appServerContext: this.context,
       settings: this.chatSettings(),
@@ -234,8 +225,6 @@ export class CodexExecutionRuntime {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    // Own the actual forks, including creation and late starts after UI retirement.
-    const children = [...this.sideConversations].map((conversation) => conversation.release());
     this.threadAutoTitleWork?.dispose();
     this.threadAutoTitleWork = null;
     this.tryCleanup(() => {
@@ -248,7 +237,7 @@ export class CodexExecutionRuntime {
       });
     this.structuredTurnOperations.clear();
     this.tryCleanup(() => {
-      this.appServerConnection.dispose(children.length ? Promise.allSettled(children) : undefined);
+      this.appServerConnection.dispose();
     });
     this.tryCleanup(() => {
       this.queryScope.dispose();
@@ -312,6 +301,7 @@ export class CodexExecutionRuntime {
       scrollThreadFromComposerEdges: () => this.options.settings().scrollThreadFromComposerEdges,
       sendShortcut: () => this.options.settings().sendShortcut,
       showToolbar: () => this.options.settings().showToolbar,
+      newConversationsEphemeral: () => this.options.settings().newConversationsEphemeral,
     };
   }
 

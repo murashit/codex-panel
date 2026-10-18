@@ -59,7 +59,6 @@ export function toolbarSharedValues(shared: ChatSharedDisplayValues): ChatPanelT
 
 export function composerSharedValues(shared: ChatSharedDisplayValues): ChatPanelComposerSharedValues {
   return {
-    threads: shared.threads,
     runtimeConfig: shared.runtimeConfig,
     models: shared.availableModels,
     rateLimit: shared.rateLimit,

@@ -1309,6 +1309,7 @@ function thread(id: string, archived = false): Thread {
     preview: "",
     name: null,
     archived,
+    ephemeral: false,
     createdAt: 1,
     updatedAt: 1,
     provenance: { kind: "interactive" as const },

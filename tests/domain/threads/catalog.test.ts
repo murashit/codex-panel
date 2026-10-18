@@ -103,6 +103,7 @@ function thread(id: string): Thread {
     preview: `Preview ${id}`,
     name: id,
     archived: false,
+    ephemeral: false,
     createdAt: 1,
     updatedAt: 1,
     recencyAt: 1,

@@ -12,6 +12,7 @@ export interface Thread {
   readonly preview: string;
   readonly name: string | null;
   readonly archived: boolean;
+  readonly ephemeral: boolean;
   readonly isPinned?: boolean;
   readonly createdAt: number;
   readonly updatedAt: number;
@@ -69,4 +70,10 @@ export interface ThreadActivationSnapshot extends RuntimePermissionState, Runtim
   serviceTier: ServiceTier | null;
   approvalsReviewer: ApprovalsReviewer | null;
   reasoningEffort: ReasoningEffort | null;
+}
+
+/** Presentation interest; upstream-acquired threads may only support release. */
+export interface ThreadSubscriptionInterest {
+  readonly threadId: string;
+  readonly canResume: boolean;
 }

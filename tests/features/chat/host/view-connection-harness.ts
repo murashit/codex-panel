@@ -1,4 +1,5 @@
-import { createSideConversation } from "../../../../src/features/chat/app-server/adapters/side-chat";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import { AppServerContextConnection } from "../../../../src/app-server/connection/context-connection";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, expect, vi } from "vitest";
@@ -65,45 +66,46 @@ function contextConnectionMock(
   handleContextNotification?: (notification: ServerNotification) => boolean,
   onContextExit?: () => void,
 ): CodexChatHost["appServerConnection"] {
-  return {
-    createLease: () => {
-      let connected = false;
-      let client: Record<string, unknown> | null = null;
-      return {
-        connect: async (handlers) => {
-          connectionMock.state.connectCalls += 1;
-          connectionMock.state.connected = true;
-          connected = true;
-          client = connectionMock.state.client;
-          connectionMock.state.onNotification = (notification) => {
-            if (!handleContextNotification?.(notification)) handlers.onNotification(notification);
-          };
-          connectionMock.state.onServerRequest = (request, responder) => {
-            handlers.onServerRequest(request, responder);
-          };
-          connectionMock.state.onExit = () => {
-            connected = false;
-            onContextExit?.();
-            handlers.onExit();
-          };
-          return {
-            userAgent: "codex-test",
-            codexHome: "/tmp/codex",
-            platformFamily: "unix",
-            platformOs: "macos",
-          };
-        },
-        updateThreadSubscriptions: vi.fn(),
-        recordThreadSubscription: vi.fn(),
-        withThreadActivation: async (_threadId, operation) => operation(),
-        currentClient: () => (connected ? (client as never) : null),
-        isConnected: () => connected && connectionMock.state.connected,
-        disconnect: () => {
-          connected = false;
-        },
-      };
+  let client: AppServerClient | null = null;
+  return new AppServerContextConnection(
+    "codex",
+    "/vault",
+    { clientInfo: { name: "test", title: "Test", version: "0" }, capabilities: { experimentalApi: true, requestAttestation: false } },
+    {
+      onNotification: (notification) => handleContextNotification?.(notification) ?? false,
+      onSubscriptionError: (message) => {
+        notices.push(message);
+      },
+      onExit: () => {
+        onContextExit?.();
+      },
     },
-  };
+    {
+      connect: async (handlers) => {
+        if (!client) {
+          connectionMock.state.connectCalls += 1;
+          client = connectionMock.state.client as unknown as AppServerClient | null;
+          connectionMock.state.connected = true;
+        }
+        connectionMock.state.onNotification = (notification) => {
+          handlers.onNotification(notification);
+        };
+        connectionMock.state.onServerRequest = (request, responder) => {
+          handlers.onServerRequest(request, responder);
+        };
+        connectionMock.state.onExit = () => {
+          client = null;
+          connectionMock.state.connected = false;
+          handlers.onExit();
+        };
+        return { userAgent: "codex-test", codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "macos" };
+      },
+      currentClient: () => client,
+      disconnect: () => {
+        client = null;
+      },
+    },
+  );
 }
 
 const { CodexChatView } = await import("../../../../src/features/chat/host/view.obsidian");
@@ -445,7 +447,6 @@ export function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexCha
     },
     threadAutoTitleWork: { submit: vi.fn() },
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
-    createSideConversation,
     settings: chatPanelSettingsAccess(settings),
     workspace: {
       returnFromForkDraft: vi.fn().mockResolvedValue(true),

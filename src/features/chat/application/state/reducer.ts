@@ -29,6 +29,10 @@ export type ChatAction = ChatTransitionAction | ChatSliceAction;
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
+    case "panel/ephemeral-default-set":
+    case "panel/ephemeral-choice-set":
+    case "panel/creation-state-set":
+    case "active-thread/renamed":
     case "panel/fork-operation-set":
     case "panel/fork-draft-applied":
     case "active-thread/fork-replacement-settled":

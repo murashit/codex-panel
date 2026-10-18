@@ -8,25 +8,27 @@ import {
   createThreadNavigationCommands,
   type ThreadNavigationCommandsHost,
 } from "../../../../../src/features/chat/application/threads/thread-navigation-commands";
+import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 
 function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagent = false): void {
   stateStore.dispatch({
-    ...threadActivationFixture({
-      id: threadId,
-      cliVersion: "test",
-      provenance: subagent
-        ? {
-            kind: "subagent",
-            subagentKind: "thread-spawn",
-            parentThreadId: "parent",
-            sessionId: "session",
-            depth: 1,
-            agentNickname: "Scout",
-            agentRole: "explorer",
-          }
-        : { kind: "interactive" },
-    } as never),
+    ...threadActivationFixture(
+      panelThreadFixture({
+        id: threadId,
+        provenance: subagent
+          ? {
+              kind: "subagent",
+              subagentKind: "thread-spawn",
+              parentThreadId: "parent",
+              sessionId: "session",
+              depth: 1,
+              agentNickname: "Scout",
+              agentRole: "explorer",
+            }
+          : { kind: "interactive" },
+      }),
+    ),
     type: "active-thread/resumed",
   });
 }
@@ -43,7 +45,6 @@ function createActionsHarness(overrides: Partial<ThreadNavigationCommandsHost> =
     resumeWork: new ChatResumeWorkTracker(),
     addSystemMessage: vi.fn(),
     focusComposer: vi.fn(),
-    ephemeral: { prepareForNavigation: vi.fn() },
     ...overrides,
   };
   return { commands: createThreadNavigationCommands(host), host, stateStore };
@@ -73,30 +74,6 @@ describe("ThreadNavigationCommands", () => {
     expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
     expect(host.focusComposer).not.toHaveBeenCalled();
-  });
-
-  it("keeps the current turn when it starts during blank chat preparation", async () => {
-    const { commands, host, stateStore } = createActionsHarness();
-    resumeThreadState(stateStore, "active");
-    vi.mocked(host.ephemeral.prepareForNavigation).mockImplementation(() => {
-      stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
-    });
-    await commands.startNewThread();
-    expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
-    expect(host.focusComposer).not.toHaveBeenCalled();
-  });
-
-  it("keeps the selected thread when a blank-target intent is superseded before adoption", async () => {
-    const { commands, host, stateStore } = createActionsHarness();
-    resumeThreadState(stateStore, "child", true);
-    stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
-
-    vi.mocked(host.ephemeral.prepareForNavigation).mockImplementation(() => {
-      host.resumeWork.begin("child");
-    });
-    await commands.startNewThread();
-
-    expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
   });
 
   it("allows switching away from a running subagent through workspace coordination", async () => {

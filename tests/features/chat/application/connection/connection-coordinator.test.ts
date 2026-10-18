@@ -224,6 +224,7 @@ describe("ChatConnectionCoordinator", () => {
         preview: "Thread 1",
         name: "Thread 1",
         archived: false,
+        ephemeral: false,
         createdAt: 1,
         updatedAt: 1,
         provenance: { kind: "interactive" },

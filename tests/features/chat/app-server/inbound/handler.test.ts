@@ -14,6 +14,7 @@ import { createLocalIdSource } from "../../../../../src/features/chat/applicatio
 import { activeThreadState, type ChatState } from "../../../../../src/features/chat/application/state/model";
 import { type ChatAction, chatReducer } from "../../../../../src/features/chat/application/state/reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { panelThreadSubscriptions } from "../../../../../src/features/chat/application/threads/thread-subscriptions";
 import { appServerThreadFixture, appServerTurnFixture } from "../../../../support/app-server-records";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
@@ -1493,8 +1494,12 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().activeTurn.subagents.byThreadId.size).toBe(0);
     });
 
-    it("preserves a started v2 child activity and its canonical path", () => {
-      const handler = handlerForState(activeRunningState());
+    it.each([false, true])("preserves presented v2 child activity and release interest (ephemeral=%s)", (ephemeral) => {
+      const handler = handlerForState(
+        chatStateWith(activeRunningState(), {
+          activeThread: { lifetime: ephemeral ? { kind: "ephemeral", mode: "ordinary" } : { kind: "persistent" } },
+        }),
+      );
 
       handler.handleNotification({
         method: "item/started",
@@ -1530,6 +1535,18 @@ describe("ChatInboundHandler", () => {
           targets: [{ threadId: "child", label: "child" }],
         },
       ]);
+      expect(panelThreadSubscriptions(handler.currentState())).toEqual([
+        { threadId: "thread-active", canResume: !ephemeral },
+        { threadId: "child", canResume: !ephemeral },
+      ]);
+      handler.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: appServerTurnFixture({ id: "turn-active", status: "completed", itemsView: "full", items: [] }),
+        },
+      });
+      expect(panelThreadSubscriptions(handler.currentState())).toEqual([{ threadId: "thread-active", canResume: !ephemeral }]);
     });
 
     it("preserves an interrupted v2 activity as stopped without inventing a failure", () => {

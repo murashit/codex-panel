@@ -237,7 +237,7 @@ describe("chat panel projection integration", () => {
     state = chatStateWith(state, {
       activeThread: {
         id: "side-thread",
-        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+        lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
       },
     });
     state = withChatStateStableThreadStreamItems(state, [
@@ -323,7 +323,7 @@ describe("chat panel projection integration", () => {
     state = chatStateWith(state, {
       activeThread: {
         id: "side",
-        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+        lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
       },
       ui: { toolbarPanel: "chat-actions" },
     });
@@ -684,28 +684,21 @@ describe("chat panel projection integration", () => {
     unmountUiRoot(parent);
   });
 
-  it("derives composer placeholders", () => {
-    let activeState = chatStateFixture();
-    activeState = chatStateWith(activeState, { activeThread: { id: "thread-1" } });
-    const shared = chatSharedDisplayValuesFixture({ threads: [threadFixture("thread-1", "Active")] });
+  it.each([false, true])("derives normal and side-chat placeholders without conversation titles (side chat=%s)", (sideChat) => {
+    const state = chatStateFixture({
+      activeThread: {
+        id: "thread",
+        ...(sideChat ? { lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: null } } : {}),
+      },
+    });
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), state, emptySharedResources).placeholder).toBe(
+      sideChat ? "Ask in side chat..." : "Ask Codex...",
+    );
+  });
 
-    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState, shared).placeholder).toBe(
-      "Ask Codex in “Active”...",
-    );
-    activeState = chatStateWith(activeState, {
-      activeThread: {
-        lifetime: { kind: "ephemeral", sourceThreadId: "thread-source", sourceThreadTitle: "Source title" },
-      },
-    });
-    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState, shared).placeholder).toBe(
-      "Ask in side chat for “Source title”...",
-    );
-    activeState = chatStateWith(activeState, {
-      activeThread: {
-        lifetime: { kind: "ephemeral", sourceThreadId: "thread-source", sourceThreadTitle: null },
-      },
-    });
-    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState, shared).placeholder).toBe("Ask in side chat...");
+  it("projects direct-input capability independently of conversation placeholders", () => {
+    let activeState = chatStateFixture({ activeThread: { id: "thread" } });
+    const shared = emptySharedResources;
     activeState = chatStateWith(activeState, { activeThread: { canAcceptDirectInput: false } });
     expect(selectChatPanelComposer(activeState, shared).submissionBlockedByPanelPolicy).toBe(true);
     expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState, shared).placeholder).toBe(
@@ -728,7 +721,6 @@ describe("chat panel projection integration", () => {
     });
     expect(selectChatPanelComposer(writableSubagentState, shared).submissionBlockedByPanelPolicy).toBe(false);
     expect(composerProjectionFromState(composerProjectionActionsFixture(), writableSubagentState, shared).placeholder).toBe("Ask Codex...");
-    expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture(), shared).placeholder).toBe("Ask Codex...");
   });
 
   it("saves the open goal draft without inheriting a refreshed goal budget", () => {

@@ -69,6 +69,7 @@ describe("thread auto-title work", () => {
         preview: "Thread preview",
         name: "Existing title",
         archived: false,
+        ephemeral: false,
         provenance: { kind: "interactive" },
         createdAt: 1,
         updatedAt: 1,

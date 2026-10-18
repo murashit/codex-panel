@@ -48,6 +48,7 @@ function applyThreadRenameToActiveIdentity(host: ActiveThreadIdentitySyncHost, t
   const restoredThreadChanged = awaitingResumeThreadState(state)?.threadId === threadId;
   const activeThreadChanged = activeThreadId(state) === threadId;
   if (!restoredThreadChanged && !activeThreadChanged) return;
+  if (activeThreadChanged) host.stateStore.dispatch({ type: "active-thread/renamed", threadId, name });
   if (restoredThreadChanged) host.stateStore.dispatch({ type: "panel/restored-thread-renamed", threadId, name });
   host.notifyActiveThreadIdentityChanged();
 }

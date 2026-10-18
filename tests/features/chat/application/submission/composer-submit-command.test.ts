@@ -13,6 +13,7 @@ import { appServerTurnFixture } from "../../../../support/app-server-records";
 import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { emptyComposerInputSnapshot } from "../../support/composer-input";
 import { chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -62,9 +63,10 @@ function createHost(
   const showLatest = vi.fn();
   const ensureConnected = vi.fn().mockResolvedValue(true);
   const inputSnapshot = {
+    ...emptyComposerInputSnapshot(),
     sourcePath: "snapshot.md",
     ...(options.threadCommandTarget ? { threadCommandTarget: options.threadCommandTarget } : {}),
-  } as never;
+  };
   const settleSubmission = vi.fn();
   const claimSubmission = vi.fn<() => ComposerSubmissionClaim | null>(() => {
     const panelTarget = capturePanelTargetLease(stateStore.getState());
@@ -561,58 +563,67 @@ describe("submitComposer", () => {
     expect(chatStateThreadStreamItems(host.stateStore.getState())).toEqual([]);
   });
 
-  it("keeps an interrupted turn busy until its matching completion permits switching threads", async () => {
-    const { host, interruptTurn, showLatest, stateStore } = createHost("");
-    stateStore.dispatch({
-      ...threadActivationFixture(thread("thread")),
-      type: "active-thread/resumed",
-    });
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-
-    await submitComposer(host);
-
-    expect(showLatest).not.toHaveBeenCalled();
-    expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
-    expect(host.status.setStatus).toHaveBeenCalledWith("Interrupt requested.");
-    expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(true);
-    expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(false);
-
-    const inbound = createChatInboundHandler(
-      stateStore,
-      {
-        maybeNameThread: vi.fn(),
-        respondToServerRequest: vi.fn(() => true),
-        rejectServerRequest: vi.fn(() => true),
-        executeDynamicTool: vi.fn(),
-      },
-      host.localItemIds,
-    );
-    const completion = (turnId: string) =>
-      inbound.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "thread",
-          turn: appServerTurnFixture({
-            id: turnId,
-            status: "interrupted",
-            startedAt: 1,
-            completedAt: 2,
-            durationMs: 1,
-            itemsView: "summary",
-            items: [],
-          }),
-        },
+  it.each(["persistent", "ordinary", "side-chat"] as const)(
+    "keeps an interrupted %s turn busy until matching completion permits switching",
+    async (mode) => {
+      const { host, interruptTurn, showLatest, stateStore } = createHost("");
+      stateStore.dispatch({
+        ...threadActivationFixture(thread("thread")),
+        type: "active-thread/resumed",
+        lifetime:
+          mode === "persistent"
+            ? { kind: "persistent" }
+            : mode === "ordinary"
+              ? { kind: "ephemeral", mode }
+              : { kind: "ephemeral", mode, sourceThreadId: "source", sourceThreadTitle: null },
       });
+      stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
 
-    completion("previous-turn");
-    expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(true);
-    expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(false);
+      await submitComposer(host);
 
-    completion("turn");
-    expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(false);
-    expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(true);
-    expect(stateStore.getState().connection.statusText).toBe("Turn interrupted.");
-  });
+      expect(showLatest).not.toHaveBeenCalled();
+      expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
+      expect(host.status.setStatus).toHaveBeenCalledWith("Interrupt requested.");
+      expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(true);
+      expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(false);
+
+      const inbound = createChatInboundHandler(
+        stateStore,
+        {
+          maybeNameThread: vi.fn(),
+          respondToServerRequest: vi.fn(() => true),
+          rejectServerRequest: vi.fn(() => true),
+          executeDynamicTool: vi.fn(),
+        },
+        host.localItemIds,
+      );
+      const completion = (turnId: string) =>
+        inbound.handleNotification({
+          method: "turn/completed",
+          params: {
+            threadId: "thread",
+            turn: appServerTurnFixture({
+              id: turnId,
+              status: "interrupted",
+              startedAt: 1,
+              completedAt: 2,
+              durationMs: 1,
+              itemsView: "summary",
+              items: [],
+            }),
+          },
+        });
+
+      completion("previous-turn");
+      expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(true);
+      expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(false);
+
+      completion("turn");
+      expect(chatTurnBusy(stateStore.getState().activeTurn)).toBe(false);
+      expect(canSwitchToThread(stateStore.getState(), "next-thread")).toBe(true);
+      expect(stateStore.getState().connection.statusText).toBe("Turn interrupted.");
+    },
+  );
 
   it("interrupts a running turn even when the thread rejects direct input", async () => {
     const { host, interruptTurn, sendTurnText, stateStore } = createHost("unsent draft");

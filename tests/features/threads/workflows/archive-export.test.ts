@@ -87,6 +87,7 @@ function thread(overrides: Partial<ThreadTranscript> = {}): ThreadTranscript {
     updatedAt: 1,
     name: "Thread",
     archived: false,
+    ephemeral: false,
     provenance: { kind: "interactive" },
     transcriptEntries: [transcriptEntry("user", "Hello", 1)],
     ...overrides,

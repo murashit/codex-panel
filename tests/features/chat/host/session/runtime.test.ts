@@ -1,4 +1,3 @@
-import { createSideConversation } from "../../../../../src/features/chat/app-server/adapters/side-chat";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -232,7 +231,7 @@ describe("chat panel session runtime", () => {
     stateStore.dispatch({
       ...threadActivationFixture(threadFixture({ id: "side-thread", preview: "Side chat" })),
       type: "active-thread/resumed",
-      lifetime: { kind: "ephemeral", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
+      lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
     });
     const reconnecting = deferred<void>();
     const ensureConnected = vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockReturnValue(reconnecting.promise);
@@ -287,7 +286,6 @@ describe("chat panel session runtime", () => {
     composer.focus();
     expect(runtime.composer.controller.hasFocus()).toBe(true);
     const disconnect = vi.spyOn(runtime.connection.manager, "disconnect");
-    const disposeEphemeralThread = vi.spyOn(runtime.thread.ephemeral, "dispose");
     const unmount = vi.fn();
 
     const disposal = runtime.dispose(unmount);
@@ -295,12 +293,10 @@ describe("chat panel session runtime", () => {
     expect(resumeWork.isCurrent(resume)).toBe(false);
     expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
     expect(unmount).toHaveBeenCalledOnce();
-    expect(disposeEphemeralThread).toHaveBeenCalledOnce();
 
     await disposal;
 
     expect(disconnect).toHaveBeenCalledOnce();
-    expect(disposeEphemeralThread.mock.invocationCallOrder[0]).toBeLessThan(disconnect.mock.invocationCallOrder[0] ?? 0);
     expect(unsubscribeThreads).toHaveBeenCalled();
     expect(unsubscribeMetadata).toHaveBeenCalled();
     expect(runtime.composer.controller.hasFocus()).toBe(false);
@@ -406,10 +402,8 @@ describe("chat panel session runtime", () => {
     await Promise.resolve();
   });
 
-  it("releases its UI lease while side cleanup proceeds without stopping another panel", async () => {
-    const interrupt = deferred<unknown>();
+  it("releases an ephemeral root subscription without interrupting work or stopping another panel", async () => {
     const request = vi.fn((method: string) => {
-      if (method === "turn/interrupt") return interrupt.promise;
       if (method === "config/read") return Promise.resolve({ config: {} });
       if (method === "thread/fork") return Promise.resolve({ thread: threadFixture({ id: "side-thread" }) });
       return Promise.resolve({});
@@ -443,20 +437,19 @@ describe("chat panel session runtime", () => {
       onLog: vi.fn(),
       onExit: vi.fn(),
     });
-    await runtime.thread.ephemeral.create("source-thread", {}, () => true);
+    const created = await client.request("thread/fork", { threadId: "source-thread" });
+    runtime.connection.manager.recordThreadSubscription(created.thread.id, client);
     stateStore.dispatch({
       ...threadActivationFixture(threadFixture({ id: "side-thread", preview: "Side chat" })),
       type: "active-thread/resumed",
-      lifetime: { kind: "ephemeral", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
+      lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
     });
     stateStore.dispatch({ type: "turn/started", threadId: "side-thread", turnId: "turn-1" });
     const releasePanelLease = vi.spyOn(runtime.connection.manager, "disconnect");
 
     const disposal = runtime.dispose(vi.fn());
     await disposal;
-    await waitForAsyncWork(() =>
-      expect(request).toHaveBeenCalledWith("turn/interrupt", { threadId: "side-thread", turnId: "turn-1" }, { timeoutMs: 1_000 }),
-    );
+    expect(request.mock.calls.some(([method]) => method === "turn/interrupt")).toBe(false);
     expect(releasePanelLease).toHaveBeenCalledOnce();
 
     const responder = { respond: vi.fn(), reject: vi.fn() } as unknown as AppServerServerRequestResponder;
@@ -480,7 +473,6 @@ describe("chat panel session runtime", () => {
     expect(otherPanelRequest).toHaveBeenCalledOnce();
     expect(responder.reject).not.toHaveBeenCalled();
 
-    interrupt.resolve({});
     await waitForAsyncWork(() =>
       expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side-thread" }, expect.anything()),
     );
@@ -488,9 +480,8 @@ describe("chat panel session runtime", () => {
     expect(disconnectSharedProcess).not.toHaveBeenCalled();
   });
 
-  it("requests conversation release even when UI teardown throws", async () => {
+  it("releases the presentation lease even when UI teardown throws", async () => {
     const { runtime } = sessionRuntimeFixture();
-    const cleanupTarget = vi.spyOn(runtime.thread.ephemeral, "dispose").mockResolvedValue(undefined);
     const releasePanelLease = vi.spyOn(runtime.connection.manager, "disconnect");
     const teardownError = new Error("unmount failed");
 
@@ -500,9 +491,7 @@ describe("chat panel session runtime", () => {
       }),
     ).rejects.toBe(teardownError);
 
-    expect(cleanupTarget).toHaveBeenCalledOnce();
     expect(releasePanelLease).toHaveBeenCalledOnce();
-    expect(cleanupTarget.mock.invocationCallOrder[0]).toBeLessThan(releasePanelLease.mock.invocationCallOrder[0] ?? 0);
   });
 
   function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment; getClosing?: () => boolean } = {}): {
@@ -624,7 +613,6 @@ describe("chat panel session runtime", () => {
         },
         threadMutations: overrides.plugin?.threadMutations ?? threadMutationCommandsMock(),
         runtimeSettingsCommitQueue: overrides.plugin?.runtimeSettingsCommitQueue ?? createKeyedOperationCoordinator({ whenBusy: "queue" }),
-        createSideConversation,
       },
       view: {
         panelRoot: () => panelRoot,

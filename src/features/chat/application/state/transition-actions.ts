@@ -12,6 +12,7 @@ import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { TurnOutcome } from "../../domain/runtime/turn-outcome";
 import type { ThreadStreamItem, UserThreadStreamDialogueItem } from "../../domain/thread-stream/items";
 import type { ForkDraftPreparation, ForkReplacement } from "../threads/fork-draft";
+import type { ActiveThreadLifetime } from "./model";
 import type { ChatPendingSubmissionState } from "./pending-submission";
 
 interface ResumedThreadActionParams {
@@ -33,9 +34,7 @@ export interface ActiveThreadResumedAction extends ThreadActivationSnapshot {
   preserveRequestedRuntimeSettings?: boolean;
   preserveGoalEditor?: boolean;
   expectedPanelTargetRevision?: number;
-  lifetime?:
-    | { readonly kind: "persistent" }
-    | { readonly kind: "ephemeral"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
+  lifetime?: ActiveThreadLifetime;
 }
 
 export type ActiveThreadCreatedAction = Omit<ActiveThreadResumedAction, "type"> & { type: "active-thread/created" };
@@ -116,6 +115,10 @@ type PendingSubmissionAction =
   | { type: "web-submission/steer-pending"; submissionId: string; item: UserThreadStreamDialogueItem };
 
 export type ChatTransitionAction =
+  | { type: "panel/ephemeral-default-set"; ephemeral: boolean }
+  | { type: "panel/ephemeral-choice-set"; ephemeral: boolean }
+  | { type: "panel/creation-state-set"; revision: number; operation?: "creating" }
+  | { type: "active-thread/renamed"; threadId: string; name: string | null }
   | { type: "panel/fork-operation-set"; revision: number; operation?: "creating" | "cancelling" }
   | { type: "panel/fork-draft-applied"; preparation: ForkDraftPreparation }
   | { type: "active-thread/fork-replacement-settled"; threadId: string }
@@ -145,7 +148,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     type: "active-thread/resumed",
     serviceTierKnown: params.serviceTierKnown ?? true,
     ...permissions,
-    lifetime: { kind: "persistent" },
+    lifetime: response.thread.ephemeral ? { kind: "ephemeral", mode: "ordinary" } : { kind: "persistent" },
     ...(params.items ? { items: params.items } : {}),
     ...(params.activeTurnId ? { activeTurnId: params.activeTurnId } : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),

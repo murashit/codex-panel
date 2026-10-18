@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Thread, ThreadActivationSnapshot } from "../../../../../src/domain/threads/model";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/model";
+import { activeThreadId, activeThreadState, newConversationEphemeral } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
@@ -20,44 +20,73 @@ import { type ChatSharedDisplayValues, chatSharedDisplayValuesFixture } from "..
 import { chatStateFixture } from "../../support/state";
 
 describe("thread start commands", () => {
-  it("publishes initial creation once and reuses it on later requests", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const started = threadFixture("started");
-    const optimistic = { ...started, preview: "first prompt" };
+  it.each([false, true])("freezes creation, coalesces callers, and reuses the created identity (temporary=%s)", async (ephemeral) => {
+    const stateStore = createChatStateStore();
+    stateStore.dispatch({ type: "panel/ephemeral-default-set", ephemeral });
+    const creating = deferred<EffectOutcome<ThreadActivationSnapshot>>();
+    const startThread = vi.fn(() => creating.promise);
     const recordStartedThread = vi.fn();
-
     const commands = threadStartCommands({
       stateStore,
-      effects: {
-        forkThread: vi.fn(),
-        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started, { canAcceptDirectInput: false }))),
-      },
+      effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread },
       recordStartedThread,
     });
-
-    await commands.startThread("first prompt");
+    const pending = commands.startThread("first prompt");
+    expect(stateStore.getState().panelThread).toMatchObject({ kind: "empty", operation: "creating" });
+    stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: !ephemeral });
+    stateStore.dispatch({ type: "panel/ephemeral-default-set", ephemeral: !ephemeral });
+    expect(newConversationEphemeral(stateStore.getState())).toBe(ephemeral);
+    const concurrent = commands.startThread("second prompt");
+    expect(startThread).toHaveBeenCalledExactlyOnceWith({
+      ...(ephemeral ? { ephemeral: true } : {}),
+      serviceTier: undefined,
+      permissions: undefined,
+    });
+    const started = threadFixture("started", { ephemeral });
+    creating.resolve(completedActivation(activationFixture(started, { canAcceptDirectInput: false })));
+    await pending;
+    await concurrent;
+    expect(activeThreadState(stateStore.getState())?.canAcceptDirectInput).toBe(false);
+    expect(activeThreadState(stateStore.getState())?.lifetime).toEqual(
+      ephemeral ? { kind: "ephemeral", mode: "ordinary" } : { kind: "persistent" },
+    );
+    if (ephemeral) expect(recordStartedThread).not.toHaveBeenCalled();
+    else expect(recordStartedThread).toHaveBeenCalledExactlyOnceWith({ ...started, preview: "first prompt" });
+    stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: !ephemeral });
     await expect(commands.startThread("later prompt")).resolves.toMatchObject({
       kind: "created-activated",
       target: { threadId: "started" },
     });
-
-    expect(recordStartedThread).toHaveBeenCalledOnce();
-    expect(recordStartedThread).toHaveBeenCalledWith(optimistic);
-    expect(activeThreadState(stateStore.getState())?.canAcceptDirectInput).toBe(false);
+    expect(startThread).toHaveBeenCalledOnce();
   });
 
-  it("allows a fresh creation after a failed request", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
+  it.each([false, true])("restores ordinary retry and choice after a creation error (temporary=%s)", async (ephemeral) => {
+    const stateStore = createChatStateStore();
+    stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral });
     const startThread = vi
       .fn()
-      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("timed out"))
       .mockResolvedValue(completedActivation(activationFixture(threadFixture("retried"))));
-    const commands = threadStartCommands({
-      stateStore,
-      effects: { forkThread: vi.fn(), startThread },
-    });
-    await expect(commands.startThread()).rejects.toThrow("offline");
+    const commands = threadStartCommands({ stateStore, effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread } });
+    await expect(commands.startThread()).rejects.toThrow("timed out");
+    expect(stateStore.getState().panelThread).toMatchObject({ kind: "empty" });
+    expect(stateStore.getState().panelThread).not.toHaveProperty("operation");
+    stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: false });
+    expect(newConversationEphemeral(stateStore.getState())).toBe(false);
     await expect(commands.startThread()).resolves.toMatchObject({ kind: "created-activated", target: { threadId: "retried" } });
+    expect(startThread).toHaveBeenCalledTimes(2);
+  });
+
+  it("honors an individual regular choice without changing the global temporary default", async () => {
+    const stateStore = createChatStateStore();
+    stateStore.dispatch({ type: "panel/ephemeral-default-set", ephemeral: true });
+    stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: false });
+    const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("regular"))));
+    const commands = threadStartCommands({ stateStore, effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread } });
+    await commands.startThread();
+    expect(startThread).toHaveBeenCalledWith({ permissions: undefined, serviceTier: undefined });
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    expect(newConversationEphemeral(stateStore.getState())).toBe(true);
   });
 
   it("keeps empty-panel runtime reservations when starting the first thread", async () => {
@@ -84,7 +113,7 @@ describe("thread start commands", () => {
 
     const commands = threadStartCommands({
       stateStore,
-      effects: { forkThread: vi.fn(), startThread },
+      effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread },
     });
 
     await commands.startThread("first prompt");
@@ -119,7 +148,7 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
     const commands = threadStartCommands({
       stateStore,
-      effects: { forkThread: vi.fn(), startThread: vi.fn(() => started.promise) },
+      effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread: vi.fn(() => started.promise) },
       recordStartedThread,
     });
 
@@ -148,7 +177,7 @@ describe("thread start commands", () => {
     const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started"))));
     const commands = threadStartCommands({
       stateStore,
-      effects: { forkThread: vi.fn(), startThread },
+      effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread },
       runtimeSnapshotForState: runtimeSnapshotForShared(shared),
     });
 
@@ -163,7 +192,11 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
     const commands = threadStartCommands({
       stateStore,
-      effects: { forkThread: vi.fn(), startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
+      effects: {
+        forkSideChat: vi.fn(),
+        forkThread: vi.fn(),
+        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))),
+      },
       recordStartedThread,
     });
 
@@ -177,7 +210,7 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
     const commands = threadStartCommands({
       stateStore,
-      effects: { forkThread: vi.fn(), startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
+      effects: { forkSideChat: vi.fn(), forkThread: vi.fn(), startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
       recordStartedThread,
     });
 
@@ -224,8 +257,7 @@ describe("thread start commands", () => {
     const recordStartedThread = vi.fn();
     const commands = threadStartCommands({
       stateStore,
-      effects: { forkThread, startThread: vi.fn() },
-      createSideChat,
+      effects: { forkSideChat: createSideChat, forkThread, startThread: vi.fn() },
       hydrateCreatedFork,
       recordStartedThread,
     });
@@ -252,7 +284,6 @@ describe("thread start commands", () => {
 function threadStartCommands(overrides: Pick<ThreadStartCommandHost, "stateStore" | "effects"> & Partial<ThreadStartCommandHost>) {
   return createThreadStartCommand({
     withThreadActivation: async (operation) => operation(),
-    createSideChat: vi.fn(),
     onThreadActivated: vi.fn(),
     hydrateCreatedFork: vi.fn(),
     runtimeSnapshotForState: runtimeSnapshotForShared(chatSharedDisplayValuesFixture()),

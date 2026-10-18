@@ -379,7 +379,7 @@ describe("CodexChatView thread state", () => {
     });
   });
 
-  it("keeps composer draft and selection while updating the placeholder", async () => {
+  it("keeps the conversation name in the header while preserving the composer draft and selection", async () => {
     const client = connectedClient();
     connectionMockState().client = client;
     const host = chatHost();
@@ -402,8 +402,32 @@ describe("CodexChatView thread state", () => {
       expect(composer.value).toBe("keep this draft");
       expect(composer.selectionStart).toBe(5);
       expect(composer.selectionEnd).toBe(9);
-      expect(composer.getAttribute("placeholder")).toBe("Ask Codex in “Renamed thread”...");
+      expect(composer.getAttribute("placeholder")).toBe("Ask Codex...");
+      expect(view.contentEl.querySelector(".codex-panel__conversation-title")?.textContent).toBe("Renamed thread");
     });
+  });
+
+  it("falls back to preview when an unlisted active name is cleared and follows catalog metadata refreshes", async () => {
+    connectionMockState().client = connectedClient({
+      "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-1", { name: "Named", preview: "Original preview" })),
+    });
+    const host = chatHost();
+    const view = await chatView({ host });
+    await view.onOpen();
+    await view.surface.activateThread("thread-1");
+    const title = () => view.containerEl.querySelector(".codex-panel__conversation-title")?.textContent;
+    await waitForAsyncWork(() => expect(title()).toBe("Named"));
+
+    view.surface.applyThreadRenamed("thread-1", "Renamed");
+    await waitForAsyncWork(() => expect(title()).toBe("Renamed"));
+    expect(view.getDisplayText()).toBe("Codex: Renamed");
+    view.surface.applyThreadRenamed("thread-1", null);
+    await waitForAsyncWork(() => expect(title()).toBe("Original preview"));
+    expect(view.getDisplayText()).toBe("Codex: Original preview");
+
+    host.receiveActiveThreads([panelThread({ id: "thread-1", name: null, preview: "Updated preview" })]);
+    await waitForAsyncWork(() => expect(title()).toBe("Updated preview"));
+    expect(view.getDisplayText()).toBe("Codex: Updated preview");
   });
 
   it("renders resumed thread metadata before history hydration completes", async () => {

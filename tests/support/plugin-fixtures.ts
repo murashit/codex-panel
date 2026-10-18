@@ -1,4 +1,3 @@
-import { createSideConversation } from "../../src/features/chat/app-server/adapters/side-chat";
 // @vitest-environment jsdom
 
 import { FileSystemAdapter } from "obsidian";
@@ -153,7 +152,6 @@ function chatHostFixture(): CodexChatHost {
     },
     threadAutoTitleWork: { submit: vi.fn() },
     runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
-    createSideConversation,
     settings: chatPanelSettingsAccess(settings),
     workspace: {
       returnFromForkDraft: vi.fn().mockResolvedValue(true),

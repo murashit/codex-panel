@@ -15,6 +15,7 @@ describe("settings preferences", () => {
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
       showToolbar: false,
+      newConversationsEphemeral: true,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
       referenceActiveNoteOnSend: true,
@@ -38,6 +39,7 @@ describe("settings preferences", () => {
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
       showToolbar: false,
+      newConversationsEphemeral: true,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
       referenceActiveNoteOnSend: true,
@@ -109,6 +111,12 @@ describe("settings preferences", () => {
     expect(normalizeSettings({}).showToolbar).toBe(true);
     expect(normalizeSettings({ showToolbar: false }).showToolbar).toBe(false);
     expect(normalizeSettings({ showToolbar: "no" }).showToolbar).toBe(DEFAULT_SETTINGS.showToolbar);
+  });
+
+  it("requires an explicit opt-in for temporary conversations", () => {
+    expect(normalizeSettings({}).newConversationsEphemeral).toBe(false);
+    expect(normalizeSettings({ newConversationsEphemeral: true }).newConversationsEphemeral).toBe(true);
+    expect(normalizeSettings({ newConversationsEphemeral: "true" }).newConversationsEphemeral).toBe(false);
   });
 
   it("normalizes the attachment folder", () => {
