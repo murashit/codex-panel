@@ -61,8 +61,6 @@ interface PendingMcpElicitationViewModelBase {
   requestId: PendingRequestId;
   title: string;
   body: string;
-  serverName: string;
-  message: string;
 }
 
 export type PendingMcpElicitationViewModel = PendingMcpElicitationViewModelBase &

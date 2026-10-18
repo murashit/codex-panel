@@ -112,8 +112,6 @@ function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): Pen
       title,
       body: elicitation.params.message,
       mode: "url",
-      serverName: elicitation.params.serverName,
-      message: elicitation.params.message,
       fields: [],
       url: elicitation.params.url,
     };
@@ -123,8 +121,6 @@ function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): Pen
     title,
     body: elicitation.params.message,
     mode: "form",
-    serverName: elicitation.params.serverName,
-    message: elicitation.params.message,
     fields: elicitation.params.fields.map((field) => ({
       id: field.id,
       title: field.title,
