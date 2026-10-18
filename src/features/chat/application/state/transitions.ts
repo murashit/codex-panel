@@ -1,4 +1,3 @@
-import { unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
 import { initialChatRuntimeState } from "../../domain/runtime/state";
 import { turnOutcomeLabel } from "../../domain/runtime/turn-outcome";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
@@ -224,10 +223,6 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
         approvalPolicy: action.approvalPolicy,
         sandboxPolicy: action.sandboxPolicy,
         activePermissionProfile: action.activePermissionProfile,
-      },
-      pending: {
-        ...state.runtime.pending,
-        collaborationMode: unchangedCollaborationModeIntent(),
       },
     },
   });

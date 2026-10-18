@@ -42,7 +42,7 @@ describe("runtime thread settings patch", () => {
     });
   });
 
-  it("resolves permission profile reset intent back to legacy sandbox config", () => {
+  it("keeps legacy sandbox config visible without sending an unsupported permission reset", () => {
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       runtimeConfig: runtimeConfigFromAppServerFixture({
@@ -75,7 +75,7 @@ describe("runtime thread settings patch", () => {
       },
     });
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
-      update: { permissions: null },
+      update: {},
     });
   });
 
@@ -106,7 +106,7 @@ describe("runtime thread settings patch", () => {
     expect(permissionProfileRequestForThreadStart(legacySandbox, snapshotConfig(legacySandbox))).toBeUndefined();
   });
 
-  it("resolves model and effort resets from config while serializing null", () => {
+  it("sends configured model and effort values for reset intents", () => {
     const snapshot = runtimeSnapshot({
       pending: {
         model: resetRuntimeIntentToConfig(),
@@ -119,7 +119,7 @@ describe("runtime thread settings patch", () => {
     expect(resolution.model.effective).toBe("gpt-5.5");
     expect(resolution.reasoningEffort.effective).toBe("high");
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
-      update: { model: null, effort: null },
+      update: { model: "gpt-5.5", effort: "high" },
       collaborationModeWarning: null,
     });
   });
@@ -146,7 +146,7 @@ describe("runtime thread settings patch", () => {
       active: { collaborationMode: null },
     });
 
-    expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toEqual({
+    expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: {},
       collaborationModeWarning: null,
     });
@@ -167,7 +167,7 @@ describe("runtime thread settings patch", () => {
 
     expect(resolution.model.effective).toBeNull();
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
-      update: { model: null },
+      update: {},
       collaborationModeWarning: null,
     });
   });
@@ -205,7 +205,7 @@ describe("runtime thread settings patch", () => {
       },
     });
 
-    expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toEqual({
+    expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: { approvalsReviewer: "auto_review" },
       collaborationModeWarning: "missing-model",
     });
@@ -330,7 +330,6 @@ describe("runtime thread settings patch", () => {
     expect(resolution.serviceTier.effective).toBe("priority");
     expect(resolution.fastMode).toMatchObject({
       active: true,
-      effectiveServiceTier: "priority",
       serviceTierRequestValue: "priority",
     });
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("priority");

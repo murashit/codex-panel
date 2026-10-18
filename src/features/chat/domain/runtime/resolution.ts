@@ -2,9 +2,9 @@ import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/runtime/catalog";
 import { cloneRuntimePermissionState, type RuntimeApprovalPolicy, type RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
 import type { ApprovalsReviewer, RuntimeConfigSnapshot, ServiceTier } from "../../../../domain/runtime/settings";
+import { sameServiceTier } from "../../../../domain/runtime/settings";
 import {
   effectiveCollaborationMode,
-  type FastModeIntent,
   type PendingRuntimeIntent,
   resetRuntimeIntentToConfig,
   setRuntimeIntentValue,
@@ -26,18 +26,14 @@ interface CollaborationModeResolution {
   readonly confirmed: NonNullable<RuntimeSnapshot["active"]["collaborationMode"]>;
   readonly effective: NonNullable<RuntimeSnapshot["active"]["collaborationMode"]>;
   readonly dirty: boolean;
-  readonly blockedReason: "missing-model" | null;
 }
 
 interface FastModeResolution {
   readonly available: boolean;
-  readonly requested: FastModeIntent;
   readonly active: boolean;
   readonly confirmedActive: boolean;
   readonly source: RuntimeValueSource;
   readonly confirmedSource: RuntimeValueSource;
-  readonly effectiveServiceTier: ServiceTier | null;
-  readonly confirmedServiceTier: ServiceTier | null;
   readonly serviceTierRequestValue: string | null;
 }
 
@@ -87,8 +83,8 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     reasoningEffort,
     autoReview: resolveAutoReview(approvalsReviewer),
     serviceTier,
-    fastMode: resolveFastMode(snapshot.pending.fastMode, serviceTier, fastServiceTier?.id ?? null),
-    collaborationMode: resolveCollaborationMode(snapshot, model.effective),
+    fastMode: resolveFastMode(serviceTier, fastServiceTier?.id ?? null),
+    collaborationMode: resolveCollaborationMode(snapshot),
     permissionProfile: permissions.permissionProfile,
     sandboxPolicy: permissions.sandboxPolicy,
     approvalPolicy: permissions.approvalPolicy,
@@ -144,20 +140,13 @@ function resolveAutoReview(reviewer: RuntimeLayeredValue<ApprovalsReviewer>): Au
   };
 }
 
-function resolveFastMode(
-  requested: FastModeIntent,
-  serviceTier: RuntimeLayeredValue<ServiceTier>,
-  fastServiceTierId: string | null,
-): FastModeResolution {
+function resolveFastMode(serviceTier: RuntimeLayeredValue<ServiceTier>, fastServiceTierId: string | null): FastModeResolution {
   return {
     available: fastServiceTierId !== null,
-    requested,
     active: isFastServiceTier(serviceTier.effective, fastServiceTierId),
     confirmedActive: isFastServiceTier(serviceTier.confirmed, fastServiceTierId),
     source: serviceTier.source,
     confirmedSource: serviceTier.confirmedSource,
-    effectiveServiceTier: serviceTier.effective,
-    confirmedServiceTier: serviceTier.confirmed,
     serviceTierRequestValue: fastServiceTierId,
   };
 }
@@ -167,10 +156,10 @@ function autoReviewActive(value: ApprovalsReviewer | null): boolean {
 }
 
 function isFastServiceTier(value: string | null | undefined, fastServiceTierId: string | null): boolean {
-  return fastServiceTierId !== null && value === fastServiceTierId;
+  return fastServiceTierId !== null && sameServiceTier(value, fastServiceTierId);
 }
 
-function resolveCollaborationMode(snapshot: RuntimeSnapshot, model: string | null): CollaborationModeResolution {
+function resolveCollaborationMode(snapshot: RuntimeSnapshot): CollaborationModeResolution {
   const active = snapshot.active.collaborationMode;
   const pending = snapshot.pending.collaborationMode;
   const confirmed = effectiveCollaborationMode(active);
@@ -182,7 +171,6 @@ function resolveCollaborationMode(snapshot: RuntimeSnapshot, model: string | nul
     confirmed,
     effective,
     dirty,
-    blockedReason: dirty && !model ? "missing-model" : null,
   };
 }
 

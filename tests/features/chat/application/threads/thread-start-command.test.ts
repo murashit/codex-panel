@@ -6,6 +6,7 @@ import { activeThreadId, activeThreadState } from "../../../../../src/features/c
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
+import { sideChatDraft } from "../../../../../src/features/chat/application/threads/fork-draft";
 import {
   createThreadStartCommand,
   type ThreadStartCommandHost,
@@ -183,6 +184,68 @@ describe("thread start commands", () => {
     await expect(commands.startThread("local preview")).resolves.toEqual({ kind: "not-started" });
     expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(recordStartedThread).not.toHaveBeenCalled();
+  });
+  it("inherits independent side settings and adopts the server response without publishing history", async () => {
+    const parent = createChatStateStore();
+    parent.dispatch(
+      resumedThreadAction({
+        response: activationFixture(threadFixture("parent"), {
+          approvalPolicyKnown: true,
+          permissionProfileKnown: true,
+          sandboxPolicyKnown: true,
+          model: "parent-model",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+          approvalPolicy: "on-request",
+          approvalsReviewer: "user",
+          activePermissionProfile: { id: "trusted", extends: null },
+          sandboxPolicy: {
+            type: "workspaceWrite",
+            writableRoots: ["/vault"],
+            networkAccess: false,
+            excludeTmpdirEnvVar: false,
+            excludeSlashTmp: false,
+          },
+          collaborationMode: "plan",
+        }),
+      }),
+    );
+    const snapshot = sideChatDraft("parent", "Parent", parent.getState().runtime);
+    const stateStore = createChatStateStore();
+    stateStore.dispatch({
+      type: "panel/fork-draft-applied",
+      preparation: snapshot,
+    });
+    parent.dispatch(resumedThreadAction({ response: activationFixture(threadFixture("parent"), { model: "changed-parent" }) }));
+    const response = completedActivation(activationFixture(threadFixture("child"), { model: "server-model", approvalPolicy: "never" }));
+    const forkThread = vi.fn().mockResolvedValue(response);
+    const createSideChat = vi.fn().mockResolvedValue(response);
+    const hydrateCreatedFork = vi.fn();
+    const recordStartedThread = vi.fn();
+    const commands = threadStartCommands({
+      stateStore,
+      effects: { forkThread, startThread: vi.fn() },
+      createSideChat,
+      hydrateCreatedFork,
+      recordStartedThread,
+    });
+    await commands.startThread();
+    const inherited = {
+      model: "parent-model",
+      reasoningEffort: "high",
+      serviceTier: "fast",
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      permissions: "trusted",
+    };
+    expect(createSideChat).toHaveBeenCalledWith("parent", inherited, expect.any(Function));
+    expect(forkThread).not.toHaveBeenCalled();
+    expect(hydrateCreatedFork).not.toHaveBeenCalled();
+    expect(recordStartedThread).not.toHaveBeenCalled();
+    expect(stateStore.getState().threadStream.stableItems).toEqual([]);
+    expect(stateStore.getState().runtime.active.model).toBe("server-model");
+    expect(stateStore.getState().runtime.active.approvalPolicy).toBe("never");
+    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "plan" });
   });
 });
 

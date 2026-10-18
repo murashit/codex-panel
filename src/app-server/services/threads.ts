@@ -294,15 +294,17 @@ type ThreadForkPosition =
 interface AppServerForkThreadOptions {
   readonly position?: ThreadForkPosition;
   readonly deferGoalContinuation?: boolean;
-  readonly runtime?: {
-    readonly model?: string;
-    readonly reasoningEffort?: string | null;
-    readonly serviceTier?: ServiceTier | null;
-    readonly approvalPolicy?: RuntimePermissionState["approvalPolicy"];
-    readonly approvalsReviewer?: ApprovalsReviewer;
-    readonly permissions?: string;
-    readonly sandboxPolicy?: RuntimePermissionState["sandboxPolicy"];
-  };
+  readonly runtime?: ForkRuntimeSettings;
+}
+
+export interface ForkRuntimeSettings {
+  readonly model?: string;
+  readonly reasoningEffort?: string | null;
+  readonly serviceTier?: ServiceTier | null;
+  readonly approvalPolicy?: RuntimePermissionState["approvalPolicy"];
+  readonly approvalsReviewer?: ApprovalsReviewer;
+  readonly permissions?: string;
+  readonly sandboxPolicy?: RuntimePermissionState["sandboxPolicy"];
 }
 
 export async function forkThread(
@@ -312,9 +314,6 @@ export async function forkThread(
   options: AppServerForkThreadOptions = {},
 ): Promise<ThreadActivationSnapshot> {
   const position = options.position;
-  const runtime = options.runtime;
-  const permissions = runtime?.permissions;
-  const sandbox = permissions === undefined ? appServerSandboxMode(runtime?.sandboxPolicy) : undefined;
   const response = await client.request("thread/fork", {
     threadId,
     cwd,
@@ -322,6 +321,15 @@ export async function forkThread(
     ...(position?.kind === "through-turn" ? { lastTurnId: position.turnId } : {}),
     ...(position?.kind === "before-turn" ? { beforeTurnId: position.turnId } : {}),
     ...(options.deferGoalContinuation ? { deferGoalContinuation: true } : {}),
+    ...appServerForkRuntimeSettings(options.runtime),
+  });
+  return threadActivationSnapshotFromAppServerResponse(response);
+}
+
+export function appServerForkRuntimeSettings(runtime: ForkRuntimeSettings | undefined): Partial<ClientRequestParams<"thread/fork">> {
+  const permissions = runtime?.permissions;
+  const sandbox = permissions === undefined ? appServerSandboxMode(runtime?.sandboxPolicy) : undefined;
+  return {
     ...(runtime?.model !== undefined ? { model: runtime.model } : {}),
     ...(runtime?.serviceTier !== undefined ? { serviceTier: runtime.serviceTier } : {}),
     ...(runtime?.approvalPolicy !== undefined && runtime.approvalPolicy !== null ? { approvalPolicy: runtime.approvalPolicy } : {}),
@@ -329,8 +337,7 @@ export async function forkThread(
     ...(permissions !== undefined ? { permissions } : {}),
     ...(sandbox !== undefined ? { sandbox } : {}),
     ...(runtime?.reasoningEffort !== undefined ? { config: { model_reasoning_effort: runtime.reasoningEffort } } : {}),
-  });
-  return threadActivationSnapshotFromAppServerResponse(response);
+  };
 }
 
 function appServerSandboxMode(

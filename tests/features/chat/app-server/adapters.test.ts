@@ -191,31 +191,6 @@ describe("chat app-server adapters", () => {
     });
   });
 
-  it("forks before a marker turn while deferring goal continuation", async () => {
-    const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
-    const client = { request } as unknown as AppServerClient;
-    const adapter = createTestGateway({
-      currentClient: () => client,
-    }).threadStart;
-
-    const outcome = await adapter.forkThread("source", {
-      position: { kind: "before-turn", turnId: "turn-3" },
-      deferGoalContinuation: true,
-    });
-
-    expect(request).toHaveBeenCalledWith("thread/fork", {
-      threadId: "source",
-      cwd: "/vault",
-      excludeTurns: true,
-      beforeTurnId: "turn-3",
-      deferGoalContinuation: true,
-    });
-    expect(outcome).toMatchObject({
-      kind: "completed",
-      value: { thread: { id: "forked" } },
-    });
-  });
-
   it("applies active runtime overrides to a rollback fork", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
     const client = { request } as unknown as AppServerClient;
@@ -363,46 +338,6 @@ describe("chat app-server adapters", () => {
     const adopt = vi.fn();
     await adapter.resumeThread("thread", adopt);
     expect(adopt).not.toHaveBeenCalled();
-  });
-
-  it("cleans up a stale ephemeral fork through the client that created it", async () => {
-    const injected = deferred<unknown>();
-    const firstRequest = vi.fn((method: string) => {
-      switch (method) {
-        case "thread/read":
-          return Promise.resolve({ thread: threadRecord("source") });
-        case "config/read":
-          return Promise.resolve({ config: { developer_instructions: null } });
-        case "thread/fork":
-          return Promise.resolve(
-            threadStartResponse("side", {
-              thread: threadRecord("side", [], { ephemeral: true }) as AppServerThreadStartResponse["thread"],
-            }),
-          );
-        case "thread/inject_items":
-          return injected.promise;
-        case "thread/unsubscribe":
-          return Promise.resolve({ status: "unsubscribed" });
-        default:
-          throw new Error(`Unexpected request: ${method}`);
-      }
-    });
-    const firstClient = { request: firstRequest } as unknown as AppServerClient;
-    const secondRequest = vi.fn();
-    const secondClient = { request: secondRequest } as unknown as AppServerClient;
-    let currentClient = firstClient;
-    const adapter = createTestGateway({
-      currentClient: () => currentClient,
-    }).threadEphemeral;
-
-    const forking = adapter.forkEphemeralThread("source");
-    await vi.waitFor(() => expect(firstRequest).toHaveBeenCalledWith("thread/inject_items", expect.anything()));
-    currentClient = secondClient;
-    injected.resolve({});
-
-    await expect(forking).resolves.toBeNull();
-    expect(firstRequest).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side" }, { timeoutMs: 5_000 });
-    expect(secondRequest).not.toHaveBeenCalled();
   });
 
   it("returns successful runtime settings updates after the current client changes", async () => {

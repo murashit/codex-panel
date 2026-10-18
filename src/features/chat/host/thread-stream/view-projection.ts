@@ -12,6 +12,7 @@ import {
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { implementPlanTarget } from "../../application/submission/plan-implementation";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
+import { type CollaborationModeSelection, collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { type ForkCandidate, forkCandidatesFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/conversation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import type { ActiveSubagentActivity } from "../../ui/thread-stream/agent-run-summary";
@@ -126,7 +127,7 @@ function projectThreadStreamBlocks(
     hasConversation: model.activeThreadId !== null || model.forkSourceThreadId !== null,
     modeAllowed: model.planImplementationAllowed,
     activeTurn: model.activeTurn,
-    runtime: { pending: { collaborationMode: model.runtimeCollaborationMode } },
+    collaborationMode: model.runtimeCollaborationMode,
     threadStream: stream,
   });
   const textActionTargetsByItemId = textActionTargetsForThreadStreamItems(rollbackCandidate, forkCandidates, planTarget);
@@ -194,7 +195,7 @@ export interface ChatPanelThreadStreamModel {
   readonly rollbackAllowed: boolean;
   readonly planImplementationAllowed: boolean;
   readonly activeTurn: ChatState["activeTurn"];
-  readonly runtimeCollaborationMode: ChatState["runtime"]["pending"]["collaborationMode"];
+  readonly runtimeCollaborationMode: CollaborationModeSelection;
   readonly threadStream: ChatState["threadStream"];
   readonly pendingSubmission: ChatState["pendingSubmission"];
   readonly requests: ChatState["requests"];
@@ -215,7 +216,7 @@ export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadSt
     rollbackAllowed: activePanelOperationDecision(state, "rollback").kind === "allowed",
     planImplementationAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
     activeTurn: state.activeTurn,
-    runtimeCollaborationMode: state.runtime.pending.collaborationMode,
+    runtimeCollaborationMode: collaborationModeIntentValue(state.runtime.pending.collaborationMode, state.runtime.active.collaborationMode),
     threadStream: state.threadStream,
     pendingSubmission: state.pendingSubmission,
     requests: state.requests,

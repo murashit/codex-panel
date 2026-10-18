@@ -112,9 +112,7 @@ export function unsupportedReasoningEffortMessage(issue: UnsupportedReasoningEff
   return `Reasoning effort ${issue.effort} is unavailable for ${issue.model}.${supported}`;
 }
 
-export type ReasoningEffortNormalization =
-  | { readonly kind: "unchanged" }
-  | { readonly kind: "set"; readonly effort: ReasoningEffort | null };
+export type ReasoningEffortNormalization = { readonly kind: "unchanged" } | { readonly kind: "set"; readonly effort: ReasoningEffort };
 
 export function reasoningEffortNormalizationForModel(
   models: readonly ModelMetadata[],
@@ -125,10 +123,12 @@ export function reasoningEffortNormalizationForModel(
   const metadata = findModelMetadataByIdOrName(models, model);
   if (!metadata) return { kind: "unchanged" };
   const supportedEfforts = supportedEffortsForModelMetadata(metadata);
-  if (supportedEfforts.includes(currentEffort)) return { kind: "unchanged" };
+  const [fallbackEffort] = supportedEfforts;
+  // A model change preserves the server effort; null updates cannot clear it.
+  if (!fallbackEffort || supportedEfforts.includes(currentEffort)) return { kind: "unchanged" };
   const defaultEffort = normalizeReasoningEffort(metadata.defaultReasoningEffort);
   return {
     kind: "set",
-    effort: defaultEffort && supportedEfforts.includes(defaultEffort) ? defaultEffort : (supportedEfforts[0] ?? null),
+    effort: defaultEffort && supportedEfforts.includes(defaultEffort) ? defaultEffort : fallbackEffort,
   };
 }

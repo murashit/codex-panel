@@ -1,3 +1,4 @@
+import { createSideConversation } from "../../../../../src/features/chat/app-server/adapters/side-chat";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,8 +9,6 @@ import { createServerDiagnostics } from "../../../../../src/domain/runtime/diagn
 import type { ServerInitialization } from "../../../../../src/domain/runtime/metadata";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { createChatRuntimeSettingsCommands } from "../../../../../src/features/chat/application/runtime/settings-commands";
-import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type { ChatPanelEnvironment, CodexChatHost } from "../../../../../src/features/chat/host/contracts";
@@ -237,15 +236,12 @@ describe("chat panel session runtime", () => {
     });
     const reconnecting = deferred<void>();
     const ensureConnected = vi.spyOn(runtime.connection.coordinator, "ensureConnected").mockReturnValue(reconnecting.promise);
-    const cleanupForConnectionReset = vi.spyOn(runtime.thread.ephemeral, "cleanupForConnectionReset");
     runtime.composer.controller.setDraft("/reconnect");
 
     const reconnectSubmission = runtime.turn.submissionCommands.composerSubmit.submit();
     await waitForAsyncWork(() => {
       expect(ensureConnected).toHaveBeenCalledOnce();
     });
-    expect(cleanupForConnectionReset).toHaveBeenCalledOnce();
-    expect(cleanupForConnectionReset.mock.invocationCallOrder[0]).toBeLessThan(ensureConnected.mock.invocationCallOrder[0] ?? 0);
 
     expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
     expect(runtime.composer.controller.isSubmissionPreparing()).toBe(true);
@@ -291,19 +287,16 @@ describe("chat panel session runtime", () => {
     composer.focus();
     expect(runtime.composer.controller.hasFocus()).toBe(true);
     const disconnect = vi.spyOn(runtime.connection.manager, "disconnect");
-    const ephemeralCleanup = deferred<void>();
-    const disposeEphemeralThread = vi.spyOn(runtime.thread.ephemeral, "dispose").mockReturnValue(ephemeralCleanup.promise);
+    const disposeEphemeralThread = vi.spyOn(runtime.thread.ephemeral, "dispose");
     const unmount = vi.fn();
 
     const disposal = runtime.dispose(unmount);
 
     expect(resumeWork.isCurrent(resume)).toBe(false);
     expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
-    expect(disconnect).not.toHaveBeenCalled();
     expect(unmount).toHaveBeenCalledOnce();
     expect(disposeEphemeralThread).toHaveBeenCalledOnce();
 
-    ephemeralCleanup.resolve(undefined);
     await disposal;
 
     expect(disconnect).toHaveBeenCalledOnce();
@@ -319,57 +312,69 @@ describe("chat panel session runtime", () => {
   });
 
   it.each(["success", "failure"] as const)(
-    "invalidates in-flight and queued settings before async disposal finishes (%s)",
+    "retires old model choices before accepting settings in a reopened session (%s)",
     async (outcome) => {
-      const first = sessionRuntimeFixture();
-      first.stateStore.dispatch({ ...threadActivationFixture(threadFixture()), type: "active-thread/resumed" });
-      const update = deferred<boolean>();
-      const updateThreadSettings = vi.fn().mockReturnValueOnce(update.promise).mockResolvedValue(true);
+      const update = deferred<unknown>();
       const queue = createKeyedOperationCoordinator<string>({ whenBusy: "queue" });
-      const messages = vi.fn();
-      const commandsFor = (stateStore: ChatStateStore) =>
-        createChatRuntimeSettingsCommands(
-          {
-            stateStore,
-            runtimeSettingsPort: { updateThreadSettings },
-            runtimeSnapshotForState: (state) =>
-              runtimeSnapshotForChatState(state, {
-                runtimeConfigSnapshot: () => null,
-                rateLimitsSnapshot: () => undefined,
-                modelsSnapshot: () => [],
-              }),
-            collaborationModeLabel: () => "Plan",
-            addSystemMessage: messages,
-          },
-          queue,
+      const request = vi.fn((method: string, _params?: unknown) =>
+        method === "thread/settings/update" ? update.promise : Promise.resolve({}),
+      );
+      const settingsCalls = () => request.mock.calls.filter(([method]) => method === "thread/settings/update");
+      const client = { request } as unknown as AppServerClient;
+      const context = contextConnectionHarness({ currentClient: () => client });
+      const environment = { plugin: { appServerConnection: context.connection, runtimeSettingsCommitQueue: queue } };
+      const first = sessionRuntimeFixture({ environment });
+      await first.runtime.connection.coordinator.ensureConnected();
+      first.stateStore.dispatch({ ...threadActivationFixture(threadFixture()), type: "active-thread/resumed" });
+      const selectModel = (panel: typeof first, model: string) => {
+        const availableModels = ["old", "queued", "new"].map((id) => ({
+          id,
+          model: id,
+          displayName: id,
+          description: "",
+          hidden: false,
+          supportedReasoningEfforts: [],
+          defaultReasoningEffort: null,
+          inputModalities: [],
+          serviceTiers: [],
+          defaultServiceTier: null,
+          isDefault: false,
+        }));
+        const presentation = panel.runtime.composer.controller.renderState(
+          composerModelFromChatState(panel.stateStore.getState(), chatSharedDisplayValuesFixture({ availableModels })),
+          { submit: vi.fn() },
         );
-      const commands = commandsFor(first.stateStore);
-      const pending = commands.requestModelFromUi("old");
-      await vi.waitFor(() => expect(updateThreadSettings).toHaveBeenCalledOnce());
-      const queued = commands.requestModelFromUi("queued");
-      const cleanup = deferred<void>();
-      vi.spyOn(first.runtime.thread.ephemeral, "dispose").mockReturnValue(cleanup.promise);
-      const disconnect = vi.spyOn(first.runtime.connection.manager, "disconnect");
-      const disposal = first.runtime.dispose(vi.fn());
-      const reopened = sessionRuntimeFixture();
+        const choice = presentation.meta.modelChoices.find((choice) => choice.label === model);
+        if (!choice) throw new Error(`Missing model choice: ${model}`);
+        choice.onClick();
+      };
+      selectModel(first, "old");
+      await vi.waitFor(() => expect(settingsCalls()).toHaveLength(1));
+      selectModel(first, "queued");
+      await first.runtime.dispose(vi.fn());
+      const reopened = sessionRuntimeFixture({ environment });
+      await reopened.runtime.connection.coordinator.ensureConnected();
       reopened.stateStore.dispatch({ ...threadActivationFixture(threadFixture()), type: "active-thread/resumed" });
-      const fresh = commandsFor(reopened.stateStore).requestModel("new");
-      expect(updateThreadSettings).toHaveBeenCalledTimes(1);
-
-      if (outcome === "success") update.resolve(true);
+      request.mockImplementation(async (method, params) => {
+        if (method !== "thread/settings/update") return {};
+        reopened.stateStore.dispatch({
+          type: "active-thread/settings-applied",
+          ...reopened.stateStore.getState().runtime.active,
+          model: (params as { model: string }).model,
+          collaborationMode: "default",
+        });
+        return {};
+      });
+      selectModel(reopened, "new");
+      await vi.waitFor(() => expect(reopened.stateStore.getState().runtime.active.model).toBe("new"));
+      if (outcome === "success") update.resolve({});
       else update.reject(new Error("old failure"));
-      await Promise.all([pending, queued]);
-      await expect(fresh).resolves.toBe(true);
-
-      expect(updateThreadSettings.mock.calls).toEqual([
-        ["thread", { model: "old" }],
-        ["thread", { model: "new" }],
+      await update.promise.catch(() => undefined);
+      expect(settingsCalls()).toEqual([
+        ["thread/settings/update", { threadId: "thread", model: "old" }],
+        ["thread/settings/update", { threadId: "thread", model: "new" }],
       ]);
       expect(first.stateStore.getState().runtime.active.model).toBeNull();
-      expect(messages).not.toHaveBeenCalled();
-      expect(disconnect).not.toHaveBeenCalled();
-      cleanup.resolve(undefined);
-      await disposal;
       await reopened.runtime.dispose(vi.fn());
     },
   );
@@ -401,9 +406,14 @@ describe("chat panel session runtime", () => {
     await Promise.resolve();
   });
 
-  it("cleans up a running Side Chat before releasing only its panel lease", async () => {
+  it("releases its UI lease while side cleanup proceeds without stopping another panel", async () => {
     const interrupt = deferred<unknown>();
-    const request = vi.fn((method: string) => (method === "turn/interrupt" ? interrupt.promise : Promise.resolve({})));
+    const request = vi.fn((method: string) => {
+      if (method === "turn/interrupt") return interrupt.promise;
+      if (method === "config/read") return Promise.resolve({ config: {} });
+      if (method === "thread/fork") return Promise.resolve({ thread: threadFixture({ id: "side-thread" }) });
+      return Promise.resolve({});
+    });
     const client = { request } as unknown as AppServerClient;
     const managerState: { handlers: ConnectionManagerHandlers | null } = { handlers: null };
     const disconnectSharedProcess = vi.fn();
@@ -433,6 +443,7 @@ describe("chat panel session runtime", () => {
       onLog: vi.fn(),
       onExit: vi.fn(),
     });
+    await runtime.thread.ephemeral.create("source-thread", {}, () => true);
     stateStore.dispatch({
       ...threadActivationFixture(threadFixture({ id: "side-thread", preview: "Side chat" })),
       type: "active-thread/resumed",
@@ -442,8 +453,11 @@ describe("chat panel session runtime", () => {
     const releasePanelLease = vi.spyOn(runtime.connection.manager, "disconnect");
 
     const disposal = runtime.dispose(vi.fn());
-    expect(request).toHaveBeenCalledWith("turn/interrupt", { threadId: "side-thread", turnId: "turn-1" });
-    expect(releasePanelLease).not.toHaveBeenCalled();
+    await disposal;
+    await waitForAsyncWork(() =>
+      expect(request).toHaveBeenCalledWith("turn/interrupt", { threadId: "side-thread", turnId: "turn-1" }, { timeoutMs: 1_000 }),
+    );
+    expect(releasePanelLease).toHaveBeenCalledOnce();
 
     const responder = { respond: vi.fn(), reject: vi.fn() } as unknown as AppServerServerRequestResponder;
     const handlers = managerState.handlers;
@@ -467,18 +481,14 @@ describe("chat panel session runtime", () => {
     expect(responder.reject).not.toHaveBeenCalled();
 
     interrupt.resolve({});
-    await disposal;
-
-    expect(
-      request.mock.calls.map(([method]) => method).filter((method) => method === "turn/interrupt" || method === "thread/unsubscribe"),
-    ).toEqual(["turn/interrupt", "thread/unsubscribe"]);
-    expect(releasePanelLease).toHaveBeenCalledOnce();
-    expect(request.mock.invocationCallOrder.at(-1)).toBeLessThan(releasePanelLease.mock.invocationCallOrder[0] ?? 0);
+    await waitForAsyncWork(() =>
+      expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side-thread" }, expect.anything()),
+    );
     expect(otherLease.currentClient()).toBe(client);
     expect(disconnectSharedProcess).not.toHaveBeenCalled();
   });
 
-  it("still cleans the target before releasing its lease when UI teardown fails", async () => {
+  it("requests conversation release even when UI teardown throws", async () => {
     const { runtime } = sessionRuntimeFixture();
     const cleanupTarget = vi.spyOn(runtime.thread.ephemeral, "dispose").mockResolvedValue(undefined);
     const releasePanelLease = vi.spyOn(runtime.connection.manager, "disconnect");
@@ -534,6 +544,7 @@ describe("chat panel session runtime", () => {
       threadTitlePort?: ChatPanelEnvironment["plugin"]["threadTitlePort"];
       settings?: ChatPanelEnvironment["plugin"]["settings"];
       appServerContext?: ChatPanelEnvironment["plugin"]["appServerContext"];
+      runtimeSettingsCommitQueue?: ChatPanelEnvironment["plugin"]["runtimeSettingsCommitQueue"];
     };
     view?: Partial<ChatPanelEnvironment["view"]>;
   }
@@ -612,7 +623,8 @@ describe("chat panel session runtime", () => {
           visibleThreadId: vi.fn((_threads, threadId) => threadId),
         },
         threadMutations: overrides.plugin?.threadMutations ?? threadMutationCommandsMock(),
-        runtimeSettingsCommitQueue: createKeyedOperationCoordinator({ whenBusy: "queue" }),
+        runtimeSettingsCommitQueue: overrides.plugin?.runtimeSettingsCommitQueue ?? createKeyedOperationCoordinator({ whenBusy: "queue" }),
+        createSideConversation,
       },
       view: {
         panelRoot: () => panelRoot,

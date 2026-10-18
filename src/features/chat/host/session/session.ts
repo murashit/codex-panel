@@ -77,6 +77,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   applyViewState(state: unknown): void {
+    this.runtime.thread.ephemeral.cleanupForConnectionReset();
     const restoredState = parseChatPanelViewState(state);
     this.reconcilePendingPersistentRuntimeTarget(restoredState.kind === "thread" ? restoredState.threadId : null);
     this.runtime.commands.invalidateThreadWork();
@@ -121,7 +122,7 @@ export class ChatPanelSession implements ChatPanelHandle {
               }),
             }
           : lifetime?.kind === "ephemeral"
-            ? sideChatDraft(lifetime.sourceThreadId, lifetime.sourceThreadTitle)
+            ? sideChatDraft(lifetime.sourceThreadId, lifetime.sourceThreadTitle, this.state.runtime)
             : null),
     };
   }
@@ -145,9 +146,13 @@ export class ChatPanelSession implements ChatPanelHandle {
   async applyForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<boolean> {
     this.runtime.commands.invalidateThreadWork();
     this.pendingPersistentActivation = null;
-    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
+    if (
+      activeThreadState(this.state)?.lifetime?.kind === "ephemeral" ||
+      (this.state.panelThread.kind === "fork-draft" && this.state.panelThread.draft.kind === "side-chat")
+    ) {
       const intent = this.resumeWork.begin(null);
-      if (!(await this.runtime.thread.ephemeral.prepareForNavigation()) || !this.resumeWork.canCommit(intent, this.state)) return false;
+      this.runtime.thread.ephemeral.prepareForNavigation();
+      if (!this.resumeWork.canCommit(intent, this.state)) return false;
     }
     if (this.closing) return false;
     this.pendingRuntimeRestore = null;
@@ -242,7 +247,8 @@ export class ChatPanelSession implements ChatPanelHandle {
       return this.runtime.thread.ensureRestoredThreadLoaded(displaySnapshot);
     }
     const intent = this.resumeWork.begin(threadId);
-    if (!(await this.runtime.thread.ephemeral.prepareForNavigation()) || !this.resumeWork.isCurrent(intent)) return false;
+    this.runtime.thread.ephemeral.prepareForNavigation();
+    if (!this.resumeWork.isCurrent(intent)) return false;
     const activation = await this.runtime.thread.resume.resumeThread(threadId, intent, displaySnapshot);
     if (!activation) return false;
     this.reconcilePendingPersistentRuntimeTarget(threadId);
@@ -263,8 +269,8 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   open(): void {
+    if (this.closing) return;
     this.opened = true;
-    this.closing = false;
     this.observePanelActivity();
     const activate = () => {
       this.observeForegroundWindow();
@@ -288,22 +294,26 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async close(): Promise<void> {
+    if (this.closing) return;
     this.opened = false;
     this.closing = true;
-    this.stopObservingForeground?.();
-    this.stopObservingForeground = null;
-    this.foregroundWindow = null;
-    this.unsubscribePanelActivity?.();
-    this.unsubscribePanelActivity = null;
-    this.observedPanelActivity = null;
     const disposal = this.runtime.dispose(() => {
       unmountChatPanelShell(this.environment.view.panelRoot());
     });
-    this.notifyPanelActivityChanged();
-    this.viewWindow().setTimeout(() => {
+    try {
+      this.stopObservingForeground?.();
+      this.stopObservingForeground = null;
+      this.foregroundWindow = null;
+      this.unsubscribePanelActivity?.();
+      this.unsubscribePanelActivity = null;
+      this.observedPanelActivity = null;
       this.notifyPanelActivityChanged();
-    }, 0);
-    await disposal;
+      this.viewWindow().setTimeout(() => {
+        this.notifyPanelActivityChanged();
+      }, 0);
+    } finally {
+      await disposal;
+    }
   }
 
   setComposerText(text: string): void {

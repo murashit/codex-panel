@@ -270,6 +270,24 @@ describe("AppServerContextConnection", () => {
     connection.dispose();
     expect(manager.disconnect).toHaveBeenCalledOnce();
   });
+  it("rejects new work and UI delivery while the parent finishes child cleanup", async () => {
+    const manager = managerFixture();
+    const connection = contextConnection(manager);
+    let finish!: () => void;
+    const release = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const handlers = leaseHandlers();
+    await connection.createLease().connect(handlers);
+    connection.dispose(release);
+    await expect(connection.withClient(async () => undefined)).rejects.toThrow("disposed");
+    expect(handlers.onExit).toHaveBeenCalledOnce();
+    expect(manager.disconnect).not.toHaveBeenCalled();
+    manager.handlers?.onLog("late");
+    expect(handlers.onLog).not.toHaveBeenCalled();
+    finish();
+    await waitForAsyncWork(() => expect(manager.disconnect).toHaveBeenCalledOnce());
+  });
 });
 
 function contextConnection(

@@ -1,7 +1,7 @@
 import type { ReasoningEffort } from "../../../../domain/runtime/catalog";
 import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
 import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/settings";
-import { type ChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
+import { type ActiveThreadRuntimeState, type ChatRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
 import type { ForkDisplaySnapshot } from "./fork-display-snapshot";
 
 export type ForkDraft = {
@@ -12,10 +12,14 @@ export type ForkDraft = {
   | { readonly kind: "side-chat"; readonly sourceThreadTitle: string | null }
 );
 
-export function sideChatDraft(sourceThreadId: string, sourceThreadTitle: string | null): ForkDraftPreparation {
+export function sideChatDraft(
+  sourceThreadId: string,
+  sourceThreadTitle: string | null,
+  runtime: ChatRuntimeState = initialChatRuntimeState(),
+): ForkDraftPreparation {
   return {
     draft: { kind: "side-chat", sourceThreadId, sourceThreadTitle },
-    runtime: initialChatRuntimeState(),
+    runtime: forkDraftRuntime({ ...runtime, pending: initialChatRuntimeState().pending }),
     display: { items: [], turnDiffs: new Map() },
   };
 }
@@ -42,7 +46,7 @@ export interface ThreadForkOptions {
   readonly runtime?: ThreadForkRuntimeOverrides;
 }
 
-interface ThreadForkRuntimeOverrides {
+export interface ThreadForkRuntimeOverrides {
   readonly model?: string;
   readonly reasoningEffort?: ReasoningEffort | null;
   readonly serviceTier?: ServiceTier | null;
@@ -64,5 +68,20 @@ export function forkDraftRuntime({ active, pending }: ChatRuntimeState): ChatRun
           ? { kind: "set", value: active.collaborationMode }
           : pending.collaborationMode,
     },
+  };
+}
+
+export function forkRuntimeSettings(active: ActiveThreadRuntimeState): ThreadForkRuntimeOverrides {
+  return {
+    ...(active.model ? { model: active.model } : {}),
+    reasoningEffort: active.reasoningEffort,
+    ...(active.serviceTierKnown ? { serviceTier: active.serviceTier } : {}),
+    ...(active.approvalPolicyKnown && active.approvalPolicy ? { approvalPolicy: active.approvalPolicy } : {}),
+    ...(active.approvalsReviewer ? { approvalsReviewer: active.approvalsReviewer } : {}),
+    ...(active.permissionProfileKnown && active.activePermissionProfile
+      ? { permissions: active.activePermissionProfile.id }
+      : active.sandboxPolicyKnown && active.sandboxPolicy
+        ? { sandboxPolicy: active.sandboxPolicy }
+        : {}),
   };
 }

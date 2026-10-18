@@ -1,6 +1,5 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/usage";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { activeThreadRuntimeState, pendingRuntimeIntentState } from "../../domain/runtime/state";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { activeThreadState, type ChatState } from "../state/model";
 import { threadStreamItems } from "../state/thread-stream";
@@ -26,13 +25,11 @@ export function threadStreamItemsHaveThreadTurns(items: readonly ThreadStreamIte
 }
 
 export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): RuntimeSnapshot {
-  const active = activeThreadRuntimeState(input.runtime);
-  const pending = pendingRuntimeIntentState(input.runtime);
   return {
     runtimeConfig: input.runtimeConfig,
     activeThreadId: input.activeThread.id,
-    active,
-    pending,
+    active: input.runtime.active,
+    pending: input.runtime.pending,
     tokenUsage: input.activeThread.tokenUsage,
     rateLimit: input.rateLimit,
     hasThreadTurns: input.hasThreadTurns,

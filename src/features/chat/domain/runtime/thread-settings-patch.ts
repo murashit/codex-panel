@@ -1,6 +1,5 @@
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
 import {
-  applyRuntimeSettingsPatchValue,
   type RuntimeServiceTierRequest,
   type RuntimeSettingsPatch,
   runtimeCollaborationModeSettings,
@@ -8,11 +7,13 @@ import {
 import type { PendingRuntimeIntent } from "./intent";
 import { type RuntimeControlsResolution, resolveRuntimeControls } from "./resolution";
 import type { RuntimeSnapshot } from "./snapshot";
+import type { PendingRuntimeIntentState } from "./state";
 
 type TurnCollaborationModeWarning = "missing-model";
 
 export interface PendingRuntimeSettingsPatch {
   update: RuntimeSettingsPatch;
+  intents: Partial<PendingRuntimeIntentState>;
   collaborationModeWarning: TurnCollaborationModeWarning | null;
 }
 
@@ -27,29 +28,44 @@ export function permissionProfileRequestForThreadStart(snapshot: RuntimeSnapshot
 
 export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): PendingRuntimeSettingsPatch {
   const update: RuntimeSettingsPatch = {};
+  const intents: Partial<PendingRuntimeIntentState> = {};
   const resolution = resolveRuntimeControls(snapshot, config);
   const pending = snapshot.pending;
 
-  applyRuntimeSettingsPatchValue(update, "model", pendingRuntimeRequestValue(pending.model));
-  applyRuntimeSettingsPatchValue(update, "effort", pendingRuntimeRequestValue(pending.reasoningEffort));
-  applyRuntimeSettingsPatchValue(update, "serviceTier", serviceTierRequest(snapshot, resolution, "thread-update"));
-  applyRuntimeSettingsPatchValue(update, "permissions", pendingRuntimeRequestValue(pending.permissionProfile));
-  applyRuntimeSettingsPatchValue(update, "approvalsReviewer", pendingRuntimeRequestValue(pending.approvalsReviewer));
+  include("model", "model", pendingRuntimeRequestValue(pending.model, config.model));
+  include("reasoningEffort", "effort", pendingRuntimeRequestValue(pending.reasoningEffort, config.reasoningEffort));
+  include("fastMode", "serviceTier", serviceTierRequest(snapshot, resolution, "thread-update"));
+  include(
+    "permissionProfile",
+    "permissions",
+    pendingRuntimeRequestValue(pending.permissionProfile, config.startupPermissions.activePermissionProfile?.id ?? null),
+  );
+  include("approvalsReviewer", "approvalsReviewer", pendingRuntimeRequestValue(pending.approvalsReviewer, config.approvalsReviewer));
   if (resolution.collaborationMode.dirty) {
     const model = resolution.model.effective;
-    if (!model) return { update, collaborationModeWarning: "missing-model" };
-    update.collaborationMode = runtimeCollaborationModeSettings(
-      resolution.collaborationMode.effective,
-      model,
-      resolution.reasoningEffort.effective,
+    if (!model) return { update, intents, collaborationModeWarning: "missing-model" };
+    include(
+      "collaborationMode",
+      "collaborationMode",
+      runtimeCollaborationModeSettings(resolution.collaborationMode.effective, model, resolution.reasoningEffort.effective),
     );
   }
-  return { update, collaborationModeWarning: null };
+  return { update, intents, collaborationModeWarning: null };
+
+  function include<K extends keyof RuntimeSettingsPatch>(
+    intent: keyof PendingRuntimeIntentState,
+    field: K,
+    value: RuntimeSettingsPatch[K] | undefined,
+  ): void {
+    if (value === undefined) return;
+    update[field] = value;
+    Object.assign(intents, { [intent]: pending[intent] });
+  }
 }
 
-function pendingRuntimeRequestValue<T>(intent: PendingRuntimeIntent<T>): T | null | undefined {
+function pendingRuntimeRequestValue<T>(intent: PendingRuntimeIntent<T>, configured: T | null): T | undefined {
   if (intent.kind === "set") return intent.value;
-  if (intent.kind === "resetToConfig") return null;
+  if (intent.kind === "resetToConfig") return configured ?? undefined;
   return undefined;
 }
 

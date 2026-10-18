@@ -7,7 +7,6 @@ import {
 import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ActiveThreadResumedAction } from "../../../../../src/features/chat/application/state/transition-actions";
-import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 
 function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
@@ -28,7 +27,7 @@ function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
   });
   const host: ChatReconnectCommandHost = {
     stateStore,
-    cleanupForConnectionReset: vi.fn().mockResolvedValue(undefined),
+    cleanupForConnectionReset: vi.fn(),
     resetConnectionScope: vi.fn(),
     setStatus: vi.fn(),
     ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -126,39 +125,15 @@ describe("createReconnectPanelCommand", () => {
     );
   });
 
-  it("keeps an ephemeral target intact until its connection cleanup settles", async () => {
-    const cleanup = deferred<void>();
-    const { host, stateStore, reconnect } = createHost({
-      cleanupForConnectionReset: vi.fn(() => cleanup.promise),
-    });
-    resumeSideThread(stateStore);
-
-    const operation = reconnect();
-    await Promise.resolve();
-
-    expect(activeThreadId(stateStore.getState())).toBe("side-thread");
-    expect(host.resetConnectionScope).not.toHaveBeenCalled();
-
-    cleanup.resolve(undefined);
-    await expect(operation).resolves.toBe(false);
-
-    expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
-    expect(host.resetConnectionScope).toHaveBeenCalledOnce();
-  });
-
-  it("does not reset a newer target after ephemeral cleanup settles", async () => {
-    const cleanup = deferred<void>();
-    const { host, stateStore, reconnect } = createHost({
-      cleanupForConnectionReset: vi.fn(() => cleanup.promise),
-    });
+  it("does not reset a newer target after synchronous cleanup reentry", async () => {
+    const { host, stateStore, reconnect } = createHost();
     const beforeTargetReset = vi.fn();
     resumeSideThread(stateStore);
 
-    const operation = reconnect({ beforeTargetReset });
-    stateStore.dispatch({ type: "active-thread/cleared" });
-    cleanup.resolve(undefined);
-
-    await expect(operation).resolves.toBe(false);
+    vi.mocked(host.cleanupForConnectionReset).mockImplementation(() => {
+      stateStore.dispatch({ type: "active-thread/cleared" });
+    });
+    await expect(reconnect({ beforeTargetReset })).resolves.toBe(false);
     expect(beforeTargetReset).not.toHaveBeenCalled();
     expect(host.resetConnectionScope).not.toHaveBeenCalled();
   });

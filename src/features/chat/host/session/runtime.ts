@@ -9,11 +9,12 @@ import { createChatRuntimeSettingsCommands } from "../../application/runtime/set
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
-import { createEphemeralThreadLifecycle } from "../../application/threads/ephemeral-thread-lifecycle";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { sideChatDraft } from "../../application/threads/fork-draft";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
+import { createSideChatCommands } from "../../application/threads/side-chat-commands";
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
+import { activeTurnId } from "../../application/turns/turn-state";
 import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
@@ -62,8 +63,21 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const currentClient = connection.currentClient;
   const appServer = createChatAppServerGateway({
     vaultPath: resourceContext.vaultPath,
+    createSideConversation: environment.plugin.createSideConversation,
     currentClient,
+    currentTurn: () => {
+      const state = stateStore.getState();
+      const threadId = activeThreadId(state);
+      const turnId = activeTurnId(state.activeTurn);
+      return threadId && turnId ? { threadId, turnId } : null;
+    },
     recordThreadSubscription: connection.recordThreadSubscription,
+    releaseThreadRequests: (threadId) => {
+      sessionConnection.releaseThreadRequests(threadId);
+    },
+    reportCleanupFailure: () => {
+      new Notice("Could not confirm side chat cleanup. Codex may still be running.");
+    },
   });
   const status = createSessionStatus(stateStore, localItemIds);
   const threadReadState = createSessionThreadReadState({
@@ -138,22 +152,16 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     vaultPath: () => environment.plugin.appServerContext.vaultPath,
     sharedResources,
   });
-  const ephemeral = createEphemeralThreadLifecycle({
+  const ephemeral = createSideChatCommands({
     stateStore,
     effects: appServer.threadEphemeral,
-    ensureConnected: async () => {
-      await ensureConnected();
-      return connection.isConnected();
-    },
-    addSystemMessage: status.addSystemMessage,
     notifyActiveThreadIdentityChanged,
-    interruptTurn: (threadId, turnId) => appServer.turn.interruptTurn(threadId, turnId),
   });
   const threadStart = createThreadStartCommand({
     withThreadActivation: (operation) => connection.withThreadActivation(null, operation),
     stateStore,
     effects: appServer.threadStart,
-    createSideChat: (sourceThreadId, isCurrent) => ephemeral.create(sourceThreadId, isCurrent),
+    createSideChat: (sourceThreadId, runtime, isCurrent) => ephemeral.create(sourceThreadId, runtime, isCurrent),
     onThreadActivated: (hadTurns) => {
       threadFoundation.autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
       notifyActiveThreadIdentityChanged();
@@ -216,7 +224,9 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   });
   const reconnectHost = {
     stateStore,
-    cleanupForConnectionReset: () => ephemeral.cleanupForConnectionReset(),
+    cleanupForConnectionReset: () => {
+      ephemeral.cleanupForConnectionReset();
+    },
     resetConnectionScope: () => {
       connectionCoordinator.invalidate();
       invalidateThreadWork();
@@ -269,7 +279,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       const threadId = activeThreadId(state);
       if (!threadId) return;
       const thread = environment.plugin.threadCatalog.activeThreadsSnapshot()?.find((item) => item.id === threadId);
-      void environment.plugin.workspace.openForkDraft(sideChatDraft(threadId, thread?.name ?? thread?.preview ?? null));
+      void environment.plugin.workspace.openForkDraft(sideChatDraft(threadId, thread?.name ?? thread?.preview ?? null, state.runtime));
     },
     debugDetails: {
       stateStore,
@@ -406,7 +416,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
         unmount();
       } finally {
         try {
-          await ephemeral.dispose();
+          ephemeral.dispose();
         } finally {
           connection.disconnect();
         }

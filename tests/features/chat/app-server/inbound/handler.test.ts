@@ -1725,9 +1725,10 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("syncs active runtime state from thread settings notifications", () => {
+    it.each(["fast", null])("syncs active runtime state including service tier %s from settings notifications", (serviceTier) => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { runtime: { active: { serviceTier: "flex" } } });
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -1741,7 +1742,7 @@ describe("ChatInboundHandler", () => {
             sandboxPolicy: { type: "readOnly", networkAccess: false },
             model: "gpt-5.5",
             modelProvider: "openai",
-            serviceTier: "fast",
+            serviceTier,
             approvalPolicy: "on-request",
             effort: "high",
             summary: null,
@@ -1758,7 +1759,7 @@ describe("ChatInboundHandler", () => {
 
       expect(activeThreadState(handler.currentState())).not.toHaveProperty("cwd");
       expect(handler.currentState().runtime.active.model).toBe("gpt-5.5");
-      expect(handler.currentState().runtime.active.serviceTier).toBe("fast");
+      expect(handler.currentState().runtime.active.serviceTier).toBe(serviceTier);
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("auto_review");
       expect(handler.currentState().runtime.active.approvalPolicy).toBe("on-request");
       expect(handler.currentState().runtime.active.sandboxPolicy).toEqual({ type: "readOnly", networkAccess: false });
@@ -1809,41 +1810,6 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().runtime.active.approvalPolicy).toBe("on-request");
       expect(handler.currentState().runtime.active.sandboxPolicy).toEqual({ type: "readOnly", networkAccess: false });
       expect(handler.currentState().runtime.active.activePermissionProfile).toBeNull();
-    });
-
-    it("syncs null service tier from settings notifications", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { runtime: { active: { serviceTier: "flex" } } });
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "thread/settings/updated",
-        params: {
-          threadId: "thread-active",
-          threadSettings: {
-            disabledPluginIds: [],
-            cwd: "/workspace/active",
-            approvalsReviewer: "user",
-            sandboxPolicy: { type: "readOnly", networkAccess: false },
-            model: "gpt-5.5",
-            modelProvider: "openai",
-            serviceTier: null,
-            approvalPolicy: "on-request",
-            effort: "high",
-            summary: null,
-            collaborationMode: {
-              mode: "default",
-              settings: { model: "gpt-5.5", reasoning_effort: "high", developer_instructions: null },
-            },
-            activePermissionProfile: null,
-            multiAgentMode: "explicitRequestOnly",
-            personality: null,
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
-
-      expect(handler.currentState().runtime.active.serviceTier).toBeNull();
     });
   });
 

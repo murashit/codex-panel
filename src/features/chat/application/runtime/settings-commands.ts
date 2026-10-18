@@ -6,7 +6,7 @@ import {
   unsupportedReasoningEffortMessage,
 } from "../../../../domain/runtime/catalog";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/settings";
-import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/settings";
+import { type RuntimeConfigSnapshot, runtimeConfigOrDefault, sameServiceTier } from "../../../../domain/runtime/settings";
 import { createKeyedOperationCoordinator, type KeyedOperationCoordinator } from "../../../../shared/async/keyed-operation-coordinator";
 import {
   type CollaborationModeSelection,
@@ -15,11 +15,12 @@ import {
   resetRuntimeIntentToConfig,
   setCollaborationModeIntent,
   setRuntimeIntentValue,
+  unchangedRuntimeIntent,
 } from "../../domain/runtime/intent";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import type { PendingRuntimeIntentState } from "../../domain/runtime/state";
+import type { ActiveThreadRuntimeState, PendingRuntimeIntentState } from "../../domain/runtime/state";
 import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
@@ -98,70 +99,41 @@ export function createChatRuntimeSettingsCommands(
 
 async function applyPendingThreadSettings(
   host: RuntimeSettingsCommandsContext,
-  fields?: readonly (keyof RuntimeSettingsPatch)[],
+  fields?: readonly (keyof PendingRuntimeIntentState)[],
 ): Promise<boolean> {
   return (await commitPendingThreadSettings(host, fields)).ok;
 }
 
 async function commitPendingThreadSettings(
   host: RuntimeSettingsCommandsContext,
-  fields?: readonly (keyof RuntimeSettingsPatch)[],
+  fields?: readonly (keyof PendingRuntimeIntentState)[],
 ): Promise<RuntimeSettingsCommitResult> {
   const target = capturePanelTargetLease(state(host));
   const threadId = activeThreadId(state(host));
   if (!threadId) return { ok: true, collaborationModeApplied: true };
-  const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
-  if (collaborationModeWarning) reportCollaborationModeWarning(host);
-  const collaborationModeApplied = !collaborationModeWarning && "collaborationMode" in update;
-  if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
-
   if (activePanelOperationBlocked(host, "thread-settings")) return { ok: false, collaborationModeApplied: false };
-  const ok = fields
-    ? await commitRuntimeSettingsFields(host, threadId, target, pickRuntimeSettingsFields(update, fields))
-    : await settleRuntimeSettings(host, threadId, target);
-  const current = ok && panelTargetLeaseIsCurrent(state(host), target);
-  return { ok: current, collaborationModeApplied: current && collaborationModeApplied };
-}
-
-function commitRuntimeSettingsFields(
-  host: RuntimeSettingsCommandsContext,
-  threadId: string,
-  target: PanelTargetLease,
-  update: RuntimeSettingsPatch,
-): Promise<boolean> {
-  if (patchEmpty(update)) return Promise.resolve(true);
-  const command = { ...update };
+  const requested = state(host).runtime.pending;
   return host.threadCommits.run(threadId, async () => {
-    if (!panelTargetLeaseIsCurrent(state(host), target)) return false;
-    if (!patchEqual(matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command), command)) return false;
+    let collaborationModeApplied = false;
+    while (panelTargetLeaseIsCurrent(state(host), target)) {
+      // UI commands report only their own intent. Turn submission reconciles all
+      // outstanding intent through this same path, including changes during a send.
+      const pending = state(host).runtime.pending;
+      if (fields?.some((key) => pending[key] !== requested[key] && pending[key].kind !== "unchanged"))
+        return { ok: false, collaborationModeApplied: false };
+      const { update, intents, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
+      if (collaborationModeWarning) reportCollaborationModeWarning(host);
+      collaborationModeApplied ||= !collaborationModeWarning && "collaborationMode" in update;
+      if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
+      if (!(await updateRuntimeSettings(host, threadId, target, update)) || !panelTargetLeaseIsCurrent(state(host), target)) break;
 
-    const updated = await updateRuntimeSettings(host, threadId, target, command);
-    if (!updated || !panelTargetLeaseIsCurrent(state(host), target)) return false;
-
-    const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command);
-    if ("model" in command && committed.model !== command.model) return false;
-    if (!patchEmpty(committed)) commitRuntimeSettingsPatch(host, committed);
-    return patchEqual(committed, command);
+      const current = state(host).runtime.pending;
+      const requestedApplied = !fields || fields.every((key) => current[key] === requested[key] || current[key].kind === "unchanged");
+      dispatch(host, { type: "runtime/pending-intent-confirmed", intents });
+      if (fields) return { ok: requestedApplied, collaborationModeApplied: requestedApplied && collaborationModeApplied };
+    }
+    return { ok: false, collaborationModeApplied: false };
   });
-}
-
-async function settleRuntimeSettings(host: RuntimeSettingsCommandsContext, threadId: string, target: PanelTargetLease): Promise<boolean> {
-  while (panelTargetLeaseIsCurrent(state(host), target)) {
-    const result = await host.threadCommits.run(threadId, async (): Promise<"continue" | "failed" | "settled"> => {
-      if (!panelTargetLeaseIsCurrent(state(host), target)) return "failed";
-      const update = currentPendingRuntimeSettingsPatch(host);
-      if (patchEmpty(update)) return "settled";
-
-      if (!(await updateRuntimeSettings(host, threadId, target, update)) || !panelTargetLeaseIsCurrent(state(host), target))
-        return "failed";
-
-      const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), update);
-      if (!patchEmpty(committed)) commitRuntimeSettingsPatch(host, committed);
-      return patchEmpty(currentPendingRuntimeSettingsPatch(host)) ? "settled" : "continue";
-    });
-    if (result !== "continue") return result === "settled";
-  }
-  return false;
 }
 
 async function updateRuntimeSettings(
@@ -170,18 +142,68 @@ async function updateRuntimeSettings(
   target: PanelTargetLease,
   update: RuntimeSettingsPatch,
 ): Promise<boolean> {
+  const previous = state(host).runtime.active;
+  let confirm!: () => void;
+  let cancel!: () => void;
+  const confirmed = new Promise<void>((resolve) => {
+    confirm = resolve;
+  });
+  const cancelled = new Promise<false>((resolve) => {
+    cancel = () => {
+      resolve(false);
+    };
+  });
+  const unsubscribe = host.stateStore.subscribe(() => {
+    const current = state(host);
+    if (
+      !panelTargetLeaseIsCurrent(current, target) ||
+      activeThreadId(current) !== threadId ||
+      current.connection.phase.kind === "disconnected" ||
+      current.connection.phase.kind === "failed"
+    ) {
+      cancel();
+    } else if (current.runtime.active !== previous && runtimeSettingsMatch(current.runtime.active, update)) {
+      // An ACK only queues the update. Its notification may precede the ACK.
+      confirm();
+    }
+  });
+  const timeout = window.setTimeout(() => {
+    host.addSystemMessage("Timed out waiting for updated thread settings.");
+    cancel();
+  }, 10_000);
   try {
-    return await host.runtimeSettingsPort.updateThreadSettings(threadId, update);
+    const accepted = host.runtimeSettingsPort.updateThreadSettings(threadId, update);
+    return await Promise.race([
+      cancelled,
+      accepted.then(async (ok) => {
+        if (!ok) return false;
+        await confirmed;
+        return panelTargetLeaseIsCurrent(state(host), target);
+      }),
+    ]);
   } catch (error) {
     if (panelTargetLeaseIsCurrent(state(host), target)) {
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     return false;
+  } finally {
+    window.clearTimeout(timeout);
+    unsubscribe();
   }
 }
 
-function commitRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost, update: RuntimeSettingsPatch): void {
-  dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
+function runtimeSettingsMatch(active: ActiveThreadRuntimeState, update: RuntimeSettingsPatch): boolean {
+  return (
+    (!("model" in update) || active.model === update.model) &&
+    (!("effort" in update) || active.reasoningEffort === update.effort) &&
+    (!("serviceTier" in update) || sameServiceTier(active.serviceTier, update.serviceTier)) &&
+    (!("approvalsReviewer" in update) || active.approvalsReviewer === update.approvalsReviewer) &&
+    (!("permissions" in update) || active.activePermissionProfile?.id === update.permissions) &&
+    (!update.collaborationMode ||
+      (active.collaborationMode === update.collaborationMode.mode &&
+        active.model === update.collaborationMode.settings.model &&
+        active.reasoningEffort === update.collaborationMode.settings.reasoningEffort))
+  );
 }
 
 async function requestModel(host: RuntimeSettingsCommandsContext, model: string): Promise<boolean> {
@@ -197,16 +219,17 @@ async function requestModel(host: RuntimeSettingsCommandsContext, model: string)
 async function resetModelToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
   const { config } = runtimeProjection(host);
+  if (configuredResetUnavailable(host, config.model, "model")) return false;
   const normalization = normalizedReasoningEffortForModelChange(host, config.model);
   requestPendingRuntime(host, {
-    model: resetRuntimeIntentToConfig(),
+    model: config.model === null ? unchangedRuntimeIntent() : resetRuntimeIntentToConfig(),
     ...(normalization.kind === "set" ? { reasoningEffort: setRuntimeIntentValue(normalization.effort) } : {}),
   });
   return applyPendingThreadSettings(host, modelUpdateFields(host));
 }
 
-function modelUpdateFields(host: RuntimeSettingsCommandsHost): readonly (keyof RuntimeSettingsPatch)[] {
-  return state(host).runtime.pending.reasoningEffort.kind === "unchanged" ? ["model"] : ["model", "effort"];
+function modelUpdateFields(host: RuntimeSettingsCommandsHost): readonly (keyof PendingRuntimeIntentState)[] {
+  return state(host).runtime.pending.reasoningEffort.kind === "unchanged" ? ["model"] : ["model", "reasoningEffort"];
 }
 
 function normalizedReasoningEffortForModelChange(host: RuntimeSettingsCommandsHost, model: string | null): ReasoningEffortNormalization {
@@ -229,13 +252,15 @@ async function requestReasoningEffort(host: RuntimeSettingsCommandsContext, effo
     return false;
   }
   requestPendingRuntime(host, { reasoningEffort: setRuntimeIntentValue(effort) });
-  return applyPendingThreadSettings(host, ["effort"]);
+  return applyPendingThreadSettings(host, ["reasoningEffort"]);
 }
 
 async function resetReasoningEffortToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "thread-settings")) return false;
-  requestPendingRuntime(host, { reasoningEffort: resetRuntimeIntentToConfig() });
-  return applyPendingThreadSettings(host, ["effort"]);
+  const configured = runtimeProjection(host).config.reasoningEffort;
+  if (configuredResetUnavailable(host, configured, "reasoning effort")) return false;
+  requestPendingRuntime(host, { reasoningEffort: configured === null ? unchangedRuntimeIntent() : resetRuntimeIntentToConfig() });
+  return applyPendingThreadSettings(host, ["reasoningEffort"]);
 }
 
 async function requestReasoningEffortFromUi(host: RuntimeSettingsCommandsContext, effort: ReasoningEffort): Promise<void> {
@@ -245,13 +270,21 @@ async function requestReasoningEffortFromUi(host: RuntimeSettingsCommandsContext
 async function requestPermissionProfile(host: RuntimeSettingsCommandsContext, permissionProfile: string): Promise<boolean> {
   if (activePanelOperationBlocked(host, "permission-settings")) return false;
   requestPendingRuntime(host, { permissionProfile: setRuntimeIntentValue(permissionProfile) });
-  return applyPendingThreadSettings(host, ["permissions"]);
+  return applyPendingThreadSettings(host, ["permissionProfile"]);
 }
 
 async function resetPermissionProfileToConfig(host: RuntimeSettingsCommandsContext): Promise<boolean> {
   if (activePanelOperationBlocked(host, "permission-settings")) return false;
-  requestPendingRuntime(host, { permissionProfile: resetRuntimeIntentToConfig() });
-  return applyPendingThreadSettings(host, ["permissions"]);
+  const configured = runtimeProjection(host).config.startupPermissions.activePermissionProfile?.id ?? null;
+  if (configuredResetUnavailable(host, configured, "permission profile")) return false;
+  requestPendingRuntime(host, { permissionProfile: configured === null ? unchangedRuntimeIntent() : resetRuntimeIntentToConfig() });
+  return applyPendingThreadSettings(host, ["permissionProfile"]);
+}
+
+function configuredResetUnavailable(host: RuntimeSettingsCommandsHost, value: string | null, label: string): boolean {
+  if (state(host).panelThread.kind === "empty" || value !== null) return false;
+  host.addSystemMessage(`Cannot reset ${label}: no configured value is available. Choose an explicit value or start a new thread.`);
+  return true;
 }
 
 function activePanelOperationBlocked(host: RuntimeSettingsCommandsHost, operation: ActivePanelOperation): boolean {
@@ -280,7 +313,7 @@ async function setFastMode(host: RuntimeSettingsCommandsContext, mode: FastModeS
     host,
     async () => {
       requestPendingRuntime(host, { fastMode: setRuntimeIntentValue(fastMode) });
-      return applyPendingThreadSettings(host, ["serviceTier"]);
+      return applyPendingThreadSettings(host, ["fastMode"]);
     },
     mode === "enabled" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.",
   );
@@ -358,66 +391,6 @@ function reportCollaborationModeWarning(host: RuntimeSettingsCommandsHost): void
   host.addSystemMessage(
     `${host.collaborationModeLabel()} mode is selected, but No effective model is available. Sending without a mode override.`,
   );
-}
-
-function currentPendingRuntimeSettingsPatch(host: RuntimeSettingsCommandsHost): RuntimeSettingsPatch {
-  const { snapshot, config } = runtimeProjection(host);
-  return buildPendingRuntimeSettingsPatch(snapshot, config).update;
-}
-
-function pickRuntimeSettingsFields(update: RuntimeSettingsPatch, fields: readonly (keyof RuntimeSettingsPatch)[]): RuntimeSettingsPatch {
-  const targetedUpdate: RuntimeSettingsPatch = {};
-  for (const key of fields) {
-    if (key in update) Object.assign(targetedUpdate, { [key]: update[key] });
-  }
-  return targetedUpdate;
-}
-
-function matchingPendingPatch(current: RuntimeSettingsPatch, sent: RuntimeSettingsPatch): RuntimeSettingsPatch {
-  const matching: RuntimeSettingsPatch = {};
-  for (const key of patchKeys(sent)) {
-    if (key in current && threadSettingsValueEqual(current[key], sent[key])) {
-      Object.assign(matching, { [key]: sent[key] });
-    }
-  }
-  return matching;
-}
-
-function patchEqual(left: RuntimeSettingsPatch, right: RuntimeSettingsPatch): boolean {
-  const leftKeys = patchKeys(left);
-  const rightKeys = patchKeys(right);
-  return leftKeys.length === rightKeys.length && leftKeys.every((key) => key in right && threadSettingsValueEqual(left[key], right[key]));
-}
-
-function patchEmpty(patch: RuntimeSettingsPatch): boolean {
-  return patchKeys(patch).length === 0;
-}
-
-function patchKeys(patch: RuntimeSettingsPatch): (keyof RuntimeSettingsPatch)[] {
-  return Object.keys(patch) as (keyof RuntimeSettingsPatch)[];
-}
-
-function threadSettingsValueEqual(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true;
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => threadSettingsValueEqual(value, right[index]))
-    );
-  }
-  if (!isPlainRecord(left) || !isPlainRecord(right)) return false;
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  return (
-    leftKeys.length === rightKeys.length &&
-    leftKeys.every((key) => Object.hasOwn(right, key) && threadSettingsValueEqual(left[key], right[key]))
-  );
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object";
 }
 
 function runtimeProjection(host: RuntimeSettingsCommandsHost): {

@@ -118,13 +118,21 @@ export class AppServerContextConnection implements AppServerClientAccess {
     return operation(client);
   }
 
-  dispose(): void {
+  dispose(afterChildren?: Promise<unknown>): void {
     if (this.disposed) return;
     this.disposed = true;
     this.subscriptions.reset();
-    this.manager.disconnect();
-    for (const lease of this.leases) lease.handlers.onExit();
+    const retiring = this.activeLeases();
     this.leases.clear();
+    for (const lease of retiring) lease.handlers.onExit();
+    // Admission and UI delivery stop now; the parent owns child cleanup order.
+    if (afterChildren)
+      void afterChildren
+        .finally(() => {
+          this.manager.disconnect();
+        })
+        .catch(() => undefined);
+    else this.manager.disconnect();
   }
 
   private connect(): Promise<ServerInitialization> {
