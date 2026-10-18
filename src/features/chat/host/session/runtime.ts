@@ -12,9 +12,7 @@ import type { ChatStateStore } from "../../application/state/store";
 import type { ForkDraftPreparation } from "../../application/threads/fork-draft";
 import { sideChatDraft } from "../../application/threads/fork-draft";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
-import { createSideChatCommands } from "../../application/threads/side-chat-commands";
 import { createThreadStartCommand } from "../../application/threads/thread-start-command";
-import { activeTurnId } from "../../application/turns/turn-state";
 import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
@@ -63,21 +61,8 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
   const currentClient = connection.currentClient;
   const appServer = createChatAppServerGateway({
     vaultPath: resourceContext.vaultPath,
-    createSideConversation: environment.plugin.createSideConversation,
     currentClient,
-    currentTurn: () => {
-      const state = stateStore.getState();
-      const threadId = activeThreadId(state);
-      const turnId = activeTurnId(state.activeTurn);
-      return threadId && turnId ? { threadId, turnId } : null;
-    },
     recordThreadSubscription: connection.recordThreadSubscription,
-    releaseThreadRequests: (threadId) => {
-      sessionConnection.releaseThreadRequests(threadId);
-    },
-    reportCleanupFailure: () => {
-      new Notice("Could not confirm side chat cleanup. Codex may still be running.");
-    },
   });
   const status = createSessionStatus(stateStore, localItemIds);
   const threadReadState = createSessionThreadReadState({
@@ -152,16 +137,10 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     vaultPath: () => environment.plugin.appServerContext.vaultPath,
     sharedResources,
   });
-  const ephemeral = createSideChatCommands({
-    stateStore,
-    effects: appServer.threadEphemeral,
-    notifyActiveThreadIdentityChanged,
-  });
   const threadStart = createThreadStartCommand({
     withThreadActivation: (operation) => connection.withThreadActivation(null, operation),
     stateStore,
     effects: appServer.threadStart,
-    createSideChat: (sourceThreadId, runtime, isCurrent) => ephemeral.create(sourceThreadId, runtime, isCurrent),
     onThreadActivated: (hadTurns) => {
       threadFoundation.autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
       notifyActiveThreadIdentityChanged();
@@ -219,14 +198,10 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     composerController,
     foundation: threadFoundation,
     features: threadFeatures,
-    ephemeral,
     applyForkDraft: host.applyForkDraft,
   });
   const reconnectHost = {
     stateStore,
-    cleanupForConnectionReset: () => {
-      ephemeral.cleanupForConnectionReset();
-    },
     resetConnectionScope: () => {
       connectionCoordinator.invalidate();
       invalidateThreadWork();
@@ -389,7 +364,6 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
       restoration: threadFeatures.restoration,
       identity: threadFeatures.identity,
       ensureRestoredThreadLoaded: threadFeatures.ensureRestoredThreadLoaded,
-      ephemeral,
     },
     composer: {
       controller: composerController,
@@ -402,7 +376,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
     },
     dispose: async (unmount: () => void): Promise<void> => {
       threadReadState.dispose();
-      // Invalidate local results while retaining thread facts for Side Chat cleanup.
+      // Retire presentation without interrupting Codex-owned work.
       stateStore.dispatch({ type: "panel/disposed" });
       try {
         sessionConnection.deactivate();
@@ -415,11 +389,7 @@ export function createChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost)
         host.threadStreamScrollBinding.dispose();
         unmount();
       } finally {
-        try {
-          ephemeral.dispose();
-        } finally {
-          connection.disconnect();
-        }
+        connection.disconnect();
       }
     },
   } as const;

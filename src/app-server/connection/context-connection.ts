@@ -1,4 +1,5 @@
 import type { ServerInitialization } from "../../domain/runtime/metadata";
+import type { ThreadSubscriptionInterest } from "../../domain/threads/model";
 import type { InitializeParams } from "../../generated/app-server/InitializeParams";
 import type { AppServerClient, AppServerServerRequestResponder } from "./client";
 import type { AppServerClientAccess } from "./client-access";
@@ -24,14 +25,14 @@ export interface AppServerContextConnectionLease {
   currentClient: () => AppServerClient | null;
   isConnected(): boolean;
   disconnect(): void;
-  updateThreadSubscriptions(threadIds: readonly string[]): void;
+  updateThreadSubscriptions(interests: readonly ThreadSubscriptionInterest[]): void;
   recordThreadSubscription: (threadId: string, client: AppServerClient) => void;
   withThreadActivation: <T>(threadId: string | null, operation: () => Promise<T>) => Promise<T>;
 }
 
 interface ActiveLease {
   readonly handlers: AppServerContextConnectionLeaseHandlers;
-  readonly threadIds: () => readonly string[];
+  readonly interests: () => readonly ThreadSubscriptionInterest[];
 }
 
 interface ContextConnectionManager {
@@ -56,7 +57,7 @@ export class AppServerContextConnection implements AppServerClientAccess {
     this.manager = manager ?? new ConnectionManager(codexPath, cwd, initializeParams);
     this.subscriptions = new ThreadSubscriptions(
       () => this.manager.currentClient(),
-      () => new Set(this.activeLeases().flatMap((lease) => [...lease.threadIds()])),
+      () => this.activeLeases().flatMap((lease) => [...lease.interests()]),
       (message) => {
         this.handlers.onSubscriptionError(message);
       },
@@ -66,7 +67,7 @@ export class AppServerContextConnection implements AppServerClientAccess {
   createLease(): AppServerContextConnectionLease {
     this.assertActive();
     let active: ActiveLease | null = null;
-    let threadIds: readonly string[] = [];
+    let interests: readonly ThreadSubscriptionInterest[] = [];
     const isAttached = (): boolean => {
       return active !== null && this.leases.has(active);
     };
@@ -74,7 +75,7 @@ export class AppServerContextConnection implements AppServerClientAccess {
       connect: async (handlers) => {
         this.assertActive();
         if (active) this.leases.delete(active);
-        const nextActive = { handlers, threadIds: () => threadIds };
+        const nextActive = { handlers, interests: () => interests };
         active = nextActive;
         this.leases.add(nextActive);
         try {
@@ -97,9 +98,16 @@ export class AppServerContextConnection implements AppServerClientAccess {
         active = null;
         this.subscriptions.reconcile();
       },
-      updateThreadSubscriptions: (nextThreadIds) => {
-        if (threadIds.length === nextThreadIds.length && threadIds.every((id, index) => id === nextThreadIds[index])) return;
-        threadIds = nextThreadIds;
+      updateThreadSubscriptions: (nextInterests) => {
+        if (
+          interests.length === nextInterests.length &&
+          interests.every(
+            (interest, index) =>
+              interest.threadId === nextInterests[index]?.threadId && interest.canResume === nextInterests[index].canResume,
+          )
+        )
+          return;
+        interests = nextInterests;
         this.subscriptions.reconcile();
       },
       recordThreadSubscription: (threadId, client) => {
@@ -118,21 +126,14 @@ export class AppServerContextConnection implements AppServerClientAccess {
     return operation(client);
   }
 
-  dispose(afterChildren?: Promise<unknown>): void {
+  dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.subscriptions.reset();
     const retiring = this.activeLeases();
     this.leases.clear();
     for (const lease of retiring) lease.handlers.onExit();
-    // Admission and UI delivery stop now; the parent owns child cleanup order.
-    if (afterChildren)
-      void afterChildren
-        .finally(() => {
-          this.manager.disconnect();
-        })
-        .catch(() => undefined);
-    else this.manager.disconnect();
+    this.manager.disconnect();
   }
 
   private connect(): Promise<ServerInitialization> {
@@ -143,8 +144,7 @@ export class AppServerContextConnection implements AppServerClientAccess {
     return {
       onNotification: (notification) => {
         const client = this.manager.currentClient();
-        const attached =
-          notification.method === "thread/started" && !notification.params.thread.ephemeral ? notification.params.thread : null;
+        const attached = notification.method === "thread/started" ? notification.params.thread : null;
         if (attached && client) this.subscriptions.record(attached.id, client);
         if (!this.handlers.onNotification(notification)) {
           for (const lease of this.activeLeases()) lease.handlers.onNotification(notification);

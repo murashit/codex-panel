@@ -1,34 +1,45 @@
+import type { ThreadSubscriptionInterest } from "../../domain/threads/model";
 import type { AppServerClient } from "./client";
 import { StaleConnectionError } from "./connection-manager";
 
-/** Persistent subscriptions belong to the shared connection, not the panel that resumed them. */
+/** Thread subscriptions belong to the shared connection, not the panel that resumed them. */
 export class ThreadSubscriptions {
-  private readonly subscribed = new Set<string>();
+  private readonly tracked = new Map<string, "acknowledged" | "upstream">();
   private readonly updates = new Map<string, Promise<void>>();
   private readonly activations = new Map<string | null, number>();
   private generation = 0;
 
   constructor(
     private readonly currentClient: () => AppServerClient | null,
-    private readonly requiredThreads: () => ReadonlySet<string>,
+    private readonly requiredThreads: () => readonly ThreadSubscriptionInterest[],
     private readonly reportFailure: (message: string) => void,
   ) {}
 
   record(threadId: string, client: AppServerClient): void {
     if (client !== this.currentClient()) return;
-    this.subscribed.add(threadId);
+    this.tracked.set(threadId, "acknowledged");
   }
 
   reconcile(): void {
     const client = this.currentClient();
     if (!client) return;
-    const required = this.requiredThreads();
-    for (const threadId of new Set([...this.subscribed, ...required])) {
+    const required = new Map<string, boolean>();
+    for (const interest of this.requiredThreads()) {
+      required.set(interest.threadId, interest.canResume || required.get(interest.threadId) === true);
+    }
+    for (const threadId of new Set([...this.tracked.keys(), ...required.keys()])) {
       const subscribe = required.has(threadId);
       // New IDs arrive by notification before creation replies. Hold releases until adoption,
       // but keep unrelated subscriptions and known-thread activations moving.
       if (this.activations.has(threadId) || (!subscribe && this.activations.has(null))) continue;
-      if (subscribe === this.subscribed.has(threadId) || this.updates.has(threadId)) continue;
+      if (this.updates.has(threadId)) continue;
+      if (subscribe && !required.get(threadId)) {
+        // Parent agent items identify upstream-managed children, not an attachment ACK.
+        // Keep their release responsibility without claiming acquisition or issuing resume.
+        if (!this.tracked.has(threadId)) this.tracked.set(threadId, "upstream");
+        continue;
+      }
+      if (subscribe ? this.tracked.get(threadId) === "acknowledged" : !this.tracked.has(threadId)) continue;
       const generation = this.generation;
       this.updates.set(
         threadId,
@@ -62,7 +73,7 @@ export class ThreadSubscriptions {
 
   reset(): void {
     this.generation += 1;
-    this.subscribed.clear();
+    this.tracked.clear();
     this.updates.clear();
     this.activations.clear();
   }
@@ -74,8 +85,8 @@ export class ThreadSubscriptions {
       if (subscribe) await client.request("thread/resume", { threadId, excludeTurns: true });
       else await client.request("thread/unsubscribe", { threadId }, { timeoutMs: 5_000 });
       if (generation !== this.generation || client !== this.currentClient()) return false;
-      if (subscribe) this.subscribed.add(threadId);
-      else this.subscribed.delete(threadId);
+      if (subscribe) this.tracked.set(threadId, "acknowledged");
+      else this.tracked.delete(threadId);
       return true;
     } catch (error) {
       if (generation !== this.generation || client !== this.currentClient()) return false;

@@ -3,10 +3,11 @@ import type { AppServerClient, AppServerServerRequestResponder } from "../../../
 import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerContextConnectionLease } from "../../../../app-server/connection/context-connection";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
+import { isApprovalServerRequest } from "../../app-server/inbound/server-request-adapter";
 import { type ChatConnectionCoordinator, createChatConnectionCoordinator } from "../../application/connection/connection-coordinator";
 import { executePanelDynamicTool } from "../../application/dynamic-tools";
 import type { LocalIdSource } from "../../application/local-id-source";
-import { activeThreadId, activeThreadState, type ChatConnectionPhase } from "../../application/state/model";
+import { activeThreadId, type ChatConnectionPhase } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import { panelThreadSubscriptions } from "../../application/threads/thread-subscriptions";
@@ -51,11 +52,10 @@ export interface SessionConnection {
   invalidateConnectionScope: () => void;
   deactivate: () => void;
   refreshSharedThreads: () => Promise<void>;
-  releaseThreadRequests: (threadId: string) => void;
 }
 
 function createServerRequestResponderRegistry() {
-  const responders = new Map<RespondRequestId, { responder: AppServerServerRequestResponder; threadId: string | null }>();
+  const responders = new Map<RespondRequestId, { responder: AppServerServerRequestResponder; approval: boolean }>();
   const settle = (requestId: RespondRequestId, deliver: (responder: AppServerServerRequestResponder) => void): boolean => {
     const responder = responders.get(requestId)?.responder ?? null;
     if (!responder) return false;
@@ -68,8 +68,8 @@ function createServerRequestResponderRegistry() {
     }
   };
   return {
-    remember: (requestId: RespondRequestId, responder: AppServerServerRequestResponder, threadId: string | null) => {
-      responders.set(requestId, { responder, threadId });
+    remember: (requestId: RespondRequestId, responder: AppServerServerRequestResponder, approval: boolean) => {
+      responders.set(requestId, { responder, approval });
     },
     forget: (requestId: RespondRequestId) => {
       responders.delete(requestId);
@@ -82,21 +82,9 @@ function createServerRequestResponderRegistry() {
       settle(requestId, (responder) => {
         responder.reject(code, message);
       }),
-    rejectThread: (threadId: string): RespondRequestId[] => {
-      const rejected: RespondRequestId[] = [];
+    forgetApprovals: () => {
       for (const [requestId, entry] of responders) {
-        if (entry.threadId !== threadId) continue;
-        settle(requestId, (responder) => {
-          responder.reject(-32000, "The side chat was released.");
-        });
-        responders.delete(requestId);
-        rejected.push(requestId);
-      }
-      return rejected;
-    },
-    forgetOtherThreads: (threadId: string) => {
-      for (const [requestId, entry] of responders) {
-        if (entry.threadId !== threadId) responders.delete(requestId);
+        if (entry.approval) responders.delete(requestId);
       }
     },
     rejectAll: (code: number, message: string) => {
@@ -164,7 +152,7 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
           },
           onServerRequest: (request, responder) => {
             if (!active) return false;
-            serverRequestResponders.remember(request.id, responder, "threadId" in request.params ? request.params.threadId : null);
+            serverRequestResponders.remember(request.id, responder, isApprovalServerRequest(request));
             const handled = inboundHandler.handleServerRequest(request);
             if (!handled) serverRequestResponders.forget(request.id);
             return handled;
@@ -199,13 +187,6 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
   });
 
   return {
-    releaseThreadRequests: (threadId) => {
-      const thread = activeThreadState(stateStore.getState());
-      if (thread?.id === threadId && thread.lifetime?.kind === "ephemeral") serverRequestResponders.forgetOtherThreads(threadId);
-      for (const requestId of serverRequestResponders.rejectThread(threadId)) {
-        inboundHandler.handleNotification({ method: "serverRequest/resolved", params: { threadId, requestId } });
-      }
-    },
     coordinator: connectionCoordinator,
     inboundHandler,
     invalidateConnectionScope,
@@ -214,14 +195,8 @@ export function createSessionConnection(host: SessionConnectionHost, input: Sess
       stopObservingSubscriptions();
       connection.updateThreadSubscriptions([]);
       connectionCoordinator.invalidate();
-      const thread = activeThreadState(stateStore.getState());
-      if (thread?.lifetime?.kind === "ephemeral") {
-        // A side chat's no-subagent instruction is not a cleanup ownership guarantee.
-        serverRequestResponders.forgetOtherThreads(thread.id);
-      } else {
-        // Codex retains pending approvals across unsubscribe and replays them on resume.
-        for (const approval of stateStore.getState().requests.approvals) serverRequestResponders.forget(approval.requestId);
-      }
+      // Codex retains approvals across unsubscribe; closing presentation is not a decision.
+      serverRequestResponders.forgetApprovals();
       invalidateConnectionScope();
     },
     refreshSharedThreads,

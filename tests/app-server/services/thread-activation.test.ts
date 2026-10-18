@@ -8,7 +8,7 @@ import { appServerThreadFixture } from "../../support/app-server-records";
 describe("app-server thread activation", () => {
   it("maps app-server activation responses into panel-owned snapshots", () => {
     const snapshot = threadActivationSnapshotFromAppServerResponse(
-      responseFixture({ ...threadFixture("thread", "Resumed"), canAcceptDirectInput: false }),
+      responseFixture({ ...threadFixture("thread", "Resumed"), canAcceptDirectInput: false, ephemeral: true }),
     );
 
     expect(snapshot).toMatchObject({
@@ -16,6 +16,7 @@ describe("app-server thread activation", () => {
         id: "thread",
         name: "Resumed",
         archived: false,
+        ephemeral: true,
       },
       canAcceptDirectInput: false,
       model: "gpt-5.5",

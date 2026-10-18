@@ -189,7 +189,7 @@ describe("executePanelSlashCommand", () => {
     stateStore.dispatch({
       ...threadActivationFixture(thread("side", "Side chat")),
       type: "active-thread/resumed",
-      lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
 
     await expect(executePanelSlashCommand(host, "goal", "")).rejects.toThrow("Goals are unavailable in side chats.");
@@ -237,7 +237,7 @@ describe("executePanelSlashCommand", () => {
     stateStore.dispatch({
       ...threadActivationFixture(thread("side", "Side chat")),
       type: "active-thread/resumed",
-      lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
 
     await executePanelSlashCommand(host, "compact", "");

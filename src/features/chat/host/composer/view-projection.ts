@@ -1,11 +1,15 @@
 import type { ModelMetadata, ReasoningEffort } from "../../../../domain/runtime/catalog";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/settings";
 import type { RateLimitSnapshot } from "../../../../domain/runtime/usage";
-import type { Thread } from "../../../../domain/threads/model";
-import { explicitThreadName } from "../../../../domain/threads/model";
 import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import { runtimeSnapshotForChatSlices, threadStreamItemsHaveThreadTurns } from "../../application/runtime/snapshot";
-import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThreadProvenance } from "../../application/state/model";
+import {
+  activeThreadState,
+  type ChatActiveThreadState,
+  type ChatState,
+  isSideChatLifetime,
+  panelThreadProvenance,
+} from "../../application/state/model";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { chatThreadStreamViewState } from "../../application/state/turn-scope";
 import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
@@ -32,9 +36,7 @@ export function projectChatPanelComposer(model: ChatPanelComposerModel, actions:
     {
       snapshot: model,
       disconnected: model.connectionPhase.kind === "failed" || model.connectionPhase.kind === "disconnected",
-      threadName: model.activeThreadId ? model.activeListedThreadName : null,
       sideChatActive: model.sideChatActive,
-      sideChatSourceTitle: model.sideChatSourceTitle,
       inputRestriction:
         model.canAcceptDirectInput === false
           ? "read-only"
@@ -47,7 +49,6 @@ export function projectChatPanelComposer(model: ChatPanelComposerModel, actions:
 }
 
 export interface ChatPanelComposerSharedValues {
-  readonly threads: readonly Thread[];
   readonly runtimeConfig: RuntimeConfigSnapshot | null;
   readonly models: readonly ModelMetadata[];
   readonly rateLimit: RateLimitSnapshot | null;
@@ -55,9 +56,7 @@ export interface ChatPanelComposerSharedValues {
 
 export interface ChatPanelComposerModel extends RuntimeSnapshot {
   readonly connectionPhase: ChatState["connection"]["phase"];
-  readonly activeListedThreadName: string | null;
   readonly sideChatActive: boolean;
-  readonly sideChatSourceTitle: string | null;
   readonly forkDraft: boolean;
   readonly draft: ChatState["composer"]["draft"];
   readonly attachmentSavePending: boolean;
@@ -75,10 +74,9 @@ export interface ChatPanelComposerModel extends RuntimeSnapshot {
 
 export function selectChatPanelComposer(state: ChatState, shared: ChatPanelComposerSharedValues): ChatPanelComposerModel {
   const activeThread = activeThreadState(state);
-  const activeThreadId = activeThread?.id ?? null;
   const lifetime = activeThread?.lifetime;
   const draft = state.panelThread.kind === "fork-draft" ? state.panelThread.draft : null;
-  const sideChat = draft?.kind === "side-chat" ? draft : lifetime?.kind === "ephemeral" ? lifetime : null;
+  const sideChat = draft?.kind === "side-chat" ? draft : isSideChatLifetime(lifetime) ? lifetime : null;
   return {
     ...runtimeSnapshotForChatSlices({
       runtimeConfig: shared.runtimeConfig,
@@ -89,9 +87,7 @@ export function selectChatPanelComposer(state: ChatState, shared: ChatPanelCompo
       availableModels: shared.models,
     }),
     connectionPhase: state.connection.phase,
-    activeListedThreadName: activeThreadId ? projectedThreadName(shared, activeThreadId) : null,
     sideChatActive: sideChat !== null,
-    sideChatSourceTitle: sideChat?.sourceThreadTitle ?? null,
     forkDraft: state.panelThread.kind === "fork-draft",
     draft: state.composer.draft,
     attachmentSavePending: state.composer.pendingAttachmentSaveIds.length > 0,
@@ -111,9 +107,4 @@ export function selectChatPanelComposer(state: ChatState, shared: ChatPanelCompo
 function hasThreadTurns(state: ChatState): boolean {
   const stream = chatThreadStreamViewState(state.threadStream, state.activeTurn);
   return threadStreamItemsHaveThreadTurns(threadStreamItems(stream));
-}
-
-function projectedThreadName(shared: ChatPanelComposerSharedValues, threadId: string): string | null {
-  const thread = shared.threads.find((item) => item.id === threadId);
-  return thread ? explicitThreadName(thread) : null;
 }

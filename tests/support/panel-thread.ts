@@ -7,6 +7,7 @@ export function panelThreadFixture(input: Pick<Thread, "id"> & Partial<Omit<Thre
     updatedAt: 1,
     name: null,
     archived: false,
+    ephemeral: false,
     provenance: { kind: "interactive" },
     ...input,
   };

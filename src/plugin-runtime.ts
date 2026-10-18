@@ -154,7 +154,11 @@ export class CodexPanelRuntime implements ChatViewRuntimeOwner, ThreadsViewRunti
     } else {
       Object.assign(this.options.settingsRef.settings, settings);
     }
-    if (previousSettings.showToolbar !== settings.showToolbar || previousSettings.archiveExportEnabled !== settings.archiveExportEnabled) {
+    if (
+      previousSettings.showToolbar !== settings.showToolbar ||
+      previousSettings.archiveExportEnabled !== settings.archiveExportEnabled ||
+      previousSettings.newConversationsEphemeral !== settings.newConversationsEphemeral
+    ) {
       this.refreshChatViewSettings();
     }
     if (previousSettings.archiveExportEnabled !== settings.archiveExportEnabled) this.refreshThreadsViewSettings();

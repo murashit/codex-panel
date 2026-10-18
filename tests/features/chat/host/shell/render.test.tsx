@@ -59,6 +59,8 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
+    expect(container.querySelector(".codex-panel__conversation-title")?.textContent).toBe("New chat");
+    const initialHeader = container.querySelector(".codex-panel__conversation-header");
     expect(container.querySelector(".codex-panel__region--thread-stream")).not.toBeNull();
     expect(container.querySelector(".codex-panel__region--composer")).not.toBeNull();
     const initialComposer = composer(container);
@@ -74,6 +76,7 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar")).not.toBeNull();
+    expect(container.querySelector(".codex-panel__conversation-header")).toBe(initialHeader);
     expect(document.activeElement).toBe(composer(container));
     expect(composer(container).selectionStart).toBe(2);
     expect(composer(container).selectionEnd).toBe(9);
@@ -85,11 +88,28 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
+    expect(container.querySelector(".codex-panel__conversation-header")).toBe(initialHeader);
     expect(document.activeElement).toBe(composer(container));
     expect(composer(container).selectionStart).toBe(2);
     expect(composer(container).selectionEnd).toBe(9);
     expect(container.querySelector<HTMLElement>(".codex-panel__region--thread-stream")?.scrollTop).toBe(42);
 
+    await act(async () => {
+      renderChatPanelShell(container, { ...props, showToolbar: true, parts });
+      await settleShellEffects();
+    });
+    await act(async () => {
+      store.dispatch({ type: "ui/panel-set", panel: "history" });
+      store.dispatch({ type: "ui/goal-editor-started", threadId: null, objective: "A goal", tokenBudget: null });
+      await settleShellEffects();
+    });
+    const toolbar = container.querySelector(".codex-panel__toolbar");
+    const heading = container.querySelector(".codex-panel__region--heading");
+    const goal = container.querySelector(".codex-panel__goal");
+    expect(toolbar?.querySelector('[data-codex-panel-toolbar-panel="history"]')).not.toBeNull();
+    expect(heading?.firstElementChild).toBe(initialHeader);
+    expect(heading?.contains(goal)).toBe(true);
+    expect(toolbar?.contains(initialHeader)).toBe(false);
     await act(async () => {
       unmountChatPanelShell(container);
     });
@@ -104,7 +124,16 @@ describe("ChatPanelShell", () => {
     const props = {
       ...shellProps(store),
       ...chatSharedSourcesFixture([
-        { id: "thread", name: "Thread", preview: "", archived: false, provenance: { kind: "interactive" }, createdAt: 1, updatedAt: 1 },
+        {
+          id: "thread",
+          name: "Thread",
+          preview: "",
+          archived: false,
+          ephemeral: false,
+          provenance: { kind: "interactive" },
+          createdAt: 1,
+          updatedAt: 1,
+        },
       ]),
       parts: shellParts({ archiveExportEnabled: () => saveMarkdown }),
     };

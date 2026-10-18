@@ -28,6 +28,34 @@ import {
 describe("CodexChatView workspace restoration", () => {
   setupViewConnectionHarness();
 
+  it("keeps temporary identity and workspace persistence after the first turn fails", async () => {
+    const client = connectedClient({
+      "thread/start": vi.fn().mockResolvedValue(resumedThread("temporary", { ephemeral: true, name: null, preview: "" })),
+      "turn/start": vi.fn().mockRejectedValue(new Error("turn rejected")),
+      "turn/interrupt": vi.fn().mockResolvedValue({}),
+    });
+    connectionMockState().client = client;
+    const host = chatHost({ settings: { newConversationsEphemeral: true, showToolbar: false } });
+    const view = await chatView({ host });
+    await view.onOpen();
+    await waitForAsyncWork(() => expect(view.containerEl.querySelector('button[aria-label="Use regular conversation"]')).not.toBeNull());
+    view.surface.setComposerText("Keep this conversation");
+    await submitComposerByEnter(view);
+
+    await waitForAsyncWork(() => {
+      expect(composerElement(view).value).toBe("Keep this conversation");
+      expect(view.surface.openPanelSnapshot().threadId).toBe("temporary");
+      expect(view.containerEl.querySelector(".codex-panel__conversation-toggle")).toBeNull();
+      expect(view.containerEl.querySelector(".codex-panel__conversation-title")?.textContent).toBe("Keep this conversation");
+      expect(view.containerEl.querySelector('[aria-label="Temporary conversation"]')).not.toBeNull();
+    });
+    host.settingsSource.newConversationsEphemeral = false;
+    view.surface.refreshSettings();
+    expect(view.getState()).toEqual({ version: 1 });
+    expect(view.getDisplayText()).toBe("Codex: Keep this conversation");
+    await view.onClose();
+  });
+
   it("keeps an empty fork draft occupied and restores its input and history across context replacement", async () => {
     const host = chatHost();
     const owner = chatViewRuntimeOwner(host);

@@ -14,9 +14,7 @@ type ComposerRuntimeChoice = ComposerMetaViewModel["modelChoices"][number];
 interface ComposerPresentationInput {
   snapshot: RuntimeSnapshot;
   disconnected: boolean;
-  threadName: string | null;
   sideChatActive: boolean;
-  sideChatSourceTitle: string | null;
   inputRestriction: "read-only" | "agent-unknown" | null;
 }
 
@@ -40,7 +38,9 @@ export function composerPresentation(
         ? "This thread cannot accept messages."
         : input.inputRestriction === "agent-unknown"
           ? "Agent thread is read-only."
-          : composerPlaceholder(input.threadName, input.sideChatActive, input.sideChatSourceTitle),
+          : input.sideChatActive
+            ? "Ask in side chat..."
+            : "Ask Codex...",
     meta: {
       ...composerMetaViewModel(input.disconnected, snapshot, resolution),
       ...runtimeComposerChoices({ models: snapshot.availableModels, resolution, ...actions }),
@@ -53,11 +53,6 @@ interface RuntimeComposerChoicesInput {
   resolution: RuntimeControlsResolution;
   requestModel: (model: string) => void;
   requestReasoningEffort: (effort: ReasoningEffort) => void;
-}
-
-function composerPlaceholder(threadName: string | null, sideChatActive: boolean, sideChatSourceTitle: string | null): string {
-  if (sideChatActive) return sideChatSourceTitle ? `Ask in side chat for “${sideChatSourceTitle}”...` : "Ask in side chat...";
-  return threadName ? `Ask Codex in “${threadName}”...` : "Ask Codex...";
 }
 
 function composerMetaViewModel(

@@ -1,7 +1,3 @@
-.codex-panel__region--goal:not(:empty) {
-  padding-bottom: var(--codex-panel-edge-padding-x);
-}
-
 .codex-panel__goal {
   margin: var(--codex-panel-edge-padding-x) var(--codex-panel-edge-padding-x) 0;
   padding-left: var(--codex-panel-rail-indent);

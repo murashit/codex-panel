@@ -98,7 +98,8 @@ describe("createChatRuntimeSettingsCommands", () => {
     state = chatStateWith(state, {
       activeThread: {
         id: "thread",
-        lifetime: kind === "ephemeral" ? { kind, sourceThreadId: "source", sourceThreadTitle: "Source" } : { kind },
+        lifetime:
+          kind === "ephemeral" ? { kind, mode: "side-chat" as const, sourceThreadId: "source", sourceThreadTitle: "Source" } : { kind },
       },
     });
     state = chatStateWith(state, {

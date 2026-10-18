@@ -224,7 +224,7 @@ describe("chatReducer", () => {
     let state = chatStateFixture({
       activeThread: {
         id: "active-thread",
-        title: "Reconnect me",
+        name: "Reconnect me",
         lifetime: { kind: "persistent" },
         provenance,
       },
@@ -246,8 +246,8 @@ describe("chatReducer", () => {
     let state = chatStateFixture({
       activeThread: {
         id: "side-thread",
-        title: "Side chat",
-        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+        name: "Side chat",
+        lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
       },
     });
     state = withChatStateStableThreadStreamItems(state, [dialogueItem("side-item")]);

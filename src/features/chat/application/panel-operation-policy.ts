@@ -1,4 +1,4 @@
-import type { ChatState } from "./state/model";
+import { type ChatState, isSideChatLifetime, newConversationEphemeral } from "./state/model";
 
 /**
  * Operations whose availability derives from the panel's current thread mode.
@@ -24,79 +24,69 @@ export type ActivePanelOperationDecision =
   | { readonly kind: "blocked"; readonly message: string }
   | { readonly kind: "resume-required" };
 
-type ActivePanelThreadFacts =
-  | { readonly phase: "empty" }
-  | { readonly phase: "awaiting-resume"; readonly provenance: "interactive" | "subagent" | null }
-  | {
-      readonly phase: "active";
-      readonly lifetime: "persistent" | "ephemeral";
-      readonly canAcceptDirectInput: boolean | null;
-      readonly provenance: "interactive" | "subagent" | null;
-    };
+type ConversationMode = "regular" | "temporary" | "side-chat";
 
 const ALLOWED: ActivePanelOperationDecision = { kind: "allowed" };
 
 export function activePanelOperationDecision(state: ChatState, operation: ActivePanelOperation): ActivePanelOperationDecision {
-  if (state.panelThread.kind === "fork-draft") {
-    if (state.panelThread.operation) return { kind: "blocked", message: "Wait for the current fork operation to finish." };
-    if (state.panelThread.draft.kind === "side-chat") {
-      if (operation !== "compact") return sideChatDecision(operation);
-      return { kind: "blocked", message: "Send a message to create this side chat before using this action." };
-    }
-    switch (operation) {
-      case "submit":
-      case "fork":
-      case "rollback":
-      case "thread-settings":
-      case "permission-settings":
-      case "implement-plan":
-        return ALLOWED;
-      default:
-        return { kind: "blocked", message: "Send a message to create this fork before using this action." };
+  const panel = state.panelThread;
+  switch (panel.kind) {
+    case "awaiting-resume":
+      if (panel.provenance?.kind === "subagent") return agentThreadBlocked(operation);
+      return operation === "goal-mutation" ? { kind: "resume-required" } : ALLOWED;
+    case "empty":
+      return panel.operation
+        ? { kind: "blocked", message: "Wait for conversation creation to finish." }
+        : conversationModeDecision(newConversationEphemeral(state) ? "temporary" : "regular", operation);
+    case "fork-draft":
+      if (panel.operation) return { kind: "blocked", message: "Wait for the current fork operation to finish." };
+      if (panel.draft.kind === "side-chat") {
+        return operation === "compact" ? uncreatedFork("side chat") : sideChatDecision(operation);
+      }
+      switch (operation) {
+        case "submit":
+        case "fork":
+        case "rollback":
+        case "thread-settings":
+        case "permission-settings":
+        case "implement-plan":
+          return ALLOWED;
+        default:
+          return uncreatedFork("fork");
+      }
+    case "active": {
+      const { lifetime, canAcceptDirectInput, provenance } = panel.thread;
+      const mode = isSideChatLifetime(lifetime) ? "side-chat" : lifetime?.kind === "ephemeral" ? "temporary" : "regular";
+      if (operation === "submit" && canAcceptDirectInput !== null) {
+        return canAcceptDirectInput ? ALLOWED : directInputBlocked();
+      }
+      if (provenance?.kind === "subagent") {
+        if (mode === "side-chat" && operation !== "goal-read") return agentThreadBlocked(operation);
+        const decision = agentThreadBlocked(operation);
+        if (decision.kind !== "allowed") return decision;
+      }
+      return conversationModeDecision(mode, operation);
     }
   }
-  return activePanelOperationDecisionForFacts(activePanelThreadFacts(state), operation);
 }
 
-function activePanelOperationDecisionForFacts(
-  facts: ActivePanelThreadFacts,
-  operation: ActivePanelOperation,
-): ActivePanelOperationDecision {
-  if (facts.phase === "awaiting-resume") {
-    if (facts.provenance === "subagent") return agentThreadBlocked(operation);
-    return operation === "goal-mutation" ? { kind: "resume-required" } : ALLOWED;
+function conversationModeDecision(mode: ConversationMode, operation: ActivePanelOperation): ActivePanelOperationDecision {
+  if (mode === "side-chat") return sideChatDecision(operation);
+  if (mode === "regular") return ALLOWED;
+  switch (operation) {
+    case "goal-read":
+    case "goal-mutation":
+    case "fork":
+    case "rollback":
+    case "start-side-chat":
+      return { kind: "blocked", message: "This action requires a saved conversation. Start a regular chat to use it." };
+    default:
+      return ALLOWED;
   }
-  if (facts.phase === "empty") return ALLOWED;
-
-  if (operation === "submit") {
-    if (facts.canAcceptDirectInput !== null) return facts.canAcceptDirectInput ? ALLOWED : directInputBlocked();
-    if (facts.provenance === "subagent") return agentThreadBlocked(operation);
-    if (facts.lifetime === "ephemeral") return sideChatDecision(operation);
-    return ALLOWED;
-  }
-
-  // Keep the stricter interpretation if a malformed or future state contains
-  // both mode facts. This makes mode restrictions monotonically safe.
-  if (facts.provenance === "subagent" && facts.lifetime === "ephemeral") {
-    return operation === "goal-read" ? sideChatDecision(operation) : agentThreadBlocked(operation);
-  }
-  if (facts.provenance === "subagent") return agentThreadBlocked(operation);
-  if (facts.lifetime === "ephemeral") return sideChatDecision(operation);
-  return ALLOWED;
 }
 
-function activePanelThreadFacts(state: ChatState): ActivePanelThreadFacts {
-  const panelThread = state.panelThread;
-  if (panelThread.kind === "empty" || panelThread.kind === "fork-draft") return { phase: "empty" };
-  if (panelThread.kind === "awaiting-resume") {
-    return { phase: "awaiting-resume", provenance: panelThread.provenance?.kind ?? null };
-  }
-  return {
-    phase: "active",
-    lifetime: panelThread.thread.lifetime?.kind ?? "persistent",
-    canAcceptDirectInput: panelThread.thread.canAcceptDirectInput,
-    provenance: panelThread.thread.provenance?.kind ?? null,
-  };
+function uncreatedFork(kind: "fork" | "side chat"): ActivePanelOperationDecision {
+  return { kind: "blocked", message: `Send a message to create this ${kind} before using this action.` };
 }
 
 function directInputBlocked(): ActivePanelOperationDecision {
@@ -130,13 +120,8 @@ function agentThreadBlocked(operation: ActivePanelOperation): ActivePanelOperati
 function sideChatDecision(operation: ActivePanelOperation): ActivePanelOperationDecision {
   switch (operation) {
     case "goal-mutation":
-      return { kind: "blocked", message: "Goals are unavailable in side chats." };
     case "goal-read":
       return { kind: "blocked", message: "Goals are unavailable in side chats." };
-    case "implement-plan":
-      return ALLOWED;
-    case "compact":
-      return ALLOWED;
     case "fork":
       return { kind: "blocked", message: "Side chats cannot be forked." };
     case "rollback":
@@ -144,10 +129,10 @@ function sideChatDecision(operation: ActivePanelOperation): ActivePanelOperation
     case "start-side-chat":
       return { kind: "blocked", message: "Side chats cannot be started from another side chat." };
     case "permission-settings":
-      return ALLOWED;
     case "submit":
-      return ALLOWED;
     case "thread-settings":
+    case "implement-plan":
+    case "compact":
       return ALLOWED;
   }
 }

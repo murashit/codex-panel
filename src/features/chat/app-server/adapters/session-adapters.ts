@@ -19,13 +19,12 @@ import type { RuntimeSettingsPort } from "../../application/runtime/settings-com
 import type { ThreadGoalEffects } from "../../application/threads/goal-commands";
 import type { ThreadHistoryPage, ThreadHistorySource } from "../../application/threads/history-controller";
 import type { ThreadResumeEffects } from "../../application/threads/resume-command";
-import type { SideChatPort } from "../../application/threads/side-chat-commands";
 import type { ThreadCommandEffects } from "../../application/threads/thread-commands";
 import type { ThreadStartEffects } from "../../application/threads/thread-start-command";
 import type { ChatTurnPort } from "../../application/turns/turn-port";
 import { chatThreadHistoryPageFromNewestFirstTurnsPage } from "../mappers/thread-stream/turn-items";
 import { panelDynamicTools } from "./dynamic-tool-registration";
-import { createSideConversation, type SideConversation, type SideConversationFactory } from "./side-chat";
+import { forkSideChat } from "./side-chat";
 
 interface CurrentChatAppServerClientHost {
   currentClient(): AppServerClient | null;
@@ -34,59 +33,16 @@ interface CurrentChatAppServerClientHost {
 interface ChatAppServerAdapterHost extends CurrentChatAppServerClientHost {
   vaultPath: string;
   recordThreadSubscription(threadId: string, client: AppServerClient): void;
-  releaseThreadRequests?: (threadId: string) => void;
-  reportCleanupFailure?: () => void;
-  createSideConversation?: SideConversationFactory;
-  currentTurn?: () => { threadId: string; turnId: string } | null;
 }
 
 export function createChatSessionAdapters(host: ChatAppServerAdapterHost) {
-  let sideChat: { threadId: string | null; conversation: SideConversation } | null = null;
-  let disposed = false;
-  const releaseSideChat = (): Promise<void> => {
-    const conversation = sideChat?.conversation;
-    sideChat = null;
-    return conversation?.release() ?? Promise.resolve();
-  };
-  const ephemeral: SideChatPort = {
-    async forkEphemeralThread(sourceThreadId, runtime, isCurrent) {
-      const client = host.currentClient();
-      if (!client || disposed) return null;
-      const current = (): boolean => !disposed && sideChat === owned && host.currentClient() === client && isCurrent();
-      const conversation = (host.createSideConversation ?? createSideConversation)({
-        client,
-        sourceThreadId,
-        runtime,
-        vaultPath: host.vaultPath,
-        isCurrent: current,
-        ...(host.currentTurn ? { currentTurn: host.currentTurn } : {}),
-        releaseRequests: (threadId) => host.releaseThreadRequests?.(threadId),
-        reportCleanupFailure: () => host.reportCleanupFailure?.(),
-      });
-      const owned = { threadId: null as string | null, conversation };
-      sideChat = owned;
-      const activation = await conversation.activate();
-      if (!activation || !current()) {
-        void conversation.release().catch(() => undefined);
-        return null;
-      }
-      owned.threadId = activation.thread.id;
-      return activation;
-    },
-    release: releaseSideChat,
-    dispose() {
-      disposed = true;
-      return releaseSideChat();
-    },
-  };
   return {
     runtimeSettings: createChatRuntimeSettingsAdapter(host),
     threadStart: createChatThreadStartAdapter(host),
     threadHistory: createChatThreadHistoryAdapter(host),
-    turn: createChatTurnAdapter(host, (threadId) => (sideChat?.threadId === threadId ? sideChat.conversation : null)),
+    turn: createChatTurnAdapter(host),
     threadResume: createChatThreadResumeAdapter(host),
     threadCommands: createChatThreadCommandAdapter(host),
-    threadEphemeral: ephemeral,
     threadGoal: createChatThreadGoalAdapter(host),
   } as const;
 }
@@ -101,6 +57,21 @@ function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadSta
         host.recordThreadSubscription(activation.thread.id, client);
         return activation;
       }),
+    forkSideChat: async (sourceThreadId, runtime, isCurrent) => {
+      const client = host.currentClient();
+      if (!client) return { kind: "not-started" };
+      const activation = await forkSideChat(
+        client,
+        host.vaultPath,
+        sourceThreadId,
+        runtime,
+        () => host.currentClient() === client && isCurrent(),
+        (threadId) => {
+          host.recordThreadSubscription(threadId, client);
+        },
+      );
+      return activation ? { kind: "completed", value: activation } : { kind: "not-started" };
+    },
     startThread: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
         const response = await startThread(client, {
@@ -108,6 +79,7 @@ function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadSta
           serviceTier: request.serviceTier,
           permissions: request.permissions,
           dynamicTools: panelDynamicTools(),
+          ...(request.ephemeral ? { ephemeral: true } : {}),
         });
         host.recordThreadSubscription(response.thread.id, client);
         return threadActivationSnapshotFromAppServerResponse(response);
@@ -115,12 +87,10 @@ function createChatThreadStartAdapter(host: ChatAppServerAdapterHost): ThreadSta
   };
 }
 
-function createChatTurnAdapter(host: ChatAppServerAdapterHost, sideChatFor: (threadId: string) => SideConversation | null): ChatTurnPort {
+function createChatTurnAdapter(host: ChatAppServerAdapterHost): ChatTurnPort {
   return {
     startTurn: (request) =>
       runCurrentChatAppServerEffect(host, async (client) => {
-        const sideChat = sideChatFor(request.threadId);
-        if (sideChat) return sideChat.start(request.input, request.clientUserMessageId);
         const response = await startTurn(client, {
           threadId: request.threadId,
           cwd: host.vaultPath,

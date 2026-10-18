@@ -3,8 +3,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import manifest from "../manifest.json";
 import compatibility from "../src/app-server/compatibility.json";
+import type { AppServerServerRequestResponder } from "../src/app-server/connection/client";
 import { AppServerClient } from "../src/app-server/connection/client";
 import * as contextConnection from "../src/app-server/connection/context-connection";
+import type { ServerRequest } from "../src/app-server/connection/rpc-messages";
 import type { ThreadGoal } from "../src/domain/threads/goal";
 import { CodexExecutionRuntime } from "../src/execution-runtime";
 import type { ChatRuntimeView, CodexChatHost } from "../src/features/chat/host/contracts";
@@ -14,12 +16,18 @@ import type { ThreadsViewHost } from "../src/features/threads-view/session";
 import type { ThreadsRuntimeView } from "../src/features/threads-view/view.obsidian";
 import { DEFAULT_SETTINGS } from "../src/settings/preferences";
 
+interface MockContextHandlers {
+  onNotification(notification: unknown): void;
+  onServerRequest(request: ServerRequest, responder: AppServerServerRequestResponder): boolean;
+  onExit(): void;
+}
+
 const contextConnectionMock = {
   client: { disconnect: vi.fn(), request: vi.fn() },
   instances: [] as Array<{
     dispose: ReturnType<typeof vi.fn>;
     initializeParams: unknown;
-    handlers: { onNotification(notification: unknown): void; onExit(): void };
+    handlers: MockContextHandlers;
   }>,
 };
 const openThreadPickerMock = vi.fn();
@@ -39,7 +47,7 @@ describe("CodexExecutionRuntime", () => {
           _codexPath: string,
           _cwd: string,
           readonly initializeParams: unknown,
-          readonly handlers: { onNotification(notification: unknown): void; onExit(): void },
+          readonly handlers: MockContextHandlers,
         ) {
           contextConnectionMock.instances.push(this);
         }

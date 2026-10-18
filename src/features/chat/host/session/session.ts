@@ -6,6 +6,7 @@ import {
   activeThreadState,
   awaitingResumeThreadState,
   type ChatState,
+  isSideChatLifetime,
   panelThreadId,
   panelThreadProvenance,
   pendingForkReplacement,
@@ -17,6 +18,7 @@ import type { ForkDisplaySnapshot } from "../../application/threads/fork-display
 import { captureForkDisplaySnapshot } from "../../application/threads/fork-display-snapshot";
 import { type ForkDraftPreparation, sideChatDraft } from "../../application/threads/fork-draft";
 import { ChatResumeWorkTracker } from "../../application/threads/resume-work";
+import { canSwitchToThread } from "../../application/threads/thread-switching";
 import { chatTurnBusy } from "../../application/turns/turn-state";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../domain/pending-requests/aggregate";
 import { confirmForkDiscard } from "../composer/confirm-fork-discard.obsidian";
@@ -48,6 +50,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   ) {
     this.pendingRuntimeRestore = snapshot;
     this.appServerWarmup = new DeferredTask(() => this.viewWindow(), 0);
+    this.stateStore.dispatch({ type: "panel/ephemeral-default-set", ephemeral: environment.plugin.settings.newConversationsEphemeral() });
     this.runtime = this.createSessionRuntime();
     if (snapshot) {
       this.applyViewState(snapshot.viewState);
@@ -58,8 +61,8 @@ export class ChatPanelSession implements ChatPanelHandle {
     const draft =
       this.state.panelThread.kind === "fork-draft" ? this.state.panelThread.draft : this.pendingRuntimeRestore?.forkDraft?.draft;
     if (draft) return draft.kind === "side-chat" ? "Side chat" : "Fork draft";
-    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") return "Side chat";
-    return threadWindowTitle(panelThreadId(this.state), this.sharedThreads(), this.restoredThreadTitle());
+    if (isSideChatLifetime(activeThreadState(this.state)?.lifetime)) return "Side chat";
+    return threadWindowTitle(panelThreadId(this.state), this.sharedThreads(), this.activeThreadTitle() ?? this.restoredThreadTitle());
   }
 
   persistedState(): Record<string, unknown> {
@@ -77,7 +80,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   applyViewState(state: unknown): void {
-    this.runtime.thread.ephemeral.cleanupForConnectionReset();
     const restoredState = parseChatPanelViewState(state);
     this.reconcilePendingPersistentRuntimeTarget(restoredState.kind === "thread" ? restoredState.threadId : null);
     this.runtime.commands.invalidateThreadWork();
@@ -99,6 +101,10 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   refreshSettings(): void {
+    this.stateStore.dispatch({
+      type: "panel/ephemeral-default-set",
+      ephemeral: this.environment.plugin.settings.newConversationsEphemeral(),
+    });
     this.mountOrRepairShell();
   }
 
@@ -121,8 +127,8 @@ export class ChatPanelSession implements ChatPanelHandle {
                 kind: "latest",
               }),
             }
-          : lifetime?.kind === "ephemeral"
-            ? sideChatDraft(lifetime.sourceThreadId, lifetime.sourceThreadTitle, this.state.runtime)
+          : isSideChatLifetime(lifetime)
+            ? sideChatDraft(lifetime.sourceThreadId, lifetime.sourceThreadTitle ?? null, this.state.runtime)
             : null),
     };
   }
@@ -144,17 +150,9 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async applyForkDraft(preparation: ForkDraftPreparation, initialMessage?: string): Promise<boolean> {
+    if (this.closing || !canSwitchToThread(this.state, null)) return false;
     this.runtime.commands.invalidateThreadWork();
     this.pendingPersistentActivation = null;
-    if (
-      activeThreadState(this.state)?.lifetime?.kind === "ephemeral" ||
-      (this.state.panelThread.kind === "fork-draft" && this.state.panelThread.draft.kind === "side-chat")
-    ) {
-      const intent = this.resumeWork.begin(null);
-      this.runtime.thread.ephemeral.prepareForNavigation();
-      if (!this.resumeWork.canCommit(intent, this.state)) return false;
-    }
-    if (this.closing) return false;
     this.pendingRuntimeRestore = null;
     this.stateStore.dispatch({ type: "panel/fork-draft-applied", preparation });
     this.environment.view.refreshTabHeader();
@@ -247,8 +245,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       return this.runtime.thread.ensureRestoredThreadLoaded(displaySnapshot);
     }
     const intent = this.resumeWork.begin(threadId);
-    this.runtime.thread.ephemeral.prepareForNavigation();
-    if (!this.resumeWork.isCurrent(intent)) return false;
     const activation = await this.runtime.thread.resume.resumeThread(threadId, intent, displaySnapshot);
     if (!activation) return false;
     this.reconcilePendingPersistentRuntimeTarget(threadId);
@@ -415,7 +411,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (!activeThread) return null;
     const threadId = activeThread.id;
     const thread = this.sharedThreads().find((item) => item.id === threadId);
-    return thread ? threadMeaningfulTitle(thread) : (activeThread.title ?? null);
+    return thread ? threadMeaningfulTitle(thread) : threadMeaningfulTitle(activeThread);
   }
 
   private restoredThreadTitle(): string | null {

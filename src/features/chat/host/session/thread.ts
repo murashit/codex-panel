@@ -14,7 +14,6 @@ import { HistoryController } from "../../application/threads/history-controller"
 import { RestorationController } from "../../application/threads/restoration-controller";
 import { createResumeCommand, type ResumeCommand } from "../../application/threads/resume-command";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
-import type { SideChatCommands } from "../../application/threads/side-chat-commands";
 import { createThreadCommands, type ThreadCommands, type ThreadCommandsHost } from "../../application/threads/thread-commands";
 import { createThreadNavigationCommands, type ThreadNavigationCommands } from "../../application/threads/thread-navigation-commands";
 import type { ThreadStartCommand } from "../../application/threads/thread-start-command";
@@ -82,7 +81,6 @@ interface SessionThreadCommandInput {
   composerController: ChatComposerController;
   foundation: SessionThreadFoundation;
   features: SessionThreadFeatures;
-  ephemeral: Pick<SideChatCommands, "prepareForNavigation">;
 }
 
 interface SessionThreadCommandsResult {
@@ -233,7 +231,6 @@ export function createSessionThreadCommands(host: SessionThreadHost, input: Sess
     focusComposer: () => {
       composerController.focusComposer();
     },
-    ephemeral: input.ephemeral,
   });
   return { commands, toolbarPanelActions, navigation };
 }

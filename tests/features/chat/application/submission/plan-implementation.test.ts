@@ -36,7 +36,7 @@ const streamingPlanItem = (id: string): ThreadStreamItem => ({
 function resumeThread(
   stateStore: ChatStateStore,
   items: readonly ThreadStreamItem[],
-  lifetime: { kind: "persistent" } | { kind: "ephemeral"; sourceThreadId: string; sourceThreadTitle: string | null } = {
+  lifetime: { kind: "persistent" } | { kind: "ephemeral"; mode: "side-chat"; sourceThreadId: string; sourceThreadTitle: string | null } = {
     kind: "persistent" as const,
   },
   threadId = "thread",
@@ -129,7 +129,11 @@ describe("implementPlan", () => {
   it.each(["persistent", "ephemeral"] as const)("implements the offered plan in a %s chat after leaving Plan mode", async (kind) => {
     const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createPlanImplementationHost();
     const plan = planItem("plan");
-    resumeThread(stateStore, [plan], kind === "persistent" ? { kind } : { kind, sourceThreadId: "source", sourceThreadTitle: "Source" });
+    resumeThread(
+      stateStore,
+      [plan],
+      kind === "persistent" ? { kind } : { kind, mode: "side-chat" as const, sourceThreadId: "source", sourceThreadTitle: "Source" },
+    );
     expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: plan.id });
     stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
 

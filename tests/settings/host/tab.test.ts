@@ -41,6 +41,7 @@ describe("settings tab", () => {
         "Codex details",
         "Codex executable",
         "Show chat toolbar",
+        "Temporary by default",
         "Panel helpers",
         "Automatic thread naming",
         "Selection rewrite",
@@ -69,6 +70,7 @@ describe("settings tab", () => {
 
     const changes = [
       ["showToolbar", false],
+      ["newConversationsEphemeral", true],
       ["sendShortcut", "mod-enter"],
       ["scrollThreadFromComposerEdges", true],
       ["referenceActiveNoteOnSend", true],

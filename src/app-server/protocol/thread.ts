@@ -23,6 +23,7 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
     preview: normalizeString(thread.preview),
     name: thread.name === null ? null : normalizeString(thread.name),
     archived: options.archived ?? false,
+    ephemeral: thread.ephemeral === true,
     ...(thread.section?.id === BUILT_IN_PINNED_THREAD_SECTION_ID ? { isPinned: true } : {}),
     createdAt: finiteTimestamp(thread.createdAt),
     updatedAt: finiteTimestamp(thread.updatedAt),

@@ -63,7 +63,8 @@ function panelThreadWithPatch(state: ChatState, patch: NonNullable<ChatStateFixt
     kind: "active",
     thread: {
       id,
-      title: patch.title === undefined ? (current?.title ?? null) : patch.title,
+      name: patch.name === undefined ? (current?.name ?? null) : patch.name,
+      preview: patch.preview === undefined ? (current?.preview ?? "") : patch.preview,
       tokenUsage: patch.tokenUsage === undefined ? (current?.tokenUsage ?? null) : patch.tokenUsage,
       lifetime: patch.lifetime === undefined ? (current?.lifetime ?? null) : patch.lifetime,
       canAcceptDirectInput: patch.canAcceptDirectInput === undefined ? (current?.canAcceptDirectInput ?? null) : patch.canAcceptDirectInput,

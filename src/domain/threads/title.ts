@@ -7,7 +7,7 @@ const UNTITLED_THREAD_TITLE = "Untitled thread";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const GRAPHEME_SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-export function threadMeaningfulTitle(thread: Thread): string | null {
+export function threadMeaningfulTitle(thread: Pick<Thread, "id" | "name" | "preview">): string | null {
   for (const value of [thread.name, thread.preview]) {
     const title = normalizeExplicitThreadName(value);
     if (title && title !== thread.id && !UUID_PATTERN.test(title)) return title;

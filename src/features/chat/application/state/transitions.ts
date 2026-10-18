@@ -1,3 +1,4 @@
+import { threadMeaningfulTitle } from "../../../../domain/threads/title";
 import { initialChatRuntimeState } from "../../domain/runtime/state";
 import { turnOutcomeLabel } from "../../domain/runtime/turn-outcome";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
@@ -10,6 +11,7 @@ import {
   type ChatState,
   createAwaitingResumeThreadState,
   initialPanelThreadState,
+  newConversationEphemeral,
   panelThreadId,
   panelThreadIdForState,
   pendingForkReplacement,
@@ -40,6 +42,25 @@ import { clearAllRequestDisclosures, clearResolvedRequestDisclosures, initialUiS
 
 export function reduceChatTransition(state: ChatState, action: ChatTransitionAction): ChatState {
   switch (action.type) {
+    case "panel/ephemeral-default-set":
+      return patchObject(state, { newConversationEphemeralDefault: action.ephemeral });
+    case "panel/ephemeral-choice-set":
+      if (state.panelThread.kind !== "empty" || state.panelThread.operation) return state;
+      return { ...state, panelThread: { ...state.panelThread, ephemeral: action.ephemeral } };
+    case "panel/creation-state-set": {
+      if (state.panelThread.kind !== "empty" || state.panelTargetRevision !== action.revision) return state;
+      const panel = { ...state.panelThread };
+      delete panel.operation;
+      return {
+        ...state,
+        panelThread: { ...panel, ephemeral: newConversationEphemeral(state), ...(action.operation ? { operation: action.operation } : {}) },
+      };
+    }
+    case "active-thread/renamed": {
+      if (state.panelThread.kind !== "active" || state.panelThread.thread.id !== action.threadId) return state;
+      const thread = state.panelThread.thread;
+      return { ...state, panelThread: { ...state.panelThread, thread: { ...thread, name: action.name } } };
+    }
     case "panel/fork-operation-set": {
       if (state.panelThread.kind !== "fork-draft" || state.panelTargetRevision !== action.revision) return state;
       const panel = { ...state.panelThread };
@@ -167,7 +188,8 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
       ...(replacement ? { forkReplacement: replacement } : {}),
       thread: {
         id: action.thread.id,
-        title: (action.thread.name ?? action.thread.preview) || null,
+        name: action.thread.name,
+        preview: action.thread.preview,
         tokenUsage: null,
         lifetime: action.lifetime ?? { kind: "persistent" },
         canAcceptDirectInput: action.canAcceptDirectInput,
@@ -380,10 +402,10 @@ function clearConnectionScopedState(state: ChatState): ChatState {
 }
 
 function panelThreadAfterConnectionExit(panelThread: ChatPanelThreadState): ChatPanelThreadState {
-  if (panelThread.kind === "awaiting-resume" || panelThread.kind === "fork-draft") return panelThread;
-  if (panelThread.kind !== "active" || panelThread.thread.lifetime?.kind === "ephemeral") return initialPanelThreadState();
+  if (panelThread.kind === "awaiting-resume" || panelThread.kind === "fork-draft" || panelThread.kind === "empty") return panelThread;
+  if (panelThread.thread.lifetime?.kind === "ephemeral") return initialPanelThreadState();
   return {
-    ...createAwaitingResumeThreadState(panelThread.thread.id, panelThread.thread.title ?? null, panelThread.thread.provenance),
+    ...createAwaitingResumeThreadState(panelThread.thread.id, threadMeaningfulTitle(panelThread.thread), panelThread.thread.provenance),
     ...(panelThread.forkReplacement ? { forkReplacement: panelThread.forkReplacement } : {}),
   };
 }

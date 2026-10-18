@@ -347,9 +347,8 @@ describe("CodexPanelPlugin runtime integration", () => {
     { action: "reset", removed: true, stage: "fork" },
     { action: "replace", removed: false, stage: "start" },
   ] as const)(
-    "releases temporary conversations before stopping their context ($action, prior close=$removed, $stage)",
+    "retires its context without interrupting temporary work ($action, prior close=$removed, $stage)",
     async ({ action, removed, stage }) => {
-      const interrupt = deferred<unknown>();
       const forked = deferred<unknown>();
       const started = deferred<unknown>();
       const contexts: { client: ReturnType<typeof connectedClient>; disconnect: ReturnType<typeof vi.fn> }[] = [];
@@ -357,7 +356,6 @@ describe("CodexPanelPlugin runtime integration", () => {
         class extends ActualContextConnection {
           constructor(...args: ConstructorParameters<typeof ActualContextConnection>) {
             const client = connectedClient({
-              "turn/interrupt": vi.fn(() => interrupt.promise),
               ...(stage === "fork" ? { "thread/fork": vi.fn(() => forked.promise) } : {}),
               ...(stage === "start" ? { "turn/start": vi.fn(() => started.promise) } : {}),
             });
@@ -388,28 +386,20 @@ describe("CodexPanelPlugin runtime integration", () => {
       if (removed) leaves.length = 0;
       if (action === "replace") await publishCodexPath(plugin, "codex-next");
       else plugin.runtime.reset();
-      expect(original.disconnect).not.toHaveBeenCalled();
+      expect(original.disconnect).toHaveBeenCalledOnce();
+      const replacementSnapshot = action === "replace" ? view.surface.openPanelSnapshot() : null;
+      const requestCount = original.client.request.mock.calls.length;
       if (stage === "fork") forked.resolve({ thread: thread("late-side") });
-      await waitForAsyncWork(() =>
-        expect(original.client.request).toHaveBeenCalledWith("turn/interrupt", expect.anything(), { timeoutMs: 1_000 }),
-      );
-      expect(original.disconnect).not.toHaveBeenCalled();
+      else started.resolve({ turn: { id: "late-turn" } });
+      await closing;
+      await expect(opening).resolves.toBe(stage === "start");
+      if (replacementSnapshot) expect(view.surface.openPanelSnapshot()).toEqual(replacementSnapshot);
+      expect(original.client.request.mock.calls.length).toBe(requestCount);
+      expect(original.client.request.mock.calls.some(([method]) => method === "turn/interrupt")).toBe(false);
       if (action === "replace") {
         expect(plugin.settings.codexPath).toBe("codex-next");
         if (!removed) expect(view.isRuntimeAttached()).toBe(true);
       }
-      interrupt.resolve({});
-      if (stage === "start") {
-        await waitForAsyncWork(() =>
-          expect(original.client.request).toHaveBeenCalledWith("thread/unsubscribe", expect.anything(), expect.anything()),
-        );
-        expect(original.disconnect).not.toHaveBeenCalled();
-        started.resolve({ turn: { id: "late-turn" } });
-      }
-      await closing;
-      await opening;
-      await waitForAsyncWork(() => expect(original.disconnect).toHaveBeenCalledOnce());
-      expect(original.client.request).toHaveBeenCalledWith("thread/unsubscribe", expect.anything(), expect.anything());
       for (const replacement of contexts.slice(1)) expect(replacement.disconnect).not.toHaveBeenCalled();
       await view.onClose();
       plugin.runtime.reset();
@@ -444,7 +434,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     expect(closeAll).toHaveBeenCalledOnce();
   });
 
-  it("refreshes only chat settings when toolbar visibility changes", async () => {
+  it.each(["showToolbar", "newConversationsEphemeral"] as const)("refreshes only chat settings when %s changes", async (key) => {
     const chatLeaf = leaf();
     chatLeaf.view = chatView(CodexChatView, chatLeaf);
     const refreshChat = vi.spyOn((chatLeaf.view as CodexChatView).surface, "refreshSettings");
@@ -454,7 +444,7 @@ describe("CodexPanelPlugin runtime integration", () => {
     threadsLeaf.view = threadsView;
     const plugin = await pluginWithLeaves([chatLeaf], { threadsLeaves: [threadsLeaf] });
 
-    await plugin.runtime.settingTabHost().publishSettings({ ...plugin.settings, showToolbar: !plugin.settings.showToolbar });
+    await plugin.runtime.settingTabHost().publishSettings({ ...plugin.settings, [key]: !plugin.settings[key] });
 
     expect(refreshChat).toHaveBeenCalledOnce();
     expect(refreshThreads).not.toHaveBeenCalled();

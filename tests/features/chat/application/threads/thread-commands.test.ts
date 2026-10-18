@@ -65,7 +65,7 @@ describe("thread management commands", () => {
         id: "source",
         ...(lifetime === "ephemeral"
           ? {
-              lifetime: { kind: "ephemeral", sourceThreadId: "parent", sourceThreadTitle: "Parent" },
+              lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "parent", sourceThreadTitle: "Parent" },
             }
           : {}),
       },
@@ -146,7 +146,7 @@ describe("thread management commands", () => {
   });
 
   it("prepares a fork at the current latest turn without connecting or mutating server state", async () => {
-    const host = hostMock({ items: turnItems(), activeThread: { id: "source", title: "Source title" } });
+    const host = hostMock({ items: turnItems(), activeThread: { id: "source", name: "Source title" } });
     await threadCommands(host).forkThread("source");
     expect(host.openForkDraft).toHaveBeenCalledExactlyOnceWith(
       {
@@ -218,7 +218,7 @@ describe("thread management commands", () => {
       items: turnItems(),
       activeThread: {
         id: "side",
-        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+        lifetime: { kind: "ephemeral", mode: "side-chat", sourceThreadId: "source", sourceThreadTitle: "Source" },
       },
     });
     await threadCommands(host)[method]("side");
@@ -417,9 +417,8 @@ describe("thread management commands", () => {
     const forkThread = vi.fn(async () => completed({ ...activation, model: "server-model", thread: panelThread("child") }));
     const starter = createThreadStartCommand({
       withThreadActivation: async (operation) => operation(),
-      createSideChat: vi.fn(),
       stateStore: host.stateStore,
-      effects: { forkThread, startThread: vi.fn() },
+      effects: { forkSideChat: vi.fn(), forkThread, startThread: vi.fn() },
       runtimeSnapshotForState: (state) => runtimeSnapshotForChatState(state, shared),
       recordStartedThread: vi.fn(),
       hydrateCreatedFork: vi.fn(),
