@@ -70,7 +70,6 @@ interface ChatAppServerQueries {
   observeMetadataResource<Id extends SharedServerMetadataResourceId>(
     id: Id,
     listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
-    options?: { emitCurrent?: boolean },
   ): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;

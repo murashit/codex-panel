@@ -12,8 +12,8 @@ export interface SettingsResources {
 }
 
 interface SettingsResourceQueries {
-  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
-  observeHooksResult(listener: ObservedResultListener<SettingsHookCatalog>, options?: { emitCurrent?: boolean }): () => void;
+  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>): () => void;
+  observeHooksResult(listener: ObservedResultListener<SettingsHookCatalog>): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
   refreshHooks(): Promise<void>;

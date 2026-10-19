@@ -339,7 +339,7 @@ describe("app-server query resources", () => {
     const listener = vi.fn();
     const cleanup = vi.fn();
     const unsubscribe = cache.scope.trackObserver(cleanup);
-    cache.metadataQueries.observeMetadataResource("models", listener, { emitCurrent: false });
+    cache.metadataQueries.observeMetadataResource("models", listener);
 
     const fetch = cache.metadataQueries.fetchModels();
     listener.mockClear();
@@ -841,7 +841,8 @@ describe("app-server query resources", () => {
     const write = vi.fn().mockResolvedValue({});
     const cache = cacheWithRequestHandlers({ "config/batchWrite": write, "hooks/list": hooksList });
     const listener = vi.fn();
-    const unsubscribe = cache.metadataQueries.observeHooksResult(listener, { emitCurrent: false });
+    const unsubscribe = cache.metadataQueries.observeHooksResult(listener);
+    listener.mockClear();
 
     const [untrustedHook] = hookItemsFromCatalogHooks([catalogHook({ trustStatus: "untrusted" })]);
     if (!untrustedHook) throw new Error("Expected hook fixture.");
@@ -897,10 +898,13 @@ describe("app-server query resources", () => {
     const modelsListener = vi.fn();
     const skillsListener = vi.fn();
     const unsubscribers = [
-      cache.metadataQueries.observeMetadataResource("runtimeConfig", runtimeConfigListener, { emitCurrent: false }),
-      cache.metadataQueries.observeMetadataResource("models", modelsListener, { emitCurrent: false }),
-      cache.metadataQueries.observeMetadataResource("skills", skillsListener, { emitCurrent: false }),
+      cache.metadataQueries.observeMetadataResource("runtimeConfig", runtimeConfigListener),
+      cache.metadataQueries.observeMetadataResource("models", modelsListener),
+      cache.metadataQueries.observeMetadataResource("skills", skillsListener),
     ];
+    runtimeConfigListener.mockClear();
+    modelsListener.mockClear();
+    skillsListener.mockClear();
 
     const refresh = cache.metadataQueries.refreshAppServerMetadata();
     await flushMicrotasks();
@@ -930,7 +934,8 @@ describe("app-server query resources", () => {
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
     const listener = vi.fn();
-    const unsubscribe = cache.metadataQueries.observeMetadataResource("skills", listener, { emitCurrent: false });
+    const unsubscribe = cache.metadataQueries.observeMetadataResource("skills", listener);
+    listener.mockClear();
 
     await cache.metadataQueries.refreshAppServerMetadata();
 
@@ -969,7 +974,8 @@ describe("app-server query resources", () => {
     });
     await cache.metadataQueries.ensureAppServerMetadata();
     const listener = vi.fn();
-    const unsubscribe = cache.metadataQueries.observeMetadataResource("skills", listener, { emitCurrent: false });
+    const unsubscribe = cache.metadataQueries.observeMetadataResource("skills", listener);
+    listener.mockClear();
 
     cache.metadataQueries.handleSkillsChanged();
     await flushMicrotasks();

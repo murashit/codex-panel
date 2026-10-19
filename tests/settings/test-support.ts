@@ -192,12 +192,11 @@ function observedResource<T>(initial: T | null) {
   return {
     observe(
       listener: (result: ObservedResult<T>) => void,
-      options?: { emitCurrent?: boolean },
-      observeExternal?: (listener: (result: ObservedResult<T>) => void, options?: { emitCurrent?: boolean }) => () => void,
+      observeExternal?: (listener: (result: ObservedResult<T>) => void) => () => void,
     ) {
       listeners.add(listener);
-      if (options?.emitCurrent ?? true) listener(result);
-      const unsubscribeExternal = observeExternal?.(listener, options);
+      listener(result);
+      const unsubscribeExternal = observeExternal?.(listener);
       return () => {
         listeners.delete(listener);
         unsubscribeExternal?.();
@@ -235,10 +234,8 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): SettingsT
   const threadCatalog = {
     archivedThreadsSnapshot: () => options.archivedSnapshot ?? null,
     refreshArchivedThreads: () => archived.load(options.refreshArchived ?? (async () => options.archivedThreads ?? defaultArchivedThreads)),
-    observeArchivedThreadsResult: (
-      listener: (result: ObservedResult<readonly Thread[]>) => void,
-      observeOptions?: { emitCurrent?: boolean },
-    ) => archived.observe(listener, observeOptions, options.observeArchived),
+    observeArchivedThreadsResult: (listener: (result: ObservedResult<readonly Thread[]>) => void) =>
+      archived.observe(listener, options.observeArchived),
   };
   const createResources = () => {
     const contextKey = settings.codexPath;
@@ -253,10 +250,8 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): SettingsT
     const queries = {
       fetchModels: () => models.load(options.fetchModels ?? (async () => options.modelsSnapshot ?? [])),
       refreshModels: () => models.load(options.refreshModels ?? (async () => options.modelsSnapshot ?? [])),
-      observeModelsResult: (
-        listener: (result: ObservedResult<readonly ModelMetadata[]>) => void,
-        observeOptions?: { emitCurrent?: boolean },
-      ) => models.observe(listener, observeOptions, options.observeModels),
+      observeModelsResult: (listener: (result: ObservedResult<readonly ModelMetadata[]>) => void) =>
+        models.observe(listener, options.observeModels),
       observeHooksResult: metadataQueries.observeHooksResult.bind(metadataQueries),
       refreshHooks: metadataQueries.refreshHooks.bind(metadataQueries),
       trustHook: metadataQueries.trustHook.bind(metadataQueries),

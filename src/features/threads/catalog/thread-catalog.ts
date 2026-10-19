@@ -9,7 +9,7 @@ export interface ThreadCatalogPaginatedActiveReader {
   recentActiveThreadsSnapshot(): readonly Thread[] | null;
   fetchActiveThreads(): Promise<readonly Thread[]>;
   refreshActiveThreads(): Promise<void>;
-  observeActiveThreadsResult(observer: ActiveThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
+  observeActiveThreadsResult(observer: ActiveThreadListObserver): () => void;
   hasMoreActiveThreads(): boolean;
   loadMoreActiveThreads(): Promise<void>;
 }
@@ -21,5 +21,5 @@ export interface ThreadCatalogSearchReader {
 export interface ThreadCatalogArchivedReader {
   archivedThreadsSnapshot(): readonly Thread[] | null;
   refreshArchivedThreads(): Promise<readonly Thread[]>;
-  observeArchivedThreadsResult(observer: ArchivedThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
+  observeArchivedThreadsResult(observer: ArchivedThreadListObserver): () => void;
 }

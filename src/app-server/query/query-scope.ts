@@ -68,7 +68,6 @@ export class AppServerQueryScope {
     queryOptions: AppServerQueryOptions<TQuery>,
     project: (value: TQuery) => TValue,
     listener: ObservedResultListener<TValue>,
-    options: { emitCurrent?: boolean } = {},
   ): () => void {
     this.assertUsable();
     const observer = new QueryObserver<TQuery, Error, TValue>(this.client, {
@@ -85,7 +84,7 @@ export class AppServerQueryScope {
       } satisfies ObservedResult<TValue>);
     };
     const unsubscribe = observer.subscribe(emit);
-    if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
+    emit(observer.getCurrentResult());
     return this.trackObserver(() => {
       unsubscribe();
       observer.destroy();
