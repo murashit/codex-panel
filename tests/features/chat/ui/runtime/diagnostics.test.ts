@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { mcpServerStatusSummariesFromStatuses } from "../../../../../src/app-server/protocol/tool-inventory";
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import {
-  createServerDiagnostics,
   type DiagnosticProbeId,
   type DiagnosticProbeResult,
   type Diagnostics,
@@ -13,6 +12,7 @@ import {
 import type { McpServerDiagnostic, ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import { appServerDiagnosticSections } from "../../../../../src/features/chat/ui/runtime/diagnostics";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/ui/runtime/tool-inventory";
+import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 
 type InventoryFixture = ToolInventorySnapshot;
 

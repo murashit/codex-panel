@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
-import { createServerDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
 import type { ServerInitialization } from "../../../../../src/domain/runtime/metadata";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
@@ -19,6 +18,7 @@ import { createKeyedOperationCoordinator } from "../../../../../src/shared/async
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";

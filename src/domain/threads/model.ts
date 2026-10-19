@@ -37,10 +37,6 @@ export function isThreadVisibleInCatalog(thread: Pick<Thread, "provenance">): bo
   return thread.provenance.kind === "interactive";
 }
 
-export function explicitThreadName(thread: Thread): string | null {
-  return normalizeExplicitThreadName(thread.name);
-}
-
 export function normalizeExplicitThreadName(value: string | null | undefined): string | null {
   const name = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
   return name.length > 0 ? name : null;

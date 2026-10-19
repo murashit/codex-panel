@@ -44,10 +44,6 @@ export function isVaultConfigPath(path: string, configDir: string, filesystemRoo
   return !relativePath || !relativePathEscapesRoot(relativePath, pathApi);
 }
 
-export function normalizeFilePath(path: string): string {
-  return portablePath(normalizedPathForApi(path, pathApiFor(path)));
-}
-
 type PathApi = typeof nodePath.posix;
 
 function pathApiFor(...paths: string[]): PathApi {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { explicitThreadName, type Thread, threadRecencyAt } from "../../../src/domain/threads/model";
+import { type Thread, threadRecencyAt } from "../../../src/domain/threads/model";
 import { threadDisplayTitle, threadMeaningfulTitle, threadRenameDraftTitle, threadWindowTitle } from "../../../src/domain/threads/title";
 import { panelThreadFixture } from "../../support/panel-thread";
 
@@ -36,15 +36,6 @@ describe("thread helpers", () => {
     expect(threadWindowTitle("thread", [], "  Restored   title  ")).toBe("Codex: Restored title");
     expect(threadWindowTitle(uuid, [thread({ id: uuid, name: null, preview: "" })])).toBe("Codex: 019e0182");
     expect(threadWindowTitle(uuid, [], null)).toBe("Codex: 019e0182");
-  });
-
-  it("resolves only explicit thread names for composer context", () => {
-    expect(explicitThreadName(thread({ name: "  Refactor   terminal streaming  ", preview: "Preview" }))).toBe(
-      "Refactor terminal streaming",
-    );
-    expect(explicitThreadName(thread({ name: "  ", preview: "Preview" }))).toBeNull();
-    expect(explicitThreadName(thread({ name: null, preview: "Preview" }))).toBeNull();
-    expect(explicitThreadName(thread({ name: null, preview: "", id: "thread-id" }))).toBeNull();
   });
 
   it("uses recency timestamps when present and falls back to updated time", () => {

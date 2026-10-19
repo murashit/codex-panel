@@ -19,7 +19,7 @@ export interface ThreadsViewShellActions {
   loadMore: () => void;
   openNewPanel: () => void;
   openThread: (threadId: string) => void;
-  startRename: (threadId: string, value: string) => void;
+  startRename: (threadId: string) => void;
   updateRename: (threadId: string, value: string) => void;
   saveRename: (threadId: string, value: string) => void;
   cancelRename: (threadId: string) => void;
@@ -152,7 +152,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
                 archiveAlternate: "codex-panel-threads__archive-alternate",
               }}
               onRename={() => {
-                actions.startRename(row.threadId, row.rename.draft);
+                actions.startRename(row.threadId);
               }}
               onPinChange={(isPinned) => {
                 actions.setThreadPinned(row.threadId, isPinned);
