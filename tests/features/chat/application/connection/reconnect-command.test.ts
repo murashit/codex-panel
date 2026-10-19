@@ -83,12 +83,7 @@ describe("createReconnectPanelCommand", () => {
         updatedAt: 1,
         provenance: {
           kind: "subagent",
-          subagentKind: "review",
           parentThreadId: "parent-thread",
-          sessionId: "session",
-          depth: 1,
-          agentNickname: "reviewer",
-          agentRole: "review",
         },
       },
     },

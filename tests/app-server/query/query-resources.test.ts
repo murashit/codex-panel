@@ -42,10 +42,10 @@ describe("app-server query resources", () => {
   it("publishes exact goal notification transitions once", () => {
     const cache = cacheWithRequestHandlers({});
     const current = goalFixture({ objective: "Current" });
-    const next = goalFixture({ objective: "Next", updatedAt: 2 });
+    const next = goalFixture({ objective: "Next" });
     cache.threadGoalQueries.applyNotification({
       method: "thread/goal/updated",
-      params: { threadId: "thread", turnId: null, goal: current },
+      params: { threadId: "thread", turnId: null, goal: { ...current, createdAt: 1, updatedAt: 1 } },
     });
     const firstPanelChanges = vi.fn();
     const secondPanelChanges = vi.fn();
@@ -53,7 +53,7 @@ describe("app-server query resources", () => {
     cache.threadGoalQueries.observeChanges(secondPanelChanges);
     const notification = {
       method: "thread/goal/updated",
-      params: { threadId: "thread", turnId: null, goal: next },
+      params: { threadId: "thread", turnId: null, goal: { ...next, createdAt: 1, updatedAt: 1 } },
     } as const;
 
     cache.threadGoalQueries.applyNotification(notification);
@@ -79,7 +79,7 @@ describe("app-server query resources", () => {
     const goal = goalFixture({ objective: "Current" });
     cache.threadGoalQueries.applyNotification({
       method: "thread/goal/updated",
-      params: { threadId: "thread", turnId: null, goal },
+      params: { threadId: "thread", turnId: null, goal: { ...goal, createdAt: 1, updatedAt: 1 } },
     });
     const firstPanel = vi.fn();
     const secondPanel = vi.fn();
@@ -1231,8 +1231,6 @@ function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
     tokenBudget: null,
     tokensUsed: 0,
     timeUsedSeconds: 0,
-    createdAt: 1,
-    updatedAt: 1,
     ...overrides,
   };
 }

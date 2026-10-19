@@ -97,12 +97,7 @@ function subagent(id: string): Thread {
     ...thread(id),
     provenance: {
       kind: "subagent",
-      subagentKind: "thread-spawn",
       parentThreadId: "parent",
-      sessionId: null,
-      depth: 1,
-      agentNickname: null,
-      agentRole: null,
     },
   };
 }

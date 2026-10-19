@@ -130,7 +130,7 @@ describe("chat panel session runtime", () => {
       type: "active-thread/resumed",
     });
     stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread-1", open: true });
-    const initial = goalFixture({ objective: "Initial", updatedAt: 1 });
+    const initial = goalFixture({ objective: "Initial" });
     expect(observeChanges).toHaveBeenCalledOnce();
     expect(publishGoalChange).toBeTypeOf("function");
 
@@ -138,10 +138,10 @@ describe("chat panel session runtime", () => {
     expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(true);
     expect(stateStore.getState().threadStream.stableItems).toEqual([]);
 
-    publishGoalChange?.("thread-1", initial, { ...initial, tokensUsed: 1, updatedAt: 2 });
+    publishGoalChange?.("thread-1", initial, { ...initial, tokensUsed: 1 });
     expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(true);
 
-    publishGoalChange?.("thread-1", initial, { ...initial, objective: "Replacement", updatedAt: 3 });
+    publishGoalChange?.("thread-1", initial, { ...initial, objective: "Replacement" });
     expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(false);
   });
 
@@ -733,8 +733,6 @@ describe("chat panel session runtime", () => {
       tokenBudget: null,
       tokensUsed: 0,
       timeUsedSeconds: 0,
-      createdAt: 1,
-      updatedAt: 1,
       ...overrides,
     };
   }

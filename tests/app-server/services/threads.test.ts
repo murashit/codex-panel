@@ -55,13 +55,7 @@ describe("app-server thread response adapters", () => {
 
     expect(thread.provenance).toEqual({
       kind: "subagent",
-      subagentKind: "thread-spawn",
       parentThreadId: "parent",
-      sessionId: "session",
-      depth: 2,
-      agentPath: "/root/scout",
-      agentNickname: "Scout",
-      agentRole: "explorer",
     });
   });
 

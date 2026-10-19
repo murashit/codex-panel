@@ -468,12 +468,7 @@ describe("ChatInboundHandler", () => {
           id: "thread-active",
           provenance: {
             kind: "subagent",
-            subagentKind: "thread-spawn",
             parentThreadId: "parent",
-            sessionId: "session",
-            depth: 1,
-            agentNickname: "Scout",
-            agentRole: "explorer",
           },
         },
         activeTurn: { lifecycle: { kind: "running", turnId: "turn-active" } },

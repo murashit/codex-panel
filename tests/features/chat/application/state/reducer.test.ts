@@ -212,12 +212,7 @@ describe("chatReducer", () => {
       label: "subagent",
       provenance: {
         kind: "subagent",
-        subagentKind: "review",
         parentThreadId: "parent",
-        sessionId: "session",
-        depth: 1,
-        agentNickname: "reviewer",
-        agentRole: "review",
       } as const,
     },
   ])("keeps an active $label thread reconnectable across a same-context disconnect", ({ provenance }) => {

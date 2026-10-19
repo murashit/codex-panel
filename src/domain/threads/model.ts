@@ -20,18 +20,7 @@ export interface Thread {
   readonly provenance: ThreadProvenance;
 }
 
-export type ThreadProvenance =
-  | { readonly kind: "interactive" }
-  | {
-      readonly kind: "subagent";
-      readonly subagentKind: "thread-spawn" | "review" | "compact" | "memory-consolidation" | "other";
-      readonly parentThreadId: string | null;
-      readonly sessionId: string | null;
-      readonly depth: number | null;
-      readonly agentPath?: string | null;
-      readonly agentNickname: string | null;
-      readonly agentRole: string | null;
-    };
+export type ThreadProvenance = { readonly kind: "interactive" } | { readonly kind: "subagent"; readonly parentThreadId: string | null };
 
 export function isThreadVisibleInCatalog(thread: Pick<Thread, "provenance">): boolean {
   return thread.provenance.kind === "interactive";

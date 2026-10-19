@@ -22,8 +22,6 @@ describe("app-server thread goal model", () => {
       tokenBudget: 100,
       tokensUsed: 0,
       timeUsedSeconds: 12,
-      createdAt: 1,
-      updatedAt: 2,
     });
   });
 

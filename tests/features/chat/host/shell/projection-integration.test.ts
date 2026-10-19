@@ -161,12 +161,7 @@ describe("chat panel projection integration", () => {
         id: "child",
         provenance: {
           kind: "subagent",
-          subagentKind: "thread-spawn",
           parentThreadId: "parent",
-          sessionId: "session",
-          depth: 1,
-          agentNickname: "Scout",
-          agentRole: "explorer",
         },
       },
       activeTurn: { lifecycle: { kind: "running", turnId: "child-turn" } },
@@ -661,12 +656,7 @@ describe("chat panel projection integration", () => {
         id: "child",
         provenance: {
           kind: "subagent",
-          subagentKind: "thread-spawn",
           parentThreadId: "parent",
-          sessionId: "session",
-          depth: 1,
-          agentNickname: "Scout",
-          agentRole: "explorer",
         },
       },
     });
@@ -710,12 +700,7 @@ describe("chat panel projection integration", () => {
         canAcceptDirectInput: true,
         provenance: {
           kind: "subagent",
-          subagentKind: "thread-spawn",
           parentThreadId: "parent",
-          sessionId: "session",
-          depth: 1,
-          agentNickname: "Scout",
-          agentRole: "explorer",
         },
       },
     });
@@ -941,7 +926,5 @@ function goalFixture(threadId: string): ThreadGoal {
     tokenBudget: null,
     tokensUsed: 0,
     timeUsedSeconds: 0,
-    createdAt: 1,
-    updatedAt: 1,
   };
 }

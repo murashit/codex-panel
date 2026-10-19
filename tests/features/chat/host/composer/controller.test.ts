@@ -758,12 +758,7 @@ describe("ChatComposerController", () => {
           id: "child-thread",
           provenance: {
             kind: "subagent",
-            subagentKind: "thread-spawn",
             parentThreadId: "parent-thread",
-            sessionId: "session",
-            depth: 1,
-            agentNickname: "Scout",
-            agentRole: "explorer",
           },
         },
       }),

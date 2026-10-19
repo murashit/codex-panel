@@ -11,8 +11,6 @@ export function threadGoalFromAppServerGoal(goal: AppServerThreadGoal | null): T
     tokenBudget: goal.tokenBudget,
     tokensUsed: finiteNumber(goal.tokensUsed),
     timeUsedSeconds: finiteNumber(goal.timeUsedSeconds),
-    createdAt: finiteNumber(goal.createdAt),
-    updatedAt: finiteNumber(goal.updatedAt),
   };
 }
 

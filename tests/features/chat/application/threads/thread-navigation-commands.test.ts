@@ -19,12 +19,7 @@ function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagen
         provenance: subagent
           ? {
               kind: "subagent",
-              subagentKind: "thread-spawn",
               parentThreadId: "parent",
-              sessionId: "session",
-              depth: 1,
-              agentNickname: "Scout",
-              agentRole: "explorer",
             }
           : { kind: "interactive" },
       }),

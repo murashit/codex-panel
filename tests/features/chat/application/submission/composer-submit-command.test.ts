@@ -46,12 +46,7 @@ function createHost(
             id: "child",
             provenance: {
               kind: "subagent",
-              subagentKind: "thread-spawn",
               parentThreadId: "parent",
-              sessionId: "session",
-              depth: 1,
-              agentNickname: "Scout",
-              agentRole: "explorer",
             },
           },
         })

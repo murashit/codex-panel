@@ -85,12 +85,7 @@ describe("thread catalog read model", () => {
         ...thread("thread"),
         provenance: {
           kind: "subagent",
-          subagentKind: "review",
           parentThreadId: null,
-          sessionId: null,
-          depth: 1,
-          agentNickname: null,
-          agentRole: null,
         },
       }),
     ).toBe(false);

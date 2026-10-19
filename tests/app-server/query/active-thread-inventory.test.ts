@@ -119,12 +119,7 @@ function subagent(id: string, recencyAt: number): Thread {
     ...thread(id, recencyAt),
     provenance: {
       kind: "subagent",
-      subagentKind: "thread-spawn",
       parentThreadId: "parent",
-      sessionId: null,
-      depth: 1,
-      agentNickname: null,
-      agentRole: null,
     },
   };
 }

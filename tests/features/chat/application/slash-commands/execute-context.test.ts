@@ -46,8 +46,6 @@ function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
     tokenBudget: null,
     tokensUsed: 0,
     timeUsedSeconds: 0,
-    createdAt: 1,
-    updatedAt: 1,
     ...overrides,
   };
 }
