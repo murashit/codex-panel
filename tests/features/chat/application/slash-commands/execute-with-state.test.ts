@@ -97,7 +97,6 @@ describe("executePanelSlashCommand", () => {
         ensureRestoredThreadLoaded: () => restoration.ensureLoaded(loadSavedThread),
         composer: {
           draft,
-          trimmedDraft: draft,
           claimSubmission: () => ({
             text: draft,
             inputSnapshot: {

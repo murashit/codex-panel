@@ -688,8 +688,6 @@ describe("chat panel session runtime", () => {
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
-      fetchModels: vi.fn().mockResolvedValue([]),
-      refreshModels: vi.fn().mockResolvedValue([]),
       observeMetadataResource: vi.fn(() => () => undefined),
       ...overrides,
     };

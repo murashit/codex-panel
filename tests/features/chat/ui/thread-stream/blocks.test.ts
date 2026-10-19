@@ -139,8 +139,7 @@ function blockInput(
   input: Omit<
     Parameters<typeof threadStreamViewBlocks>[0],
     "stableItems" | "activeItems" | "turnDiffs" | "textActionTargetsByItemId" | "pendingRequests" | "subagentActivities" | "authRecovery"
-  > &
-    Partial<
+  > & { items: readonly ThreadStreamItem[] } & Partial<
       Pick<
         Parameters<typeof threadStreamViewBlocks>[0],
         | "stableItems"
@@ -153,10 +152,11 @@ function blockInput(
       >
     >,
 ): Parameters<typeof threadStreamViewBlocks>[0] {
+  const { items, ...projection } = input;
   return {
-    ...input,
-    stableItems: input.stableItems ?? (input.activeTurnId ? [] : input.items),
-    activeItems: input.activeItems ?? (input.activeTurnId ? input.items : []),
+    ...projection,
+    stableItems: input.stableItems ?? (input.activeTurnId ? [] : items),
+    activeItems: input.activeItems ?? (input.activeTurnId ? items : []),
     turnDiffs: input.turnDiffs ?? new Map(),
     textActionTargetsByItemId: input.textActionTargetsByItemId ?? new Map(),
     pendingRequests: input.pendingRequests ?? null,

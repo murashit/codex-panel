@@ -181,7 +181,7 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
   return patchObject(turnScopedState, {
     connection: {
       ...state.connection,
-      statusText: action.activeTurnId ? STATUS_TURN_RUNNING : (action.status ?? state.connection.statusText),
+      statusText: action.activeTurnId ? STATUS_TURN_RUNNING : state.connection.statusText,
     },
     panelThread: {
       kind: "active",
@@ -201,7 +201,7 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
     runtime: {
       ...runtimeBase,
       active: {
-        serviceTierKnown: action.serviceTierKnown ?? true,
+        serviceTierKnown: true,
         model: action.model,
         reasoningEffort: action.reasoningEffort,
         collaborationMode: action.collaborationMode,

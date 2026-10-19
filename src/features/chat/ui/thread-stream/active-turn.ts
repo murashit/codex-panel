@@ -3,8 +3,7 @@ import { type ActiveSubagentActivity, type AgentRunSummary, activeAgentRunSummar
 
 export interface ActiveTurnItemsContext {
   activeTurnId: string | null;
-  items: readonly ThreadStreamItem[];
-  activeItems?: readonly ThreadStreamItem[] | undefined;
+  activeItems: readonly ThreadStreamItem[];
   subagentActivities?: ReadonlyMap<string, ActiveSubagentActivity> | undefined;
 }
 
@@ -15,15 +14,14 @@ export type ActiveTurnLiveItem =
     }
   | {
       kind: "agentSummary";
-      anchorItemId: string;
       summary: AgentRunSummary;
     };
 
 export function activeTurnLiveItems(
-  input: Pick<ActiveTurnItemsContext, "items" | "activeItems" | "subagentActivities">,
+  input: Pick<ActiveTurnItemsContext, "activeItems" | "subagentActivities">,
   activeTurnId: string,
 ): ActiveTurnLiveItem[] {
-  const items = input.activeItems ?? input.items;
+  const items = input.activeItems;
   const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(items, activeTurnId);
   const agentSummary = agentSummaryAnchorId ? activeAgentRunSummary(items, activeTurnId, input.subagentActivities) : null;
 
@@ -32,7 +30,7 @@ export function activeTurnLiveItems(
       return [{ kind: "taskProgress", item }];
     }
     if (item.id === agentSummaryAnchorId && agentSummary) {
-      return [{ kind: "agentSummary", anchorItemId: item.id, summary: agentSummary }];
+      return [{ kind: "agentSummary", summary: agentSummary }];
     }
     return [];
   });
@@ -46,7 +44,7 @@ export function threadStreamReasoningIsActive(item: ReasoningThreadStreamItem, c
   const activeTurn = context.activeTurnId;
   if (!activeTurn || item.turnId !== activeTurn) return false;
   if (item.executionState === "completed") return false;
-  const latestActiveTurnItem = [...(context.activeItems ?? context.items)].reverse().find((candidate) => candidate.turnId === activeTurn);
+  const latestActiveTurnItem = [...context.activeItems].reverse().find((candidate) => candidate.turnId === activeTurn);
   return latestActiveTurnItem?.id === item.id;
 }
 

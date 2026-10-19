@@ -588,11 +588,8 @@ describe("chat panel projection integration", () => {
     const modelChoices = choices.modelChoices ?? [];
     const effortChoices = choices.effortChoices ?? [];
 
-    expect(modelChoices).toMatchObject([
-      { label: "gpt-5-mini", selected: false },
-      { label: "gpt-5.5", selected: true },
-    ]);
-    expect(effortChoices).toMatchObject([{ label: "high", selected: true }]);
+    expect(modelChoices).toMatchObject([{ label: "gpt-5-mini" }, { label: "gpt-5.5" }]);
+    expect(effortChoices).toMatchObject([{ label: "high" }]);
 
     modelChoices[0]?.onClick();
     effortChoices[0]?.onClick();

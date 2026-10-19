@@ -1957,7 +1957,7 @@ describe("ChatComposerController", () => {
     unmountUiRoot(parent);
     controller.setDraft("state draft", { focus: true });
 
-    expect(controller.trimmedDraft).toBe("state draft");
+    expect(controller.draft).toBe("state draft");
     expect(focus).not.toHaveBeenCalled();
   });
 });

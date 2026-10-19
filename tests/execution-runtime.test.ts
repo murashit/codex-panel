@@ -154,7 +154,7 @@ describe("CodexExecutionRuntime", () => {
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
 
-    await chat.appServerQueries.fetchModels();
+    await runtime.settingsResources.queries.fetchModels();
     await chat.threadMutations.archiveThread("thread", { saveMarkdown: false });
 
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith("model/list", { cursor: null, includeHidden: false, limit: 100 });

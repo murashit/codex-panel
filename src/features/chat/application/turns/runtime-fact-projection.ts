@@ -38,7 +38,6 @@ function runtimeFactProjection(state: ChatState, fact: TurnRuntimeFact): TurnRun
         itemId: fact.itemId,
         turnId: fact.turnId,
         delta: fact.delta,
-        completeReasoning: fact.completeReasoning,
       });
     case "planDelta":
       return actionProjection({

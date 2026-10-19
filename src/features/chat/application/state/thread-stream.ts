@@ -54,7 +54,7 @@ export type ThreadStreamAction =
   | { type: "thread-stream/pending-steer-removed"; clientId: string }
   | { type: "thread-stream/pending-steer-committed"; item: UserThreadStreamDialogueItem }
   | { type: "thread-stream/reasoning-completed"; turnId: string }
-  | { type: "thread-stream/assistant-delta-appended"; itemId: string; turnId: string; delta: string; completeReasoning?: boolean }
+  | { type: "thread-stream/assistant-delta-appended"; itemId: string; turnId: string; delta: string }
   | { type: "thread-stream/plan-delta-appended"; itemId: string; turnId: string; delta: string }
   | {
       type: "thread-stream/item-text-appended";
@@ -198,7 +198,7 @@ export function reduceThreadStreamSlice(state: ChatThreadStreamViewState, action
     case "thread-stream/reasoning-completed":
       return completeReasoningInThreadStream(state, action.turnId);
     case "thread-stream/assistant-delta-appended": {
-      const current = action.completeReasoning ? completeReasoningInThreadStream(state, action.turnId) : state;
+      const current = completeReasoningInThreadStream(state, action.turnId);
       return updateStreamItemBySourceId(current, action.turnId, action.itemId, (item) =>
         appendAssistantStreamingDelta(item, action.itemId, action.turnId, action.delta),
       );

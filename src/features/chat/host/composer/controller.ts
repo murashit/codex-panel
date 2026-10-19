@@ -141,10 +141,6 @@ export class ChatComposerController {
     return this.composer?.value ?? this.state.composer.draft;
   }
 
-  get trimmedDraft(): string {
-    return this.draft.trim();
-  }
-
   renderState(model: ChatPanelComposerModel, actions: ChatPanelComposerActions): ComposerShellProps {
     const projection = projectChatPanelComposer(model, this.options.runtimeActions);
     return {

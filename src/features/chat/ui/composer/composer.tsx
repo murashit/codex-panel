@@ -35,9 +35,7 @@ export interface ComposerMetaViewModel {
 
 interface RuntimeChoice {
   label: string;
-  selected?: boolean;
   disabled?: boolean;
-  meta?: string;
   onClick: () => void;
 }
 

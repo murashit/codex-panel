@@ -79,9 +79,6 @@ function createHost(
       get draft() {
         return draft;
       },
-      get trimmedDraft() {
-        return draft.trim();
-      },
       claimSubmission,
       isSubmissionPreparing: vi.fn(() => false),
       failActiveSubmissionClaim: vi.fn(),

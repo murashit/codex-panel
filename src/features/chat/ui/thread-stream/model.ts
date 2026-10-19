@@ -205,7 +205,6 @@ export type ThreadStreamActivityItemView =
       id: string;
       label: string;
       text: string;
-      sourceItemId: string;
     };
 
 export type ThreadStreamViewBlock =

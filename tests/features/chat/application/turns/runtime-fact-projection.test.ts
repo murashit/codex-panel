@@ -37,7 +37,6 @@ describe("TurnRuntimeFact projection", () => {
       turnId: "turn-active",
       itemId: "assistant",
       delta: "Continuing",
-      completeReasoning: true,
     });
     const nextState = applyActions(completedState, nextActivity.actions);
 

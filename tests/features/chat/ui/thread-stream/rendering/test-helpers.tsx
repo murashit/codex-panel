@@ -34,7 +34,6 @@ export function projectedThreadStream(context: TestThreadStreamContext): TestThr
     activeTurnId: activeTurnIdForThreadStream(normalized.turnLifecycle),
     historyCursor: normalized.historyCursor,
     loadingHistory: normalized.loadingHistory,
-    items: normalized.items,
     stableItems: normalized.stableItems ?? (normalized.turnLifecycle.kind === "running" ? [] : normalized.items),
     activeItems: normalized.activeItems ?? (normalized.turnLifecycle.kind === "running" ? normalized.items : []),
     workspaceRoot: normalized.workspaceRoot,

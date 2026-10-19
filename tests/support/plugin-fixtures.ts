@@ -167,8 +167,6 @@ function chatHostFixture(): CodexChatHost {
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       ensureAppServerMetadata: vi.fn(() => Promise.resolve()),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve()),
-      fetchModels: vi.fn(() => Promise.resolve([])),
-      refreshModels: vi.fn(() => Promise.resolve([])),
       observeMetadataResource: vi.fn(() => () => undefined),
     },
     toolInventoryQueries: {

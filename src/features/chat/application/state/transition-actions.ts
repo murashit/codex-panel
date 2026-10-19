@@ -20,17 +20,14 @@ interface ResumedThreadActionParams {
   items?: readonly ThreadStreamItem[];
   activeTurnId?: string | null;
   preserveRequestedRuntimeSettings?: boolean;
-  serviceTierKnown?: boolean;
   preserveGoalEditor?: boolean;
   expectedPanelTargetRevision?: number;
 }
 
 export interface ActiveThreadResumedAction extends ThreadActivationSnapshot {
   type: "active-thread/resumed";
-  serviceTierKnown?: boolean;
   items?: readonly ThreadStreamItem[];
   activeTurnId?: string | null;
-  status?: string;
   preserveRequestedRuntimeSettings?: boolean;
   preserveGoalEditor?: boolean;
   expectedPanelTargetRevision?: number;
@@ -146,7 +143,6 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
   return {
     ...response,
     type: "active-thread/resumed",
-    serviceTierKnown: params.serviceTierKnown ?? true,
     ...permissions,
     lifetime: response.thread.ephemeral ? { kind: "ephemeral", mode: "ordinary" } : { kind: "persistent" },
     ...(params.items ? { items: params.items } : {}),
