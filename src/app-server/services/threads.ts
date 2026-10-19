@@ -20,8 +20,6 @@ import {
 import { collectCursorPages } from "./cursor-pages";
 import type { AppServerRequestClient } from "./request-client";
 
-export type ThreadTurnSortDirection = "asc" | "desc";
-
 interface TurnTranscriptSummaryPage {
   summaries: TurnTranscriptSummary[];
   nextCursor: string | null;
@@ -86,7 +84,6 @@ export interface AppServerThreadListOptions {
   archived?: boolean;
   sectionId?: string | null;
   cursor?: string | null;
-  limit?: number | null;
 }
 
 export interface ThreadPage {
@@ -268,9 +265,8 @@ export async function readCompletedTurnTranscriptSummariesPage(
   threadId: string,
   cursor: string | null,
   limit: number,
-  sortDirection: ThreadTurnSortDirection = "asc",
 ): Promise<TurnTranscriptSummaryPage> {
-  const response = await listThreadTurns(client, threadId, cursor, limit, sortDirection);
+  const response = await listThreadTurns(client, threadId, cursor, limit, "asc");
   return {
     summaries: completedTurnTranscriptSummariesFromTurnRecords(response.data),
     nextCursor: response.nextCursor,
@@ -280,9 +276,8 @@ export async function readCompletedTurnTranscriptSummariesPage(
 export async function readReferencedThreadTranscriptPage(
   client: AppServerRequestClient,
   threadId: string,
-  limit = REFERENCED_THREAD_TURN_LIMIT,
 ): Promise<ReferencedThreadTranscriptPage> {
-  const response = await listThreadTurns(client, threadId, null, limit);
+  const response = await listThreadTurns(client, threadId, null, REFERENCED_THREAD_TURN_LIMIT);
   return {
     turns: referencedThreadTurnsFromNewestFirstTurnRecords(response.data),
     earlierTurnsAvailable: response.nextCursor !== null,
@@ -359,9 +354,9 @@ export async function archiveThread(client: AppServerRequestClient, threadId: st
   await client.request("thread/archive", { threadId });
 }
 
-export async function deleteThread(client: AppServerRequestClient, threadId: string, options: { timeoutMs?: number } = {}): Promise<void> {
+export async function deleteThread(client: AppServerRequestClient, threadId: string): Promise<void> {
   try {
-    await client.request("thread/delete", { threadId }, options);
+    await client.request("thread/delete", { threadId });
   } catch (error) {
     // thread/delete currently reports this constraint as text, without a structured error code.
     if (error instanceof Error && error.message === `cannot delete thread ${threadId}: forked history still references it`) {
@@ -369,14 +364,6 @@ export async function deleteThread(client: AppServerRequestClient, threadId: str
     }
     throw error;
   }
-}
-
-export async function unsubscribeThread(
-  client: AppServerRequestClient,
-  threadId: string,
-  options: { timeoutMs?: number } = {},
-): Promise<void> {
-  await client.request("thread/unsubscribe", { threadId }, options);
 }
 
 export async function restoreArchivedThread(client: AppServerRequestClient, threadId: string): Promise<Thread> {
@@ -448,14 +435,13 @@ export function listThreadTurns(
   cursor: string | null = null,
   limit = 20,
   sortDirection: ClientRequestParams<"thread/turns/list">["sortDirection"] = "desc",
-  itemsView: ClientRequestParams<"thread/turns/list">["itemsView"] = "full",
 ) {
   return client.request("thread/turns/list", {
     threadId,
     cursor,
     limit,
     sortDirection,
-    itemsView,
+    itemsView: "full",
   });
 }
 
@@ -463,7 +449,6 @@ function readThreadRecordPage(client: AppServerRequestClient, cwd: string, optio
   return client.request("thread/list", {
     cwd,
     ...(options.cursor ? { cursor: options.cursor } : {}),
-    ...(options.limit === undefined ? {} : { limit: options.limit }),
     archived: options.archived ?? false,
     ...(options.sectionId === undefined ? {} : { sectionId: options.sectionId }),
     sortKey: "recency_at",

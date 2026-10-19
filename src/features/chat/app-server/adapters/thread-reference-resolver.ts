@@ -29,7 +29,7 @@ async function referencedThreadInput(
 ): Promise<PreparedInput> {
   const client = host.currentClient();
   if (!client) throw new Error("Cannot reference a thread because Codex app-server is not connected.");
-  const transcript = await readReferencedThreadTranscriptPage(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
+  const transcript = await readReferencedThreadTranscriptPage(client, thread.id);
   if (transcript.turns.length === 0) {
     throw new Error("Referenced thread has no readable turns.");
   }
