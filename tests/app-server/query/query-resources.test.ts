@@ -366,6 +366,19 @@ describe("app-server query resources", () => {
     const cache = cacheWithThreads(fetchThreads);
 
     await cache.threadCatalog.fetchActiveThreads();
+    const listener = vi.fn();
+    const unsubscribe = cache.threadCatalog.observeActiveThreadsResult(listener);
+    try {
+      expect(listener).toHaveBeenCalledExactlyOnceWith({
+        value: [thread("cached")],
+        error: null,
+        isFetching: false,
+        hasMore: false,
+        isFetchingNextPage: false,
+      });
+    } finally {
+      unsubscribe();
+    }
     await expect(cache.threadCatalog.fetchActiveThreads()).resolves.toEqual([thread("cached")]);
 
     expect(fetchThreads).toHaveBeenCalledOnce();
@@ -785,6 +798,33 @@ describe("app-server query resources", () => {
       expect(listModels).toHaveBeenCalledOnce();
     } finally {
       onlineManager.setOnline(true);
+    }
+  });
+
+  it.each([false, true])("publishes cached model snapshots immediately (fetching: %s)", async (fetching) => {
+    const pending = deferred<{ data: CatalogModel[] }>();
+    const listModels = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [catalogModel("cached")] })
+      .mockImplementationOnce(() => pending.promise);
+    const cache = cacheWithRequestHandlers({ "model/list": listModels });
+    const cached = await cache.metadataQueries.fetchModels();
+    const refresh = fetching ? cache.metadataQueries.refreshModels() : null;
+    if (fetching) await flushMicrotasks();
+    const metadataListener = vi.fn();
+    const modelsListener = vi.fn();
+    const unsubscribeMetadata = cache.metadataQueries.observeMetadataResource("models", metadataListener);
+    const unsubscribeModels = cache.metadataQueries.observeModelsResult(modelsListener);
+
+    try {
+      expect(metadataListener).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: "models", value: cached }));
+      expect(modelsListener).toHaveBeenCalledExactlyOnceWith({ value: cached, error: null, isFetching: fetching });
+    } finally {
+      unsubscribeMetadata();
+      unsubscribeModels();
+      pending.resolve({ data: [catalogModel("refreshed")] });
+      await refresh;
+      cache.scope.dispose();
     }
   });
 
