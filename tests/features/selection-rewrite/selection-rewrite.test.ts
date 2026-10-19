@@ -344,7 +344,7 @@ describe("selection rewrite app-server port", () => {
           additionalProperties: false,
         },
         timeoutMs: 120_000,
-        serverRequests: { kind: "reject", message: "Selection rewrite does not handle server requests." },
+        serverRequestRejectionMessage: "Selection rewrite does not handle server requests.",
         abortMessage: "Selection rewrite cancelled.",
         signal,
         runtimeSettings: { model: "gpt-5.4-mini", effort: "minimal" },

@@ -37,7 +37,7 @@ describe("thread title", () => {
         prompt: expect.stringContaining(titleContext().userRequest),
         outputSchema: expect.objectContaining({ required: ["title"], additionalProperties: false }),
         timeoutMs: 60_000,
-        serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
+        serverRequestRejectionMessage: "Thread title generation does not handle server requests.",
         abortMessage: "Thread title generation cancelled.",
         runtimeSettings: { model: null, effort: null },
         signal,
