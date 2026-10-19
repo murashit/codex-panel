@@ -1,7 +1,19 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { compareVersions, compatibilityBoundaryIsRecorded, parseVersion } from "./versioning.mjs";
+
+function parseVersion(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+  };
+}
+
+function compareVersions(a, b) {
+  return a.major - b.major || a.minor - b.minor || a.patch - b.patch;
+}
 
 function fail(message) {
   console.error(`release check failed: ${message}`);
@@ -10,7 +22,10 @@ function fail(message) {
 
 function runGit(args) {
   const result = spawnSync("git", args, { encoding: "utf8", shell: false });
-  if (result.error || result.status !== 0) fail(`git ${args.join(" ")} failed`);
+  if (result.error || result.status !== 0) {
+    const detail = result.error?.message || result.stderr.trim() || `exit status ${result.status}`;
+    throw new Error(`release check failed: git ${args.join(" ")} failed: ${detail}`);
+  }
   return result.stdout.trim();
 }
 
@@ -41,36 +56,13 @@ for (const versionKey of versionKeys) {
   }
 }
 
-if (process.env.RELEASE_VERSION) {
-  const previousTag = process.env.PREVIOUS_RELEASE_TAG || runGit(["describe", "--tags", "--abbrev=0", `${releaseVersion}^`]);
-  const previousManifest = JSON.parse(runGit(["show", `${previousTag}:manifest.json`]));
-  if (!compatibilityBoundaryIsRecorded(versionsJson, previousTag, previousManifest.minAppVersion, manifestJson.minAppVersion)) {
-    fail(`versions.json must map the last compatible release ${previousTag} to ${previousManifest.minAppVersion}`);
-  }
-}
-
-const notesPath = path.join(".github", "release-notes", `${releaseVersion}.md`);
-let notes;
-try {
-  notes = await readFile(notesPath, "utf8");
-} catch {
-  fail(`release notes file is required at ${notesPath}`);
-}
-
-if (notes !== undefined) {
-  const normalizedNotes = notes.replace(/\r\n/g, "\n");
-  const changesHeading = normalizedNotes.match(/^## Changes\n\n/m);
-  if (!changesHeading) {
-    fail(`${notesPath} must contain "## Changes" followed by a blank line`);
-  } else if (!/^-\s+\S/m.test(normalizedNotes.slice(changesHeading.index + changesHeading[0].length))) {
-    fail(`${notesPath} must contain at least one bullet under Changes`);
-  }
-  const headings = [...normalizedNotes.matchAll(/^##\s+(.+)$/gm)];
-  if (headings.length !== 1 || headings[0]?.[1] !== "Changes") {
-    fail(`${notesPath} must contain a single Changes section`);
-  }
+// Compare the candidate with the latest reachable release, including ordinary PRs
+// that raise the runtime floor before tagpr proposes the next version.
+const previousTag = process.env.PREVIOUS_RELEASE_TAG || runGit(["describe", "--tags", "--abbrev=0", "HEAD"]);
+const previousManifest = JSON.parse(runGit(["show", `${previousTag}:manifest.json`]));
+if (previousManifest.minAppVersion !== manifestJson.minAppVersion && versionsJson[previousTag] !== previousManifest.minAppVersion) {
+  fail(`versions.json must map the last compatible release ${previousTag} to ${previousManifest.minAppVersion}`);
 }
 
 if (process.exitCode) process.exit();
-
 console.log(`release check passed for ${releaseVersion}`);

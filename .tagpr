@@ -1,0 +1,9 @@
+[tagpr]
+    releaseBranch = main
+    versionFile = package.json,manifest.json
+    vPrefix = false
+    release = draft
+    changelog = false
+    commitPrefix = chore(release):
+    postVersionCommand = node scripts/release/sync-lock.mjs
+    template = .github/tagpr.tmpl

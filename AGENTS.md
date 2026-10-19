@@ -12,7 +12,7 @@ This repository contains the Codex Panel Obsidian plugin.
 - Read `README.md` for user-facing behavior, requirements, commands, privacy, and compatibility.
 - Read `docs/design.md` when changing responsibility boundaries, runtime ownership, app-server source-of-truth behavior, UI ownership, or testing philosophy.
 - Read `docs/development.md` before implementation work, generated binding work, source layout decisions, validation, or compatibility baseline changes.
-- Read `docs/release.md` for release preparation, release notes, preflight, tagging, pushing, and release repair.
+- Read `docs/release.md` for release-PR version and note decisions, finalization, publication, and recovery.
 - Use descriptions in `.agents/skills/` to select applicable workflows. Read them before beginning the work they cover, including any agent approval boundaries, and return to relevant sections as the task progresses.
 
 ## Changes And Validation
