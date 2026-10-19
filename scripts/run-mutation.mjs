@@ -64,7 +64,10 @@ function countReport(cwd) {
 
 // GNU timeout signals Stryker once; the wrapper owns cleanup of its worker group.
 // Keep its deadline below the Actions step/job limits so finalization can run.
-export async function runMutation({ cwd = process.cwd(), invocation = command, timeoutSeconds = 7200, force = false } = {}) {
+async function runMutation({ force = false } = {}) {
+  const cwd = process.cwd();
+  const invocation = force ? [...command, "--force"] : command;
+  const timeoutSeconds = 7200;
   rmSync(resolve(cwd, reportDirectory), { recursive: true, force: true });
   const metadata = initialMetadata(cwd);
   metadata.compatibility = compatibility(cwd);
@@ -80,7 +83,6 @@ export async function runMutation({ cwd = process.cwd(), invocation = command, t
     : null;
   metadata.reuseEnabled = Boolean(baseline) && !force;
   metadata.force = force;
-  if (force) invocation = [...invocation, "--force"];
   const started = Date.now();
   Object.assign(metadata, { status: "running", startedAt: new Date(started).toISOString(), command: invocation, timeoutSeconds });
   writeMetadata(cwd, metadata);
@@ -168,7 +170,8 @@ export async function runMutation({ cwd = process.cwd(), invocation = command, t
 }
 
 // Also runs after dependency installation failure or interrupted execution.
-export function finalizeMutation(cwd = process.cwd()) {
+function finalizeMutation() {
+  const cwd = process.cwd();
   const file = resolve(cwd, reportDirectory, "run.json");
   const metadata = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : initialMetadata(cwd);
   if (!metadata.finishedAt) {

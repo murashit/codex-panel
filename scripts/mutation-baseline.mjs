@@ -5,7 +5,7 @@ import { dirname, matchesGlob, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import config from "../stryker.config.mjs";
 
-export const checkpoint = config.incrementalFile;
+const checkpoint = config.incrementalFile;
 const directory = dirname(checkpoint);
 const hash = (content) => createHash("sha256").update(content).digest("hex");
 
@@ -34,7 +34,7 @@ export function compatibility(cwd = process.cwd()) {
   return { schemaVersion: 1, versions, environment, inputs, key: hash(JSON.stringify({ versions, environment, inputs })) };
 }
 
-export function readCheckpoint(content) {
+function readCheckpoint(content) {
   const report = JSON.parse(content);
   if (
     report.schemaVersion !== "1.0" ||
@@ -173,7 +173,7 @@ with zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())) as z:
   return JSON.parse(result.stdout);
 }
 
-export async function restoreBaseline(cwd = process.cwd()) {
+async function restoreBaseline(cwd = process.cwd()) {
   rmSync(resolve(cwd, directory), { recursive: true, force: true });
   const expected = compatibility(cwd);
   if (!process.env.GITHUB_TOKEN) throw new Error("Baseline restore requires GITHUB_TOKEN");
