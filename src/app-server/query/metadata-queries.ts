@@ -219,9 +219,7 @@ export class AppServerMetadataQueries {
           queryKey: SKILLS_QUERY_KEY,
           queryFn: () =>
             this.scope.runWithClient(async (client) => {
-              const catalog = await listSkillCatalog(client, this.scope.context.vaultPath, {
-                forceReload: false,
-              });
+              const catalog = await listSkillCatalog(client, this.scope.context.vaultPath);
               return { value: catalog.skills, summary: `${String(catalog.totalCount)} skills` };
             }),
         },

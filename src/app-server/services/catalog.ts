@@ -9,9 +9,9 @@ export interface ModelMetadataClient {
   request: AppServerRequestClient["request"];
 }
 
-export async function listModelMetadata(client: ModelMetadataClient, options: { includeHidden?: boolean } = {}): Promise<ModelMetadata[]> {
+export async function listModelMetadata(client: ModelMetadataClient): Promise<ModelMetadata[]> {
   const models = await collectCursorPages(
-    (cursor) => client.request("model/list", { includeHidden: options.includeHidden ?? false, cursor, limit: 100 }),
+    (cursor) => client.request("model/list", { includeHidden: false, cursor, limit: 100 }),
     "model list",
   );
 
@@ -28,15 +28,14 @@ export async function listPermissionProfiles(client: AppServerRequestClient, cwd
 export async function listSkillCatalog(
   client: AppServerRequestClient,
   cwd: string,
-  options: { forceReload?: boolean; enabledOnly?: boolean } = {},
 ): Promise<{ skills: SkillMetadata[]; totalCount: number }> {
   const response = await client.request("skills/list", {
     cwds: [cwd],
-    forceReload: options.forceReload ?? false,
+    forceReload: false,
   });
   const skills = response.data.flatMap((entry) => entry.skills);
   return {
-    skills: skillMetadataFromCatalogSkills(options.enabledOnly === false ? skills : skills.filter((skill) => skill.enabled)),
+    skills: skillMetadataFromCatalogSkills(skills.filter((skill) => skill.enabled)),
     totalCount: skills.length,
   };
 }
