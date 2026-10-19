@@ -6,6 +6,21 @@ on:
     branches:
       - main
 
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to recover (never runs tagpr)
+        required: true
+        type: string
+      release_pr:
+        description: Merged release PR whose final body was approved
+        required: true
+        type: string
+
+concurrency:
+  group: check-${{ github.event_name == 'pull_request' && github.ref || 'main-release' }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -14,6 +29,8 @@ jobs:
     name: npm run check
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.stage.outputs.sha }}
     env:
       BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
       HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
@@ -23,8 +40,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate explicit recovery target
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$GITHUB_REF" = "refs/tags/$TAG"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
       - name: Verify workflow dependencies
         env:
@@ -34,6 +62,7 @@ jobs:
           gh actions-lock --verify
 
       - name: Fetch commit range base
+        if: github.event_name != 'workflow_dispatch'
         run: |
           # A force push can leave the previous head outside every fetched ref.
           if [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]] &&
@@ -45,6 +74,7 @@ jobs:
           fi
 
       - name: Detect specialized check inputs
+        if: github.event_name == 'pull_request'
         id: changes
         run: |
           changed() {
@@ -83,6 +113,7 @@ jobs:
         run: npm ci
 
       - name: Check introduced commit messages
+        if: github.event_name != 'workflow_dispatch'
         run: |
           if [[ "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
             # Only a newly created branch introduces its entire reachable history.
@@ -106,13 +137,122 @@ jobs:
         run: npm run release:check
 
       - name: Check changed lint policies
-        if: steps.changes.outputs.policies == 'true'
+        if: github.event_name != 'pull_request' || steps.changes.outputs.policies == 'true'
         run: npm run test:policies
 
       - name: Install recorded Codex CLI
-        if: steps.changes.outputs.bindings == 'true'
+        if: github.event_name != 'pull_request' || steps.changes.outputs.bindings == 'true'
         run: npm install --global "@openai/codex@$(node scripts/app-server-compatibility.mjs --tested-cli-version)"
 
       - name: Check generated app-server bindings
-        if: steps.changes.outputs.bindings == 'true'
+        if: github.event_name != 'pull_request' || steps.changes.outputs.bindings == 'true'
         run: npm run generate:app-server-types:check
+
+      - name: Audit runtime dependencies
+        if: github.event_name != 'pull_request'
+        run: npm audit --omit=dev --audit-level=low
+
+      - name: Check recovery release range
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          previous=$(git describe --tags --abbrev=0 "$TAG^")
+          npm run commitlint -- --from "$previous" --to "$TAG" --verbose
+          PREVIOUS_RELEASE_TAG="$previous" RELEASE_VERSION="$TAG" npm run release:check
+
+      - name: Stage checked release assets
+        if: github.event_name != 'pull_request'
+        id: stage
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-assets"
+          cp main.js manifest.json styles.css "$RUNNER_TEMP/release-assets/"
+          git rev-parse HEAD > "$RUNNER_TEMP/release-assets/checked-sha"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Pass checked assets to release job
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: checked-release-assets
+          path: ${{ runner.temp }}/release-assets/
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Maintain release PR or publish checked draft
+    needs: check
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == format('refs/tags/{0}', inputs.tag))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+      id-token: write
+      attestations: write
+    env:
+      CHECKED_SHA: ${{ needs.check.outputs.sha }}
+    steps:
+      - name: Checkout trusted workflow source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Locate staged assets
+        run: echo "ASSET_DIR=$RUNNER_TEMP/release-assets" >> "$GITHUB_ENV"
+
+      - name: Download this run's checked assets
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: checked-release-assets
+          path: ${{ env.ASSET_DIR }}
+
+      - name: Preserve publisher and pin tagpr branch
+        env:
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          cp scripts/release/publish.mjs "$RUNNER_TEMP/publish-release.mjs"
+          test "$(cat "$ASSET_DIR/checked-sha")" = "$CHECKED_SHA"
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            test "$CHECKED_SHA" = "$EVENT_SHA"
+            git switch -C main "$EVENT_SHA"
+          fi
+
+      - name: Maintain release PR or tag approved merge
+        if: github.event_name == 'push'
+        id: tagpr
+        uses: Songmu/tagpr@v1.21.3
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Verify release tag matches checked assets
+        if: steps.tagpr.outputs.tag != '' || github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.tagpr.outputs.tag || inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$CHECKED_SHA"
+
+      - name: Attest checked install assets
+        if: steps.tagpr.outputs.tag != '' || github.event_name == 'workflow_dispatch'
+        uses: actions/attest@v4.2.2
+        with:
+          subject-path: |
+            ${{ env.ASSET_DIR }}/main.js
+            ${{ env.ASSET_DIR }}/manifest.json
+            ${{ env.ASSET_DIR }}/styles.css
+
+      - name: Populate and publish draft
+        if: steps.tagpr.outputs.tag != '' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tagpr.outputs.tag || inputs.tag }}
+          RELEASE_PR_JSON: ${{ steps.tagpr.outputs.pull_request }}
+          RECOVERY_PR: ${{ inputs.release_pr }}
+        run: node "$RUNNER_TEMP/publish-release.mjs"

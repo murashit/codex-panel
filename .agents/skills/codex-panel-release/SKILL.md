@@ -5,16 +5,12 @@ description: Prepare, publish, or repair a Codex Panel release, including versio
 
 # Codex Panel Release
 
-Follow `docs/release.md` for version policy, commands, preflight, commit boundaries, and recovery. GitHub Actions owns release creation and asset attachment; do not create a release locally with `gh release create`.
+Use [Release](../../../docs/release.md) to prepare the candidate and public notes. Inspect relevant implementation, tests, and callers so the proposed notes describe verified user-visible behavior rather than hidden agent context or protocol metadata.
 
-## Determine the release contents
+Present the exact final notes, selected version, previous tag, and proposed head/range to the user and obtain explicit approval before merging the release PR or initiating tagging/publication. A general release request authorizes preparation only; do not enable auto-merge while waiting.
 
-Use the range audit and release-note drafting procedure in `docs/release.md`. Inspect relevant diffs, tests, and callers to establish actual before/after behavior. Distinguish visible Panel behavior from hidden agent context or protocol metadata, and keep each proposed bullet traceable to implementation evidence.
+Apply the guide's finalization checks immediately before merging. Compare the re-fetched body byte-for-byte with the approved text and verify the approved version and range still match, including any head or main/base change. Neither a SHA match nor passing CI proves body approval. If the body, version, or range changes, present the changed contents for renewed approval. If exact-content verification is uncertain, stop and resolve it with the user.
 
-## Prepare and publish
+Follow the guide through merged-body verification and the publication result before reporting completion. On a content mismatch, stop publication/recovery and resolve it with the user. Inspect uncertain merge or publication outcomes before retrying.
 
-Prepare the version and final notes using `docs/release.md`, then present the notes, selected version, and included range and wait for user approval before creating the release commit, tag, or push. A general request such as “let’s release” authorizes preparation, not this approval. Reuse approval of these concrete contents; an approved wording correction needs no further approval unless it changes the scope, version, or meaning.
-
-After approval, follow the documented commit, preflight, tag, and push procedure. Finish after a successful tag push; monitor Actions or verify release assets only when requested.
-
-If publication fails, inspect whether a release or assets already exist before selecting the documented recovery procedure. Do not infer authorization to rewrite a published tag from authorization to prepare a release.
+Recover only within valid approval of the exact release contents and recovery action. Reuse that approval; ask only if it is absent or uncertain, or the scope changes. Do not infer permission to move tags or overwrite published releases from release preparation approval.

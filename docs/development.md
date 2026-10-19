@@ -6,7 +6,7 @@ Use this guide to implement, validate, and maintain changes to Codex Panel. See 
 
 Use the Node.js version in `.node-version` and install dependencies with `npm ci`. Use focused scripts from `package.json` while iterating; the handoff checks below still apply.
 
-The project `.npmrc` disables lifecycle scripts and automatic install-time audits. Explicit `npm run` commands still run, without pre/post hooks. Run `npm audit` separately when reviewing dependency vulnerabilities; release preflight audits runtime dependencies explicitly.
+The project `.npmrc` disables lifecycle scripts and automatic install-time audits. Explicit `npm run` commands still run, without pre/post hooks. Run `npm audit` separately when reviewing dependency vulnerabilities.
 
 `package.json` overrides Obsidian's pinned Moment dependency with 2.31.0 to address [GHSA-4p3w-j4w9-5jqw](https://github.com/advisories/GHSA-4p3w-j4w9-5jqw). Remove the override when Obsidian depends on a patched version.
 
@@ -50,7 +50,7 @@ Once the implementation works and known findings are resolved, reconsider the co
 
 Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Focused checks do not replace this sequence unless validation is explicitly scoped otherwise.
 
-Also run `npm run api:baseline` and `npm run release:check`. These metadata checks run on every CI change: the first checks compatibility declarations and dependency pins; the second checks version-file consistency and the current version's release-note format. They do not establish runtime API compatibility or readiness to publish.
+Also run `npm run api:baseline` and `npm run release:check`. These metadata checks run on every CI change: the first checks compatibility declarations and dependency pins; the second checks version-file consistency and the last-compatible release boundary. They do not establish runtime API compatibility or readiness to publish.
 
 Local `check` uses parallel tests. CI uses one worker with shuffled files and tests; on POSIX shells, `CI=1 npm run check` selects that mode locally. Use `npm run test:order` when an explicit test-only run is needed, including on other shells. A successful CI-mode `check` already covers the order check for the same source state; do not repeat it solely to satisfy the table below.
 
