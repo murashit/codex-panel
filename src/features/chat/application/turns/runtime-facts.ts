@@ -25,7 +25,6 @@ export type TurnRuntimeFact =
       turnId: string;
       itemId: string;
       delta: string;
-      completeReasoning: boolean;
     }
   | {
       type: "planDelta";

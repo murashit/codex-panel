@@ -9,8 +9,6 @@ import { type AppServerStartStructuredTurnOptions, startStructuredTurn } from ".
 
 export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["outputSchema"];
 
-type StructuredTurnRuntimeOverride = NonNullable<AppServerStartStructuredTurnOptions["runtime"]>;
-
 type StructuredTurnProgressEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
 
 interface EphemeralStructuredTurnTimers {
@@ -31,13 +29,11 @@ export interface EphemeralStructuredTurnClient {
   disconnect(): void;
 }
 
-type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient;
-
 type EphemeralStructuredTurnClientFactory = (
   codexPath: string,
   cwd: string,
   handlers: AppServerClientHandlers,
-) => EphemeralStructuredTurnRuntimeCapableClient;
+) => EphemeralStructuredTurnClient;
 
 export interface RunEphemeralStructuredTurnOptions {
   codexPath: string;
@@ -47,12 +43,11 @@ export interface RunEphemeralStructuredTurnOptions {
   prompt: string;
   outputSchema: StructuredTurnOutputSchema;
   timeoutMs: number;
-  serverRequests: { kind: "reject"; message: string };
+  serverRequestRejectionMessage: string;
   exitedMessage: string;
   timedOutMessage: string;
   abortMessage?: string;
-  runtime?: StructuredTurnRuntimeOverride | undefined;
-  runtimeSettings?: RuntimeOverrideSettings | undefined;
+  runtimeSettings: RuntimeOverrideSettings;
   signal?: AbortSignal | undefined;
   onProgress?: (event: StructuredTurnProgressEvent) => void;
 }
@@ -132,7 +127,7 @@ export async function runEphemeralStructuredTurn(
       handleNotification(notification);
     },
     onServerRequest: (_request, responder) => {
-      responder.reject(-32601, options.serverRequests.message);
+      responder.reject(-32601, options.serverRequestRejectionMessage);
     },
     onLog: () => undefined,
     onExit: () => {
@@ -144,9 +139,7 @@ export async function runEphemeralStructuredTurn(
 
   try {
     await runAbortable(client.connect());
-    const runtime = options.runtimeSettings
-      ? await runAbortable(validatedRuntimeOverrideForClient(client, options.runtimeSettings))
-      : (options.runtime ?? {});
+    const runtime = await runAbortable(validatedRuntimeOverrideForClient(client, options.runtimeSettings));
     const threadResponse = await runAbortable(
       startEphemeralThread(client, {
         cwd: options.cwd,
@@ -181,7 +174,7 @@ export async function runEphemeralStructuredTurn(
 
 export async function runEphemeralStructuredTurnForLastAgentText(
   options: RunEphemeralStructuredTurnOptions,
-  runner: EphemeralStructuredTurnRunner = runEphemeralStructuredTurn,
+  runner: EphemeralStructuredTurnRunner,
 ): Promise<string | null> {
   const turn = await runner(options);
   return lastAgentMessageTextFromTurnRecord(turn);

@@ -22,13 +22,6 @@ export interface Diagnostics extends MetadataResourceDiagnostics {
   readonly mcpServers: readonly McpServerDiagnostic[];
 }
 
-export function createServerDiagnostics(): Diagnostics {
-  return {
-    probes: createMetadataResourceDiagnostics().probes,
-    mcpServers: [],
-  };
-}
-
 export function createMetadataResourceDiagnostics(): MetadataResourceDiagnostics {
   return {
     probes: {

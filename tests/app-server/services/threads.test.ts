@@ -9,7 +9,6 @@ import {
   setThreadGoal,
   startThread,
   threadFromAppServerRecord,
-  unsubscribeThread,
 } from "../../../src/app-server/services/threads";
 import { appServerTurnFixture } from "../../support/app-server-records";
 import { deferred } from "../../support/async";
@@ -56,13 +55,7 @@ describe("app-server thread response adapters", () => {
 
     expect(thread.provenance).toEqual({
       kind: "subagent",
-      subagentKind: "thread-spawn",
       parentThreadId: "parent",
-      sessionId: "session",
-      depth: 2,
-      agentPath: "/root/scout",
-      agentNickname: "Scout",
-      agentRole: "explorer",
     });
   });
 
@@ -98,14 +91,6 @@ describe("app-server thread response adapters", () => {
     } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault")).resolves.toMatchObject([{ id: "interactive" }]);
-  });
-
-  it("unsubscribes ephemeral threads instead of deleting them", async () => {
-    const client = { request: vi.fn().mockResolvedValue({ status: "unsubscribed" }) } as unknown as AppServerRequestClient;
-
-    await unsubscribeThread(client, "side", { timeoutMs: 5_000 });
-
-    expect(client.request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side" }, { timeoutMs: 5_000 });
   });
 
   it("starts panel-owned threads with the codex-panel service name", async () => {

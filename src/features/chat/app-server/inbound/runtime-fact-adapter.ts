@@ -46,7 +46,6 @@ export function turnRuntimeFactFromNotification(
         itemId: notification.params.itemId,
         turnId: notification.params.turnId,
         delta: notification.params.delta,
-        completeReasoning: true,
       };
     case "item/plan/delta":
       return {

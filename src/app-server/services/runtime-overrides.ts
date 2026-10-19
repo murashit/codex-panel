@@ -1,6 +1,7 @@
 import type { ModelMetadata, ReasoningEffort } from "../../domain/runtime/catalog";
 import { unsupportedReasoningEffort, unsupportedReasoningEffortMessage } from "../../domain/runtime/catalog";
-import { listModelMetadata, type ModelMetadataClient } from "./catalog";
+import { listModelMetadata } from "./catalog";
+import type { AppServerRequestClient } from "./request-client";
 
 export interface RuntimeOverrideSettings {
   readonly model: string | null;
@@ -13,7 +14,7 @@ export interface RuntimeOverride {
 }
 
 export async function validatedRuntimeOverrideForClient(
-  client: ModelMetadataClient,
+  client: AppServerRequestClient,
   settings: RuntimeOverrideSettings,
 ): Promise<RuntimeOverride> {
   const runtime = runtimeOverride(settings);

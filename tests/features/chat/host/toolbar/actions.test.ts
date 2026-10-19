@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { createServerDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
-
 import { createChatState } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ThreadCommands } from "../../../../../src/features/chat/application/threads/thread-commands";
 import { createToolbarPanelActions, createToolbarUiActions } from "../../../../../src/features/chat/host/toolbar/actions";
+import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 
 describe("createToolbarPanelActions", () => {
   it("tracks archive confirmation and delegates archive actions", async () => {

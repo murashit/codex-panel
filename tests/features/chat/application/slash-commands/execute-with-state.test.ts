@@ -97,7 +97,6 @@ describe("executePanelSlashCommand", () => {
         ensureRestoredThreadLoaded: () => restoration.ensureLoaded(loadSavedThread),
         composer: {
           draft,
-          trimmedDraft: draft,
           claimSubmission: () => ({
             text: draft,
             inputSnapshot: {
@@ -205,12 +204,7 @@ describe("executePanelSlashCommand", () => {
         ...thread("child", "Child"),
         provenance: {
           kind: "subagent",
-          subagentKind: "thread-spawn",
           parentThreadId: "parent",
-          sessionId: "session",
-          depth: 1,
-          agentNickname: "Scout",
-          agentRole: "explorer",
         },
       }),
       type: "active-thread/resumed",
@@ -222,8 +216,6 @@ describe("executePanelSlashCommand", () => {
       tokenBudget: null,
       tokensUsed: 0,
       timeUsedSeconds: 0,
-      createdAt: 1,
-      updatedAt: 1,
     });
 
     await expect(executePanelSlashCommand(host, "goal", "")).resolves.toBeUndefined();

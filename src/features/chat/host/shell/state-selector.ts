@@ -3,7 +3,6 @@ import type { ChatState } from "../../application/state/model";
 import type { ChatStateStore } from "../../application/state/store";
 
 type ChatSelector<Selection> = (state: ChatState) => Selection;
-type SelectionEquality<Selection> = (left: Selection, right: Selection) => boolean;
 
 interface SelectionCache<Selection> {
   store: ChatStateStore;
@@ -12,16 +11,12 @@ interface SelectionCache<Selection> {
   selection: Selection;
 }
 
-export function useChatSelector<Selection extends object>(
-  store: ChatStateStore,
-  selector: ChatSelector<Selection>,
-  equality: SelectionEquality<Selection> = shallowEqual,
-): Selection {
+export function useChatSelector<Selection extends object>(store: ChatStateStore, selector: ChatSelector<Selection>): Selection {
   const cacheRef = useRef<SelectionCache<Selection> | null>(null);
   const [, rerender] = useReducer((version: number) => version + 1, 0);
   const state = store.getState();
   const previous = cacheRef.current;
-  const selection = selectionFor(previous, store, selector, state, equality);
+  const selection = selectionFor(previous, store, selector, state);
   cacheRef.current = { store, selector, state, selection };
 
   useLayoutEffect(() => {
@@ -33,7 +28,7 @@ export function useChatSelector<Selection extends object>(
       const nextState = store.getState();
       if (nextState === current.state) return;
       const nextSelection = selector(nextState);
-      if (equality(current.selection, nextSelection)) {
+      if (shallowEqual(current.selection, nextSelection)) {
         cacheRef.current = { store, selector, state: nextState, selection: current.selection };
         return;
       }
@@ -47,7 +42,7 @@ export function useChatSelector<Selection extends object>(
       active = false;
       unsubscribe();
     };
-  }, [store, selector, equality]);
+  }, [store, selector]);
 
   return selection;
 }
@@ -57,12 +52,11 @@ function selectionFor<Selection extends object>(
   store: ChatStateStore,
   selector: ChatSelector<Selection>,
   state: ChatState,
-  equality: SelectionEquality<Selection>,
 ): Selection {
   if (previous?.store === store && previous.selector === selector) {
     if (previous.state === state) return previous.selection;
     const next = selector(state);
-    return equality(previous.selection, next) ? previous.selection : next;
+    return shallowEqual(previous.selection, next) ? previous.selection : next;
   }
   return selector(state);
 }

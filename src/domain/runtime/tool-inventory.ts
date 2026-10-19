@@ -38,13 +38,9 @@ export interface ToolInventoryPlugin {
   readonly id: string;
   readonly name: string;
   readonly displayName: string | null;
-  readonly marketplaceName: string;
-  readonly marketplacePath: string | null;
   readonly localVersion: string | null;
   readonly installed: boolean;
   readonly enabled: boolean;
-  readonly availability: string;
-  readonly source: string;
 }
 
 export interface ToolInventorySnapshot {

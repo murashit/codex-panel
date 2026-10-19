@@ -108,7 +108,6 @@ function projectThreadStreamBlocks(
   const activeItems = model.activeTurn.activeSegment
     ? appendPendingDisplayItems(threadStreamActiveItems(stream), pendingSteers, model.pendingSubmission)
     : threadStreamActiveItems(stream);
-  const items = appendPendingDisplayItems(canonicalItems, pendingSteers, model.pendingSubmission);
   const workspaceRoot = dependencies.vaultPath;
   const subagentActivities = new Map<string, ActiveSubagentActivity>();
   for (const [threadId, activity] of model.activeTurn.subagents.byThreadId) {
@@ -141,7 +140,6 @@ function projectThreadStreamBlocks(
     activeTurnId: activeTurnId(model.activeTurn),
     historyCursor: model.threadStream.historyCursor,
     loadingHistory: model.threadStream.loadingHistory,
-    items,
     stableItems,
     activeItems,
     workspaceRoot,

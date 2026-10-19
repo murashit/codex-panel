@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
-import { createServerDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/host/runtime/notices";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
+import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 import { type ChatSharedDisplayValues, chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 

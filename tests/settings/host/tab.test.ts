@@ -731,7 +731,7 @@ describe("settings tab", () => {
     clickButtonByLabel(tab, "Delete thread");
     await flushPromises();
 
-    expect(client.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread-archived" }, {});
+    expect(client.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread-archived" });
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")).not.toBeNull();
     expect(buttonByLabel(tab, "Delete thread").ariaDisabled).toBe("true");
 

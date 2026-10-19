@@ -23,7 +23,6 @@ type ThreadStreamActivityGroupItem =
       id: string;
       label: typeof STEERING_ACTIVITY_LABEL;
       text: string;
-      sourceItemId: string;
     };
 
 export type ThreadStreamLayoutBlock =
@@ -102,7 +101,6 @@ function steeringActivityGroupItem(item: ThreadStreamItem): ThreadStreamActivity
     id: `steer-activity-${item.id}`,
     label: STEERING_ACTIVITY_LABEL,
     text: textForThreadStreamItem(item),
-    sourceItemId: item.sourceItemId ?? item.id,
   };
 }
 

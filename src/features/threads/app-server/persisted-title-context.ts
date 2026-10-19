@@ -9,7 +9,7 @@ export async function readPersistedTitleContext(client: AppServerRequestClient, 
   let cursor: string | null = null;
 
   for (let page = 0; page < DEFAULT_CONTEXT_MAX_PAGES; page += 1) {
-    const response = await readCompletedTurnTranscriptSummariesPage(client, threadId, cursor, DEFAULT_CONTEXT_PAGE_LIMIT, "asc");
+    const response = await readCompletedTurnTranscriptSummariesPage(client, threadId, cursor, DEFAULT_CONTEXT_PAGE_LIMIT);
     for (const summary of response.summaries) {
       const context = threadTitleContextFromTurnTranscriptSummary(summary);
       if (context) return context;

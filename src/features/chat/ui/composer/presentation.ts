@@ -112,11 +112,9 @@ function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   effortChoices: ComposerRuntimeChoice[];
 } {
   const resolution = input.resolution;
-  const effectiveModel = resolution.model.effective;
   const models = sortedModelMetadata(input.models);
   const modelChoices: ComposerRuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
-    selected: effectiveModel === model.model,
     onClick: () => {
       input.requestModel(model.model);
     },
@@ -129,10 +127,8 @@ function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
     });
   }
 
-  const activeEffort = resolution.reasoningEffort.effective;
   const effortChoices: ComposerRuntimeChoice[] = resolution.supportedReasoningEfforts.map((effort) => ({
     label: effort,
-    selected: activeEffort === effort,
     onClick: () => {
       input.requestReasoningEffort(effort);
     },

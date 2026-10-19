@@ -106,21 +106,20 @@ export class AppServerMetadataQueries {
   observeMetadataResource<Id extends SharedServerMetadataResourceId>(
     id: Id,
     listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
-    options: { emitCurrent?: boolean } = {},
   ): () => void {
     this.scope.assertUsable();
     const descriptor = this.metadataDescriptors[id];
-    return this.observeMetadataQueryResource(descriptor.queryOptions, descriptor.project, listener, options);
+    return this.observeMetadataQueryResource(descriptor.queryOptions, descriptor.project, listener);
   }
 
-  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options: { emitCurrent?: boolean } = {}): () => void {
+  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>): () => void {
     this.scope.assertUsable();
-    return this.scope.observeResult(this.metadataDescriptors["models"].queryOptions, (data) => data.value, listener, options);
+    return this.scope.observeResult(this.metadataDescriptors["models"].queryOptions, (data) => data.value, listener);
   }
 
-  observeHooksResult(listener: ObservedResultListener<HookCatalog>, options: { emitCurrent?: boolean } = {}): () => void {
+  observeHooksResult(listener: ObservedResultListener<HookCatalog>): () => void {
     this.scope.assertUsable();
-    return this.scope.observeResult(this.hooksQueryOptions, (catalog) => catalog, listener, options);
+    return this.scope.observeResult(this.hooksQueryOptions, (catalog) => catalog, listener);
   }
 
   ensureAppServerMetadata(): Promise<void> {
@@ -219,9 +218,7 @@ export class AppServerMetadataQueries {
           queryKey: SKILLS_QUERY_KEY,
           queryFn: () =>
             this.scope.runWithClient(async (client) => {
-              const catalog = await listSkillCatalog(client, this.scope.context.vaultPath, {
-                forceReload: false,
-              });
+              const catalog = await listSkillCatalog(client, this.scope.context.vaultPath);
               return { value: catalog.skills, summary: `${String(catalog.totalCount)} skills` };
             }),
         },
@@ -299,7 +296,6 @@ export class AppServerMetadataQueries {
     queryOptions: AppServerQueryOptions<TQuery>,
     project: (result: QueryObserverResult<TQuery>) => Resource,
     listener: (resource: Resource) => void,
-    options: { emitCurrent?: boolean },
   ): () => void {
     const observer = new QueryObserver<TQuery>(this.scope.client, {
       ...queryOptions,
@@ -310,7 +306,7 @@ export class AppServerMetadataQueries {
       listener(project(result));
     };
     const unsubscribe = observer.subscribe(emit);
-    if (options.emitCurrent ?? true) emit(observer.getCurrentResult(), true);
+    emit(observer.getCurrentResult(), true);
     return this.scope.trackObserver(() => {
       unsubscribe();
       observer.destroy();

@@ -154,7 +154,7 @@ describe("CodexExecutionRuntime", () => {
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
 
-    await chat.appServerQueries.fetchModels();
+    await runtime.settingsResources.queries.fetchModels();
     await chat.threadMutations.archiveThread("thread", { saveMarkdown: false });
 
     expect(contextConnectionMock.client.request).toHaveBeenCalledWith("model/list", { cursor: null, includeHidden: false, limit: 100 });
@@ -245,15 +245,15 @@ describe("CodexExecutionRuntime", () => {
     const runtime = executionRuntime();
     const chat = attachChatHost(runtime);
     const previous = goalFixture({ objective: "Old" });
-    const next = goalFixture({ objective: "Latest", updatedAt: 2 });
+    const next = goalFixture({ objective: "Latest" });
     contextConnectionMock.instances[0]?.handlers.onNotification({
       method: "thread/goal/updated",
-      params: { threadId: "thread", turnId: null, goal: previous },
+      params: { threadId: "thread", turnId: null, goal: { ...previous, createdAt: 1, updatedAt: 1 } },
     });
 
     contextConnectionMock.instances[0]?.handlers.onNotification({
       method: "thread/goal/updated",
-      params: { threadId: "thread", turnId: null, goal: next },
+      params: { threadId: "thread", turnId: null, goal: { ...next, createdAt: 1, updatedAt: 1 } },
     });
 
     expect(chat.threadGoalQueries.snapshot("thread")).toEqual(next);
@@ -463,8 +463,6 @@ function goalFixture(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
     tokenBudget: null,
     tokensUsed: 0,
     timeUsedSeconds: 0,
-    createdAt: 1,
-    updatedAt: 1,
     ...overrides,
   };
 }

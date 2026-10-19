@@ -94,7 +94,7 @@ describe("SettingsResourcesController", () => {
     firstModels.resolve(modelMetadataFromCatalogModels([model("gpt-old")]));
     await Promise.all([firstRefresh, secondRefresh]);
 
-    expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-old"]);
+    expect(controller.modelMetadata().map((item) => item.model)).toEqual(["gpt-old"]);
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["New"]);
   });
 
@@ -102,18 +102,27 @@ describe("SettingsResourcesController", () => {
     useContextClients(settingsClient());
     const models = deferred<ModelMetadata[]>();
     const display = vi.fn();
+    const unsubscribeModels = vi.fn();
+    const observeModels = vi.fn(() => unsubscribeModels);
     const controller = settingsResourcesController(
       settingsTabHost({
+        modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]),
+        observeModels,
         refreshModels: vi.fn(() => models.promise),
         refreshArchived: vi.fn().mockResolvedValue([]),
       }),
       { display, notify: noop },
     );
 
+    controller.activate();
+    expect(observeModels).toHaveBeenCalledOnce();
+    expect(controller.modelMetadata().map((item) => item.model)).toEqual(["gpt-cached"]);
+    expect(display).toHaveBeenCalled();
     const refresh = controller.refresh();
     await flushPromises();
     display.mockClear();
     controller.dispose();
+    expect(unsubscribeModels).toHaveBeenCalledOnce();
     models.resolve([]);
     await refresh;
 
@@ -274,7 +283,7 @@ describe("SettingsResourcesController", () => {
     expect(refreshArchived).toHaveBeenCalledOnce();
     expect(refreshModels).toHaveBeenCalledTimes(2);
     expect(settingsContextClientMock).toHaveBeenCalledTimes(3);
-    expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
+    expect(controller.modelMetadata().map((item) => item.model)).toEqual(["gpt-new"]);
     expect(controller.snapshot().hookCatalog?.hooks).toEqual([expect.objectContaining({ key: "hook-new" })]);
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Old archived"]);
 

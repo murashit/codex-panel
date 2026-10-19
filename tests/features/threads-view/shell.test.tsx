@@ -158,7 +158,7 @@ describe("threads view renderer decisions", () => {
     openNewPanel.click();
     expect(actions.openNewPanel).toHaveBeenCalledOnce();
     expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).click();
-    expect(actions.startRename).toHaveBeenCalledWith("open", "Open thread");
+    expect(actions.startRename).toHaveBeenCalledWith("open");
     main.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");
   });

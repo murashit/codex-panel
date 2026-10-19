@@ -23,7 +23,6 @@ export interface ComposerSubmitCommandHost {
   ensureRestoredThreadLoaded?: () => Promise<boolean>;
   composer: {
     readonly draft: string;
-    readonly trimmedDraft: string;
     claimSubmission(): ComposerSubmissionClaim | null;
     isSubmissionPreparing(): boolean;
     failActiveSubmissionClaim(): void;

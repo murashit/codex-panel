@@ -3,20 +3,15 @@ import type { InitializeResponse } from "../../generated/app-server/InitializeRe
 import type { RequestId } from "../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-import type { AppsListResponse } from "../../generated/app-server/v2/AppsListResponse";
-import type { CollaborationModeListResponse } from "../../generated/app-server/v2/CollaborationModeListResponse";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { ConfigWriteResponse } from "../../generated/app-server/v2/ConfigWriteResponse";
-import type { EnvironmentInfoResponse } from "../../generated/app-server/v2/EnvironmentInfoResponse";
 import type { FsReadFileResponse } from "../../generated/app-server/v2/FsReadFileResponse";
 import type { GetAccountRateLimitsResponse } from "../../generated/app-server/v2/GetAccountRateLimitsResponse";
 import type { HooksListResponse } from "../../generated/app-server/v2/HooksListResponse";
 import type { ListMcpServerStatusResponse } from "../../generated/app-server/v2/ListMcpServerStatusResponse";
 import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
-import type { ModelProviderCapabilitiesReadResponse } from "../../generated/app-server/v2/ModelProviderCapabilitiesReadResponse";
 import type { PermissionProfileListResponse } from "../../generated/app-server/v2/PermissionProfileListResponse";
 import type { PluginInstalledResponse } from "../../generated/app-server/v2/PluginInstalledResponse";
-import type { PluginReadResponse } from "../../generated/app-server/v2/PluginReadResponse";
 import type { SkillsListResponse } from "../../generated/app-server/v2/SkillsListResponse";
 import type { ThreadArchiveResponse } from "../../generated/app-server/v2/ThreadArchiveResponse";
 import type { ThreadCompactStartResponse } from "../../generated/app-server/v2/ThreadCompactStartResponse";
@@ -28,11 +23,9 @@ import type { ThreadGoalSetResponse } from "../../generated/app-server/v2/Thread
 import type { ThreadInjectItemsResponse } from "../../generated/app-server/v2/ThreadInjectItemsResponse";
 import type { ThreadItemsListResponse } from "../../generated/app-server/v2/ThreadItemsListResponse";
 import type { ThreadListResponse } from "../../generated/app-server/v2/ThreadListResponse";
-import type { ThreadMetadataUpdateResponse } from "../../generated/app-server/v2/ThreadMetadataUpdateResponse";
 import type { ThreadReadResponse } from "../../generated/app-server/v2/ThreadReadResponse";
 import type { ThreadReadStateUpdateResponse } from "../../generated/app-server/v2/ThreadReadStateUpdateResponse";
 import type { ThreadResumeResponse } from "../../generated/app-server/v2/ThreadResumeResponse";
-import type { ThreadSectionListResponse } from "../../generated/app-server/v2/ThreadSectionListResponse";
 import type { ThreadSectionMoveResponse } from "../../generated/app-server/v2/ThreadSectionMoveResponse";
 import type { ThreadSetNameResponse } from "../../generated/app-server/v2/ThreadSetNameResponse";
 import type { ThreadSettingsUpdateResponse } from "../../generated/app-server/v2/ThreadSettingsUpdateResponse";
@@ -85,9 +78,7 @@ export interface ClientResponseByMethod {
   "thread/goal/clear": ThreadGoalClearResponse;
   "thread/inject_items": ThreadInjectItemsResponse;
   "thread/list": ThreadListResponse;
-  "thread/metadata/update": ThreadMetadataUpdateResponse;
   "thread/section/move": ThreadSectionMoveResponse;
-  "threadSection/list": ThreadSectionListResponse;
   "thread/read": ThreadReadResponse;
   "thread/readState/update": ThreadReadStateUpdateResponse;
   "thread/archive": ThreadArchiveResponse;
@@ -99,21 +90,16 @@ export interface ClientResponseByMethod {
   "thread/turns/list": ThreadTurnsListResponse;
   "thread/items/list": ThreadItemsListResponse;
   "skills/list": SkillsListResponse;
-  "app/list": AppsListResponse;
   "plugin/installed": PluginInstalledResponse;
-  "plugin/read": PluginReadResponse;
   "model/list": ModelListResponse;
   "permissionProfile/list": PermissionProfileListResponse;
   "account/rateLimits/read": GetAccountRateLimitsResponse;
   "mcpServerStatus/list": ListMcpServerStatusResponse;
-  "collaborationMode/list": CollaborationModeListResponse;
-  "modelProvider/capabilities/read": ModelProviderCapabilitiesReadResponse;
   "thread/compact/start": ThreadCompactStartResponse;
   "turn/start": TurnStartResponse;
   "turn/steer": TurnSteerResponse;
   "turn/interrupt": TurnInterruptResponse;
   "fs/readFile": FsReadFileResponse;
-  "environment/info": EnvironmentInfoResponse;
 }
 
 export type TypedClientRequestMethod = Extract<ClientRequestMethod, keyof ClientResponseByMethod>;

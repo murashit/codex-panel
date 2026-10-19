@@ -17,7 +17,6 @@ interface SettingsResourcesSnapshot {
   archivedThreadsLifecycle: SettingsResourceLifecycleState;
   hookCatalog: SettingsHookCatalog | null;
   hooksLifecycle: SettingsResourceLifecycleState;
-  models: readonly ModelMetadata[];
   modelsLifecycle: SettingsResourceLifecycleState;
 }
 
@@ -131,7 +130,6 @@ export class SettingsResourcesController {
       archivedThreadsLifecycle: { ...this.archivedThreadsLifecycle() },
       hookCatalog: this.hooksResult.value,
       hooksLifecycle: { ...this.hooksLifecycle() },
-      models: this.modelsResult.value ?? [],
       modelsLifecycle: { ...this.modelsLifecycle() },
     };
   }

@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../../src/app-server/connection/client";
 import type { ConnectionManagerHandlers } from "../../../../../src/app-server/connection/connection-manager";
 import { AppServerContextConnection } from "../../../../../src/app-server/connection/context-connection";
-import { createServerDiagnostics } from "../../../../../src/domain/runtime/diagnostics";
 import type { ServerInitialization } from "../../../../../src/domain/runtime/metadata";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
@@ -19,6 +18,7 @@ import { createKeyedOperationCoordinator } from "../../../../../src/shared/async
 import { deferred, waitForAsyncWork } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { threadMutationCommandsMock } from "../../../../support/thread-mutations";
 import { chatPanelSettingsAccess } from "../../support/settings";
@@ -130,7 +130,7 @@ describe("chat panel session runtime", () => {
       type: "active-thread/resumed",
     });
     stateStore.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread-1", open: true });
-    const initial = goalFixture({ objective: "Initial", updatedAt: 1 });
+    const initial = goalFixture({ objective: "Initial" });
     expect(observeChanges).toHaveBeenCalledOnce();
     expect(publishGoalChange).toBeTypeOf("function");
 
@@ -138,10 +138,10 @@ describe("chat panel session runtime", () => {
     expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(true);
     expect(stateStore.getState().threadStream.stableItems).toEqual([]);
 
-    publishGoalChange?.("thread-1", initial, { ...initial, tokensUsed: 1, updatedAt: 2 });
+    publishGoalChange?.("thread-1", initial, { ...initial, tokensUsed: 1 });
     expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(true);
 
-    publishGoalChange?.("thread-1", initial, { ...initial, objective: "Replacement", updatedAt: 3 });
+    publishGoalChange?.("thread-1", initial, { ...initial, objective: "Replacement" });
     expect(stateStore.getState().ui.disclosures.goalObjectiveExpanded.has("thread-1")).toBe(false);
   });
 
@@ -688,8 +688,6 @@ describe("chat panel session runtime", () => {
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       ensureAppServerMetadata: vi.fn().mockResolvedValue(undefined),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
-      fetchModels: vi.fn().mockResolvedValue([]),
-      refreshModels: vi.fn().mockResolvedValue([]),
       observeMetadataResource: vi.fn(() => () => undefined),
       ...overrides,
     };
@@ -733,8 +731,6 @@ describe("chat panel session runtime", () => {
       tokenBudget: null,
       tokensUsed: 0,
       timeUsedSeconds: 0,
-      createdAt: 1,
-      updatedAt: 1,
       ...overrides,
     };
   }

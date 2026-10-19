@@ -1,8 +1,6 @@
 import type { McpServerStatusSummary, ToolInventoryPlugin } from "../../domain/runtime/tool-inventory";
 import type { McpServerStatus } from "../../generated/app-server/v2/McpServerStatus";
 import type { PluginInstalledResponse } from "../../generated/app-server/v2/PluginInstalledResponse";
-import type { PluginMarketplaceEntry } from "../../generated/app-server/v2/PluginMarketplaceEntry";
-import type { PluginSource } from "../../generated/app-server/v2/PluginSource";
 import type { PluginSummary } from "../../generated/app-server/v2/PluginSummary";
 
 export function toolInventoryPluginsFromInstalledResponse(response: PluginInstalledResponse): ToolInventoryPlugin[] {
@@ -10,35 +8,19 @@ export function toolInventoryPluginsFromInstalledResponse(response: PluginInstal
     throw new Error(response.marketplaceLoadErrors.map((error) => `${error.marketplacePath}: ${error.message}`).join("; "));
   }
   return response.marketplaces
-    .flatMap((marketplace) => marketplace.plugins.map((plugin) => toolInventoryPluginFromSummary(plugin, marketplace)))
+    .flatMap((marketplace) => marketplace.plugins.map(toolInventoryPluginFromSummary))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function toolInventoryPluginFromSummary(plugin: PluginSummary, marketplace: PluginMarketplaceEntry): ToolInventoryPlugin {
+function toolInventoryPluginFromSummary(plugin: PluginSummary): ToolInventoryPlugin {
   return {
     id: plugin.id,
     name: plugin.name,
     displayName: plugin.interface?.displayName ?? null,
-    marketplaceName: marketplace.name,
-    marketplacePath: marketplace.path,
     localVersion: plugin.localVersion,
     installed: plugin.installed,
     enabled: plugin.enabled,
-    availability: plugin.availability,
-    source: pluginSourceLabel(plugin.source),
   };
-}
-
-function pluginSourceLabel(source: PluginSource): string {
-  if (source.type === "local") return source.path;
-  if (source.type === "git") {
-    const ref = source.refName ? `#${source.refName}` : source.sha ? `#${source.sha.slice(0, 8)}` : "";
-    const path = source.path ? `/${source.path}` : "";
-    return `${source.url}${path}${ref}`;
-  }
-  if (source.type === "npm") return source.version ? `${source.package}@${source.version}` : source.package;
-  source satisfies { type: "remote" };
-  return "remote";
 }
 
 // Tool names may be absent in status payloads; retain the map-key fallback at this boundary.

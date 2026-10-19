@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { mcpServerStatusSummariesFromStatuses } from "../../../../../src/app-server/protocol/tool-inventory";
 import type { SkillMetadata } from "../../../../../src/domain/runtime/catalog";
 import {
-  createServerDiagnostics,
   type DiagnosticProbeId,
   type DiagnosticProbeResult,
   type Diagnostics,
@@ -13,6 +12,7 @@ import {
 import type { McpServerDiagnostic, ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import { appServerDiagnosticSections } from "../../../../../src/features/chat/ui/runtime/diagnostics";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/ui/runtime/tool-inventory";
+import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 
 type InventoryFixture = ToolInventorySnapshot;
 
@@ -131,49 +131,33 @@ describe("connection diagnostics", () => {
           id: "usable-plugin",
           name: "usable-bundle",
           displayName: "Usable Plugin",
-          marketplaceName: "personal",
-          marketplacePath: null,
           localVersion: "1.2.3",
           installed: true,
           enabled: true,
-          availability: "AVAILABLE",
-          source: "remote",
         },
         {
           id: "installable-plugin",
           name: "installable-plugin",
           displayName: "Installable Plugin",
-          marketplaceName: "directory",
-          marketplacePath: null,
           localVersion: null,
           installed: false,
           enabled: true,
-          availability: "AVAILABLE",
-          source: "remote",
         },
         {
           id: "disabled-plugin",
           name: "disabled-plugin",
           displayName: "Disabled Plugin",
-          marketplaceName: "personal",
-          marketplacePath: null,
           localVersion: "2.0.0",
           installed: true,
           enabled: false,
-          availability: "AVAILABLE",
-          source: "remote",
         },
         {
           id: "unversioned-plugin",
           name: "unversioned-bundle",
           displayName: "Usable Plugin",
-          marketplaceName: "personal",
-          marketplacePath: null,
           localVersion: null,
           installed: true,
           enabled: true,
-          availability: "AVAILABLE",
-          source: "remote",
         },
       ],
       pluginsError: null,

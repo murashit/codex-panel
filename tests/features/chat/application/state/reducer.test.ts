@@ -212,12 +212,7 @@ describe("chatReducer", () => {
       label: "subagent",
       provenance: {
         kind: "subagent",
-        subagentKind: "review",
         parentThreadId: "parent",
-        sessionId: "session",
-        depth: 1,
-        agentNickname: "reviewer",
-        agentRole: "review",
       } as const,
     },
   ])("keeps an active $label thread reconnectable across a same-context disconnect", ({ provenance }) => {
@@ -639,18 +634,17 @@ describe("chatReducer", () => {
     expect(activeTurnId(next.activeTurn)).toBeNull();
   });
 
-  it("preserves unknown service tier state when resuming from active runtime", () => {
+  it("marks the service tier returned by activation as known", () => {
     const state = chatReducer(chatStateFixture(), {
       ...threadActivationFixture(thread("thread")),
       type: "active-thread/resumed",
       model: "gpt-5.1",
       reasoningEffort: "high",
-      serviceTierKnown: false,
       approvalsReviewer: "user",
     });
 
     expect(state.runtime.active.serviceTier).toBeNull();
-    expect(state.runtime.active.serviceTierKnown).toBe(false);
+    expect(state.runtime.active.serviceTierKnown).toBe(true);
   });
 
   it("keeps panel-local thread, request, and composer state isolated across stores", () => {

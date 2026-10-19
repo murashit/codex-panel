@@ -38,7 +38,7 @@ export interface ThreadTitleRuntimeSettings {
 }
 
 export interface GenerateThreadTitleWithCodexOptions {
-  runner?: EphemeralStructuredTurnRunner;
+  runner: EphemeralStructuredTurnRunner;
   signal?: AbortSignal;
 }
 
@@ -47,7 +47,7 @@ export async function generateThreadTitleWithCodex(
   cwd: string,
   context: ThreadTitleContext,
   runtimeSettings: ThreadTitleRuntimeSettings,
-  options: GenerateThreadTitleWithCodexOptions = {},
+  options: GenerateThreadTitleWithCodexOptions,
 ): Promise<string | null> {
   const response = await runEphemeralStructuredTurnForLastAgentText(
     {
@@ -58,7 +58,7 @@ export async function generateThreadTitleWithCodex(
       prompt: threadTitlePrompt(context),
       outputSchema: TITLE_OUTPUT_SCHEMA,
       timeoutMs: THREAD_TITLE_TIMEOUT_MS,
-      serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
+      serverRequestRejectionMessage: "Thread title generation does not handle server requests.",
       exitedMessage: "Codex title generation app-server exited.",
       timedOutMessage: "Timed out while generating a Codex thread title.",
       abortMessage: "Thread title generation cancelled.",

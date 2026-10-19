@@ -18,7 +18,6 @@ interface ThreadStreamBlockProjectionInput {
   activeTurnId: string | null;
   historyCursor: string | null;
   loadingHistory: boolean;
-  items: readonly ThreadStreamItem[];
   stableItems: readonly ThreadStreamItem[];
   activeItems: readonly ThreadStreamItem[];
   workspaceRoot: string;
@@ -182,7 +181,6 @@ function threadStreamRenderedItemView(
 function statusViewContext(input: ThreadStreamBlockProjectionInput): ThreadStreamStatusViewContext {
   return {
     activeTurnId: input.activeTurnId,
-    items: input.items,
     activeItems: input.activeItems,
   };
 }

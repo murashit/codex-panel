@@ -46,12 +46,7 @@ function createHost(
             id: "child",
             provenance: {
               kind: "subagent",
-              subagentKind: "thread-spawn",
               parentThreadId: "parent",
-              sessionId: "session",
-              depth: 1,
-              agentNickname: "Scout",
-              agentRole: "explorer",
             },
           },
         })
@@ -83,9 +78,6 @@ function createHost(
     composer: {
       get draft() {
         return draft;
-      },
-      get trimmedDraft() {
-        return draft.trim();
       },
       claimSubmission,
       isSubmissionPreparing: vi.fn(() => false),

@@ -2,7 +2,6 @@ import type { App, Component, EventRef } from "obsidian";
 import type { AppServerContextConnectionLease } from "../../../app-server/connection/context-connection";
 import type { AppServerExecutionContext } from "../../../app-server/connection/execution-context";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
-import type { ModelMetadata } from "../../../domain/runtime/catalog";
 import type { MetadataResourceDiagnostics } from "../../../domain/runtime/diagnostics";
 import type {
   SharedServerMetadataResourceFor,
@@ -70,10 +69,7 @@ interface ChatAppServerQueries {
   observeMetadataResource<Id extends SharedServerMetadataResourceId>(
     id: Id,
     listener: (resource: SharedServerMetadataResourceFor<Id>) => void,
-    options?: { emitCurrent?: boolean },
   ): () => void;
-  fetchModels(): Promise<readonly ModelMetadata[]>;
-  refreshModels(): Promise<readonly ModelMetadata[]>;
 }
 
 interface ChatToolInventoryQueries {
@@ -154,7 +150,7 @@ interface ChatWorkspacePanelSurface {
   activateThread(threadId?: string, options?: ChatWorkspacePanelOperationOptions): Promise<boolean>;
   focusComposer(options?: { force?: boolean }): void;
   connect(): Promise<void>;
-  startNewThread(options?: ChatWorkspacePanelOperationOptions): Promise<void>;
+  startNewThread(options?: { focus?: boolean }): Promise<void>;
 }
 
 export interface ChatSharedThreadSurface {

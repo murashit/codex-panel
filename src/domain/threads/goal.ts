@@ -7,8 +7,6 @@ export interface ThreadGoal {
   readonly tokenBudget: number | null;
   readonly tokensUsed: number;
   readonly timeUsedSeconds: number;
-  readonly createdAt: number;
-  readonly updatedAt: number;
 }
 
 export interface ThreadGoalUpdate {

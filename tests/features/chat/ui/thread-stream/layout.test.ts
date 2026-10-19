@@ -257,7 +257,6 @@ describe("display block grouping keeps thread stream details subordinate to conv
           id: "steer-activity-u2",
           label: "steering",
           text: "also check tests",
-          sourceItemId: "u2",
         },
         { type: "item", item: { id: "c2" } },
       ],

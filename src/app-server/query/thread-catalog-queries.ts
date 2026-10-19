@@ -71,10 +71,7 @@ export class AppServerThreadCatalog {
     return threads ?? null;
   }
 
-  observeActiveThreadsResult(
-    listener: ObservedPaginatedResultListener<readonly Thread[]>,
-    options: { emitCurrent?: boolean } = {},
-  ): () => void {
+  observeActiveThreadsResult(listener: ObservedPaginatedResultListener<readonly Thread[]>): () => void {
     this.scope.assertUsable();
     const observer = new InfiniteQueryObserver<ThreadPage, Error, readonly Thread[], ActiveThreadsQueryKey, ActiveThreadCursor>(
       this.scope.client,
@@ -88,16 +85,16 @@ export class AppServerThreadCatalog {
       if (!this.scope.isDisposed()) listener(this.projectObservedActiveThreadsResult(result));
     };
     const unsubscribe = observer.subscribe(emit);
-    if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
+    emit(observer.getCurrentResult());
     return this.scope.trackObserver(() => {
       unsubscribe();
       observer.destroy();
     });
   }
 
-  observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options: { emitCurrent?: boolean } = {}): () => void {
+  observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>): () => void {
     this.scope.assertUsable();
-    return this.scope.observeResult(this.archivedThreadsQueryOptions(), (threads) => threads, listener, options);
+    return this.scope.observeResult(this.archivedThreadsQueryOptions(), (threads) => threads, listener);
   }
 
   async fetchActiveThreads(): Promise<readonly Thread[]> {

@@ -9,7 +9,7 @@ export type ThreadRecord = Pick<GeneratedThread, RequiredThreadRecordFields> &
   Partial<Omit<GeneratedThread, RequiredThreadRecordFields | "historyMode" | "source" | "status" | "turns">> & {
     /** Kept unknown so archive export routes absent or newer modes through its legacy-history fallback. */
     historyMode?: unknown;
-    /** Kept unknown at the protocol edge so a newer SessionSource variant degrades to `other` instead of breaking thread lists. */
+    /** Kept unknown at the protocol edge so newer SessionSource variants do not break thread lists. */
     source?: unknown;
     status?: unknown;
     turns?: readonly GeneratedThread["turns"][number][];
@@ -43,24 +43,8 @@ function threadProvenance(thread: ThreadRecord): ThreadProvenance {
   const spawn = recordOrNull(recordOrNull(subagent)?.["thread_spawn"]);
   return {
     kind: "subagent",
-    subagentKind: subagentKind(subagent, threadSource),
     parentThreadId: stringOrNull(thread["parentThreadId"]) ?? stringOrNull(spawn?.["parent_thread_id"]),
-    sessionId: stringOrNull(thread["sessionId"]),
-    depth: finiteNumberOrNull(spawn?.["depth"]),
-    agentPath: stringOrNull(spawn?.["agent_path"]),
-    agentNickname: stringOrNull(thread["agentNickname"]) ?? stringOrNull(spawn?.["agent_nickname"]),
-    agentRole: stringOrNull(thread["agentRole"]) ?? stringOrNull(spawn?.["agent_role"]),
   };
-}
-
-function subagentKind(value: unknown, threadSource: string | null): Extract<ThreadProvenance, { kind: "subagent" }>["subagentKind"] {
-  if (value === "review" || value === "compact" || value === "memory_consolidation") {
-    return value === "memory_consolidation" ? "memory-consolidation" : value;
-  }
-  if (recordOrNull(value)?.["thread_spawn"] || threadSource === "subAgentThreadSpawn") return "thread-spawn";
-  if (threadSource === "subAgentReview") return "review";
-  if (threadSource === "subAgentCompact") return "compact";
-  return "other";
 }
 
 function recordOrNull(value: unknown): Record<string, unknown> | null {
@@ -69,10 +53,6 @@ function recordOrNull(value: unknown): Record<string, unknown> | null {
 
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function finiteNumberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 export function threadsFromThreadRecords(threads: readonly ThreadRecord[], options: { archived?: boolean } = {}): Thread[] {

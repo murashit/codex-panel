@@ -23,7 +23,7 @@ const SELECTION_REWRITE_OUTPUT_SCHEMA: StructuredTurnOutputSchema = {
 export interface AppServerSelectionRewriteAdapterOptions {
   codexPath: string;
   cwd: string;
-  runner?: EphemeralStructuredTurnRunner;
+  runner: EphemeralStructuredTurnRunner;
 }
 
 export function createAppServerSelectionRewriteAdapter(options: AppServerSelectionRewriteAdapterOptions): SelectionRewritePort {
@@ -43,7 +43,7 @@ async function runAppServerSelectionRewrite(options: AppServerSelectionRewriteAd
       prompt: request.prompt,
       outputSchema: SELECTION_REWRITE_OUTPUT_SCHEMA,
       timeoutMs: SELECTION_REWRITE_TIMEOUT_MS,
-      serverRequests: { kind: "reject", message: "Selection rewrite does not handle server requests." },
+      serverRequestRejectionMessage: "Selection rewrite does not handle server requests.",
       exitedMessage: "Selection rewrite app-server exited.",
       timedOutMessage: "Timed out while rewriting the selection.",
       abortMessage: "Selection rewrite cancelled.",

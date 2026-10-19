@@ -4,7 +4,6 @@ import { FileSystemAdapter } from "obsidian";
 import { vi } from "vitest";
 import { BUILT_IN_PINNED_THREAD_SECTION_ID } from "../../src/app-server/protocol/thread";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "../../src/constants";
-import { createServerDiagnostics } from "../../src/domain/runtime/diagnostics";
 import type { Thread } from "../../src/domain/threads/model";
 import type { ChatViewRuntimeOwner, CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
@@ -13,6 +12,7 @@ import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/pr
 import { createKeyedOperationCoordinator } from "../../src/shared/async/keyed-operation-coordinator";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
 import { panelThreadFixture } from "./panel-thread";
+import { createServerDiagnostics } from "./runtime-diagnostics";
 import { threadMutationCommandsMock } from "./thread-mutations";
 
 const { default: CodexPanelPluginClass } = await import("../../src/main");
@@ -167,8 +167,6 @@ function chatHostFixture(): CodexChatHost {
       metadataDiagnosticsSnapshot: vi.fn(() => createServerDiagnostics()),
       ensureAppServerMetadata: vi.fn(() => Promise.resolve()),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve()),
-      fetchModels: vi.fn(() => Promise.resolve([])),
-      refreshModels: vi.fn(() => Promise.resolve([])),
       observeMetadataResource: vi.fn(() => () => undefined),
     },
     toolInventoryQueries: {
@@ -241,24 +239,18 @@ export function thread(id: string): Thread {
   });
 }
 
-export function panelSnapshot(overrides: PanelSnapshotFixtureOverrides = {}): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
-  const { pendingApprovals, pendingUserInputs, pendingMcpElicitations, ...snapshotOverrides } = overrides;
-  const pending = (pendingApprovals ?? 0) + (pendingUserInputs ?? 0) + (pendingMcpElicitations ?? 0) > 0;
+export function panelSnapshot(
+  overrides: Partial<ReturnType<CodexChatView["surface"]["openPanelSnapshot"]>> = {},
+): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
   return {
     viewId: "view",
     threadId: "thread",
     turnBusy: false,
-    pending,
+    pending: false,
     unread: false,
     hasComposerDraft: false,
     hasForkDraft: false,
     connected: true,
-    ...snapshotOverrides,
+    ...overrides,
   };
 }
-
-type PanelSnapshotFixtureOverrides = Partial<ReturnType<CodexChatView["surface"]["openPanelSnapshot"]>> & {
-  pendingApprovals?: number;
-  pendingUserInputs?: number;
-  pendingMcpElicitations?: number;
-};

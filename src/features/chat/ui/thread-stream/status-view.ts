@@ -6,7 +6,6 @@ import type { AgentRunSummaryView, ThreadStreamStatusView } from "./model";
 
 export interface ThreadStreamStatusViewContext {
   activeTurnId: string | null;
-  items: readonly ThreadStreamItem[];
   activeItems: readonly ThreadStreamItem[];
 }
 

@@ -66,9 +66,6 @@ describe("Codex Panel dynamic tools", () => {
 
 function toolCall() {
   return {
-    threadId: "thread",
-    turnId: "turn",
-    callId: "call",
     namespace: "codex_panel",
     tool: "resolve_wikilinks",
     arguments: { sourcePath: "Notes/Source.md", wikilinks: ["[[Target]]"] },

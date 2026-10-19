@@ -344,7 +344,8 @@ function runOptions(): Parameters<typeof runEphemeralStructuredTurn>[0] {
     prompt: "Run.",
     outputSchema: { type: "object" },
     timeoutMs: 10_000,
-    serverRequests: { kind: "reject", message: "Structured test does not handle server requests." },
+    serverRequestRejectionMessage: "Structured test does not handle server requests.",
+    runtimeSettings: { model: null, effort: null },
     exitedMessage: "Structured test app-server exited.",
     timedOutMessage: "Structured test timed out.",
   };
@@ -474,19 +475,15 @@ function structuredTurnOptionsFromParams(params: ClientRequestParams<"turn/start
     cwd: params.cwd,
     text: textItem.text,
     outputSchema: params.outputSchema,
-    ...(runtime !== undefined ? { runtime } : {}),
+    runtime,
   };
 }
 
 function structuredTurnRuntimeFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions["runtime"] {
-  const runtime = {
-    ...(params.serviceTier !== undefined ? { serviceTier: params.serviceTier } : {}),
-    ...(params.collaborationMode !== undefined && params.collaborationMode !== null ? { collaborationMode: params.collaborationMode } : {}),
-    ...(params.model !== undefined ? { model: params.model } : {}),
-    ...(params.effort !== undefined ? { effort: params.effort } : {}),
-    ...(params.approvalsReviewer !== undefined ? { approvalsReviewer: params.approvalsReviewer } : {}),
+  return {
+    ...(params.model != null ? { model: params.model } : {}),
+    ...(params.effort != null ? { effort: params.effort } : {}),
   };
-  return Object.keys(runtime).length > 0 ? runtime : undefined;
 }
 
 function timerHarness(): {

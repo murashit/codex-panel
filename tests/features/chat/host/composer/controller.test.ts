@@ -758,12 +758,7 @@ describe("ChatComposerController", () => {
           id: "child-thread",
           provenance: {
             kind: "subagent",
-            subagentKind: "thread-spawn",
             parentThreadId: "parent-thread",
-            sessionId: "session",
-            depth: 1,
-            agentNickname: "Scout",
-            agentRole: "explorer",
           },
         },
       }),
@@ -1962,7 +1957,7 @@ describe("ChatComposerController", () => {
     unmountUiRoot(parent);
     controller.setDraft("state draft", { focus: true });
 
-    expect(controller.trimmedDraft).toBe("state draft");
+    expect(controller.draft).toBe("state draft");
     expect(focus).not.toHaveBeenCalled();
   });
 });

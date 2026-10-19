@@ -127,12 +127,12 @@ describe("ComposerShell decisions", () => {
       fastAvailable: true,
       fastActive: true,
       modelChoices: [
-        { label: "gpt-5.5", selected: true, onClick: vi.fn() },
+        { label: "gpt-5.5", onClick: vi.fn() },
         { label: "gpt-5.4", onClick: vi.fn() },
       ],
       effortChoices: [
         { label: "medium", onClick: vi.fn() },
-        { label: "high", selected: true, onClick: vi.fn() },
+        { label: "high", onClick: vi.fn() },
       ],
     });
 
@@ -219,12 +219,12 @@ describe("ComposerShell decisions", () => {
       fastAvailable: true,
       fastActive: true,
       modelChoices: [
-        { label: "gpt-5.5", selected: true, onClick: vi.fn() },
+        { label: "gpt-5.5", onClick: vi.fn() },
         { label: "gpt-5.4", onClick: selectModel },
       ],
       effortChoices: [
         { label: "medium", onClick: selectEffort },
-        { label: "high", selected: true, onClick: vi.fn() },
+        { label: "high", onClick: vi.fn() },
       ],
     });
 

@@ -1,6 +1,6 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { isVaultConfigPath, normalizeFilePath, pathRelativeToRoot, vaultRelativePath } from "../../../src/domain/files/paths";
+import { isVaultConfigPath, pathRelativeToRoot, vaultRelativePath } from "../../../src/domain/files/paths";
 import { parseFileHref, vaultRelativeFileHref } from "../../../src/domain/files/vault-links";
 
 describe("file path helpers", () => {
@@ -20,14 +20,6 @@ describe("file path helpers", () => {
         expect(vaultRelativePath(root, siblingFile)).toBeNull();
       }),
     );
-  });
-
-  it("normalizes separators, duplicate slashes, and leading dot segments", () => {
-    expect(normalizeFilePath("./docs//Guide.md")).toBe("docs/Guide.md");
-    expect(normalizeFilePath("C:\\Vault\\Project\\src\\main.ts")).toBe("C:/Vault/Project/src/main.ts");
-    expect(normalizeFilePath("/Vault/docs/../Guide.md")).toBe("/Vault/Guide.md");
-    expect(normalizeFilePath("docs/")).toBe("docs");
-    expect(normalizeFilePath("/")).toBe("/");
   });
 
   it("parses file href paths separately from line suffixes and fragments", () => {

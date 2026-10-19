@@ -88,12 +88,7 @@ function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore
     ...thread("child"),
     provenance: {
       kind: "subagent",
-      subagentKind: "thread-spawn",
       parentThreadId: "parent",
-      sessionId: "session",
-      depth: 1,
-      agentNickname: null,
-      agentRole: null,
     },
   };
   stateStore.dispatch({

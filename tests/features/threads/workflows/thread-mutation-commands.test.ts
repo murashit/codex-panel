@@ -319,7 +319,7 @@ describe("ThreadMutationCommands", () => {
     await expect(mutations.deleteThread("thread")).resolves.toBeUndefined();
 
     expect(client.request).toHaveBeenCalledWith("thread/unarchive", { threadId: "thread" });
-    expect(client.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread" }, {});
+    expect(client.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread" });
     expect(catalog.apply).not.toHaveBeenCalled();
   });
 });

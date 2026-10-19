@@ -19,7 +19,7 @@ export async function buildStyles() {
   await writeFile(outputPath, await renderStyles());
 }
 
-export async function renderStyles() {
+async function renderStyles() {
   const sourceFiles = await readStyleFiles();
   const { version } = JSON.parse(await readFile("package.json", "utf8"));
   const parts = [];

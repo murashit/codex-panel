@@ -200,7 +200,7 @@ describe("WorkspacePanelCoordinator", () => {
     expect(plugin.app.workspace.getRightLeaf).not.toHaveBeenCalled();
   });
 
-  it.each([{ pendingMcpElicitations: 1 }, { hasForkDraft: true }])("does not reuse an occupied panel with %j", async (occupation) => {
+  it.each([{ pending: true }, { hasForkDraft: true }])("does not reuse an occupied panel with %j", async (occupation) => {
     const pendingLeaf = leaf();
     pendingLeaf.view = chatView(CodexChatView, pendingLeaf);
     vi.spyOn((pendingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(

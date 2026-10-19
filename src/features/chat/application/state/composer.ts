@@ -24,7 +24,6 @@ export type ComposerAction =
       type: "composer/draft-set";
       draft: string;
       clearSuggestions?: boolean;
-      resetDismissedSignature?: boolean;
     }
   | {
       type: "composer/input-set";
@@ -68,7 +67,6 @@ export function reduceComposerSlice(state: ChatComposerState, action: ComposerAc
       return patchObject(state, {
         draft: action.draft,
         ...(action.clearSuggestions ? { suggestions: [], suggestSelected: 0 } : {}),
-        ...(action.resetDismissedSignature ? { suggestionsDismissedSignature: null } : {}),
       });
     case "composer/input-set":
       return setComposerSuggestionsSlice(

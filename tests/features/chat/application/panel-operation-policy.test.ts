@@ -24,12 +24,7 @@ const temporaryControls: readonly ActivePanelOperation[] = [
 ];
 const agent: ChatActiveThreadState["provenance"] = {
   kind: "subagent",
-  subagentKind: "other",
   parentThreadId: null,
-  sessionId: null,
-  depth: null,
-  agentNickname: null,
-  agentRole: null,
 };
 const sideChat: ChatActiveThreadState["lifetime"] = {
   kind: "ephemeral",
