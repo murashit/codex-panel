@@ -1,7 +1,4 @@
 export interface PanelDynamicToolCall {
-  readonly threadId: string;
-  readonly turnId: string;
-  readonly callId: string;
   readonly namespace: string | null;
   readonly tool: string;
   readonly arguments: unknown;

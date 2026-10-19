@@ -5,11 +5,7 @@ import { hookItemsFromCatalogHooks, modelMetadataFromCatalogModels, skillMetadat
 import { collectCursorPages } from "./cursor-pages";
 import type { AppServerRequestClient } from "./request-client";
 
-export interface ModelMetadataClient {
-  request: AppServerRequestClient["request"];
-}
-
-export async function listModelMetadata(client: ModelMetadataClient): Promise<ModelMetadata[]> {
+export async function listModelMetadata(client: AppServerRequestClient): Promise<ModelMetadata[]> {
   const models = await collectCursorPages(
     (cursor) => client.request("model/list", { includeHidden: false, cursor, limit: 100 }),
     "model list",

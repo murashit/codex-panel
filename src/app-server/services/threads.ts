@@ -323,7 +323,12 @@ export async function forkThread(
   return threadActivationSnapshotFromAppServerResponse(response);
 }
 
-export function appServerForkRuntimeSettings(runtime: ForkRuntimeSettings | undefined): Partial<ClientRequestParams<"thread/fork">> {
+export function appServerForkRuntimeSettings(
+  runtime: ForkRuntimeSettings | undefined,
+): Pick<
+  ClientRequestParams<"thread/fork">,
+  "model" | "serviceTier" | "approvalPolicy" | "approvalsReviewer" | "permissions" | "sandbox" | "config"
+> {
   const permissions = runtime?.permissions;
   const sandbox = permissions === undefined ? appServerSandboxMode(runtime?.sandboxPolicy) : undefined;
   return {
