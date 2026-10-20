@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
 import { resolveThreadSearchQuery, threadSearchMatches } from "../../../src/domain/threads/search";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("thread search", () => {
   it("ranks title prefixes and title includes before fuzzy matches", () => {
@@ -93,15 +94,5 @@ describe("thread search", () => {
 });
 
 function thread(options: Partial<Thread> & { id: string }): Thread {
-  return {
-    id: options.id,
-    preview: options.preview ?? options.id,
-    createdAt: options.createdAt ?? 1,
-    updatedAt: options.updatedAt ?? 1,
-    ...(options.recencyAt === undefined ? {} : { recencyAt: options.recencyAt }),
-    name: options.name ?? null,
-    archived: false,
-    ephemeral: false,
-    provenance: options.provenance ?? { kind: "interactive" },
-  };
+  return panelThreadFixture({ preview: options.id, ...options });
 }

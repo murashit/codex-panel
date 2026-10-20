@@ -253,32 +253,7 @@ describe("createGoalCommands", () => {
     const pending = commands.saveObjective("Draft A", null);
     await vi.waitFor(() => expect(startEffect).toHaveBeenCalledOnce());
     commands.updateObjectiveDraft("Draft B");
-    creation.resolve(
-      completed({
-        thread: {
-          id: "thread-new",
-          name: null,
-          preview: "",
-          archived: false,
-          ephemeral: false,
-          createdAt: 1,
-          updatedAt: 1,
-          provenance: { kind: "interactive" },
-        },
-        collaborationMode: null,
-        canAcceptDirectInput: null,
-        model: null,
-        reasoningEffort: null,
-        serviceTier: null,
-        approvalsReviewer: null,
-        approvalPolicyKnown: true,
-        sandboxPolicyKnown: true,
-        permissionProfileKnown: true,
-        approvalPolicy: null,
-        sandboxPolicy: null,
-        activePermissionProfile: null,
-      }),
-    );
+    creation.resolve(completed(threadActivationFixture(panelThreadFixture({ id: "thread-new" }))));
     await expect(pending).resolves.toBe(false);
     expect(activeThreadId(stateStore.getState())).toBe("thread-new");
     expect(stateStore.getState().ui.goalEditor).toMatchObject({ kind: "editing", objectiveDraft: "Draft B" });
@@ -338,16 +313,7 @@ describe("createGoalCommands", () => {
     const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", target: { threadId: "new-thread", revision: 0 } });
     const ensureRestoredThreadLoaded = vi.fn(async () => {
       stateStore.dispatch({
-        ...threadActivationFixture({
-          id: "restored",
-          preview: "Restored",
-          createdAt: 1,
-          updatedAt: 1,
-          name: null,
-          archived: false,
-          ephemeral: false,
-          provenance: { kind: "interactive" },
-        }),
+        ...threadActivationFixture(panelThreadFixture({ id: "restored", preview: "Restored" })),
         type: "active-thread/resumed",
       });
       return true;

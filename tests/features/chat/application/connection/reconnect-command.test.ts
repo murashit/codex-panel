@@ -8,6 +8,7 @@ import { activeThreadId, createChatState } from "../../../../../src/features/cha
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ActiveThreadResumedAction } from "../../../../../src/features/chat/application/state/transition-actions";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 
 function createHost(overrides: Partial<ChatReconnectCommandHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -179,20 +180,8 @@ function resumeActiveThread(
   options: { thread?: Thread; lifetime?: ActiveThreadResumedAction["lifetime"] } = {},
 ): void {
   stateStore.dispatch({
+    ...threadActivationFixture(options.thread ?? threadFixture()),
     type: "active-thread/resumed",
-    collaborationMode: null,
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: options.thread ?? threadFixture(),
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
     ...(options.lifetime ? { lifetime: options.lifetime } : {}),
   });
 }

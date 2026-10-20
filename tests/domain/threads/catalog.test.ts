@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { applyThreadCatalogChange, threadCatalogEntryEqual } from "../../../src/domain/threads/catalog";
 import type { Thread } from "../../../src/domain/threads/model";
+import { panelThreadFixture } from "../../support/panel-thread";
 
 describe("thread catalog read model", () => {
   it("upserts one thread without reordering or replacing unrelated entries", () => {
@@ -93,15 +94,10 @@ describe("thread catalog read model", () => {
 });
 
 function thread(id: string): Thread {
-  return {
+  return panelThreadFixture({
     id,
     preview: `Preview ${id}`,
     name: id,
-    archived: false,
-    ephemeral: false,
-    createdAt: 1,
-    updatedAt: 1,
     recencyAt: 1,
-    provenance: { kind: "interactive" },
-  };
+  });
 }
