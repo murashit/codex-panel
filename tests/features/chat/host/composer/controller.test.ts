@@ -30,6 +30,8 @@ import { ComposerShell } from "../../../../../src/features/chat/ui/composer/comp
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { deferred } from "../../../../support/async";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { panelThreadFixture } from "../../../../support/panel-thread";
+import { threadActivationFixture } from "../../../../support/thread-activation";
 import { substringMatcher } from "../../application/composer/fuzzy-matcher.test-support";
 import { chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { composerModelFromChatState } from "../../support/shell-selectors";
@@ -69,29 +71,8 @@ function trackComposerControllerTestCleanup(cleanup: () => void): void {
 
 function resumeComposerThread(stateStore: ChatStateStore, threadId: string, created = false): void {
   stateStore.dispatch({
+    ...threadActivationFixture(panelThreadFixture({ id: threadId })),
     type: created ? "active-thread/created" : "active-thread/resumed",
-    collaborationMode: null,
-    canAcceptDirectInput: null,
-    approvalPolicyKnown: true,
-    sandboxPolicyKnown: true,
-    permissionProfileKnown: true,
-    approvalPolicy: null,
-    sandboxPolicy: null,
-    activePermissionProfile: null,
-    thread: {
-      id: threadId,
-      preview: "",
-      name: null,
-      archived: false,
-      ephemeral: false,
-      createdAt: 1,
-      updatedAt: 1,
-      provenance: { kind: "interactive" },
-    },
-    model: null,
-    reasoningEffort: null,
-    serviceTier: null,
-    approvalsReviewer: null,
   });
 }
 
@@ -267,30 +248,7 @@ describe("ChatComposerController", () => {
         forkThread: vi.fn(),
         startThread: vi.fn().mockResolvedValue({
           kind: "completed",
-          value: {
-            thread: {
-              id: "thread",
-              preview: "",
-              name: null,
-              archived: false,
-              ephemeral: false,
-              createdAt: 1,
-              updatedAt: 1,
-              provenance: { kind: "interactive" },
-            },
-            collaborationMode: null,
-            canAcceptDirectInput: null,
-            model: null,
-            reasoningEffort: null,
-            serviceTier: null,
-            approvalsReviewer: null,
-            approvalPolicyKnown: true,
-            sandboxPolicyKnown: true,
-            permissionProfileKnown: true,
-            approvalPolicy: null,
-            sandboxPolicy: null,
-            activePermissionProfile: null,
-          },
+          value: threadActivationFixture(panelThreadFixture({ id: "thread" })),
         }),
       },
     });
@@ -377,18 +335,7 @@ describe("ChatComposerController", () => {
           execute: (_command, args, inputSnapshot, adoption) =>
             executeContextSlashCommand("refer", args, {
               activeThreadId: null,
-              listedThreads: [
-                {
-                  id: "other",
-                  name: "Other",
-                  preview: "",
-                  archived: false,
-                  ephemeral: false,
-                  createdAt: 1,
-                  updatedAt: 1,
-                  provenance: { kind: "interactive" },
-                },
-              ],
+              listedThreads: [panelThreadFixture({ id: "other", name: "Other" })],
               inputSnapshot,
               submission: adoption,
               referThread,
@@ -682,18 +629,7 @@ describe("ChatComposerController", () => {
     const stateStore = createChatStateStore();
     const preview = `Long preview ${"x".repeat(120)}`;
     const completedTitle = `${preview.slice(0, 93)}...`;
-    const threads: import("../../../../../src/domain/threads/model").Thread[] = [
-      {
-        id: "target-thread",
-        preview,
-        name: null,
-        archived: false,
-        ephemeral: false,
-        createdAt: 1,
-        updatedAt: 1,
-        provenance: { kind: "interactive" },
-      },
-    ];
+    const threads = [panelThreadFixture({ id: "target-thread", preview })];
     const { controller, parent } = composerControllerFixture({
       stateStore,
       controller: { sharedResources: sharedResourcesFixture({ threads }) },

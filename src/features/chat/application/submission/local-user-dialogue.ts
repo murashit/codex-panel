@@ -16,7 +16,7 @@ export interface LocalUserDialogueFromInputParams {
 }
 
 export function localUserDialogueItemFromInput(params: LocalUserDialogueFromInputParams): UserThreadStreamDialogueItem {
-  const referencedFiles = fileReferencesFromInput([...params.codexInput]);
+  const referencedFiles = fileReferencesFromInput(params.codexInput);
   const contextAttachments = contextAttachmentsFromInput(params.codexInput);
   return {
     id: params.id,

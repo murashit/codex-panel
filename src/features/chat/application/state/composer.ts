@@ -69,41 +69,18 @@ export function reduceComposerSlice(state: ChatComposerState, action: ComposerAc
         ...(action.clearSuggestions ? { suggestions: [], suggestSelected: 0 } : {}),
       });
     case "composer/input-set":
-      return setComposerSuggestionsSlice(
-        patchObject(state, {
-          draft: action.draft,
-          suggestionsDismissedSignature: action.dismissedSignature ?? null,
-        }),
-        action.suggestions,
-        action.selected ?? state.suggestSelected,
-        action.dismissedSignature ?? null,
-      );
+      return patchObject(state, {
+        draft: action.draft,
+        suggestions: action.suggestions,
+        suggestSelected: action.selected ?? state.suggestSelected,
+        suggestionsDismissedSignature: action.dismissedSignature ?? null,
+      });
     case "composer/suggestions-set":
-      return setComposerSuggestionsSlice(
-        state,
-        action.suggestions,
-        action.selected ?? state.suggestSelected,
-        action.dismissedSignature === undefined ? state.suggestionsDismissedSignature : action.dismissedSignature,
-      );
+      return patchObject(state, {
+        suggestions: action.suggestions,
+        suggestSelected: action.selected ?? state.suggestSelected,
+        suggestionsDismissedSignature:
+          action.dismissedSignature === undefined ? state.suggestionsDismissedSignature : action.dismissedSignature,
+      });
   }
-}
-
-function setComposerSuggestionsSlice(
-  state: ChatComposerState,
-  suggestions: readonly ComposerSuggestion[],
-  selected: number,
-  dismissedSignature: string | null,
-): ChatComposerState {
-  if (
-    state.suggestSelected === selected &&
-    state.suggestionsDismissedSignature === dismissedSignature &&
-    state.suggestions === suggestions
-  ) {
-    return state;
-  }
-  return patchObject(state, {
-    suggestions,
-    suggestSelected: selected,
-    suggestionsDismissedSignature: dismissedSignature,
-  });
 }
