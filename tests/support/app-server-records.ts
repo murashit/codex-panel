@@ -1,3 +1,4 @@
+import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
 
@@ -52,4 +53,24 @@ export function appServerThreadFixture(input: Pick<Thread, ThreadScenarioFields>
     name: null,
     ...input,
   };
+}
+
+export function appServerCompletedTurnFixture(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
+  return appServerTurnFixture({ id: "turn", items, itemsView: "full", status: "completed", ...overrides });
+}
+
+export function appServerUserMessageFixture(
+  id: string,
+  text: string,
+  overrides: Partial<Extract<TurnItem, { type: "userMessage" }>> = {},
+): Extract<TurnItem, { type: "userMessage" }> {
+  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }], ...overrides };
+}
+
+export function appServerAgentMessageFixture(
+  id: string,
+  text: string,
+  overrides: Partial<Extract<TurnItem, { type: "agentMessage" }>> = {},
+): Extract<TurnItem, { type: "agentMessage" }> {
+  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null, questions: null, ...overrides };
 }

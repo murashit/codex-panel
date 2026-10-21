@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
-
 import {
   completedTurnTranscriptSummaryFromTurnRecord,
   lastAgentMessageTextFromTurnRecord,
   referencedThreadTurnsFromNewestFirstTurnRecords,
   type TurnItem,
-  type TurnRecord,
   transcriptEntriesFromTurnRecords,
 } from "../../../src/app-server/protocol/turn";
-import { appServerTurnFixture } from "../../support/app-server-records";
+import {
+  appServerAgentMessageFixture as agentMessage,
+  appServerCompletedTurnFixture as turn,
+  appServerUserMessageFixture as userMessage,
+} from "../../support/app-server-records";
 
 describe("app-server turn records", () => {
   it("projects readable transcript entries without command log items", () => {
@@ -186,24 +188,6 @@ describe("app-server turn records", () => {
     expect(lastAgentMessageTextFromTurnRecord(turn([agentMessage("a1", "  ")]))).toBeNull();
   });
 });
-
-function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return appServerTurnFixture({
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    ...overrides,
-  });
-}
-
-function userMessage(id: string, text: string): TurnItem {
-  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
-}
-
-function agentMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null, questions: null };
-}
 
 function planItem(id: string, text: string): TurnItem {
   return { type: "plan", id, text };

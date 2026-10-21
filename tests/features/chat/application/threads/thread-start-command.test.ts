@@ -5,7 +5,6 @@ import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/ap
 import { activeThreadId, activeThreadState, newConversationEphemeral } from "../../../../../src/features/chat/application/state/model";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/transition-actions";
-import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/submission/web-submission";
 import { sideChatDraft } from "../../../../../src/features/chat/application/threads/fork-draft";
 import {
   createThreadStartCommand,
@@ -18,6 +17,7 @@ import { runtimeConfigFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { type ChatSharedDisplayValues, chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture } from "../../support/state";
+import { pendingWebSubmissionFixture } from "../../support/web-submission";
 
 describe("thread start commands", () => {
   it.each([false, true])("freezes creation, coalesces callers, and reuses the created identity (temporary=%s)", async (ephemeral) => {
@@ -132,17 +132,9 @@ describe("thread start commands", () => {
 
   it("does not activate a delayed new thread after its pending submission is superseded", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
-    if (!pending) throw new Error("Expected pending web submission");
-    stateStore.dispatch({
-      type: "web-submission/pending",
-      submission: {
-        id: pending.id,
-        item: pending,
-        targetThreadId: null,
-        phase: "cancellable",
-      },
-    });
+    const submission = pendingWebSubmissionFixture(null);
+    const pending = submission.item;
+    stateStore.dispatch({ type: "web-submission/pending", submission });
     const started = deferred<EffectOutcome<ThreadActivationSnapshot>>();
     const recordStartedThread = vi.fn();
     const commands = threadStartCommands({

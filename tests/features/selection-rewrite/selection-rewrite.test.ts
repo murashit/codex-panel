@@ -3,7 +3,6 @@
 import * as fc from "fast-check";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
 import { createAppServerSelectionRewriteAdapter } from "../../../src/features/selection-rewrite/app-server-adapter";
 import { buildSelectionDiffLines } from "../../../src/features/selection-rewrite/diff";
@@ -12,7 +11,7 @@ import { SelectionRewritePopover } from "../../../src/features/selection-rewrite
 import { SelectionRewriteOutputError, type SelectionRewritePortRequest } from "../../../src/features/selection-rewrite/port";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
-import { appServerTurnFixture } from "../../support/app-server-records";
+import { appServerAgentMessageFixture as agentMessage, appServerCompletedTurnFixture as turn } from "../../support/app-server-records";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
@@ -554,15 +553,7 @@ describe("selection rewrite popover", () => {
   });
 
   it("restores the current draft after accidental instruction history navigation", async () => {
-    selectionRewriteGenerate.mockResolvedValue({ replacementText: "Rewritten." });
-
-    await generateInstructionHistoryItem("History item one.");
-    await generateInstructionHistoryItem("History item two.");
-
-    const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "Current draft." }) }));
-    openPopover(popover);
-    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
-    instruction.setSelectionRange(0, 0);
+    const { popover, instruction } = await instructionHistoryPopover();
 
     void act(() => {
       instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
@@ -580,15 +571,7 @@ describe("selection rewrite popover", () => {
   });
 
   it("preserves edited instruction history drafts while navigating history", async () => {
-    selectionRewriteGenerate.mockResolvedValue({ replacementText: "Rewritten." });
-
-    await generateInstructionHistoryItem("History item one.");
-    await generateInstructionHistoryItem("History item two.");
-
-    const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "Current draft." }) }));
-    openPopover(popover);
-    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
-    instruction.setSelectionRange(0, 0);
+    const { popover, instruction } = await instructionHistoryPopover();
 
     void act(() => {
       instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
@@ -787,16 +770,15 @@ function runOptions(runner: EphemeralStructuredTurnRunner): SelectionRewriteTest
   };
 }
 
-function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return appServerTurnFixture({
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    ...overrides,
-  });
-}
+async function instructionHistoryPopover() {
+  selectionRewriteGenerate.mockResolvedValue({ replacementText: "Rewritten." });
 
-function agentMessage(id: string, text: string): Extract<TurnRecord["items"][number], { type: "agentMessage" }> {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null, delivery: null, questions: null };
+  await generateInstructionHistoryItem("History item one.");
+  await generateInstructionHistoryItem("History item two.");
+
+  const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "Current draft." }) }));
+  openPopover(popover);
+  const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+  instruction.setSelectionRange(0, 0);
+  return { popover, instruction };
 }

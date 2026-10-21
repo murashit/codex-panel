@@ -1,6 +1,6 @@
+import { markdownFileFixture as tFile } from "../../../../support/vault-file";
 // @vitest-environment jsdom
 
-import { TFile } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderStreamMarkdown } from "../../../../../src/features/chat/host/thread-stream/markdown-renderer.obsidian";
@@ -125,9 +125,4 @@ function streamMarkdownContext(options: { openLinkText?: ReturnType<typeof vi.fn
     } as never,
     vaultPath: options.vaultPath ?? "/vault",
   };
-}
-
-function tFile(path: string): TFile {
-  const basename = path.split("/").pop()?.replace(/\.md$/, "") ?? path;
-  return Object.assign(new TFile(), { path, basename });
 }

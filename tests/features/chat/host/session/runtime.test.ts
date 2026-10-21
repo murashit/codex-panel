@@ -1,3 +1,5 @@
+import { chatMetadataCacheFixture, chatVaultFixture, chatWorkspaceFixture } from "../../../../support/chat-obsidian";
+import { disconnectedChatLeaseFixture, threadGoalQueriesFixture, threadReplacementPublicationFixture } from "../../support/host-contracts";
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -545,28 +547,9 @@ describe("chat panel session runtime", () => {
     return {
       obsidian: {
         app: {
-          workspace: {
-            getActiveFile: vi.fn(() => null),
-            getActiveViewOfType: vi.fn(() => null),
-            getLastOpenFiles: vi.fn(() => []),
-            on: vi.fn(() => ({})),
-            offref: vi.fn(),
-            openLinkText: vi.fn(),
-          },
-          vault: {
-            on: vi.fn(() => ({})),
-            offref: vi.fn(),
-            getFiles: vi.fn(() => []),
-            getMarkdownFiles: vi.fn(() => []),
-            getAbstractFileByPath: vi.fn(() => null),
-          },
-          metadataCache: {
-            on: vi.fn(() => ({})),
-            offref: vi.fn(),
-            getFirstLinkpathDest: vi.fn(() => null),
-            fileToLinktext: vi.fn(() => ""),
-            getFileCache: vi.fn(() => null),
-          },
+          workspace: chatWorkspaceFixture(),
+          vault: chatVaultFixture(),
+          metadataCache: chatMetadataCacheFixture(),
         } as never,
         owner: {} as never,
         viewId: "codex-test-view",
@@ -603,10 +586,7 @@ describe("chat panel session runtime", () => {
           apply: overrides.plugin?.threadFacts?.apply ?? vi.fn(),
           applyBatch: overrides.plugin?.threadFacts?.applyBatch ?? vi.fn(),
         },
-        threadReplacementPublication: {
-          begin: vi.fn(() => ({ attach: vi.fn(), finish: vi.fn() })),
-          visibleThreadId: vi.fn((_threads, threadId) => threadId),
-        },
+        threadReplacementPublication: threadReplacementPublicationFixture(),
         threadMutations: overrides.plugin?.threadMutations ?? threadMutationCommandsMock(),
         runtimeSettingsCommitQueue: overrides.plugin?.runtimeSettingsCommitQueue ?? createKeyedOperationCoordinator({ whenBusy: "queue" }),
       },
@@ -620,17 +600,7 @@ describe("chat panel session runtime", () => {
   }
 
   function contextConnectionFixture(): CodexChatHost["appServerConnection"] {
-    return {
-      createLease: () => ({
-        connect: vi.fn().mockResolvedValue(serverInitializationFixture()),
-        currentClient: () => null,
-        updateThreadSubscriptions: vi.fn(),
-        recordThreadSubscription: vi.fn(),
-        withThreadActivation: async (_threadId, operation) => operation(),
-        isConnected: () => false,
-        disconnect: vi.fn(),
-      }),
-    };
+    return { createLease: disconnectedChatLeaseFixture };
   }
 
   function contextConnectionHarness(options: {
@@ -698,17 +668,6 @@ describe("chat panel session runtime", () => {
       }),
       ensure: vi.fn().mockResolvedValue(null),
       refresh: vi.fn().mockResolvedValue(null),
-    };
-  }
-
-  function threadGoalQueriesFixture(): ChatPanelEnvironment["plugin"]["threadGoalQueries"] {
-    return {
-      snapshot: vi.fn(() => null),
-      observe: vi.fn((_threadId, listener) => {
-        listener(null);
-        return () => undefined;
-      }),
-      observeChanges: vi.fn(() => () => undefined),
     };
   }
 

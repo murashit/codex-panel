@@ -12,6 +12,7 @@ import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
   chatView,
+  chatViewForClient,
   completedTurn,
   composerElement,
   composerPlaceholder,
@@ -33,8 +34,7 @@ describe("CodexChatView thread state", () => {
   it("requests a workspace layout save after resuming a thread", async () => {
     const requestSaveLayout = vi.fn();
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView({ requestSaveLayout });
+    const view = await chatViewForClient(client, { requestSaveLayout });
 
     await view.surface.activateThread("thread-1");
 
@@ -46,8 +46,7 @@ describe("CodexChatView thread state", () => {
     const client = connectedClient({
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("child", { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" })),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.surface.activateThread("child");
     expect(view.getState()).toEqual({ version: 1 });
@@ -302,8 +301,7 @@ describe("CodexChatView thread state", () => {
   it("resets to an unstarted empty chat without starting a thread", async () => {
     const requestSaveLayout = vi.fn();
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView({ requestSaveLayout });
+    const view = await chatViewForClient(client, { requestSaveLayout });
 
     await view.surface.activateThread("thread-1");
     const updateHeader = vi.fn();
@@ -321,8 +319,7 @@ describe("CodexChatView thread state", () => {
 
   it("focuses the composer after panel thread actions", async () => {
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.onOpen();
     const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus").mockImplementation(() => undefined);
@@ -338,8 +335,7 @@ describe("CodexChatView thread state", () => {
   it("clears the active thread when another view archives it", async () => {
     const requestSaveLayout = vi.fn();
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView({ requestSaveLayout });
+    const view = await chatViewForClient(client, { requestSaveLayout });
 
     await view.surface.activateThread("thread-1");
     view.surface.applyThreadUnavailable("thread-1");
@@ -435,8 +431,7 @@ describe("CodexChatView thread state", () => {
     const client = connectedClient({
       "thread/turns/list": vi.fn(() => history.promise),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     const opening = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {
@@ -464,8 +459,7 @@ describe("CodexChatView thread state", () => {
       }),
       "thread/turns/list": vi.fn().mockResolvedValue({ data: [turnWithUserMessage("fallback prompt")], nextCursor: null }),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.onOpen();
     await view.surface.activateThread("thread-1");
@@ -531,8 +525,7 @@ describe("CodexChatView thread state", () => {
         (params as { threadId: string }).threadId === "thread-1" ? firstHistory.promise : Promise.resolve({ data: [], nextCursor: null }),
       ),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     const firstOpen = view.surface.activateThread("thread-1");
     await waitForAsyncWork(() => {

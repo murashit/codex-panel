@@ -3,44 +3,23 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute";
 import type { SlashCommandExecutionContext } from "../../../../../src/features/chat/application/slash-commands/execution-contracts";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { slashRuntimeSettingsFixture, slashSubmissionFixture, slashThreadCommandsFixture } from "../../support/slash-command-ports";
 
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {
     activeThreadId: "thread-1",
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
-    submission: { isCurrent: vi.fn(() => true), markAdopted: vi.fn(), adoptPanelTarget: vi.fn() },
+    submission: slashSubmissionFixture(),
     startNewThread: vi.fn().mockResolvedValue(undefined),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     referThread: vi.fn().mockResolvedValue({ text: "referenced", input: [{ type: "text", text: "referenced" }] }),
-    readWebUrl: vi.fn().mockResolvedValue({
-      text: "https://example.com/article 要約して",
-      input: [
-        { type: "text", text: "https://example.com/article 要約して" },
-        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
-      ],
-    }),
-    threadCommands: {
-      forkThread: vi.fn().mockResolvedValue(undefined),
-      rollbackThread: vi.fn().mockResolvedValue(undefined),
-      compactThread: vi.fn().mockResolvedValue(undefined),
-      archiveThread: vi.fn().mockResolvedValue(undefined),
-      renameThread: vi.fn().mockResolvedValue(true),
-    },
+    readWebUrl: vi.fn(),
+    threadCommands: slashThreadCommandsFixture(),
     reconnect: vi.fn().mockResolvedValue(undefined),
     openSideChat: vi.fn().mockResolvedValue(undefined),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
-    runtimeSettings: {
-      toggleFastMode: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      requestModel: vi.fn(),
-      resetModelToConfig: vi.fn(),
-      requestPermissionProfile: vi.fn(),
-      resetPermissionProfileToConfig: vi.fn(),
-      requestReasoningEffort: vi.fn(),
-      resetReasoningEffortToConfig: vi.fn(),
-    },
+    runtimeSettings: slashRuntimeSettingsFixture(),
     goals: { activeGoal: vi.fn(() => null), setObjective: vi.fn(), setStatus: vi.fn(), clear: vi.fn() },
     statusDetails: () => [],
     permissionDetails: () => [],

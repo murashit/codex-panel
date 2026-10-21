@@ -149,12 +149,7 @@ describe("AppServerContextConnection", () => {
   it("does not reactivate exited panel leases when a context operation reconnects the process", async () => {
     const manager = managerFixture();
     const connection = contextConnection(manager);
-    const firstHandlers = leaseHandlers();
-    const secondHandlers = leaseHandlers();
-    const first = connection.createLease();
-    const second = connection.createLease();
-    await first.connect(firstHandlers);
-    await second.connect(secondHandlers);
+    const { first, second, firstHandlers, secondHandlers } = await connectedLeasePair(connection);
     manager.exit();
 
     await connection.withClient(async (client) => client);
@@ -174,12 +169,7 @@ describe("AppServerContextConnection", () => {
   it("reattaches only the panel lease that explicitly reconnects after process exit", async () => {
     const manager = managerFixture();
     const connection = contextConnection(manager);
-    const firstHandlers = leaseHandlers();
-    const secondHandlers = leaseHandlers();
-    const first = connection.createLease();
-    const second = connection.createLease();
-    await first.connect(firstHandlers);
-    await second.connect(secondHandlers);
+    const { first, second, firstHandlers, secondHandlers } = await connectedLeasePair(connection);
     manager.exit();
     const reconnectedHandlers = leaseHandlers({ onServerRequest: vi.fn(() => true) });
 
@@ -240,12 +230,7 @@ describe("AppServerContextConnection", () => {
         vi.fn(),
         failure,
       );
-      const firstHandlers = leaseHandlers();
-      const secondHandlers = leaseHandlers();
-      const first = connection.createLease();
-      const second = connection.createLease();
-      await first.connect(firstHandlers);
-      await second.connect(secondHandlers);
+      const { first, second, firstHandlers, secondHandlers } = await connectedLeasePair(connection);
       first.updateThreadSubscriptions([{ threadId: "child", canResume }]);
       second.updateThreadSubscriptions([{ threadId: "child", canResume }]);
       second.updateThreadSubscriptions([{ threadId: "child", canResume }]);
@@ -347,4 +332,14 @@ function serverRequest(): ServerRequest {
 
 function threadNameNotification(): Extract<ServerNotification, { method: "thread/name/updated" }> {
   return { method: "thread/name/updated", params: { threadId: "thread", threadName: "Renamed" } };
+}
+
+async function connectedLeasePair(connection: AppServerContextConnection) {
+  const firstHandlers = leaseHandlers();
+  const secondHandlers = leaseHandlers();
+  const first = connection.createLease();
+  const second = connection.createLease();
+  await first.connect(firstHandlers);
+  await second.connect(secondHandlers);
+  return { first, second, firstHandlers, secondHandlers };
 }

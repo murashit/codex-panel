@@ -1,32 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import { applyThreadCatalogChange, threadCatalogChangeList } from "../../../../src/domain/threads/catalog";
 import type { Thread } from "../../../../src/domain/threads/model";
+import type { ThreadFact } from "../../../../src/features/threads/workflows/thread-facts";
 import { projectThreadFacts } from "../../../../src/features/threads/workflows/thread-projection";
 import { createThreadReplacementPublication } from "../../../../src/features/threads/workflows/thread-replacement-publication";
 import { panelThreadFixture } from "../../../support/panel-thread";
 
 describe("thread replacement visibility", () => {
   it("keeps replacement activity on the source row until the replacement is visible", () => {
-    let active: readonly Thread[] | null = [thread("source")];
-    let archived: readonly Thread[] | null = [];
+    const catalog = catalogState([thread("source")]);
     const frames: { phase: string; visibleThreadId: string | null }[] = [];
     let publication: ReturnType<typeof createThreadReplacementPublication>;
     const capture = (phase: string): void => {
-      frames.push({ phase, visibleThreadId: publication.visibleThreadId(active ?? [], "replacement") });
+      frames.push({ phase, visibleThreadId: publication.visibleThreadId(catalog.active() ?? [], "replacement") });
     };
     publication = createThreadReplacementPublication(
       (facts) => {
-        const changes = projectThreadFacts(
-          {
-            activeThreadsSnapshot: () => active,
-            archivedThreadsSnapshot: () => archived,
-          },
-          facts,
-        );
-        for (const change of changes) {
-          if (threadCatalogChangeList(change) === "active") active = applyThreadCatalogChange(active, change);
-          else archived = applyThreadCatalogChange(archived, change);
-        }
+        catalog.applyFacts(facts);
         capture("commit");
       },
       () => () => capture("release"),
@@ -42,7 +32,7 @@ describe("thread replacement visibility", () => {
       { phase: "commit", visibleThreadId: "replacement" },
       { phase: "release", visibleThreadId: "replacement" },
     ]);
-    expect(publication.visibleThreadId(active ?? [], "replacement")).toBe("replacement");
+    expect(publication.visibleThreadId(catalog.active() ?? [], "replacement")).toBe("replacement");
   });
 
   it("never exposes both source and replacement in the active Threads view when replacement succeeds", () => {
@@ -165,24 +155,29 @@ function visibleCatalogPublication(): {
   active: () => readonly Thread[] | null;
   archived: () => readonly Thread[] | null;
 } {
-  let active: readonly Thread[] | null = [thread("source"), thread("other")];
-  let archived: readonly Thread[] | null = [];
+  const catalog = catalogState([thread("source"), thread("other")]);
   const visibleActiveSnapshots: string[][] = [];
   const publication = createThreadReplacementPublication((facts) => {
-    const changes = projectThreadFacts(
-      {
-        activeThreadsSnapshot: () => active,
-        archivedThreadsSnapshot: () => archived,
-      },
-      facts,
-    );
-    for (const change of changes) {
-      if (threadCatalogChangeList(change) === "active") active = applyThreadCatalogChange(active, change);
-      else archived = applyThreadCatalogChange(archived, change);
-    }
-    visibleActiveSnapshots.push(active?.map((item) => item.id) ?? []);
+    catalog.applyFacts(facts);
+    visibleActiveSnapshots.push(catalog.active()?.map((item) => item.id) ?? []);
   });
-  return { publication, visibleActiveSnapshots, active: () => active, archived: () => archived };
+  return { publication, visibleActiveSnapshots, active: catalog.active, archived: catalog.archived };
+}
+
+function catalogState(initialActive: readonly Thread[]) {
+  let active: readonly Thread[] | null = initialActive;
+  let archived: readonly Thread[] | null = [];
+  return {
+    active: () => active,
+    archived: () => archived,
+    applyFacts(facts: readonly ThreadFact[]) {
+      const changes = projectThreadFacts({ activeThreadsSnapshot: () => active, archivedThreadsSnapshot: () => archived }, facts);
+      for (const change of changes) {
+        if (threadCatalogChangeList(change) === "active") active = applyThreadCatalogChange(active, change);
+        else archived = applyThreadCatalogChange(archived, change);
+      }
+    },
+  };
 }
 
 function thread(id: string, overrides: Partial<Thread> = {}): Thread {

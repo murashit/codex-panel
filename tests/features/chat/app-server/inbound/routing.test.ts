@@ -4,7 +4,12 @@ import { planChatInboundNotification } from "../../../../../src/features/chat/ap
 import { routeServerNotification } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
 import { routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/server-request-routing";
 import { chatReducer } from "../../../../../src/features/chat/application/state/reducer";
-import { appServerThreadFixture, appServerTurnFixture } from "../../../../support/app-server-records";
+import {
+  appServerAgentMessageFixture,
+  appServerThreadFixture,
+  appServerTurnFixture,
+  appServerUserMessageFixture,
+} from "../../../../support/app-server-records";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
@@ -472,10 +477,7 @@ function turnCompletedNotification(): ServerNotification {
         completedAt: 2,
         durationMs: 1,
         itemsView: "full",
-        items: [
-          { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
-        ],
+        items: [appServerUserMessageFixture("u1", "hello"), appServerAgentMessageFixture("a1", "done")],
       }),
     },
   };

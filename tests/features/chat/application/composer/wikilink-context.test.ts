@@ -32,7 +32,8 @@ function userInputWithWikiLinkReferencesAndSkills(
 
 describe("wikilink context", () => {
   it("parses aliases, subpaths, and duplicate links", () => {
-    const text = "See [[Alpha|label]], [[Beta#Heading]], [[Gamma^block]], and [[Alpha]].";
+    const text =
+      "See [[Alpha|label]], [[Beta#Heading]], [[Gamma^block]], [[Delta#Heading^block]], [[Epsilon^block#Heading]], and [[Alpha]].";
     const input = userInputWithWikiLinkReferencesAndSkills(text, (target) => ({ name: target, path: `${target}.md` }), []);
 
     expect(input).toEqual([
@@ -40,7 +41,15 @@ describe("wikilink context", () => {
       { type: "fileReference", name: "Alpha", path: "Alpha.md" },
       { type: "fileReference", name: "Beta", path: "Beta.md" },
       { type: "fileReference", name: "Gamma", path: "Gamma.md" },
-      wikilinkContext("- [[Alpha|label]] -> Alpha.md", "- [[Beta#Heading]] -> Beta.md", "- [[Gamma^block]] -> Gamma.md"),
+      { type: "fileReference", name: "Delta", path: "Delta.md" },
+      { type: "fileReference", name: "Epsilon", path: "Epsilon.md" },
+      wikilinkContext(
+        "- [[Alpha|label]] -> Alpha.md",
+        "- [[Beta#Heading]] -> Beta.md",
+        "- [[Gamma^block]] -> Gamma.md",
+        "- [[Delta#Heading^block]] -> Delta.md",
+        "- [[Epsilon^block#Heading]] -> Epsilon.md",
+      ),
     ]);
   });
 

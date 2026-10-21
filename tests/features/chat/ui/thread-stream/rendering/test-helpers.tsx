@@ -1,7 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 import { vi } from "vitest";
-
 import type { PendingApproval, PendingUserInput } from "../../../../../../src/features/chat/domain/pending-requests/model";
 import type { ThreadStreamItem } from "../../../../../../src/features/chat/domain/thread-stream/items";
 import { threadStreamViewBlocks } from "../../../../../../src/features/chat/ui/thread-stream/blocks";
@@ -21,6 +20,7 @@ import { pendingRequestBlockNode } from "../../../../../../src/features/chat/ui/
 import { pendingRequestBlockSnapshotFromState } from "../../../../../../src/features/chat/ui/thread-stream/pending-requests";
 import { ThreadStreamViewport } from "../../../../../../src/features/chat/ui/thread-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../../src/shared/ui/preact-root.dom";
+import { serverRequestActionsFixture } from "../../../support/thread-stream-dependencies";
 
 interface TestThreadStreamProjection {
   blocks: ThreadStreamViewBlock[];
@@ -263,14 +263,7 @@ export function renderPendingRequestNode(
 
 export function pendingRequestActions(overrides: Partial<PendingRequestBlockActions> = {}): PendingRequestBlockActions {
   return {
-    resolveApproval: vi.fn(),
-    resolveUserInput: vi.fn(),
-    skipUserInput: vi.fn(),
-    cancelUserInput: vi.fn(),
-    resolveMcpElicitation: vi.fn(),
-    setApprovalDetailsExpanded: vi.fn(),
-    setUserInputDraft: vi.fn(),
-    setMcpElicitationDraft: vi.fn(),
+    ...serverRequestActionsFixture(),
     ...overrides,
   };
 }

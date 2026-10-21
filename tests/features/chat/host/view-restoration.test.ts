@@ -10,16 +10,19 @@ import { deferred, waitForAsyncWork } from "../../../support/async";
 import {
   chatHost,
   chatView,
+  chatViewForClient,
   chatViewRuntimeOwner,
   completedTurn,
   composerElement,
   connectedClient,
   connectionMockState,
+  expectMetadataRequestedOnce,
   expectRequestTimes,
   panelThread,
   requestMethods,
   requiredButton,
   resumedThread,
+  runningTurn,
   setupViewConnectionHarness,
   submitComposerByEnter,
   threadFixture,
@@ -108,8 +111,7 @@ describe("CodexChatView workspace restoration", () => {
     const client = connectedClient({
       "turn/start": vi.fn().mockRejectedValue(new Error("turn rejected")),
     });
-    connectionMockState().client = client;
-    const view = await chatView({ runtimeOwner: owner });
+    const view = await chatViewForClient(client, { runtimeOwner: owner });
     await view.onOpen();
     const draft: ForkDraftPreparation["draft"] = {
       kind: "persistent",
@@ -154,8 +156,7 @@ describe("CodexChatView workspace restoration", () => {
     const client = connectedClient({
       "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-1")),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await view.onOpen();
@@ -239,8 +240,7 @@ describe("CodexChatView workspace restoration", () => {
   it("keeps late workspace thread state restored until explicit focus", async () => {
     vi.useFakeTimers();
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.onOpen();
     await vi.advanceTimersByTimeAsync(0);
@@ -270,8 +270,7 @@ describe("CodexChatView workspace restoration", () => {
 
   it("replaces active thread-scoped state when late workspace state restores another thread", async () => {
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.onOpen();
     await view.surface.activateThread("thread-1");
@@ -294,8 +293,7 @@ describe("CodexChatView workspace restoration", () => {
     const client = connectedClient({
       "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")], nextCursor: null }),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.onOpen();
 
@@ -303,11 +301,7 @@ describe("CodexChatView workspace restoration", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(connectionMockState().connectCalls).toBe(1);
-    expectRequestTimes(client, "config/read", 1);
-    expectRequestTimes(client, "model/list", 1);
-    expectRequestTimes(client, "skills/list", 1);
-    expectRequestTimes(client, "permissionProfile/list", 1);
-    expectRequestTimes(client, "account/rateLimits/read", 1);
+    expectMetadataRequestedOnce(client);
     expect(client.request).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault",
       archived: false,
@@ -346,8 +340,7 @@ describe("CodexChatView workspace restoration", () => {
   it("hydrates a focused restored thread immediately", async () => {
     vi.useFakeTimers();
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await view.onOpen();
@@ -369,8 +362,7 @@ describe("CodexChatView workspace restoration", () => {
     const client = connectedClient({
       "thread/resume": vi.fn(() => resume.promise),
     });
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await view.onOpen();
@@ -392,8 +384,7 @@ describe("CodexChatView workspace restoration", () => {
 
   it("resumes a restored thread before sending the first message", async () => {
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView();
+    const view = await chatViewForClient(client);
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await view.onOpen();
@@ -417,13 +408,7 @@ describe("CodexChatView workspace restoration", () => {
       method: "turn/started",
       params: {
         threadId: "thread-1",
-        turn: appServerTurnFixture({
-          id: "turn-1",
-          status: "inProgress",
-          startedAt: 1,
-          itemsView: "full",
-          items: [],
-        }),
+        turn: runningTurn("turn-1"),
       },
     } satisfies Extract<ServerNotification, { method: "turn/started" }>);
     expect(view.surface.openPanelSnapshot()).toMatchObject({ turnBusy: true });
@@ -432,8 +417,7 @@ describe("CodexChatView workspace restoration", () => {
   it("notifies Threads only when panel activity changes", async () => {
     const notifyPanelActivityChanged = vi.fn();
     const client = connectedClient();
-    connectionMockState().client = client;
-    const view = await chatView({ host: chatHost({ notifyPanelActivityChanged }) });
+    const view = await chatViewForClient(client, { host: chatHost({ notifyPanelActivityChanged }) });
 
     await view.onOpen();
     expect(notifyPanelActivityChanged).toHaveBeenCalledOnce();
@@ -453,13 +437,7 @@ describe("CodexChatView workspace restoration", () => {
       method: "turn/started",
       params: {
         threadId: "thread-1",
-        turn: appServerTurnFixture({
-          id: "turn-1",
-          status: "inProgress",
-          startedAt: 1,
-          itemsView: "full",
-          items: [],
-        }),
+        turn: runningTurn("turn-1"),
       },
     } satisfies Extract<ServerNotification, { method: "turn/started" }>);
     expect(notifyPanelActivityChanged).not.toHaveBeenCalled();

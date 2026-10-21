@@ -7,18 +7,7 @@ import { editorSelectionEmphasisExtension, retainEditorSelectionEmphasis } from 
 
 describe("editor selection emphasis", () => {
   it("uses the host editor runtime and keeps independent retained ranges", () => {
-    const editor = {
-      cm: null as EditorView | null,
-      posToOffset: ({ ch }: { ch: number }) => ch,
-    };
-    const parent = document.createElement("div");
-    document.body.append(parent);
-    const view = new EditorView({
-      parent,
-      doc: "alpha beta",
-      extensions: [editorSelectionEmphasisExtension],
-    });
-    editor.cm = view;
+    const { editor, parent, view } = emphasizedEditor();
 
     const range = { from: { line: 0, ch: 0 }, to: { line: 0, ch: 5 } };
     const releaseFirst = retainEditorSelectionEmphasis(editor as never, range);
@@ -48,18 +37,7 @@ describe("editor selection emphasis", () => {
   });
 
   it("does not retain stale ranges after the document changes", () => {
-    const editor = {
-      cm: null as EditorView | null,
-      posToOffset: ({ ch }: { ch: number }) => ch,
-    };
-    const parent = document.createElement("div");
-    document.body.append(parent);
-    const view = new EditorView({
-      parent,
-      doc: "alpha beta",
-      extensions: [editorSelectionEmphasisExtension],
-    });
-    editor.cm = view;
+    const { editor, parent, view } = emphasizedEditor();
 
     const release = retainEditorSelectionEmphasis(editor as never, {
       from: { line: 0, ch: 0 },
@@ -99,3 +77,19 @@ describe("editor selection emphasis", () => {
     editor.cm.destroy();
   });
 });
+
+function emphasizedEditor() {
+  const editor = {
+    cm: null as EditorView | null,
+    posToOffset: ({ ch }: { ch: number }) => ch,
+  };
+  const parent = document.createElement("div");
+  document.body.append(parent);
+  const view = new EditorView({
+    parent,
+    doc: "alpha beta",
+    extensions: [editorSelectionEmphasisExtension],
+  });
+  editor.cm = view;
+  return { editor, parent, view };
+}

@@ -53,23 +53,19 @@ describe("ThreadRenameEditorActions", () => {
   });
 
   it("returns to editing and ignores a generated title after auto-name cancellation", async () => {
-    const generatedTitle = deferred<string>();
-    let generationSignal: AbortSignal | undefined;
+    const { generatedTitle, generateThreadTitle, generationSignal } = pendingTitleGeneration();
     const { actions, stateStore } = actionsFixture({
-      generateThreadTitle: vi.fn((_threadId, signal) => {
-        generationSignal = signal;
-        return generatedTitle.promise;
-      }),
+      generateThreadTitle,
     });
 
     actions.start("thread");
     await flushPromises();
     const autoName = actions.autoNameDraft("thread");
     await Promise.resolve();
-    expect(generationSignal?.aborted).toBe(false);
+    expect(generationSignal()?.aborted).toBe(false);
     actions.cancelAutoName("thread");
 
-    expect(generationSignal?.aborted).toBe(true);
+    expect(generationSignal()?.aborted).toBe(true);
     expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Thread preview", kind: "editing" });
     generatedTitle.resolve("Generated title");
     await autoName;
@@ -78,14 +74,10 @@ describe("ThreadRenameEditorActions", () => {
   });
 
   it("aborts auto-name when rename moves to another thread", async () => {
-    const generatedTitle = deferred<string>();
-    let generationSignal: AbortSignal | undefined;
+    const { generatedTitle, generateThreadTitle, generationSignal } = pendingTitleGeneration();
     const { actions, stateStore } = actionsFixture({
       threads: [threadFixture("thread"), { ...threadFixture("other"), preview: "Other preview" }],
-      generateThreadTitle: vi.fn((_threadId, signal) => {
-        generationSignal = signal;
-        return generatedTitle.promise;
-      }),
+      generateThreadTitle,
     });
     actions.start("thread");
     await flushPromises();
@@ -93,7 +85,7 @@ describe("ThreadRenameEditorActions", () => {
     await Promise.resolve();
     actions.start("other");
 
-    expect(generationSignal?.aborted).toBe(true);
+    expect(generationSignal()?.aborted).toBe(true);
     expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "other", draft: "Other preview", kind: "editing" });
     generatedTitle.resolve("Stale generated title");
     await autoName;
@@ -138,35 +130,24 @@ describe("ThreadRenameEditorActions", () => {
     expect(stateStore.getState().ui.rename).toEqual({ kind: "idle" });
   });
 
-  it("keeps the draft and reports a connection failure while saving", async () => {
+  it.each([
+    { boundary: "connection", message: "Could not connect." },
+    { boundary: "rename", message: "Rename failed." },
+  ])("keeps the draft and reports a $boundary failure while saving", async ({ boundary, message }) => {
     const addSystemMessage = vi.fn();
-    const { actions, stateStore } = actionsFixture({
-      ensureConnected: vi.fn().mockRejectedValue(new Error("Could not connect.")),
-      addSystemMessage,
-    });
+    const ensureConnected = vi.fn().mockResolvedValue(undefined);
+    const renameThread = vi.fn().mockResolvedValue(true);
+    if (boundary === "connection") ensureConnected.mockRejectedValue(new Error(message));
+    else renameThread.mockRejectedValue(new Error(message));
+    const { actions, stateStore } = actionsFixture({ ensureConnected, renameThread, addSystemMessage });
 
     actions.start("thread");
     actions.updateDraft("thread", "Unsaved draft");
     await actions.save("thread", "Unsaved draft");
 
     expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Unsaved draft", kind: "editing" });
-    expect(addSystemMessage).toHaveBeenCalledWith("Could not connect.");
-  });
-
-  it("keeps the draft and reports an app-server rename failure", async () => {
-    const addSystemMessage = vi.fn();
-    const renameThreadRequest = vi.fn().mockRejectedValue(new Error("Rename failed."));
-    const { actions, stateStore } = actionsFixture({
-      renameThread: renameThreadRequest,
-      addSystemMessage,
-    });
-
-    actions.start("thread");
-    actions.updateDraft("thread", "Unsaved draft");
-    await actions.save("thread", "Unsaved draft");
-
-    expect(stateStore.getState().ui.rename).toMatchObject({ threadId: "thread", draft: "Unsaved draft", kind: "editing" });
-    expect(addSystemMessage).toHaveBeenCalledWith("Rename failed.");
+    expect(addSystemMessage).toHaveBeenCalledWith(message);
+    expect(renameThread).toHaveBeenCalledTimes(boundary === "connection" ? 0 : 1);
   });
 
   it("keeps preparing auto-name while a rename save is in flight", async () => {
@@ -353,4 +334,14 @@ function threadFixture(id: string): Thread {
 async function flushPromises(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
+}
+
+function pendingTitleGeneration() {
+  const generatedTitle = deferred<string>();
+  let signal: AbortSignal | undefined;
+  const generateThreadTitle = vi.fn<ThreadRenameEditorActionsHost["generateThreadTitle"]>((_context, generationSignal) => {
+    signal = generationSignal;
+    return generatedTitle.promise;
+  });
+  return { generatedTitle, generateThreadTitle, generationSignal: () => signal };
 }

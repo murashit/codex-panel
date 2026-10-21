@@ -135,17 +135,7 @@ describe("submitComposer", () => {
 
   it("settles a claimed submission when a web submission appears during restored-thread loading", async () => {
     const restored = deferred<boolean>();
-    const { host, inputSnapshot, sendTurnText, stateStore } = createHost("first message");
-    const settle = vi.fn();
-    host.composer.claimSubmission = vi.fn(() => {
-      const panelTarget = capturePanelTargetLease(stateStore.getState());
-      return submissionClaim(
-        "first message",
-        inputSnapshot,
-        settle,
-        vi.fn(() => panelTargetLeaseIsCurrent(stateStore.getState(), panelTarget)),
-      );
-    });
+    const { host, sendTurnText, stateStore, settleSubmission: settle } = createHost("first message");
     const hostWithRestoration = { ...host, ensureRestoredThreadLoaded: vi.fn(() => restored.promise) };
     const submitting = submitComposer(hostWithRestoration);
     stateStore.dispatch({
@@ -173,17 +163,7 @@ describe("submitComposer", () => {
 
   it("settles a claimed submission without restoring it after the panel target changes during loading", async () => {
     const restored = deferred<boolean>();
-    const { host, inputSnapshot, sendTurnText, stateStore } = createHost("first message");
-    const settle = vi.fn();
-    host.composer.claimSubmission = vi.fn(() => {
-      const panelTarget = capturePanelTargetLease(stateStore.getState());
-      return submissionClaim(
-        "first message",
-        inputSnapshot,
-        settle,
-        vi.fn(() => panelTargetLeaseIsCurrent(stateStore.getState(), panelTarget)),
-      );
-    });
+    const { host, sendTurnText, stateStore, settleSubmission: settle } = createHost("first message");
     const hostWithRestoration = { ...host, ensureRestoredThreadLoaded: vi.fn(() => restored.promise) };
     const submitting = submitComposer(hostWithRestoration);
     stateStore.dispatch({
@@ -372,9 +352,7 @@ describe("submitComposer", () => {
   });
 
   it("cancels a pending web import before late success", async () => {
-    const { host, execute, sendTurnText, stateStore } = createHost("  /web https://example.com summarize  ");
-    const fetch = deferred<{ sendText: string }>();
-    execute.mockImplementation(() => fetch.promise);
+    const { host, execute, sendTurnText, stateStore, fetch } = webFetchHost("  /web https://example.com summarize  ");
 
     const first = submitComposer(host);
     await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
@@ -389,9 +367,7 @@ describe("submitComposer", () => {
   });
 
   it("ignores a late web import failure after explicit cancellation", async () => {
-    const { host, execute, stateStore } = createHost("/web https://example.com summarize");
-    const fetch = deferred<{ sendText: string }>();
-    execute.mockImplementation(() => fetch.promise);
+    const { host, stateStore, fetch } = webFetchHost("/web https://example.com summarize");
 
     const first = submitComposer(host);
     await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
@@ -433,13 +409,8 @@ describe("submitComposer", () => {
   });
 
   it("drops a pending web submission when the active thread changes during fetch", async () => {
-    const { host, execute, sendTurnText, stateStore } = createHost("/web https://example.com summarize");
-    stateStore.dispatch({
-      ...threadActivationFixture(thread("first")),
-      type: "active-thread/resumed",
-    });
-    const fetch = deferred<{ sendText: string }>();
-    execute.mockImplementation(() => fetch.promise);
+    const { host, sendTurnText, stateStore, fetch } = webFetchHost("/web https://example.com summarize");
+    resumeActiveThread(stateStore, "first");
 
     const submitting = submitComposer(host);
     await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
@@ -453,10 +424,8 @@ describe("submitComposer", () => {
   });
 
   it("does not restore or report a stale web fetch failure after the active thread changes", async () => {
-    const { host, execute, stateStore } = createHost("/web https://example.com summarize");
+    const { host, stateStore, fetch } = webFetchHost("/web https://example.com summarize");
     resumeActiveThread(stateStore, "first");
-    const fetch = deferred<{ sendText: string }>();
-    execute.mockImplementation(() => fetch.promise);
 
     const submitting = submitComposer(host);
     await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
@@ -469,9 +438,7 @@ describe("submitComposer", () => {
   });
 
   it("leaves web draft recovery to the claim and ignores late fetch success after the connection scope clears", async () => {
-    const { host, execute, sendTurnText, stateStore } = createHost("  /web https://example.com summarize  ");
-    const fetch = deferred<{ sendText: string }>();
-    execute.mockImplementation(() => fetch.promise);
+    const { host, sendTurnText, stateStore, fetch } = webFetchHost("  /web https://example.com summarize  ");
 
     const submitting = submitComposer(host);
     await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
@@ -631,6 +598,13 @@ describe("submitComposer", () => {
     expect(host.status.addSystemMessage).not.toHaveBeenCalled();
   });
 });
+
+function webFetchHost(draft: string) {
+  const fixture = createHost(draft);
+  const fetch = deferred<{ sendText: string }>();
+  fixture.execute.mockImplementation(() => fetch.promise);
+  return { ...fixture, fetch };
+}
 
 function resumeActiveThread(stateStore: ReturnType<typeof createChatStateStore>, id: string): void {
   stateStore.dispatch({

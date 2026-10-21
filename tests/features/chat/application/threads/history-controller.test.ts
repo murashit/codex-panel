@@ -10,7 +10,7 @@ import { projectTurnRuntimeFact } from "../../../../../src/features/chat/applica
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
-import { chatStateThreadStreamItems } from "../../support/thread-stream";
+import { chatStateThreadStreamItems, taskProgressFixture as taskProgress } from "../../support/thread-stream";
 
 describe("HistoryController", () => {
   it.each(["loadLatest", "loadOlder"] as const)("keeps a completed live turn when %s returns an older snapshot", async (method) => {
@@ -419,18 +419,6 @@ function userMessage(id: string, text: string, turnId: string, clientId: string,
           provenance: { source: "localUser" as const, channel: "optimistic" as const, interaction: "prompt" as const, sourceId: clientId },
         }
       : {}),
-  };
-}
-
-function taskProgress(turnId: string): ThreadStreamItem {
-  return {
-    id: `plan-progress-${turnId}`,
-    kind: "taskProgress",
-    role: "tool",
-    turnId,
-    explanation: null,
-    steps: [{ step: "Keep this", status: "completed" }],
-    executionState: "completed",
   };
 }
 

@@ -20,7 +20,7 @@ import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { chatStateFixture, chatStateWith } from "../../support/state";
-import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
+import { taskProgressFixture as taskProgress, withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 
 type ThreadCommandEffectsMock = { compactThread: Mock<ThreadCommandEffects["compactThread"]> };
 type ThreadMutationCommandsMock = { [Key in keyof ThreadCommandsHost["mutations"]]: Mock<ThreadCommandsHost["mutations"][Key]> };
@@ -504,18 +504,6 @@ function turnItems(): ThreadStreamItem[] {
       dialogueState: "completed",
     },
   ];
-}
-
-function taskProgress(turnId: string): ThreadStreamItem {
-  return {
-    id: `plan-progress-${turnId}`,
-    kind: "taskProgress",
-    role: "tool",
-    turnId,
-    explanation: null,
-    steps: [{ step: "Keep this", status: "completed" }],
-    executionState: "completed",
-  };
 }
 
 function threadCommands(host: ThreadCommandsHost): ThreadCommands {

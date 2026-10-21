@@ -224,19 +224,7 @@ describe("panel pending request rendering", () => {
   });
 
   it("selects the other Plan mode answer from controlled drafts", () => {
-    const parent = document.createElement("div");
-    const drafts = new Map<string, string>();
-    const input = pendingOtherUserInput();
-    const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
-    const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
-    const actions = pendingRequestActions({
-      setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
-        drafts.set(key, value);
-      }),
-    });
-    const render = () => {
-      renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
-    };
+    const { parent, actions, render } = controlledOtherInput();
 
     render();
     actEvent(() => {
@@ -252,19 +240,7 @@ describe("panel pending request rendering", () => {
   });
 
   it("keeps an empty other Plan mode answer selected and updates its tab order", () => {
-    const parent = document.createElement("div");
-    const drafts = new Map<string, string>();
-    const input = pendingOtherUserInput();
-    const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
-    const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
-    const actions = pendingRequestActions({
-      setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
-        drafts.set(key, value);
-      }),
-    });
-    const render = () => {
-      renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
-    };
+    const { parent, actions, render } = controlledOtherInput();
 
     render();
     const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
@@ -284,18 +260,9 @@ describe("panel pending request rendering", () => {
   });
 
   it("does not commit other Plan mode IME preedit text as the answer", () => {
-    const parent = document.createElement("div");
-    const drafts = new Map<string, string>();
-    const input = pendingOtherUserInput();
-    const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
-    const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
-    const actions = pendingRequestActions({
-      setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
-        drafts.set(key, value);
-      }),
-    });
+    const { parent, actions, render } = controlledOtherInput();
 
-    renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
+    render();
     const otherInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text"));
 
     actEvent(() => {
@@ -321,18 +288,7 @@ describe("panel pending request rendering", () => {
     const approval = pendingApproval();
     const input = pendingUserInput();
 
-    renderPendingRequestNode(
-      parent,
-      [approval],
-      [input],
-      {
-        values: new Map(),
-        draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
-        otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
-      },
-      new Set(),
-      pendingRequestActions(),
-    );
+    renderPendingRequestNode(parent, [approval], [input], userInputDraftsFixture(), new Set(), pendingRequestActions());
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
     expect(parent.querySelectorAll(".codex-panel__pending-request-card")).toHaveLength(2);
@@ -368,11 +324,7 @@ describe("panel pending request rendering", () => {
         parent,
         [pendingApproval()],
         [input],
-        {
-          values: new Map(),
-          draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
-          otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
-        },
+        userInputDraftsFixture(),
         new Set(),
         pendingRequestActions({ setUserInputDraft }),
         true,
@@ -395,19 +347,7 @@ describe("panel pending request rendering", () => {
     const input = pendingOtherUserInput();
 
     try {
-      renderPendingRequestNode(
-        parent,
-        [],
-        [input],
-        {
-          values: new Map(),
-          draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
-          otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
-        },
-        new Set(),
-        pendingRequestActions(),
-        true,
-      );
+      renderPendingRequestNode(parent, [], [input], userInputDraftsFixture(), new Set(), pendingRequestActions(), true);
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-radio:checked"));
       expect(document.activeElement).not.toBe(parent.querySelector(".codex-panel__user-input-other-text"));
@@ -422,19 +362,7 @@ describe("panel pending request rendering", () => {
     document.body.appendChild(parent);
 
     try {
-      renderPendingRequestNode(
-        parent,
-        [pendingApproval()],
-        [],
-        {
-          values: new Map(),
-          draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
-          otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
-        },
-        new Set(),
-        pendingRequestActions(),
-        true,
-      );
+      renderPendingRequestNode(parent, [pendingApproval()], [], userInputDraftsFixture(), new Set(), pendingRequestActions(), true);
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__pending-request-button.mod-cta"));
     } finally {
@@ -471,18 +399,7 @@ describe("panel pending request rendering", () => {
     };
     const resolveApproval = vi.fn();
 
-    renderPendingRequestNode(
-      parent,
-      [approval],
-      [],
-      {
-        values: new Map(),
-        draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
-        otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
-      },
-      new Set(),
-      pendingRequestActions({ resolveApproval }),
-    );
+    renderPendingRequestNode(parent, [approval], [], userInputDraftsFixture(), new Set(), pendingRequestActions({ resolveApproval }));
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")];
     expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual(["Allow network rule", "Deny"]);
@@ -604,21 +521,10 @@ describe("panel pending request rendering", () => {
     const resolveMcpElicitation = vi.fn();
     const setMcpElicitationDraft = vi.fn();
 
-    renderThreadStreamBlocksInAct(
+    renderMcpRequest(
       parent,
-      projectedThreadStream({
-        items: [
-          { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
-        ],
-        renderMarkdown: (element, text) => element.createDiv({ text }),
-        pendingRequests: pendingRequestContext({
-          signature: "mcp:51",
-          snapshot: emptyPendingRequestBlockSnapshot({
-            pendingMcpElicitations: [pendingMcpElicitationSnapshot(pendingMcpElicitation())],
-          }),
-          actions: pendingRequestActions({ resolveMcpElicitation, setMcpElicitationDraft }),
-        }),
-      }),
+      pendingMcpElicitationSnapshot(pendingMcpElicitation()),
+      pendingRequestActions({ resolveMcpElicitation, setMcpElicitationDraft }),
     );
 
     expect(parent.querySelector(".codex-panel__pending-request-title")?.textContent).toBe("MCP request from github");
@@ -684,21 +590,10 @@ describe("panel pending request rendering", () => {
     const parent = document.createElement("div");
     const resolveMcpElicitation = vi.fn();
 
-    renderThreadStreamBlocksInAct(
+    renderMcpRequest(
       parent,
-      projectedThreadStream({
-        items: [
-          { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
-        ],
-        renderMarkdown: (element, text) => element.createDiv({ text }),
-        pendingRequests: pendingRequestContext({
-          signature: "mcp:52",
-          snapshot: emptyPendingRequestBlockSnapshot({
-            pendingMcpElicitations: [pendingMcpElicitationSnapshot(pendingMcpElicitation({ requestId: 52, defaultValue: "" }))],
-          }),
-          actions: pendingRequestActions({ resolveMcpElicitation }),
-        }),
-      }),
+      pendingMcpElicitationSnapshot(pendingMcpElicitation({ requestId: 52, defaultValue: "" })),
+      pendingRequestActions({ resolveMcpElicitation }),
     );
 
     actEvent(() => {
@@ -718,22 +613,7 @@ describe("panel pending request rendering", () => {
     const parent = document.createElement("div");
     const resolveMcpElicitation = vi.fn();
 
-    renderThreadStreamBlocksInAct(
-      parent,
-      projectedThreadStream({
-        items: [
-          { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
-        ],
-        renderMarkdown: (element, text) => element.createDiv({ text }),
-        pendingRequests: pendingRequestContext({
-          signature: "mcp:53",
-          snapshot: emptyPendingRequestBlockSnapshot({
-            pendingMcpElicitations: [pendingMcpMultiSelectElicitation()],
-          }),
-          actions: pendingRequestActions({ resolveMcpElicitation }),
-        }),
-      }),
-    );
+    renderMcpRequest(parent, pendingMcpMultiSelectElicitation(), pendingRequestActions({ resolveMcpElicitation }));
 
     expect(parent.querySelectorAll<HTMLInputElement>(".codex-panel__mcp-elicitation-checkbox")).toHaveLength(2);
     actEvent(() => {
@@ -985,4 +865,53 @@ function pendingMcpMultiSelectElicitation(): PendingRequestBlockSnapshot["pendin
       ],
     },
   });
+}
+
+function controlledUserInputDrafts() {
+  const drafts = new Map<string, string>();
+  const { draftKey, otherDraftKey } = userInputDraftsFixture(drafts);
+  const actions = pendingRequestActions({
+    setUserInputDraft: vi.fn((_requestId, key: string, value: string) => {
+      drafts.set(key, value);
+    }),
+  });
+  return { drafts, draftKey, otherDraftKey, actions };
+}
+
+function userInputDraftsFixture(values = new Map<string, string>()) {
+  return {
+    values,
+    draftKey: (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`,
+    otherDraftKey: (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`,
+  };
+}
+
+function controlledOtherInput() {
+  const parent = document.createElement("div");
+  const input = pendingOtherUserInput();
+  const { drafts, draftKey, otherDraftKey, actions } = controlledUserInputDrafts();
+  const render = () => {
+    renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
+  };
+  return { parent, actions, render };
+}
+
+function renderMcpRequest(
+  parent: HTMLElement,
+  elicitation: PendingRequestBlockSnapshot["pendingMcpElicitations"][number],
+  actions: ReturnType<typeof pendingRequestActions>,
+): void {
+  renderThreadStreamBlocksInAct(
+    parent,
+    projectedThreadStream({
+      items: [
+        { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
+      ],
+      pendingRequests: pendingRequestContext({
+        signature: `mcp:${String(elicitation.requestId)}`,
+        snapshot: emptyPendingRequestBlockSnapshot({ pendingMcpElicitations: [elicitation] }),
+        actions,
+      }),
+    }),
+  );
 }

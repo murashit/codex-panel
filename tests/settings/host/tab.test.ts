@@ -174,8 +174,7 @@ describe("settings tab", () => {
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    const toggle = inputForSetting(tab, "Show chat toolbar");
-    if (!toggle) throw new Error("Missing toolbar visibility toggle");
+    const toggle = toolbarVisibilityToggle(tab);
     toggle.checked = false;
     toggle.dispatchEvent(new Event("change"));
     await Promise.resolve();
@@ -227,8 +226,7 @@ describe("settings tab", () => {
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    const toggle = inputForSetting(tab, "Show chat toolbar");
-    if (!toggle) throw new Error("Missing toolbar visibility toggle");
+    const toggle = toolbarVisibilityToggle(tab);
 
     toggle.checked = false;
     toggle.dispatchEvent(new Event("change"));
@@ -639,23 +637,23 @@ describe("settings tab", () => {
     codexInput.focus();
     codexInput.value = "/opt/codex-draft";
     codexInput.setSelectionRange(5, 10);
+    const expectExecutableDraftPreserved = () => {
+      const currentInput = inputForSetting(tab, "Codex executable");
+      expect(currentInput?.value).toBe("/opt/codex-draft");
+      expect(document.activeElement).toBe(currentInput);
+      expect([currentInput?.selectionStart, currentInput?.selectionEnd]).toEqual([5, 10]);
+    };
 
     archiveToggle.checked = true;
     archiveToggle.dispatchEvent(new Event("change"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(inputForSetting(tab, "Codex executable")?.value).toBe("/opt/codex-draft");
-    expect(document.activeElement).toBe(inputForSetting(tab, "Codex executable"));
-    expect(inputForSetting(tab, "Codex executable")?.selectionStart).toBe(5);
-    expect(inputForSetting(tab, "Codex executable")?.selectionEnd).toBe(10);
+    expectExecutableDraftPreserved();
 
     clickButtonByLabel(tab, "Delete thread");
 
-    expect(inputForSetting(tab, "Codex executable")?.value).toBe("/opt/codex-draft");
-    expect(document.activeElement).toBe(inputForSetting(tab, "Codex executable"));
-    expect(inputForSetting(tab, "Codex executable")?.selectionStart).toBe(5);
-    expect(inputForSetting(tab, "Codex executable")?.selectionEnd).toBe(10);
+    expectExecutableDraftPreserved();
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).not.toBeNull();
     tab.containerEl.remove();
   });
@@ -821,4 +819,10 @@ function selectOptions(tab: CodexPanelSettingTab, name: string, index = 0): stri
   const select = settingElement(tab, name)?.querySelectorAll<HTMLSelectElement>("select")[index] ?? null;
   if (!select) throw new Error(`Missing select: ${name}`);
   return Array.from(select.options).map((option) => option.textContent);
+}
+
+function toolbarVisibilityToggle(tab: CodexPanelSettingTab): HTMLInputElement {
+  const input = inputForSetting(tab, "Show chat toolbar");
+  if (!input) throw new Error("Missing toolbar visibility toggle");
+  return input;
 }

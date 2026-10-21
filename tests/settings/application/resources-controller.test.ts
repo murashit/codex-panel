@@ -38,18 +38,11 @@ describe("SettingsResourcesController", () => {
   });
 
   it("publishes archived thread catalog updates", () => {
-    let emitArchived = (_threads: readonly Thread[]): void => {
-      throw new Error("Expected archived thread observer");
-    };
+    const archived = archivedThreadEmitter();
     const display = vi.fn();
     const controller = settingsResourcesController(
       settingsTabHost({
-        observeArchived: (listener) => {
-          emitArchived = (threads) => {
-            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
-          };
-          return () => undefined;
-        },
+        observeArchived: archived.observe,
       }),
       { display, notify: noop },
     );
@@ -57,7 +50,7 @@ describe("SettingsResourcesController", () => {
     controller.activate();
     display.mockClear();
     const archivedThreads = [panelThread({ id: "thread-archived", preview: "Archived elsewhere", archived: true })];
-    emitArchived(archivedThreads);
+    archived.emit(archivedThreads);
 
     expect(controller.snapshot().archivedThreads?.map((thread) => thread.preview)).toEqual(["Archived elsewhere"]);
     expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("idle");
@@ -407,11 +400,11 @@ describe("SettingsResourcesController", () => {
 
   it("displays restored archived thread state after recording the active catalog event", async () => {
     const snapshots: SettingsResourcesSnapshot[] = [];
-    let emitArchived = (_threads: readonly Thread[]): void => undefined;
+    const archived = archivedThreadEmitter();
     const initialClient = settingsClient();
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn(async () => {
-        emitArchived([]);
+        archived.emit([]);
         return { thread: appServerThread({ id: "thread-old", preview: "Restored old" }) };
       }),
     });
@@ -420,12 +413,7 @@ describe("SettingsResourcesController", () => {
     const controller = settingsResourcesController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        observeArchived: (listener) => {
-          emitArchived = (threads) => {
-            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
-          };
-          return () => undefined;
-        },
+        observeArchived: archived.observe,
       }),
       {
         display: () => {
@@ -446,3 +434,17 @@ describe("SettingsResourcesController", () => {
     expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("idle");
   });
 });
+
+function archivedThreadEmitter() {
+  let listener: ((result: ObservedResult<readonly Thread[]>) => void) | null = null;
+  return {
+    observe(next: (result: ObservedResult<readonly Thread[]>) => void) {
+      listener = next;
+      return () => undefined;
+    },
+    emit(threads: readonly Thread[]) {
+      if (!listener) throw new Error("Expected archived thread observer");
+      listener({ value: threads, error: null, isFetching: false });
+    },
+  };
+}

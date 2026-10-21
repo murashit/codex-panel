@@ -21,13 +21,7 @@ describe("AutoTitleCoordinator", () => {
   });
 
   it("submits only the first completed turn for the active thread", () => {
-    const submitTitleWork = vi.fn();
-    const coordinator = createAutoTitleCoordinator({
-      completedTurnTitleContext: (_turnId, summary) =>
-        summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
-      submitTitleWork,
-      threadById: catalogThreadById(),
-    });
+    const { coordinator, submitTitleWork } = autoTitleFixture();
 
     coordinator.maybeAutoTitleThread("thread", "turn-1", { userText: "First", assistantText: "Done" });
     coordinator.maybeAutoTitleThread("thread", "turn-2", { userText: "Second", assistantText: "Done again" });
@@ -36,13 +30,7 @@ describe("AutoTitleCoordinator", () => {
   });
 
   it("tracks first-turn presence independently after switching active threads", () => {
-    const submitTitleWork = vi.fn();
-    const coordinator = createAutoTitleCoordinator({
-      completedTurnTitleContext: (_turnId, summary) =>
-        summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
-      submitTitleWork,
-      threadById: catalogThreadById(),
-    });
+    const { coordinator, submitTitleWork } = autoTitleFixture();
 
     coordinator.maybeAutoTitleThread("thread", "turn-a", { userText: "Thread A", assistantText: "Done" });
     coordinator.resetThreadTurnPresence(false);
@@ -83,4 +71,15 @@ function catalogThreadById(name: string | null = null) {
     },
   ];
   return (threadId: string) => threads.find((thread) => thread.id === threadId);
+}
+
+function autoTitleFixture() {
+  const submitTitleWork = vi.fn();
+  const coordinator = createAutoTitleCoordinator({
+    completedTurnTitleContext: (_turnId, summary) =>
+      summary?.userText && summary.assistantText ? { userRequest: summary.userText, assistantResponse: summary.assistantText } : null,
+    submitTitleWork,
+    threadById: catalogThreadById(),
+  });
+  return { coordinator, submitTitleWork };
 }

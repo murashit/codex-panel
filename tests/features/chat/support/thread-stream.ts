@@ -14,3 +14,19 @@ export function withChatStateStableThreadStreamItems(state: ChatState, items: re
     threadStream: threadStreamWithItems(state.threadStream, items),
   });
 }
+
+export function taskProgressFixture(
+  turnId: string,
+  overrides: Partial<Extract<ThreadStreamItem, { kind: "taskProgress" }>> = {},
+): Extract<ThreadStreamItem, { kind: "taskProgress" }> {
+  return {
+    id: `plan-progress-${turnId}`,
+    kind: "taskProgress",
+    role: "tool",
+    turnId,
+    explanation: null,
+    steps: [{ step: "Keep this", status: "completed" }],
+    executionState: "completed",
+    ...overrides,
+  };
+}

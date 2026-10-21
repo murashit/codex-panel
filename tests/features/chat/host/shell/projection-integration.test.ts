@@ -1,10 +1,10 @@
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
+import { threadStreamDependenciesFixture } from "../../support/thread-stream-dependencies";
 // @vitest-environment jsdom
 
 import { type ComponentChild, h } from "preact";
 import { describe, expect, it, vi } from "vitest";
-import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ChatState } from "../../../../../src/features/chat/application/state/model";
@@ -21,11 +21,7 @@ import {
   projectChatPanelGoal,
   selectChatPanelGoal,
 } from "../../../../../src/features/chat/host/goal/view-projection";
-import {
-  type ChatThreadStreamDependencies,
-  projectThreadStream,
-  selectChatPanelThreadStream,
-} from "../../../../../src/features/chat/host/thread-stream/view-projection";
+import { projectThreadStream, selectChatPanelThreadStream } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import {
   type ChatPanelToolbarDependencies,
   projectChatPanelToolbar,
@@ -35,6 +31,7 @@ import { GoalPanel } from "../../../../../src/features/chat/ui/goal/goal";
 import { Toolbar, type ToolbarActions } from "../../../../../src/features/chat/ui/toolbar/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { modelMetadataFixture } from "../../../../support/model-metadata";
 import {
   type ChatSharedDisplayValues,
   chatSharedDisplayValuesFixture,
@@ -48,6 +45,12 @@ import { withChatStateStableThreadStreamItems } from "../../support/thread-strea
 installObsidianDomShims();
 
 const emptySharedResources = chatSharedDisplayValuesFixture();
+const EXPECTED_EMPTY_CONTEXT_CELLS = [
+  { text: "⣀", placeholder: true },
+  { text: "⣀", placeholder: true },
+  { text: "⣀", placeholder: true },
+  { text: "⣀", placeholder: true },
+];
 
 const selectChatPanelToolbar = (state: ChatState, shared: ChatSharedDisplayValues) =>
   selectChatPanelToolbarFromResources(state, toolbarSharedValues(shared));
@@ -107,13 +110,7 @@ describe("chat panel projection integration", () => {
       activeTurn: { lifecycle: { kind: "running", turnId: "turn" } },
       ui: { toolbarPanel: "history" },
     });
-    const parent = renderWithShellModels(state, shared, (models) =>
-      h(ProjectedToolbar, {
-        model: models.toolbar,
-        dependencies: toolbarSurfaceFixture(),
-        actions: toolbarActionsFixture(),
-      }),
-    );
+    const parent = renderToolbar(state, shared);
 
     const archiveButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Archive thread"]')];
     const renameButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Rename thread"]')];
@@ -140,13 +137,7 @@ describe("chat panel projection integration", () => {
         },
       },
     });
-    const parent = renderWithShellModels(state, shared, (models) =>
-      h(ProjectedToolbar, {
-        model: models.toolbar,
-        dependencies: toolbarSurfaceFixture(),
-        actions: toolbarActionsFixture(),
-      }),
-    );
+    const parent = renderToolbar(state, shared);
 
     const renameButtons = [...parent.querySelectorAll<HTMLButtonElement>('[aria-label="Rename thread"]')];
     expect(renameButtons).toHaveLength(1);
@@ -214,7 +205,7 @@ describe("chat panel projection integration", () => {
         },
       },
     });
-    const dependencies = threadStreamSurfaceContext();
+    const dependencies = threadStreamDependenciesFixture();
     const projection = projectThreadStream(selectChatPanelThreadStream(state), dependencies);
     expect(projection.context.activeThreadId).toBeNull();
     const targets = projection.blocks.flatMap((block) => (block.kind === "text" ? [block.view.actionTargets] : []));
@@ -248,7 +239,7 @@ describe("chat panel projection integration", () => {
       },
     ]);
 
-    const projection = projectThreadStream(selectChatPanelThreadStream(state), threadStreamSurfaceContext());
+    const projection = projectThreadStream(selectChatPanelThreadStream(state), threadStreamDependenciesFixture());
     const textBlocks = projection.blocks.filter((block) => block.kind === "text");
     expect(textBlocks.map((block) => ({ body: block.view.body, rollback: block.view.actionTargets.rollback }))).toEqual([
       { body: "Question", rollback: undefined },
@@ -301,7 +292,7 @@ describe("chat panel projection integration", () => {
       },
     });
 
-    const projection = projectThreadStream(selectChatPanelThreadStream(state), threadStreamSurfaceContext());
+    const projection = projectThreadStream(selectChatPanelThreadStream(state), threadStreamDependenciesFixture());
     const summary = projection.blocks.find((block) => block.kind === "liveAgentSummary");
 
     expect(summary).toMatchObject({
@@ -383,13 +374,7 @@ describe("chat panel projection integration", () => {
       },
     });
 
-    const parent = renderWithShellModels(state, shared, (models) =>
-      h(ProjectedToolbar, {
-        model: models.toolbar,
-        dependencies: toolbarSurfaceFixture(),
-        actions: toolbarActionsFixture(),
-      }),
-    );
+    const parent = renderToolbar(state, shared);
 
     expect(parent.textContent).toContain("Permissions & Approvals");
     expect(parent.textContent).toContain("Permissions");
@@ -483,12 +468,7 @@ describe("chat panel projection integration", () => {
     expect(composerProjectionFromState(composerProjectionActionsFixture(), state, shared).meta).toMatchObject({
       fatal: null,
       context: {
-        cells: [
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
+        cells: EXPECTED_EMPTY_CONTEXT_CELLS,
         percent: "--%",
       },
       statusSummary: "Context unavailable, plan off, auto-review off, fast off, model gpt-5.5, reasoning effort default",
@@ -501,12 +481,7 @@ describe("chat panel projection integration", () => {
     expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture(), emptySharedResources).meta).toMatchObject({
       fatal: null,
       context: {
-        cells: [
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
+        cells: EXPECTED_EMPTY_CONTEXT_CELLS,
         percent: " 0%",
       },
       statusSummary: "Context 0%, plan off, auto-review off, fast off, model default, reasoning effort default",
@@ -528,12 +503,7 @@ describe("chat panel projection integration", () => {
 
     expect(composerProjectionFromState(composerProjectionActionsFixture(), state, emptySharedResources).meta).toMatchObject({
       context: {
-        cells: [
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
+        cells: EXPECTED_EMPTY_CONTEXT_CELLS,
         percent: " 0%",
       },
       statusSummary: "Context 0%, plan off, auto-review off, fast off, model default, reasoning effort default",
@@ -547,12 +517,7 @@ describe("chat panel projection integration", () => {
     expect(composerProjectionFromState(composerProjectionActionsFixture(), state, emptySharedResources).meta).toMatchObject({
       fatal: "Codex app-server disconnected",
       context: {
-        cells: [
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
+        cells: EXPECTED_EMPTY_CONTEXT_CELLS,
         percent: "--%",
       },
       statusSummary: "Codex app-server disconnected",
@@ -767,40 +732,6 @@ function shellModelsFromState(state: ChatState, shared: ChatSharedDisplayValues,
   };
 }
 
-function threadStreamSurfaceContext(): ChatThreadStreamDependencies {
-  return {
-    panelId: "test-panel",
-    vaultPath: "/vault",
-    setDisclosureOpen: vi.fn(),
-    setForkMenuItem: vi.fn(),
-    loadOlderTurns: vi.fn(),
-    renderObsidianMarkdown: vi.fn(),
-    renderStreamMarkdown: vi.fn(),
-    copyDialogueText: vi.fn(),
-    actions: {
-      rollbackThread: vi.fn(),
-      forkThreadFromTurn: vi.fn(),
-      implementPlan: vi.fn(),
-      openThreadInAvailableView: vi.fn(),
-      openThreadInNewView: vi.fn(),
-      openTurnDiff: vi.fn(),
-    },
-    requests: {
-      actions: {
-        resolveApproval: vi.fn(),
-        resolveUserInput: vi.fn(),
-        skipUserInput: vi.fn(),
-        cancelUserInput: vi.fn(),
-        resolveMcpElicitation: vi.fn(),
-        setApprovalDetailsExpanded: vi.fn(),
-        setUserInputDraft: vi.fn(),
-        setMcpElicitationDraft: vi.fn(),
-      },
-      consumeAutoFocus: () => false,
-    },
-  };
-}
-
 function composerProjectionFromState(actions: ChatPanelComposerRuntimeActions, state: ChatState, shared: ChatSharedDisplayValues) {
   return projectChatPanelComposer(composerModelFromChatState(state, shared), actions);
 }
@@ -899,20 +830,8 @@ function threadFixture(id: string, name: string | null): Thread {
   });
 }
 
-function modelFixture(model: string, fastTierId?: string): ModelMetadata {
-  return {
-    id: model,
-    model,
-    displayName: model,
-    description: "",
-    hidden: false,
-    supportedReasoningEfforts: ["high"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
-    defaultReasoningEffort: "high",
-    inputModalities: [],
-    serviceTiers: fastTierId ? [{ id: fastTierId, name: "Fast" }] : [],
-    defaultServiceTier: null,
-    isDefault: true,
-  };
+function modelFixture(model: string, fastTierId?: string) {
+  return modelMetadataFixture(model, { serviceTiers: fastTierId ? [{ id: fastTierId, name: "Fast" }] : [] });
 }
 
 function goalFixture(threadId: string): ThreadGoal {
@@ -924,4 +843,10 @@ function goalFixture(threadId: string): ThreadGoal {
     tokensUsed: 0,
     timeUsedSeconds: 0,
   };
+}
+
+function renderToolbar(state: ChatState, shared: ChatSharedDisplayValues): HTMLElement {
+  return renderWithShellModels(state, shared, (models) =>
+    h(ProjectedToolbar, { model: models.toolbar, dependencies: toolbarSurfaceFixture(), actions: toolbarActionsFixture() }),
+  );
 }

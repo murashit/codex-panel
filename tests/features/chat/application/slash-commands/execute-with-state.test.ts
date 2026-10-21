@@ -13,6 +13,7 @@ import { RestorationController } from "../../../../../src/features/chat/applicat
 import { deferred } from "../../../../support/async";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
+import { slashGoalsFixture, slashRuntimeSettingsFixture } from "../../support/slash-command-ports";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
@@ -48,23 +49,8 @@ function createHost(overrides: PanelSlashCommandHostOverrides = {}) {
       renameThread: vi.fn().mockResolvedValue(true),
     },
     reconnect: vi.fn().mockResolvedValue(undefined),
-    runtimeSettings: {
-      toggleFastMode: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      requestModel: vi.fn(),
-      resetModelToConfig: vi.fn(),
-      requestPermissionProfile: vi.fn(),
-      resetPermissionProfileToConfig: vi.fn(),
-      requestReasoningEffort: vi.fn(),
-      resetReasoningEffortToConfig: vi.fn(),
-    },
-    goals: {
-      activeGoal: vi.fn(() => null),
-      setObjective: vi.fn().mockResolvedValue(true),
-      setStatus: vi.fn().mockResolvedValue(true),
-      clear: vi.fn().mockResolvedValue(true),
-    },
+    runtimeSettings: slashRuntimeSettingsFixture(),
+    goals: slashGoalsFixture(),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
     statusDetails: () => [],

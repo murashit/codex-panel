@@ -10,7 +10,7 @@ import {
   startThread,
   threadFromAppServerRecord,
 } from "../../../src/app-server/services/threads";
-import { appServerTurnFixture } from "../../support/app-server-records";
+import { appServerTurnFixture, appServerUserMessageFixture as userMessage } from "../../support/app-server-records";
 import { deferred } from "../../support/async";
 
 describe("app-server thread response adapters", () => {
@@ -209,38 +209,18 @@ describe("app-server thread response adapters", () => {
   );
 
   it("rejects repeated archive item cursors", async () => {
-    const request = vi.fn((method: string) => {
-      if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
-      if (method === "thread/turns/list") {
-        return Promise.resolve({ data: [archiveTurn("turn-1")], nextCursor: null, backwardsCursor: null });
-      }
-      if (method === "thread/items/list") {
-        return Promise.resolve({ data: [], nextCursor: "same", backwardsCursor: null });
-      }
-      throw new Error(`Unexpected request: ${method}`);
-    });
-    const client = { request } as unknown as AppServerRequestClient;
+    const { request, client } = paginatedArchiveFixture({ data: [], nextCursor: "same", backwardsCursor: null });
 
     await expect(readThreadForArchiveExport(client, "thread")).rejects.toThrow("repeated archive item cursor");
     expect(request).toHaveBeenCalledTimes(4);
   });
 
   it("rejects archive items that reference an unknown turn", async () => {
-    const request = vi.fn((method: string) => {
-      if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
-      if (method === "thread/turns/list") {
-        return Promise.resolve({ data: [archiveTurn("turn-1")], nextCursor: null, backwardsCursor: null });
-      }
-      if (method === "thread/items/list") {
-        return Promise.resolve({
-          data: [{ turnId: "missing-turn", item: userMessage("user", "Orphaned") }],
-          nextCursor: null,
-          backwardsCursor: null,
-        });
-      }
-      throw new Error(`Unexpected request: ${method}`);
+    const { client } = paginatedArchiveFixture({
+      data: [{ turnId: "missing-turn", item: userMessage("user", "Orphaned") }],
+      nextCursor: null,
+      backwardsCursor: null,
     });
-    const client = { request } as unknown as AppServerRequestClient;
 
     await expect(readThreadForArchiveExport(client, "thread")).rejects.toThrow("archive item for unknown turn missing-turn");
   });
@@ -352,10 +332,16 @@ function archiveTurn(id: string, items: readonly TurnItem[] = []): TurnRecord {
   });
 }
 
-function userMessage(id: string, text: string): TurnItem {
-  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
-}
-
 function agentMessage(id: string, text: string): TurnItem {
   return { type: "agentMessage", id, text, phase: null, memoryCitation: null, delivery: null, questions: null };
+}
+
+function paginatedArchiveFixture(itemPage: unknown) {
+  const request = vi.fn((method: string) => {
+    if (method === "thread/read") return Promise.resolve({ thread: archiveThread("paginated") });
+    if (method === "thread/turns/list") return Promise.resolve({ data: [archiveTurn("turn-1")], nextCursor: null, backwardsCursor: null });
+    if (method === "thread/items/list") return Promise.resolve(itemPage);
+    throw new Error(`Unexpected request: ${method}`);
+  });
+  return { request, client: { request } as unknown as AppServerRequestClient };
 }

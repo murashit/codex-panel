@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { executeThreadSlashCommand } from "../../../../../src/features/chat/application/slash-commands/execute-thread";
 import { panelThreadFixture } from "../../../../support/panel-thread";
+import { slashSubmissionFixture, slashThreadCommandsFixture } from "../../support/slash-command-ports";
 
 type ThreadContext = Parameters<typeof executeThreadSlashCommand>[2];
 
@@ -9,17 +10,11 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
   return {
     activeThreadId: "thread-1",
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
-    submission: { isCurrent: vi.fn(() => true), markAdopted: vi.fn(), adoptPanelTarget: vi.fn() },
+    submission: slashSubmissionFixture(),
     startNewThread: vi.fn().mockResolvedValue(undefined),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     reconnect: vi.fn().mockResolvedValue(undefined),
-    threadCommands: {
-      forkThread: vi.fn().mockResolvedValue(undefined),
-      rollbackThread: vi.fn().mockResolvedValue(undefined),
-      compactThread: vi.fn().mockResolvedValue(undefined),
-      archiveThread: vi.fn().mockResolvedValue(undefined),
-      renameThread: vi.fn().mockResolvedValue(true),
-    },
+    threadCommands: slashThreadCommandsFixture(),
     openSideChat: vi.fn().mockResolvedValue(undefined),
     addSystemMessage: vi.fn(),
     ...overrides,

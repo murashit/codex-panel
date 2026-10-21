@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
 import { turnRuntimeFactFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-fact-adapter";
-import { appServerTurnFixture } from "../../../../support/app-server-records";
+import { appServerAgentMessageFixture, appServerTurnFixture, appServerUserMessageFixture } from "../../../../support/app-server-records";
 
 describe("app-server turn runtime fact adapter", () => {
   it.each([
@@ -43,12 +43,7 @@ describe("app-server turn runtime fact adapter", () => {
         threadId: "thread-active",
         turnId: "turn-active",
         startedAtMs: 1,
-        item: {
-          type: "userMessage",
-          id: "server-steer",
-          clientId: "local-steer",
-          content: [{ type: "text", text: "follow up", text_elements: [] }],
-        },
+        item: appServerUserMessageFixture("server-steer", "follow up", { clientId: "local-steer" }),
       },
     } satisfies Extract<ServerNotification, { method: "item/started" }>;
 
@@ -79,9 +74,7 @@ describe("app-server turn runtime fact adapter", () => {
           completedAt: 2,
           durationMs: 1,
           itemsView: "summary",
-          items: [
-            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null, delivery: null, questions: null },
-          ],
+          items: [appServerAgentMessageFixture("a1", "done")],
         }),
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;
@@ -193,17 +186,7 @@ describe("app-server turn runtime fact adapter", () => {
             id: "turn",
             status: "completed",
             itemsView: "notLoaded",
-            items: [
-              {
-                type: "agentMessage",
-                id: "a",
-                text: "not acquired",
-                phase: "final_answer",
-                memoryCitation: null,
-                delivery: null,
-                questions: null,
-              },
-            ],
+            items: [appServerAgentMessageFixture("a", "not acquired")],
           }),
         },
       },

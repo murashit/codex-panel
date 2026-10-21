@@ -11,6 +11,7 @@ import type { ServerRequest } from "../../../../../src/app-server/connection/rpc
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createSessionConnection } from "../../../../../src/features/chat/host/session/connection";
 import { waitForAsyncWork } from "../../../../support/async";
+import { userInputRequestFixture } from "../../../../support/server-requests";
 import { chatStateFixture } from "../../support/state";
 
 type SessionConnectionHost = Parameters<typeof createSessionConnection>[0];
@@ -244,19 +245,8 @@ function sessionConnectionFixture(lease?: AppServerContextConnectionLease, ephem
   };
 }
 
-function userInputRequest(id: number): Extract<ServerRequest, { method: "item/tool/requestUserInput" }> {
-  return {
-    id,
-    method: "item/tool/requestUserInput",
-    params: {
-      threadId: "thread-active",
-      turnId: "turn-active",
-      itemId: "input-1",
-      questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
-      isBlocking: true,
-      autoResolutionMs: null,
-    },
-  };
+function userInputRequest(id: number) {
+  return userInputRequestFixture(id, { isBlocking: true });
 }
 
 function commandApprovalRequest(

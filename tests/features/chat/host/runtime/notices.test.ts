@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ModelMetadata } from "../../../../../src/domain/runtime/catalog";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/runtime/tool-inventory";
 import { createChatPanelRuntimeNotices } from "../../../../../src/features/chat/host/runtime/notices";
+import { modelMetadataFixture } from "../../../../support/model-metadata";
 import { runtimeConfigFromAppServerFixture } from "../../../../support/runtime-config";
 import { createServerDiagnostics } from "../../../../support/runtime-diagnostics";
 import { type ChatSharedDisplayValues, chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
@@ -18,15 +18,9 @@ describe("createChatPanelRuntimeNotices", () => {
         model_reasoning_effort: "high",
         service_tier: "fast",
       }),
-      availableModels: [modelFixture("gpt-5.5")],
+      availableModels: [modelMetadataFixture("gpt-5.5")],
     });
-    const projection = createChatPanelRuntimeNotices({
-      state: () => state,
-      connected: () => true,
-      configuredCommand: () => "codex",
-      vaultPath: () => "/vault",
-      sharedResources: runtimeShared(shared),
-    });
+    const projection = noticesFixture(() => state, runtimeShared(shared));
 
     expect(projection.statusDetails()).toEqual([
       {
@@ -78,13 +72,7 @@ describe("createChatPanelRuntimeNotices", () => {
         },
       },
     });
-    const projection = createChatPanelRuntimeNotices({
-      state: () => state,
-      connected: () => true,
-      configuredCommand: () => "codex",
-      vaultPath: () => "/vault",
-      sharedResources: runtimeShared(chatSharedDisplayValuesFixture()),
-    });
+    const projection = noticesFixture(() => state, runtimeShared(chatSharedDisplayValuesFixture()));
 
     expect(projection.permissionDetails()).toEqual([
       {
@@ -121,13 +109,7 @@ describe("createChatPanelRuntimeNotices", () => {
         approval_policy: "on-request",
       }),
     });
-    const projection = createChatPanelRuntimeNotices({
-      state: () => state,
-      connected: () => true,
-      configuredCommand: () => "codex",
-      vaultPath: () => "/vault",
-      sharedResources: runtimeShared(shared),
-    });
+    const projection = noticesFixture(() => state, runtimeShared(shared));
 
     expect(projection.permissionDetails()).toEqual([
       {
@@ -157,13 +139,7 @@ describe("createChatPanelRuntimeNotices", () => {
         },
       },
     });
-    const projection = createChatPanelRuntimeNotices({
-      state: () => state,
-      connected: () => true,
-      configuredCommand: () => "codex",
-      vaultPath: () => "/vault",
-      sharedResources: runtimeShared(chatSharedDisplayValuesFixture()),
-    });
+    const projection = noticesFixture(() => state, runtimeShared(chatSharedDisplayValuesFixture()));
 
     expect(projection.permissionDetails()[0]?.auditFacts).toEqual([
       { key: "Profile", value: ":workspace" },
@@ -208,13 +184,7 @@ describe("createChatPanelRuntimeNotices", () => {
         },
       },
     });
-    const projection = createChatPanelRuntimeNotices({
-      state: () => state,
-      connected: () => true,
-      configuredCommand: () => "codex",
-      vaultPath: () => "/vault",
-      sharedResources: runtimeShared(chatSharedDisplayValuesFixture(), inventory),
-    });
+    const projection = noticesFixture(() => state, runtimeShared(chatSharedDisplayValuesFixture(), inventory));
 
     expect(projection.connectionDiagnosticDetails()[0]).toMatchObject({
       title: "Process",
@@ -243,18 +213,15 @@ function runtimeShared(shared: ChatSharedDisplayValues, toolInventory: ToolInven
   };
 }
 
-function modelFixture(model: string): ModelMetadata {
-  return {
-    id: model,
-    model,
-    displayName: model,
-    description: "",
-    hidden: false,
-    supportedReasoningEfforts: ["high"].map((reasoningEffort) => ({ reasoningEffort, description: "" })),
-    defaultReasoningEffort: "high",
-    inputModalities: [],
-    serviceTiers: [],
-    defaultServiceTier: null,
-    isDefault: true,
-  };
+function noticesFixture(
+  state: Parameters<typeof createChatPanelRuntimeNotices>[0]["state"],
+  sharedResources: Parameters<typeof createChatPanelRuntimeNotices>[0]["sharedResources"],
+) {
+  return createChatPanelRuntimeNotices({
+    state,
+    connected: () => true,
+    configuredCommand: () => "codex",
+    vaultPath: () => "/vault",
+    sharedResources,
+  });
 }

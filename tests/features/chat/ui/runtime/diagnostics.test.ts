@@ -285,11 +285,7 @@ describe("connection diagnostics", () => {
       ],
       mcpError: null,
     };
-    const mcpRows =
-      toolInventoryDiagnosticSections(inventory, {
-        value: [],
-        probe: diagnosticProbeOk("0 skills", 1),
-      }).find((section) => section.title === "Tool providers")?.rows ?? [];
+    const mcpRows = toolProviderRows(inventory);
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, connected, auth OAuth, 1 tool"]);
   });
@@ -361,11 +357,7 @@ describe("connection diagnostics", () => {
       mcpError: null,
     };
 
-    const mcpRows =
-      toolInventoryDiagnosticSections(inventory, {
-        value: [],
-        probe: diagnosticProbeOk("0 skills", 1),
-      }).find((section) => section.title === "Tool providers")?.rows ?? [];
+    const mcpRows = toolProviderRows(inventory);
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "figma: MCP server, failed, auth unknown, tools unknown, re-authentication required, command not found",
@@ -400,11 +392,7 @@ describe("connection diagnostics", () => {
       mcpError: null,
     };
 
-    const rows =
-      toolInventoryDiagnosticSections(inventory, {
-        value: [],
-        probe: diagnosticProbeOk("0 skills", 1),
-      }).find((section) => section.title === "Tool providers")?.rows ?? [];
+    const rows = toolProviderRows(inventory);
 
     expect(rows).toEqual([
       {
@@ -415,3 +403,12 @@ describe("connection diagnostics", () => {
     ]);
   });
 });
+
+function toolProviderRows(inventory: ToolInventorySnapshot) {
+  return (
+    toolInventoryDiagnosticSections(inventory, {
+      value: [],
+      probe: diagnosticProbeOk("0 skills", 1),
+    }).find((section) => section.title === "Tool providers")?.rows ?? []
+  );
+}
