@@ -11,6 +11,8 @@ Assess the whole implementation for material behavioral and structural improveme
 
 Inventory authored product and test surfaces separately from generated code and artifacts. Trace principal flows through lifecycle, app-server adaptation, UI, persistence, build/generation, and policy tests. Assess tests and fixtures as design subjects under the [shared review and simplification criteria](../../../docs/development.md#review-and-simplify-a-change) and [test criteria](../../../docs/development.md#write-tests-that-survive-refactoring), not only as evidence for product behavior. Keep a concise coverage ledger with material failure/refresh paths and gaps. Investigate candidates as evidence emerges while completing repository-wide coverage; a local observation does not establish a repository-wide conclusion.
 
+During repository-wide simplification review, run `npm run review:duplication` and assess matches using [Investigate Duplication](../../../docs/development.md#investigate-duplication). Apply the same criteria to existing and new code; use the report as review information, following the linked scope, generated-code exclusion, and interpretation guidance.
+
 Trace behavioral claims to real producers, user actions, or lifecycle paths, and structural claims to actual dependencies or maintenance activities. Check consequential external assumptions against their producing contracts, including authority, completeness, ordering, and failure semantics. Synthetic fixtures, unusual ordering, and reviewer agreement do not by themselves establish harm.
 
 ## Decide findings

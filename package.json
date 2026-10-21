@@ -37,7 +37,8 @@
     "test:order": "vitest run --maxWorkers 1 --sequence.shuffle",
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
-    "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo"
+    "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo",
+    "review:duplication": "jscpd src tests --ignore \"**/src/generated/**,src/generated/**\" --reporters console,json --output reports/duplication"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
@@ -56,6 +57,7 @@
     "eslint": "^10.12.0",
     "eslint-plugin-obsidianmd": "^0.4.2",
     "fast-check": "^4.10.2",
+    "jscpd": "^5.4.2",
     "jsdom": "^30.1.2",
     "knip": "^6.40.0",
     "moment": "^2.31.0",

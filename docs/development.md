@@ -46,6 +46,12 @@ Use findings to reconsider the shared assumption or ownership that allowed the p
 
 Once the implementation works and known findings are resolved, reconsider the complete behavior path, including production code, tests, fixtures, documentation, and relevant pre-existing parts. Compare concrete alternatives meeting the same requirements at both responsibility boundaries and the level of functions, types, data flow, and repeated setup. A role for each piece, reviewer agreement, or passing checks does not establish the simplest coherent choice. Implementation and test line counts are prompts for investigation, not reduction targets. Implement worthwhile improvements, then review and validate the result; retain a structure when the comparison supports it.
 
+### Investigate Duplication
+
+Run `npm run review:duplication` during review after implementation and during daily simplification review.
+
+Read both matches and their callers, applying the criteria above equally to existing and new code. Extract shared setup or rules when that improves ownership and maintenance; preserve independent test expectations and meaningful operation and observation order. Use matches as review evidence and retain useful local repetition.
+
 ## Validate a Change
 
 Before handoff, run `npm run fix`, review its diff, then run `npm run check`. Focused checks do not replace this sequence unless validation is explicitly scoped otherwise.
