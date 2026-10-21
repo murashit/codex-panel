@@ -40,8 +40,9 @@ describe("session connection", () => {
     expect(input.respond).not.toHaveBeenCalled();
     expect(input.reject).toHaveBeenCalledExactlyOnceWith(-32000, "Codex Panel disconnected before the request was answered.");
     expect(approval.respond).not.toHaveBeenCalled();
-    if (boundary === "close") expect(approval.reject).not.toHaveBeenCalled();
-    else expect(approval.reject).toHaveBeenCalledExactlyOnceWith(-32000, "Codex Panel disconnected before the request was answered.");
+    expect(approval.reject.mock.calls).toEqual(
+      boundary === "close" ? [] : [[-32000, "Codex Panel disconnected before the request was answered."]],
+    );
   });
 
   it("leaves approvals with Codex across unsubscribe and answers only after resume replay and user choice", async () => {

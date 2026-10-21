@@ -62,14 +62,15 @@ describe("createActiveThreadIdentitySync", () => {
     sync.applyThreadRenameToActiveIdentity("thread", "New");
 
     const panelThread = stateStore.getState().panelThread;
-    if (panelThread.kind === "awaiting-resume") {
-      expect(panelThread).toEqual({
-        kind: "awaiting-resume",
-        threadId: "thread",
-        fallbackTitle: "New",
-        provenance: null,
-      });
-    }
+    const renamedActiveThread = expect.objectContaining({
+      kind: "active",
+      thread: expect.objectContaining({ id: "thread", name: "New" }),
+    });
+    expect(panelThread).toEqual(
+      phase === "awaiting-resume"
+        ? { kind: "awaiting-resume", threadId: "thread", fallbackTitle: "New", provenance: null }
+        : renamedActiveThread,
+    );
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
   });
 });

@@ -284,7 +284,7 @@ export const MarkdownRenderer = {
 
 export class PluginSettingTab {
   containerEl: HTMLElement;
-  private settingCleanups: (() => void)[] = [];
+  private readonly settingCleanups: (() => void)[] = [];
 
   constructor(
     readonly app: App,

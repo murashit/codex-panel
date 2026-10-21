@@ -359,17 +359,13 @@ describe("ChatComposerController", () => {
       await submission;
 
       expect(sendTurnText).not.toHaveBeenCalled();
-      if (failure === "stale-target") {
-        expect(controller.draft).toBe("next message");
-        expect(addSystemMessage).not.toHaveBeenCalled();
-        expect(controller.captureInputSnapshot().attachments).toEqual([]);
-      } else {
-        expect(controller.draft).toBe(`${original}\n\nnext message`);
-        expect(controller.captureInputSnapshot().attachments).toEqual(attachments);
-        expect(addSystemMessage).toHaveBeenCalledExactlyOnceWith(
-          failure === "empty-history" ? "Referenced thread has no readable turns." : "history unavailable",
-        );
-      }
+      expect(controller.draft).toBe(failure === "stale-target" ? "next message" : `${original}\n\nnext message`);
+      expect(controller.captureInputSnapshot().attachments).toEqual(failure === "stale-target" ? [] : attachments);
+      expect(addSystemMessage.mock.calls).toEqual(
+        failure === "stale-target"
+          ? []
+          : [[failure === "empty-history" ? "Referenced thread has no readable turns." : "history unavailable"]],
+      );
     },
   );
 
@@ -968,16 +964,10 @@ describe("ChatComposerController", () => {
     await flushComposerAttachment();
 
     const snapshot = controller.captureInputSnapshot();
-    if (outcome === "saved") {
-      expect(snapshot.selectionSnapshots).toEqual([]);
-      expect(snapshot.attachments).toEqual([attachmentFixture("first")]);
-      expect(emphasis.release).toHaveBeenCalledOnce();
-    } else {
-      expect(composer(parent).value).toBe(draft);
-      expect(snapshot.selectionSnapshots).toEqual([selection]);
-      expect(snapshot.attachments).toEqual([]);
-      expect(emphasis.release).not.toHaveBeenCalled();
-    }
+    expect(snapshot.selectionSnapshots).toEqual(outcome === "saved" ? [] : [selection]);
+    expect(snapshot.attachments).toEqual(outcome === "saved" ? [attachmentFixture("first")] : []);
+    expect(emphasis.release).toHaveBeenCalledTimes(outcome === "saved" ? 1 : 0);
+    expect(composer(parent).value).toBe(outcome === "saved" ? attachmentFixture("first").marker : draft);
   });
 
   it("inserts multiple transfers that began at the same draft anchor", async () => {
@@ -1876,8 +1866,7 @@ describe("ChatComposerController", () => {
 
     expect(line.defaultPrevented).toBe(false);
     expect(page.defaultPrevented).toBe(true);
-    expect(threadScrollFromComposer).toHaveBeenCalledOnce();
-    expect(threadScrollFromComposer).toHaveBeenCalledWith({ kind: "scroll-by", direction: 1, amount: "page" });
+    expect(threadScrollFromComposer).toHaveBeenCalledExactlyOnceWith({ kind: "scroll-by", direction: 1, amount: "page" });
   });
 
   it("clears the Preact-owned textarea ref when the composer unmounts", () => {

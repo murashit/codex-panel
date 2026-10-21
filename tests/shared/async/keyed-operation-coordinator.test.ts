@@ -13,13 +13,12 @@ describe("KeyedOperationCoordinator", () => {
       await firstOperation.promise;
       throw new Error("Save failed.");
     });
-    const failure = expect(failed).rejects.toThrow("Save failed.");
     const next = coordinator.run("key", nextOperation);
 
     expect(nextOperation).not.toHaveBeenCalled();
     firstOperation.resolve();
 
-    await failure;
+    await expect(failed).rejects.toThrow("Save failed.");
     await expect(next).resolves.toBe("saved");
     expect(nextOperation).toHaveBeenCalledOnce();
   });

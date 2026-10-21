@@ -84,9 +84,11 @@ describe("CodexChatView connection lifecycle", () => {
       .reverse()
       .find(([name]) => name === "active-leaf-change")?.[1];
     activeLeafChanged();
-    expect(markRead).toHaveBeenCalledOnce();
+    expect(markRead).toHaveBeenCalledExactlyOnceWith(
+      { threadId: "thread-1", expectedRevision: "unseen", operation: { type: "read" } },
+      undefined,
+    );
     await waitForAsyncWork(() => expect(view.surface.openPanelSnapshot().unread).toBe(false));
-    expect(markRead).toHaveBeenCalledWith({ threadId: "thread-1", expectedRevision: "unseen", operation: { type: "read" } }, undefined);
 
     const frame = document.createElement("iframe");
     document.body.appendChild(frame);
@@ -569,8 +571,9 @@ describe("CodexChatView connection lifecycle", () => {
     await view.onOpen();
     await view.surface.applyForkDraft(sideChatDraft("source", "Source"), "First message");
     expect(view.surface.openPanelSnapshot().turnBusy).toBe(true);
-    if (target === "draft") await expect(view.surface.applyForkDraft(sideChatDraft("another", "Another"))).resolves.toBe(false);
-    else await expect(view.surface.activateThread("other")).resolves.toBe(false);
+    const switching =
+      target === "draft" ? view.surface.applyForkDraft(sideChatDraft("another", "Another")) : view.surface.activateThread("other");
+    await expect(switching).resolves.toBe(false);
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "side", turnBusy: true, hasForkDraft: false });
     expectRequestTimes(client, "thread/unsubscribe", 0);
     expectRequestTimes(client, "turn/interrupt", 0);

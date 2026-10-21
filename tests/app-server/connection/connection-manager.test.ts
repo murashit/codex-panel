@@ -55,13 +55,14 @@ class SilentTransport implements AppServerTransport {
 }
 
 describe("ConnectionManager", () => {
-  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     vi.stubGlobal("window", {
       clearTimeout,
       setTimeout,
     });
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("disconnects clients whose initialization fails", async () => {
     let transport!: SilentTransport;

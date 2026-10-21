@@ -168,8 +168,7 @@ describe("submitComposer", () => {
     await submitting;
 
     expect(sendTurnText).not.toHaveBeenCalled();
-    expect(settle).toHaveBeenCalledOnce();
-    expect(settle).toHaveBeenCalledWith("failed");
+    expect(settle).toHaveBeenCalledExactlyOnceWith("failed");
   });
 
   it("settles a claimed submission without restoring it after the panel target changes during loading", async () => {
@@ -196,8 +195,7 @@ describe("submitComposer", () => {
     await submitting;
 
     expect(sendTurnText).not.toHaveBeenCalled();
-    expect(settle).toHaveBeenCalledOnce();
-    expect(settle).toHaveBeenCalledWith("failed");
+    expect(settle).toHaveBeenCalledExactlyOnceWith("failed");
   });
 
   it("does not cancel or restore a committed web submission", async () => {

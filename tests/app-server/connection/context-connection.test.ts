@@ -56,8 +56,7 @@ describe("AppServerContextConnection", () => {
 
     expect(first.onNotification).toHaveBeenCalledWith(notification);
     expect(second.onNotification).toHaveBeenCalledWith(notification);
-    expect(onContextNotification).toHaveBeenCalledOnce();
-    expect(onContextNotification).toHaveBeenCalledWith(notification);
+    expect(onContextNotification).toHaveBeenCalledExactlyOnceWith(notification);
   });
 
   it("does not fan context-owned lifecycle notifications out to panel leases", async () => {
@@ -207,8 +206,7 @@ describe("AppServerContextConnection", () => {
 
     manager.handlers?.onServerRequest(serverRequest(), responder);
 
-    expect(responder.reject).toHaveBeenCalledOnce();
-    expect(responder.reject).toHaveBeenCalledWith(-32601, expect.stringContaining("No Codex Panel view"));
+    expect(responder.reject).toHaveBeenCalledExactlyOnceWith(-32601, expect.stringContaining("No Codex Panel view"));
   });
 
   it.each([false, true])("cleans up acknowledged creation attachments without a panel consumer (ephemeral=%s)", async (ephemeral) => {
@@ -251,11 +249,11 @@ describe("AppServerContextConnection", () => {
       first.updateThreadSubscriptions([{ threadId: "child", canResume }]);
       second.updateThreadSubscriptions([{ threadId: "child", canResume }]);
       second.updateThreadSubscriptions([{ threadId: "child", canResume }]);
-      if (canResume)
-        await waitForAsyncWork(() =>
-          expect(manager.client.request).toHaveBeenCalledExactlyOnceWith("thread/resume", { threadId: "child", excludeTurns: true }),
-        );
-      else expect(manager.client.request).not.toHaveBeenCalled();
+      await waitForAsyncWork(() =>
+        expect(vi.mocked(manager.client.request).mock.calls).toEqual(
+          canResume ? [["thread/resume", { threadId: "child", excludeTurns: true }]] : [],
+        ),
+      );
       if (failCleanup) vi.mocked(manager.client.request).mockRejectedValueOnce(new Error("unsubscribe failed"));
 
       first.disconnect();
@@ -272,9 +270,8 @@ describe("AppServerContextConnection", () => {
       second.disconnect();
       await waitForAsyncWork(() => expect(manager.client.request).toHaveBeenCalledTimes(canResume ? 2 : 1));
       expect(manager.client.request).toHaveBeenLastCalledWith("thread/unsubscribe", { threadId: "child" }, expect.anything());
-      if (failCleanup)
-        await waitForAsyncWork(() => expect(failure).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("unsubscribe failed")));
-      else expect(failure).not.toHaveBeenCalled();
+      const cleanupError = expect.stringContaining("unsubscribe failed");
+      await waitForAsyncWork(() => expect(failure.mock.calls).toEqual(failCleanup ? [[cleanupError]] : []));
       connection.dispose();
       expect(manager.disconnect).toHaveBeenCalledOnce();
     },

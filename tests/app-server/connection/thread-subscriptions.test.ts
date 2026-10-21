@@ -28,31 +28,37 @@ describe("shared presentation subscriptions", () => {
     expect(activateA).toHaveBeenCalledOnce();
   });
 
-  it.each([false, true])(
-    "protects early creation attachments while other children restore, then releases the scope (failure: %s)",
-    async (fails) => {
-      const created = deferred<void>();
-      const request = vi.fn().mockResolvedValue({});
-      const fixture = subscriptionFixture(request);
-      const creating = fixture.subscriptions.activate(null, () => created.promise);
-      fixture.subscriptions.record("created", fixture.client);
-      fixture.required.set("child", true);
-      fixture.subscriptions.reconcile();
-      expect(request).toHaveBeenCalledExactlyOnceWith("thread/resume", { threadId: "child", excludeTurns: true });
-      if (fails) {
-        created.reject(new Error("creation failed"));
-        await expect(creating).rejects.toThrow("creation failed");
-      } else {
-        fixture.required.set("created", true);
-        created.resolve();
-        await creating;
-        expect(request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "created" }, expect.anything());
-        fixture.required.delete("created");
-        fixture.subscriptions.reconcile();
-      }
-      await waitForAsyncWork(() => expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "created" }, expect.anything()));
-    },
-  );
+  it("protects early creation attachments while other children restore, then releases the successful scope", async () => {
+    const created = deferred<void>();
+    const request = vi.fn().mockResolvedValue({});
+    const fixture = subscriptionFixture(request);
+    const creating = fixture.subscriptions.activate(null, () => created.promise);
+    fixture.subscriptions.record("created", fixture.client);
+    fixture.required.set("child", true);
+    fixture.subscriptions.reconcile();
+    expect(request).toHaveBeenCalledExactlyOnceWith("thread/resume", { threadId: "child", excludeTurns: true });
+    fixture.required.set("created", true);
+    created.resolve();
+    await creating;
+    expect(request).not.toHaveBeenCalledWith("thread/unsubscribe", { threadId: "created" }, expect.anything());
+    fixture.required.delete("created");
+    fixture.subscriptions.reconcile();
+    await waitForAsyncWork(() => expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "created" }, expect.anything()));
+  });
+
+  it("releases early creation attachments after creation fails while other children restore", async () => {
+    const created = deferred<void>();
+    const request = vi.fn().mockResolvedValue({});
+    const fixture = subscriptionFixture(request);
+    const creating = fixture.subscriptions.activate(null, () => created.promise);
+    fixture.subscriptions.record("created", fixture.client);
+    fixture.required.set("child", true);
+    fixture.subscriptions.reconcile();
+    expect(request).toHaveBeenCalledExactlyOnceWith("thread/resume", { threadId: "child", excludeTurns: true });
+    created.reject(new Error("creation failed"));
+    await expect(creating).rejects.toThrow("creation failed");
+    await waitForAsyncWork(() => expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "created" }, expect.anything()));
+  });
 
   it("releases a recovered child again if its parent stops needing it during recovery", async () => {
     const released = deferred<unknown>();
@@ -81,12 +87,9 @@ describe("shared presentation subscriptions", () => {
     fixture.required.set("child", true);
     if (failRecovery) request.mockRejectedValueOnce(new Error("connection unavailable"));
     fixture.subscriptions.reconcile();
-    if (failRecovery) {
-      await waitForAsyncWork(() =>
-        expect(fixture.failure).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("connection unavailable")),
-      );
-      fixture.subscriptions.reconcile();
-    }
+    const recoveryError = expect.stringContaining("connection unavailable");
+    await waitForAsyncWork(() => expect(fixture.failure.mock.calls).toEqual(failRecovery ? [[recoveryError]] : []));
+    if (failRecovery) fixture.subscriptions.reconcile();
     await waitForAsyncWork(() => expect(request).toHaveBeenCalledTimes(failRecovery ? 3 : 2));
     expect(request.mock.calls.at(-1)).toEqual(["thread/resume", { threadId: "child", excludeTurns: true }]);
     fixture.required.clear();

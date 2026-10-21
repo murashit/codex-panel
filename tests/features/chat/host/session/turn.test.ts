@@ -59,8 +59,7 @@ describe("createSessionTurn", () => {
     expect(fixture.composer.draft).toBe("Another send");
     connection.resolve(true);
     await plan;
-    expect(fixture.startTurn).toHaveBeenCalledOnce();
-    expect(fixture.startTurn).toHaveBeenCalledWith(
+    expect(fixture.startTurn).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ input: [{ type: "text", text: "Please implement this plan." }] }),
     );
   });
@@ -95,8 +94,8 @@ describe("createSessionTurn", () => {
     await fixture.turn.submissionCommands.planImplementation.implement("plan");
     expect(fixture.composer.draft).toBe("existing draft");
     expect(fixture.composer.isSubmissionPreparing()).toBe(false);
-    if (failure === "turn") expect(fixture.status.addSystemMessage).toHaveBeenCalledWith("turn failed");
-    else expect(fixture.startTurn).not.toHaveBeenCalled();
+    expect(fixture.status.addSystemMessage.mock.calls).toEqual(failure === "turn" ? [["turn failed"]] : []);
+    expect(fixture.startTurn).toHaveBeenCalledTimes(failure === "turn" ? 1 : 0);
   });
 
   it("lets the query owner settle cached tool inventory before rendering /tools", async () => {

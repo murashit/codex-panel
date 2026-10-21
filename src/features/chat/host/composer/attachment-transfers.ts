@@ -23,7 +23,7 @@ interface ComposerAttachmentTransfersOptions {
 export class ComposerAttachmentTransfers {
   private readonly lifetime = new OwnerLifetime();
   private pendingSaveId = 0;
-  private pendingSaves = new Map<number, PendingAttachmentSave>();
+  private readonly pendingSaves = new Map<number, PendingAttachmentSave>();
 
   constructor(private readonly options: ComposerAttachmentTransfersOptions) {}
 

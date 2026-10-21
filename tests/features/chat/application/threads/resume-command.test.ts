@@ -193,8 +193,7 @@ describe("ResumeCommand", () => {
     await firstConnection.resolveAndFlush(true);
     await expect(firstResume).resolves.toBeNull();
 
-    expect(resumeThread).toHaveBeenCalledOnce();
-    expect(resumeThread).toHaveBeenCalledWith("second", expect.any(Function));
+    expect(resumeThread).toHaveBeenCalledExactlyOnceWith("second", expect.any(Function));
     expect(activeThreadId(stateStore.getState())).toBe("second");
   });
 

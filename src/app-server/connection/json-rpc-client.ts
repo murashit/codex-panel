@@ -45,8 +45,8 @@ export class AppServerRpcError extends Error {
 
 export class JsonRpcClient {
   private nextId = 1;
-  private pending = new Map<RequestId, PendingRequest>();
-  private suppressedOrphanResponses = new Set<RequestId>();
+  private readonly pending = new Map<RequestId, PendingRequest>();
+  private readonly suppressedOrphanResponses = new Set<RequestId>();
 
   constructor(private readonly options: JsonRpcClientOptions) {}
 

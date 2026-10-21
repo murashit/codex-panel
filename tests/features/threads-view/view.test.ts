@@ -132,7 +132,7 @@ describe("CodexThreadsView", () => {
       expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).not.toBeNull();
       title.click();
 
-      expect(openThreadInAvailableView).toHaveBeenCalledWith("thread");
+      expect(openThreadInAvailableView).toHaveBeenCalledExactlyOnceWith("thread");
       expect(archiveConfirmVisibleWhenOpening).toBe(false);
       expect(view.containerEl.querySelector(".codex-panel-threads__archive-confirm")).toBeNull();
 
@@ -439,10 +439,8 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     await waitForAsyncWork(() => {
-      expect(titlePort.persistedContext).toHaveBeenCalledOnce();
-      expect(titlePort.persistedContext).toHaveBeenCalledWith("thread");
-      expect(titlePort.generateTitle).toHaveBeenCalledOnce();
-      expect(titlePort.generateTitle).toHaveBeenCalledWith(context, expect.any(AbortSignal));
+      expect(titlePort.persistedContext).toHaveBeenCalledExactlyOnceWith("thread");
+      expect(titlePort.generateTitle).toHaveBeenCalledExactlyOnceWith(context, expect.any(AbortSignal));
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
     });
   });

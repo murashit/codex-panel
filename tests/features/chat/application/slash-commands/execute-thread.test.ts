@@ -41,7 +41,7 @@ describe("thread slash commands", () => {
 
     await executeThreadSlashCommand("resume", "Beta", ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-beta");
+    expect(ctx.resumeThread).toHaveBeenCalledExactlyOnceWith("thread-beta");
 
     await executeThreadSlashCommand("resume", "thread-alpha", ctx);
     expect(ctx.resumeThread).toHaveBeenCalledOnce();
@@ -60,7 +60,7 @@ describe("thread slash commands", () => {
 
     await executeThreadSlashCommand("resume", `"${completedTitle}"`, ctx);
 
-    expect(ctx.resumeThread).toHaveBeenCalledWith("target");
+    expect(ctx.resumeThread).toHaveBeenCalledExactlyOnceWith("target");
 
     const directInput = context({ listedThreads: [other, target] });
     await executeThreadSlashCommand("resume", `"${completedTitle}"`, directInput);

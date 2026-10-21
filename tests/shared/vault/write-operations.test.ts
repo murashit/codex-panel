@@ -50,12 +50,11 @@ describe("vault write paths", () => {
       await firstRelease.promise;
       throw new Error("write failed");
     });
-    const firstFailure = expect(first).rejects.toThrow("write failed");
     const second = withVaultWriteLock(destination, async () => "second completed");
 
     firstRelease.resolve();
 
-    await firstFailure;
+    await expect(first).rejects.toThrow("write failed");
     await expect(second).resolves.toBe("second completed");
   });
 

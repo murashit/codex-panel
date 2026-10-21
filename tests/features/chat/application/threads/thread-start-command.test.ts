@@ -50,8 +50,7 @@ describe("thread start commands", () => {
     expect(activeThreadState(stateStore.getState())?.lifetime).toEqual(
       ephemeral ? { kind: "ephemeral", mode: "ordinary" } : { kind: "persistent" },
     );
-    if (ephemeral) expect(recordStartedThread).not.toHaveBeenCalled();
-    else expect(recordStartedThread).toHaveBeenCalledExactlyOnceWith({ ...started, preview: "first prompt" });
+    expect(recordStartedThread.mock.calls).toEqual(ephemeral ? [] : [[{ ...started, preview: "first prompt" }]]);
     stateStore.dispatch({ type: "panel/ephemeral-choice-set", ephemeral: !ephemeral });
     await expect(commands.startThread("later prompt")).resolves.toMatchObject({
       kind: "created-activated",

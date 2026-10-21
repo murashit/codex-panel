@@ -71,13 +71,13 @@ describe("runEphemeralStructuredTurn", () => {
     const timers = timerHarness();
     const { clientFactory, client } = fakeStructuredTurnClientFactory();
     const running = runEphemeralStructuredTurn(runOptions(), { clientFactory, timers });
-    const failure = expect(running).rejects.toThrow("Structured test app-server exited.");
+    const completion = Promise.allSettled([running]);
     await expectPresent(client.current).structuredTurnStarted;
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
     expectPresent(client.current).emitExit();
 
-    await failure;
+    await expect(completion).resolves.toEqual([{ status: "rejected", reason: new Error("Structured test app-server exited.") }]);
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
     expect(timers.clearTimeout).toHaveBeenCalledWith(123);
   });

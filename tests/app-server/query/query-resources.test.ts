@@ -58,10 +58,8 @@ describe("app-server query resources", () => {
 
     cache.threadGoalQueries.applyNotification(notification);
     expect(cache.threadGoalQueries.snapshot("thread")).toEqual(next);
-    expect(firstPanelChanges).toHaveBeenCalledOnce();
-    expect(firstPanelChanges).toHaveBeenCalledWith("thread", current, next);
-    expect(secondPanelChanges).toHaveBeenCalledOnce();
-    expect(secondPanelChanges).toHaveBeenCalledWith("thread", current, next);
+    expect(firstPanelChanges).toHaveBeenCalledExactlyOnceWith("thread", current, next);
+    expect(secondPanelChanges).toHaveBeenCalledExactlyOnceWith("thread", current, next);
 
     unsubscribeFirstPanel();
     firstPanelChanges.mockClear();
@@ -1024,8 +1022,7 @@ describe("app-server query resources", () => {
     retry.resolve({ data: [{ skills: [catalogSkill("writer")] }] });
     await vi.waitFor(() => expect(listener).toHaveBeenCalledOnce());
 
-    expect(listener).toHaveBeenCalledOnce();
-    expect(listener).toHaveBeenCalledWith({
+    expect(listener).toHaveBeenCalledExactlyOnceWith({
       id: "skills",
       value: [expect.objectContaining({ name: "writer" })],
       probe: expect.objectContaining({ status: "ok" }),
