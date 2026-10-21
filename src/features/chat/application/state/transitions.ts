@@ -1,5 +1,5 @@
 import { threadMeaningfulTitle } from "../../../../domain/threads/title";
-import { initialChatRuntimeState } from "../../domain/runtime/state";
+import { type ActiveThreadRuntimeState, initialChatRuntimeState } from "../../domain/runtime/state";
 import { turnOutcomeLabel } from "../../domain/runtime/turn-outcome";
 import { initialChatRequestState, resolveChatRequest } from "../pending-requests/state";
 import type { ForkReplacement } from "../threads/fork-draft";
@@ -200,20 +200,7 @@ function reduceActiveThreadActivatedTransition(state: ChatState, action: ActiveT
     threadReadReceipt: sameConversation ? state.threadReadReceipt : null,
     runtime: {
       ...runtimeBase,
-      active: {
-        serviceTierKnown: true,
-        model: action.model,
-        reasoningEffort: action.reasoningEffort,
-        collaborationMode: action.collaborationMode,
-        serviceTier: action.serviceTier,
-        approvalsReviewer: action.approvalsReviewer,
-        approvalPolicyKnown: action.approvalPolicyKnown,
-        sandboxPolicyKnown: action.sandboxPolicyKnown,
-        permissionProfileKnown: action.permissionProfileKnown,
-        approvalPolicy: action.approvalPolicy,
-        sandboxPolicy: action.sandboxPolicy,
-        activePermissionProfile: action.activePermissionProfile,
-      },
+      active: activeRuntimeFromAction(action),
     },
     threadStream: {
       ...restoredTurn.threadStream,
@@ -232,20 +219,7 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
   return patchObject(state, {
     runtime: {
       ...state.runtime,
-      active: {
-        serviceTierKnown: true,
-        model: action.model,
-        reasoningEffort: action.reasoningEffort,
-        collaborationMode: action.collaborationMode,
-        serviceTier: action.serviceTier,
-        approvalsReviewer: action.approvalsReviewer,
-        approvalPolicyKnown: action.approvalPolicyKnown,
-        sandboxPolicyKnown: action.sandboxPolicyKnown,
-        permissionProfileKnown: action.permissionProfileKnown,
-        approvalPolicy: action.approvalPolicy,
-        sandboxPolicy: action.sandboxPolicy,
-        activePermissionProfile: action.activePermissionProfile,
-      },
+      active: activeRuntimeFromAction(action),
     },
   });
 }
@@ -407,5 +381,24 @@ function panelThreadAfterConnectionExit(panelThread: ChatPanelThreadState): Chat
   return {
     ...createAwaitingResumeThreadState(panelThread.thread.id, threadMeaningfulTitle(panelThread.thread), panelThread.thread.provenance),
     ...(panelThread.forkReplacement ? { forkReplacement: panelThread.forkReplacement } : {}),
+  };
+}
+
+function activeRuntimeFromAction(
+  action: ActiveThreadResumedAction | ActiveThreadCreatedAction | ActiveThreadSettingsAppliedAction,
+): ActiveThreadRuntimeState {
+  return {
+    serviceTierKnown: true,
+    model: action.model,
+    reasoningEffort: action.reasoningEffort,
+    collaborationMode: action.collaborationMode,
+    serviceTier: action.serviceTier,
+    approvalsReviewer: action.approvalsReviewer,
+    approvalPolicyKnown: action.approvalPolicyKnown,
+    sandboxPolicyKnown: action.sandboxPolicyKnown,
+    permissionProfileKnown: action.permissionProfileKnown,
+    approvalPolicy: action.approvalPolicy,
+    sandboxPolicy: action.sandboxPolicy,
+    activePermissionProfile: action.activePermissionProfile,
   };
 }

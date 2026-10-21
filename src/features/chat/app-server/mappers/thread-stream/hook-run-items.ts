@@ -1,3 +1,4 @@
+import { definedProp } from "../../../../../domain/objects/optional-properties";
 import type { HookThreadStreamItem } from "../../../domain/thread-stream/items";
 import {
   type ExecutionStateByStatus,
@@ -50,8 +51,4 @@ export function hookRunThreadStreamItem(run: ThreadStreamHookRun, turnId: string
     },
     output: "",
   };
-}
-
-function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {
-  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
 }

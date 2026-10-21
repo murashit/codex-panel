@@ -1,7 +1,7 @@
 import type { App } from "obsidian";
 import { Component, getAllTags, stripHeadingForLink, TFile } from "obsidian";
-
 import type { VaultFileReference } from "../../../../domain/input/input";
+import { normalizedUniqueTags } from "../../../../domain/notes/tags";
 import type { NoteCandidate, NoteCandidateProvider } from "../../application/composer/note-context";
 import { configuredDailyNoteReferences } from "./vault-daily-note-references.obsidian";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
@@ -150,22 +150,9 @@ class VaultNoteCandidateCatalog extends Component {
         headings: noteHeadings(cache),
       };
     });
-    this.tagCandidatesCache = normalizedTags(tags);
+    this.tagCandidatesCache = normalizedUniqueTags(tags);
     return this.fileCandidatesCache;
   }
-}
-
-function normalizedTags(tags: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const normalizedTags: string[] = [];
-  for (const tag of tags) {
-    const normalized = tag.trim().replace(/^#+/, "");
-    const key = normalized.toLowerCase();
-    if (!normalized || seen.has(key)) continue;
-    seen.add(key);
-    normalizedTags.push(normalized);
-  }
-  return normalizedTags.sort((a, b) => a.localeCompare(b));
 }
 
 function noteHeadings(cache: ReturnType<App["metadataCache"]["getFileCache"]>): NoteCandidate["headings"] {

@@ -1,3 +1,4 @@
+import { definedProp } from "../../../../../domain/objects/optional-properties";
 import type { AgentStateSummary, AgentThreadStreamItem, ExecutionState } from "../../../domain/thread-stream/items";
 import { collabAgentStateExecutionState } from "./execution-state";
 
@@ -109,8 +110,4 @@ function collabAgentExecutionState(tool: string, status: string, receiverThreadI
   const state = collabAgentStateExecutionState(status);
   if (state) return state;
   return null;
-}
-
-function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {
-  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
 }

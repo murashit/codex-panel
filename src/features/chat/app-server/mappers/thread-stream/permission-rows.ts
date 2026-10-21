@@ -1,5 +1,6 @@
-import { jsonPreview } from "../../../../../shared/ui/json-preview";
 import type { ThreadStreamAuditFact } from "../../../domain/thread-stream/items";
+import { addOptional, stringValue } from "../../display-values";
+import { asRecordOrNull, nonEmptyString, nullableString } from "../../value-readers";
 
 export interface AutoReviewPermissionProfile {
   network?: { enabled?: boolean | null } | null;
@@ -70,32 +71,4 @@ function fileSystemPathLabel(path: unknown): string {
     return subpath ? `${specialPath}/${subpath}` : specialPath;
   }
   return nonEmptyString(special["kind"]) ?? "unknown";
-}
-
-function addOptional(rows: ThreadStreamAuditFact[], key: string, value: unknown): void {
-  if (value === null || value === undefined) return;
-  if (Array.isArray(value) && value.length === 0) return;
-  rows.push({ key, value: stringValue(value) });
-}
-
-function stringValue(value: unknown, fallback = ""): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
-  if (Array.isArray(value) && value.every((item) => typeof item === "string" || typeof item === "number" || typeof item === "boolean")) {
-    return value.join("\n");
-  }
-  if (value === null || value === undefined) return fallback;
-  return jsonPreview(value);
-}
-
-function nonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function nullableString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
-}
-
-function asRecordOrNull(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }

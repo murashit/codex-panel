@@ -4,6 +4,7 @@ import {
   type TurnRecord,
   turnUserItemText,
 } from "../../../../../app-server/protocol/turn";
+import { definedProp } from "../../../../../domain/objects/optional-properties";
 import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../../shared/ui/json-preview";
 import type { ThreadHistoryPage } from "../../../application/threads/history-controller";
@@ -557,8 +558,4 @@ function jsonTargetPrimitive(value: unknown): string | null {
 function durationLabel(durationMs: number): string {
   if (durationMs < 1000) return `${String(durationMs)}ms`;
   return `${String(durationMs / 1000)}s`;
-}
-
-function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {
-  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
 }
