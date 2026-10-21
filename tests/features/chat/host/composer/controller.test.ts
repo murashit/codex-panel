@@ -24,6 +24,7 @@ import { submitComposer } from "../../../../../src/features/chat/application/sub
 import { createGoalCommands } from "../../../../../src/features/chat/application/threads/goal-commands";
 import { createThreadStartCommand } from "../../../../../src/features/chat/application/threads/thread-start-command";
 import { ChatComposerController } from "../../../../../src/features/chat/host/composer/controller";
+import { selectChatPanelComposer } from "../../../../../src/features/chat/host/composer/view-projection";
 import { createVaultComposerAttachmentHandler } from "../../../../../src/features/chat/host/obsidian/composer-attachments.obsidian";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
@@ -32,14 +33,13 @@ import { installObsidianDomShims } from "../../../../support/dom";
 import { panelThreadFixture } from "../../../../support/panel-thread";
 import { threadActivationFixture } from "../../../../support/thread-activation";
 import { substringMatcher } from "../../application/composer/fuzzy-matcher.test-support";
-import { chatSharedDisplayValuesFixture } from "../../support/shared-display-values";
-import { composerModelFromChatState } from "../../support/shell-selectors";
+import { chatComposerSharedValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { pendingWebSubmissionFixture } from "../../support/web-submission";
 
 installObsidianDomShims();
 
-const emptySharedResources = chatSharedDisplayValuesFixture();
+const emptySharedResources = chatComposerSharedValuesFixture();
 
 type ChatComposerRenderActions = Parameters<ChatComposerController["renderState"]>[1];
 
@@ -61,7 +61,7 @@ function renderComposerController(
   renderedComposerParents.add(parent);
   renderUiRoot(
     parent,
-    h(ComposerShell, controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), actions)),
+    h(ComposerShell, controller.renderState(selectChatPanelComposer(stateStore.getState(), emptySharedResources), actions)),
   );
 }
 
@@ -154,7 +154,7 @@ describe("ChatComposerController", () => {
     controller.setDraft("/mo");
     renderShell();
     const submit = vi.fn();
-    const { callbacks } = controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit });
+    const { callbacks } = controller.renderState(selectChatPanelComposer(stateStore.getState(), emptySharedResources), { submit });
     const revision = stateStore.getState().panelTargetRevision;
     stateStore.dispatch({ type: "panel/fork-operation-set", revision, operation: "cancelling" });
     const before = stateStore.getState().composer;
@@ -174,25 +174,32 @@ describe("ChatComposerController", () => {
     controller.dispose();
   });
 
-  it("keeps button and keyboard interruption available on a read-only thread", () => {
-    const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread", canAcceptDirectInput: false } }));
-    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    const submit = vi.fn();
-    const { controller, parent, renderShell } = composerControllerFixture({ stateStore, renderActions: { submit } });
-    controller.setDraft("unsent draft");
-    renderShell();
-    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
-    expect(composer(parent).readOnly).toBe(true);
-    expect(composer(parent).getAttribute("placeholder")).toBe("This thread cannot accept messages.");
-    expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
-    expect(sendButton?.disabled).toBe(false);
-    sendButton?.click();
-    expect(submit).toHaveBeenCalledOnce();
-    submit.mockClear();
-    parent.querySelector("textarea")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(submit).toHaveBeenCalledOnce();
-    controller.dispose();
-  });
+  it.each([
+    { canAcceptDirectInput: true, draft: "", action: "Interrupt", placeholder: "Steer the current turn..." },
+    { canAcceptDirectInput: true, draft: "unsent draft", action: "Steer", placeholder: "Steer the current turn..." },
+    { canAcceptDirectInput: false, draft: "unsent draft", action: "Interrupt", placeholder: "This thread cannot accept messages." },
+  ])(
+    "keeps button and keyboard $action available with direct input=$canAcceptDirectInput and draft=$draft",
+    ({ canAcceptDirectInput, draft, action, placeholder }) => {
+      const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread", canAcceptDirectInput } }));
+      stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+      const submit = vi.fn();
+      const { controller, parent, renderShell } = composerControllerFixture({ stateStore, renderActions: { submit } });
+      controller.setDraft(draft);
+      renderShell();
+      const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+      expect(composer(parent).readOnly).toBe(!canAcceptDirectInput);
+      expect(composer(parent).getAttribute("placeholder")).toBe(placeholder);
+      expect(sendButton?.getAttribute("aria-label")).toBe(action);
+      expect(sendButton?.disabled).toBe(false);
+      sendButton?.click();
+      expect(submit).toHaveBeenCalledOnce();
+      submit.mockClear();
+      parent.querySelector("textarea")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      expect(submit).toHaveBeenCalledOnce();
+      controller.dispose();
+    },
+  );
 
   it.each([
     { name: "plain Enter", shortcut: "enter", key: "Enter", sends: true },
@@ -677,7 +684,7 @@ describe("ChatComposerController", () => {
     const { controller, parent } = composerControllerFixture({ stateStore });
 
     renderComposerController(parent, controller, stateStore);
-    const props = controller.renderState(composerModelFromChatState(stateStore.getState(), emptySharedResources), { submit: vi.fn() });
+    const props = controller.renderState(selectChatPanelComposer(stateStore.getState(), emptySharedResources), { submit: vi.fn() });
     setTextAreaValue(composer(parent), "/");
     composer(parent).setSelectionRange(1, 1);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));

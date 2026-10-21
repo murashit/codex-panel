@@ -23,13 +23,13 @@ import {
 import {
   type ChatThreadStreamDependencies,
   projectThreadStream,
+  selectChatPanelThreadStream,
 } from "../../../../../src/features/chat/host/thread-stream/view-projection";
 import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread-stream/stream-blocks";
 import { renderUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { reducerStoreFixture } from "../../support/reducer-store";
-import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateStableThreadStreamItems } from "../../support/thread-stream";
 import { pendingApproval } from "../../ui/thread-stream/rendering/test-helpers";
@@ -42,7 +42,7 @@ function renderThreadStreamSurface(
   scrollPortBinding: ChatThreadStreamScrollBinding,
   state: ChatState,
 ): void {
-  const projection = projectThreadStream(threadStreamModelFromChatState(state), context);
+  const projection = projectThreadStream(selectChatPanelThreadStream(state), context);
   renderUiRoot(
     parent,
     h(ThreadStreamViewport, {
@@ -75,7 +75,7 @@ describe("thread stream surface", () => {
     state = withChatStateStableThreadStreamItems(state, [{ id: "system", kind: "system", role: "system", text: "Waiting for approval." }]);
     state = chatStateWith(state, { requests: { approvals: [pendingApproval()] } });
     const projection = projectThreadStream(
-      threadStreamModelFromChatState(state),
+      selectChatPanelThreadStream(state),
       testThreadStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: () => undefined,
@@ -120,7 +120,7 @@ describe("thread stream surface", () => {
     });
 
     const projection = projectThreadStream(
-      threadStreamModelFromChatState(store.getState()),
+      selectChatPanelThreadStream(store.getState()),
       testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
     );
 
@@ -158,7 +158,7 @@ describe("thread stream surface", () => {
     });
 
     const projection = projectThreadStream(
-      threadStreamModelFromChatState(state),
+      selectChatPanelThreadStream(state),
       testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
     );
 

@@ -10,16 +10,17 @@ import { selectChatPanelComposer } from "../../../../../src/features/chat/host/c
 import { useChatSelector } from "../../../../../src/features/chat/host/shell/state-selector";
 import { selectChatPanelToolbar } from "../../../../../src/features/chat/host/toolbar/view-projection";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/preact-root.dom";
-import { chatSharedDisplayValuesFixture, composerSharedValues, toolbarSharedValues } from "../../support/shared-display-values";
+import { chatComposerSharedValuesFixture, chatToolbarSharedValuesFixture } from "../../support/shared-display-values";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
-const shared = chatSharedDisplayValuesFixture();
-const composerSelector = (state: ChatState) => selectChatPanelComposer(state, composerSharedValues(shared));
+const composerShared = chatComposerSharedValuesFixture();
+const toolbarShared = chatToolbarSharedValuesFixture();
+const composerSelector = (state: ChatState) => selectChatPanelComposer(state, composerShared);
 
 describe("useChatSelector", () => {
   it.each([
     ["composer", composerSelector],
-    ["toolbar", (state: ChatState) => selectChatPanelToolbar(state, toolbarSharedValues(shared))],
+    ["toolbar", (state: ChatState) => selectChatPanelToolbar(state, toolbarShared)],
   ] as const)("keeps %s runtime selection stable until displayed values change", async (_area, selector) => {
     const store = controllableStore(chatStateFixture());
     const parent = document.createElement("div");
