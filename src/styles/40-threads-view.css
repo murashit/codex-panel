@@ -192,13 +192,6 @@
   gap: var(--codex-panel-panel-gap);
 }
 
-.codex-panel-threads__group-divider {
-  height: var(--border-width);
-  margin: var(--codex-panel-panel-gap) var(--codex-panel-item-gap);
-  border: 0;
-  background: var(--background-modifier-border);
-}
-
 .codex-panel-threads__pin-button--pinned svg {
   fill: currentColor;
 }

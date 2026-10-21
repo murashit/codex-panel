@@ -106,12 +106,18 @@
   padding-top: var(--codex-panel-item-gap);
 }
 
-.codex-panel__limit-panel-title {
-  padding: var(--codex-panel-section-label-padding);
+.codex-panel__limit-panel-title,
+.codex-panel__status-diagnostics-title,
+.codex-panel__status-diagnostics-section {
   color: var(--codex-panel-section-label-color);
   font-size: var(--codex-panel-section-label-size);
   font-weight: var(--codex-panel-section-label-weight);
   line-height: var(--codex-panel-section-label-line-height);
+}
+
+.codex-panel__limit-panel-title,
+.codex-panel__status-diagnostics-title {
+  padding: var(--codex-panel-section-label-padding);
 }
 
 .codex-panel__limit-panel-list {
@@ -224,20 +230,8 @@
   padding-top: var(--codex-panel-item-gap);
 }
 
-.codex-panel__status-diagnostics-title {
-  padding: var(--codex-panel-section-label-padding);
-  color: var(--codex-panel-section-label-color);
-  font-size: var(--codex-panel-section-label-size);
-  font-weight: var(--codex-panel-section-label-weight);
-  line-height: var(--codex-panel-section-label-line-height);
-}
-
 .codex-panel__status-diagnostics-section {
   padding: var(--codex-panel-section-label-block-padding);
-  color: var(--codex-panel-section-label-color);
-  font-size: var(--codex-panel-section-label-size);
-  font-weight: var(--codex-panel-section-label-weight);
-  line-height: var(--codex-panel-section-label-line-height);
 }
 
 .codex-panel__status-diagnostics-title + .codex-panel__status-diagnostics-section {
@@ -393,22 +387,8 @@
   opacity: 1;
 }
 
-.codex-panel__thread-row--archive-confirming .codex-panel__thread-action {
-  min-width: calc(var(--icon-size) + var(--codex-panel-control-gap) * 2);
-  width: auto;
-  padding: var(--codex-panel-control-gap);
-  overflow: visible;
-  opacity: 1;
-}
-
-.codex-panel__thread-row--auto-name-running .codex-panel__thread-action {
-  min-width: calc(var(--icon-size) + var(--codex-panel-control-gap) * 2);
-  width: auto;
-  padding: var(--codex-panel-control-gap);
-  overflow: visible;
-  opacity: 1;
-}
-
+.codex-panel__thread-row--archive-confirming .codex-panel__thread-action,
+.codex-panel__thread-row--auto-name-running .codex-panel__thread-action,
 .codex-panel__thread-row:hover .codex-panel__thread-action,
 .codex-panel__thread-row:focus-within .codex-panel__thread-action,
 .codex-panel__thread-action:focus-visible {
@@ -427,13 +407,6 @@
 .codex-panel__thread--empty {
   color: var(--text-faint);
   pointer-events: none;
-}
-
-.codex-panel__thread-group-divider {
-  height: var(--border-width);
-  margin: var(--codex-panel-panel-gap) var(--codex-panel-item-gap);
-  border: 0;
-  background: var(--background-modifier-border);
 }
 
 .codex-panel__thread-pin--pinned svg {

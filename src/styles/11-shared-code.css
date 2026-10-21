@@ -1,15 +1,25 @@
-.codex-panel-diff {
+.codex-panel-diff,
+.codex-panel__output pre {
   max-height: var(--codex-panel-size-output-max-height);
   margin: var(--codex-panel-item-gap) 0 0;
+  color: var(--code-normal, var(--codex-panel-text-muted));
+  cursor: text;
+  user-select: text;
+}
+
+.codex-panel-diff,
+.codex-panel__system-result-body,
+.codex-panel__output pre,
+.codex-panel-selection-rewrite__debug pre {
   padding: var(--codex-panel-section-gap);
   overflow: auto;
   border-radius: var(--codex-panel-code-radius);
   background: var(--codex-panel-code-surface);
-  color: var(--code-normal, var(--codex-panel-text-muted));
   font-family: var(--font-monospace);
   font-size: var(--font-smaller);
-  cursor: text;
-  user-select: text;
+}
+
+.codex-panel-diff {
   white-space: pre;
 }
 

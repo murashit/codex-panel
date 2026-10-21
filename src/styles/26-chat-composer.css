@@ -1,3 +1,16 @@
+.codex-panel__composer-meta-popover,
+.codex-panel__composer-suggestions {
+  position: absolute;
+  z-index: var(--layer-popover, 30);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border: var(--codex-panel-border);
+  border-radius: var(--codex-panel-card-radius);
+  background: var(--codex-panel-surface);
+  box-shadow: var(--shadow-s);
+}
+
 .codex-panel__composer {
   position: relative;
   padding: var(--codex-panel-section-gap) var(--codex-panel-edge-padding-x)
@@ -155,20 +168,11 @@
 }
 
 .codex-panel__composer-meta-popover {
-  position: absolute;
   bottom: calc(100% + var(--codex-panel-panel-gap));
   left: var(--codex-panel-composer-meta-popover-left);
-  z-index: var(--layer-popover, 30);
-  display: flex;
-  flex-direction: column;
   width: max-content;
   max-width: calc(100% - var(--codex-panel-composer-meta-popover-left));
   max-height: min(var(--codex-panel-size-toolbar-panel-max-height), 36vh);
-  overflow-y: auto;
-  border: var(--codex-panel-border);
-  border-radius: var(--codex-panel-card-radius);
-  background: var(--codex-panel-surface);
-  box-shadow: var(--shadow-s);
   padding: var(--codex-panel-panel-gap);
 }
 
@@ -218,21 +222,12 @@
 }
 
 .codex-panel__composer-suggestions {
-  position: absolute;
   right: var(--codex-panel-edge-padding-x);
   bottom: calc(100% - var(--codex-panel-control-gap));
   left: var(--codex-panel-edge-padding-x);
-  z-index: var(--layer-popover, 30);
-  display: flex;
-  flex-direction: column;
   width: auto;
   max-height: min(var(--codex-panel-size-composer-suggestions-max-height), 36vh);
-  overflow-y: auto;
   margin: 0;
-  border: var(--codex-panel-border);
-  border-radius: var(--codex-panel-card-radius);
-  background: var(--codex-panel-surface);
-  box-shadow: var(--shadow-s);
 }
 
 .codex-panel__composer-suggestions[hidden] {

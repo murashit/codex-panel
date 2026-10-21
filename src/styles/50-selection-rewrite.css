@@ -128,12 +128,6 @@
 .codex-panel-selection-rewrite__debug pre {
   max-height: var(--codex-panel-size-selection-rewrite-debug-max-height);
   margin: var(--codex-panel-item-gap) 0 0;
-  padding: var(--codex-panel-section-gap);
-  overflow: auto;
-  border-radius: var(--codex-panel-code-radius);
-  background: var(--codex-panel-code-surface);
   color: var(--codex-panel-text-muted);
-  font-family: var(--font-monospace);
-  font-size: var(--font-smaller);
   white-space: pre-wrap;
 }
